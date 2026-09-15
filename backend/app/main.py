@@ -13,6 +13,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api import health as health_api
+from app.auth.middleware import AuthMiddleware
+from app.auth.router import router as auth_router
 from app.clusters.router import router as clusters_router
 from app.common.error_handlers import register_error_handlers
 from app.config import Settings, get_settings
@@ -37,9 +39,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     register_error_handlers(app)
 
-    # 产品 API 面：health + clusters。全部位于 /api 前缀下。
+    # F013 认证边界：ASGI 中间件在**路由之前**生效，fail-closed 保护全部
+    # /api/*（唯一豁免 POST /api/auth/login）。必须在 include_router 前注册。
+    app.add_middleware(AuthMiddleware)
+
+    # 产品 API 面：health + clusters + auth。全部位于 /api 前缀下。
     app.include_router(health_api.router, prefix="/api")
     app.include_router(clusters_router, prefix="/api")
+    app.include_router(auth_router, prefix="/api")
 
     return app
 
