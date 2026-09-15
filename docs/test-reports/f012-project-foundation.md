@@ -233,6 +233,9 @@ getFoundationError()     → reject ApiError{status:500, code:"INTERNAL_ERROR"}
 
 ### F-04 — 测试夹具对 DSN 执行 `DROP SCHEMA … CASCADE` 且可回退到 `CSM_DATABASE_URL`（LOW，TEST INFRA）
 
+> **状态：已修复（RESOLVED）** —— 由协调器在同批提交 `dbff989` 中处理。本节描述的是修复前的代码，保留以供追溯。
+> 修复内容：`get_dsn()` 不再回退到 `CSM_DATABASE_URL`（测试库必须显式指定）；新增 `assert_safe_to_reset()` 纵深防御，当测试 DSN 与应用 DSN 相同时直接拒绝 reset，除非显式设置 `CSM_ALLOW_DESTRUCTIVE_TEST_RESET=1`。修复后重跑：有 DSN 时 38 passed，无 DSN 时 20 passed / 18 skipped。
+
 - **Layer / Owner**：TEST INFRA（主协调器）
 - **Location**：`tests/database/helpers.py`（`get_dsn` 优先 `CSM_TEST_DATABASE_URL`，回退 `CSM_DATABASE_URL`；`reset_schema` 执行 `DROP SCHEMA IF EXISTS public CASCADE`）
 - **现象**：若开发者仅导出 `CSM_DATABASE_URL`（例如其开发库）而未设 `CSM_TEST_DATABASE_URL`，测试会**清空该库 public schema**。
@@ -281,7 +284,9 @@ None。
 
 ### Defect Owner
 
-F-01 → Backend；F-02 → Backend；F-03 → Architect / Backend（风险提示）；F-04 → TEST INFRA（主协调器）。均为 LOW，不阻塞 Review。
+F-01 → Backend；F-02 → Backend；F-03 → Architect / Backend（风险提示）；F-04 → TEST INFRA（主协调器）。
+
+处置：F-01 / F-02 / F-03 为 Review follow-up（F-03 经 Reviewer 复核上调为 MEDIUM，不阻塞 F012，归属 F015）；**F-04 已在本批提交中修复**。
 
 ---
 

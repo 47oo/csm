@@ -149,16 +149,16 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: IN_REVIEW
+    status: DONE
     depends_on: []
     blocking: []
     git:
       base_branch: develop
       branch: feature/F012-project-foundation
       start_commit: 2c2a7531fa1dfe9e9f6205ff49a15c7cadcd01da
-      head_commit: 2c2a7531fa1dfe9e9f6205ff49a15c7cadcd01da
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: 966d56a480bd2d8282009c7969f5ac3b7bee3aca
+      merge_commit: 3b8646c7e78b7d86fc813fe3661b3214c57a9e9a
+    current_stage: null
     layers:
       database: true      # 基线 migration（clusters 表 + CHECK + partial unique index）
       backend: true       # FastAPI 骨架、health、统一错误信封、通用校验基座
@@ -171,7 +171,7 @@ features:
       backend: COMPLETE           # 9764326
       frontend: COMPLETE          # 9764326
       test: COMPLETE           # dbff989
-      review: PENDING
+      review: APPROVED_WITH_FOLLOW_UP   # merge 3b8646c
     product_document: docs/product/requirements.md
     requirements:
       - "§4 Resource 概念（仅分类体系，不产生数据库继承）"
@@ -190,10 +190,9 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: BLOCKED
+    status: READY
     depends_on: [F012]
-    blocking:
-      - "依赖 F012 未 DONE"
+    blocking: []
     product_document: docs/product/requirements.md
     requirements:
       - R-AUTH-001
@@ -210,10 +209,9 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: BLOCKED
+    status: READY
     depends_on: [F012]
-    blocking:
-      - "依赖 F012 未 DONE"
+    blocking: []
     product_document: docs/product/requirements.md
     requirements:
       - R-DELETE-001
@@ -258,10 +256,9 @@ features:
     name: Cluster 登记与管理
     epic: E01
     priority: P0
-    status: BLOCKED
+    status: READY
     depends_on: [F012]
-    blocking:
-      - "依赖 F012 未 DONE"
+    blocking: []
     product_document: docs/product/requirements.md
     requirements:
       - R-CLUSTER-001
@@ -921,15 +918,15 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F012]
+  ready_features: [F001, F013, F014]
   blocked_draft_features:
-    BLOCKED: [F001, F004, F005, F009, F010, F011, F013, F014, F015]
+    BLOCKED: [F004, F005, F009, F010, F011, F015]
     DRAFT: [F002, F006, F007, F008]
   counts:
-    READY: 1
-    BLOCKED: 9
+    READY: 3
+    BLOCKED: 6
     DRAFT: 4
-    DONE: 0
+    DONE: 1
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -942,20 +939,30 @@ planning_status:
     note: >
       仅被其他 Feature 的产品决策间接影响、不改变本 Feature 交付边界时，仍按 BLOCKED 处理。
       判定依据见本文件顶部注释与 .pi/agents/project-manager.md §8。
-  ready_rationale:
+  done_rationale:
     F012: >
-      ENABLER，无 depends_on；产品范围明确（显式资源类型建模、通用校验与错误处理基座，requirements.md §4/§5/§21/§24/§25）；
-      AC 可定义；无未解决产品问题（Blocking Product Questions = 0）；架构/数据库/标识/API 契约决策
-      DEC-009 / DEC-010 / DEC-011 / DEC-014 均已 RESOLVED（ADR-0001 ~ ADR-0003 ACCEPTED），
-      Blocking Architecture Decision = 0；架构 Handoff = READY FOR IMPLEMENTATION，API 契约 = READY。
-      因此 F012 满足 READY 的全部条件，为项目第一个 READY Feature。
+      首个完成 Feature。base 2c2a753 → head 966d56a → merge 3b8646c（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；
+      77 文件 / +6999 行经完整差异 Review。验收：真实 PostgreSQL 16 下后端 38 passed、前端 32 passed 且构建成功、
+      ruff 与 alembic check 干净；两处最难回退的语义（大小写敏感唯一性、软删释放唯一性）由**绕过应用层**的
+      直接数据库断言固定。F001 / F013 / F014 因此解锁。
+  ready_rationale:
+    F001: >
+      依赖 F012 已 DONE；无未解决产品问题（DEC-001 / DEC-007 已 RESOLVED，R-CLUSTER-005 为 CONFIRMED）；
+      架构与数据库设计均已 READY，且 clusters 表与 CHECK / partial unique index 已随 F012 基线落地
+      （F001 不新建表）。AC 可定稿 → READY。
+    F013: >
+      依赖 F012 已 DONE；架构决策 DEC-009 / DEC-013 已 RESOLVED（ADR-0001 / ADR-0005 ACCEPTED），
+      认证机制（服务端会话 + HttpOnly Cookie + Argon2id）已批准；无未解决产品问题 → READY。
+    F014: >
+      依赖 F012 已 DONE；架构/数据库决策 DEC-012 / DEC-009 已 RESOLVED（ADR-0004 / ADR-0001 / ADR-0002 ACCEPTED），
+      软删持久化与唯一性释放机制已由 F012 基线证明可行；无未解决产品问题 → READY。
   draft_rationale:
     F002: "产品问题 OPEN-004（BareMetal 硬件字段必填/可选范围）直接决定本 Feature 字段范围；同时依赖 F001 未 DONE，取 DRAFT。"
     F006: "Feature 级产品问题 OPEN-001（VM 字段与唯一性规则）与 DEC-004（VM 绑定强制性 / 生命周期，归属 F006 Product 阶段）直接决定本 Feature 字段与生命周期；同时依赖 F002 未 DONE，取 DRAFT。"
     F007: "Feature 级产品问题 OPEN-002（Container 管理粒度）与 DEC-005（Container 绑定与生命周期，归属 F007 Product 阶段）直接决定本 Feature 粒度与绑定模型；同时依赖 F006 / F002 未 DONE，取 DRAFT。"
     F008: "产品问题 OPEN-003（Service 字段范围）直接决定本 Feature 字段；关系模型已由 DEC-003（方案 C）解决并落为 R-SVC-005/006；同时依赖 F001 / F002 / F006 / F007 未 DONE，取 DRAFT。"
   blocked_rationale:
-    F001: "DEC-007 / DEC-001 均已解决（`/` 规则已落为 R-CLUSTER-005），无未解决产品问题；阻塞为依赖 F012 未 DONE。"
     F004: >
       DEC-006 已解决（V1 无状态）；保留的 R-NIC-003「VM 等资源是否拥有独立 NetworkInterface」不改变本 Feature
       的 V1 交付边界（核心对象为 BareMetal），按规则仍计为 BLOCKED。阻塞为依赖 F002 未 DONE。
@@ -963,23 +970,65 @@ planning_status:
     F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
     F010: "上游资源模型决策 DEC-001 / DEC-003 / DEC-006 均已解决，不改变本 Feature 的 AC 定稿；阻塞为依赖多个资源 Feature 未 DONE。"
     F011: "OPEN-005 已关闭（All-or-Nothing，已固化为 R-IMPORT-004），无未解决产品问题；阻塞为依赖多个资源 Feature 未 DONE。"
-    F013: "阻塞为依赖 F012 未 DONE；架构决策 DEC-009 / DEC-013 均已 RESOLVED。"
-    F014: "阻塞为依赖 F012 未 DONE；架构/数据库决策 DEC-012 / DEC-009 均已 RESOLVED。"
-    F015: "阻塞为依赖 F012 / F013 未 DONE；架构决策 DEC-009 / DEC-010 与部署决策 DEC-016 均已 RESOLVED。"
+    F015: >
+      阻塞为依赖 F013 未 DONE（F012 已 DONE）。架构决策 DEC-009 / DEC-010 / DEC-016 均已 RESOLVED。
+      **额外进入条件**：F012 Review 的 follow-up F-03（自检面 fail-open）必须在 F015 解决或显式化解 ——
+      F015 必须强制 `CSM_ENVIRONMENT=prod` 并加入部署断言，或由 Backend 改为 fail-closed 默认。
   readiness_summary: >
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），DEC-008 ~ DEC-016 全部 RESOLVED。
-    F012 无 depends_on 且无阻塞决策，为唯一 READY Feature（1）。
-    9 个 Feature（F001/F004/F005/F009/F010/F011/F013/F014/F015）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
+    F012（基座）已 DONE 并合入 develop，基座机制（统一错误信封、SQLSTATE 映射、分页、事务边界、
+    活跃行过滤原语、Alembic 基线）与两处最难回退的语义（大小写敏感唯一性、软删释放唯一性）均已验证。
+    3 个 Feature（F001 / F013 / F014）依赖已满足，成为 READY。
+    6 个 Feature（F004/F005/F009/F010/F011/F015）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
     4 个 Feature（F002/F006/F007/F008）仍存在影响自身 scope/AC 定稿的 Feature 级产品问题（DRAFT）。
-  decision: PROJECT PLAN ACCEPTED
+  follow_ups:
+    from_f012_review:
+      report: docs/reviews/f012-project-foundation.md
+      open:
+        - id: F-03
+          severity: MEDIUM
+          owner: Architect / Backend / F015
+          must_resolve_before: F015
+          summary: >
+            自检面 fail-open：CSM_ENVIRONMENT 未设置时默认 dev，/_foundation/* 可达（含未认证写端点），
+            且该面位于 /api 之外，不受 F013 认证覆盖。属纵深防御缺口，非契约字面违约。
+        - id: F-01
+          severity: LOW
+          owner: Backend
+          summary: >
+            未映射的 4xx（如 405）被标为 INTERNAL_ERROR，前端会误渲染为「服务器内部错误」。
+        - id: F-02
+          severity: LOW
+          owner: Backend
+          summary: >
+            23503 的 details[].field 回退解析会截断多词列名（cluster_id -> cluster）。
+            F012 不可达，影响 F002 / F004 / F005。
+        - id: N-01
+          severity: NOTE
+          owner: Tester / Coordinator
+          summary: >
+            T11 的 lint 门禁仅文本 grep 源码；无 DSN 时真实数据库断言被 skip 而 meta-test 仍通过。
+            建议改为直接收集数据库用例。
+      resolved:
+        - id: F-04
+          summary: >
+            测试夹具的 DSN 回退 + DROP SCHEMA CASCADE 风险；已在 dbff989 修复
+            （去掉 DSN 回退 + 新增 assert_safe_to_reset 纵深防御）。
+        - id: D-01
+          summary: Test Report 的 F-04 状态陈旧；已标记 RESOLVED 并保留原文供追溯。
+        - id: D-02
+          summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
+        - id: D-03
+          summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
+  decision: PROJECT IN PROGRESS — F012 DONE, NEXT READY = F001
 
 execution:
-  current_feature: F012
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   started_on: "2026-09-15"
   note: >
-    F012「项目基础框架与运行环境」已启动。Git Preflight 于 2026-09-15 通过
-    （工作区 clean、无未跟踪文件、无进行中的 merge/rebase、HEAD 非 detached）。
-    develop 分支由用户授权后自 main 创建，Feature 分支自 develop 创建。
-    数据库设计已在全局阶段完成（docs/database/），F012 基线 migration 规格见
-    docs/database/f012-baseline-migration.md。
+    F012「项目基础框架与运行环境」已完成并合入 develop（merge 3b8646c），当前无进行中的 Feature。
+    流程记录：Git Preflight（2026-09-15）→ Product → Architecture + API Contract → Implementation
+    （Database 设计已在全局阶段完成，与 Backend / Frontend 并行）→ Tester → Reviewer(APPROVED WITH FOLLOW-UP)
+    → Merge Gate → 状态提交。develop 分支由用户授权后自 main 创建。
+    下一个 READY Feature 候选：F001 / F013 / F014（均为 P0，F001 在关键路径上，建议优先）。

@@ -243,6 +243,7 @@ requirements*.txt
 ## 8. 常见问题
 
 - **`GET /api/health` 返回 500 `INTERNAL_ERROR`**：数据库不可达或 DSN 配置错误。检查 `.env` 与数据库是否已启动（`docker compose -f docker-compose.dev.yml ps`）。
-- **数据库测试被 skip**：未设置 `CSM_TEST_DATABASE_URL`（或 `CSM_DATABASE_URL`）。这是**明确 skip**，不会伪造通过。
+- **数据库测试被 skip**：未设置 `CSM_TEST_DATABASE_URL`。这是**明确 skip**，不会伪造通过。
+  > 测试库必须**显式**指定：测试夹具不再回退到 `CSM_DATABASE_URL`，因为它会对目标库执行 `DROP SCHEMA ... CASCADE`（见 Review follow-up D-02）。
 - **`alembic upgrade head` 报 DSN 错误**：Alembic 从 `CSM_DATABASE_URL` / `.env` 读取连接串，不在 `alembic.ini` 硬编码。
 - **中文乱码 / 大小写不敏感**：数据库 locale / encoding 不正确，需以 UTF-8 + 大小写敏感 locale 重建（见 §3.1）。
