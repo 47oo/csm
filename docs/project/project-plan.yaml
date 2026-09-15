@@ -26,7 +26,14 @@ project:
     提供统一、清晰、可查询、可维护的资源事实库（资源登记、查询、关系维护、
     状态维护、网络地址管理、虚拟资源管理、服务资源管理、批量数据导入）。
     CSM V1 不是完整 CMDB。
-  status: DRAFT
+  status: ACCEPTED
+  approved_by: user
+  approved_on: "2026-09-15"
+  approval_note: >
+    用户于 2026-09-15 明确批准本计划，并同时授权创建 develop 分支、启动 F012 实现。
+    批准时的依据：ADR-0001 ~ ADR-0005 全部 ACCEPTED；API 契约 READY；
+    docs/database/ 完成（READY FOR DATABASE IMPLEMENTATION）；DEC-008 ~ DEC-016 全部 RESOLVED；
+    数据库阶段两项产品消歧（IPAddress→NetworkInterface 必选、NIC 枚举封闭集合）已裁定并同步产品文档。
   last_updated: "2026-09-15"
   architecture:
     foundation: docs/architecture/csm-v1-foundation-architecture.md   # READY FOR IMPLEMENTATION
@@ -893,7 +900,7 @@ requirement_coverage_sections:
 # ---------------------------------------------------------------------------
 planning_status:
   plan_completeness: complete
-  status: DRAFT
+  status: ACCEPTED
   ready_features: [F012]
   blocked_draft_features:
     BLOCKED: [F001, F004, F005, F009, F010, F011, F013, F014, F015]
@@ -944,4 +951,4 @@ planning_status:
     F012 无 depends_on 且无阻塞决策，为唯一 READY Feature（1）。
     9 个 Feature（F001/F004/F005/F009/F010/F011/F013/F014/F015）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
     4 个 Feature（F002/F006/F007/F008）仍存在影响自身 scope/AC 定稿的 Feature 级产品问题（DRAFT）。
-  decision: PROJECT PLAN READY FOR APPROVAL
+  decision: PROJECT PLAN ACCEPTED
