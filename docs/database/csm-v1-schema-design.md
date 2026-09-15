@@ -352,7 +352,7 @@ ALTER TABLE users
 ```
 
 - **说明**：`users` 无 `deleted_at`，故使用普通 `UNIQUE` 约束（非 partial index）。
-- `username` 唯一性**大小写敏感性未确认**；按数据库默认（大小写敏感）实现，列为 OPEN（见 Open Questions）。**不添加** `lower(username)` 唯一索引 —— 那等于擅自改成大小写不敏感。
+- `username` 唯一性**区分大小写**——**已由 R-AUTH-005 确认（2026-09-15）**，不再是 OPEN。按数据库默认 collation（大小写敏感）+ 普通 `UNIQUE` 实现。**不添加** `lower(username)` 唯一索引，也**不得**使用 `ILIKE` 或任何大小写折叠。
 
 #### Indexes
 
@@ -376,7 +376,8 @@ ALTER TABLE users
 | `last_seen_at` | `TIMESTAMPTZ` | NULL | — | **OPTIONAL / PROPOSED**：若采用滑动续期则记录；否则保持不用 |
 
 > **不设计**：`deleted_at` / `revoked_at`（会话不是资源历史，登出 / 过期直接删除行）、角色列、IP / UA 记录（无产品需求）。
-> `last_seen_at` 标记为 PROPOSED：ADR-0005 将「会话过期时间与是否滑动续期」留给实现阶段决定；该列可空，若不采用滑动续期则不写入（保留列成本极低，避免后续加列迁移）。**它不是产品规则**。
+> `last_seen_at` 标记为 PROPOSED：ADR-0005 将「会话过期时间与是否滑动续期」留给实现阶段决定。
+> **F013 已记录该决策（2026-09-15）**：绝对有效期 **8 小时**，**不采用滑动续期**，因此该列**保留但不写入**（保留列成本极低，避免后续加列迁移）。**它不是产品规则**；决策记录见 `docs/api/f013-auth.md` §7。
 
 #### Primary Key
 
@@ -455,7 +456,7 @@ CREATE INDEX ix_sessions_expires_at ON sessions (expires_at);
 - 「父资源存在活跃子资源时不得删除」的**软删除**分支（FK 看不到 `deleted_at`，须应用层事务加锁）。
 - NIC 名称在同一 BareMetal 内唯一（未确认）。
 - `name` / `hostname` / `ip_address` 的长度、空白、格式规则（未确认）。
-- `username` 大小写敏感性（未确认）。
+- ~~`username` 大小写敏感性（未确认）~~ → **已确认**（R-AUTH-005）：区分大小写。
 
 ---
 
@@ -875,7 +876,7 @@ UNCONFIRMED 关系（VM→BareMetal、Container→载体）不得在 API 层被�
 3. **NIC 名称在同一 BareMetal 内是否唯一**未确认 → 当前**无唯一约束**；如需，属 F004 产品确认后新增 partial unique index。
 4. **`ip_address` 的格式校验与归一化**未确认 → 当前为 `TEXT`，无格式 CHECK；未来若确认应校验为合法 IP（含 / 不此前缀），需产品确认后再引入（`inet` 类型切换属语义变更，不可静默进行）。
 5. **Cluster 名称 / hostname 的长度、首尾空白、空字符串、Unicode NFC 规范化**未确认（domain-model `undefined_constraints`）→ 当前无 CHECK；NFC 归一化架构已记为 Non-blocking「当前不做」。
-6. **`username` 唯一性是否大小写敏感**未确认 → 当前按数据库默认（大小写敏感）的普通 `UNIQUE` 实现；若产品要求大小写不敏感，需改产品规则并改索引（不得用 `lower()` 静默替换）。
+6. ~~**`username` 唯一性是否大小写敏感**未确认~~ → **✅ 已关闭（2026-09-15，R-AUTH-005）**：确认**区分大小写**。当前按数据库默认 collation（大小写敏感）的普通 `UNIQUE` 实现即正确，**无需变更**；不得用 `lower()` 静默替换。
 7. **BareMetal 是否允许改属 Cluster**未确认 → 若允许，领域服务必须同步重算其下全部 IP 的 `cluster_id`；若不允许，后端必须拒绝。两种选择都不改变本 Schema（列为行为契约，不改变 DDL）。
 8. **会话过期时间与是否滑动续期**未由 ADR-0005 确定（留给实现阶段并需记录）→ 影响是否使用 `sessions.last_seen_at`（已按 PROPOSED 保留为可空列）。
 9. **`created_by` / `updated_by` / `version` / `audit_log`** 当前无需求依据 → 不引入；若未来需要审计，属新产品需求。

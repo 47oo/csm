@@ -242,7 +242,9 @@ Request：`{ "name": "<string>" }`（仅通用 schema 校验）。
 - F012 **不实现认证**。本文件所有端点当前**无需认证**。
 - 这是**显式、临时**状态，不得被解释为「产品不需要认证」。
 - F013 落地后：认证中间件保护 `/api/*`，除登录端点外返回 `401 UNAUTHENTICATED`。
-- **PROPOSED（非阻塞）**：`GET /api/health` 建议被 F013 白名单豁免，作为运维端点永久可访问。该建议需在 F013 实现时确认。
+- ~~**PROPOSED（非阻塞）**：`GET /api/health` 建议被 F013 白名单豁免~~ → **未采纳（F013 已裁定，2026-09-15）**。
+  F013 落地后，**未认证**访问 `GET /api/health` 返回 `401 UNAUTHENTICATED`；已认证调用仍返回 `200`（F012 AC-02 因此仍成立）。
+  认证豁免名单的**唯一成员**是 `POST /api/auth/login`。运维探针须走产品认证面之外的机制（见 `docs/architecture/f013-auth-handoff.md` PROPOSED-4）。
 - `/_foundation/*` 位于 `/api` 之外，且生产不挂载，不参与 F013 的认证范围。
 
 ---
