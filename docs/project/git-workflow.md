@@ -23,7 +23,7 @@ Git 是 CSM 正式开发流程的一部分：`docs/project/project-plan.yaml` �
 
 所有专业 Subagent（包括 product-manager、project-manager、architect、database、backend、frontend、tester、reviewer）只负责职责内修改、测试与报告，不得执行 Git add、Commit、Branch 切换、Merge 或其他修改 Git 状态的操作。
 
-Git 状态管理由主协调 Agent 统一负责。
+Git 状态管理由主协调 Agent 统一负责。Subagent 报告的 Git 声明要求（交接的验收条件）见 `AGENTS.md` §9.1。
 
 第一版采用同一 Feature Branch、同一工作区；不引入 worktree。并行前划定文件所有权；所有写入任务停止后才能暂存、提交或切分支，防止纳入其他 Agent 未完成的工作。
 

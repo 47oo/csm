@@ -130,11 +130,32 @@ Review 必须检查：需求与领域规则符合性、架构符合性、功能�
 
 ## 9. Git 安全与流程入口
 
-所有专业 Subagent 只负责职责内修改、测试与报告，不得执行 `git add`、Commit、Branch 切换、Merge 或其他修改 Git 状态的操作。
+所有专业 Subagent 只负责职责内修改、测试与报告。Git 状态由主协调 Agent 统一管理：并行任务必须划定文件所有权；所有写入任务停止后才能暂存、提交或切分支。
 
-Git 状态管理由主协调 Agent 统一负责。并行任务必须划定文件所有权；所有写入任务停止后才能暂存、提交或切分支。
+### 9.1 Subagent 的 Git 声明（交接的验收条件）
+
+每份 Subagent 报告必须以下列之一结尾：
+
+```text
+GIT: NONE
+```
+
+或逐条列出本次实际执行的 Git 命令（不概括、不省略）：
+
+```text
+GIT: git rev-parse --short HEAD
+GIT: git diff --stat
+```
+
+协调器在接收交接前对照 `git reflog` 核对声明。**声明缺失、与 reflog 不符或漏列命令时，该交接不予接受**，退回该 Agent 重新报告。
+
+### 9.2 禁止事项
+
+Subagent 不得执行 `git add`、Commit、Branch 切换、Merge，以及其他改变 Git 状态的操作。
 
 不得自动提交未知改动，不得使用自动 stash、`reset --hard`、`clean`、强制切分支或改写历史来绕过工作区问题。
+
+### 9.3 流程入口
 
 执行 Git 操作和判断 Feature 完成状态前，必须读取并遵守：
 
