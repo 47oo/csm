@@ -6,6 +6,10 @@
 > Date: 2026-09-15
 > Source: `docs/api/api-conventions.md`（`READY`）、`docs/architecture/adr/adr-0003-resource-identity-and-api-contract.md`（`ACCEPTED`）、`docs/architecture/csm-v1-foundation-architecture.md`、`docs/architecture/f012-project-foundation-handoff.md`、`docs/product/handoffs/f012-project-foundation.md`
 > 本文件是 F012 前后端与测试的共同协议。
+>
+> **⚠️ 更新（2026-09-15，F001）**：**§4 的非产品自检面 `/_foundation/*` 已被 F001 彻底移除**（裁定见 `docs/architecture/f001-cluster-handoff.md` 核心问题 2）。
+> §4 正文**保留为历史记录**，不再有效；F012 架构判据 4 / 5 / 6 的验证力现已由产品端点 `POST/GET/PATCH /api/clusters*` 与数据层直写接管（见 F001 的 T8′ / T9′ / A08 / A14 / A16）。
+> 本文件其余章节（尤其 §3 通用错误映射，§5 的 Empty / Not Found 语义）**继续有效**，并由 `docs/api/f001-cluster.md` 在 Cluster 资源上具体化。
 
 ---
 

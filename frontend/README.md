@@ -1,29 +1,35 @@
 # CSM Frontend
 
-CSM Web 前端。当前为 **F012 前端基座**。
+CSM Web 前端。
 
 技术栈（ADR-0001，`ACCEPTED`）：**Vue 3 + TypeScript + Vite + Element Plus**。除该技术栈外未引入其他状态管理 / UI / CSS 框架。
 
-## 当前范围（F012）
+## 当前范围（F001）
 
-F012 只交付**前端基座**，不含任何产品页面：
+F001 交付 **Cluster 登记与管理** 的前端部分（契约：`docs/api/f001-cluster.md`，`READY`）：
 
-- **前端骨架**：Vue 3 + TS + Vite + Element Plus；
-- **API client 基座**：统一请求封装（`src/api/http.ts`）+ 统一错误解析，消费方按
-  `error.code` 分支渲染，**不解析 `error.message` 文案**（`message` 仅用于展示）；
-- **列表三态基座**：Loading / Empty / Error（`ListStates` + `ErrorState` +
-  `useAsyncQuery`）。Empty（200 + `items` 为空）与 Not Found（404 `NOT_FOUND`）
-  是**不同**状态；另预留 `UNAUTHENTICATED` / `FORBIDDEN` 渲染分支（F013 起才会触发）；
-- **开发自检页**（`/`，仅 dev 构建渲染，生产构建渲染占位说明）：调用非产品端点
-  `GET /_foundation/clusters`（列表，含 Loading / Empty）与
-  `GET /_foundation/error`（确定性 500 `INTERNAL_ERROR`，驱动 Error 态），
-  仅用于验证基座。
+- **Cluster API 客户端**（`src/api/clusters.ts`）：5 个端点（`POST /api/clusters`、
+  `GET /api/clusters`、`GET /api/clusters/{id}`、`GET /api/clusters/by-name/{name}`、
+  `PATCH /api/clusters/{id}`），复用统一请求封装 `src/api/http.ts`，不新建请求层；
+  类型 `ClusterRead` 字段集合封闭（`id` / `name` / `created_at` / `updated_at`），
+  时间字段按不透明字符串展示 / 传递；
+- **集群列表页**（`ClusterListPage`）：展示 4 个字段与分页（`page` / `page_size`）；
+  **Loading / Empty / Error 三态互不相同**（Empty = `200` + `items` 为空；
+  Error 按 `error.code` 分支渲染，**不解析 `message`**）；
+- **集群详情页骨架**（`ClusterDetailPage`）：仅呈现 Cluster 自身字段；
+  `404 NOT_FOUND` 渲染为独立的「资源不存在或已被删除」态，与列表 Empty 是
+  **不同**状态（R-QUERY-004 / `api-conventions.md` §7）；
+- **三态基座**（`ListStates` / `ErrorState` / `useAsyncQuery`）：自 F012 保留为
+  可复用基座，由产品页面与其测试使用；F012 判据 6 的验证力由 Cluster 列表页
+  三态测试承载；
+- 页面切换由 `App.vue` 内的极简视图状态完成（**不引入 `vue-router`**，
+  多资源导航出现前再决策路由方案）。
 
-> ⚠️ **`/_foundation/*` 是非产品自检面**（`docs/api/f012-project-foundation.md` §4）：
-> 仅在 dev/test 配置下由后端挂载，生产环境不可达；`clusters` 仅作基座验证载体，
-> 不含任何领域规则。自检页已明确标注为 dev 用途，**不构成产品功能**。
-> F001 交付产品 Cluster API（`/api/clusters`）后，该自检面将移除或降级为测试夹具。
-> 产品页面自 F001 起交付。
+> F012 的非产品自检面 `/_foundation/*` 已于 F001 彻底移除：dev 自检页与
+> `src/api/foundation.ts` 已删除，Vite dev proxy 仅保留 `/api`。
+
+F001 前端**不包含**：登记 / 改名表单（PROPOSED，不构成 AC；API 客户端已就绪）、
+登录页（F013）、Cluster 删除入口（F014）、BareMetal 相关内容（F002+）。
 
 ## 环境要求
 
@@ -38,15 +44,15 @@ npm install
 npm run dev
 ```
 
-dev server 默认把 `/api` 与 `/_foundation` 反向代理到 `http://127.0.0.1:8000`。
-后端地址不同时，用环境变量覆盖即可（**无需任何 `.env` 文件**）：
+dev server 默认把 `/api` 反向代理到 `http://127.0.0.1:8000`。后端地址不同时，
+用环境变量覆盖即可（**无需任何 `.env` 文件**）：
 
 ```bash
 CSM_DEV_API_TARGET=http://127.0.0.1:9000 npm run dev
 ```
 
-后端未启动时，自检页的列表区会渲染 Error 态（无法连接服务器 / 未知错误），
-属预期行为——本前端不使用任何 Mock 数据伪装成功。
+后端未启动时，列表页会渲染 Error 态（无法连接服务器），属预期行为——
+本前端不使用任何 Mock 数据伪装成功。
 
 ## 常用脚本
 
@@ -64,21 +70,22 @@ CSM_DEV_API_TARGET=http://127.0.0.1:9000 npm run dev
 frontend/
 ├── src/
 │   ├── api/
-│   │   ├── http.ts              # 统一请求封装 + ApiError 归一化（基座）
-│   │   └── foundation.ts        # /_foundation/* 非产品自检面客户端（契约 §4）
+│   │   ├── clusters.ts           # Cluster 产品 API 客户端（契约 f001-cluster.md）
+│   │   └── http.ts               # 统一请求封装 + ApiError 归一化（基座）
 │   ├── components/
-│   │   ├── ErrorState.vue       # 按 error.code 分支渲染的错误态（基座）
-│   │   └── ListStates.vue       # 列表 Loading / Error / Empty / 内容容器（基座）
+│   │   ├── ErrorState.vue        # 按 error.code 分支渲染的错误态（基座）
+│   │   └── ListStates.vue        # 列表 Loading / Error / Empty / 内容容器（基座）
 │   ├── composables/
-│   │   └── useAsyncQuery.ts     # 异步查询三态管理 + 竞态防护（基座）
+│   │   └── useAsyncQuery.ts      # 异步查询三态管理 + 竞态防护（基座）
 │   ├── pages/
-│   │   └── DevSelfCheckPage.vue # dev 自检页（非产品；仅 dev 构建渲染）
+│   │   ├── ClusterListPage.vue   # 集群列表页（产品页，三态 + 分页）
+│   │   └── ClusterDetailPage.vue # 集群详情页（骨架，404 态独立于 Empty）
 │   ├── types/
-│   │   └── api.ts               # 契约类型（错误信封 / 分页信封 / 错误码）
-│   ├── App.vue
+│   │   └── api.ts                # 契约类型（错误信封 / 分页信封 / 错误码）
+│   ├── App.vue                   # 极简视图状态：列表 ↔ 详情切换
 │   ├── main.ts
 │   └── assets/main.css
-├── tests/                       # vitest 单元测试
+├── tests/                        # vitest 单元测试
 ├── index.html
 ├── package.json
 ├── tsconfig.json
@@ -92,4 +99,6 @@ frontend/
 - 状态渲染只依赖 `error.code`（及 `error.details` 的字段级信息），
   `error.message` 仅作为补充文案展示，不参与任何分支判断；
 - Empty（请求成功但无数据）与 Not Found（404）必须渲染为不同状态
-  （`api-conventions.md` §7 / R-QUERY-004）。
+  （`api-conventions.md` §7 / R-QUERY-004）；
+- 领域校验（`/` 禁令、活跃唯一性）全部在服务端，前端不重复实现业务规则，
+  也不对 `name` 做长度 / trim / 归一化等任何变换（`undefined_constraints`）。

@@ -4,8 +4,9 @@
 
 CSM **不以建设完整 CMDB 为目标**；具体产品范围与业务规则以 `docs/product/` 中已确认的文档为准。
 
-> 当前里程碑：**F012 — 项目基础框架与运行环境**（ENABLER，P0）。
-> 本仓库当前只交付「所有资源 Feature 复用的基座」，**不含任何具体资源的业务规则 / CRUD API**。
+> 当前里程碑：**F001 — Cluster 登记与管理**（继承 F012 基座）。
+> 已交付 F012 基座（应用工厂、统一错误信封、SQLSTATE 映射、分页、事务边界、
+> `deleted_at IS NULL` 过滤原语、Alembic 基线）与 F001 Cluster 的 5 个产品端点。
 > 技术栈与关键决策见 `docs/architecture/adr/`（ADR-0001 ~ ADR-0005，全部 `ACCEPTED`）。
 
 ---
@@ -33,7 +34,7 @@ CSM **不以建设完整 CMDB 为目标**；具体产品范围与业务规则以
 
 ## 3. 快速开始（30 分钟内可启动）
 
-以下步骤假设从**干净 checkout** 开始。目标：`GET /api/health` 返回 200，且前端 dev server 可访问自检页。
+以下步骤假设从**干净 checkout** 开始。目标：`GET /api/health` 返回 200，且前端 dev server 可访问集群列表页（调用 `GET /api/clusters`）。
 
 ### 3.1 准备数据库（二选一）
 
@@ -71,7 +72,7 @@ cp .env.example .env
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `CSM_ENVIRONMENT` | `dev` | `dev` / `test` / `prod`。**仅 dev / test 挂载 `/_foundation/*`**；`prod` 下该面返回 404 |
+| `CSM_ENVIRONMENT` | `dev` | `dev` / `test` / `prod`（运行环境标签） |
 | `CSM_DATABASE_URL` | `postgresql+psycopg://csm:csm@localhost:5432/csm` | SQLAlchemy URL（psycopg 3 驱动） |
 | `CSM_DB_POOL_SIZE` | `5` | 连接池尺寸 |
 | `CSM_DB_MAX_OVERFLOW` | `10` | 连接池溢出上限 |
@@ -119,7 +120,7 @@ npm install
 npm run dev
 ```
 
-打开 `http://localhost:5173/`。dev server 会把 `/api` 与 `/_foundation` 反向代理到
+打开 `http://localhost:5173/`。dev server 会把 `/api` 反向代理到
 `http://127.0.0.1:8000`（详见 `frontend/README.md`）。
 
 ### 3.7 运行测试与 lint
@@ -149,7 +150,6 @@ export CSM_TEST_DATABASE_URL="postgresql+psycopg://csm:csm@localhost:5432/csm"
 5. 分页约定（`page` 默认 1；`page_size` 默认 50、上限 200）与事务边界基座。
 6. `deleted_at IS NULL` 过滤基座（数据访问层**原语**，不是领域服务）。
 7. Alembic 框架 + revision `0001_f012_baseline`。
-8. 非产品自检面 `/_foundation/*`（dev / test-only）。
 
 **明确不做**（属后续 Feature）：
 
@@ -163,33 +163,20 @@ AC-09：F012 交付物**不包含任何具体资源的字段定义、唯一性�
 
 ---
 
-## 5. 产品 API 与非产品自检面
-
-### 产品 API
+## 5. 产品 API
 
 | Method | Path | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/health` | 存活 + 数据库连接可用性；成功返回 `{"status":"ok","database":"ok"}` |
+| `POST` | `/api/clusters` | 登记 Cluster（`{"name":"..."}`）；`201` |
+| `GET` | `/api/clusters` | 列出活跃 Cluster（分页 `page` / `page_size`）；空集合返回 `200` + `items: []` |
+| `GET` | `/api/clusters/{cluster_id}` | 按 id 读取；不存在 / 已逻辑删除 → `404 NOT_FOUND` |
+| `GET` | `/api/clusters/by-name/{cluster_name}` | 只读名称别名（大小写敏感）；未命中 → `404 NOT_FOUND` |
+| `PATCH` | `/api/clusters/{cluster_id}` | 更新名称（复用创建时的同一套领域校验） |
 
-F012 期间**不挂载认证中间件**（F013 落地）。这是显式、临时的状态。
-
-### 非产品自检面 `/_foundation/*`
-
-> ⚠️ **这不是产品契约。**
-> - 仅在 `CSM_ENVIRONMENT` 为 `dev` / `test` 时挂载；**生产配置下返回 404**。
-> - 不含任何资源领域规则（无 `/` 校验、无唯一性预检、无 `by-name`、无状态、无父删子拦）。
-> - `clusters` 表在此**仅作为基座验证载体**。
-> - F001 交付产品 Cluster API 后应移除或降级为测试夹具。
-> - 完整契约见 `docs/api/f012-project-foundation.md` §4。
-
-| Method | Path | 说明 |
-| --- | --- | --- |
-| `POST` | `/_foundation/clusters` | 创建载体行（仅通用 schema 校验） |
-| `GET` | `/_foundation/clusters` | 列出活跃载体行（分页） |
-| `GET` | `/_foundation/clusters/{id}` | 读取；不存在 / 已软删 → 404 |
-| `PATCH` | `/_foundation/clusters/{id}` | 更新 |
-| `DELETE` | `/_foundation/clusters/{id}` | 自检夹具：写 `deleted_at`（非产品软删除语义） |
-| `GET` | `/_foundation/error` | 始终 500，供前端渲染 Error 态 |
+- 契约正文见 `docs/api/f001-cluster.md`；通用约定见 `docs/api/api-conventions.md`。
+- **不存在** `DELETE /api/clusters/{id}`：删除的领域语义统一归属 F014，F001 内不存在任何写入 `deleted_at` 的路径。
+- F001 期间**不挂载认证中间件**（F013 落地）。这是显式、临时的状态。
 
 ---
 
@@ -199,9 +186,9 @@ F012 期间**不挂载认证中间件**（F013 落地）。这是显式、临时
 backend/
 ├── app/
 │   ├── api/            # 产品 HTTP 路由（health）+ 请求依赖（事务边界）
+│   ├── clusters/       # F001 Cluster 模块：router / schemas / validation / service / repository
 │   ├── common/         # 横切关注点：错误信封、SQLSTATE 映射、分页
 │   ├── db/             # Declarative Base、mixin、引擎/会话、deleted_at 过滤原语
-│   ├── foundation/     # 非产品自检面（dev/test-only，F001 后移除）
 │   ├── models/         # 每类资源一个独立模块、一张独立表
 │   ├── schemas/        # Pydantic schema
 │   ├── config.py       # 环境变量配置
@@ -210,9 +197,9 @@ backend/
 
 tests/
 ├── database/           # 绕过应用层、直接对 PostgreSQL 的约束 / 迁移测试
+├── test_clusters_api.py
+├── test_clusters_guards.py
 ├── test_error_envelope.py
-├── test_foundation_isolation.py
-├── test_foundation_roundtrip.py
 ├── test_health.py
 ├── test_lint.py
 └── test_structure_guard.py

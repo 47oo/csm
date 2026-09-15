@@ -36,14 +36,6 @@ class Settings(BaseSettings):
     db_pool_recycle: int = 1800
     db_echo: bool = False
 
-    @property
-    def foundation_enabled(self) -> bool:
-        """非产品自检面 ``/_foundation/*`` 是否挂载。
-
-        REQUIRED：生产配置下必须不可达。仅 dev / test 挂载。
-        """
-        return self.environment in ("dev", "test")
-
 
 @lru_cache
 def get_settings() -> Settings:

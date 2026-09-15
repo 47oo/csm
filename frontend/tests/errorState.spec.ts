@@ -18,7 +18,7 @@ function mountErrorState(error: ApiError) {
 }
 
 describe('ErrorState 按 error.code 分支渲染', () => {
-  it('INTERNAL_ERROR → 服务器内部错误（GET /_foundation/error 驱动的 Error 态）', () => {
+  it('INTERNAL_ERROR → 服务器内部错误（服务端未预期错误驱动的 Error 态）', () => {
     const wrapper = mountErrorState(
       new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: '内部错误' }),
     )
