@@ -4,6 +4,18 @@
 > Document Type: Product Requirements
 > Target: CSM V1
 > Audience: Product Manager / Project Manager / Architect / Database / Backend / Frontend / Tester / Reviewer
+>
+> 变更记录：
+>
+> - **2026-09-15 — 依用户明确决策修订基线**
+>   - 移除 **Rack / U 位**：删除原 R-RACK-001 ~ R-RACK-004，影响 §2、§5、§13、§16、§18、§21、§25、§26。
+>   - 新增 **R-CLUSTER-005**：Cluster 名称不得包含 `/`（§7）。
+>   - 新增 **R-SVC-005 / R-SVC-006**：Service 必选绑定运行载体，Cluster 关联由载体归属推导（§14、§15）。
+>   - 澄清 **Q-002=B**：仅 BareMetal 拥有状态；VirtualMachine / Container / Service / NetworkInterface / IPAddress 在 V1 不设状态。
+>   - **OPEN-006 关闭**为「已确认排除」（§29）。
+>   - 决策来源：`docs/product/domain-conflict-handoff.md`（Q-001=C、Q-002=B、Q-003=A、Rack-1、S-2、D-1、D-2）。
+>
+> 本文件为 CSM V1 的 Primary Requirements Source；与 `docs/product/domain-model.md` 的同步另行维护，冲突优先级见 `AGENTS.md` §3。
 
 ---
 
@@ -18,7 +30,6 @@ CSM 是面向 HPC / AI 运维场景的内部资源管理平台。
 * 资源关系维护；
 * 资源状态维护；
 * 网络地址管理；
-* 机柜位置管理；
 * 虚拟资源管理；
 * 服务资源管理；
 * 批量数据导入。
@@ -40,9 +51,8 @@ CSM V1 **不是完整 CMDB**。
 3. IP 地址容易重复分配；
 4. 资源与集群之间的关系不够清晰；
 5. 裸金属、虚拟机、网络接口、IP、服务等缺少统一查询入口；
-6. 机柜 U 位可能因为人工维护产生冲突；
-7. 多个集群共享服务时容易产生重复登记；
-8. 资源历史需要保留，但 Excel 很难维护资源生命周期。
+6. 多个集群共享服务时容易产生重复登记；
+7. 资源历史需要保留，但 Excel 很难维护资源生命周期。
 
 ---
 
@@ -95,8 +105,7 @@ Resource
 │
 ├── 基础设施资源 Infrastructure Resource
 │   ├── Cluster
-│   ├── BareMetal
-│   └── Rack
+│   └── BareMetal
 │
 ├── 虚拟资源 Virtual Resource
 │   ├── VirtualMachine
@@ -185,6 +194,19 @@ Cluster 当前不设置统一运行状态。
 ## R-CLUSTER-004
 
 Cluster 可以包含多个 BareMetal。
+
+---
+
+## R-CLUSTER-005
+
+Cluster 名称不得包含 `/`。
+
+理由：Cluster 名称用于 URL 路径寻址（如按集群名称定位其下资源的查询路径）。
+包含 `/` 会破坏路径分段，导致该集群无法通过路径寻址。
+
+Cluster 登记的写入路径必须校验本规则，拒绝包含 `/` 的 Cluster 名称。
+
+除 `/` 外的其他字符规则（长度、首尾空白、其他非法字符等）当前仍为**未定义**，不得自行假设。
 
 ---
 
@@ -461,42 +483,16 @@ cluster + ip_address
 
 # 13. Rack
 
-Rack 用于登记服务器在机柜中的实际位置。
+CSM V1 **不管理 Rack 与 U 位**。
 
----
+原 R-RACK-001 ~ R-RACK-004（Rack 登记、BareMetal 的 Rack / U Position、同一 Rack 内 U 位冲突硬阻断、多 U 范围表达）已于 2026-09-15 依用户明确决策从 V1 范围移除，**不再作为 V1 产品规则**。
 
-## R-RACK-001
+因此：
 
-系统应支持登记 Rack。
+* BareMetal 在 V1 中不记录 Rack 与 U Position；
+* V1 不提供机柜位置管理与 U 位冲突校验。
 
----
-
-## R-RACK-002
-
-BareMetal 可以记录其所在：
-
-* Rack；
-* U Position。
-
----
-
-## R-RACK-003
-
-同一 Rack 中不能存在 U 位冲突。
-
-如果新的资源位置与已有有效资源占用范围发生冲突：
-
-> 禁止保存。
-
-不能只显示 Warning 后继续保存。
-
----
-
-## R-RACK-004
-
-如果未来存在多 U 服务器，应支持表达资源占用的实际 U 范围。
-
-具体字段设计由 Architecture / Database 阶段决定。
+如果未来恢复机柜位置管理，应作为**新的产品需求**重新设计。
 
 ---
 
@@ -565,6 +561,34 @@ service.cluster_id
 
 ---
 
+## R-SVC-005
+
+Service 必须绑定运行载体。
+
+可绑定的运行载体为：
+
+* BareMetal；
+* VirtualMachine；
+* Container。
+
+一个 Service 可以绑定多个运行载体。
+
+绑定为**必选**：不允许存在未绑定任何运行载体的 Service。
+
+---
+
+## R-SVC-006
+
+Service 与 Cluster 的关联通过其**运行载体的 Cluster 归属推导**，而不是通过 `service.cluster_id` 直接绑定。
+
+因此：
+
+* R-SVC-002 的「一个 Service 可以被多个 Cluster 共享」通过绑定跨 Cluster 的多个运行载体实现；
+* R-SVC-003 的「共享服务只能登记一次」保持不变；
+* R-SVC-004 的「不得强制 `service.cluster_id`」保持不变。
+
+---
+
 # 15. Resource Relationship
 
 CSM 不只是资源列表。
@@ -609,6 +633,16 @@ BareMetal / VirtualMachine
    │
    └── Container
 ```
+
+服务资源相关关系：
+
+```text
+Service
+   │
+   └── BareMetal / VirtualMachine / Container
+```
+
+其中 Service 的运行载体绑定为**必选**（R-SVC-005）；Service 与 Cluster 的关联由载体归属推导（R-SVC-006）。
 
 具体关系是否：
 
@@ -661,8 +695,7 @@ BareMetal
 * IPAddress；
 * VirtualMachine；
 * Container；
-* Service；
-* Rack Position。
+* Service。
 
 具体页面组织由 Frontend 设计，但不得要求用户为了获得一个资源的基本信息手工跨多个独立 Excel 式页面拼接信息。
 
@@ -766,7 +799,6 @@ CSM 的重要目标之一是替代现有 Excel 管理方式。
 * 必填字段；
 * 资源关系；
 * IP 冲突；
-* Rack U 位冲突；
 * 合法状态值。
 
 ---
@@ -872,7 +904,6 @@ Internal IP + HTTP
 * 同 Cluster IP 重复；
 * 同 Cluster hostname 重复；
 * 全局 Cluster Name 重复；
-* Rack U 位冲突；
 * 非法资源关系；
 * 非法状态值。
 
@@ -985,7 +1016,7 @@ CSM V1 应坚持：
 
 ### Explicit Constraints
 
-IP、hostname、Rack U 位等关键规则应明确表达。
+IP、hostname 等关键规则应明确表达。
 
 ### History Preservation
 
@@ -1008,7 +1039,6 @@ IP、hostname、Rack U 位等关键规则应明确表达。
 * Resource 查询；
 * NetworkInterface 管理；
 * IPAddress 管理；
-* Rack / U 位管理；
 * VirtualMachine 管理；
 * Container 资源模型；
 * Service 管理；
@@ -1102,7 +1132,7 @@ Reviewer = APPROVED WITH FOLLOW-UP
 
 ---
 
-## OPEN-001 VirtualMachine 字段
+## OPEN-001 VirtualMachine 字段与标识规则
 
 例如：
 
@@ -1115,11 +1145,18 @@ Reviewer = APPROVED WITH FOLLOW-UP
 
 具体字段尚需根据使用场景确认。
 
+**补充（2026-09-15 澄清新增）**：VirtualMachine 的**标识与唯一性规则**同样未被任何已确认文档定义（`domain-model.md` §8 不含 VirtualMachine）。该项需与字段范围一并在 VirtualMachine Feature 的 Product 阶段确认。
+
 ---
 
 ## OPEN-002 Container 管理粒度
 
-需要进一步确认：
+**已确认部分**：
+
+* V1 需要允许领域模型表达 Container（§10）；
+* 不得引入 Kubernetes / Docker API / Container Runtime 自动发现（§10、§23）。
+
+**仍需确认**：
 
 * 是否登记每个 Container；
 * 是否仅登记长期服务型 Container；
@@ -1129,7 +1166,9 @@ Reviewer = APPROVED WITH FOLLOW-UP
 
 ## OPEN-003 Service 字段
 
-Service 的：
+**已确认部分**：Service Name / Type 允许根据实际服务自由登记（R-SVC-001）。
+
+**仍需确认**：Service 的以下字段中哪些属于 V1：
 
 * URL；
 * Port；
@@ -1137,9 +1176,9 @@ Service 的：
 * Owner；
 * Description；
 * Credential reference；
-* Health information；
+* Health information。
 
-哪些属于 V1 尚需按真实业务确认。
+尚需按真实业务确认。
 
 ---
 
@@ -1170,11 +1209,19 @@ Excel 批量导入发生部分错误时：
 
 ---
 
-## OPEN-006 Virtual Resource Runtime Integration
+## OPEN-006 Virtual Resource Runtime Integration（已关闭）
 
-V1 当前以人工登记为基础。
+原文将该项列为「当前未确认项」。经 2026-09-15 澄清，该项**已由已确认规则排除**，不属于未确认范围。
 
-未来是否自动接入虚拟化平台或容器平台不属于当前确认范围。
+依据：
+
+* **R-VM-002**：V1 不要求自动接入 VMware / PVE / OpenStack 或其他虚拟化平台 API；
+* **§10**：不得因为存在 Container 类型就自动引入 Kubernetes / Docker API / Container Runtime 自动发现；
+* **§23**：V1 不做清单已包含「自动资产发现」「VMware / PVE / OpenStack 自动同步」「Kubernetes 自动同步」「Slurm 集成」。
+
+因此该项从「当前未确认项」移出，判定为**已确认排除**。
+
+V1 以**人工登记**为基础。运行时自动集成若未来需要，应作为新的产品需求重新设计。
 
 ---
 
