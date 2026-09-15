@@ -289,17 +289,11 @@ ALTER TABLE ip_addresses
 - 两条 FK 都只保证「引用对象在物理上存在」。
 - **`fk_ip_addresses_cluster` 不保证 `cluster_id` 与 NIC→BareMetal→Cluster 链路一致**（ADR-0002 已裁定：不引入逐级复合外键、不使用触发器）。一致性由受控写入路径 + 一致性测试保证；数据库层可执行的漂移检测查询见「关键设计决策 > 3」与 `Verification`。
 
-> **关于 `network_interface_id NOT NULL` 的依据澄清（重要）**
+> **关于 `network_interface_id NOT NULL` 的依据（已于 2026-09-15 由用户裁定，不再是开放问题）**
 >
-> 该必选性的权威依据是 **`domain-model.yaml` → `relationships` → `IPAddress-to-NetworkInterface`**，其中明确记录：
-> `mandatory: true`、`cardinality: N:1`、**`binding_state: CONFIRMED`**。
+> **用户裁定：IP 地址必须绑定在 NetworkInterface 上，该关系为 Mandatory。** 因此 `ip_addresses.network_interface_id` 为 `NOT NULL` + FK，**本设计无需修改**。
 >
-> ⚠️ 但 `requirements.md` §15 的**散文本身并不能单独支撑该结论** —— §15 在给出关系图后明确写道：「具体关系是否 Mandatory / Optional / 1:N / N:N，**必须以对应 Product Feature 的确认结果为准**」。
-> 本设计引用时不应把 §15 当作「必选」的直接来源。
->
-> 因此这里存在一份**产品文档内部的轻微张力**（`domain-model.yaml` 标为 CONFIRMED vs `requirements.md` §15 说须由 Feature 确认），已作为 Non-blocking 问题记录（见 Open Questions #11），**由产品方裁定，Database Agent 不代为决定**。
->
-> 当前按 `domain-model.yaml` 的 CONFIRMED 结论落地为 `NOT NULL`。**若产品方后续裁定该关系实际为 Optional**，则需修改本设计（列改为可空 + 允许孤立记录），属结构性变更，必须显式发起。
+> 该裁定同时消除了一项文档歧义：`domain-model.yaml` 本已记为 `binding_state: CONFIRMED` / `mandatory: true`，而 `requirements.md` §15 散文写的是「必选性必须以对应 Product Feature 的确认结果为准」。**现以用户裁定为准，§15 的该句不再适用于此关系。** 两处产品文档已同步更新，并记录于 `requirements.md` 顶部变更记录。
 
 #### Constraints
 
@@ -424,7 +418,7 @@ CREATE INDEX ix_sessions_expires_at ON sessions (expires_at);
 |---|---|---|---|---|---|
 | BareMetal → Cluster | N:1 | **是**（R-BM-001） | `bare_metals.cluster_id NOT NULL` + FK | `ON DELETE RESTRICT`（不级联）；产品语义的父删子拦由应用层事务加锁实现 | 否（`NOT NULL`） |
 | NetworkInterface → BareMetal | N:1 | **是**（R-NIC-003） | `network_interfaces.bare_metal_id NOT NULL` + FK | `ON DELETE RESTRICT` | 否 |
-| IPAddress → NetworkInterface | N:1 | **是**（`domain-model.yaml` `binding_state: CONFIRMED`；§15 散文本身把必选性下放给 Feature，见上文澄清） | `ip_addresses.network_interface_id NOT NULL` + FK | `ON DELETE RESTRICT` | 否 |
+| IPAddress → NetworkInterface | N:1 | **是**（用户 2026-09-15 裁定：IP 必须绑定在 NIC 上；见上文依据说明） | `ip_addresses.network_interface_id NOT NULL` + FK | `ON DELETE RESTRICT` | 否 |
 | IPAddress → Cluster（反规范化） | N:1 | **是**（ADR-0002） | `ip_addresses.cluster_id NOT NULL` + FK | `ON DELETE RESTRICT` | 否 |
 | Session → User | N:1 | 是 | `sessions.user_id NOT NULL` + FK | `ON DELETE RESTRICT` | 否 |
 | Service → BareMetal / VM / Container | N:M | 是（R-SVC-005） | **本次不设计**（F008 延后） | — | — |
@@ -447,7 +441,7 @@ CREATE INDEX ix_sessions_expires_at ON sessions (expires_at);
 6. `ux_bare_metals_cluster_hostname_active` —— 同 Cluster 内唯一、大小写敏感、仅活跃（R-BM-002 + §22 + R-DELETE-006）。
 7. `bare_metals.status` —— `NOT NULL DEFAULT 'IDLE'` + `CHECK IN ('IDLE','ALLOC','DOWN','UNKNOWN')`（R-BM-003~005）。
 8. `network_interfaces.bare_metal_id` —— `NOT NULL` + FK（R-NIC-003）；`technology_type` / `purpose` —— `NOT NULL` + 枚举 `CHECK`（R-NIC-001 / R-NIC-002）。
-9. `ip_addresses.network_interface_id` —— `NOT NULL` + FK（依据 `domain-model.yaml` `IPAddress-to-NetworkInterface` `binding_state: CONFIRMED`；**不是** §15 散文的直接结论，见澄清）。
+9. `ip_addresses.network_interface_id` —— `NOT NULL` + FK（用户 2026-09-15 裁定为 Mandatory；见上文依据说明）。
 10. `ip_addresses.cluster_id` —— `NOT NULL` + FK → `clusters(id)`（ADR-0002，承载唯一性边界）。
 11. `ux_ip_addresses_cluster_ip_active` —— 同 Cluster 唯一、跨 Cluster 可重复、仅活跃（R-IP-001~003 + R-DELETE-006）。
 12. `users.username` —— `NOT NULL` + `UNIQUE`；`password_hash` —— `NOT NULL`（ADR-0005）。
@@ -886,5 +880,5 @@ UNCONFIRMED 关系（VM→BareMetal、Container→载体）不得在 API 层被�
 8. **会话过期时间与是否滑动续期**未由 ADR-0005 确定（留给实现阶段并需记录）→ 影响是否使用 `sessions.last_seen_at`（已按 PROPOSED 保留为可空列）。
 9. **`created_by` / `updated_by` / `version` / `audit_log`** 当前无需求依据 → 不引入；若未来需要审计，属新产品需求。
 10. **`NULLS NOT DISTINCT`** 在本设计下为 no-op（被索引列全为 NOT NULL），已明确不添加；若未来引入可空唯一列需重新评估。
-11. **【需产品方裁定】`IPAddress → NetworkInterface` 必选性的文档冲突** —— `domain-model.yaml` 记为 `binding_state: CONFIRMED` / `mandatory: true`，而 `requirements.md` §15 明确说「具体关系是否 Mandatory / Optional …必须以对应 Product Feature 的确认结果为准」。两者同属 `docs/product/`（同一优先级层），存在轻微张力。当前按 `domain-model.yaml` 落地为 `NOT NULL`。若产品方裁定为 Optional，需改为可空列并重新评估 `R-IP-001`「同 Cluster IP 唯一」的适用边界。
-12. **NIC 枚举是封闭集合，但 R-NIC-001 / R-NIC-002 的措辞是「至少能够表达」** —— 当前 `CHECK` 将 `technology_type` / `purpose` 固定为文档列出的取值。新增技术类型或用途需一次 migration。若产品方希望该集合可扩展，应明确「受控枚举」（同 R-BM-003 对状态集合的处理方式）并记录变更流程；当前按 `domain-model.yaml` 的显式 `enum` 落地，视为受控枚举。
+11. ~~**【需产品方裁定】`IPAddress → NetworkInterface` 必选性的文档冲突**~~ → **✅ 已裁定（2026-09-15）**：用户确认 IP 必须绑定在 NetworkInterface 上，关系为 **Mandatory**。`NOT NULL` 保留，**DDL 不变**。`requirements.md` §15 与 `domain-model.yaml` 已同步，冲突消除。
+12. ~~**NIC 枚举是封闭集合，但 R-NIC-001 / R-NIC-002 的措辞是「至少能够表达」**~~ → **✅ 已裁定（2026-09-15）**：用户明确 `technology_type` 即为 **Ethernet / InfiniBand / RoCE / Other 四种**，`purpose` 同属封闭集合。原文「至少能够表达」现解释为「内部枚举固定」。**`CHECK` 约束保留，DDL 不变。** 新增取值须重新走需求确认流程（同 R-BM-003）。

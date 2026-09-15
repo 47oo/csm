@@ -19,6 +19,11 @@
 >   - **OPEN-005 关闭**：Excel 批量导入采用 **All-or-Nothing**，不采用 Partial Success；固化为 R-IMPORT-004（§18）。
 >   - 决策来源：`docs/architecture/csm-v1-foundation-architecture.md` BQ-3。
 >
+> - **2026-09-15 — 数据库阶段产品裁定（消歧）**
+>   - **`IPAddress → NetworkInterface` 关系必选**：IP 地址**必须**绑定在 NetworkInterface 上，该关系为 **Mandatory**（N:1）。此裁定解决了一项文档歧义：`domain-model.yaml` 原已记为 `binding_state: CONFIRMED` / `mandatory: true`，而 §15 写的是「必选性须由对应 Feature 确认」。**以本次用户裁定为准，§15 的「须由 Feature 确认」不再适用于该关系。** 受影响规则：R-IP-001 ~ R-IP-003。
+>   - **NIC 枚举为封闭集合（受控枚举）**：R-NIC-001 的 `technology_type` 即为 **Ethernet / InfiniBand / RoCE / Other 四种，无其他取值**；R-NIC-002 的 `purpose` 同属封闭集合。原文「至少能够表达」现解释为「内部枚举固定，中文展示可另定」，而非「允许任意扩展」。新增取值须重新走需求确认流程（同 R-BM-003 对状态集合的处理）。
+>   - 决策来源：用户 2026-09-15 对 `docs/database/csm-v1-schema-design.md` Open Questions #11 / #12 的裁定。
+>
 > 本文件为 CSM V1 的 Primary Requirements Source；与 `docs/product/domain-model.md` 的同步另行维护，冲突优先级见 `AGENTS.md` §3。
 
 ---
@@ -382,12 +387,18 @@ NetworkInterface 表示资源上的网络接口。
 
 `technology_type`
 
-技术类型至少能够表达：
+技术类型为**封闭集合**，取值为：
 
 * Ethernet；
 * InfiniBand；
 * RoCE；
 * Other。
+
+**该集合无其他取值**（2026-09-15 用户裁定）。原文「至少能够表达」理解为「内部枚举固定」，而非允许任意扩展。新增技术类型须先经需求确认。
+
+中文展示可以根据 UI 规范确定。
+
+内部枚举应保持稳定。
 
 ---
 
@@ -397,7 +408,7 @@ NetworkInterface 表示资源上的网络接口。
 
 `purpose`
 
-用途至少能够表达：
+用途为**封闭集合**，取值为：
 
 * BMC；
 * Management；
@@ -410,6 +421,8 @@ NetworkInterface 表示资源上的网络接口。
 中文展示可以根据 UI 规范确定。
 
 内部枚举应保持稳定。
+
+同 R-NIC-001，该集合无其他取值，新增取值须先经需求确认。
 
 ---
 
@@ -648,7 +661,9 @@ Service
 
 其中 Service 的运行载体绑定为**必选**（R-SVC-005）；Service 与 Cluster 的关联由载体归属推导（R-SVC-006）。
 
-具体关系是否：
+`IPAddress` 对 `NetworkInterface` 的绑定为**必选**（Mandatory）：IP 地址必须绑定在网络接口上。该关系已于 2026-09-15 由用户明确裁定，见顶部变更记录。
+
+对于其他关系，具体是否：
 
 * Mandatory；
 * Optional；
