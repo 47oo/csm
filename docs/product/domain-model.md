@@ -153,22 +153,28 @@ Cluster、VirtualMachine、Container、Service、NetworkInterface、IPAddress �
 
 虚拟机属于第一版资源范围。
 
-虚拟机绑定到裸金属（必选）。
+虚拟机与物理宿主（裸金属）之间的关系模型应能够表达实际运行位置。
+
+该关系的**强制性与生命周期规则尚未确认**，必须在 VirtualMachine Feature 的 Product 阶段确定（`requirements.md` R-VM-003）。
+
+在此之前**不得默认其为必选**。
+
+登记字段：尚未确认（`requirements.md` OPEN-001）。
 
 ### 5.4 容器 Container
 
 容器属于第一版资源范围。
 
-容器绑定到：
+容器的运行载体可以是：
 
 * 虚拟机；
 * 裸金属。
 
-容器的运行载体可以是虚拟机或裸金属，绑定为必选。
+**登记粒度、绑定强制性与生命周期尚未确认**，必须在 Container Feature 的 Product 阶段确定（`requirements.md` §10、OPEN-002）。
 
-登记字段：
+在此之前**不得默认绑定为必选**。
 
-* 绑定的载体。
+登记字段：绑定的载体（最终字段范围待 Container Feature 确认）。
 
 ### 5.5 服务 Service
 

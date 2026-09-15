@@ -485,7 +485,7 @@ decisions_required:
     status: RESOLVED
     resolution: >
       RESOLVED（2026-09-15）：Rack / U 位已从 V1 产品范围删除（requirements.md §13 改为「V1 不管理 Rack 与 U 位」，
-      原 R-RACK-001 ~ R-RACK-004 全部删除）。对应 Feature F003 一并删除。
+      原 4 条 Rack 规则（R-RACK 序列）全部删除）。对应 Feature F003 一并删除。
 
   - id: DEC-003
     question: >

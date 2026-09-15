@@ -8,7 +8,7 @@
 > 变更记录：
 >
 > - **2026-09-15 — 依用户明确决策修订基线**
->   - 移除 **Rack / U 位**：删除原 R-RACK-001 ~ R-RACK-004，影响 §2、§5、§13、§16、§18、§21、§25、§26。
+>   - 移除 **Rack / U 位**：删除原 4 条 Rack 规则（R-RACK 序列），影响 §2、§5、§13、§16、§18、§21、§25、§26。
 >   - 新增 **R-CLUSTER-005**：Cluster 名称不得包含 `/`（§7）。
 >   - 新增 **R-SVC-005 / R-SVC-006**：Service 必选绑定运行载体，Cluster 关联由载体归属推导（§14、§15）。
 >   - 澄清 **Q-002=B**：仅 BareMetal 拥有状态；VirtualMachine / Container / Service / NetworkInterface / IPAddress 在 V1 不设状态。
@@ -485,7 +485,7 @@ cluster + ip_address
 
 CSM V1 **不管理 Rack 与 U 位**。
 
-原 R-RACK-001 ~ R-RACK-004（Rack 登记、BareMetal 的 Rack / U Position、同一 Rack 内 U 位冲突硬阻断、多 U 范围表达）已于 2026-09-15 依用户明确决策从 V1 范围移除，**不再作为 V1 产品规则**。
+原 4 条 Rack 规则（R-RACK 序列，已全部删除）涵盖：Rack 登记、BareMetal 的 Rack / U Position、同一 Rack 内 U 位冲突硬阻断、多 U 范围表达。该内容已于 2026-09-15 依用户明确决策从 V1 范围移除，**不再作为 V1 产品规则**。
 
 因此：
 
