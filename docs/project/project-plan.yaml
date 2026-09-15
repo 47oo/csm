@@ -256,16 +256,16 @@ features:
     name: Cluster 登记与管理
     epic: E01
     priority: P0
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F012]
     blocking: []
     git:
       base_branch: develop
       branch: feature/F001-cluster
       start_commit: 7a99745fbd2c03497a4377d4086f2b3dae30f27a
-      head_commit: 7a99745fbd2c03497a4377d4086f2b3dae30f27a
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: fe36e1ab80d99eaec15afd6464413a4fc9633075
+      merge_commit: 5a96ad0c4c7c749a4b6df65cde84b491e3545c6c
+    current_stage: null
     layers:
       database: false     # 无 Schema 变更 / 索引 / migration；clusters 表与约束由 F012 基线提供且冻结
       backend: true       # Cluster 模块（5 端点）+ 彻底移除 /_foundation/*
@@ -278,7 +278,7 @@ features:
       backend: COMPLETE           # cb7f992
       frontend: COMPLETE          # cb7f992
       test: COMPLETE           # 报告见 docs/test-reports/f001-cluster.md
-      review: PENDING
+      review: APPROVED_WITH_FOLLOW_UP   # merge 5a96ad0
     product_document: docs/product/requirements.md
     requirements:
       - R-CLUSTER-001
@@ -954,15 +954,15 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F001, F013, F014]
+  ready_features: [F013, F014]
   blocked_draft_features:
     BLOCKED: [F004, F005, F009, F010, F011, F015]
     DRAFT: [F002, F006, F007, F008]
   counts:
-    READY: 3
+    READY: 2
     BLOCKED: 6
     DRAFT: 4
-    DONE: 1
+    DONE: 2
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -982,11 +982,15 @@ planning_status:
       77 文件 / +6999 行经完整差异 Review。验收：真实 PostgreSQL 16 下后端 38 passed、前端 32 passed 且构建成功、
       ruff 与 alembic check 干净；两处最难回退的语义（大小写敏感唯一性、软删释放唯一性）由**绕过应用层**的
       直接数据库断言固定。F001 / F013 / F014 因此解锁。
-  ready_rationale:
     F001: >
-      依赖 F012 已 DONE；无未解决产品问题（DEC-001 / DEC-007 已 RESOLVED，R-CLUSTER-005 为 CONFIRMED）；
-      架构与数据库设计均已 READY，且 clusters 表与 CHECK / partial unique index 已随 F012 基线落地
-      （F001 不新建表）。AC 可定稿 → READY。
+      base 7a99745 → head fe36e1a → merge 5a96ad0（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；45 文件经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 下后端 77 passed、前端 56 passed、构建成功、ruff 干净、alembic check 无 drift；
+      我另用 HTTP 逐条驱动 5 个端点核对契约（含大小写敏感、中文往返、409/400/404 语义、PATCH 释放旧名、
+      PATCH 改自身名返回 200、/_foundation/* 全 404）。
+      **关键否定性交付**：F001 内 deleted_at 写入路径数 = 0（无删除端点）；/_foundation/* 彻底移除，
+      同时消解 F012 Review 的 F-03（fail-open MEDIUM）。R-CLUSTER-004 未在 F001 强行构造任何结构。
+  ready_rationale:
     F013: >
       依赖 F012 已 DONE；架构决策 DEC-009 / DEC-013 已 RESOLVED（ADR-0001 / ADR-0005 ACCEPTED），
       认证机制（服务端会话 + HttpOnly Cookie + Argon2id）已批准；无未解决产品问题 → READY。
@@ -1017,7 +1021,43 @@ planning_status:
     3 个 Feature（F001 / F013 / F014）依赖已满足，成为 READY。
     6 个 Feature（F004/F005/F009/F010/F011/F015）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
     4 个 Feature（F002/F006/F007/F008）仍存在影响自身 scope/AC 定稿的 Feature 级产品问题（DRAFT）。
+    F001（Cluster 登记与管理）已 DONE 并合入 develop，Cluster 成为真实资源：5 个端点、
+    **无删除端点**、`backend/app/**` 中 `deleted_at` 写入路径数 = 0、`/_foundation/*` 彻底移除。
+    2 个 Feature（F013 / F014）依赖已满足，保持 READY；F002 因产品问题 OPEN-004 仍为 DRAFT，
+    故 F009（依赖 F001/F002）仍 BLOCKED。
   follow_ups:
+    from_f001_review:
+      report: docs/reviews/f001-cluster.md
+      open:
+        - id: REV-1
+          severity: LOW
+          owner: Backend
+          summary: >
+            结构 guard G1 只检查字段 metadata 与 config 的 strip/lower/upper，不检查 model_config 中的
+            str_max_length / str_min_length，可静默引入「长度」这一 undefined_constraint。
+          建议时点: 不晚于 F011（Excel 导入复用同一 schema）前。
+        - id: REV-2
+          severity: LOW
+          owner: Backend
+          summary: >
+            A15 静态 guard 只匹配 `.deleted_at =`，不覆盖 `values(deleted_at=...)` / dict 键 / setattr 形式。
+            当前实际赋值数为 0，无现行违约。
+          建议时点: F014 落地前（F014 本就要重写该 guard 以允许统一软删服务模块）。
+        - id: F-01
+          severity: LOW
+          owner: Backend
+          summary: >
+            未映射的 4xx（如 405）被标为 INTERNAL_ERROR，前端会误渲染为「服务器内部错误」。
+            架构 Handoff 明确 F001 不修改通用映射表（超出产品范围）。
+          继承自: F012
+      resolved:
+        - id: REV-3
+          summary: project-plan 的 head_commit / implementation 标注陈旧；已在本状态提交中修正为 head fe36e1a、merge 5a96ad0。
+        - id: F-03
+          summary: >
+            F012 Review 的 MEDIUM「自检面 fail-open」已由 F001 彻底移除 /_foundation/* 而**消解**
+            （模块、挂载、foundation_enabled 开关、dev proxy、前端自检页全部删除）。
+
     from_f012_review:
       report: docs/reviews/f012-project-foundation.md
       open:
@@ -1056,11 +1096,11 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F012 DONE, NEXT READY = F001
+  decision: PROJECT IN PROGRESS — F012/F001 DONE, NEXT READY = F013 / F014
 
 execution:
-  current_feature: F001
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   started_on: "2026-09-15"
   note: >
     F012「项目基础框架与运行环境」已完成并合入 develop（merge 3b8646c），当前无进行中的 Feature。
