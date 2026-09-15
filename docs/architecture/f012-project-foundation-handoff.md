@@ -279,9 +279,9 @@ Testing Agent 应验证（**最小集合**，F012 范围）：
 
 ## Risks
 
-1. **`/_foundation` 自检面被误当作产品契约长期保留**（中）：它触碰 `clusters` 载体表。缓解：显式标注非产品、生产不挂载、F001 落地后移除或降为测试夹具；T13 guard 测试。
+1. ~~**`/_foundation` 自检面被误当作产品契约长期保留**（中）~~ → **✅ RESOLVED（2026-09-15，F001 裁定）**：F001 选择**彻底删除**该面（非降级为夹具），见 `docs/architecture/f001-cluster-handoff.md` 核心问题 2。同时消解 F-03。原缓解措施（显式标注非产品 / 生产不挂载 / T13 guard）已由更强的断言取代：任何配置下均 404 + 源码中不存在 `_foundation`。
 2. **collation 依赖部署 locale**（中高，继承架构 Risk #1）：缓解同 Q5（固定 locale + 直接 SQL 回归断言 + F015 文档）。
-3. **非产品自检面的 `simulate` / 删除动作被误解为 F014 软删除语义**（低）：缓解：命名与文档明确「fixture-only」，不实现父删子拦。
+3. ~~**非产品自检面的 `simulate` / 删除动作被误解为 F014 软删除语义**（低）~~ → **✅ RESOLVED**：该面已由 F001 彻底删除，其 `soft_delete` 实现随之消失，不存在被误用的接缝。
 4. **F012 未贯通 HTTP 写路径会掩盖链路问题**（低）：已通过自检面 + 集成测试缓解；若采用者选择移除自检面，则该风险上升，需在 F001 首次贯通时重点验证。
 
 ## Constraints
@@ -305,7 +305,7 @@ Testing Agent 应验证（**最小集合**，F012 范围）：
 ### Non-blocking
 
 1. **`/api/health` 的认证豁免**（PROPOSED）：需在 F013 实现时确认白名单成员；备选是把健康检查另挂到 `/api` 外路径。不影响 F012。
-2. **`/_foundation` 自检面的最终形态与移除时点**：由 F001 Architecture Handoff 决定移除 / 降为测试夹具。
+2. ~~**`/_foundation` 自检面的最终形态与移除时点**~~ → **✅ RESOLVED**：由 F001 Architecture Handoff 裁定为「彻底删除」，已随 F001 交付。
 3. **`page_size` 上限具体值**（PROPOSED 200）。
 4. **dev 数据库 provisioning 是否提供 compose 片段**：F012 可选，不得演变为 F015 的生产 compose。
 5. **前端组件库最终选型**（组织若有标准可替换 Element Plus）。
