@@ -1,7 +1,8 @@
 """FastAPI 应用工厂。
 
 组装：配置 → 引擎 / 会话工厂 → 错误处理 → 路由。
-非产品自检面 ``/_foundation/*`` 仅在 dev / test 挂载。
+
+F001 已彻底移除 F012 的非产品自检面；应用只暴露 ``/api`` 下的产品面。
 """
 
 from __future__ import annotations
@@ -12,10 +13,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api import health as health_api
+from app.clusters.router import router as clusters_router
 from app.common.error_handlers import register_error_handlers
 from app.config import Settings, get_settings
 from app.db.session import create_db_engine, create_session_factory
-from app.foundation.router import router as foundation_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -36,12 +37,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     register_error_handlers(app)
 
-    # 产品 API 面（F012 仅 health）。
+    # 产品 API 面：health + clusters。全部位于 /api 前缀下。
     app.include_router(health_api.router, prefix="/api")
-
-    # 非产品自检面：仅 dev / test；生产配置下不注册（404）。
-    if settings.foundation_enabled:
-        app.include_router(foundation_router)
+    app.include_router(clusters_router, prefix="/api")
 
     return app
 

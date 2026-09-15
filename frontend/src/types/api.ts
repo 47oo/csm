@@ -4,7 +4,7 @@
  * 依据（单一权威来源，代码中不得另立约定）：
  * - docs/api/api-conventions.md —— 错误信封（§5）、状态码与 error.code（§6）、
  *   分页信封（§3）、Empty / Not Found 语义（§7）；
- * - docs/api/f012-project-foundation.md —— F012 契约（含非产品自检面 §4）。
+ * - 各资源契约（如 docs/api/f001-cluster.md）在通用规范上的具体化。
  */
 
 /** 后端统一错误信封中的稳定错误码（api-conventions.md §6）。 */
@@ -57,8 +57,8 @@ export interface Paginated<T> {
 }
 
 /**
- * 分页查询参数（api-conventions.md §3）。
- * F012 契约 §4.2：page 从 1 起（默认 1）；page_size 默认 50，上限 200；
+ * 分页查询参数（api-conventions.md §3；f001-cluster.md §3.2）。
+ * page 从 1 起（默认 1）；page_size 默认 50、上限 200；
  * 非法值由后端返回 400 VALIDATION_ERROR（不在前端自行猜测规则）。
  */
 export type PageParams = {
