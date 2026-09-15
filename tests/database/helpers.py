@@ -17,11 +17,37 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 MIGRATION_HEAD = "0001_f012_baseline"
 
-SKIP_REASON = "未配置 PostgreSQL 测试库：设置 CSM_TEST_DATABASE_URL（或 CSM_DATABASE_URL）后重跑。"
+SKIP_REASON = "未配置 PostgreSQL 测试库：设置 CSM_TEST_DATABASE_URL 后重跑。"
+
+
+#: 破坏性 reset 的显式豁免开关。仅供一次性容器 / CI 等确知可丢弃的库使用。
+DESTRUCTIVE_RESET_OPT_IN = "CSM_ALLOW_DESTRUCTIVE_TEST_RESET"
 
 
 def get_dsn() -> str | None:
-    return os.environ.get("CSM_TEST_DATABASE_URL") or os.environ.get("CSM_DATABASE_URL")
+    """返回**显式**测试库 DSN。
+
+    刻意**不**回退到 ``CSM_DATABASE_URL``：``reset_schema`` 会执行
+    ``DROP SCHEMA ... CASCADE``，一旦回退到开发库或真实库就会造成不可恢复的
+    数据丢失（``AGENTS.md`` §6）。测试库必须由使用者显式指定。
+    """
+    return os.environ.get("CSM_TEST_DATABASE_URL")
+
+
+def assert_safe_to_reset(dsn: str) -> None:
+    """防御性检查：拒绝对疑似非测试库执行破坏性 reset。
+
+    纵深防御 —— 即使调用方错误地传入了应用库 DSN，也在 ``DROP`` 之前终止。
+    """
+    if os.environ.get(DESTRUCTIVE_RESET_OPT_IN) == "1":
+        return
+    app_dsn = os.environ.get("CSM_DATABASE_URL")
+    if app_dsn and dsn == app_dsn:
+        raise AssertionError(
+            "拒绝对 CSM_DATABASE_URL 指向的库执行 DROP SCHEMA（可能造成不可恢复的数据丢失）。"
+            "请设置独立的 CSM_TEST_DATABASE_URL；"
+            f"确需在可丢弃的库上执行时，设置 {DESTRUCTIVE_RESET_OPT_IN}=1。"
+        )
 
 
 def require_dsn() -> str:
@@ -71,6 +97,7 @@ def alembic_current(dsn: str) -> str | None:
 
 
 def reset_schema(dsn: str) -> Engine:
+    assert_safe_to_reset(dsn)
     engine = create_engine(dsn)
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
