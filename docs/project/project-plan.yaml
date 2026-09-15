@@ -199,7 +199,7 @@ features:
       start_commit: 6e7338c49d341664e7bd1ee914042b193a2cfe43
       head_commit: 6e7338c49d341664e7bd1ee914042b193a2cfe43
       merge_commit: null
-    current_stage: PRODUCT
+    current_stage: ARCHITECTURE
     layers: {}          # 待 Stage 2/3 依已批准 Architecture Handoff 判定
     contract: {}
     implementation: {}
@@ -1110,7 +1110,7 @@ planning_status:
 
 execution:
   current_feature: F013
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   started_on: "2026-09-15"
   note: >
     F012「项目基础框架与运行环境」已完成并合入 develop（merge 3b8646c），当前无进行中的 Feature。
