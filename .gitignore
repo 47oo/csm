@@ -1,0 +1,153 @@
+# ============================================================
+# CSM .gitignore
+#
+# 首要目标：防止密码、密钥、Token 等敏感信息被提交。
+# 如新增配置类文件，请先确认不包含真实凭据，再决定是否放行。
+# ============================================================
+
+# ----------------------------
+# 敏感信息与凭据（最高优先级）
+# ----------------------------
+
+# 环境变量文件：可能包含数据库密码、API Key 等
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.env.local
+
+# 应用与框架配置文件中的本地覆盖
+config.local.*
+*.local.yml
+*.local.yaml
+*.local.toml
+*.local.json
+local.settings.json
+
+# 凭据 / 密钥 / 证书
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.ppk
+id_rsa
+id_rsa_*
+id_ed25519
+id_ed25519_*
+
+# 云服务与命令行凭据
+.aws/
+.azure/
+.gcloud/
+.kube/
+kubeconfig
+*.kubeconfig
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# 凭据缓存与 Token
+.netrc
+.authinfo
+.docker/config.json
+.npmrc
+.pypirc
+pip.conf
+credentials.json
+service-account*.json
+*-service-account.json
+
+# 应用运行期敏感文件
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+
+# ----------------------------
+# 通用依赖与构建产物
+# ----------------------------
+
+# Node / 前端
+node_modules/
+.pnpm-store/
+.yarn/
+dist/
+build/
+out/
+coverage/
+*.tsbuildinfo
+.vite/
+.next/
+.nuxt/
+.cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# Java / JVM
+target/
+*.class
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+.gradle/
+*.log.*
+
+# Go
+/bin/
+*.test
+*.out
+
+# Rust
+target/
+Cargo.lock.orig
+
+# ----------------------------
+# 日志与临时文件
+# ----------------------------
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ----------------------------
+# 编辑器 / IDE
+# ----------------------------
+.idea/
+*.iml
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+# ----------------------------
+# Pi 本地状态
+# 仅忽略本地运行时产物，保留 .pi/agents、.pi/skills、
+# .pi/prompts、.pi/extensions 等需纳入版本控制的内容。
+# ----------------------------
+.pi/sessions/
+.pi/cache/
+.pi/tmp/
+.pi/*.local.*
