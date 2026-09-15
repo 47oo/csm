@@ -1,0 +1,27 @@
+/* 全局基础样式（Element Plus 之外不引入任何 CSS 框架）。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    'Helvetica Neue',
+    Helvetica,
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    '微软雅黑',
+    Arial,
+    sans-serif;
+  background-color: #f5f7fa;
+  color: #303133;
+  -webkit-font-smoothing: antialiased;
+}

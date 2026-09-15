@@ -1,0 +1,36 @@
+# ============================================================================
+# CSM 本地开发用 PostgreSQL（仅 dev / test）
+#
+# ⚠️ 这不是 F015 的生产交付物。
+#    生产部署形态（独立内网虚拟机 + nginx + 应用 + PostgreSQL + locale 文档）
+#    属 F015。本文件只提供「30 分钟内可启动」所需的本地数据库。
+#
+# 关键点：显式固定 locale / encoding，避免镜像默认值漂移导致「大小写敏感」
+# 与中文排序语义被静默改变（ADR-0002 裁定 1 / 架构 Risk #1）。
+# ============================================================================
+name: csm-dev
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: csm-dev-postgres
+    environment:
+      POSTGRES_USER: csm
+      POSTGRES_PASSWORD: csm
+      POSTGRES_DB: csm
+      # UTF8 + 大小写敏感的 locale（C.UTF-8）。
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    ports:
+      - "5432:5432"
+    volumes:
+      - csm-dev-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U csm -d csm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  csm-dev-pgdata:
