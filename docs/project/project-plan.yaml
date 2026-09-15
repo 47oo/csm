@@ -158,7 +158,7 @@ features:
       start_commit: 2c2a7531fa1dfe9e9f6205ff49a15c7cadcd01da
       head_commit: 2c2a7531fa1dfe9e9f6205ff49a15c7cadcd01da
       merge_commit: null
-    current_stage: PRODUCT
+    current_stage: ARCHITECTURE
     layers:
       database: true      # 基线 migration（clusters 表 + CHECK + partial unique index）
       backend: true       # FastAPI 骨架、health、统一错误信封、通用校验基座
@@ -975,7 +975,7 @@ planning_status:
 
 execution:
   current_feature: F012
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   started_on: "2026-09-15"
   note: >
     F012「项目基础框架与运行环境」已启动。Git Preflight 于 2026-09-15 通过
