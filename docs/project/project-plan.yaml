@@ -190,7 +190,7 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: IN_PROGRESS
+    status: IN_REVIEW
     depends_on: [F012]
     blocking: []
     git:
@@ -199,7 +199,7 @@ features:
       start_commit: 6e7338c49d341664e7bd1ee914042b193a2cfe43
       head_commit: 6e7338c49d341664e7bd1ee914042b193a2cfe43
       merge_commit: null
-    current_stage: IMPLEMENTATION
+    current_stage: TEST
     layers:
       database: true      # 增量 migration 0002_f013_auth（users / sessions）；不改基线
       backend: true       # app/auth/ 模块 + AuthMiddleware（fail-closed）+ CLI + 既有测试调整
@@ -209,8 +209,8 @@ features:
       doc: docs/api/f013-auth.md
     implementation:
       database_design: COMPLETE   # docs/database/csm-v1-schema-design.md 的 users / sessions 已 READY
-      backend: PENDING
-      frontend: PENDING
+      backend: COMPLETE           # 见下
+      frontend: COMPLETE          # 见下
       test: PENDING
       review: PENDING
     product_document: docs/product/requirements.md
@@ -1158,7 +1158,7 @@ planning_status:
 
 execution:
   current_feature: F013
-  current_stage: IMPLEMENTATION
+  current_stage: TEST
   started_on: "2026-09-15"
   note: >
     F012「项目基础框架与运行环境」已完成并合入 develop（merge 3b8646c），当前无进行中的 Feature。
