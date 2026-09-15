@@ -26,7 +26,7 @@ project:
     提供统一、清晰、可查询、可维护的资源事实库（资源登记、查询、关系维护、
     状态维护、网络地址管理、虚拟资源管理、服务资源管理、批量数据导入）。
     CSM V1 不是完整 CMDB。
-  status: ACCEPTED
+  status: IN_PROGRESS
   approved_by: user
   approved_on: "2026-09-15"
   approval_note: >
@@ -149,9 +149,29 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: READY
+    status: IN_REVIEW
     depends_on: []
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F012-project-foundation
+      start_commit: 2c2a7531fa1dfe9e9f6205ff49a15c7cadcd01da
+      head_commit: 2c2a7531fa1dfe9e9f6205ff49a15c7cadcd01da
+      merge_commit: null
+    current_stage: REVIEW
+    layers:
+      database: true      # 基线 migration（clusters 表 + CHECK + partial unique index）
+      backend: true       # FastAPI 骨架、health、统一错误信封、通用校验基座
+      frontend: true      # Vue 骨架，列表 Loading / Empty / Error 三态
+    contract:
+      status: READY
+      doc: docs/api/f012-project-foundation.md
+    implementation:
+      database_design: COMPLETE   # docs/database/f012-baseline-migration.md
+      backend: COMPLETE           # 9764326
+      frontend: COMPLETE          # 9764326
+      test: COMPLETE           # dbff989
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - "§4 Resource 概念（仅分类体系，不产生数据库继承）"
@@ -952,3 +972,14 @@ planning_status:
     9 个 Feature（F001/F004/F005/F009/F010/F011/F013/F014/F015）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
     4 个 Feature（F002/F006/F007/F008）仍存在影响自身 scope/AC 定稿的 Feature 级产品问题（DRAFT）。
   decision: PROJECT PLAN ACCEPTED
+
+execution:
+  current_feature: F012
+  current_stage: REVIEW
+  started_on: "2026-09-15"
+  note: >
+    F012「项目基础框架与运行环境」已启动。Git Preflight 于 2026-09-15 通过
+    （工作区 clean、无未跟踪文件、无进行中的 merge/rebase、HEAD 非 detached）。
+    develop 分支由用户授权后自 main 创建，Feature 分支自 develop 创建。
+    数据库设计已在全局阶段完成（docs/database/），F012 基线 migration 规格见
+    docs/database/f012-baseline-migration.md。

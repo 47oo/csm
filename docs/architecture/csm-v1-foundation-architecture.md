@@ -42,7 +42,7 @@
 
 1. **单体分层应用**：HTTP 层 → 校验层 → 领域服务层 → 数据访问层 → 关系数据库。每类资源是**独立模块 + 独立表**，无通用 `resources` 表、无 ORM 多态继承、无 EAV、无 JSONB 万能模型。
 2. **技术栈（已批准）**：Python + FastAPI + Pydantic + SQLAlchemy 2.x + Alembic；Vue 3 + TypeScript + Vite + Element Plus；PostgreSQL；部署打包采用 **docker-compose**（nginx + 应用 + PostgreSQL）。
-3. **唯一性双要点**在数据库层同时成立：大小写敏感由显式 collation 保证；「已删不占唯一性」由 partial unique index（`WHERE deleted_at IS NULL`）保证。
+3. **唯一性双要点**在数据库层同时成立：大小写敏感由**数据库默认 collation**（PostgreSQL 下等值比较已大小写敏感，不声明 `COLLATE`）保证；「已删不占唯一性」由 partial unique index（`WHERE deleted_at IS NULL`）保证。
 4. **标识与寻址**：所有资源使用不可变代理主键 `id`；Cluster 额外提供**名称寻址的只读路径别名**以尊重 R-CLUSTER-005 的产品意图。
 5. **软删除**：`deleted_at TIMESTAMPTZ NULL` 单一机制贯穿所有资源表；父删子拦、不级联由领域服务在同一事务内加行锁保证。
 6. **认证**：服务端会话（DB 会话表 + HttpOnly Cookie）+ Argon2id 口令哈希；V1 仅「已认证 / 未认证」两种边界，不做 RBAC。
@@ -335,11 +335,13 @@ Tester → Reviewer（按 Feature 逐个走 Git Gate；DONE 判定见 git-workfl
 
 **1. 大小写敏感 —— 由 collation 保证，不能由应用逻辑保证**
 
-- 标识列（或唯一索引）显式声明大小写敏感的确定性 collation，使 `cluster-a` ≠ `Cluster-A`。
+- 标识列（或唯一索引）的**等值比较必须大小写敏感**，使 `cluster-a` ≠ `Cluster-A`。
 - 反面教材：MySQL 8 默认 `utf8mb4_0900_ai_ci` 与 SQL Server 默认 collation 都大小写不敏感；沿用默认会**静默违反 R-CLUSTER-002 与 §22**。
 - 不得使用 `lower(name)` 上的唯一索引 —— 那等于把规则改成大小写不敏感。
 
-> **核验补充（协调器）**：PostgreSQL 的 `text` 等值比较在标准 locale 下**本身已是大小写敏感**（`'a' = 'A'` 为 false），与 MySQL 的 `ai_ci` 默认不同。因此「显式 collation」的价值是**显式化、与 locale 无关、跨环境可复现**，而不是 PG 缺省行为不正确。需要注意的副作用是：若选用 `COLLATE "C"`，排序将按 UTF-8 码点而非拼音，中文列表排序语义会变化。是否强制显式 collation、以及选哪个，请一并确认（详见 ADR-0002 §Decision 2）。
+> **已裁定（2026-09-15，ADR-0002）**：采用 **PostgreSQL 默认 collation**，**不**声明 `COLLATE "C"`，也不写任何列级 / 索引级 collation。PostgreSQL 的 `text` 等值比较在标准 locale 下**本身已是大小写敏感**（`'a' = 'A'` 为 false），与 MySQL 的 `ai_ci` 默认不同。
+>
+> 因此本机制**依赖部署环境的 locale**：必须用大小写敏感的 locale 初始化数据库，并**以绕过应用层、直接对数据库插入的测试固定该事实**（见 `docs/database/csm-v1-schema-design.md` 决策 1 与 Verification #1）。若选用 `COLLATE "C"`，排序会按 UTF-8 码点而非拼音；已裁定不采用，因为等值比较本就正确，而码点排序会改变中文列表排序语义。
 
 **2. 已删不占唯一性 —— 由 partial unique index 的 predicate 保证**
 
