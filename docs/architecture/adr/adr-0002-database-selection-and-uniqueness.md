@@ -2,7 +2,14 @@
 
 ## Status
 
-`PROPOSED`（等待用户批准；批准前不得视为已确定）
+`ACCEPTED`（2026-09-15 用户批准）
+
+**决策记录**：用户于 2026-09-15 批准 DEC-010（PostgreSQL），并裁定本 ADR 的两个原开放子项：
+
+- **collation 策略 → 选项 1**：使用数据库默认 collation（PostgreSQL 下等值比较已大小写敏感），**不**使用 `COLLATE "C"`；以自动化测试固定该事实。
+- **`ip_address.cluster_id` 一致性 → 受控写入路径 + 一致性测试**：不引入逐级复合外键，也不使用数据库触发器。
+
+规模假设已由用户确认：**资源总量约 10⁵（10 万级），并发用户约 50**。
 
 ## Context
 
@@ -19,7 +26,7 @@ V1 有三条必须在**数据库层真实成立**、且不得被默认配置静�
 ## Decision
 
 1. 采用 **PostgreSQL** 作为关系数据库，字符集 UTF-8。
-2. 所有标识列显式声明大小写敏感的**确定性** collation，不依赖数据库实例或列的默认 collation。
+2. 所有标识列的**等值比较必须大小写敏感**。采用 **PostgreSQL 默认 collation**（PG 的 `text` 等值比较在标准 locale 下已大小写敏感），**不**强制 `COLLATE "C"`。以自动化测试固定该事实，防止未来 locale 变更或数据库升级静默改变语义（见下方「已裁定的子项 1」）。
 3. 唯一性一律表达为 **partial unique index**：
 
    ```sql
@@ -34,40 +41,45 @@ V1 有三条必须在**数据库层真实成立**、且不得被默认配置静�
      ON ip_address (cluster_id, ip_address) WHERE deleted_at IS NULL;
    ```
 
-4. `ip_address` 持久化 `cluster_id`（由后端从 IPAddress → NetworkInterface → BareMetal → Cluster 推导写入），并提供一致性保障机制，使「同 Cluster IP 唯一」可被数据库直接约束。
+4. `ip_address` 持久化 `cluster_id`（由后端从 IPAddress → NetworkInterface → BareMetal → Cluster 推导写入），并采用**受控写入路径 + 一致性测试**保证其与链路上游一致，使「同 Cluster IP 唯一」可被数据库直接约束（见下方「已裁定的子项 2」）。
 5. `bare_metal.status` 为 `NOT NULL DEFAULT 'IDLE'` + CHECK 约束，取值限定 `IDLE` / `ALLOC` / `DOWN` / `UNKNOWN`。**不建立通用 status 表**。
 6. 迁移采用版本化、向前、随代码提交的方式（Alembic）；F012 建立基线迁移；破坏性变更须单独说明回滚策略并经用户确认（`AGENTS.md` §6）。
 
-## 待用户确认的子项（本 ADR 中的开放点）
+## 已裁定的子项
 
-**1. collation 策略**
+### 1. collation 策略 → 选项 1（使用默认 collation）
 
-`requirements.md` 只规定「比较区分大小写」，没有规定使用哪个 collation。补充事实：
+`requirements.md` 只规定「比较区分大小写」，没有规定使用哪个 collation。
 
 - **PostgreSQL 的 `text` 等值比较在标准 locale 下本身已是大小写敏感**（`'a' = 'A'` 为 false），这与 MySQL 的 `utf8mb4_0900_ai_ci` 默认**不同**。
 - 因此「显式声明 collation」的价值是**显式化、与 locale 无关、跨环境可复现**，而不是修正 PostgreSQL 的错误缺省行为。
-- 副作用：若选用 `COLLATE "C"`，排序按 UTF-8 码点而非拼音，中文列表排序语义会变化（等值比较仍正确）。
+- 副作用：`COLLATE "C"` 会让排序按 UTF-8 码点而非拼音，中文列表排序语义会变化（等值比较仍正确）。
 
-需在以下之间选择：
+**裁定：使用数据库默认 collation，不声明 `COLLATE "C"`。**
 
-- **选项 1**：使用数据库 / 实例默认 collation（PG 下已大小写敏感），并把该事实写入测试固定下来。
-- **选项 2**：在标识列或唯一索引上显式声明 `COLLATE "C"`，换取与部署环境 locale 完全解耦的可复现性，接受码点排序。
+必须配套的措施（否则与「依赖默认配置」无异）：
 
-**2. `ip_address.cluster_id` 的一致性保障机制**
+- 以自动化测试**固定**该事实：`cluster-a` 与 `Cluster-A` 必须可共存，`cn001` 与 `CN001` 在同一 Cluster 内必须可共存；
+- 测试必须**绕过应用层直接对数据库插入**，证明约束来自数据库而非应用逻辑；
+- 部署文档须记录数据库 locale 要求，避免在不同 locale 的环境中静默改变比较语义；
+- 中文列表排序不要求拼音序，按默认 collation 行为处理。
 
-需在以下之间选择（由 Database Agent 细化）：
+### 2. `ip_address.cluster_id` 一致性 → 受控写入路径 + 一致性测试
 
-- 复合外键（`(nic_id, cluster_id)` 引用 `network_interface(id, cluster_id)`，逐级传递）；
-- 受控写入路径（仅由领域服务写入，配合一致性测试）；
-- 数据库触发器（不推荐，规则会隐藏进 Schema）。
+**裁定：不引入逐级复合外键，也不使用数据库触发器。**
+
+- `ip_address.cluster_id` **仅由领域服务在受控写入路径中写入**，写入时从 IPAddress → NetworkInterface → BareMetal → Cluster 推导，业务代码不得在其他路径直接赋值。
+- 必须配套**一致性测试**：构造 `cluster_id` 与链路推导结果不一致的数据，验证其被拒绝或不被产生；并验证跨 Cluster 的 NIC/IP 变更不会留下漂移。
+- 选择理由：复合外键需要把 `cluster_id` 逐级冗余传递到 `network_interface`，会扩大反规范化范围；触发器会把业务规则隐藏进 Schema，违反 `AGENTS.md` §2.4。受控写入路径把规则留在代码中，一致性测试把规则固化为可验证证据。
+- **风险**：该方案依赖应用层纪律。任何绕过领域服务的写入（脚本、手工 SQL、未来的新代码路径）都可能造成漂移。因此一致性测试属于必需项，不是可选优化。
 
 ## Consequences
 
-- 三条唯一性规则与大小写敏感语义由数据库强制，满足 §21。
+- 三条唯一性规则与大小写敏感语义由数据库强制，满足 §21；其正确性由**绕过应用层直接操作数据库的测试**证明（见「已裁定的子项 1」）。
 - R-DELETE-006 由 partial predicate 自然满足，无需 sentinel 列或应用层补偿。
 - 未来若要改为大小写不敏感，必须改产品规则（§22）并重建索引，不能靠改配置实现。
-- 引入了反规范化列 `ip_address.cluster_id`，需要一致性测试防止漂移。
-- 单机 PostgreSQL 在 M1 之前没有容量数据支撑，需用户确认规模量级（见架构文档 BQ-1）。
+- 引入了反规范化列 `ip_address.cluster_id`，其一致性依赖**受控写入路径 + 一致性测试**，需在 Database / Backend 阶段落实。
+- 规模已确认在阈值内（10⁵ 量级、50 并发），单机 PostgreSQL 足够；无需分区或异步导入。
 
 ## Alternatives Considered
 

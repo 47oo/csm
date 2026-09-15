@@ -2,7 +2,9 @@
 
 ## Status
 
-`PROPOSED`（等待用户批准；批准前不得视为已确定）
+`ACCEPTED`（2026-09-15 用户批准）
+
+**决策记录**：用户于 2026-09-15 批准 DEC-013（方案 A：服务端会话 + HttpOnly Cookie + Argon2id）。
 
 ## Context
 

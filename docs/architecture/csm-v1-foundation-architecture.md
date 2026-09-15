@@ -1,14 +1,15 @@
 # CSM V1 系统级基础架构（DEC-009 ~ DEC-014）
 
-> Status: **NOT READY FOR IMPLEMENTATION**
+> Status: **READY FOR IMPLEMENTATION**
 > Document Type: Architecture Handoff
 > Author Role: architect
 > Scope: DEC-009 ~ DEC-014
 > Date: 2026-09-15
 >
-> ⚠️ 本文件中所有技术选型与方案均为 **`PROPOSED`，尚未批准**。
-> `AGENTS.md` §9 与 `.pi/agents/architect.md` §7 明确禁止默认技术栈已确定。
-> 用户批准对应 ADR 后，方可转为 `CONFIRMED`。
+> **用户已于 2026-09-15 按推荐方案批准 DEC-009 ~ DEC-014**，对应 5 条 ADR 状态已转为 `ACCEPTED`。
+> 本文件原标记为 `PROPOSED` 的技术选型现转为 `CONFIRMED`（见 Technical Decisions）。
+> 批准时用户修改的一项：**部署打包方式采用 docker-compose**（原建议 systemd + nginx）。
+> 另裁定三项子决策：collation 用默认（选项 1）、`ip_address.cluster_id` 用受控写入路径 + 一致性测试、保留 R-CLUSTER-005。
 
 ---
 
@@ -37,10 +38,10 @@
 | Backend / Frontend | **当前不存在** |
 | 现有架构决策 | **无任何 ADR** |
 
-方案要点（全部 `PROPOSED`）：
+方案要点（已批准，`CONFIRMED`；详见 5 条 ADR）：
 
 1. **单体分层应用**：HTTP 层 → 校验层 → 领域服务层 → 数据访问层 → 关系数据库。每类资源是**独立模块 + 独立表**，无通用 `resources` 表、无 ORM 多态继承、无 EAV、无 JSONB 万能模型。
-2. **技术栈提案**：Python + FastAPI + Pydantic + SQLAlchemy 2.x + Alembic；Vue 3 + TypeScript + Vite + Element Plus；PostgreSQL；单台内网虚拟机上 nginx + 应用进程 + 数据库。
+2. **技术栈（已批准）**：Python + FastAPI + Pydantic + SQLAlchemy 2.x + Alembic；Vue 3 + TypeScript + Vite + Element Plus；PostgreSQL；部署打包采用 **docker-compose**（nginx + 应用 + PostgreSQL）。
 3. **唯一性双要点**在数据库层同时成立：大小写敏感由显式 collation 保证；「已删不占唯一性」由 partial unique index（`WHERE deleted_at IS NULL`）保证。
 4. **标识与寻址**：所有资源使用不可变代理主键 `id`；Cluster 额外提供**名称寻址的只读路径别名**以尊重 R-CLUSTER-005 的产品意图。
 5. **软删除**：`deleted_at TIMESTAMPTZ NULL` 单一机制贯穿所有资源表；父删子拦、不级联由领域服务在同一事务内加行锁保证。
@@ -114,14 +115,16 @@
 ### Status
 
 ```text
-BLOCKED
+READY
 ```
 
-三项真实阻塞：
+原三项阻塞均已解除：
 
-1. 本契约本身是 `PROPOSED`，需用户批准 DEC-014 后才稳定。
-2. **导入端点的成功 / 部分成功语义被 OPEN-005 阻塞**（R-IMPORT-004 明确禁止自行决定）。
-3. `docs/api/` 尚未完整落盘，端点集合与 DEC-009 技术栈强耦合。
+1. DEC-014 已由用户批准（ADR-0003 `ACCEPTED`）；
+2. 导入端点成功语义已裁定为 **All-or-Nothing**（原产品 OPEN-005，已固化为 `requirements.md` R-IMPORT-004）；
+3. 通用规范已落盘至 `docs/api/api-conventions.md`。
+
+各 Feature 的详细端点契约仍在该 Feature 的 Architecture Handoff 中定义，这属于正常流程，不构成系统级阻塞。
 
 通用规范见 `docs/api/api-conventions.md` 与 `docs/architecture/adr/adr-0003-resource-identity-and-api-contract.md`。
 
@@ -169,7 +172,7 @@ BLOCKED
 - 错误响应必须能承载「行 + 字段 + 原因」（R-IMPORT-003）。
 - 集合查询必须能区分「父不存在」与「父存在但无子资源」（R-QUERY-004）。
 
-### PROPOSED
+### CONFIRMED（2026-09-15 用户批准）
 
 - 技术栈：Python + FastAPI + Pydantic + SQLAlchemy 2.x + Alembic（DEC-009）。
 - 前端：Vue 3 + TypeScript + Vite + Element Plus（DEC-009）。
@@ -179,27 +182,30 @@ BLOCKED
 - 认证：服务端会话表 + HttpOnly Cookie + Argon2id（DEC-013）。
 - API：Problem 风格错误信封 + 稳定 `code`（DEC-014）。
 - 分页：`page` / `page_size` + `{items, total, page, page_size}`。
-- 部署打包：systemd + nginx（备选 docker-compose）。
+- 部署打包：**docker-compose**（nginx + 应用 + PostgreSQL）。
 - 在 F012 内先交付「可运行验证骨架」（见下）。
+- collation：使用数据库默认（选项 1），以测试固定大小写敏感事实。
+- `ip_address.cluster_id`：受控写入路径 + 一致性测试（不引入复合外键或触发器）。
+- 导入语义：All-or-Nothing。
 
-### OPEN
+### OPEN（均已关闭，保留供核对）
 
-- 资源规模假设未定（BQ-1）。
-- 部署打包方式最终形态（BQ-4）。
+- ~~资源规模假设未定（BQ-1）~~ → 已确认：**总量约 10⁵（10 万级）、并发用户约 50**。
+- ~~部署打包方式（BQ-4）~~ → 已确认：**docker-compose**。
+- ~~Excel 部分成功策略（OPEN-005）~~ → 已确认：**All-or-Nothing**。
 - 前端组件库最终选择（若组织已有偏好可替换）。
 - 是否对标识列做 Unicode NFC 规范化（当前默认不做）。
-- Excel 部分成功策略（OPEN-005，产品）。
-- VM / Container / Service / BareMetal 硬件字段（OPEN-001 ~ 004，产品）。
+- VM / Container / Service / BareMetal 硬件字段（OPEN-001 ~ 004，产品，归对应 Feature）。
 
 ---
 
 ## Risks
 
-1. **默认 collation 陷阱（高）**：若未显式指定大小写敏感 collation，R-CLUSTER-002 / R-BM-002 / §22 会被静默破坏。
-2. **partial unique index 与数据库选型的耦合（中）**：MySQL 不支持 partial index，会使软删除 + 唯一性需要 sentinel 或生成列技巧。
+1. **collation 依赖默认配置（中高）**：用户裁定使用数据库默认 collation。PostgreSQL 默认已大小写敏感，但该语义**依赖部署环境的 locale**。若在不同 locale 的环境中部署，比较语义可能改变。必须以「绕过应用层直接对数据库插入」的测试固定该事实，并在部署文档中记录 locale 要求。
+2. **partial unique index 与数据库选型的耦合（已缓解）**：MySQL 不支持 partial index，会使软删除 + 唯一性需要 sentinel 或生成列技巧。已通过选 PostgreSQL 缓解。
 3. **HTTP 明文（中）**：R-DEPLOY-003 明确接受 Internal IP + HTTP，口令与会话 Cookie 在内网明文传输。这是**已确认的产品取舍**，不是架构缺陷，但必须记录并在部署文档中提示内网边界要求。
-4. **未知规模（中）**：缺少资源数量与并发假设。
-5. **导入契约被 OPEN-005 阻塞（中）**：F011 无法在 M5 前定稿成功语义。
+4. **`ip_address.cluster_id` 漂移（中）**：采用受控写入路径而非数据库外键，正确性依赖应用层纪律。任何绕过领域服务的写入（脚本、手工 SQL、未来新代码路径）都可能造成漂移。**一致性测试属必需项，不是可选优化**。
+5. **规模已确认（低）**：总量 10⁵、并发 50，在单机 PostgreSQL 能力范围内，无需分区或异步导入。
 6. **产品 OPEN-001 ~ 004 影响字段范围（低~中）**：F002 / F006 / F007 / F008 为 DRAFT，DDL 字段待定；架构骨架不受影响。
 7. **事务内并发完整性（中）**：父删子拦若只做「先查后删」在并发下会失效。
 
@@ -222,18 +228,23 @@ BLOCKED
 
 ## Open Technical Questions
 
-### Blocking
+### Blocking（已全部关闭）
 
-- **BQ-1 规模假设缺失** —— `docs/` 与 `project-plan.yaml` 中**没有任何**资源数量或并发用户数信息。见下文假设与阈值。
-- **BQ-2 技术栈与六项决策的用户批准** —— DEC-009 ~ DEC-014 全部仍为 `OPEN`。
-- **BQ-3 导入 API 的失败语义**受产品 OPEN-005 阻塞。
-- **BQ-4 部署打包方式**（systemd+nginx vs docker-compose）未确认；影响 F015 验收与运行文档，不影响数据模型。
+| 编号 | 原问题 | 结论 |
+|---|---|---|
+| **BQ-1** | 规模量级缺失 | ✅ 已确认：**资源总量约 10⁵（10 万级），并发用户约 50**。在阈值内，DEC-010 无需重审 |
+| **BQ-2** | DEC-009 ~ DEC-014 未批准 | ✅ 已批准，5 条 ADR 状态为 `ACCEPTED` |
+| **BQ-3** | 导入 API 失败语义受 OPEN-005 阻塞 | ✅ 已裁定为 **All-or-Nothing**，固化为 `requirements.md` R-IMPORT-004 |
+| **BQ-4** | 部署打包方式未确认 | ✅ 已确认为 **docker-compose** |
 
 ### Non-blocking
 
-- 前端组件库最终选型。
-- 标识列是否需要 Unicode 规范化。
-- 分页是否需要游标式（当前规模判断为不需要）。
+- 前端组件库最终选型（组织若已有标准可替换 Element Plus）。
+- 标识列是否需要 Unicode NFC 规范化（当前默认不做）。
+- 分页是否需要游标式（当前规模判断为不需要，已确认 10⁵ 量级与 50 并发，维持 offset 分页）。
+- 会话过期时间与是否滑动续期（实现阶段决定并记录）。
+- 观测性：结构化访问日志与错误日志。
+- 数据库连接池尺寸（50 并发下的具体参数）与备份策略。
 - 是否需要 Cluster 名称寻址只读别名（DEC-011 方案 C 子项）。
 - 观测性：结构化访问日志与错误日志。
 - 数据库连接与备份策略。
@@ -280,7 +291,7 @@ Tester → Reviewer（按 Feature 逐个走 Git Gate；DONE 判定见 git-workfl
 
 ## Verification Strategy
 
-1. **架构层**：ADR 落盘、API 契约落盘、DEC-009 ~ 014 状态从 `PROPOSED` 转为 `CONFIRMED`。
+1. **架构层**：ADR 落盘、API 契约落盘、DEC-009 ~ 014 状态已转为 `CONFIRMED`（✅ 已于 2026-09-15 完成）。
 2. **骨架验证（F012）**：见下方「技术栈验证骨架」验收判据。
 3. **约束验证**：全部唯一性 / 软删除 / 状态约束用**直接对数据库操作**的测试证明，而非仅经 API（§21）。
 4. **契约验证**：前端只依赖契约字段；后端返回结构与文档一致；Empty / Not Found 语义有专门用例。
@@ -293,21 +304,28 @@ Tester → Reviewer（按 Feature 逐个走 Git Gate；DONE 判定见 git-workfl
 
 ## 规模假设与阈值
 
-**当前事实**：仓库中**没有任何**关于资源数量或并发用户数的信息。
+**已由用户确认的规模**（2026-09-15）：
 
-选型所依据的**显式假设**（若用户给出不同量级必须重新评估）：
+| 维度 | 确认值 |
+|---|---|
+| 资源总量 | **约 10⁵（10 万级）** |
+| 并发用户 | **约 50** |
 
-| 维度 | 假设量级 |
+用户未按类型细分数量。按原假设（总量 ≤ 10⁶）与实际确认值（10⁵）比较，实际规模**小于**原假设上限，因此 DEC-010 选型无需重审。
+
+各类型的具体分布待 M1 期间或部署时细化（不影响选型）：
+
+| 维度 | 原假设量级 |
 |---|---|
 | Cluster | 10¹ ~ 10² |
 | BareMetal | 10³ ~ 10⁴ |
 | NetworkInterface | 10⁴ |
 | IPAddress | 10⁴ ~ 10⁵ |
 | VirtualMachine / Container / Service | 各 10³ ~ 10⁴ |
-| 并发用户 | ~10 人，低频 CRUD 与查询为主 |
-| 总数据量 | ≤ 10⁶ 行，单机 PostgreSQL 完全可承载 |
 
-**阈值**：若任一资源类型预期超过约 **10⁷ 行**，或出现持续高并发写入，则需重新评估数据库选型（分区、独立 DB 主机、异步导入）。该阈值一旦被突破，DEC-010 需要重审，而那是回退代价高的决策，因此规模量级需用户确认。
+**阈值（不变）**：若任一资源类型预期超过约 **10⁷ 行**，或出现持续高并发写入，则需重新评估数据库选型（分区、独立 DB 主机、异步导入）。当前规模距离该阈值很远。
+
+**并发说明**：50 并发用户高于原假设的 ~10 人，但属于低频 CRUD 与查询场景。影响限于数据库连接池尺寸与单机资源配额，**不影响选型**。部署文档需明确连接池上限（低于 PostgreSQL `max_connections`）。
 
 ---
 
@@ -380,13 +398,19 @@ CREATE UNIQUE INDEX ux_cluster_name_active
 ## Handoff Status
 
 ```text
-NOT READY FOR IMPLEMENTATION
+READY FOR IMPLEMENTATION
 ```
 
-**放行条件**：
+**放行依据（2026-09-15，全部满足）**：
 
-1. 用户批准 DEC-009 ~ DEC-014，并将对应 ADR 状态由 `PROPOSED` 改为 `ACCEPTED`；
-2. BQ-1（规模量级）、BQ-3（OPEN-005）、BQ-4（部署打包方式）得到回答；
-3. API Contract Status 单独满足（需先解除 OPEN-005）。
+1. ✅ 用户批准 DEC-009 ~ DEC-014，5 条 ADR 状态已由 `PROPOSED` 改为 `ACCEPTED`；
+2. ✅ BQ-1（规模：10⁵ 量级 / 50 并发）、BQ-3（导入：All-or-Nothing）、BQ-4（部署：docker-compose）均已回答；
+3. ✅ API Contract Status = `READY`（`docs/api/api-conventions.md`）。
 
-满足后本 Handoff 状态可改为 `READY FOR IMPLEMENTATION`。
+**含义**：Architecture 已完成，且每个实现分支都拥有开始工作所需的依据。
+协调器按本状态 +（需要 API 时）`API Contract Status = READY` 组合放行。
+
+**尚未完成但属于正常后续工作**（不构成阻塞）：
+
+- `docs/database/` 的详细 Schema 与 F012 基线 migration（Database Agent）；
+- 各 Feature 的详细端点契约（各 Feature 的 Architecture Handoff）。

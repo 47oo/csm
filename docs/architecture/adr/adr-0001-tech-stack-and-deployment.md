@@ -2,7 +2,9 @@
 
 ## Status
 
-`PROPOSED`（等待用户批准；批准前不得视为已确定）
+`ACCEPTED`（2026-09-15 用户批准）
+
+**决策记录**：用户于 2026-09-15 按推荐方案批准 DEC-009 ~ DEC-014。其中本 ADR 原建议「systemd + nginx（备选 docker-compose）」被用户改为采用 **docker-compose**（见 Decision 部署项）。
 
 ## Context
 
@@ -27,7 +29,7 @@ CSM V1 为 greenfield 内部资源管理平台，14 个 Feature 全部被 DEC-00
 - **Frontend**：Vue 3 + TypeScript + Vite + Element Plus。
 - **模块边界**：每类资源（Cluster / BareMetal / NetworkInterface / IPAddress / VirtualMachine / Container / Service）各为一个垂直模块，独占自己的表与领域规则。**不建立通用 Resource ORM 基类或通用资源路由**。仅允许 `id` / `created_at` / `updated_at` / `deleted_at` 这类横切列的 mixin 复用（代码便利，不是数据模型统一）。
 - **横切关注点**：统一错误信封、分页、软删除过滤、事务边界、认证，位于 `common/`。
-- **部署**：单台内网虚拟机；nginx 提供前端静态资源并反向代理 API；应用为单个 ASGI 进程；PostgreSQL 运行于本机或受控内网。V1 使用 Internal IP + HTTP，不引入公网入口、域名或 HTTPS。
+- **部署**：单台内网虚拟机，使用 **docker-compose** 编排。容器组成：nginx（前端静态资源 + API 反向代理）、应用（单个 ASGI 进程）、PostgreSQL。V1 使用 Internal IP + HTTP，不引入公网入口、域名或 HTTPS。
 
 ## Consequences
 
@@ -42,6 +44,7 @@ CSM V1 为 greenfield 内部资源管理平台，14 个 Feature 全部被 DEC-00
 - **Django + DRF**：开箱能力更多（ORM / migration / auth / admin），对 CRUD 密集型内部系统开发最快；但自带 Admin 容易诱发「顺手做一个页面」的范围蔓延，且 `convention over configuration` 会把部分业务规则藏进框架行为，与本项目「规则显式表达」原则冲突，相对更重。
 - **Spring Boot / Go + React**：强类型、长期可维护、企业内常见；但对 14 个中小型 CRUD Feature 而言样板量明显偏高，Go 的 ORM / migration 生态与本项目「显式关系 + 复杂唯一性」需求匹配度一般。
 - **微服务 / 前后端拆为多服务**：无任何已确认需求支撑，违反 `requirements.md` §23。
+- **systemd + nginx（无容器）**：部署依赖更少、无容器运行时开销；但环境一致性弱、依赖手工安装。用户选择 docker-compose 换取环境可复现与部署可版本化。
 
 ## Affected Features
 

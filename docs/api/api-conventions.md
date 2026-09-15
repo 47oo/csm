@@ -1,8 +1,8 @@
 # CSM API 约定
 
-> Status: **BLOCKED**（等待 DEC-014 批准；导入端点语义另受产品 OPEN-005 阻塞）
-> Source: `docs/architecture/adr/adr-0003-resource-identity-and-api-contract.md`
-> ⚠️ 本文所有内容均为 `PROPOSED`，不得作为 Backend / Frontend 并行开发的依据，直到 DEC-014 被批准。
+> Status: **READY**
+> Source: `docs/architecture/adr/adr-0003-resource-identity-and-api-contract.md`（Status: `ACCEPTED`，2026-09-15）
+> 本文件的规范已由用户批准（DEC-014）。导入端点语义已由用户裁定为 **All-or-Nothing**（原 BQ-3 / 产品 OPEN-005）。
 
 ---
 
@@ -97,10 +97,15 @@
 ## 8. 导入端点
 
 - 逐行错误使用同一错误信封，`details[].row` 标识数据行（R-IMPORT-003）。
-- **成功 / 部分成功语义未定**：All-or-Nothing 与 Partial Success 的选择由产品 OPEN-005 决定，本文件不裁定。在 OPEN-005 确认前，导入端点契约保持 `BLOCKED`。
+- **成功语义：All-or-Nothing**（用户于 2026-09-15 裁定，原产品 OPEN-005）：
+  - 只要有任意一行校验失败，**整个导入不产生任何写入**，响应 `400` + `VALIDATION_ERROR`，`details[]` 列出**全部**失败行（不因首行失败而提前中止报错）；
+  - `message` 应汇总失败行数，例如「导入失败：共 37 行校验未通过」；
+  - 全部行通过时，在**单一事务**内完成全部写入，返回 `201` 与写入条数；
+  - 严禁部分写入：若事务提交失败，必须回滚并返回 `500` `INTERNAL_ERROR`，不得留下部分数据。
+- 该端点**不提供**「跳过错误行继续导入」模式。若未来需要，属新产品需求。
+- 导入校验必须与页面人工录入使用**同一套**领域校验（R-IMPORT-002）。
 
 ## 9. 未定项
 
 - 各资源的完整端点清单（随各 Feature 的 Architecture Handoff 定义）
-- 导入端点的成功 / 部分成功语义（产品 OPEN-005）
 - `page_size` 上限具体数值
