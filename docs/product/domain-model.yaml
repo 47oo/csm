@@ -595,6 +595,48 @@ data_consistency:
   source: requirements.md §21
 
 # -----------------------------------------------------------------------------
+# 认证（非资源，不属 Resource Taxonomy）
+# -----------------------------------------------------------------------------
+authentication:
+  status: CONFIRMED
+  confirmed_on: "2026-09-15"
+  source: requirements.md §19；ADR-0005（ACCEPTED）
+  note: >
+    User 与 Session **不是 Resource**，不得被建模为资源、不得进入通用 resources 表、
+    也不适用资源逻辑删除语义（deleted_at）。
+  model:
+    permissions: 仅两态——已认证 / 未认证；不引入角色、权限表或 RBAC（R-AUTH-003）
+    account_origin: 管理员初始化 / 种子创建；**不开放自助注册**（adr-0005 §1）
+    password_storage: Argon2id 哈希；明文不得落库 / 落日志 / 落错误信息
+    session: 服务端会话表 + 随机不可预测 session id；HttpOnly + SameSite=Lax；HTTP 环境下不设 Secure
+  rules:
+    - id: R-AUTH-001
+      content: V1 使用系统本地账号进行登录认证
+    - id: R-AUTH-002
+      content: V1 不接入 LDAP / AD / OAuth / 企业 SSO
+    - id: R-AUTH-003
+      content: 无明确产品需求时不得扩大为复杂 RBAC
+    - id: R-AUTH-004
+      content: 口令长度至少 8 位；适用于任何建立或修改口令的路径
+      confirmed_on: "2026-09-15"
+      applies_to: [初始账号初始化, 未来口令修改 / 重置路径]
+      no_other_strength_rules: 不要求大小写混合 / 数字 / 符号，也不做弱口令黑名单
+    - id: R-AUTH-005
+      content: 用户名的唯一性与登录匹配均区分大小写
+      confirmed_on: "2026-09-15"
+      must_not: 不得使用 lower(username) 唯一索引或其他大小写折叠实现
+    - id: R-AUTH-006
+      content: 登录失败不得区分「用户名不存在」与「口令错误」；两者必须返回完全相同的响应
+      confirmed_on: "2026-09-15"
+      rationale: 避免账号枚举；属产品行为要求，不是实现建议
+  undefined_constraints:
+    - 口令除长度下限外的其他强度要求（不做）
+    - 会话时长与是否滑动续期（ADR-0005 委托实现阶段决定并记录）
+    - 账号管理能力（创建 / 停用 / 删除 / 重置口令的管理界面或 API）
+    - 登录失败频率限制 / 账号锁定
+    - 登录审计 / 多设备会话管理 / MFA
+
+# -----------------------------------------------------------------------------
 # 待确认事项
 # -----------------------------------------------------------------------------
 open_questions:
@@ -652,6 +694,10 @@ must_not_assume:
   - 虚拟机绑定裸金属是必选的
   - 容器绑定运行载体是必选的
   - Excel 导入支持部分成功（2026-09-15 已裁定为 All-or-Nothing）
+  - 口令可以任意长度（R-AUTH-004 已确认至少 8 位）
+  - 用户名大小写不敏感（R-AUTH-005 已确认区分大小写）
+  - 登录失败可以区分「用户名不存在」与「口令错误」（R-AUTH-006 已确认统一响应）
+  - User / Session 是 Resource（它们是认证实体，不属 Resource Taxonomy）
 
 # -----------------------------------------------------------------------------
 # 不做什么（V1 范围外，不得因“系统通常都有”而自动加入）

@@ -209,9 +209,21 @@ features:
       - R-AUTH-002
       - R-AUTH-003
     acceptance_criteria:
-      - 使用系统本地账号进行登录认证（R-AUTH-001）。
-      - 不接入 LDAP / AD / OAuth / 企业 SSO（R-AUTH-002）。
-      - 不在无明确产品需求时扩大为复杂 RBAC（R-AUTH-003）。
+      - AC-01 未认证不得访问受保护端点：任意 /api/* 资源端点 → 401 UNAUTHENTICATED，不返回任何资源数据（R-AUTH-001）。
+      - AC-02 登录成功后获得访问能力：正确凭据登录后 GET /api/clusters → 200。
+      - AC-03 口令错误不建立会话且失败响应统一：口令错误与账号不存在返回完全相同的响应，无法判断用户名是否存在（R-AUTH-006）；均不建立会话；无口令明文泄露。
+      - AC-04 登出使会话失效：登出后同一客户端访问受保护端点 → 401 UNAUTHENTICATED，会话不可复用。
+      - AC-05 会话失效时前端回到登录页：收到 401 UNAUTHENTICATED 时回登录页，不显示资源数据。
+      - AC-06 登录页拦截未登录访问：未登录访问受保护页面 → 登录页；凭据正确进入系统，错误则停留并提示。
+      - AC-07 账号禁用即时生效：active=false 的账号无法登录，既有会话不再可用（可用绕过应用层置位 active 验证）。
+      - AC-08 不存在自助注册入口：无任何允许未认证用户创建账号的端点或页面。
+      - AC-09 仅两态、无 403 触发路径：不存在角色 / 权限 / RBAC 的表、列、端点，也无任何触发 403 的产品路径（R-AUTH-003）。
+      - AC-10 口令不以明文存储或泄露：库中无口令明文；明文字符串不出现在日志与错误响应中。
+      - AC-11 初始账号可建立且可登录：按仓库文档化步骤建立初始账号后可成功登录并访问受保护端点。
+      - AC-12 /api/clusters* 行为变更为认证保护且已记录：未认证访问一律 401，变更写入交接文档并作为 F015 部署文档输入。
+      - AC-13 /api/health 的认证行为：未认证访问 → 401 UNAUTHENTICATED（不新增豁免）；已认证仍 200，F012 的 AC-02 因此成立。
+      - AC-14 口令长度下限：不足 8 位的口令在建立 / 修改口令路径被拒绝且不产生可登录账号（R-AUTH-004）；≥8 位即使仅小写字母也被接受。
+      - AC-15 用户名区分大小写：admin 与 Admin 是两个不同用户名可共存；登录按原样精确匹配；不得存在 lower(username) 唯一索引或大小写折叠（R-AUTH-005）。
     open_questions: []
 
   - id: F014
@@ -706,6 +718,23 @@ decisions_required:
       结论来自用户确认；在该阈值内单机 PostgreSQL 足够，DEC-010 选型无需重审。
       见 csm-v1-foundation-architecture.md「规模假设与阈值」。
 
+  - id: DEC-017
+    type: product
+    status: RESOLVED
+    topic: 口令强度策略
+    resolution: >
+      用户 2026-09-15 裁定：口令长度至少 8 位（R-AUTH-004）。除长度下限外不要求大小写混合 / 数字 / 符号，
+      也不做弱口令黑名单。适用于任何建立或修改口令的路径。
+  - id: DEC-018
+    type: product
+    status: RESOLVED
+    topic: 用户名大小写语义
+    resolution: 用户 2026-09-15 裁定：用户名唯一性与登录匹配均区分大小写（R-AUTH-005）；不得使用 lower(username) 折叠。
+  - id: DEC-019
+    type: product
+    status: RESOLVED
+    topic: 登录失败响应语义
+    resolution: 用户 2026-09-15 裁定：登录失败统一响应，不区分「用户名不存在」与「口令错误」（R-AUTH-006）。
   - id: DEC-016
     question: >
       部署打包方式未确定（BQ-4）：影响 F015 内网部署的交付形态。
@@ -922,6 +951,15 @@ requirement_coverage:
     covered_by: [F013]
   - id: R-AUTH-003
     covered_by: [F013]
+  - id: R-AUTH-004
+    covered_by: [F013]
+    note: 口令长度至少 8 位（用户 2026-09-15 裁定）；除长度下限外 V1 无其他强度要求。
+  - id: R-AUTH-005
+    covered_by: [F013]
+    note: 用户名唯一性与登录匹配均区分大小写（用户 2026-09-15 裁定）。
+  - id: R-AUTH-006
+    covered_by: [F013]
+    note: 登录失败统一响应，不区分「用户名不存在」与「口令错误」（用户 2026-09-15 裁定）。
   - id: R-DEPLOY-001
     covered_by: [F015]
   - id: R-DEPLOY-002
