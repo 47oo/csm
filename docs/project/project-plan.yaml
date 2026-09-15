@@ -32,6 +32,9 @@ project:
     foundation: docs/architecture/csm-v1-foundation-architecture.md   # READY FOR IMPLEMENTATION
     adrs: docs/architecture/adr/                                      # ADR-0001 ~ ADR-0005 全部 ACCEPTED
     api_contract: docs/api/api-conventions.md                         # READY
+  database:
+    schema_design: docs/database/csm-v1-schema-design.md              # READY FOR DATABASE IMPLEMENTATION
+    f012_baseline_migration: docs/database/f012-baseline-migration.md # F012 基线 migration 规格
   planning_source:
     primary: docs/product/requirements.md        # CONFIRMED BASELINE
     secondary:
