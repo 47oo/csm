@@ -3,7 +3,7 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend 技术层划分。
-> Last updated: 2026-09-15（M3 更名并移除 Rack；移除已 RESOLVED 的产品决策进入条件）
+> Last updated: 2026-09-15（DEC-008 ~ DEC-016 全部裁定；M1 进入条件改为“架构已批准 + API 契约 READY + F012 READY”；M5 移除 OPEN-005）
 
 完成判据统一要求：对应 Feature 的 Reviewer 为 `APPROVED` / `APPROVED WITH FOLLOW-UP`，
 必要测试通过，且 Feature Branch 已成功 merge 到 develop，项目状态已更新并提交
@@ -24,13 +24,10 @@
 | F014 | 逻辑删除与数据一致性治理 (ENABLER) | P0 |
 | F015 | 内网部署与运行环境 (ENABLER) | P0 |
 
-**进入条件（须先解决的 DEC）**
-- DEC-009 技术栈与整体架构
-- DEC-010 数据库选型与持久化 / Schema 策略
-- DEC-011 全局资源标识与寻址策略
-- DEC-012 逻辑删除实现与唯一性释放语义
-- DEC-013 本地认证实现范围
-- DEC-014 API 契约与错误响应规范
+**进入条件（已全部满足）**
+- 架构已批准（ADR-0001 ~ ADR-0005 全部 `ACCEPTED`）
+- API 契约 READY（`docs/api/api-conventions.md`）
+- F012 已 READY（无阻塞决策、无 depends_on）
 
 **完成判据**
 - 系统可在独立内网虚拟机以 Internal IP + HTTP 运行（R-DEPLOY-001..003）。
@@ -111,7 +108,7 @@
 - F006 Product 阶段确认 DEC-004（VM 绑定强制性与生命周期）
 - F007 Product 阶段确认 DEC-005（Container 粒度与绑定）
 
-（DEC-003 Service 关系模型、DEC-006 状态模型、DEC-008 统一 status 建模均已 RESOLVED 或移交架构，不再作为进入条件。）
+（DEC-003 Service 关系模型、DEC-006 状态模型、DEC-008 统一 status 建模均已 RESOLVED，不再作为进入条件。）
 
 **完成判据**
 - VirtualMachine 可人工登记与查询，不接入虚拟化平台 API，关系模型能表达实际运行位置（R-VM-001..003）；V1 不设状态。
@@ -132,13 +129,15 @@
 | F010 | 资源详情与关联查询 | P1 |
 | F011 | Excel 模板与批量导入 | P1 |
 
-**进入条件（须先解决的 OPEN）**
+**进入条件**
 - M2 / M3 / M4 完成（依赖全部资源 Feature）
-- OPEN-005 Excel 部分成功导入策略已确认
+
+（OPEN-005 Excel 部分成功导入策略已于 2026-09-15 关闭为 All-or-Nothing，固化为 R-IMPORT-004，不再作为进入条件。）
 
 **完成判据**
 - 可查询与 BareMetal 相关的 NetworkInterface / IPAddress / VirtualMachine / Container / Service，无需跨页面手工拼接，结果区分 Resource Not Found 与 Empty Relationship（R-QUERY-003/004）。
 - 提供明确的 Excel 导入模板；导入执行与人工录入一致的业务校验（唯一性 / 必填 / 资源关系 / IP 冲突 / 合法状态值）；失败时明确指出行 / 字段 / 原因（R-IMPORT-001..003）。
+- 导入采用 All-or-Nothing：任一行失败即整体不写入，并一次性报告全部失败行（R-IMPORT-004）。
 - 满足统一 Git Gate 并 DONE。
 
 ---

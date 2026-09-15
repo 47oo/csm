@@ -3,7 +3,10 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > 依赖仅表示真正的实施依赖（B 无法在 A 未 DONE 时正确实现）。依赖为 DAG，无循环。
-> Last updated: 2026-09-15（删除 F003；F008 新增对 F006/F007 的依赖）
+> Last updated: 2026-09-15（依赖结构不变；同步 DEC-008 ~ DEC-016 全部 RESOLVED / 架构已批准，F012 已 READY）
+>
+> 依赖结构未因本次决策裁定而变更；仅 Feature 状态变化：F012 → READY，其余因依赖未 DONE（BLOCKED）
+> 或 Feature 级产品问题（DRAFT）尚未 READY。
 
 图例：`A --> B` 表示 **B depends_on A**（A 是 B 的前置）。
 
@@ -64,7 +67,7 @@ F003 已删除（Rack / U 位从 V1 移除），不再出现在依赖图中。
 以下分组表示：在同一批次内，各 Feature 之间**没有互相依赖**，可以在其共同前置 DONE 后并行实施。
 （实际并行仍须遵守 `docs/project/git-workflow.md`：并行前划定文件所有权。）
 
-- **Batch 0（根）**：F012（ENABLER）。单独先行，因为它阻塞几乎所有 Feature。
+- **Batch 0（根）**：F012（ENABLER，已 READY）。单独先行，因为它阻塞几乎所有 Feature。
 - **Batch 1**：F001（Cluster）。F013、F014 也可与资源线并行（均只依赖 F012）。
 - **Batch 2**：
   - 资源线：F002（BareMetal）
@@ -115,7 +118,8 @@ F012 --> F001 --> F002 --> F006 --> F007 --> F008 --> F011
 ```
 
 结论：**关键路径经过 F012 → F001 → F002 → F006 → F007 → F008，再收敛到 F010 / F011**；
-F012、F001、F002 是全局瓶颈，应优先解除其架构阻塞决策（DEC-009/010/011）。
+F012、F001、F002 是全局瓶颈。F012 的架构阻塞决策（DEC-009/010/011，以及 DEC-014）已全部 RESOLVED
+（ADR-0001 ~ ADR-0003 `ACCEPTED`），F012 已 READY；后续瓶颈来自依赖链本身。
 
 ---
 

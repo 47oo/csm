@@ -28,6 +28,10 @@ project:
     CSM V1 不是完整 CMDB。
   status: DRAFT
   last_updated: "2026-09-15"
+  architecture:
+    foundation: docs/architecture/csm-v1-foundation-architecture.md   # READY FOR IMPLEMENTATION
+    adrs: docs/architecture/adr/                                      # ADR-0001 ~ ADR-0005 全部 ACCEPTED
+    api_contract: docs/api/api-conventions.md                         # READY
   planning_source:
     primary: docs/product/requirements.md        # CONFIRMED BASELINE
     secondary:
@@ -37,9 +41,12 @@ project:
       - AGENTS.md
       - docs/project/_planning-findings.md       # Stage 1/2 盘点与 C-1 ~ C-8
   notes: >
-    Greenfield 项目：无 backend/、frontend/、tests/、docs/architecture/、docs/database/、
-    docs/api/、无 ADR、无 Handoff、无 Test/Review 报告、无历史 project-plan.yaml。
-    因此 existing_work 无任何 DONE Feature。无 develop 分支，仅有 main。
+    Greenfield 项目：无 backend/、frontend/、tests/、docs/database/、无应用代码、
+    无 Feature 级 Handoff、无 Test/Review 报告、无历史项目实现。
+    架构已批准：docs/architecture/csm-v1-foundation-architecture.md = READY FOR IMPLEMENTATION，
+    ADR-0001 ~ ADR-0005 全部 ACCEPTED，docs/api/api-conventions.md = READY。
+    DEC-008 ~ DEC-016 全部 RESOLVED；产品 OPEN-005 已关闭（All-or-Nothing）。
+    无 develop 分支，仅有 main。
 
 scope:
   included:
@@ -121,8 +128,9 @@ epics:
 #   BLOCKED — scope / acceptance_criteria 已可定稿，仅被 architecture / database decision、
 #             未 DONE 的 depends_on 或环境阻塞。
 #   两类原因同时存在时取 DRAFT，并在 blocking 中同时列出。
-# 说明：项目无技术栈 ADR、无架构设计、无任何基础实现，
-#       因此没有任何 Feature 满足 READY 的全部条件；全部为 BLOCKED / DRAFT。
+# 说明：架构已批准（ADR-0001 ~ 0005 ACCEPTED，API 契约 READY），DEC-008 ~ DEC-016 全部 RESOLVED；
+#       F012 无 depends_on 且无阻塞决策，已满足 READY 全部条件；其余 Feature 因依赖未 DONE（BLOCKED）
+#       或存在 Feature 级产品问题（DRAFT）而尚未 READY。
 # ---------------------------------------------------------------------------
 features:
   # ---- E07 平台基础能力（ENABLER，逻辑上最先，但被架构决策阻塞） ----
@@ -131,12 +139,9 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: BLOCKED
+    status: READY
     depends_on: []
-    blocking:
-      - DEC-009
-      - DEC-010
-      - DEC-011
+    blocking: []
     product_document: docs/product/requirements.md
     requirements:
       - "§4 Resource 概念（仅分类体系，不产生数据库继承）"
@@ -158,8 +163,7 @@ features:
     status: BLOCKED
     depends_on: [F012]
     blocking:
-      - DEC-009
-      - DEC-013
+      - "依赖 F012 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - R-AUTH-001
@@ -179,8 +183,7 @@ features:
     status: BLOCKED
     depends_on: [F012]
     blocking:
-      - DEC-012
-      - DEC-009
+      - "依赖 F012 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - R-DELETE-001
@@ -208,8 +211,7 @@ features:
     status: BLOCKED
     depends_on: [F012, F013]
     blocking:
-      - DEC-009
-      - DEC-010
+      - "依赖 F012 / F013 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - R-DEPLOY-001
@@ -229,8 +231,7 @@ features:
     status: BLOCKED
     depends_on: [F012]
     blocking:
-      - DEC-009
-      - DEC-011
+      - "依赖 F012 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - R-CLUSTER-001
@@ -254,9 +255,8 @@ features:
     status: DRAFT
     depends_on: [F001]
     blocking:
-      - DEC-009
-      - DEC-012
-      - "OPEN-004 未确认（硬件字段范围）"
+      - "OPEN-004 未确认（BareMetal 硬件字段范围）"
+      - "依赖 F001 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - R-BM-001
@@ -285,7 +285,7 @@ features:
     status: BLOCKED
     depends_on: [F002]
     blocking:
-      - DEC-009
+      - "依赖 F002 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - R-NIC-001
@@ -306,7 +306,7 @@ features:
     status: BLOCKED
     depends_on: [F004]
     blocking:
-      - DEC-009
+      - "依赖 F004 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - R-IP-001
@@ -327,8 +327,9 @@ features:
     status: DRAFT
     depends_on: [F002]
     blocking:
-      - DEC-009
       - "OPEN-001 未确认（VM 字段与唯一性规则）"
+      - "DEC-004（Feature 级，归属 F006 Product 阶段）"
+      - "依赖 F002 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - R-VM-001
@@ -350,8 +351,9 @@ features:
     status: DRAFT
     depends_on: [F006, F002]
     blocking:
-      - DEC-009
       - "OPEN-002 未确认（Container 管理粒度）"
+      - "DEC-005（Feature 级，归属 F007 Product 阶段）"
+      - "依赖 F006 / F002 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - "§10 Container（允许领域模型表达 Container 资源）"
@@ -371,8 +373,8 @@ features:
     status: DRAFT
     depends_on: [F001, F002, F006, F007]
     blocking:
-      - DEC-009
       - "OPEN-003 未确认（Service 字段范围）"
+      - "依赖 F001 / F002 / F006 / F007 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - R-SVC-001
@@ -399,7 +401,6 @@ features:
     status: BLOCKED
     depends_on: [F001, F002]
     blocking:
-      - DEC-009
       - "依赖 F001 / F002 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
@@ -419,7 +420,6 @@ features:
     status: BLOCKED
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
     blocking:
-      - DEC-009
       - "依赖多个资源 Feature 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
@@ -438,11 +438,9 @@ features:
     name: Excel 模板与批量导入
     epic: E06
     priority: P1
-    status: DRAFT
+    status: BLOCKED
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
     blocking:
-      - DEC-009
-      - "OPEN-005 未确认"
       - "依赖多个资源 Feature 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
@@ -454,8 +452,8 @@ features:
       - 提供明确的 Excel 导入模板（R-IMPORT-001）。
       - 导入执行与页面人工录入一致的业务校验，不得绕过唯一性 / 必填 / 资源关系 / IP 冲突 / 合法状态值（R-IMPORT-002）。
       - 导入失败时明确指出哪一行、哪一个字段、什么原因（R-IMPORT-003）。
-    open_questions:
-      - "OPEN-005：部分错误时采用 All-or-Nothing 还是 Partial Success，须在 Excel Import Feature Product 阶段确认（R-IMPORT-004）。"
+      - 导入为 All-or-Nothing：任一行失败则整个导入不产生任何写入，且一次性报告全部失败行（R-IMPORT-004）。
+    open_questions: []
 
 # ---------------------------------------------------------------------------
 # Blocking Decisions
@@ -551,11 +549,12 @@ decisions_required:
       requirements.md §16/§21 未如此表述。需确认是否采纳该统一建模方式。
     impact_features: [F006, F007, F008]
     type: architecture
-    status: TRANSFERRED_TO_ARCHITECT
+    status: RESOLVED
     resolution: >
-      TRANSFERRED_TO_ARCHITECT（2026-09-15）：统一 `status` 建模属架构 / 持久化问题，不再是产品决策，
-      由 Architect 处理。产品约束：requirements.md §4（不同资源可有独立数据模型与状态）、
-      §24（禁止 EAV / 通用 resources 表 / STI / JSONB 万能模型）。
+      RESOLVED（2026-09-15，ADR-0002 ACCEPTED）：统一 `status` 建模已由架构裁定 ——
+      `bare_metal.status` 为显式列 + CHECK（IDLE/ALLOC/DOWN/UNKNOWN），**不设通用 status 表**；
+      其余资源在 V1 不设状态。符合 requirements.md §4（不同资源可有独立数据模型与状态）
+      与 §24（禁止 EAV / 通用 resources 表 / STI / JSONB 万能模型）。
 
   - id: DEC-009
     question: >
@@ -563,7 +562,11 @@ decisions_required:
       这是所有 Feature 的前置阻塞。
     impact_features: [F001, F002, F004, F005, F006, F007, F008, F009, F010, F011, F012, F013, F014, F015]
     type: architecture
-    status: OPEN
+    status: RESOLVED
+    resolution: >
+      RESOLVED（2026-09-15，ADR-0001 ACCEPTED）：技术栈为 Python + FastAPI + Pydantic +
+      SQLAlchemy 2.x + Alembic；Vue 3 + TypeScript + Vite + Element Plus；单体分层架构。
+      API 契约部分见 DEC-014 / ADR-0003。
 
   - id: DEC-010
     question: >
@@ -571,21 +574,33 @@ decisions_required:
       需经 Architecture / Database 流程决策。
     impact_features: [F004, F005, F006, F007, F008, F012, F015]
     type: database
-    status: OPEN
+    status: RESOLVED
+    resolution: >
+      RESOLVED（2026-09-15，ADR-0002 ACCEPTED）：采用 PostgreSQL；大小写敏感唯一性由显式
+      collation / 数据库默认行为保证（以测试固定）；“已删不占唯一性”由 partial unique index
+      (`WHERE deleted_at IS NULL`) 保证；Alembic 版本化向前 migration。
+      DEC-015 规模假设（10⁵ / 50 并发）在该选型阈值内，无需重审。
 
   - id: DEC-011
     question: >
       全局资源标识与 URL 寻址策略未确定（资源主键方案、按名称寻址等），影响所有资源 CRUD 与查询。
     impact_features: [F001, F002, F004, F005, F006, F007, F008, F009, F010, F011, F012]
     type: architecture
-    status: OPEN
+    status: RESOLVED
+    resolution: >
+      RESOLVED（2026-09-15，ADR-0003 ACCEPTED）：所有资源使用不可变 BIGINT identity 代理主键 `id`；
+      写操作一律走 `id` 路径；Cluster 额外提供 `by-name` 只读路径别名（大小写敏感，已删不参与解析）。
 
   - id: DEC-012
     question: >
       逻辑删除的持久化实现方式（删除标记字段等）与「已删除资源不占用唯一性」的释放语义细节未确定。
     impact_features: [F014, F001, F002, F004, F005, F006, F007, F008]
     type: database
-    status: OPEN
+    status: RESOLVED
+    resolution: >
+      RESOLVED（2026-09-15，ADR-0004 ACCEPTED）：所有资源表使用单一 `deleted_at TIMESTAMPTZ NULL`；
+      常规查询一律带 `deleted_at IS NULL`；“已删不占唯一性”由 partial unique index 保证；
+      父删子拦、不级联在同一事务内加行锁实现。
 
   - id: DEC-013
     question: >
@@ -593,7 +608,10 @@ decisions_required:
       requirements.md 仅确认使用本地账号且不扩大为复杂 RBAC。
     impact_features: [F013, F015]
     type: architecture
-    status: OPEN
+    status: RESOLVED
+    resolution: >
+      RESOLVED（2026-09-15，ADR-0005 ACCEPTED）：服务端会话（DB 会话表 + HttpOnly Cookie）+
+      Argon2id 口令哈希；V1 仅「已认证 / 未认证」两种边界，不做 RBAC。
 
   - id: DEC-014
     question: >
@@ -601,7 +619,32 @@ decisions_required:
       以支撑 §21 数据一致性与 R-IMPORT-003 的逐行错误提示。
     impact_features: [F001, F002, F004, F005, F006, F007, F008, F009, F010, F011, F012]
     type: architecture
-    status: OPEN
+    status: RESOLVED
+    resolution: >
+      RESOLVED（2026-09-15，ADR-0003 ACCEPTED）：REST + JSON + `/api` 前缀；自定义 Problem 风格错误信封
+      + 稳定 `code`；逐行错误用 `details[].row/.field/.code` 承载 R-IMPORT-003；集合空返回 200 空数组、
+      父不存在返回 404（R-QUERY-004）；导入语义为 All-or-Nothing。规范落盘 docs/api/api-conventions.md（READY）。
+
+  - id: DEC-015
+    question: >
+      资源规模量级与并发假设未确定（BQ-1）：影响数据库选型与部署配置是否需要分区 / 异步导入。
+    impact_features: [F012, F015]
+    type: process
+    status: RESOLVED
+    resolution: >
+      RESOLVED（2026-09-15，用户裁定）：资源总量约 10⁵（10 万级），并发用户约 50。
+      结论来自用户确认；在该阈值内单机 PostgreSQL 足够，DEC-010 选型无需重审。
+      见 csm-v1-foundation-architecture.md「规模假设与阈值」。
+
+  - id: DEC-016
+    question: >
+      部署打包方式未确定（BQ-4）：影响 F015 内网部署的交付形态。
+    impact_features: [F015]
+    type: architecture
+    status: RESOLVED
+    resolution: >
+      RESOLVED（2026-09-15，用户裁定，ADR-0001 ACCEPTED）：采用 docker-compose 打包
+      （nginx + 应用 + PostgreSQL）。原架构建议为 systemd + nginx，用户改为 docker-compose。
 
 # 已关闭的 open question（不再是 open question）
 closed_open_questions:
@@ -622,12 +665,9 @@ milestones:
     goal: 建立可运行、可登录的内网部署基础，并具备逻辑删除与一致性治理基座。
     features: [F012, F013, F014, F015]
     entry_conditions:
-      - DEC-009 技术栈与整体架构已决
-      - DEC-010 数据库选型与持久化/Schema 策略已决
-      - DEC-011 全局资源标识与寻址策略已决
-      - DEC-012 逻辑删除实现与唯一性释放语义已决
-      - DEC-013 本地认证实现范围已决
-      - DEC-014 API 契约与错误响应规范已决
+      - 架构已批准（ADR-0001 ~ ADR-0005 全部 ACCEPTED）
+      - API 契约 READY（docs/api/api-conventions.md）
+      - F012 已 READY（无阻塞决策、无 depends_on）
     completion_criteria:
       - 系统可在独立内网虚拟机以 Internal IP + HTTP 运行。
       - 本地账号可登录。
@@ -679,10 +719,10 @@ milestones:
     features: [F010, F011]
     entry_conditions:
       - M2 / M3 / M4 完成（依赖全部资源 Feature）
-      - OPEN-005 Excel 部分成功导入策略已确认
     completion_criteria:
       - 可查询 BareMetal 关联的 NIC / IP / VM / Container / Service，无需跨页面手工拼接。
       - 提供 Excel 模板，导入执行与人工录入一致的业务校验并逐行报告错误。
+      - 导入采用 All-or-Nothing：任一行失败即整体不写入，并一次性报告全部失败行（R-IMPORT-004）。
       - Reviewer 批准并成功 merge 到 develop。
 
 # ---------------------------------------------------------------------------
@@ -691,28 +731,31 @@ milestones:
 existing_work:
   status: "greenfield — no implemented capability"
   note: >
-    项目仅包含文档、Agent 基建与项目计划（project-plan.yaml / backlog / dependency-map / milestones），
-    无任何应用代码、数据库、API、Handoff 或 Test/Review 报告。
-    依据：docs/project/_planning-findings.md Stage 1。
+    项目当前包含产品文档、已批准的架构与 ADR、API 契约、Agent 基建与项目计划；
+    但无任何应用代码（backend/ / frontend/ / tests/）、无详细数据库设计（docs/database/）、
+    无 Feature 级 Handoff、无 Test/Review 报告。因此无任何 DONE Feature。
+    依据：docs/project/_planning-findings.md Stage 1 与架构 Handoff。
   present:
     - AGENTS.md
     - docs/product/requirements.md
     - docs/product/domain-model.md
+    - docs/product/domain-model.yaml
     - docs/project/git-workflow.md
     - docs/project/repository-structure.md
     - .pi/agents/*.md
     - .pi/skills/resource-domain/SKILL.md
     - .pi/prompts/{project,feature,implement-project}.md
     - .pi/extensions/subagent/
+    - docs/architecture/csm-v1-foundation-architecture.md   # READY FOR IMPLEMENTATION
+    - docs/architecture/adr/adr-0001 ~ adr-0005              # 全部 ACCEPTED
+    - docs/api/api-conventions.md                            # READY
   absent:
-    - docs/architecture/
-    - docs/architecture/adr/
-    - docs/database/
-    - docs/api/
+    - docs/database/（详细 Schema 与 F012 基线 migration）
     - backend/
     - frontend/
     - tests/
-    - Project Handoff / Test / Review 报告
+    - Feature 级 Architecture / Backend / Frontend Handoff
+    - Test / Review 报告
     - develop 分支（仅 main）
   done_features: []
 
@@ -840,7 +883,7 @@ requirement_coverage_sections:
     covered_by: [F012]
   - section: "§29 未确认项 OPEN-001..006"
     covered_by: []
-    note: "OPEN-001..005 作为对应 Feature 的 open_questions；OPEN-006 已关闭为「已确认排除」，不再是 open question。"
+    note: "OPEN-001..004 作为对应 Feature 的 open_questions；OPEN-005 已关闭（All-or-Nothing，固化为 R-IMPORT-004）；OPEN-006 已关闭为「已确认排除」，均不再是 open question。"
 
 # ---------------------------------------------------------------------------
 # Planning Status
@@ -848,14 +891,14 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: DRAFT
-  ready_features: []
+  ready_features: [F012]
   blocked_draft_features:
-    BLOCKED: [F001, F004, F005, F009, F010, F012, F013, F014, F015]
-    DRAFT: [F002, F006, F007, F008, F011]
+    BLOCKED: [F001, F004, F005, F009, F010, F011, F013, F014, F015]
+    DRAFT: [F002, F006, F007, F008]
   counts:
-    READY: 0
+    READY: 1
     BLOCKED: 9
-    DRAFT: 5
+    DRAFT: 4
     DONE: 0
   status_decision_rules:
     DRAFT: >
@@ -869,32 +912,33 @@ planning_status:
     note: >
       仅被其他 Feature 的产品决策间接影响、不改变本 Feature 交付边界时，仍按 BLOCKED 处理。
       判定依据见本文件顶部注释与 .pi/agents/project-manager.md §8。
+  ready_rationale:
+    F012: >
+      ENABLER，无 depends_on；产品范围明确（显式资源类型建模、通用校验与错误处理基座，requirements.md §4/§5/§21/§24/§25）；
+      AC 可定义；无未解决产品问题（Blocking Product Questions = 0）；架构/数据库/标识/API 契约决策
+      DEC-009 / DEC-010 / DEC-011 / DEC-014 均已 RESOLVED（ADR-0001 ~ ADR-0003 ACCEPTED），
+      Blocking Architecture Decision = 0；架构 Handoff = READY FOR IMPLEMENTATION，API 契约 = READY。
+      因此 F012 满足 READY 的全部条件，为项目第一个 READY Feature。
   draft_rationale:
-    F002: "产品问题 OPEN-004（BareMetal 硬件字段必填/可选范围）直接决定本 Feature 字段范围；另被 DEC-009/DEC-012 阻塞。"
-    F006: "Feature 级产品问题 OPEN-001（VM 字段与唯一性规则）与 DEC-004（VM 绑定强制性 / 生命周期，归属 F006 Product 阶段）直接决定本 Feature 字段与生命周期；DEC-006 已解决、DEC-008 已移交架构，不再计入。"
-    F007: "Feature 级产品问题 OPEN-002（Container 管理粒度）与 DEC-005（Container 绑定与生命周期，归属 F007 Product 阶段）直接决定本 Feature 粒度与绑定模型；DEC-006 已解决、DEC-008 已移交架构。"
-    F008: "产品问题 OPEN-003（Service 字段范围）直接决定本 Feature 字段；关系模型已由 DEC-003（方案 C）解决并落为 R-SVC-005/006。"
-    F011: "产品问题 OPEN-005（部分成功导入策略）直接决定本 Feature 的导入校验与失败语义；DEC-002/DEC-003 已解决，不再计入。"
+    F002: "产品问题 OPEN-004（BareMetal 硬件字段必填/可选范围）直接决定本 Feature 字段范围；同时依赖 F001 未 DONE，取 DRAFT。"
+    F006: "Feature 级产品问题 OPEN-001（VM 字段与唯一性规则）与 DEC-004（VM 绑定强制性 / 生命周期，归属 F006 Product 阶段）直接决定本 Feature 字段与生命周期；同时依赖 F002 未 DONE，取 DRAFT。"
+    F007: "Feature 级产品问题 OPEN-002（Container 管理粒度）与 DEC-005（Container 绑定与生命周期，归属 F007 Product 阶段）直接决定本 Feature 粒度与绑定模型；同时依赖 F006 / F002 未 DONE，取 DRAFT。"
+    F008: "产品问题 OPEN-003（Service 字段范围）直接决定本 Feature 字段；关系模型已由 DEC-003（方案 C）解决并落为 R-SVC-005/006；同时依赖 F001 / F002 / F006 / F007 未 DONE，取 DRAFT。"
   blocked_rationale:
-    F001: >
-      DEC-007 / DEC-001 均已解决，无未解决产品问题（`/` 规则已落为 R-CLUSTER-005）；阻塞来自架构决策 DEC-009 / DEC-011。
+    F001: "DEC-007 / DEC-001 均已解决（`/` 规则已落为 R-CLUSTER-005），无未解决产品问题；阻塞为依赖 F012 未 DONE。"
     F004: >
       DEC-006 已解决（V1 无状态）；保留的 R-NIC-003「VM 等资源是否拥有独立 NetworkInterface」不改变本 Feature
-      的 V1 交付边界（核心对象为 BareMetal），按规则仍计为 BLOCKED。阻塞为架构决策 DEC-009。
-    F005: >
-      DEC-006 已解决（V1 无状态），无未解决产品问题；阻塞为架构决策 DEC-009。
-    F009: >
-      无未解决产品问题；阻塞来自 DEC-009（架构）与依赖 F001/F002 未 DONE。
-    F010: >
-      上游资源模型决策 DEC-001 / DEC-003 / DEC-006 均已解决，不改变本 Feature 的 AC 定稿；
-      阻塞来自 DEC-009 与依赖未 DONE。
-    F012: "阻塞均为架构/数据库决策 DEC-009 / DEC-010 / DEC-011，scope 与 AC 已可定稿。"
-    F013: "阻塞为架构决策 DEC-009 / DEC-013，scope 与 AC 已可定稿。"
-    F014: "阻塞为数据库/架构决策 DEC-012 / DEC-009，scope 与 AC 已可定稿。"
-    F015: "阻塞为架构/数据库决策 DEC-009 / DEC-010，scope 与 AC 已可定稿。"
-  reason_no_ready: >
-    项目无技术栈/架构 ADR、无数据库与 API 设计、无任何基础实现，
-    所有 Feature 均存在未解决的 architecture/database decision 或未 DONE 的 depends_on；
-    其中 5 个 Feature 另存在影响自身 scope/AC 定稿的产品问题（DRAFT），9 个 Feature scope/AC 可定稿
-    但被架构/数据库决策或前置依赖阻塞（BLOCKED）。因此没有任何 Feature 满足 READY 的全部条件。
+      的 V1 交付边界（核心对象为 BareMetal），按规则仍计为 BLOCKED。阻塞为依赖 F002 未 DONE。
+    F005: "DEC-006 已解决（V1 无状态），无未解决产品问题；阻塞为依赖 F004 未 DONE。"
+    F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
+    F010: "上游资源模型决策 DEC-001 / DEC-003 / DEC-006 均已解决，不改变本 Feature 的 AC 定稿；阻塞为依赖多个资源 Feature 未 DONE。"
+    F011: "OPEN-005 已关闭（All-or-Nothing，已固化为 R-IMPORT-004），无未解决产品问题；阻塞为依赖多个资源 Feature 未 DONE。"
+    F013: "阻塞为依赖 F012 未 DONE；架构决策 DEC-009 / DEC-013 均已 RESOLVED。"
+    F014: "阻塞为依赖 F012 未 DONE；架构/数据库决策 DEC-012 / DEC-009 均已 RESOLVED。"
+    F015: "阻塞为依赖 F012 / F013 未 DONE；架构决策 DEC-009 / DEC-010 与部署决策 DEC-016 均已 RESOLVED。"
+  readiness_summary: >
+    架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），DEC-008 ~ DEC-016 全部 RESOLVED。
+    F012 无 depends_on 且无阻塞决策，为唯一 READY Feature（1）。
+    9 个 Feature（F001/F004/F005/F009/F010/F011/F013/F014/F015）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
+    4 个 Feature（F002/F006/F007/F008）仍存在影响自身 scope/AC 定稿的 Feature 级产品问题（DRAFT）。
   decision: PROJECT PLAN READY FOR APPROVAL
