@@ -265,7 +265,7 @@ features:
       start_commit: 7a99745fbd2c03497a4377d4086f2b3dae30f27a
       head_commit: 7a99745fbd2c03497a4377d4086f2b3dae30f27a
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     layers:
       database: false     # 无 Schema 变更 / 索引 / migration；clusters 表与约束由 F012 基线提供且冻结
       backend: true       # Cluster 模块（5 端点）+ 彻底移除 /_foundation/*
@@ -277,7 +277,7 @@ features:
       database_design: NOT_REQUIRED   # database: false；数据库交付仅为测试断言
       backend: COMPLETE           # cb7f992
       frontend: COMPLETE          # cb7f992
-      test: PENDING
+      test: COMPLETE           # 报告见 docs/test-reports/f001-cluster.md
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -1060,7 +1060,7 @@ planning_status:
 
 execution:
   current_feature: F001
-  current_stage: TEST
+  current_stage: REVIEW
   started_on: "2026-09-15"
   note: >
     F012「项目基础框架与运行环境」已完成并合入 develop（merge 3b8646c），当前无进行中的 Feature。
