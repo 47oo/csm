@@ -197,9 +197,9 @@ features:
       base_branch: develop
       branch: feature/F013-auth
       start_commit: 6e7338c49d341664e7bd1ee914042b193a2cfe43
-      head_commit: 6e7338c49d341664e7bd1ee914042b193a2cfe43
+      head_commit: 01335eea10540f5a115030bb7b0c0cf2a2340118
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     layers:
       database: true      # 增量 migration 0002_f013_auth（users / sessions）；不改基线
       backend: true       # app/auth/ 模块 + AuthMiddleware（fail-closed）+ CLI + 既有测试调整
@@ -211,7 +211,7 @@ features:
       database_design: COMPLETE   # docs/database/csm-v1-schema-design.md 的 users / sessions 已 READY
       backend: COMPLETE           # 见下
       frontend: COMPLETE          # 见下
-      test: PENDING
+      test: COMPLETE              # docs/test-reports/f013-auth.md（READY FOR REVIEW）
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -1158,11 +1158,13 @@ planning_status:
 
 execution:
   current_feature: F013
-  current_stage: TEST
+  current_stage: REVIEW
   started_on: "2026-09-15"
   note: >
-    F012「项目基础框架与运行环境」已完成并合入 develop（merge 3b8646c），当前无进行中的 Feature。
-    流程记录：Git Preflight（2026-09-15）→ Product → Architecture + API Contract → Implementation
-    （Database 设计已在全局阶段完成，与 Backend / Frontend 并行）→ Tester → Reviewer(APPROVED WITH FOLLOW-UP)
-    → Merge Gate → 状态提交。develop 分支由用户授权后自 main 创建。
-    下一个 READY Feature 候选：F001 / F013 / F014（均为 P0，F001 在关键路径上，建议优先）。
+    恢复执行（2026-09-16）：F013 处于 TEST 阶段，Tab 现场核对通过 —— 工作区 clean、分支 feature/F013-auth、
+    start_commit 6e7338c 为 HEAD 祖先；01335ee 为「record the implementation checkpoint」元数据提交，
+    backend / frontend / database_design 均 COMPLETE，故直接从 TEST 恢复，未重复 Product / Architecture / Implementation。
+    Tester 独立重跑（真实 PostgreSQL 16.2 / pgserver）并新增验收与对抗覆盖，输出 docs/test-reports/f013-auth.md = READY FOR REVIEW：
+    AC-01 ~ AC-15 全部 PASS，T-01 ~ T-19 / G-A ~ G-F 全部 PASS，133 backend passed、前端 83 passed + build 成功、
+    ruff 干净、迁移可重复 / 可重建 / 无漂移；唯一缺陷 F013-F-01 为继承自 F012 的 LOW（405 映射为 INTERNAL_ERROR），非本 Feature 引入。
+    下一步进入 Reviewer。
