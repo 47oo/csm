@@ -15,6 +15,10 @@
 >   - **OPEN-006 关闭**为「已确认排除」（§29）。
 >   - 决策来源：`docs/product/domain-conflict-handoff.md`（Q-001=C、Q-002=B、Q-003=A、Rack-1、S-2、D-1、D-2）。
 >
+> - **2026-09-15 — 架构阶段产品裁定**
+>   - **OPEN-005 关闭**：Excel 批量导入采用 **All-or-Nothing**，不采用 Partial Success；固化为 R-IMPORT-004（§18）。
+>   - 决策来源：`docs/architecture/csm-v1-foundation-architecture.md` BQ-3。
+>
 > 本文件为 CSM V1 的 Primary Requirements Source；与 `docs/product/domain-model.md` 的同步另行维护，冲突优先级见 `AGENTS.md` §3。
 
 ---
@@ -819,9 +823,18 @@ CSM 的重要目标之一是替代现有 Excel 管理方式。
 
 ## R-IMPORT-004
 
-是否支持部分成功导入，需要在 Excel Import Feature 的 Product 阶段明确。
+Excel 批量导入采用 **All-or-Nothing**（全或无）语义。
 
-在未确认之前不得自行决定。
+即：
+
+* 只要有任意一行校验失败，**整个导入不产生任何写入**；
+* 不能采用「部分成功导入」（不得先写入合法行再报告错误行）；
+* 失败时必须一次性报告**全部**失败行，而不是遇到首行错误即中止；
+* 全部行通过校验时，必须在单一事务内完成写入。
+
+该语义于 2026-09-15 由用户明确裁定（原为待确认项 OPEN-005）。
+
+如果未来需要「跳过错误行继续导入」，应作为新的产品需求重新设计。
 
 ---
 
@@ -1198,14 +1211,14 @@ Reviewer = APPROVED WITH FOLLOW-UP
 
 ---
 
-## OPEN-005 Excel Partial Import
+## OPEN-005 Excel Partial Import（已关闭）
 
-Excel 批量导入发生部分错误时：
+Excel 批量导入发生部分错误时的语义已于 2026-09-15 由用户裁定：
 
-* All-or-Nothing；
-* Partial Success；
+* **采用 All-or-Nothing**；
+* 不采用 Partial Success。
 
-尚需确认。
+已固化为 **R-IMPORT-004**，不再是待确认项。
 
 ---
 

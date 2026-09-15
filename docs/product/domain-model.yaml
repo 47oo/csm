@@ -616,10 +616,11 @@ open_questions:
     status: OPEN
   - id: OPEN-005
     topic: Excel 部分成功导入策略
-    detail: All-or-Nothing 或 Partial Success
-    resolve_in_feature: F011
-    blocking: false
-    status: OPEN
+    status: CLOSED_RESOLVED
+    resolution: >
+      用户于 2026-09-15 裁定采用 All-or-Nothing（全或无）：任一行校验失败则整个导入不产生任何写入，
+      并一次性报告全部失败行；不提供「跳过错误行继续导入」模式。已固化为 R-IMPORT-004。
+    closed_on: "2026-09-15"
     rule_ids: [R-IMPORT-004]
   - id: OPEN-006
     topic: Virtual Resource Runtime Integration
@@ -640,6 +641,7 @@ must_not_assume:
   - CSM 必须具备传统 CMDB 的全部能力
   - 虚拟机绑定裸金属是必选的
   - 容器绑定运行载体是必选的
+  - Excel 导入支持部分成功（2026-09-15 已裁定为 All-or-Nothing）
 
 # -----------------------------------------------------------------------------
 # 不做什么（V1 范围外，不得因“系统通常都有”而自动加入）
