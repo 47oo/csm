@@ -1,0 +1,670 @@
+# =============================================================================
+# CSM 领域模型 — 机器可读结构化视图
+# =============================================================================
+#
+# 定位：
+#   本文件是 docs/product/domain-model.md 的结构化视图，供 Agent 与工具消费。
+#
+# 权威来源（冲突时以它们为准，优先级见 AGENTS.md §3）：
+#   1. 用户最新明确确认的需求
+#   2. docs/product/requirements.md  （CONFIRMED BASELINE，Primary Source）
+#   3. docs/product/domain-model.md  （权威领域模型，人类可读）
+#
+# 本文件**只做结构化转录，不引入任何新规则**。
+# 任何本文件与上述文档不一致之处，以上述文档为准，并将本文件视为缺陷。
+#
+# 范围：CSM V1
+# 最后同步：2026-09-15（DEC-001 ~ DEC-008 裁定后）
+# =============================================================================
+
+meta:
+  status: CONFIRMED
+  scope: CSM V1
+  last_updated: "2026-09-15"
+  human_readable_view: docs/product/domain-model.md
+  primary_requirements_source: docs/product/requirements.md
+  decision_record: docs/product/domain-conflict-handoff.md
+  product_positioning: >
+    CSM 是面向 HPC / AI 运维场景的内部资源管理平台，目标是逐步替代分散维护的
+    Excel 表格，提高资源登记、查询、关联、状态维护与可用情况查询的效率。
+    CSM 第一阶段是资源管理平台，当前不以建设完整 CMDB 为目标。
+  implementation_constraints:
+    - id: no-db-inheritance
+      statement: Taxonomy 不产生数据库继承
+      detail: >
+        不要求数据库或代码必须采用继承、通用 `resources` 表、EAV 或 JSONB
+        通用资源模型。
+      source: domain-model.md §3; requirements.md §4, §24
+    - id: no-eav
+      statement: 禁止 EAV / Single Table Inheritance / ORM 多态继承
+      detail: >
+        不得仅因为存在统一 Resource 概念就默认采用通用资源表或万能 JSONB 模型。
+        是否需要共享基础模型必须根据真实业务需求单独论证。
+      source: requirements.md §24
+    - id: explicit-resource-types
+      statement: 资源类型应显式建模，而不是抽象成一个万能 Resource
+      source: requirements.md §25
+    - id: explicit-relationships
+      statement: 资源关系必须明确建模，不得仅根据资源分类自动产生关系
+      source: requirements.md §15, §25
+    - id: history-preservation
+      statement: 资源删除不能破坏历史事实
+      source: requirements.md §25
+    - id: simple-first
+      statement: 优先选择简单、可理解、可维护的设计；不得为“未来可能需要”进行大规模抽象
+      source: requirements.md §25
+
+# -----------------------------------------------------------------------------
+# Taxonomy（产品分类，非数据库继承模型）
+# -----------------------------------------------------------------------------
+taxonomy:
+  - category: infrastructure
+    label: 基础设施资源 Infrastructure Resource
+    resources: [Cluster, BareMetal]
+  - category: virtual
+    label: 虚拟资源 Virtual Resource
+    resources: [VirtualMachine, Container]
+  - category: network
+    label: 网络资源 Network Resource
+    resources: [NetworkInterface, IPAddress]
+  - category: service
+    label: 服务资源 Service Resource
+    resources: [Service]
+
+# -----------------------------------------------------------------------------
+# 明确排除：不得重新引入 V1 产品模型
+# -----------------------------------------------------------------------------
+excluded_from_v1:
+  - name: DataCenter
+    label: 数据中心
+    reason: >
+      CSM V1 不建立 DataCenter 资源层级，不得自动创建 DataCenter → Cluster
+      关系。Cluster 直接作为基础设施资源中的顶层管理对象。
+    consequence: 运维人员登记 Cluster 时不得选择或绑定数据中心
+    source: requirements.md §6, §5, §23
+    decision: DEC-001
+    decision_status: RESOLVED
+    if_needed_later: 应作为新的产品需求重新设计
+
+  - name: Rack
+    label: 机柜
+    reason: >
+      Rack / U 位管理已从 V1 范围删除（原 4 条 Rack 规则，R-RACK 序列，已全部删除）。
+      BareMetal 在 V1 中不记录 Rack 与 U Position。
+    consequence: V1 不提供机柜位置管理与 U 位冲突校验
+    source: requirements.md §13, §5, §26
+    decision: DEC-002
+    decision_status: RESOLVED
+    if_needed_later: 应作为新的产品需求重新设计
+
+# -----------------------------------------------------------------------------
+# 资源定义
+#
+# status_model 取值：
+#   null            —— 该资源在 V1 不设状态
+#   <object>        —— 见 status_models
+# binding_state 取值：
+#   CONFIRMED       —— 已确认
+#   UNCONFIRMED     —— 未确认，须在对应 Feature 的 Product 阶段确定
+# -----------------------------------------------------------------------------
+resources:
+  - name: Cluster
+    label: 集群
+    category: infrastructure
+    in_v1: true
+    is_top_level: true
+    status_model: null
+    status_note: >
+      Cluster 不设置统一运行状态。不得为了与 BareMetal 字段统一而给 Cluster
+      自动增加状态字段。
+    status_rule_ids: [R-CLUSTER-003]
+    fields:
+      - name: name
+        label: 集群名称
+        required: true
+        is_identifier: true
+        description: 能够被运维人员识别；是集群的唯一标识
+        uniqueness:
+          scope: global
+          applies_to: 所有当前有效 Cluster
+          case_sensitive: true
+          rule_ids: [R-CLUSTER-002]
+        constraints:
+          - id: must-not-contain-slash
+            rule_ids: [R-CLUSTER-005]
+            statement: 集群名称不得包含 `/`
+            reason: >
+              集群名称用于 URL 路径寻址（如按集群名称定位其下资源的查询路径），
+              包含 `/` 会破坏路径分段，导致该集群无法通过路径寻址。
+            enforcement: >
+              Cluster 登记的写入路径必须校验本规则，拒绝包含 `/` 的集群名称。
+            enforcement_feature: F001
+        undefined_constraints:
+          - 长度
+          - 首尾空白
+          - 其他非法字符
+          - 大小写以外的字符规则
+        undefined_note: 以上规则当前未定义，不得自行假设
+    relationships_out:
+      - rel: Cluster-has-BareMetal
+        note: 见 relationships
+    domain_rules:
+      - R-CLUSTER-001
+      - R-CLUSTER-002
+      - R-CLUSTER-003
+      - R-CLUSTER-004
+      - R-CLUSTER-005
+
+  - name: BareMetal
+    label: 裸金属
+    category: infrastructure
+    in_v1: true
+    is_top_level: false
+    is_node_resource: true
+    status_model: BareMetal
+    fields:
+      - name: hostname
+        label: 主机名称
+        required: true
+        is_identifier: true
+        description: 裸金属的身份标识，用于在列表中区分具体机器
+        uniqueness:
+          scope: per_cluster
+          applies_to: 同一 Cluster 内
+          case_sensitive: true
+          cross_scope: 不同 Cluster 可以存在相同 hostname
+          rule_ids: [R-BM-002]
+    binding_to_parent:
+      target: Cluster
+      mandatory: true
+      binding_state: CONFIRMED
+      rule_ids: [R-BM-001]
+      note: V1 不支持完全脱离 Cluster 存在的 BareMetal
+    children:
+      - NetworkInterface
+      - VirtualMachine
+      - Container
+      - Service
+    does_not_record: [Rack, U Position]
+    domain_rules:
+      - R-BM-001
+      - R-BM-002
+      - R-BM-003
+      - R-BM-004
+      - R-BM-005
+      - R-BM-006
+
+  - name: VirtualMachine
+    label: 虚拟机
+    category: virtual
+    in_v1: true
+    status_model: null
+    fields:
+      state: UNCONFIRMED
+      note: 字段范围尚未确认
+      open_question: OPEN-001
+    binding_to_host:
+      target: BareMetal
+      relationship_model: 应能够表达实际运行位置
+      mandatory: UNCONFIRMED
+      cardinality: UNCONFIRMED
+      binding_state: UNCONFIRMED
+      must_not_assume: 不得默认其为必选
+      rule_ids: [R-VM-003]
+      resolve_in_feature: F006
+    identity_and_uniqueness:
+      state: UNCONFIRMED
+      note: 未被任何已确认文档定义
+      open_question: OPEN-001
+    parent: BareMetal
+    children: [Container]
+    integration:
+      auto_discovery: false
+      note: V1 不要求自动接入 VMware / PVE / OpenStack 或其他虚拟化平台 API
+      rule_ids: [R-VM-002]
+    domain_rules:
+      - R-VM-001
+      - R-VM-002
+      - R-VM-003
+
+  - name: Container
+    label: 容器
+    category: virtual
+    in_v1: true
+    status_model: null
+    fields:
+      - name: host_binding
+        label: 绑定的载体
+        required: UNCONFIRMED
+        note: 最终字段范围待 Container Feature 确认
+    binding_to_host:
+      candidates: [VirtualMachine, BareMetal]
+      mandatory: UNCONFIRMED
+      cardinality: UNCONFIRMED
+      binding_state: UNCONFIRMED
+      must_not_assume: 不得默认绑定为必选
+      resolve_in_feature: F007
+      open_question: OPEN-002
+    granularity:
+      state: UNCONFIRMED
+      note: 登记粒度、生命周期尚未确认
+      open_question: OPEN-002
+    integration:
+      kubernetes_api: false
+      docker_api: false
+      runtime_auto_discovery: false
+      note: >
+        不得因为存在 Container 类型就自动引入 Kubernetes / Docker API /
+        Container Runtime 自动发现。
+    domain_rules: []
+
+  - name: Service
+    label: 服务
+    category: service
+    in_v1: true
+    status_model: null
+    fields:
+      - name: name
+        label: 服务名称
+        required: true
+        free_form: true
+        note: Service Name / Type 等产品字段应允许根据实际服务自由登记
+        rule_ids: [R-SVC-001]
+      - name: url
+        label: 服务 URL
+        required: UNCONFIRMED
+        example: https://10.1.1.1:8080
+      - name: host_bindings
+        label: 绑定的载体
+        required: true
+        multiple: true
+        rule_ids: [R-SVC-005]
+    remaining_fields_unspecified:
+      candidates: [Port, Protocol, Owner, Description, Credential reference, Health information]
+      state: UNCONFIRMED
+      open_question: OPEN-003
+    binding_to_hosts:
+      targets: [BareMetal, VirtualMachine, Container]
+      mandatory: true
+      multiple: true
+      binding_state: CONFIRMED
+      rule_ids: [R-SVC-005]
+      note: 不允许存在未绑定任何运行载体的 Service
+    cluster_association:
+      mechanism: derived_from_host_bindings
+      direct_binding: false
+      forbidden_column: service.cluster_id
+      rule_ids: [R-SVC-006]
+      preserves: [R-SVC-002, R-SVC-003, R-SVC-004]
+      note: >
+        Service 与 Cluster 的关联通过其运行载体的 Cluster 归属推导。
+        一个 Service 可被多个 Cluster 共享（通过绑定跨 Cluster 的多个载体），
+        共享服务只能登记一次。
+    domain_rules:
+      - R-SVC-001
+      - R-SVC-002
+      - R-SVC-003
+      - R-SVC-004
+      - R-SVC-005
+      - R-SVC-006
+
+  - name: NetworkInterface
+    label: 网络接口
+    category: network
+    in_v1: true
+    is_non_node_resource: true
+    status_model: null
+    fields:
+      - name: name
+        label: 网络接口名称
+        required: true
+        example: eth0, ib0
+      - name: technology_type
+        label: 技术类型
+        required: true
+        enum: [Ethernet, InfiniBand, RoCE, Other]
+        rule_ids: [R-NIC-001]
+      - name: purpose
+        label: 用途
+        required: true
+        enum: [BMC, Management, Business, Compute, Storage, DataTransfer, Other]
+        rule_ids: [R-NIC-002]
+        note: 中文展示可根据 UI 规范确定，内部枚举应保持稳定
+    binding_to_parent:
+      target: BareMetal
+      mandatory: true
+      binding_state: CONFIRMED
+      cardinality: N:1
+      rule_ids: [R-NIC-003]
+    open_questions:
+      - OPEN: VirtualMachine 等资源是否拥有独立 NetworkInterface
+        resolve_in_feature: F004
+        must_not_assume: 不得自动推导
+        rule_ids: [R-NIC-003]
+    domain_rules:
+      - R-NIC-001
+      - R-NIC-002
+      - R-NIC-003
+
+  - name: IPAddress
+    label: IP 地址
+    category: network
+    in_v1: true
+    is_non_node_resource: true
+    status_model: null
+    fields:
+      - name: ip_address
+        label: IP 地址
+        required: true
+        is_identifier: true
+        example: 10.0.1.1/16
+        uniqueness:
+          scope: per_cluster
+          key: [cluster, ip_address]
+          case_sensitive: true
+          rule_ids: [R-IP-001, R-IP-002, R-IP-003]
+          note: >
+            同一 Cluster 中 IP 地址唯一；不同 Cluster 之间允许存在相同 IP。
+            当前不考虑 VRF 等网络命名空间造成的同 Cluster IP 重复。
+    binding_to_parent:
+      target: NetworkInterface
+      mandatory: true
+      binding_state: CONFIRMED
+      cardinality: N:1
+    domain_rules:
+      - R-IP-001
+      - R-IP-002
+      - R-IP-003
+
+# -----------------------------------------------------------------------------
+# 状态模型
+# -----------------------------------------------------------------------------
+status_models:
+  terminology:
+    use: 状态
+    forbidden_alternatives: [资源状态, 当前状态]
+    excludes: [资源容量, 使用率, 实时监控指标]
+    source: domain-model.md §7
+
+  stateful_resources:
+    - resource: BareMetal
+      label: 裸金属
+      values: [IDLE, ALLOC, DOWN, UNKNOWN]
+      value_meaning:
+        IDLE: 当前资源处于空闲状态
+        ALLOC: 当前资源已经被分配或正在使用
+        DOWN: 当前资源不可正常使用
+        UNKNOWN: 当前无法确定资源状态；也用于历史状态为空的数据
+      default: IDLE
+      default_note: BareMetal 新建时默认状态
+      nullable: false
+      null_substitute: UNKNOWN
+      maintained_by: manual
+      rule_ids: [R-BM-003, R-BM-004, R-BM-005, R-BM-006]
+      must_not_assume: >
+        不得因为存在状态字段就自动推导必须接入 Slurm、Prometheus、
+        虚拟化平台或其他实时状态源。
+
+  stateless_resources:
+    - Cluster
+    - VirtualMachine
+    - Container
+    - Service
+    - NetworkInterface
+    - IPAddress
+  stateless_note: >
+    V1 中只有 BareMetal 拥有状态。不得为上述资源自动增加状态字段或推导状态模型。
+    原文档曾为 VirtualMachine / Container / Service 定义
+    IDLE/RUNNING/DOWN/UNKNOWN、为 NetworkInterface / IPAddress 定义
+    IDLE/ALLOC/SAVE/UNKNOWN，该内容已于 2026-09-15 删除，不属于 V1 规则。
+
+  maintenance_rules:
+    - 状态流转由人工维护
+    - 不得自行新增、合并或重命名状态取值
+    - 若确需调整状态集合，必须经过需求确认
+    - 状态不得为空
+
+  implementation_note: >
+    具体持久化形式（是否采用通用 `status` 字段、各资源如何存储状态）属于架构与
+    数据库设计问题，不是产品规则，由 Architecture / Database 决定。
+    约束：requirements.md §4 明确不同资源可以拥有独立数据模型与状态；
+    §24 禁止 EAV / 通用 resources 表 / STI / JSONB 万能资源模型。
+    decision: DEC-008 (TRANSFERRED_TO_ARCHITECT)
+
+# -----------------------------------------------------------------------------
+# 关系（DAG，无循环）
+#
+# binding_state 为 UNCONFIRMED 的关系不得作为设计依据，也不得默认其为必选。
+# -----------------------------------------------------------------------------
+relationships:
+  - id: BareMetal-to-Cluster
+    from: BareMetal
+    to: Cluster
+    cardinality: N:1
+    mandatory: true
+    binding_state: CONFIRMED
+    rule_ids: [R-BM-001]
+    note: 每个 BareMetal 必须属于一个 Cluster
+
+  - id: NetworkInterface-to-BareMetal
+    from: NetworkInterface
+    to: BareMetal
+    cardinality: N:1
+    mandatory: true
+    binding_state: CONFIRMED
+    rule_ids: [R-NIC-003]
+    note: 一个裸金属可以拥有多张网络接口
+
+  - id: IPAddress-to-NetworkInterface
+    from: IPAddress
+    to: NetworkInterface
+    cardinality: N:1
+    mandatory: true
+    binding_state: CONFIRMED
+    source: requirements.md §15
+    note: 一个网络接口可以挂多个 IP 地址
+
+  - id: Service-to-Hosts
+    from: Service
+    to: [BareMetal, VirtualMachine, Container]
+    cardinality: N:M
+    mandatory: true
+    multiple: true
+    binding_state: CONFIRMED
+    rule_ids: [R-SVC-005]
+    note: 不允许存在未绑定任何运行载体的 Service
+
+  - id: Service-to-Cluster
+    from: Service
+    to: Cluster
+    mechanism: derived
+    derived_from: Service-to-Hosts
+    direct_binding: false
+    binding_state: CONFIRMED
+    rule_ids: [R-SVC-006]
+
+  - id: VirtualMachine-to-BareMetal
+    from: VirtualMachine
+    to: BareMetal
+    cardinality: UNCONFIRMED
+    mandatory: UNCONFIRMED
+    binding_state: UNCONFIRMED
+    rule_ids: [R-VM-003]
+    resolve_in_feature: F006
+    must_not_assume: 不得默认其为必选
+
+  - id: Container-to-Hosts
+    from: Container
+    to: [VirtualMachine, BareMetal]
+    cardinality: UNCONFIRMED
+    mandatory: UNCONFIRMED
+    binding_state: UNCONFIRMED
+    resolve_in_feature: F007
+    must_not_assume: 不得默认绑定为必选
+
+relationship_rules:
+  - 不得仅根据资源分类自动产生关系
+  - 具体关系是否 Mandatory / Optional / 1:N / N:N 必须以对应 Product Feature 的确认结果为准
+  - resource-domain 与实现不得把 UNCONFIRMED 关系当作既成事实
+
+# -----------------------------------------------------------------------------
+# 唯一性规则
+# -----------------------------------------------------------------------------
+uniqueness_rules:
+  - id: R-CLUSTER-002
+    attribute: Cluster.name
+    scope: global
+    applies_to: 所有当前有效 Cluster
+    case_sensitive: true
+    note: Cluster 以名称唯一识别
+    enforcement_layer: 需由 Backend / Database 保证，不能只依赖 UI 校验
+  - id: R-BM-002
+    attribute: BareMetal.hostname
+    scope: per_cluster
+    applies_to: 同一 Cluster 内
+    case_sensitive: true
+    cross_scope_allowed: 不同 Cluster 可以存在相同 hostname
+  - id: R-IP-001
+    attribute: IPAddress.ip_address
+    scope: per_cluster
+    key: [cluster, ip_address]
+    case_sensitive: true
+    cross_scope_allowed: 不同 Cluster 之间允许相同 IP
+    note: 当前不考虑 VRF
+  - id: R-CLUSTER-005
+    attribute: Cluster.name
+    type: character_constraint
+    statement: 集群名称不得包含 `/`
+    reason: URL 路径寻址
+
+# -----------------------------------------------------------------------------
+# 生命周期
+# -----------------------------------------------------------------------------
+lifecycle:
+  deletion: soft
+  physical_delete:
+    allowed: false
+    statement: 正常产品操作不得直接物理删除核心资源记录
+    rule_ids: [R-DELETE-001]
+  deleted_visibility:
+    excluded_from_normal_queries: true
+    history_preserved: true
+    rule_ids: [R-DELETE-002]
+  undelete:
+    supported: false
+    note: V1 不提供 Undelete / Restore；资源记录仅支持更新
+    rule_ids: [R-DELETE-003]
+  parent_deletion:
+    blocked_when_active_children_exist: true
+    example: Cluster 仍存在有效 BareMetal 时不能删除 Cluster
+    rule_ids: [R-DELETE-004]
+  cascade:
+    automatic_cascade_delete: false
+    note: 必须显式处理依赖关系
+    rule_ids: [R-DELETE-005]
+  uniqueness_release:
+    deleted_records_occupy_uniqueness: false
+    note: 已逻辑删除的资源不继续占用正常业务唯一性，可重新创建同名资源
+    rule_ids: [R-DELETE-006]
+  persistence_note: 具体持久化方式（如删除标记字段）由数据库设计决定
+
+# -----------------------------------------------------------------------------
+# 数据一致性
+# -----------------------------------------------------------------------------
+data_consistency:
+  principle: 资源事实数据的一致性优先；关键冲突必须在保存前阻止
+  must_block_before_save:
+    - 同 Cluster IP 重复
+    - 同 Cluster hostname 重复
+    - 全局 Cluster Name 重复
+    - 非法资源关系
+    - 非法状态值
+  not_ui_only: true
+  requirement: Backend / Database 必须具有必要的数据一致性保护
+  applies_to_import: Excel 导入必须执行与页面人工录入一致的业务校验
+  source: requirements.md §21
+
+# -----------------------------------------------------------------------------
+# 待确认事项
+# -----------------------------------------------------------------------------
+open_questions:
+  - id: OPEN-001
+    topic: VirtualMachine 字段与标识规则
+    detail: 字段范围（CPU / Memory / Disk / OS / Hypervisor / Owner 等）与标识、唯一性规则均未确认
+    resolve_in_feature: F006
+    blocking: false
+    status: OPEN
+  - id: OPEN-002
+    topic: Container 管理粒度
+    confirmed_part: V1 允许领域模型表达 Container；不得引入 K8s / Docker API / Runtime 自动发现
+    detail: 是否登记每个 Container、是否仅登记长期服务型、是否需要 K8s workload 等更高层对象
+    resolve_in_feature: F007
+    blocking: false
+    status: OPEN
+  - id: OPEN-003
+    topic: Service 字段
+    confirmed_part: Service Name / Type 允许自由登记
+    detail: Port / Protocol / Owner / Description / Credential reference / Health information 中哪些属于 V1
+    resolve_in_feature: F008
+    blocking: false
+    status: OPEN
+  - id: OPEN-004
+    topic: BareMetal 硬件字段
+    detail: CPU / Memory / GPU / Storage / Vendor / Model / Serial Number 的 V1 必填与可选范围
+    resolve_in_feature: F002
+    blocking: false
+    status: OPEN
+  - id: OPEN-005
+    topic: Excel 部分成功导入策略
+    detail: All-or-Nothing 或 Partial Success
+    resolve_in_feature: F011
+    blocking: false
+    status: OPEN
+    rule_ids: [R-IMPORT-004]
+  - id: OPEN-006
+    topic: Virtual Resource Runtime Integration
+    status: CLOSED_CONFIRMED_EXCLUDED
+    resolution: >
+      V1 以人工登记为基础，不包含虚拟化平台或容器平台的运行时自动集成。
+      依据 R-VM-002、requirements.md §10 与 §23。
+    closed_on: "2026-09-15"
+
+must_not_assume:
+  - 所有裸金属都具有 GPU
+  - 所有裸金属都具有相同配置
+  - 一个裸金属只能属于一种业务用途
+  - 一个 IP 地址在任何场景下都全局唯一
+  - 一个服务只能属于一个集群
+  - 所有实时状态都需要永久保存
+  - 虚拟化平台必须在第一版接入
+  - CSM 必须具备传统 CMDB 的全部能力
+  - 虚拟机绑定裸金属是必选的
+  - 容器绑定运行载体是必选的
+
+# -----------------------------------------------------------------------------
+# 不做什么（V1 范围外，不得因“系统通常都有”而自动加入）
+# -----------------------------------------------------------------------------
+out_of_scope:
+  source: requirements.md §23, §19, §20
+  items:
+    - 完整 CMDB
+    - DataCenter 层
+    - Rack / U 位管理
+    - 自动资产发现
+    - VMware / PVE / OpenStack 自动同步
+    - Kubernetes 自动同步
+    - Slurm 集成
+    - 自动拓扑发现
+    - Prometheus 监控平台替代
+    - 告警平台
+    - 工单系统
+    - 采购系统
+    - 财务系统
+    - 自动容量预测
+    - 复杂 RBAC
+    - 微服务化
+    - 通用 Resource EAV 模型
+    - LDAP / AD / OAuth / 企业 SSO
+    - 公网入口、域名、HTTPS（V1 使用 Internal IP + HTTP）
+    - Undelete / Restore
+    - 虚拟资源运行时自动集成
