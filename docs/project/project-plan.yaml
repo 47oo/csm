@@ -565,19 +565,78 @@ features:
     name: Cluster 视角资源查询
     epic: E05
     priority: P0
-    status: READY
+    status: IN_REVIEW
     depends_on: [F001, F002]
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F009-cluster-resource-view
+      start_commit: c6565545286bcabd4984de549dec13122941ed3e
+      head_commit: c6565545286bcabd4984de549dec13122941ed3e
+      merge_commit: null
+    current_stage: REVIEW
+    layers:
+      database: false     # 无 schema 变更；复用既有 ux_clusters_name_active / ix_bare_metals_cluster_id 与 active_filter
+      backend: true       # 新增 app/cluster_views/**（router + service）+ main 挂载 + EXPECTED_GET_ROUTES 演进 + 边界/一致性 guard
+      frontend: false     # 复用 F002 已交付的 clusterId 限定 BareMetalListPage；无新增前端实现
+    contract:
+      status: READY
+      doc: docs/api/f009-cluster-resource-view.md
+    implementation:
+      database_design: NOT_REQUIRED
+      backend: COMPLETE           # 07b656d；311 passed
+      frontend: NOT_REQUIRED       # 复用 F002 已交付的 clusterId 限定 BareMetalListPage
+      test: COMPLETE              # docs/test-reports/f009-cluster-resource-view.md（READY FOR REVIEW）
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-QUERY-001
       - R-QUERY-002
       - R-QUERY-004
+      - R-CLUSTER-004
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-005
+      - "§15 Resource Relationship"
+      - "§21 Data Consistency"
+      - "§22 Case Sensitivity"
     acceptance_criteria:
-      - 用户能够从 Cluster 视角查看其所属资源（R-QUERY-001）。
-      - 支持查看 Cluster → BareMetal 以及 BareMetal 的状态（R-QUERY-002）。
-      - 查询结果区分 Resource Not Found 与 Empty Relationship（R-QUERY-004）。
-    open_questions: []
+      - 从 Cluster 视角可见其下活跃 BareMetal 清单及状态（R-QUERY-001, R-QUERY-002, R-CLUSTER-004）。
+      - 每条记录可观察到 hostname 与 status，status 属于 IDLE/ALLOC/DOWN/UNKNOWN 且非空（R-BM-003/005）。
+      - 只含本 Cluster 的 BareMetal，不含其他 Cluster（R-BM-001）。
+      - 状态修改后重新查询可见最新值（R-BM-006）。
+      - 中文 Cluster 名 / hostname 字面往返正确（§21）。
+      - R-QUERY-004：Cluster 不存在 → 404 NOT_FOUND，不得返回 200 空清单；界面不得渲染为「暂无机器」。
+      - R-QUERY-004：已软删 Cluster 与不存在同样 → 404，不区分。
+      - R-QUERY-004：Cluster 存在但无活跃 BareMetal → 200 + 空集合，界面渲染 Empty 态。
+      - Empty 态与 Not Found 态、Error 态在界面上互不相同且可独立断言。
+      - Empty 不呈现错误提示、不触发全局会话失效。
+      - 已软删 BareMetal（绕过应用层预置）不出现在视图中（R-DELETE-002；ADR-0004）。
+      - 软删某 BareMetal 后重新查询不再出现，其余不受影响。
+      - 无 restore / undelete / include_deleted / 回收站入口或参数（R-DELETE-003）。
+      - 不得出现 NIC / IP / VM / Container / Service 的列表、计数、占位或关系入口（R-QUERY-003 归属 F010）。
+      - 不得新增 Cluster 状态字段、DataCenter / 位置字段、自动发现 / 实时状态源字段。
+      - 未认证访问 Cluster 视角相关端点 → 401 UNAUTHENTICATED 且不返回资源数据（ADR-0005）。
+      - AC-17 alias：GET /api/clusters/by-name/{cluster_name}/bare-metals 返回与 GET /api/bare-metals?cluster_id={id} 同一结果集（同字段 / 同排序 / 同分页信封）；名称不存在或 Cluster 已删 → 404 NOT_FOUND；无活跃成员 → 200 + items==[]；大小写敏感；未认证 → 401（ADR-0003 §2）。
+      - AC-18 边界封闭：F009 端点集合恰为上述 1 条；无 NIC/IP/VM/Container/Service 的路径、字段或占位；软删过滤仍恰有 1 条写入路径与统一读取原语（G-009-1 ~ G-009-6）。
+    open_questions:
+      - id: NQ-1
+        blocking: false
+        summary: Cluster 级状态汇总 / 计数未确认（PROPOSED-1），F009 不实现。
+      - id: NQ-2
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定为「复用 F002 cluster_id 限定读取作为 canonical + F009 交付只读别名端点」；前端不新增视图。
+      - id: NQ-3
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定为交付 GET /api/clusters/by-name/{cluster_name}/bare-metals（履行 ADR-0003 §2），契约落点 docs/api/f009-cluster-resource-view.md。
+      - id: NQ-4
+        blocking: false
+        summary: 展示字段范围（最小 hostname + status），PROPOSED-2。
+      - id: NQ-5
+        blocking: false
+        summary: F009 计划元数据（layers / contract / AC）待 Architecture 阶段落盘。
 
   - id: F010
     name: 资源详情与关联查询
@@ -1421,8 +1480,8 @@ planning_status:
   decision: PROJECT IN PROGRESS — F002 DONE; NEXT READY = F004 / F006 / F009
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F009
+  current_stage: REVIEW
   started_on: "2026-09-16"
   note: >
     F002（BareMetal 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge ef39557）。
