@@ -447,11 +447,14 @@ features:
       start_commit: cf03e014a9abbd0dad88a00da57947e731778513
       head_commit: cf03e014a9abbd0dad88a00da57947e731778513
       merge_commit: null
-    current_stage: ARCHITECTURE
-    layers: {}
+    current_stage: IMPLEMENTATION
+    layers:
+      database: true      # 新增 network_interfaces 表 + migration 0005_f004_network_interfaces
+      backend: true       # models/network_interface.py + app/network_interfaces/** + bare_metals/deletion 追加 + guard 演进
+      frontend: true      # api/networkInterfaces.ts + 列表/详情/登记/维护/删除
     contract:
-      status: NOT_REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f004-network-interface.md
     implementation:
       database_design: PENDING
       backend: PENDING
@@ -525,10 +528,12 @@ features:
         summary: Other 是否需伴随自由文本 / 中文映射；R-NIC-001/002 已确认封闭集合且无伴随字段；默认不实现（PROPOSED-2）。
       - id: NQ-5
         blocking: false
-        summary: 引用不存在 / 已软删父的响应码；建议与 F002 NQ-2 一致，由 Architecture 裁定（被阻止 + 无写入 + 非 5xx 已确定）。
+        resolved_by: architecture
+        summary: 裁定为 404 NOT_FOUND（与 F002 / F006 一致）；无写入、非 5xx。
       - id: NQ-6
         blocking: false
-        summary: 按 BareMetal 限定读取的路由形态与 F010 归属；F004 承诺提供可复用能力并满足 R-QUERY-004。
+        resolved_by: architecture
+        summary: 裁定为 F004 提供 GET /api/network-interfaces?bare_metal_id=（与 F002/F006 对称，不新增端点），F010 必须复用。
       - id: NQ-7
         blocking: false
         summary: PATCH 可变字段集合固定为 technology_type + purpose。
@@ -1676,7 +1681,7 @@ planning_status:
 
 execution:
   current_feature: F004
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   started_on: "2026-09-16"
   note: >
     F006（VirtualMachine 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 01077be）。
