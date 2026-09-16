@@ -630,15 +630,6 @@ features:
       - id: NQ-5
         blocking: false
         summary: F009 计划元数据（layers / contract / AC）待 Architecture 阶段落盘。
-    requirements:
-      - R-QUERY-001
-      - R-QUERY-002
-      - R-QUERY-004
-    acceptance_criteria:
-      - 用户能够从 Cluster 视角查看其所属资源（R-QUERY-001）。
-      - 支持查看 Cluster → BareMetal 以及 BareMetal 的状态（R-QUERY-002）。
-      - 查询结果区分 Resource Not Found 与 Empty Relationship（R-QUERY-004）。
-    open_questions: []
 
   - id: F010
     name: 资源详情与关联查询
