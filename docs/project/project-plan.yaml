@@ -480,7 +480,7 @@ features:
     name: VirtualMachine 登记与管理
     epic: E03
     priority: P1
-    status: IN_PROGRESS
+    status: IN_REVIEW
     depends_on: [F002]
     blocking: []
     git:
@@ -489,7 +489,7 @@ features:
       start_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
       head_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
       merge_commit: null
-    current_stage: IMPLEMENTATION
+    current_stage: TEST
     layers:
       database: true      # 新增 virtual_machines 表 + migration 0004_f006_virtual_machines
       backend: true       # models/virtual_machine.py + app/virtual_machines/** + bare_metals/deletion 接线 + guard 演进
@@ -499,8 +499,8 @@ features:
       doc: docs/api/f006-virtual-machine.md
     implementation:
       database_design: COMPLETE    # docs/database/f006-virtual-machine-migration.md（READY FOR DATABASE IMPLEMENTATION）
-      backend: PENDING
-      frontend: PENDING
+      backend: COMPLETE           # 5d87d20；400 passed
+      frontend: COMPLETE          # 5d87d20；242 passed + build
       test: PENDING
       review: PENDING
     product_document: docs/product/requirements.md
@@ -1569,7 +1569,7 @@ planning_status:
 
 execution:
   current_feature: F006
-  current_stage: IMPLEMENTATION
+  current_stage: TEST
   started_on: "2026-09-16"
   note: >
     F009（Cluster 视角资源查询）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 6529b0d）。
