@@ -6,7 +6,14 @@ from sqlalchemy import text
 
 from tests.database.helpers import upgrade_to_head
 
-EXPECTED_TABLES = {"alembic_version", "clusters", "users", "sessions", "bare_metals"}
+EXPECTED_TABLES = {
+    "alembic_version",
+    "clusters",
+    "users",
+    "sessions",
+    "bare_metals",
+    "virtual_machines",
+}
 
 
 def test_expected_table_whitelist(database_url):
@@ -21,7 +28,7 @@ def test_expected_table_whitelist(database_url):
                     )
                 ).scalars()
             )
-        # 白名单：不得出现 virtual_machines / resources 等非预期表。
+        # 白名单：不得出现 resources 等非预期表。
         assert tables == EXPECTED_TABLES
     finally:
         engine.dispose()

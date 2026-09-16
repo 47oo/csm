@@ -104,10 +104,13 @@ def test_g009_1_expected_get_routes_evolved_not_replaced():
 # G-009-2：边界 token guard（全部 OpenAPI path）
 # --------------------------------------------------------------------------- #
 def test_g009_2_no_forbidden_resource_tokens_in_any_path():
+    # F006 演进：VirtualMachine 已成为合法资源（``/api/virtual-machines``），
+    # 故边界扫描收窄到 **F009 自身交付面**（cluster_views 路由）——F009 仍不得
+    # 注册 NIC / IP / VM / Container / Service 端点。
     offenders = [
-        path
-        for path in _openapi()["paths"]
-        if any(token in path.lower() for token in BOUNDARY_TOKENS)
+        route.path
+        for route in cluster_views_router.routes
+        if any(token in route.path.lower() for token in BOUNDARY_TOKENS)
     ]
     assert offenders == [], f"F009 不得注册其它资源端点：{offenders}"
 

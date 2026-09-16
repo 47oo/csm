@@ -41,11 +41,16 @@ def _field_constraint_flags(model, field_name: str) -> set[str]:
 # T-22 / AC-22：BareMetal 活跃子检查点显式声明，并被删除路径真实传入
 # --------------------------------------------------------------------------- #
 def test_t22_bare_metal_active_child_checks_explicitly_declared():
+    # F006 演进：BARE_METAL_ACTIVE_CHILD_CHECKS 由显式空元组演进为包含「活跃
+    # VirtualMachine」检查（R-VM-005 / AC-28）；不再允许 fail-open 的空元组。
+    from app.virtual_machines.deletion import has_active_virtual_machines
+
     assert isinstance(BARE_METAL_ACTIVE_CHILD_CHECKS, tuple)
-    assert BARE_METAL_ACTIVE_CHILD_CHECKS == ()
+    assert len(BARE_METAL_ACTIVE_CHILD_CHECKS) >= 1
+    assert has_active_virtual_machines in BARE_METAL_ACTIVE_CHILD_CHECKS
     source = (REPO_ROOT / "backend/app/bare_metals/deletion.py").read_text(encoding="utf-8")
     assert "BARE_METAL_ACTIVE_CHILD_CHECKS" in source
-    assert "= ()" in source, "必须显式声明空元组，而非隐式缺省"
+    assert "has_active_virtual_machines" in source, "必须显式声明活跃 VM 检查"
 
 
 def test_t22_delete_path_passes_active_child_checks(auth_client_and_raw, monkeypatch):

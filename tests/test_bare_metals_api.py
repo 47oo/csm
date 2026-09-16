@@ -684,10 +684,12 @@ def test_t29_no_other_resource_endpoints_or_columns(auth_client_and_raw):
     client, conn = auth_client_and_raw
     paths = set(client.app.openapi()["paths"])
     forbidden_prefixes = ("nic", "ip", "vm", "virtual", "container", "service")
+    # F006 演进：VirtualMachine 已成为合法资源；F002 的「不越界」断言收窄到
+    # bare_metals 自身交付面。
     offenders = [
         path
         for path in paths
-        if path.startswith("/api/")
+        if path.startswith("/api/bare-metals")
         and any(path[len("/api/") :].startswith(prefix) for prefix in forbidden_prefixes)
     ]
     assert offenders == [], f"F002 不得注册其它资源端点：{offenders}"
