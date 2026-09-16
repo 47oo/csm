@@ -394,10 +394,20 @@ features:
       start_commit: c8e5d910b057f96cc4864959ac802d15b75abc67
       head_commit: c8e5d910b057f96cc4864959ac802d15b75abc67
       merge_commit: null
-    current_stage: ARCHITECTURE
-    layers: {}          # 待 Stage 2/3 依已批准 Architecture Handoff 判定
-    contract: {}
-    implementation: {}
+    current_stage: IMPLEMENTATION
+    layers:
+      database: true      # 新增 bare_metals 表 + migration 0003_f002_bare_metals
+      backend: true       # models/bare_metal.py + app/bare_metals/** + clusters/deletion 接线 + guard 演进
+      frontend: true      # api/bareMetals.ts + 列表/详情/登记/状态/删除
+    contract:
+      status: READY
+      doc: docs/api/f002-bare-metal.md
+    implementation:
+      database_design: PENDING
+      backend: PENDING
+      frontend: PENDING
+      test: PENDING
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-BM-001
@@ -1383,7 +1393,7 @@ planning_status:
 
 execution:
   current_feature: F002
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   started_on: "2026-09-16"
   note: >
     F002（BareMetal 登记与管理，P0，关键路径）于 2026-09-16 自动恢复实施。
