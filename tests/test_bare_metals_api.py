@@ -686,9 +686,12 @@ def test_t29_no_other_resource_endpoints_or_columns(auth_client_and_raw):
     # F006 演进：VirtualMachine 已成为合法资源（``/api/virtual-machines``），从越界
     # prefix 中移除 ``vm`` / ``virtual``。
     # F004 演进：NetworkInterface 已成为合法资源（``/api/network-interfaces``），从
-    # 越界 prefix 中移除 ``nic`` / ``network-interface`` / ``network_interface``；
-    # ``ip`` / ``container`` / ``service`` 必须保持全局覆盖。
+    # 越界 prefix 中移除 ``network-interface`` / ``network_interface``（二者确为合法路由
+    # ``/api/network-interfaces`` 的前缀）。``nic`` **不是**该合法路由的前缀
+    # （``"network-interfaces".startswith("nic")`` 为假），缩写越界路由 ``/api/nics``
+    # 仍须被检出，故 ``nic`` / ``ip`` / ``container`` / ``service`` 必须保持全局覆盖。
     forbidden_prefixes = (
+        "nic",
         "ip",
         "container",
         "service",

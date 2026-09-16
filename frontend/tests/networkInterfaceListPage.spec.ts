@@ -640,6 +640,20 @@ async function selectEnums(
   await findEnumSelect(wrapper, 'nic-form-purpose').vm.$emit('update:modelValue', purpose)
 }
 
+/**
+ * 等待提交按钮解除 disabled（表单完成）后再点击。
+ *
+ * 真实用户只能点击已启用的按钮；测试同样先等 DOM 就绪再交互，
+ * 避免「update:modelValue 已更新表单状态但按钮 disabled 尚未反映到
+ * DOM」时点击被丢弃（VTU trigger 对 disabled 元素不分发事件）。
+ */
+async function submitWhenEnabled(wrapper: VueWrapper): Promise<void> {
+  await waitForUi(() => {
+    expect(wrapper.find('[data-testid="nic-form-submit"]').attributes('disabled')).toBeUndefined()
+  })
+  await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
+}
+
 /** POST /api/network-interfaces 的调用次数。 */
 function createCalls(fetchMock: ReturnType<typeof vi.fn>): number {
   return fetchMock.mock.calls.filter(
@@ -716,7 +730,7 @@ describe('NetworkInterfaceListPage 登记入口（T-FE-01 / AC-01~08，§21 不�
     await selectHost(wrapper, 3)
     await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
     await selectEnums(wrapper, 'Ethernet', 'Business')
-    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
+    await submitWhenEnabled(wrapper)
 
     await waitForUi(() => {
       expect(createCalls(fetchMock)).toBe(1)
@@ -747,7 +761,7 @@ describe('NetworkInterfaceListPage 登记入口（T-FE-01 / AC-01~08，§21 不�
     await selectHost(wrapper, 3)
     await selectEnums(wrapper, 'Ethernet', 'Business')
     // name 留空：前端不拦截（是否拒绝空串由服务端裁决，当前契约不承诺）。
-    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
+    await submitWhenEnabled(wrapper)
 
     await waitForUi(() => {
       expect(createCalls(fetchMock)).toBe(1)
@@ -773,7 +787,7 @@ describe('NetworkInterfaceListPage 登记入口（T-FE-01 / AC-01~08，§21 不�
     // 与既有行同名 'eth0'：契约无唯一性规则，前端直接提交由服务端裁决。
     await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
     await selectEnums(wrapper, 'RoCE', 'Storage')
-    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
+    await submitWhenEnabled(wrapper)
 
     await waitForUi(() => {
       expect(createCalls(fetchMock)).toBe(1)
@@ -804,7 +818,7 @@ describe('NetworkInterfaceListPage 登记入口（T-FE-01 / AC-01~08，§21 不�
     await selectHost(wrapper, 3)
     await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
     await selectEnums(wrapper, 'Ethernet', 'Business')
-    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
+    await submitWhenEnabled(wrapper)
 
     // 对话框关闭 + 列表刷新（第二次 GET，两行）。
     await waitForUi(() => {
@@ -833,7 +847,7 @@ describe('NetworkInterfaceListPage 登记入口（T-FE-01 / AC-01~08，§21 不�
     await selectHost(wrapper, 3)
     await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
     await selectEnums(wrapper, 'Ethernet', 'Business')
-    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
+    await submitWhenEnabled(wrapper)
 
     await waitForUi(() => {
       expect(wrapper.find('[data-error-code="NOT_FOUND"]').exists()).toBe(true)
@@ -858,7 +872,7 @@ describe('NetworkInterfaceListPage 登记入口（T-FE-01 / AC-01~08，§21 不�
     await selectHost(wrapper, 3)
     await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
     await selectEnums(wrapper, 'Ethernet', 'Business')
-    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
+    await submitWhenEnabled(wrapper)
 
     await waitForUi(() => {
       expect(wrapper.find('[data-error-code="VALIDATION_ERROR"]').exists()).toBe(true)
@@ -883,7 +897,7 @@ describe('NetworkInterfaceListPage 登记入口（T-FE-01 / AC-01~08，§21 不�
     await selectHost(wrapper, 3)
     await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
     await selectEnums(wrapper, 'Ethernet', 'Business')
-    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
+    await submitWhenEnabled(wrapper)
 
     await waitForUi(() => {
       expect(unauthenticated).toHaveBeenCalledTimes(1)
@@ -912,7 +926,7 @@ describe('NetworkInterfaceListPage 登记入口（T-FE-01 / AC-01~08，§21 不�
     await selectHost(wrapper, 3)
     await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
     await selectEnums(wrapper, 'Ethernet', 'Business')
-    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
+    await submitWhenEnabled(wrapper)
 
     await waitForUi(() => {
       expect(createCalls(fetchMock)).toBe(1)
@@ -921,7 +935,7 @@ describe('NetworkInterfaceListPage 登记入口（T-FE-01 / AC-01~08，§21 不�
       expect(wrapper.find('[data-testid="nic-form-submit"]').classes()).toContain('is-loading')
     })
 
-    // 连点不发出第二个 POST。
+    // 连点不发出第二个 POST（提交中按钮 Loading/disabled，重复点击应被丢弃）。
     await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
     expect(createCalls(fetchMock)).toBe(1)
 

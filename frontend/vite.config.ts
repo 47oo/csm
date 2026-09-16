@@ -18,6 +18,11 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     include: ['tests/**/*.spec.ts'],
+    // F004-T-01 根因修复：宿主机系统时钟会周期性向后跳变，导致 Vue 事件
+    // invoker 去重（e._vts <= invoker.attached）静默吞掉 VTU trigger 的点击，
+    // 登记用例非确定性超时。setup 将测试进程内 Date.now() 单调化（时钟正常时
+    // 为恒等操作），详见 tests/setup/monotonic-date-now.ts 头注。
+    setupFiles: ['tests/setup/monotonic-date-now.ts'],
     // element-plus（ESM 包）默认被外部化、由 Node 原生 import，
     // 其内部对 CJS 依赖 async-validator（无 exports 字段，main 指向 dist-node）
     // 的默认导入会解析成整个 module.exports 而非构造函数，导致 el-form
