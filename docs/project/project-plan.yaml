@@ -574,7 +574,7 @@ features:
       start_commit: c6565545286bcabd4984de549dec13122941ed3e
       head_commit: c6565545286bcabd4984de549dec13122941ed3e
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     layers:
       database: false     # 无 schema 变更；复用既有 ux_clusters_name_active / ix_bare_metals_cluster_id 与 active_filter
       backend: true       # 新增 app/cluster_views/**（router + service）+ main 挂载 + EXPECTED_GET_ROUTES 演进 + 边界/一致性 guard
@@ -586,7 +586,7 @@ features:
       database_design: NOT_REQUIRED
       backend: COMPLETE           # 07b656d；311 passed
       frontend: NOT_REQUIRED       # 复用 F002 已交付的 clusterId 限定 BareMetalListPage
-      test: PENDING
+      test: COMPLETE              # docs/test-reports/f009-cluster-resource-view.md（READY FOR REVIEW）
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -1481,7 +1481,7 @@ planning_status:
 
 execution:
   current_feature: F009
-  current_stage: TEST
+  current_stage: REVIEW
   started_on: "2026-09-16"
   note: >
     F002（BareMetal 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge ef39557）。
