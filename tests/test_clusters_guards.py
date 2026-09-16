@@ -13,6 +13,10 @@ from fastapi.testclient import TestClient
 
 from app.clusters.schemas import ClusterCreate, ClusterUpdate
 from tests.conftest import OFFLINE_DSN, _client
+from tests.deletion_guard_helpers import (
+    ALLOWED_DELETED_AT_WRITER,
+    scan_deleted_at_writes,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_DIR = REPO_ROOT / "backend" / "app"
@@ -105,15 +109,13 @@ def test_a14_settings_has_no_foundation_enabled():
 
 
 # --------------------------------------------------------------------------- #
-# A15 静态部分 / ADR-0004：backend/app 中不存在任何 deleted_at 赋值
+# A15 静态部分 / ADR-0004 → F014 G-3：写入 deleted_at 的文件恰好为统一软删服务
 # --------------------------------------------------------------------------- #
-def test_a15_no_deleted_at_assignment_in_app_source():
-    offenders = []
-    for path in sorted(APP_DIR.rglob("*.py")):
-        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                continue
-            if ".deleted_at" in stripped and "=" in stripped and "==" not in stripped:
-                offenders.append(f"{path.relative_to(REPO_ROOT)}:{lineno}: {stripped}")
-    assert offenders == [], f"不允许存在写入 deleted_at 的代码路径：{offenders}"
+def test_a15_deleted_at_write_paths_are_allowlisted():
+    """F014 后写入路径由 0 处演进的「恰好 1 处文件」，避免验证力静默丢失。
+
+    唯一权威断言（含无 undelete）在 ``tests/test_deletion_guards.py::test_g3_*``；
+    本用例保留 F001 A15 的历史入口，复用同一扫描器。
+    """
+    writers = {str(path.relative_to(REPO_ROOT)) for path in scan_deleted_at_writes()}
+    assert writers == {ALLOWED_DELETED_AT_WRITER}, f"写入 deleted_at 的文件集合异常：{writers}"

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createCluster,
+  deleteCluster,
   getCluster,
   getClusterByName,
   listClusters,
@@ -10,7 +11,8 @@ import { ApiError } from '../src/api/http'
 
 /**
  * Cluster API 客户端测试：请求构造（路径 / 方法 / 查询 / 请求体）与
- * 契约错误语义透传。契约依据：docs/api/f001-cluster.md（READY）。
+ * 契约错误语义透传。契约依据：docs/api/f001-cluster.md（READY）与
+ * docs/api/f014-soft-delete.md（READY，删除端点）。
  * fetch 全部桩替换，不触达真实后端。
  */
 
@@ -145,6 +147,94 @@ describe('请求构造（契约 §3）', () => {
         body: JSON.stringify({ name: 'cluster-b' }),
       }),
     )
+  })
+
+  it('deleteCluster → DELETE /api/clusters/{id}（写操作一律走 id；不发送请求体，契约 f014 §3.1）', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(null, { status: 204 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await deleteCluster(1)
+
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+      '/api/clusters/1',
+      expect.objectContaining({ method: 'DELETE', body: undefined }),
+    )
+    // 契约 f014 §3.1：Request body 无，客户端不得发送 → 不携带 Content-Type。
+    const headers = (fetchMock.mock.calls[0]![1] as RequestInit).headers as Record<string, string>
+    expect(headers['Content-Type']).toBeUndefined()
+  })
+})
+
+describe('deleteCluster 错误语义透传（契约 f014-soft-delete.md §3.1 / §4）', () => {
+  it('204（无响应体）→ 成功返回，不抛出', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 204 })),
+    )
+
+    await expect(deleteCluster(1)).resolves.toBeUndefined()
+  })
+
+  it('404 NOT_FOUND（不存在或已被逻辑删除，两者不区分；重复删除亦 404）→ ApiError 保留 code 与空 details', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(404, { error: { code: 'NOT_FOUND', message: '资源不存在' } }),
+      ),
+    )
+
+    const err = await expectApiError(deleteCluster(999))
+
+    expect(err.status).toBe(404)
+    expect(err.code).toBe('NOT_FOUND')
+    expect(err.details).toEqual([])
+  })
+
+  it('409 CONFLICT（存在活跃子资源，契约 §4.1）→ 保留 error.code 与 details[].code === "ACTIVE_CHILDREN_EXIST"', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(409, {
+          error: {
+            code: 'CONFLICT',
+            message: '父资源存在活跃子资源，无法删除',
+            details: [
+              {
+                row: null,
+                field: null,
+                code: 'ACTIVE_CHILDREN_EXIST',
+                message: '资源仍存在活跃子资源，无法删除',
+              },
+            ],
+          },
+        }),
+      ),
+    )
+
+    const err = await expectApiError(deleteCluster(1))
+
+    expect(err.status).toBe(409)
+    expect(err.code).toBe('CONFLICT')
+    expect(err.details).toHaveLength(1)
+    expect(err.details[0]?.code).toBe('ACTIVE_CHILDREN_EXIST')
+    expect(err.details[0]?.field).toBeNull()
+  })
+
+  it('401 UNAUTHENTICATED（未认证，不改变任何数据）→ ApiError 保留 code', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(401, { error: { code: 'UNAUTHENTICATED', message: '未认证' } }),
+      ),
+    )
+
+    const err = await expectApiError(deleteCluster(1))
+
+    expect(err.status).toBe(401)
+    expect(err.code).toBe('UNAUTHENTICATED')
   })
 })
 

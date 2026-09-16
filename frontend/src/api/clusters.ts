@@ -1,8 +1,9 @@
 /**
  * Cluster 产品 API 客户端。
  *
- * 唯一契约依据：docs/api/f001-cluster.md（READY）。
- * - 字段集合封闭（契约 §2）：仅 id / name / created_at / updated_at；
+ * 契约依据：docs/api/f001-cluster.md（READY）与 docs/api/f014-soft-delete.md
+ * （READY，Cluster 删除端点）。
+ * - 字段集合封闭（f001 契约 §2）：仅 id / name / created_at / updated_at；
  *   不存在 deleted_at、状态字段或位置字段；
  * - 时间字段为 RFC 3339 字符串，作为不透明字符串展示 / 传递，
  *   不解析、不假设时区（契约 §2）；
@@ -71,4 +72,20 @@ export function updateCluster(clusterId: number, body: ClusterWriteBody): Promis
     method: 'PATCH',
     body,
   })
+}
+
+/**
+ * 逻辑删除 Cluster（契约 f014-soft-delete.md §3.1）。
+ *
+ * - `DELETE /api/clusters/{cluster_id}`：写操作一律走 `id`（ADR-0003 §2），
+ *   不存在按名称的删除别名；
+ * - 成功 → `204`（无响应体，apiRequest 归一为 undefined，不抛出）；
+ * - `404 NOT_FOUND`：`cluster_id` 不存在或已被逻辑删除（两者不区分，
+ *   重复删除同一 id 亦返回 404）；
+ * - `409 CONFLICT`：存在活跃子资源（`details[].code === 'ACTIVE_CHILDREN_EXIST'`）；
+ * - `401 UNAUTHENTICATED`：未认证且不改变任何数据（由全局会话失效处理）；
+ * - 不发送请求体（契约 §3.1：Request body 无，客户端不得发送）。
+ */
+export function deleteCluster(clusterId: number): Promise<void> {
+  return apiRequest<void>(`/api/clusters/${clusterId}`, { method: 'DELETE' })
 }
