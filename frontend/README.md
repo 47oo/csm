@@ -29,7 +29,8 @@ F001 交付 **Cluster 登记与管理** 的前端部分（契约：`docs/api/f00
 > `src/api/foundation.ts` 已删除，Vite dev proxy 仅保留 `/api`。
 
 F001 前端**不包含**：登记 / 改名表单（PROPOSED，不构成 AC；API 客户端已就绪）、
-Cluster 删除入口（F014）、BareMetal 相关内容（F002+）。
+Cluster 删除入口（已于 F014 交付，见下文「当前范围（F014）」）、BareMetal 相关内容
+（F002+）。
 
 ## 当前范围（F013）
 
@@ -52,6 +53,30 @@ F013 交付**本地账号认证与会话**的前端部分（契约：`docs/api/f
   视图状态；登出按钮把 `204` 与 `401` 归一为同一处理（契约 §5.2）。
 
 F013 前端**不包含**：注册页 / 注册表单、账号管理页、口令修改 / 找回、路由库。
+
+## 当前范围（F014）
+
+F014 交付**逻辑删除（Cluster 删除路径）**的前端部分（契约：
+`docs/api/f014-soft-delete.md`，`READY`）：
+
+- **Cluster API 客户端**（`src/api/clusters.ts`）：新增 `deleteCluster`（
+  `DELETE /api/clusters/{id}`；成功 `204` 无响应体；不发送请求体），
+  复用 `src/api/http.ts`，不新建请求层；
+- **删除流程基座**（`src/composables/useClusterDelete.ts`）：二次确认后的删除
+  请求、提交中防重复、`204` / `404`（与成功同构：资源已不在活跃集合 → 通知调用方
+  刷新视图）、`401`（交由既有全局会话失效处理）、其余失败按 `error.code`
+  （必要时 `details[].code`，如 `ACTIVE_CHILDREN_EXIST`）生成固定文案——
+  **不解析 `message`**；
+- **集群列表页**：每行删除入口（`el-popconfirm` 二次确认）；删除成功 → 刷新列表，
+  被删行消失，当前页变空 → Empty 态；`409 CONFLICT`（存在活跃子资源）→ 保留行并
+  渲染冲突提示（可关闭）；提交中按钮 Loading 且禁止重复提交；
+- **集群详情页**：内容态删除入口；删除成功或目标已不存在 → 重新读取 → 进入既有
+  独立 Not Found 态；`409` → 保留详情内容并渲染冲突提示；
+- 删除守卫（父资源存在活跃子资源）**完全由后端裁决**（§21），前端不预判、不禁用、
+  不隐藏删除入口。
+
+F014 前端**不包含**：恢复 / 回收站 / 已删资源查看 / 批量删除 / 审计展示 /
+BareMetal 相关 UI（F002+）。
 
 ## 环境要求
 
@@ -93,16 +118,17 @@ frontend/
 ├── src/
 │   ├── api/
 │   │   ├── auth.ts               # 认证 API 客户端（契约 f013-auth.md）
-│   │   ├── clusters.ts           # Cluster 产品 API 客户端（契约 f001-cluster.md）
+│   │   ├── clusters.ts           # Cluster 产品 API 客户端（契约 f001-cluster.md / f014-soft-delete.md）
 │   │   └── http.ts               # 统一请求封装 + ApiError 归一化 + 全局 401 处理（基座）
 │   ├── components/
 │   │   ├── ErrorState.vue        # 按 error.code 分支渲染的错误态（基座）
 │   │   └── ListStates.vue        # 列表 Loading / Error / Empty / 内容容器（基座）
 │   ├── composables/
-│   │   └── useAsyncQuery.ts      # 异步查询三态管理 + 竞态防护（基座）
+│   │   ├── useAsyncQuery.ts      # 异步查询三态管理 + 竞态防护（基座）
+│   │   └── useClusterDelete.ts   # Cluster 删除流程（防重复 / 404 同构 / 401 全局 / 错误按 code 渲染）
 │   ├── pages/
-│   │   ├── ClusterDetailPage.vue # 集群详情页（骨架，404 态独立于 Empty）
-│   │   ├── ClusterListPage.vue   # 集群列表页（产品页，三态 + 分页）
+│   │   ├── ClusterDetailPage.vue # 集群详情页（404 态独立于 Empty；F014 起含删除入口）
+│   │   ├── ClusterListPage.vue   # 集群列表页（产品页，三态 + 分页；F014 起含行级删除入口）
 │   │   └── LoginPage.vue         # 登录页（三态 + 仅必填校验）
 │   ├── types/
 │   │   └── api.ts                # 契约类型（错误信封 / 分页信封 / 错误码）

@@ -378,23 +378,11 @@ def test_a13_patch_missing_name_returns_400(auth_client_and_raw):
 
 
 # --------------------------------------------------------------------------- #
-# A15 运行时部分：DELETE /api/clusters/{id} 不执行软删
+# A15 运行时部分（F014 已演进）
+#
+# 原断言「DELETE 不执行软删」由 ``tests/test_deletion_api.py::test_t01_*``
+# 取代：F014 后 ``DELETE /api/clusters/{id}`` **确实**软删（204），行仍物理存在。
 # --------------------------------------------------------------------------- #
-def test_a15_delete_endpoint_does_not_soft_delete(auth_client_and_raw):
-    client, conn = auth_client_and_raw
-    created = client.post("/api/clusters", json={"name": "cluster-a"}).json()
-
-    response = client.delete(f"/api/clusters/{created['id']}")
-    assert response.status_code in (404, 405)
-
-    # 该行仍为活跃
-    assert (
-        conn.execute("SELECT deleted_at FROM clusters WHERE id = %s", (created["id"],)).fetchone()[
-            0
-        ]
-        is None
-    )
-    assert client.get(f"/api/clusters/{created['id']}").status_code == 200
 
 
 # --------------------------------------------------------------------------- #
@@ -419,7 +407,7 @@ def test_t9_prime_product_crud_roundtrip(auth_client_and_raw):
     assert updated.status_code == 200
     assert updated.json()["name"] == "cluster-b"
 
-    # soft delete 一段由 A08 的「绕应用层预置 deleted_at → API 读取被排除」承接。
+    # DELETE 语义（F014）由 tests/test_deletion_api.py 承接。
 
 
 # --------------------------------------------------------------------------- #

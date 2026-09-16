@@ -11,6 +11,7 @@ from pathlib import Path
 from app.config import Settings
 from app.main import create_app
 from tests.conftest import OFFLINE_DSN
+from tests.deletion_guard_helpers import scan_deleted_at_writes
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_DIR = REPO_ROOT / "backend" / "app"
@@ -60,17 +61,13 @@ def test_g_d_login_schema_has_no_length_constraint():
 
 # --------------------------------------------------------------------------- #
 # G-E：认证代码不写 deleted_at、不把 password 传给日志
+#
+# F014 演进：原断言扫描**全部** ``app/**``（写入数 = 0）已由 G-3 的 allow-list
+# 取代（``tests/test_deletion_guards.py``）。此处收窄回本意——认证代码自身
+# 不得引入软删语义（AC-13）。
 # --------------------------------------------------------------------------- #
-def test_g_e_no_deleted_at_assignment_in_app_source():
-    offenders = []
-    for path in _python_sources():
-        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                continue
-            if ".deleted_at" in stripped and "=" in stripped and "==" not in stripped:
-                offenders.append(f"{path.relative_to(REPO_ROOT)}:{lineno}")
-    assert offenders == [], f"不允许写入 deleted_at：{offenders}"
+def test_g_e_no_deleted_at_assignment_in_auth_sources():
+    assert scan_deleted_at_writes(APP_DIR / "auth") == {}, "认证代码不得写入 deleted_at"
 
 
 def test_g_e_no_password_in_logging_calls():

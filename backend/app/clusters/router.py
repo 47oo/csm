@@ -1,7 +1,9 @@
-"""Cluster HTTP 路由（5 个产品端点，docs/api/f001-cluster.md §3）。
+"""Cluster HTTP 路由（docs/api/f001-cluster.md §3 + docs/api/f014-soft-delete.md）。
 
-- ``by-name`` 路由**声明在** ``/{cluster_id}`` **之前**（防御性约定）。
-- **不注册** ``DELETE /api/clusters/{id}``（删除语义属 F014）。
+- 读取 / 创建 / 更新端点属 F001（5 个）。
+- ``DELETE /api/clusters/{cluster_id}`` 属 F014（逻辑删除，``204``）。
+- ``by-name`` 路由**声明在** ``/{cluster_id}`` **之前**（防御性约定）；
+  **不提供** ``DELETE .../by-name/{name}``（写操作一律走 ``id``，ADR-0003 §2）。
 - 所有端点位于 ``/api`` 前缀下（由 ``app.main`` 挂载），供 F013 的
   ``/api/*`` 认证中间件自动覆盖，无需白名单。
 """
@@ -59,3 +61,9 @@ def update_cluster(
 ) -> ClusterRead:
     cluster = service.update_cluster(session, cluster_id, payload.name)
     return ClusterRead.model_validate(cluster)
+
+
+# F014：逻辑删除，成功 204（无响应体）。删除守卫由后端裁决（§21）。
+@router.delete("/{cluster_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_cluster(cluster_id: ClusterId, session: SessionDep) -> None:
+    service.delete_cluster(session, cluster_id)
