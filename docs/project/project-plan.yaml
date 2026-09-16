@@ -297,7 +297,7 @@ features:
       start_commit: 5c9ca84f94134c9bcc87c61a47fd9280ff99d411
       head_commit: 056c0547b4001abbda4b3c88c22aff6f2cb2a712
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     layers:
       database: false     # 无 Schema / migration 变更
       backend: true       # prod 关闭框架文档面 + backend/Dockerfile + .dockerignore
@@ -311,7 +311,7 @@ features:
       backend: COMPLETE           # 056c054；prod 文档面关闭 + 192 passed
       frontend: NOT_REQUIRED      # 无 frontend/src/** 改动
       deployment: COMPLETE        # 056c054；compose/nginx/Dockerfile/部署文档；L2 E2E 通过
-      test: PENDING
+      test: COMPLETE              # docs/test-reports/f015-deployment.md（READY FOR REVIEW）
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -1277,7 +1277,7 @@ planning_status:
 
 execution:
   current_feature: F015
-  current_stage: TEST
+  current_stage: REVIEW
   started_on: "2026-09-15"
   note: >
     F015（内网部署与运行环境）于 2026-09-16 启动。
