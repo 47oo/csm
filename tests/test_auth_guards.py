@@ -109,6 +109,9 @@ EXPECTED_GET_ROUTES = {
     "/api/clusters/by-name/{cluster_name}/bare-metals",
     "/api/bare-metals",
     "/api/bare-metals/{bare_metal_id}",
+    # F006：VirtualMachine 只读 GET 路由（仅新增，不得删除既有成员）。
+    "/api/virtual-machines",
+    "/api/virtual-machines/{virtual_machine_id}",
     "/api/auth/session",
 }
 

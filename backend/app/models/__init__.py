@@ -11,5 +11,6 @@ from app.models.bare_metal import BareMetal
 from app.models.cluster import Cluster
 from app.models.session import Session
 from app.models.user import User
+from app.models.virtual_machine import VirtualMachine
 
-__all__ = ["BareMetal", "Cluster", "Session", "User"]
+__all__ = ["BareMetal", "Cluster", "Session", "User", "VirtualMachine"]

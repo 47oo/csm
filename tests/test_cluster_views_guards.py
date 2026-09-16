@@ -54,14 +54,15 @@ ORIGINAL_GET_ROUTES = {
     "/api/auth/session",
 }
 
-#: G-009-2：R-QUERY-003 资源类型 token（F010 归属，F009 不得出现）。
+#: G-009-2：R-QUERY-003 资源类型 token（F010 归属，不得出现）。
+#: F006 演进：VirtualMachine 已成为合法资源（``/api/virtual-machines``），故从全局
+#: 边界 token 中移除 ``virtual-machine`` / ``virtual_machine``；``network-interface`` /
+#: ``ip-address`` / ``container`` / ``service`` 仍对**全部** OpenAPI path 全局扫描。
 BOUNDARY_TOKENS = (
     "network-interface",
     "network_interface",
     "ip-address",
     "ip_address",
-    "virtual-machine",
-    "virtual_machine",
     "container",
     "service",
 )
@@ -104,12 +105,14 @@ def test_g009_1_expected_get_routes_evolved_not_replaced():
 # G-009-2：边界 token guard（全部 OpenAPI path）
 # --------------------------------------------------------------------------- #
 def test_g009_2_no_forbidden_resource_tokens_in_any_path():
+    # F006 演进：扫描范围保持**全部 OpenAPI path**（跨模块全局边界），仅移除已成为
+    # 合法资源的 VM token；非 GET 越界路由（如 ``POST /api/containers``）必须仍被检出。
     offenders = [
         path
         for path in _openapi()["paths"]
         if any(token in path.lower() for token in BOUNDARY_TOKENS)
     ]
-    assert offenders == [], f"F009 不得注册其它资源端点：{offenders}"
+    assert offenders == [], f"不得注册其它资源端点：{offenders}"
 
 
 # --------------------------------------------------------------------------- #

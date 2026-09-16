@@ -23,11 +23,14 @@ import BareMetalFormDialog from '../components/BareMetalFormDialog.vue'
  *   删除成功（204）或目标已不存在（404，两者不区分）→ 重新读取 → 404 →
  *   既有独立 Not Found 态；409 按error.code 渲染冲突提示；401 交由全局会话
  *   失效处理；提交中 Loading 且禁重复提交。删除守卫由后端裁决（§21）；
- * - 修改 / 删除失败均按 error.code 分支渲染，不解析 message。
+ * - 修改 / 删除失败均按 error.code 分支渲染，不解析 message；
+ * - F006：「查看虚拟机」入口 → 进入该宿主的虚拟机列表
+ *   （GET /api/virtual-machines?bare_metal_id={id}，契约 f006-virtual-machine.md
+ *   §3.2）；本页仍不呈现虚拟机数据（关联查询视图归 F010，F010 必须复用该能力）。
  */
 const props = defineProps<{ bareMetalId: number }>()
 
-const emit = defineEmits<{ back: [] }>()
+const emit = defineEmits<{ back: []; openVirtualMachines: [bareMetalId: number] }>()
 
 const { data, loading, error, run } = useAsyncQuery(() => getBareMetal(props.bareMetalId))
 
@@ -98,6 +101,11 @@ function backToList(): void {
   emit('back')
 }
 
+/** F006：进入该宿主的虚拟机列表（携带 bare_metal_id）。 */
+function openVirtualMachines(): void {
+  emit('openVirtualMachines', props.bareMetalId)
+}
+
 /** 二次确认通过后删除当前裸金属；状态管理与错误渲染见 useBareMetalDelete。 */
 function confirmDelete(): void {
   void requestDelete(props.bareMetalId)
@@ -121,8 +129,12 @@ function handleUpdated(): void {
         <h1 class="bare-metal-detail__title">裸金属详情</h1>
       </div>
       <!-- 状态 / 硬件字段修改入口与删除入口：仅内容态出现；hostname / cluster_id
-           不可变（契约 §3.4），不提供编辑；删除守卫由后端 409 裁决（§21）。 -->
+           不可变（契约 §3.4），不提供编辑；删除守卫由后端 409 裁决（§21）。
+           F006「查看虚拟机」入口：跳转该宿主虚拟机列表。 -->
       <div v-if="state === 'content'" class="bare-metal-detail__actions">
+        <el-button type="primary" plain data-testid="open-virtual-machines" @click="openVirtualMachines">
+          查看虚拟机
+        </el-button>
         <el-button type="primary" plain data-testid="open-edit-dialog" @click="editDialogVisible = true">
           编辑
         </el-button>

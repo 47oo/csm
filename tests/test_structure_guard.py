@@ -59,4 +59,10 @@ def test_no_eav_shape():
 
 
 def test_only_expected_tables_registered():
-    assert set(Base.metadata.tables) == {"clusters", "users", "sessions", "bare_metals"}
+    assert set(Base.metadata.tables) == {
+        "clusters",
+        "users",
+        "sessions",
+        "bare_metals",
+        "virtual_machines",
+    }

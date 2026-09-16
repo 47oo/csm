@@ -21,6 +21,7 @@ from app.clusters.router import router as clusters_router
 from app.common.error_handlers import register_error_handlers
 from app.config import Settings, get_settings
 from app.db.session import create_db_engine, create_session_factory
+from app.virtual_machines.router import router as virtual_machines_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -55,12 +56,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # /api/*（唯一豁免 POST /api/auth/login）。必须在 include_router 前注册。
     app.add_middleware(AuthMiddleware)
 
-    # 产品 API 面：health + clusters + F009 cluster-views + bare-metals + auth。
-    # 全部位于 /api 前缀下。
+    # 产品 API 面：health + clusters + F009 cluster-views + bare-metals +
+    # F006 virtual-machines + auth。全部位于 /api 前缀下。
     app.include_router(health_api.router, prefix="/api")
     app.include_router(clusters_router, prefix="/api")
     app.include_router(cluster_views_router, prefix="/api")
     app.include_router(bare_metals_router, prefix="/api")
+    app.include_router(virtual_machines_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
 
     return app

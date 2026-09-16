@@ -683,7 +683,17 @@ def test_t28_no_position_or_auto_discovery_structure(auth_client_and_raw):
 def test_t29_no_other_resource_endpoints_or_columns(auth_client_and_raw):
     client, conn = auth_client_and_raw
     paths = set(client.app.openapi()["paths"])
-    forbidden_prefixes = ("nic", "ip", "vm", "virtual", "container", "service")
+    # F006 演进：VirtualMachine 已成为合法资源（``/api/virtual-machines``），从越界
+    # prefix 中移除 ``vm`` / ``virtual``；扫描范围仍为**全部** ``/api/*`` path，
+    # ``nic`` / ``ip`` / ``container`` / ``service`` 必须保持全局覆盖。
+    forbidden_prefixes = (
+        "nic",
+        "ip",
+        "network-interface",
+        "network_interface",
+        "container",
+        "service",
+    )
     offenders = [
         path
         for path in paths
