@@ -263,7 +263,8 @@
 | `404` | 资源不存在**或**已被逻辑删除（`{id}`、`by-name`） | `NOT_FOUND` |
 | `409` | 活跃名称重复 | `CONFLICT` |
 | `500` | 未预期服务端错误 | `INTERNAL_ERROR` |
-| `401` / `403` | **当前不会由本资源返回**（F013 落地后由认证中间件产生） | `UNAUTHENTICATED` / `FORBIDDEN` |
+| `401` | **F013 落地后**：未认证访问本资源任何端点 → `401 UNAUTHENTICATED`（含 `GET /api/health` 与全部 `/api/clusters*`） | `UNAUTHENTICATED` |
+| `403` | **不存在触发路径**（V1 仅两态，无授权判断；码值仅为通用契约保留） | `FORBIDDEN` |
 
 `error.message` 为人类可读描述，可随文案调整，**不构成契约**；前端必须按 `error.code` 分支，不解析 `message`。
 

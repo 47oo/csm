@@ -2,8 +2,13 @@
 
 导入该包即注册全部模型到 ``Base.metadata``（Alembic ``env.py`` 与结构 guard
 测试依赖此行为）。**不存在**通用 Resource 基类 / 多态映射。
+
+``users`` / ``sessions`` 是认证表（F013），**不是** Resource，也**不进入**资源
+分类体系。
 """
 
 from app.models.cluster import Cluster
+from app.models.session import Session
+from app.models.user import User
 
-__all__ = ["Cluster"]
+__all__ = ["Cluster", "Session", "User"]

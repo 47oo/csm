@@ -72,6 +72,17 @@ class NotFoundError(ApiError):
         super().__init__(404, "NOT_FOUND", message)
 
 
+class UnauthenticatedError(ApiError):
+    """未认证：未携带凭证 / 凭证无效 / 过期 / 已登出 / 账号已停用。
+
+    F013 的登录失败三情形（用户名不存在、口令错误、账号停用）必须使用**完全
+    相同**的本异常，使调用方无法据此判断用户名是否存在（R-AUTH-006）。
+    """
+
+    def __init__(self, message: str = "用户名或口令不正确") -> None:
+        super().__init__(401, "UNAUTHENTICATED", message)
+
+
 class ValidationError(ApiError):
     def __init__(
         self,

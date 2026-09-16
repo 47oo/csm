@@ -17,12 +17,12 @@ def test_migration_applies_repeats_and_rebuilds(database_url):
 
     # 空库 → 应用
     assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
-    assert "clusters" in table_names(engine)
-    assert alembic_current(database_url) == "0001_f012_baseline"
+    assert {"clusters", "users", "sessions"} <= table_names(engine)
+    assert alembic_current(database_url) == "0002_f013_auth"
 
     # 重复应用 → no-op，无错误
     assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
-    assert alembic_current(database_url) == "0001_f012_baseline"
+    assert alembic_current(database_url) == "0002_f013_auth"
 
     # 可从空库重建（downgrade base → upgrade head）
     assert run_alembic("downgrade", "base", dsn=database_url).returncode == 0
@@ -31,5 +31,5 @@ def test_migration_applies_repeats_and_rebuilds(database_url):
     assert exists is None
 
     assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
-    assert "clusters" in table_names(engine)
+    assert {"clusters", "users", "sessions"} <= table_names(engine)
     engine.dispose()

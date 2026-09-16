@@ -304,7 +304,9 @@ Testing Agent 应验证（**最小集合**，F012 范围）：
 
 ### Non-blocking
 
-1. **`/api/health` 的认证豁免**（PROPOSED）：需在 F013 实现时确认白名单成员；备选是把健康检查另挂到 `/api` 外路径。不影响 F012。
+1. ~~**`/api/health` 的认证豁免**（PROPOSED）~~ → **✅ RESOLVED（owner F013，2026-09-15）：不采纳豁免。**
+   F013 裁定 `adr-0005` §4「所有 `/api/*`（登录端点除外）要求认证」的**豁免名单唯一成员为登录端点**；`GET /api/health` 未认证时返回 `401 UNAUTHENTICATED`，已认证仍返回 `200`（F012 AC-02 因此仍成立）。
+   F015 的存活 / 就绪探测须走**产品认证面之外**的机制（容器级探测，或 `/api` 之外的非产品路径），见 `docs/architecture/f013-auth-handoff.md` PROPOSED-4。
 2. ~~**`/_foundation` 自检面的最终形态与移除时点**~~ → **✅ RESOLVED**：由 F001 Architecture Handoff 裁定为「彻底删除」，已随 F001 交付。
 3. **`page_size` 上限具体值**（PROPOSED 200）。
 4. **dev 数据库 provisioning 是否提供 compose 片段**：F012 可选，不得演变为 F015 的生产 compose。

@@ -5,7 +5,10 @@
  * - 集中发送请求：页面组件不得散落 fetch 调用；
  * - 按 docs/api/api-conventions.md §5 解析统一错误信封，归一为 ApiError；
  * - 网络失败 / 非 JSON 响应等「未按契约得到响应」的情况归一为前端本地码
- *   （NETWORK_ERROR / UNKNOWN_ERROR），避免组件层各自猜测。
+ *   （NETWORK_ERROR / UNKNOWN_ERROR），避免组件层各自猜测；
+ * - 全局未认证处理（docs/api/f013-auth.md §6）：未抑制的请求收到
+ *   code === 'UNAUTHENTICATED' 时，调用 setUnauthenticatedHandler 注册的
+ *   处理器（典型：App 切回登录页）。
  *
  * 消费方分支渲染只依据 ApiError.code；error.message 仅用于展示，不参与任何判断。
  */
@@ -40,6 +43,29 @@ export interface RequestOptions {
   query?: Record<string, string | number | undefined>
   /** 请求体；非 undefined 时以 JSON 发送。 */
   body?: unknown
+  /**
+   * 抑制全局 UNAUTHENTICATED 处理（f013-auth.md）：登录与启动期会话探测等
+   * 由请求方自行处理 401 语义的请求设为 true，其余请求收到
+   * code === 'UNAUTHENTICATED' 时触发全局处理器。
+   */
+  suppressAuthRedirect?: boolean
+}
+
+/** 全局未认证处理器：apiRequest 收到未被抑制的 UNAUTHENTICATED 错误时调用。 */
+export type UnauthenticatedHandler = () => void
+
+let unauthenticatedHandler: UnauthenticatedHandler | null = null
+
+/**
+ * 注册全局未认证处理器（f013-auth.md §6：401 → 引导登录页）。
+ *
+ * - 后注册的处理器覆盖先前的；传入 null 清除（测试隔离用）；
+ * - 处理器在 ApiError 抛出前调用，保证视图切换先于调用方的 catch；
+ * - 处理器只依据 error.code === 'UNAUTHENTICATED' 触发，不看 HTTP 状态码，
+ *   也不解析 message。
+ */
+export function setUnauthenticatedHandler(handler: UnauthenticatedHandler | null): void {
+  unauthenticatedHandler = handler
 }
 
 function buildUrl(path: string, query: RequestOptions['query']): string {
@@ -119,7 +145,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (!response.ok) {
-    throw toApiError(response.status, parseFailed ? null : payload)
+    const error = toApiError(response.status, parseFailed ? null : payload)
+    // 401 语义 =「尚未被系统识别为已登录用户」（f013-auth.md §6 / §10）→
+    // 未抑制的请求收到 UNAUTHENTICATED 时通知全局处理器（典型：切回登录页）。
+    if (error.code === 'UNAUTHENTICATED' && !options.suppressAuthRedirect) {
+      unauthenticatedHandler?.()
+    }
+    throw error
   }
   if (parseFailed) {
     // 2xx 但响应体不是 JSON：不符合契约，按未知错误归一。

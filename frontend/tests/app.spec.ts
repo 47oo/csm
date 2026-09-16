@@ -2,11 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
 import App from '../src/App.vue'
+import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
  * App 极简视图状态测试：集群列表 ↔ 集群详情切换（不引入 vue-router，
  * f001-cluster-handoff.md Frontend Work #5）。fetch 桩替换，响应体严格按
- * docs/api/f001-cluster.md 构造。
+ * docs/api/f001-cluster.md 与 docs/api/f013-auth.md 构造。
+ * F013 起 App 增加会话门控：本组用例模拟「已有会话」直接进入 app 视图；
+ * 会话失效 / 登录 / 登出流程见 appAuth.spec.ts。
  */
 
 const CLUSTER_A = {
@@ -29,6 +32,9 @@ function stubProductFetch(): void {
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url.includes('/api/auth/session')) {
+        return jsonResponse(200, { id: 1, username: 'admin' })
+      }
       if (url.includes('/api/clusters/')) {
         return jsonResponse(200, CLUSTER_A)
       }
@@ -39,6 +45,8 @@ function stubProductFetch(): void {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  // App 挂载时会注册全局未认证处理器，卸载后清除，保证测试隔离。
+  setUnauthenticatedHandler(null)
 })
 
 describe('App 视图切换（列表 ↔ 详情）', () => {
@@ -46,7 +54,7 @@ describe('App 视图切换（列表 ↔ 详情）', () => {
     stubProductFetch()
     const wrapper = mount(App, { global: { plugins: [ElementPlus] } })
 
-    // 初始：集群列表（请求 GET /api/clusters，展示契约字段）。
+    // 启动会话探测通过后进入 app 视图：集群列表（请求 GET /api/clusters）。
     await vi.waitFor(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })

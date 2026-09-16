@@ -190,18 +190,50 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: READY
+    status: IN_REVIEW
     depends_on: [F012]
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F013-auth
+      start_commit: 6e7338c49d341664e7bd1ee914042b193a2cfe43
+      head_commit: 01335eea10540f5a115030bb7b0c0cf2a2340118
+      merge_commit: null
+    current_stage: REVIEW
+    layers:
+      database: true      # 增量 migration 0002_f013_auth（users / sessions）；不改基线
+      backend: true       # app/auth/ 模块 + AuthMiddleware（fail-closed）+ CLI + 既有测试调整
+      frontend: true      # api/auth.ts + http.ts 全局 401 + LoginPage + App 会话态与登出
+    contract:
+      status: READY
+      doc: docs/api/f013-auth.md
+    implementation:
+      database_design: COMPLETE   # docs/database/csm-v1-schema-design.md 的 users / sessions 已 READY
+      backend: COMPLETE           # 见下
+      frontend: COMPLETE          # 见下
+      test: COMPLETE              # docs/test-reports/f013-auth.md（READY FOR REVIEW）
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-AUTH-001
       - R-AUTH-002
       - R-AUTH-003
     acceptance_criteria:
-      - 使用系统本地账号进行登录认证（R-AUTH-001）。
-      - 不接入 LDAP / AD / OAuth / 企业 SSO（R-AUTH-002）。
-      - 不在无明确产品需求时扩大为复杂 RBAC（R-AUTH-003）。
+      - AC-01 未认证不得访问受保护端点：任意 /api/* 资源端点 → 401 UNAUTHENTICATED，不返回任何资源数据（R-AUTH-001）。
+      - AC-02 登录成功后获得访问能力：正确凭据登录后 GET /api/clusters → 200。
+      - AC-03 口令错误不建立会话且失败响应统一：口令错误与账号不存在返回完全相同的响应，无法判断用户名是否存在（R-AUTH-006）；均不建立会话；无口令明文泄露。
+      - AC-04 登出使会话失效：登出后同一客户端访问受保护端点 → 401 UNAUTHENTICATED，会话不可复用。
+      - AC-05 会话失效时前端回到登录页：收到 401 UNAUTHENTICATED 时回登录页，不显示资源数据。
+      - AC-06 登录页拦截未登录访问：未登录访问受保护页面 → 登录页；凭据正确进入系统，错误则停留并提示。
+      - AC-07 账号禁用即时生效：active=false 的账号无法登录，既有会话不再可用（可用绕过应用层置位 active 验证）。
+      - AC-08 不存在自助注册入口：无任何允许未认证用户创建账号的端点或页面。
+      - AC-09 仅两态、无 403 触发路径：不存在角色 / 权限 / RBAC 的表、列、端点，也无任何触发 403 的产品路径（R-AUTH-003）。
+      - AC-10 口令不以明文存储或泄露：库中无口令明文；明文字符串不出现在日志与错误响应中。
+      - AC-11 初始账号可建立且可登录：按仓库文档化步骤建立初始账号后可成功登录并访问受保护端点。
+      - AC-12 /api/clusters* 行为变更为认证保护且已记录：未认证访问一律 401，变更写入交接文档并作为 F015 部署文档输入。
+      - AC-13 /api/health 的认证行为：未认证访问 → 401 UNAUTHENTICATED（不新增豁免）；已认证仍 200，F012 的 AC-02 因此成立。
+      - AC-14 口令长度下限：不足 8 位的口令在建立 / 修改口令路径被拒绝且不产生可登录账号（R-AUTH-004）；≥8 位即使仅小写字母也被接受。
+      - AC-15 用户名区分大小写：admin 与 Admin 是两个不同用户名可共存；登录按原样精确匹配；不得存在 lower(username) 唯一索引或大小写折叠（R-AUTH-005）。
     open_questions: []
 
   - id: F014
@@ -696,6 +728,23 @@ decisions_required:
       结论来自用户确认；在该阈值内单机 PostgreSQL 足够，DEC-010 选型无需重审。
       见 csm-v1-foundation-architecture.md「规模假设与阈值」。
 
+  - id: DEC-017
+    type: product
+    status: RESOLVED
+    topic: 口令强度策略
+    resolution: >
+      用户 2026-09-15 裁定：口令长度至少 8 位（R-AUTH-004）。除长度下限外不要求大小写混合 / 数字 / 符号，
+      也不做弱口令黑名单。适用于任何建立或修改口令的路径。
+  - id: DEC-018
+    type: product
+    status: RESOLVED
+    topic: 用户名大小写语义
+    resolution: 用户 2026-09-15 裁定：用户名唯一性与登录匹配均区分大小写（R-AUTH-005）；不得使用 lower(username) 折叠。
+  - id: DEC-019
+    type: product
+    status: RESOLVED
+    topic: 登录失败响应语义
+    resolution: 用户 2026-09-15 裁定：登录失败统一响应，不区分「用户名不存在」与「口令错误」（R-AUTH-006）。
   - id: DEC-016
     question: >
       部署打包方式未确定（BQ-4）：影响 F015 内网部署的交付形态。
@@ -912,6 +961,15 @@ requirement_coverage:
     covered_by: [F013]
   - id: R-AUTH-003
     covered_by: [F013]
+  - id: R-AUTH-004
+    covered_by: [F013]
+    note: 口令长度至少 8 位（用户 2026-09-15 裁定）；除长度下限外 V1 无其他强度要求。
+  - id: R-AUTH-005
+    covered_by: [F013]
+    note: 用户名唯一性与登录匹配均区分大小写（用户 2026-09-15 裁定）。
+  - id: R-AUTH-006
+    covered_by: [F013]
+    note: 登录失败统一响应，不区分「用户名不存在」与「口令错误」（用户 2026-09-15 裁定）。
   - id: R-DEPLOY-001
     covered_by: [F015]
   - id: R-DEPLOY-002
@@ -1099,12 +1157,14 @@ planning_status:
   decision: PROJECT IN PROGRESS — F012/F001 DONE, NEXT READY = F013 / F014
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F013
+  current_stage: REVIEW
   started_on: "2026-09-15"
   note: >
-    F012「项目基础框架与运行环境」已完成并合入 develop（merge 3b8646c），当前无进行中的 Feature。
-    流程记录：Git Preflight（2026-09-15）→ Product → Architecture + API Contract → Implementation
-    （Database 设计已在全局阶段完成，与 Backend / Frontend 并行）→ Tester → Reviewer(APPROVED WITH FOLLOW-UP)
-    → Merge Gate → 状态提交。develop 分支由用户授权后自 main 创建。
-    下一个 READY Feature 候选：F001 / F013 / F014（均为 P0，F001 在关键路径上，建议优先）。
+    恢复执行（2026-09-16）：F013 处于 TEST 阶段，Tab 现场核对通过 —— 工作区 clean、分支 feature/F013-auth、
+    start_commit 6e7338c 为 HEAD 祖先；01335ee 为「record the implementation checkpoint」元数据提交，
+    backend / frontend / database_design 均 COMPLETE，故直接从 TEST 恢复，未重复 Product / Architecture / Implementation。
+    Tester 独立重跑（真实 PostgreSQL 16.2 / pgserver）并新增验收与对抗覆盖，输出 docs/test-reports/f013-auth.md = READY FOR REVIEW：
+    AC-01 ~ AC-15 全部 PASS，T-01 ~ T-19 / G-A ~ G-F 全部 PASS，133 backend passed、前端 83 passed + build 成功、
+    ruff 干净、迁移可重复 / 可重建 / 无漂移；唯一缺陷 F013-F-01 为继承自 F012 的 LOW（405 映射为 INTERNAL_ERROR），非本 Feature 引入。
+    下一步进入 Reviewer。

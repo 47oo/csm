@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiRequest } from '../src/api/http'
+import { ApiError, apiRequest, setUnauthenticatedHandler } from '../src/api/http'
 
 /**
  * API client 基座测试：统一错误信封解析与归一化
  * （docs/api/api-conventions.md §5 / §6；docs/api/f001-cluster.md）。
  * 示例路径自 F001 起改接产品端点 /api/clusters*（自检面 /_foundation/* 已移除）。
+ * F013 增加全局 UNAUTHENTICATED 处理（docs/api/f013-auth.md §6）。
  */
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -195,5 +196,101 @@ describe('apiRequest 未按契约响应的归一化', () => {
 
     expect(err.status).toBe(500)
     expect(err.code).toBe('UNKNOWN_ERROR')
+  })
+})
+
+describe('全局 UNAUTHENTICATED 处理（f013-auth.md §6）', () => {
+  afterEach(() => {
+    setUnauthenticatedHandler(null)
+  })
+
+  it('注册 handler 后，未抑制的请求收到 401 UNAUTHENTICATED → handler 被调用且仍抛出 ApiError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(401, { error: { code: 'UNAUTHENTICATED', message: '用户名或口令不正确' } }),
+      ),
+    )
+    const handler = vi.fn()
+    setUnauthenticatedHandler(handler)
+
+    const err = await expectApiError(apiRequest('/api/clusters'))
+
+    expect(err.status).toBe(401)
+    expect(err.code).toBe('UNAUTHENTICATED')
+    expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it('suppressAuthRedirect: true → handler 不被调用（请求方自行处理 401 语义）', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(401, { error: { code: 'UNAUTHENTICATED', message: '用户名或口令不正确' } }),
+      ),
+    )
+    const handler = vi.fn()
+    setUnauthenticatedHandler(handler)
+
+    await expectApiError(
+      apiRequest('/api/auth/login', { method: 'POST', suppressAuthRedirect: true }),
+    )
+
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('仅按 error.code 分支，不看 HTTP 状态码：401 但信封不可解析（UNKNOWN_ERROR）→ handler 不被调用', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('not json', { status: 401 })))
+    const handler = vi.fn()
+    setUnauthenticatedHandler(handler)
+
+    const err = await expectApiError(apiRequest('/api/clusters'))
+
+    expect(err.status).toBe(401)
+    expect(err.code).toBe('UNKNOWN_ERROR')
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('非 401 错误（500 INTERNAL_ERROR）→ handler 不被调用', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(500, { error: { code: 'INTERNAL_ERROR', message: '内部错误' } }),
+      ),
+    )
+    const handler = vi.fn()
+    setUnauthenticatedHandler(handler)
+
+    await expectApiError(apiRequest('/api/clusters'))
+
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('未注册 handler 时收到 401 → 仅抛出 ApiError，不崩溃', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(401, { error: { code: 'UNAUTHENTICATED', message: '用户名或口令不正确' } }),
+      ),
+    )
+
+    const err = await expectApiError(apiRequest('/api/clusters'))
+
+    expect(err.code).toBe('UNAUTHENTICATED')
+  })
+
+  it('setUnauthenticatedHandler(null) → 清除已注册的 handler', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(401, { error: { code: 'UNAUTHENTICATED', message: '用户名或口令不正确' } }),
+      ),
+    )
+    const handler = vi.fn()
+    setUnauthenticatedHandler(handler)
+    setUnauthenticatedHandler(null)
+
+    await expectApiError(apiRequest('/api/clusters'))
+
+    expect(handler).not.toHaveBeenCalled()
   })
 })
