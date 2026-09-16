@@ -149,7 +149,8 @@ CREATE UNIQUE INDEX ux_clusters_name_active
 | `updated_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | 最近更新时间 |
 | `deleted_at` | `TIMESTAMPTZ` | NULL | — | 逻辑删除标记 |
 
-> **不设计**：CPU / Memory / GPU / Storage / Vendor / Model / Serial Number 等硬件字段（**OPEN-004 未确认，不得自行发明**，见 Open Questions）、Rack / U Position（§13 已从 V1 删除）、状态来源 / 监控字段（R-BM-006）。
+> **不设计**：Rack / U Position（§13 已从 V1 删除）、状态来源 / 监控字段（R-BM-006）。
+> **硬件字段（R-BM-007，2026-09-16 用户裁定，OPEN-004 已关闭）**：`vendor` / `model` / `serial_number` / `cpu` / `memory` / `gpu` / `storage` 均为**可选 `TEXT` 且允许 NULL**（Serial 不参与唯一性），需在 F002 的增量 migration 中新增；本节列清单待 F002 Database 阶段同步补齐。
 
 #### Primary Key
 
