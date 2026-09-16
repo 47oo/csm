@@ -394,7 +394,7 @@ features:
       start_commit: c8e5d910b057f96cc4864959ac802d15b75abc67
       head_commit: d964263908784ab905eaa12746a473292e0f368c
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     layers:
       database: true      # 新增 bare_metals 表 + migration 0003_f002_bare_metals
       backend: true       # models/bare_metal.py + app/bare_metals/** + clusters/deletion 接线 + guard 演进
@@ -406,7 +406,7 @@ features:
       database_design: COMPLETE   # docs/database/f002-bare-metal-migration.md（READY FOR DATABASE IMPLEMENTATION）
       backend: COMPLETE           # d964263；279 passed
       frontend: COMPLETE          # d964263；171 passed + build
-      test: PENDING
+      test: COMPLETE              # docs/test-reports/f002-bare-metal.md（READY FOR REVIEW）
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -1393,7 +1393,7 @@ planning_status:
 
 execution:
   current_feature: F002
-  current_stage: TEST
+  current_stage: REVIEW
   started_on: "2026-09-16"
   note: >
     F002（BareMetal 登记与管理，P0，关键路径）于 2026-09-16 自动恢复实施。
