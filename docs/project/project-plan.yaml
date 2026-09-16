@@ -250,10 +250,20 @@ features:
       start_commit: 897b32539927c137b933aa0ebed700d3bc26be5b
       head_commit: 897b32539927c137b933aa0ebed700d3bc26be5b
       merge_commit: null
-    current_stage: ARCHITECTURE
-    layers: {}          # 待 Stage 2/3 依已批准 Architecture Handoff 判定
-    contract: {}
-    implementation: {}
+    current_stage: IMPLEMENTATION
+    layers:
+      database: false     # 无 Schema / migration 变更；clusters.deleted_at / ux_clusters_name_active 由 F012 基线冻结
+      backend: true       # app/deletion/ 统一软删服务 + clusters DELETE 路径 + guard 演进 + 测试
+      frontend: true      # api/clusters.ts 删除函数 + 列表/详情删除入口与状态
+    contract:
+      status: READY
+      doc: docs/api/f014-soft-delete.md
+    implementation:
+      database_design: NOT_REQUIRED   # database: false；数据库侧仅为测试断言
+      backend: PENDING
+      frontend: PENDING
+      test: PENDING
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-DELETE-001
@@ -1204,7 +1214,7 @@ planning_status:
 
 execution:
   current_feature: F014
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   started_on: "2026-09-15"
   note: >
     F014（逻辑删除与数据一致性治理）于 2026-09-16 启动。
