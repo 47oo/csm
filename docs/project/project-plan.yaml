@@ -241,16 +241,16 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F012]
     blocking: []
     git:
       base_branch: develop
       branch: feature/F014-soft-delete
       start_commit: 897b32539927c137b933aa0ebed700d3bc26be5b
-      head_commit: 592e96e2cce091b481e13ad030462546b387d6a1
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: d2805f5e2a7fd9c88df981c4db90c5f6f38b09a8
+      merge_commit: 184ee61ffff0192a1886ef85cdbd2ccaa3616aac
+    current_stage: null
     layers:
       database: false     # 无 Schema / migration 变更；clusters.deleted_at / ux_clusters_name_active 由 F012 基线冻结
       backend: true       # app/deletion/ 统一软删服务 + clusters DELETE 路径 + guard 演进 + 测试
@@ -263,7 +263,7 @@ features:
       backend: COMPLETE           # 592e96e；155 passed
       frontend: COMPLETE          # 592e96e；105 passed + build
       test: COMPLETE              # docs/test-reports/f014-soft-delete.md（READY FOR REVIEW）
-      review: PENDING
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f014-soft-delete.md；merge 184ee61
     product_document: docs/product/requirements.md
     requirements:
       - R-DELETE-001
@@ -385,6 +385,7 @@ features:
       - 状态不得为空，历史未知用 UNKNOWN，不用 NULL（R-BM-005）。
       - 状态允许运维人员人工维护（R-BM-006）。
       - BareMetal 的直接上级只有 Cluster，不记录 Rack / U Position（requirements.md §13）。
+      - F014 交接（R-DELETE-004 真实场景）：Cluster 存在活跃 BareMetal 时 DELETE /api/clusters/{id} → 409 CONFLICT；软删该 BareMetal 后删除成功；并发「创建 BareMetal vs 删除 Cluster」结束后孤立记录不变式 0 行；创建 BareMetal 必须对父 Cluster 行取 FOR SHARE 并确认活跃（F014 Architecture Handoff 问题 7）。
     open_questions:
       - "OPEN-004：BareMetal 硬件字段（CPU / Memory / GPU / Storage / Vendor / Model / Serial Number 等）在 V1 的必填与可选范围。"
 
@@ -428,6 +429,7 @@ features:
       - 不同 Cluster 之间允许相同 IP（R-IP-002）。
       - 当前不考虑 VRF，唯一性按 cluster + ip_address 理解（R-IP-003）。
       - IPAddress 在 V1 不设状态（Q-002=B）。
+      - F014 交接（ip_address.cluster_id 受控写入）：取值必须由 IPAddress 领域服务从 network_interface_id 沿 NIC→BareMetal→Cluster 推导，不得由调用方直接赋值；并提供漂移检测测试（漂移查询 0 行）（F014 Architecture Handoff 问题 10 / Product NQ-2）。
     open_questions: []
 
   # ---- E03 虚拟资源管理 ----
@@ -961,7 +963,11 @@ requirement_coverage:
   - id: R-DELETE-003
     covered_by: [F014]
   - id: R-DELETE-004
-    covered_by: [F014]
+    covered_by: [F014, F002]
+    note: >
+      F014 交付删除守卫机制（单事务先锁后检查、声明式 active_children、409 稳定 code、无部分写入）；
+      「Cluster 存在活跃 BareMetal → 删除被拒」的真实端到端与并发孤立记录不变式归 F002（见 F014 Product NQ-1 /
+      Architecture 问题 7），已写入 F002 的 acceptance_criteria，避免静默丢失。
   - id: R-DELETE-005
     covered_by: [F014]
   - id: R-DELETE-006
@@ -1037,10 +1043,9 @@ planning_status:
     DRAFT: [F002, F006, F007, F008]
   counts:
     READY: 1
-    IN_PROGRESS: 1
     BLOCKED: 5
     DRAFT: 4
-    DONE: 3
+    DONE: 4
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -1075,6 +1080,14 @@ planning_status:
       **关键否定性交付**：路由前 ASGI 中间件 fail-closed，豁免集合恰为一个 (method, path) 对，新挂载 /api 端点自动受保护；
       登录失败三情形逐字节一致；口令不明文落库 / 日志 / 错误；绕应用层验证 username 大小写敏感；
       Migration 0002 增量，基线 0001 未改。Tester / Reviewer 均以真实库独立重跑。
+    F014: >
+      base 897b325 → head d2805f5 → merge 184ee61（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；28 文件 / +2899 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 下后端 155 passed、前端 105 passed 且构建成功、ruff 干净、alembic check 无漂移、无新增 migration。
+      **关键交付**：`soft_delete()` 是系统内唯一写 `deleted_at` 的路径（allow-list guard 真实可失败）；
+      单事务先 `FOR UPDATE` 锁父行再跑资源声明的 active_children 检查，命中即 409 且无部分写入；
+      `DELETE /api/clusters/{id}` 204/404/409/401 与契约一致；F001 A15 / F013 G-E guard 演进而非削弱。
+      **显式交接**：R-DELETE-004 真实场景（Cluster+活跃 BareMetal）与 `ip_address.cluster_id` 推导归 F002 / F005，已写入相应 AC。
   ready_rationale:
     F014: >
       依赖 F012 已 DONE；架构/数据库决策 DEC-012 / DEC-009 已 RESOLVED（ADR-0004 / ADR-0001 / ADR-0002 ACCEPTED），
@@ -1099,15 +1112,42 @@ planning_status:
     F011: "OPEN-005 已关闭（All-or-Nothing，已固化为 R-IMPORT-004），无未解决产品问题；阻塞为依赖多个资源 Feature 未 DONE。"
   readiness_summary: >
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），DEC-008 ~ DEC-016 全部 RESOLVED。
-    F012（基座）、F001（Cluster）、F013（本地账号认证与会话）均已 DONE 并合入 develop。
-    F013 交付认证基座：路由前 ASGI 中间件 fail-closed 保护全 /api/*，唯一豁免为 POST /api/auth/login，
-    登录失败三情形逐字节一致，Argon2id + 服务端会话，增量 migration 0002 未改基线 0001。
-    2 个 Feature（F014 / F015）依赖已满足，成为 READY；其中 F015 因 F013 DONE 而解锁，
-    且其额外进入条件（F012 F-03 自检面 fail-open）已由 F001 移除 /_foundation/* 消解。
+    F012（基座）、F001（Cluster）、F013（本地账号认证与会话）、F014（逻辑删除与数据一致性治理）均已 DONE 并合入 develop。
+    F014 交付删除基座：统一软删服务（唯一写入路径）、单事务加锁父删子拦、`DELETE /api/clusters/{id}`、guard 演进。
+    1 个 Feature（F015）依赖已满足，保持 READY。
     5 个 Feature（F004/F005/F009/F010/F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
     4 个 Feature（F002/F006/F007/F008）仍存在影响自身 scope/AC 定稿的 Feature 级产品问题（DRAFT）。
     F002 因产品问题 OPEN-004 仍为 DRAFT，故 F009（依赖 F001/F002）仍 BLOCKED。
   follow_ups:
+    from_f014_review:
+      report: docs/reviews/f014-soft-delete.md
+      open:
+        - id: F014-T-01
+          severity: LOW
+          owner: Backend
+          summary: >
+            G-3 allow-list 扫描器未覆盖 mappings / dict 写入形态（`values({"deleted_at": ...})`、`values(**{...})`）。
+            当前代码无此形态，行为测试 T-01/T-07 为运行时兜底。
+          建议时点: F002 批次内扩展为 AST 扫描。
+        - id: NOTE-01
+          severity: NOTE
+          owner: Architect / Backend
+          summary: >
+            空 `CLUSTER_ACTIVE_CHILD_CHECKS` 为 fail-open 默认；F002 追加子资源检查前，删除不检查子资源。
+            已由 R-DELETE-004 的 F002 交接显式承接。
+        - id: NOTE-02
+          severity: NOTE
+          owner: Backend
+          summary: 继承 F012 F-01：未映射的 4xx（如 405）仍被标为 INTERNAL_ERROR。
+          继承自: F012
+      resolved:
+        - id: REV-01
+          summary: >
+            NQ-1 / NQ-2 归属未落盘：已将 R-DELETE-004 真实场景写入 F002 acceptance_criteria、
+            `ip_address.cluster_id` 受控写入与漂移测试写入 F005 acceptance_criteria，并更新 R-DELETE-004 的 requirement_coverage。
+        - id: REV-02
+          summary: >
+            project-plan 的 F014 head_commit 陈旧（592e96e）；已在本状态提交中修正为 head d2805f5、merge 184ee61。
     from_f013_review:
       report: docs/reviews/f013-auth.md
       open:
@@ -1210,14 +1250,16 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F012/F001/F013 DONE, F014 IN_PROGRESS, NEXT READY = F015
+  decision: PROJECT IN PROGRESS — F012/F001/F013/F014 DONE, NEXT READY = F015
 
 execution:
-  current_feature: F014
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   started_on: "2026-09-15"
   note: >
-    F014（逻辑删除与数据一致性治理）于 2026-09-16 启动。
-    Preflight 通过：工作区 clean、develop @ 897b325、目标分支不存在，自 develop 创建 feature/F014-soft-delete。
-    start_commit 固定为 develop SHA。layers 留空，待已批准 Architecture Handoff 判定。
-    前序：F013 已完成并合入 develop（merge 4d2e48c，见 from_f013_review follow-up）。
+    F014（逻辑删除与数据一致性治理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 184ee61）。
+    流程：Git Preflight → Product → Architecture + API Contract → Backend / Frontend 并行实现
+    → Tester READY FOR REVIEW → Reviewer APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）
+    → Merge Gate（合并树与已审查候选树逐字节一致）→ 本状态提交。
+    R-DELETE-004 真实场景归 F002、`ip_address.cluster_id` 归 F005（REV-01），已写入相应 AC。
+    当前无进行中的 Feature。下一个 READY Feature：F015（P0，内网部署与运行环境）。
