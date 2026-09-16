@@ -199,6 +199,7 @@ AC-09：F012 交付物**不包含任何具体资源的字段定义、唯一性�
 | `GET` | `/api/clusters` | 需要 | 列出活跃 Cluster（分页 `page` / `page_size`）；空集合返回 `200` + `items: []` |
 | `GET` | `/api/clusters/{cluster_id}` | 需要 | 按 id 读取；不存在 / 已逻辑删除 → `404 NOT_FOUND` |
 | `GET` | `/api/clusters/by-name/{cluster_name}` | 需要 | 只读名称别名（大小写敏感）；未命中 → `404 NOT_FOUND` |
+| `GET` | `/api/clusters/by-name/{cluster_name}/bare-metals` | 需要 | Cluster 视角只读名称别名（F009）；按名称寻址活跃 BareMetal（分页 `page` / `page_size`）；未命中 / 已删 Cluster → `404`；存在但无活跃成员 → `200` + `items: []` |
 | `PATCH` | `/api/clusters/{cluster_id}` | 需要 | 更新名称（复用创建时的同一套领域校验） |
 | `DELETE` | `/api/clusters/{cluster_id}` | 需要 | 逻辑删除（F014）→ `204` 无响应体；不存在 / 已删除 → `404`；存在活跃子资源 → `409` |
 | `POST` | `/api/bare-metals` | 需要 | 登记 BareMetal（`cluster_id` + `hostname` 必填）；同 Cluster 活跃同名 → `409`；父不存在 / 已删 → `404`；`201` |
@@ -207,8 +208,9 @@ AC-09：F012 交付物**不包含任何具体资源的字段定义、唯一性�
 | `PATCH` | `/api/bare-metals/{bare_metal_id}` | 需要 | 更新 `status` + R-BM-007 七字段；`hostname` / `cluster_id` 不可变；非法 `status` → `400` |
 | `DELETE` | `/api/bare-metals/{bare_metal_id}` | 需要 | 逻辑删除 → `204`；不存在 / 已删 → `404`（委托统一软删服务） |
 
-- 契约正文见 `docs/api/f001-cluster.md`、`docs/api/f002-bare-metal.md`、`docs/api/f013-auth.md`、
+- 契约正文见 `docs/api/f001-cluster.md`、`docs/api/f002-bare-metal.md`、`docs/api/f009-cluster-resource-view.md`、`docs/api/f013-auth.md`、
   `docs/api/f014-soft-delete.md`；通用约定见 `docs/api/api-conventions.md`。
+- **F009 后** `GET /api/clusters/by-name/{cluster_name}/bare-metals` 可用：按 Cluster 名称寻址其活跃 BareMetal，与 canonical `GET /api/bare-metals?cluster_id={id}` 逐字段一致；只读、复用同一软删过滤路径，不提供写 / 删除 / 恢复别名。
 - **F014 后** `DELETE /api/clusters/{cluster_id}` 可用：逻辑删除（行仍物理存在）、已删不占唯一性可同名重建、不提供 `by-name` 删除别名、无恢复能力。删除经系统内唯一的软删领域服务 `app/deletion/service.py`（ADR-0004）。
 
 ### 5.1 认证边界与初始账号
@@ -250,6 +252,7 @@ backend/
 │   ├── api/            # 产品 HTTP 路由（health）+ 请求依赖（事务边界）
 │   ├── auth/           # F013 认证：passwords / policy / tokens / repository / service / router / middleware / cli
 │   ├── clusters/       # F001/F014 Cluster 模块：router / schemas / validation / service / repository / deletion
+│   ├── cluster_views/  # F009 Cluster 视角只读名称别名：router / service（复用 F001 名称解析 + F002 成员读取）
 │   ├── bare_metals/    # F002 BareMetal 模块：router / schemas / validation / service / repository / deletion
 │   ├── common/         # 横切关注点：错误信封、SQLSTATE 映射、分页
 │   ├── db/             # Declarative Base、mixin、引擎/会话、deleted_at 过滤原语
@@ -267,6 +270,8 @@ tests/
 ├── test_auth_guards.py
 ├── test_clusters_api.py
 ├── test_clusters_guards.py
+├── test_cluster_views_api.py
+├── test_cluster_views_guards.py
 ├── test_deletion_api.py
 ├── test_deletion_guards.py
 ├── test_error_envelope.py

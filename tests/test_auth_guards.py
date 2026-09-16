@@ -105,6 +105,8 @@ EXPECTED_GET_ROUTES = {
     "/api/clusters",
     "/api/clusters/by-name/{cluster_name}",
     "/api/clusters/{cluster_id}",
+    # F009：Cluster 视角只读名称别名（仅新增，不得删除既有成员）。
+    "/api/clusters/by-name/{cluster_name}/bare-metals",
     "/api/bare-metals",
     "/api/bare-metals/{bare_metal_id}",
     "/api/auth/session",
