@@ -574,15 +574,18 @@ features:
       start_commit: c6565545286bcabd4984de549dec13122941ed3e
       head_commit: c6565545286bcabd4984de549dec13122941ed3e
       merge_commit: null
-    current_stage: ARCHITECTURE
-    layers: {}
+    current_stage: IMPLEMENTATION
+    layers:
+      database: false     # 无 schema 变更；复用既有 ux_clusters_name_active / ix_bare_metals_cluster_id 与 active_filter
+      backend: true       # 新增 app/cluster_views/**（router + service）+ main 挂载 + EXPECTED_GET_ROUTES 演进 + 边界/一致性 guard
+      frontend: false     # 复用 F002 已交付的 clusterId 限定 BareMetalListPage；无新增前端实现
     contract:
-      status: NOT_REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f009-cluster-resource-view.md
     implementation:
-      database_design: PENDING
+      database_design: NOT_REQUIRED
       backend: PENDING
-      frontend: PENDING
+      frontend: NOT_REQUIRED
       test: PENDING
       review: PENDING
     product_document: docs/product/requirements.md
@@ -614,16 +617,20 @@ features:
       - 不得出现 NIC / IP / VM / Container / Service 的列表、计数、占位或关系入口（R-QUERY-003 归属 F010）。
       - 不得新增 Cluster 状态字段、DataCenter / 位置字段、自动发现 / 实时状态源字段。
       - 未认证访问 Cluster 视角相关端点 → 401 UNAUTHENTICATED 且不返回资源数据（ADR-0005）。
+      - AC-17 alias：GET /api/clusters/by-name/{cluster_name}/bare-metals 返回与 GET /api/bare-metals?cluster_id={id} 同一结果集（同字段 / 同排序 / 同分页信封）；名称不存在或 Cluster 已删 → 404 NOT_FOUND；无活跃成员 → 200 + items==[]；大小写敏感；未认证 → 401（ADR-0003 §2）。
+      - AC-18 边界封闭：F009 端点集合恰为上述 1 条；无 NIC/IP/VM/Container/Service 的路径、字段或占位；软删过滤仍恰有 1 条写入路径与统一读取原语（G-009-1 ~ G-009-6）。
     open_questions:
       - id: NQ-1
         blocking: false
         summary: Cluster 级状态汇总 / 计数未确认（PROPOSED-1），F009 不实现。
       - id: NQ-2
         blocking: false
-        summary: F009 与 F002 既有「集群限定裸金属列表」交付物重叠，需 Architecture 裁定复用或新建。
+        resolved_by: architecture
+        summary: 裁定为「复用 F002 cluster_id 限定读取作为 canonical + F009 交付只读别名端点」；前端不新增视图。
       - id: NQ-3
         blocking: false
-        summary: by-name/{name}/bare-metals 只读别名归属，F001/F002 均排除并指向 F009，需 Architecture 裁定。
+        resolved_by: architecture
+        summary: 裁定为交付 GET /api/clusters/by-name/{cluster_name}/bare-metals（履行 ADR-0003 §2），契约落点 docs/api/f009-cluster-resource-view.md。
       - id: NQ-4
         blocking: false
         summary: 展示字段范围（最小 hostname + status），PROPOSED-2。
@@ -1474,7 +1481,7 @@ planning_status:
 
 execution:
   current_feature: F009
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   started_on: "2026-09-16"
   note: >
     F002（BareMetal 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge ef39557）。
