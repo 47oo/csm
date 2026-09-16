@@ -288,9 +288,31 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: READY
+    status: IN_REVIEW
     depends_on: [F012, F013]
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F015-deployment
+      start_commit: 5c9ca84f94134c9bcc87c61a47fd9280ff99d411
+      head_commit: 056c0547b4001abbda4b3c88c22aff6f2cb2a712
+      merge_commit: null
+    current_stage: REVIEW
+    layers:
+      database: false     # 无 Schema / migration 变更
+      backend: true       # prod 关闭框架文档面 + backend/Dockerfile + .dockerignore
+      frontend: false     # 无 frontend/src/** 改动（生产构建属 deployment 层）
+      deployment: true    # docker-compose.prod.yml + frontend/Dockerfile + deploy/** + 部署文档
+    contract:
+      status: NOT_REQUIRED
+      doc: null           # F015 不新增产品 API；不新增 /api/* 豁免；探针为运行时级
+    implementation:
+      database_design: NOT_REQUIRED
+      backend: COMPLETE           # 056c054；prod 文档面关闭 + 192 passed
+      frontend: NOT_REQUIRED      # 无 frontend/src/** 改动
+      deployment: COMPLETE        # 056c054；compose/nginx/Dockerfile/部署文档；L2 E2E 通过
+      test: COMPLETE              # docs/test-reports/f015-deployment.md（READY FOR REVIEW）
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-DEPLOY-001
@@ -1037,12 +1059,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F015]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F004, F005, F009, F010, F011]
     DRAFT: [F002, F006, F007, F008]
   counts:
-    READY: 1
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 5
     DRAFT: 4
     DONE: 4
@@ -1250,16 +1273,15 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F012/F001/F013/F014 DONE, NEXT READY = F015
+  decision: PROJECT IN PROGRESS — F012/F001/F013/F014 DONE, F015 IN_PROGRESS
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F015
+  current_stage: REVIEW
   started_on: "2026-09-15"
   note: >
-    F014（逻辑删除与数据一致性治理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 184ee61）。
-    流程：Git Preflight → Product → Architecture + API Contract → Backend / Frontend 并行实现
-    → Tester READY FOR REVIEW → Reviewer APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）
-    → Merge Gate（合并树与已审查候选树逐字节一致）→ 本状态提交。
-    R-DELETE-004 真实场景归 F002、`ip_address.cluster_id` 归 F005（REV-01），已写入相应 AC。
-    当前无进行中的 Feature。下一个 READY Feature：F015（P0，内网部署与运行环境）。
+    F015（内网部署与运行环境）于 2026-09-16 启动。
+    Preflight 通过：工作区 clean、develop @ 5c9ca84、目标分支不存在，自 develop 创建 feature/F015-deployment。
+    start_commit 固定为 develop SHA。layers 留空，待已批准 Architecture Handoff 判定。
+    进入条件：F012/F013 均已 DONE；原额外进入条件 F012 F-03（自检面 fail-open）已由 F001 移除 /_foundation/* 消解。
+    F013 Review 的 REV-01（/docs、/redoc、/openapi.json 位于 /api 之外未认证可达）由本 Feature 记录并决定是否关闭。

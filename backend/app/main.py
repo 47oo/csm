@@ -31,7 +31,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
         engine.dispose()
 
-    app = FastAPI(title="CSM API", version="0.1.0", lifespan=lifespan)
+    # F015：生产环境关闭框架默认文档面（/docs /redoc /openapi.json）。它们位于
+    # 认证边界（/api）之外，未认证可达并暴露完整 API schema；dev / test 保持开启。
+    docs_enabled = settings.environment != "prod"
+    app = FastAPI(
+        title="CSM API",
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url="/docs" if docs_enabled else None,
+        redoc_url="/redoc" if docs_enabled else None,
+        openapi_url="/openapi.json" if docs_enabled else None,
+    )
 
     app.state.settings = settings
     app.state.engine = engine

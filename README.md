@@ -44,7 +44,8 @@ CSM **不以建设完整 CMDB 为目标**；具体产品范围与业务规则以
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-- 该 compose **仅用于本地开发 / 测试**，明确**不是 F015 的生产交付物**。
+- 该 compose **仅用于本地开发 / 测试**，是 **dev 专用**，不用于生产。
+  生产内网部署使用 `docker-compose.prod.yml`，步骤见 `docs/deployment/csm-v1-internal-deployment.md`。
 - 它以 `C.UTF-8` locale + UTF8 encoding 初始化数据库，固定了「大小写敏感」语义（ADR-0002）。
 
 **方式 B：已有本地 PostgreSQL 16**
@@ -144,6 +145,18 @@ export CSM_TEST_DATABASE_URL="postgresql+psycopg://csm:csm@localhost:5432/csm"
 
 也可使用 Makefile：`make install && make db-up && make migrate && make run`，
 `make check` 运行 lint + 格式 + 测试。
+
+### 3.8 生产内网部署（F015）
+
+以上为**本地开发流程**。生产部署（独立内网虚拟机、Internal IP + HTTP、
+nginx + 应用 + PostgreSQL 三容器、迁移与初始管理员、locale / 连接池 / 内网 HTTP
+约束、升级步骤）使用仓库根目录的 `docker-compose.prod.yml`，完整权威步骤见：
+
+> **[`docs/deployment/csm-v1-internal-deployment.md`](docs/deployment/csm-v1-internal-deployment.md)**
+
+- `docker-compose.dev.yml` 仍是 **dev 专用**（仅本地 PostgreSQL）；生产编排与它相互独立。
+- 生产凭据由部署环境**外部注入**（`deploy/env.prod.example` 仅含变量名与说明，值为空）。
+- 生产环境关闭框架默认文档面（`/docs` / `/redoc` / `/openapi.json`）。
 
 ---
 
@@ -254,7 +267,9 @@ tests/
 frontend/               # Vue 3 + TS + Vite + Element Plus（见 frontend/README.md）
 docs/                   # 产品 / 架构 / 数据库 / API 契约（权威来源）
 alembic.ini
-docker-compose.dev.yml  # 仅 dev 的 PostgreSQL（非 F015 生产交付物）
+docker-compose.dev.yml  # 仅 dev 的 PostgreSQL（dev 专用；生产见 docker-compose.prod.yml）
+docker-compose.prod.yml # 生产内网编排（nginx + 应用 + PostgreSQL）
+deploy/                 # 生产 nginx 配置与 env 模板
 Makefile
 pyproject.toml
 requirements*.txt

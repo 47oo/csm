@@ -36,7 +36,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | P0 | 7（F001, F002, F009, F012, F013, F014, F015） |
 | P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
 | P2 | 0 |
-| READY | 1（F015） |
+| READY | 0 |
 | BLOCKED | 5（F004, F005, F009, F010, F011） |
 | DRAFT | 4（F002, F006, F007, F008） |
 | DONE | 4（F012, F001, F013, F014） |
@@ -93,7 +93,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | F012 | 项目基础框架与运行环境 | P0 | **DONE** | — | — | requirements.md §4, §5, §21, §24, §25 |
 | F013 | 本地账号认证与会话 | P0 | **DONE** | F012 | — | requirements.md §19 |
 | F014 | 逻辑删除与数据一致性治理 | P0 | **DONE** | F012 | — | requirements.md §17, §21 |
-| F015 | 内网部署与运行环境 | P0 | READY | F012, F013 | — | requirements.md §20 |
+| F015 | 内网部署与运行环境 | P0 | IN_PROGRESS | F012, F013 | — | requirements.md §20 |
 
 **F003（Rack 与 U 位位置管理）已于 2026-09-15 依用户决策删除，不再属于 V1 范围。**
 
