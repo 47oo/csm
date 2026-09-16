@@ -37,7 +37,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | P0 | 7（F001, F002, F009, F012, F013, F014, F015） |
 | P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
 | P2 | 0 |
-| READY | 1（F002） |
+| READY | 0 |
 | BLOCKED | 8（F004, F005, F006, F007, F008, F009, F010, F011） |
 | DRAFT | 0 |
 | DONE | 5（F012, F001, F013, F014, F015） |
@@ -52,7 +52,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
 | F001 | Cluster 登记与管理 | P0 | **DONE** | F012 | — | requirements.md §7, §22 |
-| F002 | BareMetal 登记与管理 | P0 | READY | F001 | — | requirements.md §8, §22 |
+| F002 | BareMetal 登记与管理 | P0 | IN_PROGRESS | F001 | — | requirements.md §8, §22 |
 
 ## E02 网络资源管理
 
