@@ -3,14 +3,15 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > 本文件是人类可读视图，不构成机器状态的唯一来源。
-> Last updated: 2026-09-15（F012 与 F001 已 DONE 并合入 develop，据此重算 Feature 状态）
+> Last updated: 2026-09-16（F013 已 DONE 并合入 develop；F014 / F015 解锁为 READY，据此重算 Feature 状态）
 
 需求基线：`docs/product/requirements.md`（CONFIRMED BASELINE；2026-09-15 架构阶段产品裁定：OPEN-005 关闭，固化为 R-IMPORT-004 All-or-Nothing）。
 产品领域模型：`docs/product/domain-model.md` / `domain-model.yaml`（已于 2026-09-15 同步，OPEN-005 已关闭）。
 架构：`docs/architecture/csm-v1-foundation-architecture.md`（READY FOR IMPLEMENTATION），
 ADR-0001 ~ ADR-0005（全部 ACCEPTED），`docs/api/api-conventions.md`（READY）。
-已完成 **F012（项目基础框架与运行环境）** 与 **F001（Cluster 登记与管理）**，两者均已合入 `develop`。
-不再是无实现项目：`backend/` 与 `frontend/` 已存在，`clusters` 表已由 F012 基线建立并冻结。
+已完成 **F012（项目基础框架与运行环境）**、**F001（Cluster 登记与管理）** 与 **F013（本地账号认证与会话）**，均已合入 `develop`。
+不再是无实现项目：`backend/` 与 `frontend/` 已存在，`clusters` 表已由 F012 基线建立并冻结，
+认证基座（全 `/api/*` fail-closed 中间件、服务端会话、Argon2id）已由 F013 建立。
 
 状态取值：`DRAFT` / `BLOCKED` / `READY` / `IN_PROGRESS` / `IN_REVIEW` / `DONE`。
 
@@ -34,10 +35,10 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | P0 | 7（F001, F002, F009, F012, F013, F014, F015） |
 | P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
 | P2 | 0 |
-| READY | 2（F013, F014） |
-| BLOCKED | 6（F004, F005, F009, F010, F011, F015） |
+| READY | 2（F014, F015） |
+| BLOCKED | 5（F004, F005, F009, F010, F011） |
 | DRAFT | 4（F002, F006, F007, F008） |
-| DONE | 2（F012, F001） |
+| DONE | 3（F012, F001, F013） |
 | Blocking Decisions (OPEN) | **0**（DEC-008 ~ DEC-016 全部裁定；DEC-001 ~ DEC-014 无 OPEN 项） |
 
 产品冲突 DEC-001 ~ DEC-014 已全部裁定，DEC-015 / DEC-016 为新裁定的规模与部署决策，均不作为项目级阻塞（见下方状态表）。
@@ -89,9 +90,9 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
 | F012 | 项目基础框架与运行环境 | P0 | **DONE** | — | — | requirements.md §4, §5, §21, §24, §25 |
-| F013 | 本地账号认证与会话 | P0 | BLOCKED | F012 | 依赖 F012 未 DONE | requirements.md §19 |
-| F014 | 逻辑删除与数据一致性治理 | P0 | BLOCKED | F012 | 依赖 F012 未 DONE | requirements.md §17, §21 |
-| F015 | 内网部署与运行环境 | P0 | BLOCKED | F012, F013 | 依赖 F012/F013 未 DONE | requirements.md §20 |
+| F013 | 本地账号认证与会话 | P0 | **DONE** | F012 | — | requirements.md §19 |
+| F014 | 逻辑删除与数据一致性治理 | P0 | READY | F012 | — | requirements.md §17, §21 |
+| F015 | 内网部署与运行环境 | P0 | READY | F012, F013 | — | requirements.md §20 |
 
 **F003（Rack 与 U 位位置管理）已于 2026-09-15 依用户决策删除，不再属于 V1 范围。**
 

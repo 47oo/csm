@@ -190,16 +190,16 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F012]
     blocking: []
     git:
       base_branch: develop
       branch: feature/F013-auth
       start_commit: 6e7338c49d341664e7bd1ee914042b193a2cfe43
-      head_commit: 01335eea10540f5a115030bb7b0c0cf2a2340118
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: 46c6d8a3dd2defd26c32cf283b1b4afe550c00f2
+      merge_commit: 4d2e48c7384771f7e949efa9fc5a33ea2ed0e8a5
+    current_stage: null
     layers:
       database: true      # 增量 migration 0002_f013_auth（users / sessions）；不改基线
       backend: true       # app/auth/ 模块 + AuthMiddleware（fail-closed）+ CLI + 既有测试调整
@@ -212,7 +212,7 @@ features:
       backend: COMPLETE           # 见下
       frontend: COMPLETE          # 见下
       test: COMPLETE              # docs/test-reports/f013-auth.md（READY FOR REVIEW）
-      review: PENDING
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f013-auth.md；merge 4d2e48c
     product_document: docs/product/requirements.md
     requirements:
       - R-AUTH-001
@@ -268,10 +268,9 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: BLOCKED
+    status: READY
     depends_on: [F012, F013]
-    blocking:
-      - "依赖 F012 / F013 未 DONE"
+    blocking: []
     product_document: docs/product/requirements.md
     requirements:
       - R-DEPLOY-001
@@ -1012,15 +1011,15 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F013, F014]
+  ready_features: [F014, F015]
   blocked_draft_features:
-    BLOCKED: [F004, F005, F009, F010, F011, F015]
+    BLOCKED: [F004, F005, F009, F010, F011]
     DRAFT: [F002, F006, F007, F008]
   counts:
     READY: 2
-    BLOCKED: 6
+    BLOCKED: 5
     DRAFT: 4
-    DONE: 2
+    DONE: 3
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -1048,13 +1047,22 @@ planning_status:
       PATCH 改自身名返回 200、/_foundation/* 全 404）。
       **关键否定性交付**：F001 内 deleted_at 写入路径数 = 0（无删除端点）；/_foundation/* 彻底移除，
       同时消解 F012 Review 的 F-03（fail-open MEDIUM）。R-CLUSTER-004 未在 F001 强行构造任何结构。
-  ready_rationale:
     F013: >
-      依赖 F012 已 DONE；架构决策 DEC-009 / DEC-013 已 RESOLVED（ADR-0001 / ADR-0005 ACCEPTED），
-      认证机制（服务端会话 + HttpOnly Cookie + Argon2id）已批准；无未解决产品问题 → READY。
+      base 6e7338c → head 46c6d8a → merge 4d2e48c（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；53 文件 / +4431 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 下后端 133 passed、前端 83 passed 且构建成功、ruff 干净、alembic check 无 drift。
+      **关键否定性交付**：路由前 ASGI 中间件 fail-closed，豁免集合恰为一个 (method, path) 对，新挂载 /api 端点自动受保护；
+      登录失败三情形逐字节一致；口令不明文落库 / 日志 / 错误；绕应用层验证 username 大小写敏感；
+      Migration 0002 增量，基线 0001 未改。Tester / Reviewer 均以真实库独立重跑。
+  ready_rationale:
     F014: >
       依赖 F012 已 DONE；架构/数据库决策 DEC-012 / DEC-009 已 RESOLVED（ADR-0004 / ADR-0001 / ADR-0002 ACCEPTED），
       软删持久化与唯一性释放机制已由 F012 基线证明可行；无未解决产品问题 → READY。
+    F015: >
+      依赖 F012 / F013 均已 DONE；架构决策 DEC-009 / DEC-010 / DEC-016 已 RESOLVED（ADR-0001 ACCEPTED，
+      部署打包 docker-compose、PostgreSQL、内网 Internal IP + HTTP）；无未解决产品问题 → READY。
+      原额外进入条件 F012 follow-up F-03（自检面 fail-open）已由 F001 彻底移除 /_foundation/* 而消解；
+      REV-01（框架默认 /docs、/redoc、/openapi.json 位于 /api 之外未认证可达）由 F015 记录并决定是否关闭。
   draft_rationale:
     F002: "产品问题 OPEN-004（BareMetal 硬件字段必填/可选范围）直接决定本 Feature 字段范围；同时依赖 F001 未 DONE，取 DRAFT。"
     F006: "Feature 级产品问题 OPEN-001（VM 字段与唯一性规则）与 DEC-004（VM 绑定强制性 / 生命周期，归属 F006 Product 阶段）直接决定本 Feature 字段与生命周期；同时依赖 F002 未 DONE，取 DRAFT。"
@@ -1068,22 +1076,49 @@ planning_status:
     F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
     F010: "上游资源模型决策 DEC-001 / DEC-003 / DEC-006 均已解决，不改变本 Feature 的 AC 定稿；阻塞为依赖多个资源 Feature 未 DONE。"
     F011: "OPEN-005 已关闭（All-or-Nothing，已固化为 R-IMPORT-004），无未解决产品问题；阻塞为依赖多个资源 Feature 未 DONE。"
-    F015: >
-      阻塞为依赖 F013 未 DONE（F012 已 DONE）。架构决策 DEC-009 / DEC-010 / DEC-016 均已 RESOLVED。
-      **额外进入条件**：F012 Review 的 follow-up F-03（自检面 fail-open）必须在 F015 解决或显式化解 ——
-      F015 必须强制 `CSM_ENVIRONMENT=prod` 并加入部署断言，或由 Backend 改为 fail-closed 默认。
   readiness_summary: >
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），DEC-008 ~ DEC-016 全部 RESOLVED。
-    F012（基座）已 DONE 并合入 develop，基座机制（统一错误信封、SQLSTATE 映射、分页、事务边界、
-    活跃行过滤原语、Alembic 基线）与两处最难回退的语义（大小写敏感唯一性、软删释放唯一性）均已验证。
-    3 个 Feature（F001 / F013 / F014）依赖已满足，成为 READY。
-    6 个 Feature（F004/F005/F009/F010/F011/F015）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
+    F012（基座）、F001（Cluster）、F013（本地账号认证与会话）均已 DONE 并合入 develop。
+    F013 交付认证基座：路由前 ASGI 中间件 fail-closed 保护全 /api/*，唯一豁免为 POST /api/auth/login，
+    登录失败三情形逐字节一致，Argon2id + 服务端会话，增量 migration 0002 未改基线 0001。
+    2 个 Feature（F014 / F015）依赖已满足，成为 READY；其中 F015 因 F013 DONE 而解锁，
+    且其额外进入条件（F012 F-03 自检面 fail-open）已由 F001 移除 /_foundation/* 消解。
+    5 个 Feature（F004/F005/F009/F010/F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
     4 个 Feature（F002/F006/F007/F008）仍存在影响自身 scope/AC 定稿的 Feature 级产品问题（DRAFT）。
-    F001（Cluster 登记与管理）已 DONE 并合入 develop，Cluster 成为真实资源：5 个端点、
-    **无删除端点**、`backend/app/**` 中 `deleted_at` 写入路径数 = 0、`/_foundation/*` 彻底移除。
-    2 个 Feature（F013 / F014）依赖已满足，保持 READY；F002 因产品问题 OPEN-004 仍为 DRAFT，
-    故 F009（依赖 F001/F002）仍 BLOCKED。
+    F002 因产品问题 OPEN-004 仍为 DRAFT，故 F009（依赖 F001/F002）仍 BLOCKED。
   follow_ups:
+    from_f013_review:
+      report: docs/reviews/f013-auth.md
+      open:
+        - id: REV-01
+          severity: LOW
+          owner: Architect / F015 / Backend
+          summary: >
+            框架默认文档面 /docs、/redoc、/openapi.json 位于 /api 前缀之外，未认证可达（实测 200）。
+            契约 §2 将受保护范围限定 /api，故非契约违约；属内网信息面取舍。
+          建议时点: F015 生产部署时记录并决定是否关闭 / 限制。
+        - id: REV-03
+          severity: NOTE
+          owner: Backend
+          summary: >
+            口令日志 guard 仅逐行子串匹配，跨行构造 / logger 别名可能漏检；当前无口令日志路径。
+          建议时点: 后续 hardening。
+        - id: REV-04
+          severity: NOTE
+          owner: Architect
+          summary: >
+            大写 /API/clusters 返回 404 而非 401（与契约大小写敏感定义一致，无数据暴露）。
+          建议时点: 认知记录。
+        - id: F013-F-01
+          severity: LOW
+          owner: Backend
+          summary: >
+            未映射的 4xx（如 405）被标为 INTERNAL_ERROR；继承自 F012 F-01，非 F013 引入。
+          继承自: F012
+      resolved:
+        - id: REV-02
+          summary: >
+            project-plan 的 F013 head_commit 陈旧（01335ee）；已在本状态提交中修正为 head 46c6d8a、merge 4d2e48c。
     from_f001_review:
       report: docs/reviews/f001-cluster.md
       open:
@@ -1154,17 +1189,14 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F012/F001 DONE, NEXT READY = F013 / F014
+  decision: PROJECT IN PROGRESS — F012/F001/F013 DONE, NEXT READY = F014 / F015
 
 execution:
-  current_feature: F013
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   started_on: "2026-09-15"
   note: >
-    恢复执行（2026-09-16）：F013 处于 TEST 阶段，Tab 现场核对通过 —— 工作区 clean、分支 feature/F013-auth、
-    start_commit 6e7338c 为 HEAD 祖先；01335ee 为「record the implementation checkpoint」元数据提交，
-    backend / frontend / database_design 均 COMPLETE，故直接从 TEST 恢复，未重复 Product / Architecture / Implementation。
-    Tester 独立重跑（真实 PostgreSQL 16.2 / pgserver）并新增验收与对抗覆盖，输出 docs/test-reports/f013-auth.md = READY FOR REVIEW：
-    AC-01 ~ AC-15 全部 PASS，T-01 ~ T-19 / G-A ~ G-F 全部 PASS，133 backend passed、前端 83 passed + build 成功、
-    ruff 干净、迁移可重复 / 可重建 / 无漂移；唯一缺陷 F013-F-01 为继承自 F012 的 LOW（405 映射为 INTERNAL_ERROR），非本 Feature 引入。
-    下一步进入 Reviewer。
+    F013（本地账号认证与会话）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 4d2e48c）。
+    流程：从 TEST 恢复（现场核对）→ Tester READY FOR REVIEW → Reviewer APPROVED WITH FOLLOW-UP
+    （无 BLOCKER / HIGH / 必须修复的 MEDIUM）→ Merge Gate（合并树与已审查候选树逐字节一致）→ 本状态提交。
+    当前无进行中的 Feature。下一个 READY Feature 候选：F014 / F015（均 P0）。
