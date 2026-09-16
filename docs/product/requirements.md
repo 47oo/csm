@@ -44,6 +44,15 @@
 >   - 决策来源：用户 2026-09-16 对 F006 OPEN-001 / DEC-004 的裁定。
 >   - 规则总数：**50 → 53**。
 >
+> - **2026-09-16 — Container 阶段产品裁定（新增 5 条规则）**
+>   - **OPEN-002 关闭**：登记粒度为**仅长期服务型 Container**，不登记短生命周期 / 临时容器，不引入 K8s workload 等更高层对象；新增 **R-CONTAINER-001**（§10）。
+>   - **DEC-005 关闭**：Container → 运行载体（BareMetal 或 VirtualMachine）绑定为**必选且恰好一个**，Cluster 由载体推导；新增 **R-CONTAINER-002**。
+>   - 标识 `name` 同一载体内唯一、比较区分大小写；新增 **R-CONTAINER-003**。
+>   - 可选字段（image / cpu / memory / owner）全部可选、纯文本、允许 NULL；新增 **R-CONTAINER-004**。
+>   - 生命周期：载体有活跃 Container 时不得删除载体；软删不级联；新增 **R-CONTAINER-005**。
+>   - 决策来源：用户 2026-09-16 对 F007 OPEN-002 / DEC-005 的裁定。
+>   - 规则总数：**53 → 58**。
+>
 > 本文件为 CSM V1 的 Primary Requirements Source；与 `docs/product/domain-model.md` 的同步另行维护，冲突优先级见 `AGENTS.md` §3。
 
 ---
@@ -450,13 +459,72 @@ Container 可能运行于：
 * BareMetal；
 * VirtualMachine。
 
-具体登记粒度、生命周期和运行关系应由对应 Feature 根据实际产品需求进一步确认。
-
 不得因为存在 Container 类型就自动引入：
 
 * Kubernetes；
 * Docker API；
 * Container Runtime 自动发现。
+
+---
+
+## R-CONTAINER-001
+
+V1 的 Container 登记粒度为**长期服务型 Container 实例**：
+
+* 只登记长期运行、具有运维意义的容器实例；
+* 不登记短生命周期 / 临时容器（如作业型、调试型容器）；
+* **不引入** Kubernetes workload（Pod / Deployment / DaemonSet 等）或其他更高层对象作为登记单位。
+
+---
+
+## R-CONTAINER-002
+
+Container → 运行载体的绑定为**必选**：每个 Container 必须属于**恰好一个**运行载体。
+
+运行载体可以是：
+
+* BareMetal；或
+* VirtualMachine。
+
+Container 的 Cluster 归属由其运行载体的 Cluster 归属推导，不单独记录（BareMetal → 其 Cluster；VirtualMachine → 其宿主 BareMetal → 其 Cluster）。
+
+---
+
+## R-CONTAINER-003
+
+Container 必须拥有 `name`，作为其身份标识。
+
+`name` 在**同一运行载体内唯一**；不同载体可以存在相同 `name`。
+
+`name` 比较**区分大小写**（与 Cluster / BareMetal / VirtualMachine 一致，§22）。
+
+已逻辑删除的 Container 不再占用该唯一性（R-DELETE-006）。
+
+---
+
+## R-CONTAINER-004
+
+Container 在 V1 **可选**记录以下字段：
+
+* Image（镜像）；
+* CPU；
+* Memory（内存）；
+* Owner（负责人，纯文本）。
+
+约束：
+
+* 上述字段均为**可选**；未登记时允许为空（`NULL`），不构成登记阻断条件；
+* 上述字段在 V1 均以**文本**记录，不拆分为结构化子字段；
+* 不得因为存在这些字段而引入自动资产发现或容器运行时同步。
+
+---
+
+## R-CONTAINER-005
+
+生命周期：
+
+* 运行载体（BareMetal 或 VirtualMachine）存在活跃 Container 时，**不得删除该载体**（R-DELETE-004）；
+* 逻辑删除 Container **不得自动级联**删除其载体或其他资源（R-DELETE-005）。
 
 ---
 
@@ -1292,18 +1360,17 @@ VirtualMachine 字段、标识与绑定规则已于 2026-09-16 由用户裁定�
 
 ---
 
-## OPEN-002 Container 管理粒度
+## OPEN-002 Container 管理粒度（已关闭）
 
-**已确认部分**：
+Container 登记粒度与绑定已于 2026-09-16 由用户裁定：
 
-* V1 需要允许领域模型表达 Container（§10）；
-* 不得引入 Kubernetes / Docker API / Container Runtime 自动发现（§10、§23）。
+* 粒度为**长期服务型 Container 实例**，不登记短生命周期 / 临时容器，不引入 K8s workload 等更高层对象；
+* 绑定运行载体（BareMetal 或 VirtualMachine）为**必选且恰好一个**；Cluster 由载体推导；
+* 标识 `name`，同一载体内唯一、区分大小写；
+* 可选字段（image / cpu / memory / owner）全部可选、纯文本、允许 NULL；
+* 载体有活跃 Container 时不得删除载体；软删不级联。
 
-**仍需确认**：
-
-* 是否登记每个 Container；
-* 是否仅登记长期服务型 Container；
-* 是否需要 Kubernetes workload 等更高层对象。
+已固化为 **R-CONTAINER-001 ~ R-CONTAINER-005**（§10），不再是待确认项。
 
 ---
 

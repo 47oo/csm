@@ -175,11 +175,18 @@ VirtualMachine 在 V1 不设状态（Q-002=B）。
 * 虚拟机；
 * 裸金属。
 
-**登记粒度、绑定强制性与生命周期尚未确认**，必须在 Container Feature 的 Product 阶段确定（`requirements.md` §10、OPEN-002）。
+**绑定为必选且恰好一个（R-CONTAINER-002）**：每个 Container 必须属于恰好一个运行载体；Cluster 归属由载体推导。
 
-在此之前**不得默认绑定为必选**。
+**登记粒度为长期服务型 Container 实例（R-CONTAINER-001）**：不登记短生命周期 / 临时容器，不引入 Kubernetes workload 等更高层对象。
 
-登记字段：绑定的载体（最终字段范围待 Container Feature 确认）。
+登记字段：
+
+* 容器名称（`name`）：身份标识，必填，**同一运行载体内唯一**、比较区分大小写（R-CONTAINER-003）。
+* 可选字段（R-CONTAINER-004）：Image / CPU / Memory / Owner，均为可选、纯文本、允许为空（`NULL`）。
+
+生命周期（R-CONTAINER-005）：载体存在活跃 Container 时不得删除载体；Container 软删不级联。
+
+Container 在 V1 不设状态（Q-002=B）。
 
 ### 5.5 服务 Service
 
@@ -349,11 +356,10 @@ V1 中**不设状态**的资源：
 
 以下项目在 `requirements.md` §29 中已明确为待确认，其确认属于对应 Feature 的 Product 阶段：
 
-* OPEN-002：容器管理粒度；
 * OPEN-003：服务字段范围；
 * OPEN-005：Excel 部分成功导入策略。
 
-OPEN-004（裸金属硬件字段）已于 2026-09-16 由用户裁定，固化为 R-BM-007；OPEN-001（虚拟机字段与绑定）已于 2026-09-16 由用户裁定，固化为 R-VM-004 / R-VM-005 / R-VM-006；两者不再是待确认项。
+OPEN-004（裸金属硬件字段）已于 2026-09-16 由用户裁定，固化为 R-BM-007；OPEN-001（虚拟机字段与绑定）已于 2026-09-16 由用户裁定，固化为 R-VM-004 / R-VM-005 / R-VM-006；OPEN-002（容器粒度与绑定）已于 2026-09-16 由用户裁定，固化为 R-CONTAINER-001 ~ R-CONTAINER-005；均不再是待确认项。
 
 OPEN-006（虚拟资源运行时集成）已由已确认规则排除，不再是待确认项。
 

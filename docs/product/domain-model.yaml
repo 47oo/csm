@@ -332,23 +332,62 @@ resources:
     category: virtual
     in_v1: true
     status_model: null
+    status_note: V1 不设状态（Q-002=B）。
     fields:
-      - name: host_binding
-        label: 绑定的载体
-        required: UNCONFIRMED
-        note: 最终字段范围待 Container Feature 确认
+      - name: name
+        label: 容器名称
+        required: true
+        is_identifier: true
+        type: text
+        uniqueness:
+          scope: per_carrier
+          applies_to: 同一运行载体内
+          case_sensitive: true
+          cross_scope: 不同载体可以存在相同 name
+          rule_ids: [R-CONTAINER-003]
+      # 可选字段（R-CONTAINER-004，2026-09-16 用户裁定）：全部可选、纯文本、允许 NULL。
+      - name: image
+        label: 镜像
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-CONTAINER-004]
+      - name: cpu
+        label: CPU
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-CONTAINER-004]
+      - name: memory
+        label: 内存
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-CONTAINER-004]
+      - name: owner
+        label: 负责人
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-CONTAINER-004]
     binding_to_host:
-      candidates: [VirtualMachine, BareMetal]
-      mandatory: UNCONFIRMED
-      cardinality: UNCONFIRMED
-      binding_state: UNCONFIRMED
-      must_not_assume: 不得默认绑定为必选
-      resolve_in_feature: F007
-      open_question: OPEN-002
+      candidates: [BareMetal, VirtualMachine]
+      selector: exactly_one
+      mandatory: true
+      cardinality: many_to_one
+      binding_state: CONFIRMED
+      rule_ids: [R-CONTAINER-002]
+      note: 每个 Container 必须属于恰好一个运行载体（BareMetal 或 VirtualMachine）；Cluster 归属由载体推导。
     granularity:
-      state: UNCONFIRMED
-      note: 登记粒度、生命周期尚未确认
-      open_question: OPEN-002
+      state: CONFIRMED
+      value: long_lived_service_instances
+      excluded: [short_lived_ephemeral, kubernetes_workload_objects]
+      rule_ids: [R-CONTAINER-001]
+    lifecycle:
+      soft_delete: true
+      cascade: false
+      parent_deletion: blocked_when_active_children_exist
+      rule_ids: [R-CONTAINER-005]
     integration:
       kubernetes_api: false
       docker_api: false
@@ -356,7 +395,12 @@ resources:
       note: >
         不得因为存在 Container 类型就自动引入 Kubernetes / Docker API /
         Container Runtime 自动发现。
-    domain_rules: []
+    domain_rules:
+      - R-CONTAINER-001
+      - R-CONTAINER-002
+      - R-CONTAINER-003
+      - R-CONTAINER-004
+      - R-CONTAINER-005
 
   - name: Service
     label: 服务

@@ -484,22 +484,28 @@ features:
     name: Container 资源模型与登记
     epic: E03
     priority: P1
-    status: DRAFT
+    status: BLOCKED
     depends_on: [F006, F002]
     blocking:
-      - "OPEN-002 未确认（Container 管理粒度）"
-      - "DEC-005（Feature 级，归属 F007 Product 阶段）"
       - "依赖 F006 / F002 未 DONE"
     product_document: docs/product/requirements.md
     requirements:
       - "§10 Container（允许领域模型表达 Container 资源）"
+      - R-CONTAINER-001
+      - R-CONTAINER-002
+      - R-CONTAINER-003
+      - R-CONTAINER-004
+      - R-CONTAINER-005
     acceptance_criteria:
       - 领域模型能够表达 Container 资源（§10）。
-      - 不因存在 Container 类型而引入 Kubernetes / Docker API / Container Runtime 自动发现（§10）。
+      - 不因存在 Container 类型而引入 Kubernetes / Docker API / Container Runtime 自动发现（§10；R-CONTAINER-001）。
+      - 登记粒度为长期服务型 Container 实例；不登记短生命周期 / 临时容器，不引入 K8s workload 等更高层对象（R-CONTAINER-001）。
+      - Container 必须属于**恰好一个**运行载体（BareMetal 或 VirtualMachine）；Cluster 归属由载体推导（R-CONTAINER-002）。
+      - Container 必须拥有 name（必填），name **同一载体内唯一**、比较区分大小写；已软删不占用唯一性（R-CONTAINER-003、R-DELETE-006）。
+      - 可选字段（image / cpu / memory / owner）均为**可选**、纯文本、允许为空（NULL）（R-CONTAINER-004）。
+      - 载体存在活跃 Container 时不得删除载体（R-DELETE-004）；Container 软删不级联（R-DELETE-005）（R-CONTAINER-005）。
       - Container 在 V1 不设状态（Q-002=B）。
-    open_questions:
-      - "OPEN-002：Container 管理粒度（是否登记每个 Container / 仅长期服务型 / 是否需要 K8s workload 等更高层对象）。"
-      - "DEC-005（Feature 级，归属 F007 Product 阶段）：Container 绑定（VM 或 BareMetal）是否必选及生命周期规则。"
+    open_questions: []
 
   # ---- E04 服务资源管理 ----
   - id: F008
@@ -652,10 +658,11 @@ decisions_required:
       requirements.md §10 要求在 Feature 阶段确认，domain-model.md 规定必选。需确认。
     impact_features: [F007, F010, F011]
     type: product
-    status: DEFERRED_TO_FEATURE
+    status: RESOLVED
     resolution: >
-      DEFERRED_TO_FEATURE（2026-09-15）：归属 F007 Product 阶段（依据 requirements.md §10），
-      不再作为项目级阻塞；已记录为 F007 的 Feature 级 open_question。
+      RESOLVED（2026-09-16，用户裁定）：登记粒度为长期服务型 Container 实例；绑定运行载体
+      （BareMetal 或 VirtualMachine）为必选且恰好一个，Cluster 由载体推导；name 同一载体内唯一；
+      载体有活跃 Container 不得删除；软删不级联。已落为 R-CONTAINER-001 ~ R-CONTAINER-005，并关闭 OPEN-002。
 
   - id: DEC-006
     question: >
@@ -962,6 +969,21 @@ requirement_coverage:
   - id: R-VM-006
     covered_by: [F006]
     note: VM 可选配置字段全部可选、纯文本、允许 NULL；用户 2026-09-16 裁定。
+  - id: R-CONTAINER-001
+    covered_by: [F007]
+    note: 粒度=长期服务型 Container 实例，不登记临时容器，不引入 K8s workload；用户 2026-09-16 裁定，关闭 OPEN-002。
+  - id: R-CONTAINER-002
+    covered_by: [F007]
+    note: 绑定必选且恰好一个运行载体（BareMetal 或 VirtualMachine），Cluster 由载体推导；用户 2026-09-16 裁定，关闭 DEC-005。
+  - id: R-CONTAINER-003
+    covered_by: [F007]
+    note: name 必填、同一载体内唯一、大小写敏感；已软删释放唯一性。
+  - id: R-CONTAINER-004
+    covered_by: [F007]
+    note: image/cpu/memory/owner 可选、纯文本、允许 NULL。
+  - id: R-CONTAINER-005
+    covered_by: [F007]
+    note: 载体有活跃 Container 不得删除；软删不级联（R-DELETE-004/005）。
   - id: R-NIC-001
     covered_by: [F004]
   - id: R-NIC-002
@@ -1077,12 +1099,12 @@ planning_status:
   status: ACCEPTED
   ready_features: [F002]
   blocked_draft_features:
-    BLOCKED: [F004, F005, F006, F009, F010, F011]
-    DRAFT: [F007, F008]
+    BLOCKED: [F004, F005, F006, F007, F009, F010, F011]
+    DRAFT: [F008]
   counts:
     READY: 1
-    BLOCKED: 6
-    DRAFT: 2
+    BLOCKED: 7
+    DRAFT: 1
     DONE: 5
   status_decision_rules:
     DRAFT: >
@@ -1144,10 +1166,10 @@ planning_status:
       原额外进入条件 F012 follow-up F-03（自检面 fail-open）已由 F001 彻底移除 /_foundation/* 而消解；
       REV-01（框架默认 /docs、/redoc、/openapi.json 位于 /api 之外未认证可达）由 F015 记录并决定是否关闭。
   draft_rationale:
-    F007: "Feature 级产品问题 OPEN-002（Container 管理粒度）与 DEC-005（Container 绑定与生命周期，归属 F007 Product 阶段）直接决定本 Feature 粒度与绑定模型；同时依赖 F006 / F002 未 DONE，取 DRAFT。"
     F008: "产品问题 OPEN-003（Service 字段范围）直接决定本 Feature 字段；关系模型已由 DEC-003（方案 C）解决并落为 R-SVC-005/006；同时依赖 F001 / F002 / F006 / F007 未 DONE，取 DRAFT。"
   blocked_rationale:
     F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
+    F007: "产品问题 OPEN-002 / DEC-005 已于 2026-09-16 解决（R-CONTAINER-001~005），scope/AC 可定稿；阻塞仅为依赖 F006 / F002 未 DONE。"
     F004: >
       DEC-006 已解决（V1 无状态）；保留的 R-NIC-003「VM 等资源是否拥有独立 NetworkInterface」不改变本 Feature
       的 V1 交付边界（核心对象为 BareMetal），按规则仍计为 BLOCKED。阻塞为依赖 F002 未 DONE。
@@ -1160,10 +1182,10 @@ planning_status:
     M1「平台基础可运行」全部 DONE：F012（基座）、F001（Cluster）、F013（认证）、F014（软删）、F015（内网部署）均已合入 develop。
     **OPEN-004 已于 2026-09-16 由用户裁定**（R-BM-007），F002 解除 DRAFT 且依赖已满足 → READY。
     **OPEN-001 / DEC-004 已于 2026-09-16 由用户裁定**（R-VM-004/005/006），F006 解除 DRAFT，仅因依赖 F002 未 DONE 而 BLOCKED。
-    2 个 Feature（F007/F008）仍为 DRAFT，存在影响自身 scope/AC 定稿的 Feature 级产品问题
-    （F007=OPEN-002/DEC-005；F008=OPEN-003）。
-    6 个 Feature（F004/F005/F006/F009/F010/F011）scope/AC 可定稿，但全部（直接或间接）依赖 F002，故为 BLOCKED。
-    下一 READY Feature：F002；其余产品问题（OPEN-002/003）可在后续继续由用户裁定。
+    **OPEN-002 / DEC-005 已于 2026-09-16 由用户裁定**（R-CONTAINER-001~005），F007 解除 DRAFT，仅因依赖 F006 / F002 未 DONE 而 BLOCKED。
+    1 个 Feature（F008）仍为 DRAFT，存在影响自身 scope/AC 定稿的 Feature 级产品问题（OPEN-003）。
+    7 个 Feature（F004/F005/F006/F007/F009/F010/F011）scope/AC 可定稿，但全部（直接或间接）依赖 F002，故为 BLOCKED。
+    下一 READY Feature：F002；剩余产品问题（OPEN-003）可在后续继续由用户裁定。
   follow_ups:
     from_f015_review:
       report: docs/reviews/f015-deployment.md
@@ -1329,16 +1351,16 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — OPEN-004 / OPEN-001 / DEC-004 RESOLVED; F002 READY, NEXT READY = F002
+  decision: PROJECT IN PROGRESS — OPEN-004 / OPEN-001 / DEC-004 / OPEN-002 / DEC-005 RESOLVED; F002 READY, NEXT READY = F002
 
 execution:
   current_feature: null
   current_stage: null
   started_on: "2026-09-15"
   note: >
-    2026-09-16：用户本次裁定 — OPEN-004（R-BM-007：硬件字段全部可选 / 纯文本 / 允许 NULL / Serial 不唯一）与
-    OPEN-001 + DEC-004（R-VM-004/005/006：VM name 全局唯一且大小写敏感、绑定 BareMetal 必选、父删子拦、软删不级联、可选配置字段）。
-    F002 保持 READY；F006 解除 DRAFT，仅因依赖 F002 未 DONE 而为 BLOCKED。
+    2026-09-16：用户本次裁定 — OPEN-004（R-BM-007）与 OPEN-001 + DEC-004（R-VM-004/005/006），
+    以及 OPEN-002 + DEC-005（R-CONTAINER-001~005：仅长期服务型、绑定恰一个载体、name 同载体内唯一、载体有活跃容器不得删、软删不级联）。
+    F002 保持 READY；F006 / F007 解除 DRAFT，仅因依赖未 DONE 而为 BLOCKED。
     前序：F015 已完成并合入 develop（merge 06e655a），M1「平台基础可运行」全部 DONE。
-    当前剩余产品问题：F007 的 OPEN-002 / DEC-005、F008 的 OPEN-003。
-    下一步：可实施 F002（READY），或先继续裁定其余两项产品问题。
+    当前剩余产品问题：F008 的 OPEN-003（Service 字段范围）。
+    下一步：可实施 F002（READY），或先继续裁定 OPEN-003。

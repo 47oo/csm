@@ -38,8 +38,8 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
 | P2 | 0 |
 | READY | 1（F002） |
-| BLOCKED | 6（F004, F005, F006, F009, F010, F011） |
-| DRAFT | 2（F007, F008） |
+| BLOCKED | 7（F004, F005, F006, F007, F009, F010, F011） |
+| DRAFT | 1（F008） |
 | DONE | 5（F012, F001, F013, F014, F015） |
 | Blocking Decisions (OPEN) | **0**（DEC-008 ~ DEC-016 全部裁定；DEC-001 ~ DEC-014 无 OPEN 项） |
 
@@ -66,7 +66,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
 | F006 | VirtualMachine 登记与管理 | P1 | BLOCKED | F002 | 依赖 F002 未 DONE | requirements.md §9 |
-| F007 | Container 资源模型与登记 | P1 | DRAFT | F006, F002 | OPEN-002, DEC-005(Feature 级), 依赖 F006/F002 未 DONE | requirements.md §10 |
+| F007 | Container 资源模型与登记 | P1 | BLOCKED | F006, F002 | 依赖 F006/F002 未 DONE | requirements.md §10 |
 
 ## E04 服务资源管理
 
@@ -112,8 +112,8 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | DEC-001 | product | F001, F002, F009, F010, F011 | RESOLVED | V1 不含 DataCenter（requirements.md §6） |
 | DEC-002 | product | F011 | RESOLVED | Rack / U 位已从 V1 删除，F003 一并删除 |
 | DEC-003 | product | F008, F010, F011 | RESOLVED | 方案 C：Service 必选绑定运行载体（R-SVC-005/006） |
-| DEC-004 | product | F006, F007, F010, F011 | DEFERRED_TO_FEATURE | 归属 F006 Product 阶段（终态，非 OPEN） |
-| DEC-005 | product | F007, F010, F011 | DEFERRED_TO_FEATURE | 归属 F007 Product 阶段（终态，非 OPEN） |
+| DEC-004 | product | F006, F007, F010, F011 | RESOLVED | VM→BareMetal 绑定必选；R-VM-005（2026-09-16 用户裁定） |
+| DEC-005 | product | F007, F010, F011 | RESOLVED | Container 粒度与绑定（R-CONTAINER-001~005，2026-09-16 用户裁定） |
 | DEC-006 | product | F004, F005, F006, F007, F008 | RESOLVED | 方案 B：仅 BareMetal 有状态 |
 | DEC-007 | product | F001 | RESOLVED | 已确认为 R-CLUSTER-005 |
 | DEC-008 | architecture | F006, F007, F008 | RESOLVED | ADR-0002：`bare_metal.status` 显式列 + CHECK，不设通用 status 表 |
@@ -126,8 +126,8 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | DEC-015 | process | F012, F015 | RESOLVED | 规模：资源总量约 10⁵、并发约 50（用户裁定） |
 | DEC-016 | architecture | F015 | RESOLVED | 部署打包：docker-compose（用户裁定，ADR-0001） |
 
-**无 OPEN 项。** DEC-004 / DEC-005 为 Feature 级延期（终态 `DEFERRED_TO_FEATURE`），已记录为 F006 / F007 的 Feature 级 `open_questions`，
-不是项目级阻塞，也不属于本项目级 `decisions_required` 的 OPEN。
+**无 OPEN 项。** DEC-004 / DEC-005 已于 2026-09-16 由用户裁定并固化为 R-VM-005 / R-CONTAINER-001~005，不再是 Feature 级 `open_questions`；
+F001 / F002 / F006 / F007 的关键产品问题已全部关闭。
 
 完整 question 文本与 resolution 见 `docs/project/project-plan.yaml` 的 `decisions_required`。
 
@@ -138,7 +138,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | OPEN | 关联 Feature | 内容 | 状态 |
 |---|---|---|---|
 | OPEN-001 | F006 | VirtualMachine 字段范围及其标识与唯一性规则 | **已关闭（R-VM-004/005/006）** |
-| OPEN-002 | F007 | Container 管理粒度 | OPEN |
+| OPEN-002 | F007 | Container 管理粒度 | **已关闭（R-CONTAINER-001 ~ 005）** |
 | OPEN-003 | F008 | Service 字段 | OPEN |
 | OPEN-004 | F002 | BareMetal 硬件字段 | OPEN |
 | OPEN-005 | F011 | Excel 部分成功导入策略 | **已关闭（All-or-Nothing，固化为 R-IMPORT-004）** |
@@ -146,8 +146,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 
 另有 2 项原项目级产品决策已转为 Feature 级 `open_questions`（不再计入项目级阻塞）：
 
-- **DEC-004** → F006 Product 阶段（VM→BareMetal 绑定强制性与生命周期）；
-- **DEC-005** → F007 Product 阶段（Container 粒度与绑定）。
+（DEC-004 / DEC-005 已关闭，见上。）
 
 ---
 
