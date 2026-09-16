@@ -31,6 +31,12 @@
 >   - 规则总数：**46 → 49**。
 >   - 决策来源：用户 2026-09-15 对 `docs/product/handoffs/f013-auth.md` 中 PROPOSED-1 / PROPOSED-2 / PROPOSED-3 的裁定。
 >
+> - **2026-09-16 — BareMetal 阶段产品裁定（新增 1 条规则）**
+>   - **OPEN-004 关闭**：BareMetal 硬件字段采用「全部可选 + 纯文本 + 允许 NULL」，固化为 **R-BM-007**（§8）。
+>   - **Serial Number 不参与唯一性**（既不全局唯一，也不按 Cluster 唯一）。
+>   - 决策来源：用户 2026-09-16 对 F002 OPEN-004 的裁定。
+>   - 规则总数：**49 → 50**。
+>
 > 本文件为 CSM V1 的 Primary Requirements Source；与 `docs/product/domain-model.md` 的同步另行维护，冲突优先级见 `AGENTS.md` §3。
 
 ---
@@ -321,6 +327,27 @@ BareMetal 状态不能为空。
 当前 V1 的 BareMetal 状态允许由运维人员人工维护。
 
 不得因为存在状态字段就自动推导必须接入 Slurm、Prometheus、虚拟化平台或其他实时状态源。
+
+---
+
+## R-BM-007
+
+BareMetal 在 V1 **可选**记录以下硬件规格字段：
+
+* Vendor（厂商）；
+* Model（型号）；
+* Serial Number（序列号）；
+* CPU；
+* Memory（内存）；
+* GPU；
+* Storage（存储）。
+
+约束：
+
+* 上述字段均为**可选**；未登记时允许为空（`NULL`），不构成登记阻断条件；
+* 上述字段在 V1 均以**文本**记录，不拆分为结构化子字段（例如不以独立字段表达 CPU 型号 / 核数、GPU 型号 / 数量、Memory 单位、Storage 单位）；
+* **Serial Number 不参与唯一性约束**（既不全局唯一，也不按 Cluster 唯一）；
+* 不得因为存在这些字段而引入自动资产发现或外部平台同步。
 
 ---
 
@@ -1251,19 +1278,16 @@ Reviewer = APPROVED WITH FOLLOW-UP
 
 ---
 
-## OPEN-004 BareMetal Hardware 字段
+## OPEN-004 BareMetal Hardware 字段（已关闭）
 
-例如：
+BareMetal 硬件字段范围已于 2026-09-16 由用户裁定：
 
-* CPU；
-* Memory；
-* GPU；
-* Storage；
-* Vendor；
-* Model；
-* Serial Number。
+* **全部可选**：Vendor / Model / Serial Number / CPU / Memory / GPU / Storage；
+* **纯文本**记录，V1 不结构化；
+* 允许为空（`NULL`）；
+* **Serial Number 不参与唯一性**。
 
-实际 V1 必填和可选字段应在 BareMetal Feature 中确认。
+已固化为 **R-BM-007**（§8），不再是待确认项。
 
 ---
 

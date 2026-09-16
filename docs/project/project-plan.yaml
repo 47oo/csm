@@ -385,11 +385,9 @@ features:
     name: BareMetal 登记与管理
     epic: E01
     priority: P0
-    status: DRAFT
+    status: READY
     depends_on: [F001]
-    blocking:
-      - "OPEN-004 未确认（BareMetal 硬件字段范围）"
-      - "依赖 F001 未 DONE"
+    blocking: []
     product_document: docs/product/requirements.md
     requirements:
       - R-BM-001
@@ -398,6 +396,7 @@ features:
       - R-BM-004
       - R-BM-005
       - R-BM-006
+      - R-BM-007
       - "§22 Case Sensitivity"
     acceptance_criteria:
       - 每个 BareMetal 必须属于一个 Cluster（R-BM-001）。
@@ -406,10 +405,10 @@ features:
       - 新建默认状态为 IDLE（R-BM-004）。
       - 状态不得为空，历史未知用 UNKNOWN，不用 NULL（R-BM-005）。
       - 状态允许运维人员人工维护（R-BM-006）。
+      - 硬件规格字段（vendor / model / serial_number / cpu / memory / gpu / storage）均为**可选**、纯文本、允许为空（NULL）；Serial Number **不参与唯一性**（R-BM-007）。
       - BareMetal 的直接上级只有 Cluster，不记录 Rack / U Position（requirements.md §13）。
       - F014 交接（R-DELETE-004 真实场景）：Cluster 存在活跃 BareMetal 时 DELETE /api/clusters/{id} → 409 CONFLICT；软删该 BareMetal 后删除成功；并发「创建 BareMetal vs 删除 Cluster」结束后孤立记录不变式 0 行；创建 BareMetal 必须对父 Cluster 行取 FOR SHARE 并确认活跃（F014 Architecture Handoff 问题 7）。
-    open_questions:
-      - "OPEN-004：BareMetal 硬件字段（CPU / Memory / GPU / Storage / Vendor / Model / Serial Number 等）在 V1 的必填与可选范围。"
+    open_questions: []
 
   # ---- E02 网络资源管理 ----
   - id: F004
@@ -940,6 +939,11 @@ requirement_coverage:
     covered_by: [F002]
   - id: R-BM-006
     covered_by: [F002]
+  - id: R-BM-007
+    covered_by: [F002]
+    note: >
+      BareMetal 硬件规格字段（vendor / model / serial_number / cpu / memory / gpu / storage）全部可选、纯文本、允许 NULL；
+      Serial Number 不参与唯一性。用户 2026-09-16 裁定，关闭 OPEN-004。
   - id: R-VM-001
     covered_by: [F006]
   - id: R-VM-002
@@ -1059,14 +1063,14 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: []
+  ready_features: [F002]
   blocked_draft_features:
     BLOCKED: [F004, F005, F009, F010, F011]
-    DRAFT: [F002, F006, F007, F008]
+    DRAFT: [F006, F007, F008]
   counts:
-    READY: 0
+    READY: 1
     BLOCKED: 5
-    DRAFT: 4
+    DRAFT: 3
     DONE: 5
   status_decision_rules:
     DRAFT: >
@@ -1128,7 +1132,6 @@ planning_status:
       原额外进入条件 F012 follow-up F-03（自检面 fail-open）已由 F001 彻底移除 /_foundation/* 而消解；
       REV-01（框架默认 /docs、/redoc、/openapi.json 位于 /api 之外未认证可达）由 F015 记录并决定是否关闭。
   draft_rationale:
-    F002: "产品问题 OPEN-004（BareMetal 硬件字段必填/可选范围）直接决定本 Feature 字段范围；同时依赖 F001 未 DONE，取 DRAFT。"
     F006: "Feature 级产品问题 OPEN-001（VM 字段与唯一性规则）与 DEC-004（VM 绑定强制性 / 生命周期，归属 F006 Product 阶段）直接决定本 Feature 字段与生命周期；同时依赖 F002 未 DONE，取 DRAFT。"
     F007: "Feature 级产品问题 OPEN-002（Container 管理粒度）与 DEC-005（Container 绑定与生命周期，归属 F007 Product 阶段）直接决定本 Feature 粒度与绑定模型；同时依赖 F006 / F002 未 DONE，取 DRAFT。"
     F008: "产品问题 OPEN-003（Service 字段范围）直接决定本 Feature 字段；关系模型已由 DEC-003（方案 C）解决并落为 R-SVC-005/006；同时依赖 F001 / F002 / F006 / F007 未 DONE，取 DRAFT。"
@@ -1143,11 +1146,11 @@ planning_status:
   readiness_summary: >
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），DEC-008 ~ DEC-016 全部 RESOLVED。
     M1「平台基础可运行」全部 DONE：F012（基座）、F001（Cluster）、F013（认证）、F014（软删）、F015（内网部署）均已合入 develop。
-    当前**无 READY Feature**：实现侧可推进的 Feature 已全部完成。
-    4 个 Feature（F002/F006/F007/F008）仍为 DRAFT，存在影响自身 scope/AC 定稿的 Feature 级产品问题
-    （F002=OPEN-004；F006=OPEN-001/DEC-004；F007=OPEN-002/DEC-005；F008=OPEN-003）。
+    **OPEN-004 已于 2026-09-16 由用户裁定**（R-BM-007：硬件字段全部可选、纯文本、允许 NULL、Serial 不唯一），F002 因此解除 DRAFT 且依赖已满足 → READY。
+    3 个 Feature（F006/F007/F008）仍为 DRAFT，存在影响自身 scope/AC 定稿的 Feature 级产品问题
+    （F006=OPEN-001/DEC-004；F007=OPEN-002/DEC-005；F008=OPEN-003）。
     5 个 Feature（F004/F005/F009/F010/F011）scope/AC 可定稿，但全部（直接或间接）依赖 F002，故为 BLOCKED。
-    项目已暂停等待用户裁定 F002 的 OPEN-004（及后续 F006/F007/F008 的产品问题）；在这些问题解决前不得强行推进。
+    下一 READY Feature：F002；其余产品问题（OPEN-001/002/003）可在 F002 实施后继续由用户裁定。
   follow_ups:
     from_f015_review:
       report: docs/reviews/f015-deployment.md
@@ -1313,17 +1316,15 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT PAUSED — M1 DONE (F012/F013/F014/F015), NO READY FEATURE; F002 blocked by OPEN-004
+  decision: PROJECT IN PROGRESS — OPEN-004 RESOLVED; F002 READY, NEXT READY = F002
 
 execution:
   current_feature: null
   current_stage: null
   started_on: "2026-09-15"
   note: >
-    F015（内网部署与运行环境）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 06e655a），M1「平台基础可运行」全部 DONE。
-    流程：Git Preflight → Product → Architecture（Contract NOT_REQUIRED）→ Backend + Deployment 实现
-    → Tester READY FOR REVIEW（含 L2 等价环境 E2E）→ Reviewer APPROVED WITH FOLLOW-UP → Merge Gate → 本状态提交。
-    完成后重新计算：**无 READY Feature**。F002 因产品问题 OPEN-004（BareMetal 硬件字段范围）仍为 DRAFT，
-    而 F004/F005/F009 依赖 F002、F006/F007/F008 同时依赖 F002 及自身 Feature 级产品问题（OPEN-001/002/003）
-    —— 因此关键路径上的一切剩余 Feature 都被产品决策阻塞，实现无法继续。
-    下一步需要用户裁定：OPEN-004（F002），以及后续 F006 的 OPEN-001 / DEC-004、F007 的 OPEN-002 / DEC-005、F008 的 OPEN-003。
+    2026-09-16：用户裁定 OPEN-004（BareMetal 硬件字段）：全部可选 + 纯文本 + 允许 NULL + Serial 不唯一，
+    固化为 R-BM-007（requirements.md §8 / domain-model），F002 解除 DRAFT，成为 READY。
+    前序：F015 已完成并合入 develop（merge 06e655a），M1「平台基础可运行」全部 DONE。
+    当前剩余产品问题：F006 的 OPEN-001 / DEC-004、F007 的 OPEN-002 / DEC-005、F008 的 OPEN-003（均为 Feature 级）。
+    下一步：可实施 F002（READY），或先继续裁定其余产品问题。

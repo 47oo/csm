@@ -3,7 +3,7 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > 本文件是人类可读视图，不构成机器状态的唯一来源。
-> Last updated: 2026-09-16（F015 已 DONE 并合入 develop；M1 完成；无 READY Feature，等待 OPEN-004 等产品裁定）
+> Last updated: 2026-09-16（OPEN-004 已裁定并固化为 R-BM-007；F002 解除 DRAFT → READY；M1 完成）
 
 需求基线：`docs/product/requirements.md`（CONFIRMED BASELINE；2026-09-15 架构阶段产品裁定：OPEN-005 关闭，固化为 R-IMPORT-004 All-or-Nothing）。
 产品领域模型：`docs/product/domain-model.md` / `domain-model.yaml`（已于 2026-09-15 同步，OPEN-005 已关闭）。
@@ -37,9 +37,9 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | P0 | 7（F001, F002, F009, F012, F013, F014, F015） |
 | P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
 | P2 | 0 |
-| READY | 0 |
+| READY | 1（F002） |
 | BLOCKED | 5（F004, F005, F009, F010, F011） |
-| DRAFT | 4（F002, F006, F007, F008） |
+| DRAFT | 3（F006, F007, F008） |
 | DONE | 5（F012, F001, F013, F014, F015） |
 | Blocking Decisions (OPEN) | **0**（DEC-008 ~ DEC-016 全部裁定；DEC-001 ~ DEC-014 无 OPEN 项） |
 
@@ -52,7 +52,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
 | F001 | Cluster 登记与管理 | P0 | **DONE** | F012 | — | requirements.md §7, §22 |
-| F002 | BareMetal 登记与管理 | P0 | DRAFT | F001 | OPEN-004, 依赖 F001 未 DONE | requirements.md §8, §22 |
+| F002 | BareMetal 登记与管理 | P0 | READY | F001 | — | requirements.md §8, §22 |
 
 ## E02 网络资源管理
 

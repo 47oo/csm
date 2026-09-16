@@ -149,6 +149,8 @@ Cluster、VirtualMachine、Container、Service、NetworkInterface、IPAddress �
 
 同一集群内主机名称唯一。
 
+**可选硬件规格字段（R-BM-007，2026-09-16 用户裁定）**：Vendor（厂商）、Model（型号）、Serial Number（序列号）、CPU、Memory（内存）、GPU、Storage（存储）。均为可选、纯文本、允许为空（`NULL`）；**Serial Number 不参与唯一性**。这些字段不构成登记阻断条件，也不得因此引入自动资产发现或外部平台同步。
+
 ### 5.3 虚拟机 VirtualMachine
 
 虚拟机属于第一版资源范围。
@@ -347,8 +349,9 @@ V1 中**不设状态**的资源：
 * OPEN-001：虚拟机字段范围及其标识与唯一性规则；
 * OPEN-002：容器管理粒度；
 * OPEN-003：服务字段范围；
-* OPEN-004：裸金属硬件字段；
 * OPEN-005：Excel 部分成功导入策略。
+
+OPEN-004（裸金属硬件字段）已于 2026-09-16 由用户裁定，固化为 R-BM-007，不再是待确认项。
 
 OPEN-006（虚拟资源运行时集成）已由已确认规则排除，不再是待确认项。
 

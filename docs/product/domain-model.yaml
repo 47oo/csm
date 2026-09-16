@@ -174,6 +174,51 @@ resources:
           case_sensitive: true
           cross_scope: 不同 Cluster 可以存在相同 hostname
           rule_ids: [R-BM-002]
+      # 可选硬件规格字段（R-BM-007，2026-09-16 用户裁定）：全部可选、纯文本、允许 NULL。
+      - name: vendor
+        label: 厂商
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-BM-007]
+      - name: model
+        label: 型号
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-BM-007]
+      - name: serial_number
+        label: 序列号
+        required: false
+        nullable: true
+        type: text
+        uniqueness: none
+        note: 不参与唯一性约束（既不全局唯一，也不按 Cluster 唯一）
+        rule_ids: [R-BM-007]
+      - name: cpu
+        label: CPU
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-BM-007]
+      - name: memory
+        label: 内存
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-BM-007]
+      - name: gpu
+        label: GPU
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-BM-007]
+      - name: storage
+        label: 存储
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-BM-007]
     binding_to_parent:
       target: Cluster
       mandatory: true
@@ -193,6 +238,7 @@ resources:
       - R-BM-004
       - R-BM-005
       - R-BM-006
+      - R-BM-007
 
   - name: VirtualMachine
     label: 虚拟机

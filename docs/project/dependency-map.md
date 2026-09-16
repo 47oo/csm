@@ -3,11 +3,12 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > 依赖仅表示真正的实施依赖（B 无法在 A 未 DONE 时正确实现）。依赖为 DAG，无循环。
-> Last updated: 2026-09-16（依赖结构不变；F012 / F001 / F013 / F014 / F015 已 DONE 并合入 develop）
+> Last updated: 2026-09-16（OPEN-004 已裁定；F002 → READY，其余依赖其 DONE 而仍 BLOCKED）
 >
-> 依赖结构未因已完成 Feature 而变化；仅状态变化：F012 / F001 / F013 / F014 / F015 → DONE。
-> 当前**无 READY Feature**：其余因依赖未 DONE（BLOCKED）或 Feature 级产品问题（DRAFT）尚未 READY。
-> 注意：F001 DONE 后 F009 仍为 BLOCKED，因为它同时依赖 F002，而 F002 因产品问题 OPEN-004 仍为 DRAFT。
+> 依赖结构未因已完成 Feature 而变化；仅状态变化：F012 / F001 / F013 / F014 / F015 → DONE；
+> F002 因 OPEN-004 关闭且 F001 DONE 而成为 READY。
+> 其余因依赖未 DONE（BLOCKED）或 Feature 级产品问题（DRAFT）尚未 READY。
+> 注意：F001 DONE 后 F009 仍为 BLOCKED，因为它同时依赖 F002，而 F002 尚未 DONE。
 
 图例：`A --> B` 表示 **B depends_on A**（A 是 B 的前置）。
 
