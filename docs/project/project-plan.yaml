@@ -438,9 +438,26 @@ features:
     name: NetworkInterface 管理
     epic: E02
     priority: P1
-    status: READY
+    status: IN_PROGRESS
     depends_on: [F002]
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F004-network-interface
+      start_commit: cf03e014a9abbd0dad88a00da57947e731778513
+      head_commit: cf03e014a9abbd0dad88a00da57947e731778513
+      merge_commit: null
+    current_stage: PRODUCT
+    layers: {}
+    contract:
+      status: NOT_REQUIRED
+      doc: null
+    implementation:
+      database_design: PENDING
+      backend: PENDING
+      frontend: PENDING
+      test: PENDING
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-NIC-001
@@ -1590,8 +1607,8 @@ planning_status:
   decision: PROJECT IN PROGRESS — F006 DONE; NEXT READY = F004 / F007
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F004
+  current_stage: PRODUCT
   started_on: "2026-09-16"
   note: >
     F006（VirtualMachine 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 01077be）。
