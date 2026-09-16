@@ -489,11 +489,14 @@ features:
       start_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
       head_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
       merge_commit: null
-    current_stage: ARCHITECTURE
-    layers: {}
+    current_stage: IMPLEMENTATION
+    layers:
+      database: true      # 新增 virtual_machines 表 + migration 0004_f006_virtual_machines
+      backend: true       # models/virtual_machine.py + app/virtual_machines/** + bare_metals/deletion 接线 + guard 演进
+      frontend: true      # api/virtualMachines.ts + 列表/详情/登记/修改/删除
     contract:
-      status: NOT_REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f006-virtual-machine.md
     implementation:
       database_design: PENDING
       backend: PENDING
@@ -547,13 +550,15 @@ features:
         summary: name 与宿主绑定的登记后可变性未确认（重命名 / 跨宿主迁移）；F006 默认不提供（PROPOSED-1）。
       - id: NQ-2
         blocking: false
-        summary: 引用不存在 / 已软删宿主的响应码；建议沿用 F002 的 404 NOT_FOUND，由 Architecture 裁定。
+        resolved_by: architecture
+        summary: 引用不存在 / 已软删宿主 → 404 NOT_FOUND（与 F002 裁定一致）；无写入、非 5xx。
       - id: NQ-3
         blocking: false
         summary: VM 全局 by-name 只读别名；需求未要求，默认不实现（PROPOSED-2）。
       - id: NQ-4
         blocking: false
-        summary: 「按宿主查看 VM」读取方向归属（R-QUERY-003 归 F010）；F006 是否提供可复用的宿主限定读取需 Architecture 裁定。
+        resolved_by: architecture
+        summary: 裁定为 F006 提供 GET /api/virtual-machines?bare_metal_id=（与 F002 ?cluster_id= 对称），F010 必须复用；仍满足 R-QUERY-004。
       - id: NQ-5
         blocking: false
         summary: name 与可选字段的最小字符约束未定义，F006 不实现（PROPOSED-3）。
@@ -1564,7 +1569,7 @@ planning_status:
 
 execution:
   current_feature: F006
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   started_on: "2026-09-16"
   note: >
     F009（Cluster 视角资源查询）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 6529b0d）。

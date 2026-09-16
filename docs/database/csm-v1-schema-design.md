@@ -432,7 +432,8 @@ CREATE INDEX ix_sessions_expires_at ON sessions (expires_at);
 | Session → User | N:1 | 是 | `sessions.user_id NOT NULL` + FK | `ON DELETE RESTRICT` | 否 |
 | Service → BareMetal / VM / Container | N:M | 是（R-SVC-005） | **本次不设计**（F008 延后） | — | — |
 | Service ↔ Cluster | 推导 | — | **不落列**（R-SVC-004 / R-SVC-006 禁止 `service.cluster_id`） | — | — |
-| VirtualMachine → BareMetal / Container → 载体 | 未确认 | UNCONFIRMED | **本次不设计**，且**不得**固化为 `NOT NULL` | — | — |
+| VirtualMachine → BareMetal | N:1 | **是**（R-VM-005，2026-09-16 确认） | `virtual_machines.bare_metal_id NOT NULL` + FK | `ON DELETE RESTRICT` | 否（无 `cluster_id`：Cluster 归属由宿主推导） |
+| Container → 载体（BareMetal / VirtualMachine） | 未确认 | UNCONFIRMED | **本次不设计**，且**不得**固化为 `NOT NULL` | — | — |
 
 **不级联结论**：全部 FK 使用 `ON DELETE RESTRICT`，无一处 `ON DELETE CASCADE`（R-DELETE-005 / ADR-0004）。逻辑删除是 `UPDATE ... SET deleted_at = now()`，不触发 FK。
 
@@ -879,7 +880,7 @@ UNCONFIRMED 关系（VM→BareMetal、Container→载体）不得在 API 层被�
 1. ~~**OPEN-004（BareMetal 硬件字段）延后到 F002 的 Product 阶段**~~ → **✅ 已关闭（2026-09-16，用户裁定 R-BM-007）**：`vendor` / `model` / `serial_number` / `cpu` / `memory` / `gpu` / `storage` 七列为**可选 `TEXT` 且允许 NULL**、`serial_number` 不参与唯一性，已并入 `bare_metals` 列清单，并在 `0003_f002_bare_metals` **首次建表时**一并创建（不再作为「后续新增列」落地）。无长度 / 格式 / 唯一约束；不使用 `ON DELETE CASCADE`、触发器或 `COLLATE`。
 2. **OPEN-001 / OPEN-002 / OPEN-003（VM / Container / Service 字段与粒度）延后到对应 Feature 的 Product 阶段** —— `virtual_machines` / `containers` / `services` 表本次**不设计、不给出字段清单**。未来接入时的模式（仅说明模式，不涉字段）：
    - Service 与 Cluster 的关联由运行载体推导，**不得**落 `service.cluster_id`（R-SVC-004 / R-SVC-006）；Service↔Host 需一张绑定表（N:M）；
-   - 若未来某一资源（如 VirtualMachine）也需要「同 Cluster 内唯一」的名称 / 地址，可复用与 `ip_addresses.cluster_id` 相同的**反规范化 `cluster_id` + 受控写入路径 + 一致性测试**模式；是否反规范化须在其 Product 阶段依唯一性边界决定，**不得预先落地**；
+   - ~~若未来某一资源（如 VirtualMachine）也需要「同 Cluster 内唯一」的名称 / 地址，可复用反规范化 `cluster_id` 模式~~ → **✅ 已关闭（R-VM-005 / R-VM-004，2026-09-16）**：VirtualMachine 名称唯一性边界是**全局**（跨宿主跨 Cluster），**不需要** `cluster_id`，且 R-VM-005 明确 VM **不单独记录** Cluster 归属；**不得**为 `virtual_machines` 落 `cluster_id` 列。
    - VM→BareMetal、Container→载体在 DDL 中**不得**默认 `NOT NULL`（DEC-004 / DEC-005 归属 F006 / F007）。
 3. **NIC 名称在同一 BareMetal 内是否唯一**未确认 → 当前**无唯一约束**；如需，属 F004 产品确认后新增 partial unique index。
 4. **`ip_address` 的格式校验与归一化**未确认 → 当前为 `TEXT`，无格式 CHECK；未来若确认应校验为合法 IP（含 / 不此前缀），需产品确认后再引入（`inet` 类型切换属语义变更，不可静默进行）。
