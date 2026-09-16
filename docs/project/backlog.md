@@ -38,8 +38,8 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
 | P2 | 0 |
 | READY | 1（F002） |
-| BLOCKED | 5（F004, F005, F009, F010, F011） |
-| DRAFT | 3（F006, F007, F008） |
+| BLOCKED | 6（F004, F005, F006, F009, F010, F011） |
+| DRAFT | 2（F007, F008） |
 | DONE | 5（F012, F001, F013, F014, F015） |
 | Blocking Decisions (OPEN) | **0**（DEC-008 ~ DEC-016 全部裁定；DEC-001 ~ DEC-014 无 OPEN 项） |
 
@@ -65,7 +65,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
-| F006 | VirtualMachine 登记与管理 | P1 | DRAFT | F002 | OPEN-001, DEC-004(Feature 级), 依赖 F002 未 DONE | requirements.md §9 |
+| F006 | VirtualMachine 登记与管理 | P1 | BLOCKED | F002 | 依赖 F002 未 DONE | requirements.md §9 |
 | F007 | Container 资源模型与登记 | P1 | DRAFT | F006, F002 | OPEN-002, DEC-005(Feature 级), 依赖 F006/F002 未 DONE | requirements.md §10 |
 
 ## E04 服务资源管理
@@ -137,7 +137,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 
 | OPEN | 关联 Feature | 内容 | 状态 |
 |---|---|---|---|
-| OPEN-001 | F006 | VirtualMachine 字段范围及其标识与唯一性规则 | OPEN |
+| OPEN-001 | F006 | VirtualMachine 字段范围及其标识与唯一性规则 | **已关闭（R-VM-004/005/006）** |
 | OPEN-002 | F007 | Container 管理粒度 | OPEN |
 | OPEN-003 | F008 | Service 字段 | OPEN |
 | OPEN-004 | F002 | BareMetal 硬件字段 | OPEN |

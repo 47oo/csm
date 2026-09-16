@@ -245,23 +245,74 @@ resources:
     category: virtual
     in_v1: true
     status_model: null
+    status_note: V1 不设状态（Q-002=B）。
     fields:
-      state: UNCONFIRMED
-      note: 字段范围尚未确认
-      open_question: OPEN-001
+      - name: name
+        label: 虚拟机名称
+        required: true
+        is_identifier: true
+        type: text
+        uniqueness:
+          scope: global
+          applies_to: 所有当前有效 VirtualMachine
+          case_sensitive: true
+          rule_ids: [R-VM-004]
+      # 可选配置字段（R-VM-006，2026-09-16 用户裁定）：全部可选、纯文本、允许 NULL。
+      - name: cpu
+        label: CPU
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-VM-006]
+      - name: memory
+        label: 内存
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-VM-006]
+      - name: disk
+        label: 磁盘
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-VM-006]
+      - name: os
+        label: 操作系统
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-VM-006]
+      - name: hypervisor
+        label: 虚拟化平台
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-VM-006]
+      - name: owner
+        label: 负责人
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-VM-006]
     binding_to_host:
       target: BareMetal
       relationship_model: 应能够表达实际运行位置
-      mandatory: UNCONFIRMED
-      cardinality: UNCONFIRMED
-      binding_state: UNCONFIRMED
-      must_not_assume: 不得默认其为必选
-      rule_ids: [R-VM-003]
-      resolve_in_feature: F006
+      mandatory: true
+      cardinality: many_to_one
+      binding_state: CONFIRMED
+      rule_ids: [R-VM-003, R-VM-005]
+      note: 每个 VirtualMachine 必须属于一个 BareMetal；Cluster 归属由宿主推导。
+    lifecycle:
+      soft_delete: true
+      cascade: false
+      parent_deletion: blocked_when_active_children_exist
+      rule_ids: [R-VM-005]
     identity_and_uniqueness:
-      state: UNCONFIRMED
-      note: 未被任何已确认文档定义
-      open_question: OPEN-001
+      state: CONFIRMED
+      field: name
+      scope: global
+      case_sensitive: true
+      rule_ids: [R-VM-004]
     parent: BareMetal
     children: [Container]
     integration:
@@ -272,6 +323,9 @@ resources:
       - R-VM-001
       - R-VM-002
       - R-VM-003
+      - R-VM-004
+      - R-VM-005
+      - R-VM-006
 
   - name: Container
     label: 容器

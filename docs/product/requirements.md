@@ -37,6 +37,13 @@
 >   - 决策来源：用户 2026-09-16 对 F002 OPEN-004 的裁定。
 >   - 规则总数：**49 → 50**。
 >
+> - **2026-09-16 — VirtualMachine 阶段产品裁定（新增 3 条规则）**
+>   - **OPEN-001 关闭**：VirtualMachine 标识为 `name`，**全局唯一**、比较区分大小写；新增 **R-VM-004**（§9）。
+>   - **DEC-004 关闭**：VirtualMachine → BareMetal 绑定为**必选**；宿主有活跃 VM 时不得删除宿主，VM 软删不级联；新增 **R-VM-005**（§9）。
+>   - VirtualMachine 可选配置字段（CPU / Memory / Disk / OS / Hypervisor / Owner）全部可选、纯文本、允许 NULL；新增 **R-VM-006**（§9）。
+>   - 决策来源：用户 2026-09-16 对 F006 OPEN-001 / DEC-004 的裁定。
+>   - 规则总数：**50 → 53**。
+>
 > 本文件为 CSM V1 的 Primary Requirements Source；与 `docs/product/domain-model.md` 的同步另行维护，冲突优先级见 `AGENTS.md` §3。
 
 ---
@@ -385,6 +392,50 @@ VirtualMachine 与物理宿主之间的具体关系模型应能够表达实际�
 但如果当前需求无法确定其强制性或生命周期规则，不得由 Agent 自行推导。
 
 应在对应 Feature 的 Product 阶段进一步明确。
+
+---
+
+## R-VM-004
+
+VirtualMachine 必须拥有 `name`（虚拟机名称），作为其身份标识。
+
+`name` 在**所有当前有效 VirtualMachine 范围内全局唯一**（不区分归属的 Cluster 或 BareMetal）。
+
+`name` 比较**区分大小写**（与 Cluster / BareMetal 一致，§22）。
+
+已逻辑删除的 VirtualMachine 不再占用该唯一性（R-DELETE-006）。
+
+---
+
+## R-VM-005
+
+VirtualMachine → BareMetal 的绑定为**必选**：每个 VirtualMachine 必须属于恰好一个 BareMetal 宿主。
+
+VirtualMachine 的 Cluster 归属由其宿主 BareMetal 的 Cluster 归属推导，不单独记录。
+
+生命周期：
+
+* 宿主 BareMetal 存在活跃 VirtualMachine 时，**不得删除该宿主**（R-DELETE-004）；
+* 逻辑删除 VirtualMachine **不得自动级联**删除其宿主或其他资源（R-DELETE-005）。
+
+---
+
+## R-VM-006
+
+VirtualMachine 在 V1 **可选**记录以下配置字段：
+
+* CPU；
+* Memory（内存）；
+* Disk（磁盘）；
+* OS（操作系统）；
+* Hypervisor（虚拟化平台名称，仅记录，不接入）；
+* Owner（负责人，纯文本）。
+
+约束：
+
+* 上述字段均为**可选**；未登记时允许为空（`NULL`），不构成登记阻断条件；
+* 上述字段在 V1 均以**文本**记录，不拆分为结构化子字段；
+* 不得因为存在这些字段而引入自动资产发现或虚拟化平台同步。
 
 ---
 
@@ -1228,20 +1279,16 @@ Reviewer = APPROVED WITH FOLLOW-UP
 
 ---
 
-## OPEN-001 VirtualMachine 字段与标识规则
+## OPEN-001 VirtualMachine 字段与标识规则（已关闭）
 
-例如：
+VirtualMachine 字段、标识与绑定规则已于 2026-09-16 由用户裁定：
 
-* CPU；
-* Memory；
-* Disk；
-* OS；
-* Hypervisor；
-* Owner。
+* 标识字段 `name`，必填，**全局唯一**，比较区分大小写；
+* 绑定 BareMetal 为**必选**；Cluster 归属由宿主推导；
+* 可选配置字段（CPU / Memory / Disk / OS / Hypervisor / Owner）全部可选、纯文本、允许 NULL；
+* 宿主有活跃 VM 时不得删除宿主；VM 软删不级联。
 
-具体字段尚需根据使用场景确认。
-
-**补充（2026-09-15 澄清新增）**：VirtualMachine 的**标识与唯一性规则**同样未被任何已确认文档定义（`domain-model.md` §8 不含 VirtualMachine）。该项需与字段范围一并在 VirtualMachine Feature 的 Product 阶段确认。
+已固化为 **R-VM-004 / R-VM-005 / R-VM-006**（§9），不再是待确认项。
 
 ---
 

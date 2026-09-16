@@ -157,11 +157,14 @@ Cluster、VirtualMachine、Container、Service、NetworkInterface、IPAddress �
 
 虚拟机与物理宿主（裸金属）之间的关系模型应能够表达实际运行位置。
 
-该关系的**强制性与生命周期规则尚未确认**，必须在 VirtualMachine Feature 的 Product 阶段确定（`requirements.md` R-VM-003）。
+**关系为必选（R-VM-005）**：每个 VirtualMachine 必须属于一个 BareMetal；Cluster 归属由宿主推导。宿主存在活跃 VirtualMachine 时不得删除宿主；VirtualMachine 软删不级联。
 
-在此之前**不得默认其为必选**。
+登记字段：
 
-登记字段：尚未确认（`requirements.md` OPEN-001）。
+* 虚拟机名称（`name`）：身份标识，必填，**全局唯一**、比较区分大小写（R-VM-004）。
+* 可选配置字段（R-VM-006）：CPU / Memory / Disk / OS / Hypervisor / Owner，均为可选、纯文本、允许为空（`NULL`）。
+
+VirtualMachine 在 V1 不设状态（Q-002=B）。
 
 ### 5.4 容器 Container
 
@@ -346,12 +349,11 @@ V1 中**不设状态**的资源：
 
 以下项目在 `requirements.md` §29 中已明确为待确认，其确认属于对应 Feature 的 Product 阶段：
 
-* OPEN-001：虚拟机字段范围及其标识与唯一性规则；
 * OPEN-002：容器管理粒度；
 * OPEN-003：服务字段范围；
 * OPEN-005：Excel 部分成功导入策略。
 
-OPEN-004（裸金属硬件字段）已于 2026-09-16 由用户裁定，固化为 R-BM-007，不再是待确认项。
+OPEN-004（裸金属硬件字段）已于 2026-09-16 由用户裁定，固化为 R-BM-007；OPEN-001（虚拟机字段与绑定）已于 2026-09-16 由用户裁定，固化为 R-VM-004 / R-VM-005 / R-VM-006；两者不再是待确认项。
 
 OPEN-006（虚拟资源运行时集成）已由已确认规则排除，不再是待确认项。
 
