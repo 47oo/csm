@@ -1,44 +1,31 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
-import ElementPlus, { ElPopconfirm } from 'element-plus'
-import VirtualMachineDetailPage from '../src/pages/VirtualMachineDetailPage.vue'
+import ElementPlus, { ElPopconfirm, ElSelect } from 'element-plus'
+import NetworkInterfaceDetailPage from '../src/pages/NetworkInterfaceDetailPage.vue'
 import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
- * 虚拟机详情页测试（T-FE-01 / AC-32）。
+ * 网络接口详情页测试（T-FE-01 / AC-34）。
  *
- * 覆盖：404 独立 Not Found 态（与列表 Empty 可区分）、全部字段展示（R-VM-006
- * 六字段 null 渲染「—」）、无状态展示（Q-002=B）、可选字段修改入口（PATCH：
- * 仅六字段；name / bare_metal_id 不可编辑）、修改失败按 error.code 分支
- * （400 / 404 / 401）、删除入口（204 → Not Found 态 / 409 / 404 / 提交中防重复）。
+ * 覆盖：404 独立 Not Found 态（与列表 Empty 可区分）、7 字段展示（时间不透明
+ * 字符串；枚举字面值原样展示）、无状态展示（Q-002=B）、枚举修改入口（PATCH：
+ * 仅 technology_type / purpose；name / bare_metal_id 不可编辑）、修改失败按
+ * error.code 分支（400 / 404 / 401）、删除入口（204 → Not Found 态 / 409 /
+ * 404 / 提交中防重复）。
  *
- * 响应体严格按 docs/api/f006-virtual-machine.md 构造（§2 资源表示 / §3.3 读取 /
+ * 响应体严格按 docs/api/f004-network-interface.md 构造（§2 资源表示 / §3.3 读取 /
  * §3.4 更新 / §3.5 删除 / §4 错误信封 / §9 Empty 与 Not Found）。
  */
 
-const VIRTUAL_MACHINE_NULLS = {
-  id: 7,
+const NETWORK_INTERFACE_A = {
+  id: 12,
   bare_metal_id: 3,
-  name: 'vm1',
-  cpu: null,
-  memory: null,
-  disk: null,
-  os: null,
-  hypervisor: null,
-  owner: null,
-  created_at: '2026-09-16T10:00:00Z',
-  updated_at: '2026-09-16T10:00:00Z',
-}
-
-const VIRTUAL_MACHINE_FULL = {
-  ...VIRTUAL_MACHINE_NULLS,
-  cpu: '8 vCPU',
-  memory: '32 GB',
-  disk: '500 GB',
-  os: 'Ubuntu 22.04',
-  hypervisor: 'PVE',
-  owner: 'ops',
+  name: 'eth0',
+  technology_type: 'Ethernet',
+  purpose: 'Business',
+  created_at: '2026-09-17T10:00:00Z',
+  updated_at: '2026-09-17T10:00:00Z',
 }
 
 const NOT_FOUND_BODY = { error: { code: 'NOT_FOUND', message: '资源不存在' } }
@@ -55,9 +42,9 @@ function noContent(): Response {
   return new Response(null, { status: 204 })
 }
 
-function mountDetailPage(virtualMachineId = 7) {
-  return mount(VirtualMachineDetailPage, {
-    props: { virtualMachineId },
+function mountDetailPage(networkInterfaceId = 12) {
+  return mount(NetworkInterfaceDetailPage, {
+    props: { networkInterfaceId },
     global: { plugins: [ElementPlus] },
   })
 }
@@ -76,7 +63,7 @@ afterEach(() => {
   setUnauthenticatedHandler(null)
 })
 
-describe('VirtualMachineDetailPage 状态渲染', () => {
+describe('NetworkInterfaceDetailPage 状态渲染', () => {
   it('请求进行中 → Loading 态（骨架屏）', async () => {
     let resolveDetail!: (body: unknown) => void
     const detailPromise = new Promise<Response>((res) => {
@@ -92,14 +79,14 @@ describe('VirtualMachineDetailPage 状态渲染', () => {
     expect(wrapper.find('.el-skeleton').exists()).toBe(true)
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
 
-    resolveDetail(VIRTUAL_MACHINE_NULLS)
+    resolveDetail(NETWORK_INTERFACE_A)
     await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('content')
     })
   })
 
-  it('成功（六字段全 null）→ 展示全部 11 字段，null 渲染「—」（契约 §2：返回 null 而非省略）；无状态字段（Q-002=B）', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, VIRTUAL_MACHINE_NULLS)))
+  it('成功 → 展示全部 7 字段（契约原样值，时间不透明字符串；枚举字面值原样展示，不做中文映射）；无状态字段（Q-002=B）', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, NETWORK_INTERFACE_A)))
 
     const wrapper = mountDetailPage()
 
@@ -108,47 +95,24 @@ describe('VirtualMachineDetailPage 状态渲染', () => {
     })
 
     const text = wrapper.text()
-    expect(text).toContain('虚拟机详情')
-    // 身份 / 关系 / 时间字段：契约原样值，不做任何变换。
+    expect(text).toContain('网络接口详情')
+    // 全部 7 字段：契约原样值，不做任何变换。
     expect(text).toContain('宿主裸金属 ID')
     expect(text).toContain('3')
-    expect(text).toContain('vm1')
-    expect(text).toContain('2026-09-16T10:00:00Z')
-    // R-VM-006 六字段 null → 「—」（逐行断言 label → content 对应）。
-    const rows = wrapper.findAll('.el-descriptions table tbody tr')
-    const contentOf = (label: string): string => {
-      const row = rows.find((r) => r.find('.el-descriptions__label').text() === label)
-      expect(row, `期望存在字段行「${label}」`).toBeDefined()
-      return row!.find('.el-descriptions__content').text()
-    }
-    for (const label of ['CPU', '内存', '磁盘', '操作系统', 'Hypervisor', '负责人']) {
-      expect(contentOf(label)).toBe('—')
-    }
-    // VM 无状态（Q-002=B）：不渲染状态标签 / 状态行。
+    expect(text).toContain('eth0')
+    expect(text).toContain('Ethernet')
+    expect(text).toContain('Business')
+    expect(text).toContain('2026-09-17T10:00:00Z')
+    // 枚举字面值原样展示，不做中文映射（契约 §1.5）。
+    expect(text).not.toContain('以太网')
+    expect(text).not.toContain('业务')
+    // NIC 无状态（Q-002=B）：不渲染状态标签 / 状态行。
     expect(wrapper.find('[data-status]').exists()).toBe(false)
     expect(text).not.toContain('状态')
     // 不暴露 deleted_at / cluster_id（契约 §2：字段集合封闭）。
     expect(text).not.toContain('deleted_at')
     expect(text).not.toContain('cluster_id')
     expect(text).not.toContain('集群')
-  })
-
-  it('成功（六字段已登记）→ 原样展示纯文本值', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, VIRTUAL_MACHINE_FULL)))
-
-    const wrapper = mountDetailPage()
-
-    await waitForUi(() => {
-      expect(wrapper.attributes('data-state')).toBe('content')
-    })
-
-    const text = wrapper.text()
-    expect(text).toContain('8 vCPU')
-    expect(text).toContain('32 GB')
-    expect(text).toContain('500 GB')
-    expect(text).toContain('Ubuntu 22.04')
-    expect(text).toContain('PVE')
-    expect(text).toContain('ops')
   })
 
   it('404 NOT_FOUND（不存在或已逻辑删除，两者不区分）→ 独立 Not Found 态，不渲染 Empty / 内容 / 操作入口', async () => {
@@ -167,7 +131,7 @@ describe('VirtualMachineDetailPage 状态渲染', () => {
     expect(wrapper.find('.el-empty').exists()).toBe(false)
     expect(wrapper.find('.el-descriptions').exists()).toBe(false)
     expect(wrapper.findComponent(ElPopconfirm).exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('暂无虚拟机')
+    expect(wrapper.text()).not.toContain('暂无网络接口')
   })
 
   it('500 INTERNAL_ERROR → Error 态按 error.code 渲染', async () => {
@@ -184,7 +148,7 @@ describe('VirtualMachineDetailPage 状态渲染', () => {
   })
 
   it('点击「返回列表」→ emit back', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, VIRTUAL_MACHINE_NULLS)))
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, NETWORK_INTERFACE_A)))
 
     const wrapper = mountDetailPage()
     await waitForUi(() => {
@@ -201,7 +165,7 @@ describe('VirtualMachineDetailPage 状态渲染', () => {
   })
 })
 
-// ---- 可选字段修改入口（PATCH，契约 §3.4） ----
+// ---- 枚举修改入口（PATCH，契约 §3.4） ----
 
 function stubDetailFetch(routes: {
   detail: () => Response
@@ -229,7 +193,7 @@ async function mountDetailContent(): Promise<VueWrapper> {
 async function openEditDialog(wrapper: VueWrapper): Promise<void> {
   await wrapper.find('[data-testid="open-edit-dialog"]').trigger('click')
   await waitForUi(() => {
-    expect(wrapper.find('[data-testid="vm-form-submit"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="nic-form-submit"]').exists()).toBe(true)
   })
 }
 
@@ -239,9 +203,18 @@ function patchCalls(fetchMock: ReturnType<typeof vi.fn>): number {
   ).length
 }
 
-describe('VirtualMachineDetailPage 编辑入口（PATCH，T-FE-01 / AC-19）', () => {
-  it('内容态存在「编辑」入口；表单不含 name / 宿主裸金属输入（不可变，契约 §3.4 / NQ-1）', async () => {
-    stubDetailFetch({ detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS) })
+/** 对话框内的枚举下拉（el-select，按 data-testid 定位）。 */
+function findEnumSelect(wrapper: VueWrapper, testId: string) {
+  const select = wrapper
+    .findAllComponents(ElSelect)
+    .find((s) => s.attributes('data-testid') === testId)
+  expect(select, `期望找到下拉 ${testId}`).toBeDefined()
+  return select!
+}
+
+describe('NetworkInterfaceDetailPage 编辑入口（PATCH，T-FE-01 / AC-18~20）', () => {
+  it('内容态存在「编辑」入口；表单不含 name / 宿主裸金属输入（不可变，契约 §3.4 / NQ-3）', async () => {
+    stubDetailFetch({ detail: () => jsonResponse(200, NETWORK_INTERFACE_A) })
 
     const wrapper = await mountDetailContent()
 
@@ -249,80 +222,58 @@ describe('VirtualMachineDetailPage 编辑入口（PATCH，T-FE-01 / AC-19）', (
     await openEditDialog(wrapper)
 
     // name / bare_metal_id 不在 PATCH 可变集内 → 表单不提供输入。
-    expect(wrapper.find('[data-testid="vm-form-name"]').exists()).toBe(false)
-    expect(wrapper.find('.virtual-machine-form__host-select').exists()).toBe(false)
-    // 六字段在表单中。
-    expect(wrapper.find('[data-testid="vm-form-cpu"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="vm-form-owner"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="nic-form-name"]').exists()).toBe(false)
+    expect(wrapper.find('.network-interface-form__host-select').exists()).toBe(false)
+    // 两个枚举下拉在表单中，且初值为当前记录的字面值。
+    expect(wrapper.find('[data-testid="nic-form-technology-type"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="nic-form-purpose"]').exists()).toBe(true)
+    expect(findEnumSelect(wrapper, 'nic-form-technology-type').props('modelValue')).toBe(
+      'Ethernet',
+    )
+    expect(findEnumSelect(wrapper, 'nic-form-purpose').props('modelValue')).toBe('Business')
   })
 
-  it('修改可选字段 → PATCH /api/virtual-machines/{id}：body 为六字段快照（null → null，契约 §3.4）', async () => {
+  it('修改枚举 → PATCH /api/network-interfaces/{id}：body 恰为两个可变枚举字段快照（契约 §3.4 / NQ-7）', async () => {
     const fetchMock = stubDetailFetch({
-      detail: () => jsonResponse(200, VIRTUAL_MACHINE_FULL),
-      patch: () => jsonResponse(200, { ...VIRTUAL_MACHINE_FULL, cpu: '16 vCPU' }),
+      detail: () => jsonResponse(200, NETWORK_INTERFACE_A),
+      patch: () =>
+        jsonResponse(200, {
+          ...NETWORK_INTERFACE_A,
+          technology_type: 'InfiniBand',
+          purpose: 'Compute',
+        }),
     })
 
     const wrapper = await mountDetailContent()
     await openEditDialog(wrapper)
 
-    await wrapper.find('[data-testid="vm-form-cpu"]').setValue('16 vCPU')
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await findEnumSelect(wrapper, 'nic-form-technology-type').vm.$emit(
+      'update:modelValue',
+      'InfiniBand',
+    )
+    await findEnumSelect(wrapper, 'nic-form-purpose').vm.$emit('update:modelValue', 'Compute')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(patchCalls(fetchMock)).toBe(1)
     })
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/virtual-machines/7',
+      '/api/network-interfaces/12',
       expect.objectContaining({
         method: 'PATCH',
-        body: JSON.stringify({
-          cpu: '16 vCPU',
-          memory: '32 GB',
-          disk: '500 GB',
-          os: 'Ubuntu 22.04',
-          hypervisor: 'PVE',
-          owner: 'ops',
-        }),
+        body: JSON.stringify({ technology_type: 'InfiniBand', purpose: 'Compute' }),
       }),
     )
   })
 
-  it('清空可选字段 → 提交 null（契约 §3.4：显式 null 表示清空）', async () => {
-    const fetchMock = stubDetailFetch({
-      detail: () => jsonResponse(200, VIRTUAL_MACHINE_FULL),
-      patch: () => jsonResponse(200, { ...VIRTUAL_MACHINE_FULL, os: null }),
-    })
-
-    const wrapper = await mountDetailContent()
-    await openEditDialog(wrapper)
-
-    await wrapper.find('[data-testid="vm-form-os"]').setValue('')
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
-
-    await waitForUi(() => {
-      expect(patchCalls(fetchMock)).toBe(1)
-    })
-    const body = JSON.parse(
-      (fetchMock.mock.calls.find(
-        (call) => (call[1] as RequestInit | undefined)?.method === 'PATCH',
-      )![1] as RequestInit).body as string,
-    )
-    expect(body.os).toBeNull()
-    expect(body.cpu).toBe('8 vCPU')
-    // PATCH 可变字段封闭为六字段：不含 name / bare_metal_id / id / status。
-    expect(body.name).toBeUndefined()
-    expect(body.bare_metal_id).toBeUndefined()
-    expect(body.id).toBeUndefined()
-    expect(body.status).toBeUndefined()
-  })
-
   it('保存成功（200）→ 关闭对话框并重新读取，展示新值', async () => {
     const updated = {
-      ...VIRTUAL_MACHINE_NULLS,
-      owner: 'ops2',
-      updated_at: '2026-09-16T12:00:00Z',
+      ...NETWORK_INTERFACE_A,
+      technology_type: 'RoCE',
+      purpose: 'Storage',
+      updated_at: '2026-09-17T12:00:00Z',
     }
-    const mutable = { detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS) }
+    const mutable = { detail: () => jsonResponse(200, NETWORK_INTERFACE_A) }
     const fetchMock = stubDetailFetch({
       detail: () => mutable.detail(),
       patch: () => {
@@ -334,28 +285,34 @@ describe('VirtualMachineDetailPage 编辑入口（PATCH，T-FE-01 / AC-19）', (
     const wrapper = await mountDetailContent()
     await openEditDialog(wrapper)
 
-    await wrapper.find('[data-testid="vm-form-owner"]').setValue('ops2')
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await findEnumSelect(wrapper, 'nic-form-technology-type').vm.$emit('update:modelValue', 'RoCE')
+    await findEnumSelect(wrapper, 'nic-form-purpose').vm.$emit('update:modelValue', 'Storage')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
-    // 详情重新读取并展示服务端返回的新值。
+    // 等待重新读取完成：新 updated_at 只会出现在重新读取后的详情内容中
+    // （对话框内只有两个枚举，不会提前出现该值，避免对话框旧 DOM 造成的误判）。
     await waitForUi(() => {
-      expect(wrapper.text()).toContain('ops2')
+      expect(wrapper.text()).toContain('2026-09-17T12:00:00Z')
     })
-    expect(wrapper.text()).toContain('2026-09-16T12:00:00Z')
+    // 详情重新读取并展示服务端返回的新值。
+    expect(wrapper.text()).toContain('RoCE')
+    expect(wrapper.text()).toContain('Storage')
     // 请求序列：初始 GET → PATCH → 重新读取 GET。
     expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(fetchMock.mock.calls[2]![0]).toBe('/api/virtual-machines/7')
+    expect(fetchMock.mock.calls[2]![0]).toBe('/api/network-interfaces/12')
   })
 
-  it('400 VALIDATION_ERROR（含不可变字段等，契约 §3.4）→ 对话框内按 error.code 渲染字段级提示', async () => {
+  it('400 VALIDATION_ERROR → 对话框内按 error.code 渲染字段级提示（details[].field）', async () => {
     stubDetailFetch({
-      detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS),
+      detail: () => jsonResponse(200, NETWORK_INTERFACE_A),
       patch: () =>
         jsonResponse(400, {
           error: {
             code: 'VALIDATION_ERROR',
             message: '与展示无关的校验文案',
-            details: [{ field: 'name', code: 'INVALID', message: '与展示无关的字段提示' }],
+            details: [
+              { field: 'purpose', code: 'INVALID', message: '与展示无关的字段提示' },
+            ],
           },
         }),
     })
@@ -363,22 +320,22 @@ describe('VirtualMachineDetailPage 编辑入口（PATCH，T-FE-01 / AC-19）', (
     const wrapper = await mountDetailContent()
     await openEditDialog(wrapper)
 
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(wrapper.find('[data-error-code="VALIDATION_ERROR"]').exists()).toBe(true)
     })
     const alert = wrapper.find('[data-error-code="VALIDATION_ERROR"]')
     expect(alert.text()).toContain('请求校验失败')
-    expect(alert.text()).toContain('name')
+    expect(alert.text()).toContain('purpose')
     // 详情内容保留，用户可修改后重试。
     expect(wrapper.attributes('data-state')).toBe('content')
-    expect(wrapper.find('[data-testid="vm-form-submit"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="nic-form-submit"]').exists()).toBe(true)
   })
 
   it('404 NOT_FOUND（已被其他操作删除）→ 对话框内按 error.code 渲染固定文案，不解析 message', async () => {
     stubDetailFetch({
-      detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS),
+      detail: () => jsonResponse(200, NETWORK_INTERFACE_A),
       patch: () =>
         jsonResponse(404, { error: { code: 'NOT_FOUND', message: '与展示无关的未找到文案' } }),
     })
@@ -386,20 +343,20 @@ describe('VirtualMachineDetailPage 编辑入口（PATCH，T-FE-01 / AC-19）', (
     const wrapper = await mountDetailContent()
     await openEditDialog(wrapper)
 
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(wrapper.find('[data-error-code="NOT_FOUND"]').exists()).toBe(true)
     })
     expect(wrapper.find('[data-error-code="NOT_FOUND"]').text()).toContain(
-      '该虚拟机不存在或已被删除',
+      '该网络接口不存在或已被删除',
     )
     expect(wrapper.text()).not.toContain('与展示无关的未找到文案')
   })
 
   it('401 UNAUTHENTICATED → 触发既有全局会话失效处理，不渲染本地失败提示', async () => {
     stubDetailFetch({
-      detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS),
+      detail: () => jsonResponse(200, NETWORK_INTERFACE_A),
       patch: () =>
         jsonResponse(401, { error: { code: 'UNAUTHENTICATED', message: '未认证' } }),
     })
@@ -409,7 +366,7 @@ describe('VirtualMachineDetailPage 编辑入口（PATCH，T-FE-01 / AC-19）', (
     const wrapper = await mountDetailContent()
     await openEditDialog(wrapper)
 
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(unauthenticated).toHaveBeenCalledTimes(1)
@@ -424,8 +381,12 @@ describe('VirtualMachineDetailPage 编辑入口（PATCH，T-FE-01 / AC-19）', (
     const patchGate = new Promise<void>((resolve) => {
       releasePatch = resolve
     })
-    const updated = { ...VIRTUAL_MACHINE_NULLS, owner: 'ops2' }
-    const mutable = { detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS) }
+    const updated = {
+      ...NETWORK_INTERFACE_A,
+      purpose: 'DataTransfer',
+      updated_at: '2026-09-17T13:00:00Z',
+    }
+    const mutable = { detail: () => jsonResponse(200, NETWORK_INTERFACE_A) }
     const fetchMock = stubDetailFetch({
       detail: () => mutable.detail(),
       patch: async () => {
@@ -438,29 +399,34 @@ describe('VirtualMachineDetailPage 编辑入口（PATCH，T-FE-01 / AC-19）', (
     const wrapper = await mountDetailContent()
     await openEditDialog(wrapper)
 
-    await wrapper.find('[data-testid="vm-form-owner"]').setValue('ops2')
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await findEnumSelect(wrapper, 'nic-form-purpose').vm.$emit(
+      'update:modelValue',
+      'DataTransfer',
+    )
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(patchCalls(fetchMock)).toBe(1)
     })
     await waitForUi(() => {
-      expect(wrapper.find('[data-testid="vm-form-submit"]').classes()).toContain('is-loading')
+      expect(wrapper.find('[data-testid="nic-form-submit"]').classes()).toContain('is-loading')
     })
 
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
     expect(patchCalls(fetchMock)).toBe(1)
 
     releasePatch()
+    // 等待重新读取完成：新 updated_at 只会出现在重新读取后的详情内容中。
     await waitForUi(() => {
-      expect(wrapper.text()).toContain('ops2')
+      expect(wrapper.text()).toContain('2026-09-17T13:00:00Z')
     })
+    expect(wrapper.text()).toContain('DataTransfer')
   })
 })
 
 // ---- 删除入口（DELETE，契约 §3.5） ----
 
-/** 契约 §4.2：message 不构成契约；使用与展示无关的文案。 */
+/** 契约 §4.1：message 不构成契约；使用与展示无关的文案。 */
 const DELETE_CONFLICT_BODY = {
   error: {
     code: 'CONFLICT',
@@ -476,9 +442,9 @@ function confirmDelete(wrapper: VueWrapper): void {
   wrapper.findComponent(ElPopconfirm).vm.$emit('confirm', new MouseEvent('click'))
 }
 
-describe('VirtualMachineDetailPage 删除入口（T-FE-01 / AC-21）', () => {
+describe('NetworkInterfaceDetailPage 删除入口（T-FE-01 / AC-21）', () => {
   it('内容态存在删除入口（ElPopconfirm 二次确认），空闲时可触发（前端不预判，§21）', async () => {
-    stubDetailFetch({ detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS) })
+    stubDetailFetch({ detail: () => jsonResponse(200, NETWORK_INTERFACE_A) })
 
     const wrapper = await mountDetailContent()
 
@@ -489,7 +455,7 @@ describe('VirtualMachineDetailPage 删除入口（T-FE-01 / AC-21）', () => {
   })
 
   it('未通过二次确认（确认框取消）→ 不发送 DELETE 请求', async () => {
-    const fetchMock = stubDetailFetch({ detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS) })
+    const fetchMock = stubDetailFetch({ detail: () => jsonResponse(200, NETWORK_INTERFACE_A) })
 
     const wrapper = await mountDetailContent()
 
@@ -500,7 +466,7 @@ describe('VirtualMachineDetailPage 删除入口（T-FE-01 / AC-21）', () => {
   })
 
   it('删除成功（204）→ 重新读取得到 404 → 进入既有独立 Not Found 态', async () => {
-    const mutable = { detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS) }
+    const mutable = { detail: () => jsonResponse(200, NETWORK_INTERFACE_A) }
     const fetchMock = stubDetailFetch({
       detail: () => mutable.detail(),
       remove: () => {
@@ -523,12 +489,12 @@ describe('VirtualMachineDetailPage 删除入口（T-FE-01 / AC-21）', () => {
     expect(wrapper.find('[data-delete-error-code]').exists()).toBe(false)
     // 请求序列：初始 GET → DELETE → 重新读取 GET（404）。
     expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(fetchMock.mock.calls[2]![0]).toBe('/api/virtual-machines/7')
+    expect(fetchMock.mock.calls[2]![0]).toBe('/api/network-interfaces/12')
   })
 
-  it('409 CONFLICT → 保留详情内容并按 error.code 渲染冲突提示（不解析 message）', async () => {
+  it('409 CONFLICT（ACTIVE_CHILDREN_EXIST）→ 保留详情内容并按 error.code 渲染冲突提示（不解析 message）', async () => {
     stubDetailFetch({
-      detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS),
+      detail: () => jsonResponse(200, NETWORK_INTERFACE_A),
       remove: () => jsonResponse(409, DELETE_CONFLICT_BODY),
     })
 
@@ -540,9 +506,9 @@ describe('VirtualMachineDetailPage 删除入口（T-FE-01 / AC-21）', () => {
       expect(wrapper.find('[data-delete-error-code="CONFLICT"]').exists()).toBe(true)
     })
     expect(wrapper.attributes('data-state')).toBe('content')
-    expect(wrapper.text()).toContain('vm1')
+    expect(wrapper.text()).toContain('eth0')
     const alert = wrapper.find('[data-delete-error-code="CONFLICT"]')
-    expect(alert.text()).toContain('无法删除虚拟机')
+    expect(alert.text()).toContain('无法删除网络接口')
     expect(alert.text()).toContain('活跃子资源')
     expect(wrapper.text()).not.toContain('与展示无关的后端冲突文案')
     // 失败后可重试：删除入口仍在。
@@ -550,7 +516,7 @@ describe('VirtualMachineDetailPage 删除入口（T-FE-01 / AC-21）', () => {
   })
 
   it('删除返回 404（已被其他操作删除）→ 同样进入独立 Not Found 态，不渲染删除失败提示', async () => {
-    const mutable = { detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS) }
+    const mutable = { detail: () => jsonResponse(200, NETWORK_INTERFACE_A) }
     stubDetailFetch({
       detail: () => mutable.detail(),
       remove: () => {
@@ -574,7 +540,7 @@ describe('VirtualMachineDetailPage 删除入口（T-FE-01 / AC-21）', () => {
     const deleteGate = new Promise<void>((resolve) => {
       releaseDelete = resolve
     })
-    const mutable = { detail: () => jsonResponse(200, VIRTUAL_MACHINE_NULLS) }
+    const mutable = { detail: () => jsonResponse(200, NETWORK_INTERFACE_A) }
     const fetchMock = stubDetailFetch({
       detail: () => mutable.detail(),
       remove: async () => {

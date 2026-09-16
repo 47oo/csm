@@ -112,6 +112,9 @@ EXPECTED_GET_ROUTES = {
     # F006：VirtualMachine 只读 GET 路由（仅新增，不得删除既有成员）。
     "/api/virtual-machines",
     "/api/virtual-machines/{virtual_machine_id}",
+    # F004：NetworkInterface 只读 GET 路由（仅新增，不得删除既有成员）。
+    "/api/network-interfaces",
+    "/api/network-interfaces/{network_interface_id}",
     "/api/auth/session",
 }
 

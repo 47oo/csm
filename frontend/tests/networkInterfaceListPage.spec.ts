@@ -2,46 +2,44 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import ElementPlus, { ElPagination, ElPopconfirm, ElSelect } from 'element-plus'
-import VirtualMachineListPage from '../src/pages/VirtualMachineListPage.vue'
-import VirtualMachineFormDialog from '../src/components/VirtualMachineFormDialog.vue'
+import NetworkInterfaceListPage from '../src/pages/NetworkInterfaceListPage.vue'
+import NetworkInterfaceFormDialog from '../src/components/NetworkInterfaceFormDialog.vue'
 import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
- * 虚拟机列表页测试（T-FE-01 / AC-32）。
+ * 网络接口列表页测试（T-FE-01 / AC-34）。
  *
  * 覆盖：三态互不相同、Empty（200 + items == []）与 Not Found（宿主 404）可区分
  * （R-QUERY-004）、错误按 error.code 分支（不解析 message）、按宿主过滤
  * （bare_metal_id）、无状态展示（Q-002=B）、行级详情 / 删除入口（二次确认 /
  * 204 刷新 / 409 / 404 / 401 / 防重复）、登记表单入口（POST body 构造 /
- * 409 DUPLICATE / 404 / 400 / 401 / 防重复）与「前端不重复实现业务守卫」
- * （§21：重复 name 仍提交由服务端裁决、空 name 不做未定义约束分支、删除入口不预判）。
+ * 404 / 400 / 401 / 防重复）与「前端不重复实现业务守卫」（§21：同名 name 仍
+ * 提交由服务端裁决、空 name 不做未定义约束分支、删除入口不预判）。
  *
- * 响应体严格按 docs/api/f006-virtual-machine.md 构造（§2 资源表示 / §3.2 列表 /
+ * 响应体严格按 docs/api/f004-network-interface.md 构造（§2 资源表示 / §3.2 列表 /
  * §3.1 登记 / §3.5 删除 / §4 错误信封 / §9 Empty 与 Not Found）。
  */
 
-const VIRTUAL_MACHINE_A = {
-  id: 7,
+const NETWORK_INTERFACE_A = {
+  id: 12,
   bare_metal_id: 3,
-  name: 'vm1',
-  cpu: '8 vCPU',
-  memory: '32 GB',
-  disk: '500 GB',
-  os: 'Ubuntu 22.04',
-  hypervisor: 'PVE',
-  owner: 'ops',
-  created_at: '2026-09-16T10:00:00Z',
-  updated_at: '2026-09-16T10:00:00Z',
+  name: 'eth0',
+  technology_type: 'Ethernet',
+  purpose: 'Business',
+  created_at: '2026-09-17T10:00:00Z',
+  updated_at: '2026-09-17T10:00:00Z',
 }
-const VIRTUAL_MACHINE_B = {
-  ...VIRTUAL_MACHINE_A,
-  id: 8,
-  name: 'vm2',
-  updated_at: '2026-09-16T11:30:00Z',
+const NETWORK_INTERFACE_B = {
+  ...NETWORK_INTERFACE_A,
+  id: 13,
+  name: 'ib0',
+  technology_type: 'InfiniBand',
+  purpose: 'Compute',
+  updated_at: '2026-09-17T11:30:00Z',
 }
 
 const LIST_BODY = {
-  items: [VIRTUAL_MACHINE_A, VIRTUAL_MACHINE_B],
+  items: [NETWORK_INTERFACE_A, NETWORK_INTERFACE_B],
   total: 2,
   page: 1,
   page_size: 50,
@@ -87,7 +85,7 @@ function noContent(): Response {
 }
 
 function mountPage(props: { bareMetalId?: number | null } = {}) {
-  return mount(VirtualMachineListPage, {
+  return mount(NetworkInterfaceListPage, {
     props,
     global: { plugins: [ElementPlus] },
   })
@@ -107,7 +105,7 @@ afterEach(() => {
   setUnauthenticatedHandler(null)
 })
 
-describe('VirtualMachineListPage 三态互不相同（AC-32）', () => {
+describe('NetworkInterfaceListPage 三态互不相同（AC-34）', () => {
   it('请求进行中 → Loading 态（骨架屏），不渲染 Empty / Error / 表格', async () => {
     let resolveList!: (body: unknown) => void
     const listPromise = new Promise<Response>((res) => {
@@ -131,7 +129,7 @@ describe('VirtualMachineListPage 三态互不相同（AC-32）', () => {
     })
   })
 
-  it('200 + items 为空（无过滤）→ Empty 态「暂无虚拟机」，不渲染骨架屏 / Error / 表格', async () => {
+  it('200 + items 为空（无过滤）→ Empty 态「暂无网络接口」，不渲染骨架屏 / Error / 表格', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, EMPTY_LIST_BODY)))
 
     const wrapper = mountPage()
@@ -140,7 +138,7 @@ describe('VirtualMachineListPage 三态互不相同（AC-32）', () => {
       expect(wrapper.find('[data-state]').attributes('data-state')).toBe('empty')
     })
     expect(wrapper.find('.el-empty').exists()).toBe(true)
-    expect(wrapper.text()).toContain('暂无虚拟机')
+    expect(wrapper.text()).toContain('暂无网络接口')
     expect(wrapper.find('.el-skeleton').exists()).toBe(false)
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
     expect(wrapper.find('.el-table').exists()).toBe(false)
@@ -160,7 +158,7 @@ describe('VirtualMachineListPage 三态互不相同（AC-32）', () => {
     expect(alert.text()).toContain('服务器内部错误')
     expect(wrapper.find('.el-empty').exists()).toBe(false)
     expect(wrapper.find('.el-skeleton').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('暂无虚拟机')
+    expect(wrapper.text()).not.toContain('暂无网络接口')
   })
 
   it('携带 bareMetalId 请求 → 查询参数含 bare_metal_id（契约 §3.2）', async () => {
@@ -173,19 +171,19 @@ describe('VirtualMachineListPage 三态互不相同（AC-32）', () => {
       expect(wrapper.find('[data-state]').attributes('data-state')).toBe('empty')
     })
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
-      '/api/virtual-machines?page=1&page_size=50&bare_metal_id=3',
+      '/api/network-interfaces?page=1&page_size=50&bare_metal_id=3',
       expect.objectContaining({ method: 'GET' }),
     )
     // 过滤上下文可见：标题下展示宿主过滤标签，返回按钮指向裸金属详情。
     expect(wrapper.text()).toContain('裸金属 #3')
     expect(wrapper.text()).toContain('返回裸金属详情')
-    // 宿主存在但无活跃 VM → Empty 文案按过滤场景区分。
-    expect(wrapper.text()).toContain('该裸金属暂无虚拟机')
+    // 宿主存在但无活跃 NIC → Empty 文案按过滤场景区分。
+    expect(wrapper.text()).toContain('该裸金属暂无网络接口')
   })
 })
 
-describe('R-QUERY-004：Empty 与 Not Found 可区分（AC-32）', () => {
-  it('宿主存在但无活跃虚拟机（200 空）与宿主不存在 / 已删（404）渲染不同状态与文案', async () => {
+describe('R-QUERY-004：Empty 与 Not Found 可区分（AC-34）', () => {
+  it('宿主存在但无活跃网络接口（200 空）与宿主不存在 / 已删（404）渲染不同状态与文案', async () => {
     // Empty：200 + items == []（契约 §9）。
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, EMPTY_LIST_BODY)))
     const emptyWrapper = mountPage({ bareMetalId: 3 })
@@ -193,7 +191,7 @@ describe('R-QUERY-004：Empty 与 Not Found 可区分（AC-32）', () => {
       expect(emptyWrapper.find('[data-state]').attributes('data-state')).toBe('empty')
     })
 
-    // Not Found：GET /api/virtual-machines?bare_metal_id=999 → 404 NOT_FOUND（契约 §3.2）。
+    // Not Found：GET /api/network-interfaces?bare_metal_id=999 → 404 NOT_FOUND（契约 §3.2）。
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(404, NOT_FOUND_BODY)))
     const notFoundWrapper = mountPage({ bareMetalId: 999 })
     await waitForUi(() => {
@@ -204,18 +202,18 @@ describe('R-QUERY-004：Empty 与 Not Found 可区分（AC-32）', () => {
     expect(emptyWrapper.find('[data-state]').attributes('data-state')).toBe('empty')
     expect(notFoundWrapper.find('[data-state]').attributes('data-state')).toBe('error')
 
-    // 不同的文案：Empty 是「该裸金属暂无虚拟机」；Not Found 按 error.code 渲染「未找到资源」。
-    expect(emptyWrapper.text()).toContain('该裸金属暂无虚拟机')
+    // 不同的文案：Empty 是「该裸金属暂无网络接口」；Not Found 按 error.code 渲染「未找到资源」。
+    expect(emptyWrapper.text()).toContain('该裸金属暂无网络接口')
     expect(emptyWrapper.find('[role="alert"]').exists()).toBe(false)
     const alert = notFoundWrapper.find('[role="alert"]')
     expect(alert.attributes('data-error-code')).toBe('NOT_FOUND')
     expect(alert.text()).toContain('未找到资源')
-    expect(notFoundWrapper.text()).not.toContain('暂无虚拟机')
+    expect(notFoundWrapper.text()).not.toContain('暂无网络接口')
   })
 })
 
-describe('VirtualMachineListPage 内容与分页', () => {
-  it('成功 → 表格展示 id / 宿主裸金属 ID / name / 更新时间（契约原样值）；无状态列（Q-002=B）', async () => {
+describe('NetworkInterfaceListPage 内容与分页', () => {
+  it('成功 → 表格展示 id / 宿主裸金属 ID / name / 技术类型 / 用途 / 更新时间（契约原样值）；无状态列（Q-002=B）', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, LIST_BODY)))
 
     const wrapper = mountPage()
@@ -225,18 +223,24 @@ describe('VirtualMachineListPage 内容与分页', () => {
     })
 
     const rows = wrapper.findAll('.el-table__row')
-    expect(rows[0].text()).toContain('vm1')
+    expect(rows[0].text()).toContain('eth0')
+    expect(rows[0].text()).toContain('Ethernet')
+    expect(rows[0].text()).toContain('Business')
     expect(rows[0].text()).toContain('3')
-    expect(rows[0].text()).toContain('2026-09-16T10:00:00Z')
-    expect(rows[1].text()).toContain('vm2')
-    // VM 无状态（Q-002=B）：不渲染状态标签 / 状态列。
+    expect(rows[0].text()).toContain('2026-09-17T10:00:00Z')
+    expect(rows[1].text()).toContain('ib0')
+    expect(rows[1].text()).toContain('InfiniBand')
+    expect(rows[1].text()).toContain('Compute')
+    // 枚举字面值原样展示，不做中文映射（契约 §1.5）。
+    expect(wrapper.text()).not.toContain('以太网')
+    // NIC 无状态（Q-002=B）：不渲染状态标签 / 状态列。
     expect(wrapper.find('[data-status]').exists()).toBe(false)
     expect(wrapper.find('.el-table__header').text()).not.toContain('状态')
   })
 
-  it('分页器绑定契约信封值；翻页 → 以新 page 重新请求 /api/virtual-machines', async () => {
+  it('分页器绑定契约信封值；翻页 → 以新 page 重新请求 /api/network-interfaces', async () => {
     const fetchMock = vi.fn(async () =>
-      jsonResponse(200, { items: [VIRTUAL_MACHINE_A], total: 120, page: 1, page_size: 50 }),
+      jsonResponse(200, { items: [NETWORK_INTERFACE_A], total: 120, page: 1, page_size: 50 }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -252,13 +256,13 @@ describe('VirtualMachineListPage 内容与分页', () => {
     pager.vm.$emit('current-change', 3)
     await waitForUi(() => {
       expect(fetchMock).toHaveBeenLastCalledWith(
-        '/api/virtual-machines?page=3&page_size=50',
+        '/api/network-interfaces?page=3&page_size=50',
         expect.anything(),
       )
     })
   })
 
-  it('点击「详情」→ emit openDetail(virtualMachineId)', async () => {
+  it('点击「详情」→ emit openDetail(networkInterfaceId)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, LIST_BODY)))
 
     const wrapper = mountPage()
@@ -272,11 +276,11 @@ describe('VirtualMachineListPage 内容与分页', () => {
     expect(detailButtons).toHaveLength(2)
     await detailButtons[0].trigger('click')
 
-    expect(wrapper.emitted('openDetail')).toEqual([[7]])
+    expect(wrapper.emitted('openDetail')).toEqual([[12]])
   })
 })
 
-/** 契约 §4.2：message 不构成契约；使用与展示无关的文案，证明前端分支与渲染均不解析 message。 */
+/** 契约 §4.1：message 不构成契约；使用与展示无关的文案，证明前端分支与渲染均不解析 message。 */
 const DELETE_CONFLICT_BODY = {
   error: {
     code: 'CONFLICT',
@@ -289,7 +293,7 @@ const DELETE_CONFLICT_BODY = {
 const DELETE_UNAUTHENTICATED_BODY = { error: { code: 'UNAUTHENTICATED', message: '未认证' } }
 const DELETE_NOT_FOUND_BODY = { error: { code: 'NOT_FOUND', message: '资源不存在' } }
 
-/** DELETE /api/virtual-machines/{id} 的调用次数。 */
+/** DELETE /api/network-interfaces/{id} 的调用次数。 */
 function deleteCalls(fetchMock: ReturnType<typeof vi.fn>): number {
   return fetchMock.mock.calls.filter(
     (call) => (call[1] as RequestInit | undefined)?.method === 'DELETE',
@@ -329,7 +333,7 @@ function confirmRowDelete(wrapper: VueWrapper, rowIndex: number): void {
   wrapper.findAllComponents(ElPopconfirm)[rowIndex]!.vm.$emit('confirm', new MouseEvent('click'))
 }
 
-describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
+describe('NetworkInterfaceListPage 删除入口（T-FE-01 / AC-21）', () => {
   it('每行均有「删除」入口（ElPopconfirm 二次确认），空闲时全部可触发（前端不做业务预判，§21）', async () => {
     stubListFetch({
       list: () => jsonResponse(200, LIST_BODY),
@@ -363,7 +367,7 @@ describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
     expect(wrapper.findAll('.el-table__row')).toHaveLength(2)
   })
 
-  it('二次确认通过 → DELETE /api/virtual-machines/{id}（不发送请求体，契约 §3.5）', async () => {
+  it('二次确认通过 → DELETE /api/network-interfaces/{id}（不发送请求体，契约 §3.5）', async () => {
     const fetchMock = stubListFetch({
       list: () => jsonResponse(200, LIST_BODY),
       remove: () => noContent(),
@@ -377,14 +381,14 @@ describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
       expect(deleteCalls(fetchMock)).toBe(1)
     })
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/virtual-machines/7',
+      '/api/network-interfaces/12',
       expect.objectContaining({ method: 'DELETE', body: undefined }),
     )
   })
 
   it('删除成功（204）→ 刷新列表，被删行消失', async () => {
     const activeList = {
-      items: [VIRTUAL_MACHINE_A, VIRTUAL_MACHINE_B],
+      items: [NETWORK_INTERFACE_A, NETWORK_INTERFACE_B],
       total: 2,
       page: 1,
       page_size: 50,
@@ -392,7 +396,7 @@ describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
     const fetchMock = stubListFetch({
       list: () => jsonResponse(200, activeList),
       remove: () => {
-        activeList.items = [VIRTUAL_MACHINE_B]
+        activeList.items = [NETWORK_INTERFACE_B]
         activeList.total = 1
         return noContent()
       },
@@ -405,7 +409,7 @@ describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
     await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
-    expect(wrapper.findAll('.el-table__row')[0].text()).toContain('vm2')
+    expect(wrapper.findAll('.el-table__row')[0].text()).toContain('ib0')
     const getCalls = fetchMock.mock.calls.filter(
       (call) => (call[1] as RequestInit | undefined)?.method !== 'DELETE',
     )
@@ -413,7 +417,7 @@ describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
   })
 
   it('删除成功且当前页变空 → Empty 态，不渲染表格 / 删除失败提示', async () => {
-    const activeList = { items: [VIRTUAL_MACHINE_A], total: 1, page: 1, page_size: 50 }
+    const activeList = { items: [NETWORK_INTERFACE_A], total: 1, page: 1, page_size: 50 }
     stubListFetch({
       list: () => jsonResponse(200, activeList),
       remove: () => {
@@ -453,14 +457,14 @@ describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
     expect(wrapper.findAll('.el-table__row')).toHaveLength(2)
     expect(fetchMock).toHaveBeenCalledTimes(2)
     const alert = wrapper.find('[data-delete-error-code="CONFLICT"]')
-    expect(alert.text()).toContain('无法删除虚拟机')
+    expect(alert.text()).toContain('无法删除网络接口')
     expect(alert.text()).toContain('活跃子资源')
     expect(wrapper.text()).not.toContain('与展示无关的后端冲突文案')
   })
 
   it('404 NOT_FOUND（已不存在或已被逻辑删除）→ 与成功同构：刷新列表，不渲染删除失败提示', async () => {
     const activeList = {
-      items: [VIRTUAL_MACHINE_A, VIRTUAL_MACHINE_B],
+      items: [NETWORK_INTERFACE_A, NETWORK_INTERFACE_B],
       total: 2,
       page: 1,
       page_size: 50,
@@ -468,7 +472,7 @@ describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
     stubListFetch({
       list: () => jsonResponse(200, activeList),
       remove: () => {
-        activeList.items = [VIRTUAL_MACHINE_B]
+        activeList.items = [NETWORK_INTERFACE_B]
         activeList.total = 1
         return jsonResponse(404, DELETE_NOT_FOUND_BODY)
       },
@@ -512,7 +516,7 @@ describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
       releaseDelete = resolve
     })
     const activeList = {
-      items: [VIRTUAL_MACHINE_A, VIRTUAL_MACHINE_B],
+      items: [NETWORK_INTERFACE_A, NETWORK_INTERFACE_B],
       total: 2,
       page: 1,
       page_size: 50,
@@ -521,7 +525,7 @@ describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
       list: () => jsonResponse(200, activeList),
       remove: async () => {
         await deleteGate
-        activeList.items = [VIRTUAL_MACHINE_B]
+        activeList.items = [NETWORK_INTERFACE_B]
         activeList.total = 1
         return noContent()
       },
@@ -550,16 +554,9 @@ describe('VirtualMachineListPage 删除入口（T-FE-01 / AC-21）', () => {
   })
 })
 
-// ---- 登记表单入口（POST /api/virtual-machines，契约 §3.1） ----
+// ---- 登记表单入口（POST /api/network-interfaces，契约 §3.1） ----
 
-/** 契约 §4.1：message 不构成契约；使用与展示无关的文案。 */
-const CREATE_DUPLICATE_BODY = {
-  error: {
-    code: 'CONFLICT',
-    message: '与展示无关的重复文案',
-    details: [{ field: 'name', code: 'DUPLICATE', message: '与展示无关的字段文案' }],
-  },
-}
+/** 契约 §4：message 不构成契约；使用与展示无关的文案。 */
 const CREATE_HOST_NOT_FOUND_BODY = {
   error: { code: 'NOT_FOUND', message: '与展示无关的未找到文案' },
 }
@@ -567,7 +564,7 @@ const CREATE_VALIDATION_BODY = {
   error: {
     code: 'VALIDATION_ERROR',
     message: '与展示无关的校验文案',
-    details: [{ field: 'name', message: '与展示无关的字段提示' }],
+    details: [{ field: 'technology_type', code: 'INVALID', message: '与展示无关的字段提示' }],
   },
 }
 
@@ -580,7 +577,7 @@ function stubCreateFetch(routes: {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     if (init?.method === 'DELETE') return noContent()
-    if (init?.method === 'POST') return routes.create?.() ?? jsonResponse(201, VIRTUAL_MACHINE_A)
+    if (init?.method === 'POST') return routes.create?.() ?? jsonResponse(201, NETWORK_INTERFACE_A)
     if (url.includes('/api/bare-metals')) {
       return (routes.bareMetals ?? (() => jsonResponse(200, BARE_METAL_LIST_BODY)))()
     }
@@ -594,26 +591,34 @@ function stubCreateFetch(routes: {
 async function openCreateDialog(wrapper: VueWrapper): Promise<void> {
   await wrapper.find('[data-testid="open-create-dialog"]').trigger('click')
   await waitForUi(() => {
-    expect(wrapper.find('[data-testid="vm-form-submit"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="nic-form-submit"]').exists()).toBe(true)
   })
 }
 
 /** 登记对话框的开闭状态（el-dialog 关闭后 DOM 仍在，以 modelValue 判定）。 */
 function createDialogOpen(wrapper: VueWrapper): boolean {
-  return wrapper.findComponent(VirtualMachineFormDialog).props('modelValue') === true
+  return wrapper.findComponent(NetworkInterfaceFormDialog).props('modelValue') === true
 }
 
 /**
- * 对话框内的宿主裸金属下拉（el-select）。
+ * 对话框内的下拉（el-select）：宿主裸金属（按 class）与两个枚举（按 data-testid）。
  *
  * 注意不能用 findComponent(ElSelect) 直接取第一个：ElPagination 内部也渲染
- * ElSelect（page-size 选择器）；用根元素 class 精确定位对话框内那个。
+ * ElSelect（page-size 选择器）；以稳定属性精确定位。
  */
 function findHostSelect(wrapper: VueWrapper) {
   const select = wrapper
     .findAllComponents(ElSelect)
-    .find((s) => s.classes().includes('virtual-machine-form__host-select'))
+    .find((s) => s.classes().includes('network-interface-form__host-select'))
   expect(select, '期望找到宿主裸金属下拉').toBeDefined()
+  return select!
+}
+
+function findEnumSelect(wrapper: VueWrapper, testId: string) {
+  const select = wrapper
+    .findAllComponents(ElSelect)
+    .find((s) => s.attributes('data-testid') === testId)
+  expect(select, `期望找到下拉 ${testId}`).toBeDefined()
   return select!
 }
 
@@ -622,23 +627,36 @@ async function selectHost(wrapper: VueWrapper, bareMetalId: number): Promise<voi
   await findHostSelect(wrapper).vm.$emit('update:modelValue', bareMetalId)
 }
 
-/** POST /api/virtual-machines 的调用次数。 */
+/** 选择两个枚举（el-select 以 update:modelValue 驱动表单状态）。 */
+async function selectEnums(
+  wrapper: VueWrapper,
+  technologyType: string,
+  purpose: string,
+): Promise<void> {
+  await findEnumSelect(wrapper, 'nic-form-technology-type').vm.$emit(
+    'update:modelValue',
+    technologyType,
+  )
+  await findEnumSelect(wrapper, 'nic-form-purpose').vm.$emit('update:modelValue', purpose)
+}
+
+/** POST /api/network-interfaces 的调用次数。 */
 function createCalls(fetchMock: ReturnType<typeof vi.fn>): number {
   return fetchMock.mock.calls.filter(
     (call) => (call[1] as RequestInit | undefined)?.method === 'POST',
   ).length
 }
 
-describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预判）', () => {
+describe('NetworkInterfaceListPage 登记入口（T-FE-01 / AC-01~08，§21 不预判）', () => {
   it('打开登记对话框 → 加载宿主裸金属选项（GET /api/bare-metals，父存在性由服务端裁决）', async () => {
     const fetchMock = stubCreateFetch({ list: () => jsonResponse(200, LIST_BODY) })
 
     const wrapper = await mountListWithRows()
 
-    expect(wrapper.find('[data-testid="vm-form-submit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="nic-form-submit"]').exists()).toBe(false)
     await openCreateDialog(wrapper)
 
-    expect(wrapper.text()).toContain('登记虚拟机')
+    expect(wrapper.text()).toContain('登记网络接口')
     await waitForUi(() => {
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/bare-metals'))).toBe(
         true,
@@ -646,17 +664,32 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
     })
   })
 
-  it('未选择宿主裸金属（表单未完成）→ 提交按钮禁用；这不属于宿主存在性预判（§21）', async () => {
+  it('宿主或枚举未选择（表单未完成）→ 提交按钮禁用；这不属于业务预判（§21）', async () => {
     stubCreateFetch({ list: () => jsonResponse(200, LIST_BODY) })
 
     const wrapper = await mountListWithRows()
     await openCreateDialog(wrapper)
 
-    const submit = wrapper.find('[data-testid="vm-form-submit"]')
-    expect(submit.attributes('disabled')).toBeDefined()
+    // 初始：宿主与两个枚举均未选择。
+    expect(wrapper.find('[data-testid="nic-form-submit"]').attributes('disabled')).toBeDefined()
+
+    // 仅选择宿主 → 仍未完成。
+    await selectHost(wrapper, 3)
+    expect(wrapper.find('[data-testid="nic-form-submit"]').attributes('disabled')).toBeDefined()
+
+    // 再选择技术类型 → 仍缺用途。
+    await findEnumSelect(wrapper, 'nic-form-technology-type').vm.$emit(
+      'update:modelValue',
+      'Ethernet',
+    )
+    expect(wrapper.find('[data-testid="nic-form-submit"]').attributes('disabled')).toBeDefined()
+
+    // 用途选齐 → 表单完成（提交仍由服务端裁决，前端不校验枚举合法性）。
+    await findEnumSelect(wrapper, 'nic-form-purpose').vm.$emit('update:modelValue', 'Business')
+    expect(wrapper.find('[data-testid="nic-form-submit"]').attributes('disabled')).toBeUndefined()
   })
 
-  it('从宿主过滤列表打开 → 宿主预选为该裸金属（presetBareMetalId），提交可用', async () => {
+  it('从宿主过滤列表打开 → 宿主预选为该裸金属（presetBareMetalId），补齐枚举即可提交', async () => {
     stubCreateFetch({ list: () => jsonResponse(200, LIST_BODY) })
 
     const wrapper = mountPage({ bareMetalId: 3 })
@@ -665,42 +698,38 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
     })
     await openCreateDialog(wrapper)
 
-    // 预选宿主 = 表单已完成（选择仍可更改，存在性由服务端裁决）。
-    expect(wrapper.find('[data-testid="vm-form-submit"]').attributes('disabled')).toBeUndefined()
+    // 预选宿主 = 表单只差两个枚举（选择仍可更改，存在性由服务端裁决）。
+    expect(wrapper.find('[data-testid="nic-form-submit"]').attributes('disabled')).toBeDefined()
+    await selectEnums(wrapper, 'Ethernet', 'Business')
+    expect(wrapper.find('[data-testid="nic-form-submit"]').attributes('disabled')).toBeUndefined()
   })
 
-  it('填表提交 → POST /api/virtual-machines；六字段输入为空提交 null（契约 §3.1）', async () => {
+  it('填表提交 → POST /api/network-interfaces；请求体恰为四字段（契约 §3.1 schema 封闭）', async () => {
     const fetchMock = stubCreateFetch({
       list: () => jsonResponse(200, LIST_BODY),
-      create: () => jsonResponse(201, VIRTUAL_MACHINE_A),
+      create: () => jsonResponse(201, NETWORK_INTERFACE_A),
     })
 
     const wrapper = await mountListWithRows()
     await openCreateDialog(wrapper)
 
-    // 选择宿主裸金属（el-select 以 update:modelValue 驱动表单状态）。
     await selectHost(wrapper, 3)
-    await wrapper.find('[data-testid="vm-form-name"]').setValue('vm1')
-    await wrapper.find('[data-testid="vm-form-os"]').setValue('Ubuntu 22.04')
-
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
+    await selectEnums(wrapper, 'Ethernet', 'Business')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(createCalls(fetchMock)).toBe(1)
     })
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/virtual-machines',
+      '/api/network-interfaces',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
           bare_metal_id: 3,
-          name: 'vm1',
-          cpu: null,
-          memory: null,
-          disk: null,
-          os: 'Ubuntu 22.04',
-          hypervisor: null,
-          owner: null,
+          name: 'eth0',
+          technology_type: 'Ethernet',
+          purpose: 'Business',
         }),
       }),
     )
@@ -716,8 +745,9 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
     await openCreateDialog(wrapper)
 
     await selectHost(wrapper, 3)
+    await selectEnums(wrapper, 'Ethernet', 'Business')
     // name 留空：前端不拦截（是否拒绝空串由服务端裁决，当前契约不承诺）。
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(createCalls(fetchMock)).toBe(1)
@@ -730,14 +760,38 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
     expect(body.name).toBe('')
   })
 
+  it('与既有行同名的 name 仍提交（NQ-2 未确认：前端不做唯一性预检，§21）', async () => {
+    const fetchMock = stubCreateFetch({
+      list: () => jsonResponse(200, LIST_BODY),
+      create: () => jsonResponse(201, { ...NETWORK_INTERFACE_A, id: 99 }),
+    })
+
+    const wrapper = await mountListWithRows()
+    await openCreateDialog(wrapper)
+
+    await selectHost(wrapper, 3)
+    // 与既有行同名 'eth0'：契约无唯一性规则，前端直接提交由服务端裁决。
+    await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
+    await selectEnums(wrapper, 'RoCE', 'Storage')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
+
+    await waitForUi(() => {
+      expect(createCalls(fetchMock)).toBe(1)
+    })
+    // 同宿主同名登记成功（201）：与契约 §3.1「第二次登记成功」一致。
+    await waitForUi(() => {
+      expect(createDialogOpen(wrapper)).toBe(false)
+    })
+  })
+
   it('登记成功（201）→ 关闭对话框并刷新列表', async () => {
-    const activeList = { items: [VIRTUAL_MACHINE_B], total: 1, page: 1, page_size: 50 }
+    const activeList = { items: [NETWORK_INTERFACE_B], total: 1, page: 1, page_size: 50 }
     const fetchMock = stubCreateFetch({
       list: () => jsonResponse(200, activeList),
       create: () => {
-        activeList.items = [VIRTUAL_MACHINE_A, VIRTUAL_MACHINE_B]
+        activeList.items = [NETWORK_INTERFACE_A, NETWORK_INTERFACE_B]
         activeList.total = 2
-        return jsonResponse(201, VIRTUAL_MACHINE_A)
+        return jsonResponse(201, NETWORK_INTERFACE_A)
       },
     })
 
@@ -748,8 +802,9 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
 
     await openCreateDialog(wrapper)
     await selectHost(wrapper, 3)
-    await wrapper.find('[data-testid="vm-form-name"]').setValue('vm1')
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
+    await selectEnums(wrapper, 'Ethernet', 'Business')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     // 对话框关闭 + 列表刷新（第二次 GET，两行）。
     await waitForUi(() => {
@@ -760,38 +815,13 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
     })
     const getCalls = fetchMock.mock.calls.filter(
       (call) =>
-        String(call[0]).includes('/api/virtual-machines') &&
+        String(call[0]).includes('/api/network-interfaces') &&
         (call[1] as RequestInit | undefined)?.method === 'GET',
     )
     expect(getCalls.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('409 CONFLICT（name DUPLICATE）→ 前端仍提交（不预判唯一性，§21），按 error.code 渲染固定文案（不解析 message）', async () => {
-    stubCreateFetch({
-      list: () => jsonResponse(200, LIST_BODY),
-      create: () => jsonResponse(409, CREATE_DUPLICATE_BODY),
-    })
-
-    const wrapper = await mountListWithRows()
-    await openCreateDialog(wrapper)
-
-    await selectHost(wrapper, 3)
-    // 与既有行重复的 name：前端不做唯一性预检，直接提交由服务端裁决。
-    await wrapper.find('[data-testid="vm-form-name"]').setValue('vm1')
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
-
-    await waitForUi(() => {
-      expect(wrapper.find('[data-error-code="CONFLICT"]').exists()).toBe(true)
-    })
-    const alert = wrapper.find('[data-error-code="CONFLICT"]')
-    expect(alert.text()).toContain('已存在同名的活跃虚拟机')
-    // 渲染文案为前端按稳定 code 生成的固定文案；后端 message 不参与渲染。
-    expect(wrapper.text()).not.toContain('与展示无关的重复文案')
-    // 对话框保持打开（失败不关闭，用户可修改后重试）。
-    expect(createDialogOpen(wrapper)).toBe(true)
-  })
-
-  it('404 NOT_FOUND（所选宿主不存在 / 已删，契约 §3.1 / NQ-2）→ 按 error.code 渲染，不解析 message', async () => {
+  it('404 NOT_FOUND（所选宿主不存在 / 已删，契约 §3.1 / NQ-5）→ 按 error.code 渲染，不解析 message', async () => {
     stubCreateFetch({
       list: () => jsonResponse(200, LIST_BODY),
       create: () => jsonResponse(404, CREATE_HOST_NOT_FOUND_BODY),
@@ -801,8 +831,9 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
     await openCreateDialog(wrapper)
 
     await selectHost(wrapper, 3)
-    await wrapper.find('[data-testid="vm-form-name"]').setValue('vm1')
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
+    await selectEnums(wrapper, 'Ethernet', 'Business')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(wrapper.find('[data-error-code="NOT_FOUND"]').exists()).toBe(true)
@@ -811,6 +842,8 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
       '所选宿主裸金属不存在或已被删除',
     )
     expect(wrapper.text()).not.toContain('与展示无关的未找到文案')
+    // 对话框保持打开（失败不关闭，用户可修改后重试）。
+    expect(createDialogOpen(wrapper)).toBe(true)
   })
 
   it('400 VALIDATION_ERROR → 对话框内展示字段级提示（details[].field）', async () => {
@@ -823,15 +856,16 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
     await openCreateDialog(wrapper)
 
     await selectHost(wrapper, 3)
-    await wrapper.find('[data-testid="vm-form-name"]').setValue('vm1')
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
+    await selectEnums(wrapper, 'Ethernet', 'Business')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(wrapper.find('[data-error-code="VALIDATION_ERROR"]').exists()).toBe(true)
     })
     const alert = wrapper.find('[data-error-code="VALIDATION_ERROR"]')
     expect(alert.text()).toContain('请求校验失败')
-    expect(alert.text()).toContain('name')
+    expect(alert.text()).toContain('technology_type')
   })
 
   it('401 UNAUTHENTICATED → 触发既有全局会话失效处理，对话框内不渲染本地失败提示', async () => {
@@ -847,8 +881,9 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
     await openCreateDialog(wrapper)
 
     await selectHost(wrapper, 3)
-    await wrapper.find('[data-testid="vm-form-name"]').setValue('vm1')
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
+    await selectEnums(wrapper, 'Ethernet', 'Business')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(unauthenticated).toHaveBeenCalledTimes(1)
@@ -867,7 +902,7 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
       list: () => jsonResponse(200, LIST_BODY),
       create: async () => {
         await createGate
-        return jsonResponse(201, VIRTUAL_MACHINE_A)
+        return jsonResponse(201, NETWORK_INTERFACE_A)
       },
     })
 
@@ -875,18 +910,19 @@ describe('VirtualMachineListPage 登记入口（T-FE-01 / AC-01~08，§21 不预
     await openCreateDialog(wrapper)
 
     await selectHost(wrapper, 3)
-    await wrapper.find('[data-testid="vm-form-name"]').setValue('vm1')
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-name"]').setValue('eth0')
+    await selectEnums(wrapper, 'Ethernet', 'Business')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
 
     await waitForUi(() => {
       expect(createCalls(fetchMock)).toBe(1)
     })
     await waitForUi(() => {
-      expect(wrapper.find('[data-testid="vm-form-submit"]').classes()).toContain('is-loading')
+      expect(wrapper.find('[data-testid="nic-form-submit"]').classes()).toContain('is-loading')
     })
 
     // 连点不发出第二个 POST。
-    await wrapper.find('[data-testid="vm-form-submit"]').trigger('click')
+    await wrapper.find('[data-testid="nic-form-submit"]').trigger('click')
     expect(createCalls(fetchMock)).toBe(1)
 
     releaseCreate()

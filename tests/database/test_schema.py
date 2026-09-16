@@ -13,6 +13,7 @@ EXPECTED_TABLES = {
     "sessions",
     "bare_metals",
     "virtual_machines",
+    "network_interfaces",
 }
 
 

@@ -26,11 +26,19 @@ import BareMetalFormDialog from '../components/BareMetalFormDialog.vue'
  * - 修改 / 删除失败均按 error.code 分支渲染，不解析 message；
  * - F006：「查看虚拟机」入口 → 进入该宿主的虚拟机列表
  *   （GET /api/virtual-machines?bare_metal_id={id}，契约 f006-virtual-machine.md
- *   §3.2）；本页仍不呈现虚拟机数据（关联查询视图归 F010，F010 必须复用该能力）。
+ *   §3.2）；本页仍不呈现虚拟机数据（关联查询视图归 F010，F010 必须复用该能力）；
+ * - F004：「查看网络接口」入口 → 进入该宿主的网络接口列表
+ *   （GET /api/network-interfaces?bare_metal_id={id}，契约
+ *   f004-network-interface.md §3.2）；本页仍不呈现网络接口数据（关联查询
+ *   视图归 F010，F010 必须复用该能力）。
  */
 const props = defineProps<{ bareMetalId: number }>()
 
-const emit = defineEmits<{ back: []; openVirtualMachines: [bareMetalId: number] }>()
+const emit = defineEmits<{
+  back: []
+  openVirtualMachines: [bareMetalId: number]
+  openNetworkInterfaces: [bareMetalId: number]
+}>()
 
 const { data, loading, error, run } = useAsyncQuery(() => getBareMetal(props.bareMetalId))
 
@@ -106,6 +114,11 @@ function openVirtualMachines(): void {
   emit('openVirtualMachines', props.bareMetalId)
 }
 
+/** F004：进入该宿主的网络接口列表（携带 bare_metal_id）。 */
+function openNetworkInterfaces(): void {
+  emit('openNetworkInterfaces', props.bareMetalId)
+}
+
 /** 二次确认通过后删除当前裸金属；状态管理与错误渲染见 useBareMetalDelete。 */
 function confirmDelete(): void {
   void requestDelete(props.bareMetalId)
@@ -130,10 +143,18 @@ function handleUpdated(): void {
       </div>
       <!-- 状态 / 硬件字段修改入口与删除入口：仅内容态出现；hostname / cluster_id
            不可变（契约 §3.4），不提供编辑；删除守卫由后端 409 裁决（§21）。
-           F006「查看虚拟机」入口：跳转该宿主虚拟机列表。 -->
+           F006「查看虚拟机」与 F004「查看网络接口」入口：跳转对应宿主过滤列表。 -->
       <div v-if="state === 'content'" class="bare-metal-detail__actions">
         <el-button type="primary" plain data-testid="open-virtual-machines" @click="openVirtualMachines">
           查看虚拟机
+        </el-button>
+        <el-button
+          type="primary"
+          plain
+          data-testid="open-network-interfaces"
+          @click="openNetworkInterfaces"
+        >
+          查看网络接口
         </el-button>
         <el-button type="primary" plain data-testid="open-edit-dialog" @click="editDialogVisible = true">
           编辑

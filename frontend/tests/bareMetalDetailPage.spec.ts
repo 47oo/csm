@@ -67,11 +67,12 @@ function mountDetailPage(bareMetalId = 1) {
 }
 
 /**
- * vi.waitFor 包装：全量并行负载下 el-dialog 挂载 / 异步完成偶发超过 vi.waitFor
- * 默认 1s（单文件运行稳定），统一放宽到 5s；不改变断言语义。
+ * vi.waitFor 包装：全量并行负载下 el-dialog 挂载 / 异步完成偶发超过
+ * vi.waitFor 默认 1s（单文件运行稳定）。随测试文件数增长，已先后放宽到
+ * 5s、10s；仅放宽超时上限，不改变断言语义。
  */
 async function waitForUi(callback: () => void | Promise<void>): Promise<void> {
-  await vi.waitFor(callback, { timeout: 5000 })
+  await vi.waitFor(callback, { timeout: 10000 })
 }
 
 afterEach(() => {

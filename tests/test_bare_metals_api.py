@@ -684,13 +684,12 @@ def test_t29_no_other_resource_endpoints_or_columns(auth_client_and_raw):
     client, conn = auth_client_and_raw
     paths = set(client.app.openapi()["paths"])
     # F006 演进：VirtualMachine 已成为合法资源（``/api/virtual-machines``），从越界
-    # prefix 中移除 ``vm`` / ``virtual``；扫描范围仍为**全部** ``/api/*`` path，
-    # ``nic`` / ``ip`` / ``container`` / ``service`` 必须保持全局覆盖。
+    # prefix 中移除 ``vm`` / ``virtual``。
+    # F004 演进：NetworkInterface 已成为合法资源（``/api/network-interfaces``），从
+    # 越界 prefix 中移除 ``nic`` / ``network-interface`` / ``network_interface``；
+    # ``ip`` / ``container`` / ``service`` 必须保持全局覆盖。
     forbidden_prefixes = (
-        "nic",
         "ip",
-        "network-interface",
-        "network_interface",
         "container",
         "service",
     )

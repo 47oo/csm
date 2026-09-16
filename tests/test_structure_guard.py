@@ -65,4 +65,5 @@ def test_only_expected_tables_registered():
         "sessions",
         "bare_metals",
         "virtual_machines",
+        "network_interfaces",
     }

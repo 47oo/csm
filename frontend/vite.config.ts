@@ -34,5 +34,9 @@ export default defineConfig({
     // 并持久化模块转换缓存，保证时序敏感用例的确定性。
     maxWorkers: 4,
     fsModuleCache: true,
+    // 同一原因下，单条用例内的多段 waitForUi（各 5s 轮询）叠加后可能
+    // 超过 vitest 默认单用例 5s 超时（与时序敏感断言本身无关），
+    // 放宽单用例超时上限，不改变断言语义。
+    testTimeout: 20000,
   },
 })

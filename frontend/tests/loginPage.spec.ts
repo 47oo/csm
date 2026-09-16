@@ -5,6 +5,15 @@ import ElementPlus from 'element-plus'
 import LoginPage from '../src/pages/LoginPage.vue'
 
 /**
+ * vi.waitFor 包装：全量并行负载下页面挂载 / el-dialog 挂载 / 异步完成偶发超过
+ * vi.waitFor 默认 1s（单文件运行稳定）。随测试文件数增长，已先后放宽到
+ * 5s、10s；仅放宽超时上限，不改变断言语义。
+ */
+async function waitForUi(callback: () => void | Promise<void>): Promise<void> {
+  await vi.waitFor(callback, { timeout: 10000 })
+}
+
+/**
  * 登录页三态测试（T-17 / AC-06）：默认 / 提交 Loading / 401 失败提示互不相同；
  * 仅必填校验（R-AUTH-004 不属登录路径）；成功 → emit success。
  * 响应体严格按 docs/api/f013-auth.md §5.1 构造；fetch 全部桩替换。
@@ -85,7 +94,7 @@ describe('LoginPage 三态互不相同（T-17 / AC-06）', () => {
     await fillCredentials(wrapper, 'admin', 'correct horse battery staple')
     await submitForm(wrapper)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewState(wrapper)).toBe('loading')
     })
     // 提交中：按钮禁用，失败提示不出现。
@@ -93,7 +102,7 @@ describe('LoginPage 三态互不相同（T-17 / AC-06）', () => {
     expect(wrapper.find('[data-error-code]').exists()).toBe(false)
 
     // 等待第一个请求真正发出（el-form 校验异步完成后），再验证重复提交被拦截。
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
@@ -103,7 +112,7 @@ describe('LoginPage 三态互不相同（T-17 / AC-06）', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
 
     resolve(jsonResponse(200, SESSION_USER))
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.emitted('success')).toEqual([[SESSION_USER]])
     })
   })
@@ -115,7 +124,7 @@ describe('LoginPage 三态互不相同（T-17 / AC-06）', () => {
     await fillCredentials(wrapper, 'admin', 'wrong-password')
     await submitForm(wrapper)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewState(wrapper)).toBe('error')
     })
 
@@ -137,7 +146,7 @@ describe('LoginPage 三态互不相同（T-17 / AC-06）', () => {
     await fillCredentials(wrapper, 'admin', 'whatever')
     await submitForm(wrapper)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewState(wrapper)).toBe('error')
     })
 
@@ -158,7 +167,7 @@ describe('LoginPage 三态互不相同（T-17 / AC-06）', () => {
     await fillCredentials(wrapper, 'admin', 'whatever')
     await submitForm(wrapper)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewState(wrapper)).toBe('error')
     })
 
@@ -177,10 +186,10 @@ describe('LoginPage 校验与成功路径', () => {
 
     // 两个字段均为空 → 必填校验失败，不发出登录请求。
     await submitForm(wrapper)
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.text()).toContain('请输入用户名')
     })
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.text()).toContain('请输入口令')
     })
     expect(fetchMock).not.toHaveBeenCalled()
@@ -189,7 +198,7 @@ describe('LoginPage 校验与成功路径', () => {
     // 1 位口令：前端不做长度 / 复杂度校验，原样提交，由服务端统一返回 401。
     await fillCredentials(wrapper, 'admin', 'x')
     await submitForm(wrapper)
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
         '/api/auth/login',
         expect.objectContaining({
@@ -198,7 +207,7 @@ describe('LoginPage 校验与成功路径', () => {
         }),
       )
     })
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewState(wrapper)).toBe('error')
     })
   })
@@ -211,7 +220,7 @@ describe('LoginPage 校验与成功路径', () => {
     await fillCredentials(wrapper, 'admin', 'correct horse battery staple')
     await submitForm(wrapper)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.emitted('success')).toEqual([[{ id: 1, username: 'admin' }]])
     })
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith(

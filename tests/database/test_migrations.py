@@ -18,14 +18,19 @@ def test_migration_applies_repeats_and_rebuilds(database_url):
 
     # 空库 → 应用
     assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
-    assert {"clusters", "users", "sessions", "bare_metals", "virtual_machines"} <= table_names(
-        engine
-    )
-    assert alembic_current(database_url) == "0004_f006_virtual_machines"
+    assert {
+        "clusters",
+        "users",
+        "sessions",
+        "bare_metals",
+        "virtual_machines",
+        "network_interfaces",
+    } <= table_names(engine)
+    assert alembic_current(database_url) == "0005_f004_network_interfaces"
 
     # 重复应用 → no-op，无错误
     assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
-    assert alembic_current(database_url) == "0004_f006_virtual_machines"
+    assert alembic_current(database_url) == "0005_f004_network_interfaces"
 
     # 可从空库重建（downgrade base → upgrade head）
     assert run_alembic("downgrade", "base", dsn=database_url).returncode == 0
@@ -34,10 +39,42 @@ def test_migration_applies_repeats_and_rebuilds(database_url):
     assert exists is None
 
     assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
-    assert {"clusters", "users", "sessions", "bare_metals", "virtual_machines"} <= table_names(
-        engine
-    )
+    assert {
+        "clusters",
+        "users",
+        "sessions",
+        "bare_metals",
+        "virtual_machines",
+        "network_interfaces",
+    } <= table_names(engine)
     engine.dispose()
+
+
+def test_f004_downgrade_to_0004_drops_nic_and_preserves_existing(database_url):
+    """V-13：``alembic downgrade 0004_f006_virtual_machines`` 后 ``network_interfaces``
+    被删、既有表（含 ``virtual_machines``）完好；再次 ``upgrade head`` 可重建。"""
+    engine = upgrade_to_head(database_url)
+    try:
+        assert (
+            run_alembic("downgrade", "0004_f006_virtual_machines", dsn=database_url).returncode == 0
+        )
+        assert alembic_current(database_url) == "0004_f006_virtual_machines"
+        with engine.connect() as conn:
+            nic = conn.execute(text("SELECT to_regclass('public.network_interfaces')")).scalar()
+        assert nic is None, "downgrade 后 network_interfaces 必须被删除"
+        assert {
+            "clusters",
+            "users",
+            "sessions",
+            "bare_metals",
+            "virtual_machines",
+        } <= table_names(engine)
+
+        assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
+        assert "network_interfaces" in table_names(engine)
+        assert alembic_current(database_url) == "0005_f004_network_interfaces"
+    finally:
+        engine.dispose()
 
 
 def test_f006_downgrade_to_0003_drops_vm_and_preserves_existing(database_url):
@@ -54,7 +91,7 @@ def test_f006_downgrade_to_0003_drops_vm_and_preserves_existing(database_url):
 
         assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
         assert "virtual_machines" in table_names(engine)
-        assert alembic_current(database_url) == "0004_f006_virtual_machines"
+        assert alembic_current(database_url) == "0005_f004_network_interfaces"
     finally:
         engine.dispose()
 

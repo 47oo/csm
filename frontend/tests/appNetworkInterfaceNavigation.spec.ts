@@ -5,12 +5,13 @@ import App from '../src/App.vue'
 import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
- * App 资源视图切换测试（F002，f002-bare-metal-handoff.md Frontend Work #4）：
- * 集群列表 ↔ 集群详情 ↔ 裸金属列表（携带 cluster_id 的过滤视图）↔ 裸金属详情，
- * 以及头部导航的全局裸金属列表（无过滤）。仍不引入 vue-router。
+ * App 资源视图切换测试（F004，f004-network-interface-handoff.md Frontend Work #6）：
+ * 头部导航的全局网络接口列表（无过滤），以及从裸金属详情进入「该宿主网络接口」
+ * （携带 bare_metal_id 的过滤视图）→ 网络接口详情 → 返回（过滤上下文保留）→
+ * 返回裸金属详情（集群过滤上下文恢复）。仍不引入 vue-router。
  *
- * 响应体严格按 docs/api/f002-bare-metal.md 与 f001-cluster.md / f013-auth.md 构造；
- * fetch 桩替换，不触达真实后端。
+ * 响应体严格按 docs/api/f004-network-interface.md 与 f002-bare-metal.md /
+ * f001-cluster.md / f013-auth.md 构造；fetch 桩替换，不触达真实后端。
  */
 
 const SESSION_USER = { id: 1, username: 'admin' }
@@ -37,6 +38,21 @@ const BARE_METAL_A = {
   updated_at: '2026-09-16T10:00:00Z',
 }
 const BARE_METAL_LIST_BODY = { items: [BARE_METAL_A], total: 1, page: 1, page_size: 50 }
+const NETWORK_INTERFACE_A = {
+  id: 12,
+  bare_metal_id: 11,
+  name: 'eth0',
+  technology_type: 'Ethernet',
+  purpose: 'Business',
+  created_at: '2026-09-17T10:00:00Z',
+  updated_at: '2026-09-17T10:00:00Z',
+}
+const NETWORK_INTERFACE_LIST_BODY = {
+  items: [NETWORK_INTERFACE_A],
+  total: 1,
+  page: 1,
+  page_size: 50,
+}
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -54,6 +70,12 @@ function stubFetch() {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url.includes('/api/auth/session')) return jsonResponse(200, SESSION_USER)
+    if (/\/api\/network-interfaces\/\d+/.test(url)) {
+      return jsonResponse(200, NETWORK_INTERFACE_A)
+    }
+    if (url.includes('/api/network-interfaces')) {
+      return jsonResponse(200, NETWORK_INTERFACE_LIST_BODY)
+    }
     if (/\/api\/bare-metals\/\d+/.test(url)) return jsonResponse(200, BARE_METAL_A)
     if (url.includes('/api/bare-metals')) return jsonResponse(200, BARE_METAL_LIST_BODY)
     if (/\/api\/clusters\/\d+/.test(url)) return jsonResponse(200, CLUSTER_A)
@@ -96,8 +118,8 @@ afterEach(() => {
   setUnauthenticatedHandler(null)
 })
 
-describe('App 视图切换：集群详情 → 该集群裸金属（携带 cluster_id）', () => {
-  it('集群详情 →「查看裸金属」→ 裸金属列表（请求携带 cluster_id）→ 详情 → 返回（过滤上下文保留）→ 返回集群详情', async () => {
+describe('App 视图切换：裸金属详情 → 该宿主网络接口（携带 bare_metal_id）', () => {
+  it('裸金属详情 →「查看网络接口」→ 网络接口列表（请求携带 bare_metal_id）→ 详情 → 返回（过滤上下文保留）→ 返回裸金属详情（集群上下文恢复）', async () => {
     const fetchMock = stubFetch()
     const wrapper = mountApp()
 
@@ -107,17 +129,15 @@ describe('App 视图切换：集群详情 → 该集群裸金属（携带 cluste
     })
     expect(wrapper.text()).toContain('集群列表')
 
-    // 进入集群详情。
+    // 进入集群详情 → 该集群裸金属列表（携带 cluster_id）→ 裸金属详情。
     await findButtonExact(wrapper, '详情').trigger('click')
     await waitForUi(() => {
       expect(wrapper.text()).toContain('集群详情')
     })
     // 等待内容态就绪（入口仅内容态出现）。
     await waitForUi(() => {
-      expect(wrapper.text()).toContain('2026-09-15T10:00:00Z')
+      expect(wrapper.text()).toContain('cluster-a')
     })
-
-    // 从集群详情进入该集群裸金属列表（携带 cluster_id，契约 §3.2）。
     await findButton(wrapper, '查看裸金属').trigger('click')
     await waitForUi(() => {
       expect(wrapper.text()).toContain('裸金属列表')
@@ -125,18 +145,59 @@ describe('App 视图切换：集群详情 → 该集群裸金属（携带 cluste
     await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
+    await findButtonExact(wrapper, '详情').trigger('click')
+    await waitForUi(() => {
+      expect(wrapper.text()).toContain('裸金属详情')
+    })
+    // 等待内容态就绪（入口仅内容态出现）。
+    await waitForUi(() => {
+      expect(wrapper.text()).toContain('cn001')
+    })
+
+    // 从裸金属详情进入该宿主网络接口列表（携带 bare_metal_id，契约 §3.2）。
+    await findButton(wrapper, '查看网络接口').trigger('click')
+    await waitForUi(() => {
+      expect(wrapper.text()).toContain('网络接口列表')
+    })
+    await waitForUi(() => {
+      expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
+    })
     await waitForUi(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/bare-metals?page=1&page_size=50&cluster_id=1',
+        '/api/network-interfaces?page=1&page_size=50&bare_metal_id=11',
         expect.objectContaining({ method: 'GET' }),
       )
     })
     // 过滤上下文与返回语义可见。
-    expect(wrapper.text()).toContain('集群 #1')
-    expect(wrapper.text()).toContain('返回集群详情')
+    expect(wrapper.text()).toContain('裸金属 #11')
+    expect(wrapper.text()).toContain('返回裸金属详情')
 
-    // 进入裸金属详情。
+    // 进入网络接口详情。
     await findButtonExact(wrapper, '详情').trigger('click')
+    await waitForUi(() => {
+      expect(wrapper.text()).toContain('网络接口详情')
+    })
+    await waitForUi(() => {
+      expect(wrapper.text()).toContain('eth0')
+    })
+
+    // 返回列表：过滤上下文保留（仍携带 bare_metal_id 重新请求）。
+    await findButtonExact(wrapper, '返回列表').trigger('click')
+    await waitForUi(() => {
+      expect(wrapper.text()).toContain('网络接口列表')
+    })
+    await waitForUi(() => {
+      expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
+    })
+    await waitForUi(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        '/api/network-interfaces?page=1&page_size=50&bare_metal_id=11',
+        expect.objectContaining({ method: 'GET' }),
+      )
+    })
+
+    // 从过滤列表返回 → 回到裸金属详情（集群过滤上下文恢复）。
+    await findButton(wrapper, '返回裸金属详情').trigger('click')
     await waitForUi(() => {
       expect(wrapper.text()).toContain('裸金属详情')
     })
@@ -144,13 +205,10 @@ describe('App 视图切换：集群详情 → 该集群裸金属（携带 cluste
       expect(wrapper.text()).toContain('cn001')
     })
 
-    // 返回列表：过滤上下文保留（仍携带 cluster_id 重新请求）。
+    // 裸金属详情返回 → 裸金属列表仍携带 cluster_id（上下文未被 NIC 视图破坏）。
     await findButtonExact(wrapper, '返回列表').trigger('click')
     await waitForUi(() => {
       expect(wrapper.text()).toContain('裸金属列表')
-    })
-    await waitForUi(() => {
-      expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
     await waitForUi(() => {
       expect(fetchMock).toHaveBeenLastCalledWith(
@@ -158,20 +216,11 @@ describe('App 视图切换：集群详情 → 该集群裸金属（携带 cluste
         expect.objectContaining({ method: 'GET' }),
       )
     })
-
-    // 从过滤列表返回 → 回到集群详情。
-    await findButton(wrapper, '返回集群详情').trigger('click')
-    await waitForUi(() => {
-      expect(wrapper.text()).toContain('集群详情')
-    })
-    await waitForUi(() => {
-      expect(wrapper.text()).toContain('cluster-a')
-    })
   })
 })
 
-describe('App 头部导航：全局裸金属列表（无过滤）', () => {
-  it('点击「裸金属」→ 列表请求不带 cluster_id；返回按钮回集群列表', async () => {
+describe('App 头部导航：全局网络接口列表（无过滤）', () => {
+  it('点击「网络接口」→ 列表请求不带 bare_metal_id；返回按钮回集群列表', async () => {
     const fetchMock = stubFetch()
     const wrapper = mountApp()
 
@@ -179,14 +228,14 @@ describe('App 头部导航：全局裸金属列表（无过滤）', () => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
 
-    // 头部导航进入全局裸金属列表。
-    await findButton(wrapper, '裸金属').trigger('click')
+    // 头部导航进入全局网络接口列表。
+    await findButton(wrapper, '网络接口').trigger('click')
     await waitForUi(() => {
-      expect(wrapper.text()).toContain('裸金属列表')
+      expect(wrapper.text()).toContain('网络接口列表')
     })
     await waitForUi(() => {
       expect(fetchMock).toHaveBeenLastCalledWith(
-        '/api/bare-metals?page=1&page_size=50',
+        '/api/network-interfaces?page=1&page_size=50',
         expect.objectContaining({ method: 'GET' }),
       )
     })
@@ -199,7 +248,7 @@ describe('App 头部导航：全局裸金属列表（无过滤）', () => {
     })
   })
 
-  it('导航回「集群」→ 集群列表重新挂载请求', async () => {
+  it('导航高亮随资源区域切换（network-interface 区域下「网络接口」高亮）', async () => {
     stubFetch()
     const wrapper = mountApp()
 
@@ -207,17 +256,21 @@ describe('App 头部导航：全局裸金属列表（无过滤）', () => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
 
-    await findButton(wrapper, '裸金属').trigger('click')
+    await findButton(wrapper, '网络接口').trigger('click')
     await waitForUi(() => {
-      expect(wrapper.text()).toContain('裸金属列表')
+      expect(wrapper.text()).toContain('网络接口列表')
     })
+    const navNic = wrapper.find('[data-testid="nav-network-interfaces"]')
+    expect(navNic.classes()).toContain('el-button--primary')
 
+    // 切回集群区域：高亮恢复。
     await findButton(wrapper, '集群').trigger('click')
     await waitForUi(() => {
       expect(wrapper.text()).toContain('集群列表')
     })
-    await waitForUi(() => {
-      expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
-    })
+    expect(wrapper.find('[data-testid="nav-network-interfaces"]').classes()).not.toContain(
+      'el-button--primary',
+    )
+    expect(wrapper.find('[data-testid="nav-clusters"]').classes()).toContain('el-button--primary')
   })
 })
