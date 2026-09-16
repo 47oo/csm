@@ -403,7 +403,7 @@ features:
       status: READY
       doc: docs/api/f002-bare-metal.md
     implementation:
-      database_design: PENDING
+      database_design: COMPLETE   # docs/database/f002-bare-metal-migration.md（READY FOR DATABASE IMPLEMENTATION）
       backend: PENDING
       frontend: PENDING
       test: PENDING
