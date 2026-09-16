@@ -37,10 +37,10 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | P0 | 7（F001, F002, F009, F012, F013, F014, F015） |
 | P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
 | P2 | 0 |
-| READY | 0 |
-| BLOCKED | 8（F004, F005, F006, F007, F008, F009, F010, F011） |
+| READY | 3（F004, F006, F009） |
+| BLOCKED | 5（F005, F007, F008, F010, F011） |
 | DRAFT | 0 |
-| DONE | 5（F012, F001, F013, F014, F015） |
+| DONE | 6（F012, F001, F013, F014, F015, F002） |
 | Blocking Decisions (OPEN) | **0**（DEC-008 ~ DEC-016 全部裁定；DEC-001 ~ DEC-014 无 OPEN 项） |
 
 产品冲突 DEC-001 ~ DEC-014 已全部裁定，DEC-015 / DEC-016 为新裁定的规模与部署决策，均不作为项目级阻塞（见下方状态表）。
@@ -52,21 +52,21 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
 | F001 | Cluster 登记与管理 | P0 | **DONE** | F012 | — | requirements.md §7, §22 |
-| F002 | BareMetal 登记与管理 | P0 | IN_PROGRESS | F001 | — | requirements.md §8, §22 |
+| F002 | BareMetal 登记与管理 | P0 | **DONE** | F001 | — | requirements.md §8, §22 |
 
 ## E02 网络资源管理
 
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
-| F004 | NetworkInterface 管理 | P1 | BLOCKED | F002 | 依赖 F002 未 DONE | requirements.md §11 |
+| F004 | NetworkInterface 管理 | P1 | READY | F002 | — | requirements.md §11 |
 | F005 | IPAddress 管理 | P1 | BLOCKED | F004 | 依赖 F004 未 DONE | requirements.md §12 |
 
 ## E03 虚拟资源管理
 
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
-| F006 | VirtualMachine 登记与管理 | P1 | BLOCKED | F002 | 依赖 F002 未 DONE | requirements.md §9 |
-| F007 | Container 资源模型与登记 | P1 | BLOCKED | F006, F002 | 依赖 F006/F002 未 DONE | requirements.md §10 |
+| F006 | VirtualMachine 登记与管理 | P1 | READY | F002 | — | requirements.md §9 |
+| F007 | Container 资源模型与登记 | P1 | BLOCKED | F006, F002 | 依赖 F006 未 DONE | requirements.md §10 |
 
 ## E04 服务资源管理
 
@@ -78,7 +78,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
-| F009 | Cluster 视角资源查询 | P0 | BLOCKED | F001, F002 | 依赖 F001/F002 未 DONE | requirements.md §16 |
+| F009 | Cluster 视角资源查询 | P0 | READY | F001, F002 | — | requirements.md §16 |
 | F010 | 资源详情与关联查询 | P1 | BLOCKED | F001, F002, F004, F005, F006, F007, F008 | 依赖多个资源 Feature 未 DONE | requirements.md §15, §16 |
 
 ## E06 数据导入
@@ -140,7 +140,7 @@ F001 / F002 / F006 / F007 的关键产品问题已全部关闭。
 | OPEN-001 | F006 | VirtualMachine 字段范围及其标识与唯一性规则 | **已关闭（R-VM-004/005/006）** |
 | OPEN-002 | F007 | Container 管理粒度 | **已关闭（R-CONTAINER-001 ~ 005）** |
 | OPEN-003 | F008 | Service 字段 | **已关闭（R-SVC-007/008/009）** |
-| OPEN-004 | F002 | BareMetal 硬件字段 | OPEN |
+| OPEN-004 | F002 | BareMetal 硬件字段 | **已关闭（R-BM-007）** |
 | OPEN-005 | F011 | Excel 部分成功导入策略 | **已关闭（All-or-Nothing，固化为 R-IMPORT-004）** |
 | OPEN-006 | — | 虚拟资源运行时集成 | **已关闭（已确认排除）** |
 
