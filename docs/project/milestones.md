@@ -3,7 +3,7 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend 技术层划分。
-> Last updated: 2026-09-16（M1 已 DONE：F012/F013/F014/F015 全部完成并合入 develop；下一 READY 为空，F002 受 OPEN-004 阻塞）
+> Last updated: 2026-09-16（M2 已 DONE：F001 / F002 / F009 全部完成并合入 develop）
 
 完成判据统一要求：对应 Feature 的 Reviewer 为 `APPROVED` / `APPROVED WITH FOLLOW-UP`，
 必要测试通过，且 Feature Branch 已成功 merge 到 develop，项目状态已更新并提交
@@ -42,6 +42,8 @@
 ---
 
 ## M2 基础资源可登记与查询
+
+> 状态：**DONE**（2026-09-16；F001 / F002 / F009 均 DONE 并合入 develop）
 
 **目标能力**：运维人员可登记 Cluster、BareMetal，并从 Cluster 视角查询其下资源与状态
 （建立替代 Excel 的最小核心闭环）。

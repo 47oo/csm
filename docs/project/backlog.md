@@ -37,10 +37,10 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | P0 | 7（F001, F002, F009, F012, F013, F014, F015） |
 | P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
 | P2 | 0 |
-| READY | 3（F004, F006, F009） |
+| READY | 2（F004, F006） |
 | BLOCKED | 5（F005, F007, F008, F010, F011） |
 | DRAFT | 0 |
-| DONE | 6（F012, F001, F013, F014, F015, F002） |
+| DONE | 7（F012, F001, F013, F014, F015, F002, F009） |
 | Blocking Decisions (OPEN) | **0**（DEC-008 ~ DEC-016 全部裁定；DEC-001 ~ DEC-014 无 OPEN 项） |
 
 产品冲突 DEC-001 ~ DEC-014 已全部裁定，DEC-015 / DEC-016 为新裁定的规模与部署决策，均不作为项目级阻塞（见下方状态表）。
@@ -78,7 +78,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
-| F009 | Cluster 视角资源查询 | P0 | READY | F001, F002 | — | requirements.md §16 |
+| F009 | Cluster 视角资源查询 | P0 | **DONE** | F001, F002 | — | requirements.md §16 |
 | F010 | 资源详情与关联查询 | P1 | BLOCKED | F001, F002, F004, F005, F006, F007, F008 | 依赖多个资源 Feature 未 DONE | requirements.md §15, §16 |
 
 ## E06 数据导入

@@ -565,16 +565,16 @@ features:
     name: Cluster 视角资源查询
     epic: E05
     priority: P0
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F001, F002]
     blocking: []
     git:
       base_branch: develop
       branch: feature/F009-cluster-resource-view
       start_commit: c6565545286bcabd4984de549dec13122941ed3e
-      head_commit: c6565545286bcabd4984de549dec13122941ed3e
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: ac693d71084e80fd55c0d29fe2165453bd6f7a0d
+      merge_commit: 6529b0dcaaad37833132a5544e7120eae94c02ef
+    current_stage: null
     layers:
       database: false     # 无 schema 变更；复用既有 ux_clusters_name_active / ix_bare_metals_cluster_id 与 active_filter
       backend: true       # 新增 app/cluster_views/**（router + service）+ main 挂载 + EXPECTED_GET_ROUTES 演进 + 边界/一致性 guard
@@ -587,7 +587,7 @@ features:
       backend: COMPLETE           # 07b656d；311 passed
       frontend: NOT_REQUIRED       # 复用 F002 已交付的 clusterId 限定 BareMetalListPage
       test: COMPLETE              # docs/test-reports/f009-cluster-resource-view.md（READY FOR REVIEW）
-      review: PENDING
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f009-cluster-resource-view.md；merge 6529b0d
     product_document: docs/product/requirements.md
     requirements:
       - R-QUERY-001
@@ -1189,15 +1189,15 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F004, F006, F009]
+  ready_features: [F004, F006]
   blocked_draft_features:
     BLOCKED: [F005, F007, F008, F010, F011]
     DRAFT: []
   counts:
-    READY: 3
+    READY: 2
     BLOCKED: 5
     DRAFT: 0
-    DONE: 6
+    DONE: 7
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -1256,6 +1256,17 @@ planning_status:
       `CLUSTER_ACTIVE_CHILD_CHECKS` 由空元组演进为真实活跃 BareMetal 检查（F014 NOTE-01）。
       **首个真实 F014 端到端**：Cluster 有活跃 BareMetal → 409 ACTIVE_CHILDREN_EXIST；并发孤立记录不变式 0 行。
       guard 随增表演进（表集合 / 无 CASCADE / 唯一软删写入路径）而非删除。
+    F009: >
+      base c656554 → head ac693d7 → merge 6529b0d（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；14 文件 / +1986 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2（大小写敏感 collation）后端 311 passed、前端 176 passed 且构建成功、ruff 干净、migration 与 base 零差异。
+      **关键交付**：交付 ADR-0003 §2 已确认但一直无认领者的只读名称别名
+      `GET /api/clusters/by-name/{cluster_name}/bare-metals`；**无数据库变更、无前端实现**（`database:false` / `frontend:false`）。
+      **设计要点**：alias 只做名称解析，然后**委托** F002 的 `list_bare_metals`，从而继承同一父活跃检查与唯一 `deleted_at` 谓词；
+      `cluster_views` 模块内**无任何 `deleted_at` 表达式**，全局软删写入 allow-list 仍恰为 `{backend/app/deletion/service.py}`（ADR-0004）。
+      guard G-009-1~6 经对抗注入确认真实可失败：路由集合恰一条、全 OpenAPI 无 NIC/IP/VM/Container/Service token、
+      alias 与 canonical 的 200 schema 相等、既有 `EXPECTED_GET_ROUTES` 仅追加未削弱。
+      完成 M2（F001 + F002 + F009 均 DONE）。
   ready_rationale:
     F014: >
       依赖 F012 已 DONE；架构/数据库决策 DEC-012 / DEC-009 已 RESOLVED（ADR-0004 / ADR-0001 / ADR-0002 ACCEPTED），
@@ -1278,13 +1289,22 @@ planning_status:
     F010: "上游资源模型决策 DEC-001 / DEC-003 / DEC-006 均已解决，不改变本 Feature 的 AC 定稿；阻塞为依赖多个资源 Feature 未 DONE。"
     F011: "OPEN-005 已关闭（All-or-Nothing，已固化为 R-IMPORT-004），无未解决产品问题；阻塞为依赖多个资源 Feature 未 DONE。"
   readiness_summary: >
-    架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），DEC-008 ~ DEC-016 全部 RESOLVED；全部产品问题（OPEN-001/002/003/004、DEC-004/005）已关闭。
-    DONE：F012（基座）、F001（Cluster）、F013（认证）、F014（软删）、F015（内网部署）、F002（BareMetal）。
-    F002 交付首张资源子表（`bare_metals`）与首个真实 F014 父删子拦端到端，F004 / F006 / F009 因此解锁为 READY。
-    3 个 Feature（F004 / F006 / F009）依赖已满足 → READY。
+    架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），全部产品问题已关闭，无 DRAFT Feature。
+    DONE：F012（基座）、F001（Cluster）、F013（认证）、F014（软删）、F015（内网部署）、F002（BareMetal）、F009（Cluster 视角查询）。
+    **M2「基础资源可登记与查询」已 DONE**（F001 + F002 + F009）：已形成替代 Excel 的最小核心闭环。
+    2 个 Feature（F004 / F006）依赖已满足 → READY。
     5 个 Feature（F005 / F007 / F008 / F010 / F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
-    无 DRAFT Feature。下一批可并行推进 F004 / F006 / F009（均依赖 F002）。
+    下一批可推进 F004（NetworkInterface，解锁 F005）与 F006（VirtualMachine，解锁 F007/F008）。
   follow_ups:
+    from_f009_review:
+      report: docs/reviews/f009-cluster-resource-view.md
+      open: []
+      resolved:
+        - id: REV-F009-1
+          summary: >
+            project-plan 的 F009 head_commit 陈旧（c656554）；已在本状态提交修正为 head ac693d7、merge 6529b0d。
+      notes:
+        - REV-F009-2 / -3 / -4 / -5 为 NOTE（无行动项）。
     from_f002_review:
       report: docs/reviews/f002-bare-metal.md
       open:
@@ -1477,15 +1497,15 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F002 DONE; NEXT READY = F004 / F006 / F009
+  decision: PROJECT IN PROGRESS — M2 DONE (F009); NEXT READY = F004 / F006
 
 execution:
-  current_feature: F009
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   started_on: "2026-09-16"
   note: >
-    F002（BareMetal 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge ef39557）。
-    流程：Product → Architecture（database/backend/frontend = true）→ Database Design → Backend + Frontend 并行
+    F009（Cluster 视角资源查询）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 6529b0d）。
+    流程：Product → Architecture（database:false / backend:true / frontend:false，契约 READY）→ Backend
     → Tester READY FOR REVIEW → Reviewer APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）→ Merge Gate → 本状态提交。
-    完成后重算：F004 / F006 / F009 解锁为 READY；F005 / F007 / F008 / F010 / F011 仍因依赖未 DONE 而 BLOCKED；无 DRAFT。
-    当前无进行中的 Feature。下一批 READY：F004（NetworkInterface）/ F006（VirtualMachine）/ F009（Cluster 视角查询）。
+    完成后重算：F004 / F006 仍为 READY；F005 / F007 / F008 / F010 / F011 仍因依赖未 DONE 而 BLOCKED；无 DRAFT。
+    M2 完成。当前无进行中的 Feature。下一批 READY：F004（NetworkInterface）/ F006（VirtualMachine）。
