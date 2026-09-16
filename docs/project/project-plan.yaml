@@ -447,7 +447,7 @@ features:
       start_commit: cf03e014a9abbd0dad88a00da57947e731778513
       head_commit: cf03e014a9abbd0dad88a00da57947e731778513
       merge_commit: null
-    current_stage: IMPLEMENTATION
+    current_stage: TEST
     layers:
       database: true      # 新增 network_interfaces 表 + migration 0005_f004_network_interfaces
       backend: true       # models/network_interface.py + app/network_interfaces/** + bare_metals/deletion 追加 + guard 演进
@@ -457,9 +457,9 @@ features:
       doc: docs/api/f004-network-interface.md
     implementation:
       database_design: COMPLETE    # docs/database/f004-network-interface-migration.md（READY FOR DATABASE IMPLEMENTATION）
-      backend: BLOCKED            # F004-T-02 LOW（test_t29 无正当理由删除 nic token）
-      frontend: BLOCKED           # F004-T-01 MEDIUM（新 spec 非确定性失败）
-      test: BLOCKED               # docs/test-reports/f004-network-interface.md；AC-01~34 功能全 PASS
+      backend: FIX_COMPLETE       # 5c63168 修复 F004-T-02（恢复 nic 扫描，注入验证）
+      frontend: FIX_COMPLETE      # 5c63168 修复 F004-T-01（单调时钟 + 等待按钮启用；12/12 单文件 + 4/4 全量绿）
+      test: AWAITING_REVERIFICATION  # docs/test-reports/f004-network-interface.md；AC-01~34 功能全 PASS；两缺陷已修待复验
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -1681,7 +1681,11 @@ planning_status:
 
 execution:
   current_feature: F004
-  current_stage: IMPLEMENTATION
+  current_stage: TEST
+  next_action: >-
+    Tester 复验 F004-T-01 / F004-T-02（须独立确认前端测试确定性、nic 注入被检出、
+    monotonic Date.now() setup 未掩盖真实缺陷），然后 Reviewer（重点审查全局时钟补丁
+    与既有 spec 超时改动），再 Merge Gate。
   started_on: "2026-09-16"
   note: >
     F006（VirtualMachine 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 01077be）。
