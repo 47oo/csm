@@ -288,16 +288,16 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F012, F013]
     blocking: []
     git:
       base_branch: develop
       branch: feature/F015-deployment
       start_commit: 5c9ca84f94134c9bcc87c61a47fd9280ff99d411
-      head_commit: 056c0547b4001abbda4b3c88c22aff6f2cb2a712
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: f536b064826c4187f4ef422d47e517bdf10cb0bf
+      merge_commit: 06e655a2ee864d301b96cbdb88388aa9167ed3e6
+    current_stage: null
     layers:
       database: false     # 无 Schema / migration 变更
       backend: true       # prod 关闭框架文档面 + backend/Dockerfile + .dockerignore
@@ -312,7 +312,7 @@ features:
       frontend: NOT_REQUIRED      # 无 frontend/src/** 改动
       deployment: COMPLETE        # 056c054；compose/nginx/Dockerfile/部署文档；L2 E2E 通过
       test: COMPLETE              # docs/test-reports/f015-deployment.md（READY FOR REVIEW）
-      review: PENDING
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f015-deployment.md；merge 06e655a
     product_document: docs/product/requirements.md
     requirements:
       - R-DEPLOY-001
@@ -1065,10 +1065,9 @@ planning_status:
     DRAFT: [F002, F006, F007, F008]
   counts:
     READY: 0
-    IN_PROGRESS: 1
     BLOCKED: 5
     DRAFT: 4
-    DONE: 4
+    DONE: 5
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -1111,6 +1110,14 @@ planning_status:
       单事务先 `FOR UPDATE` 锁父行再跑资源声明的 active_children 检查，命中即 409 且无部分写入；
       `DELETE /api/clusters/{id}` 204/404/409/401 与契约一致；F001 A15 / F013 G-E guard 演进而非削弱。
       **显式交接**：R-DELETE-004 真实场景（Cluster+活跃 BareMetal）与 `ip_address.cluster_id` 推导归 F002 / F005，已写入相应 AC。
+    F015: >
+      base 5c9ca84 → head f536b06 → merge 06e655a（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；19 文件经完整差异 Review。
+      验收：192 backend passed、ruff 干净、两镜像构建成功；L2 等价环境 E2E 实测（三服务 healthy、迁移×2、登录、
+      未认证 401、docs 404、仅 nginx 端口、命名卷持久化、`C.UTF-8` 大小写敏感）。
+      **关键交付**：`CSM_ENVIRONMENT=prod` 硬编码 + 后端/ nginx 双层关闭框架文档面；传输层探针（不新增 /api 豁免）；
+      凭据必填变量外部注入；仅 nginx 对外；迁移幂等且禁止 downgrade。
+      **NOT TESTED**：真实独立内网 VM + 第二台机器（L3），以 L2 等价证据 + L3 复核清单承接。
   ready_rationale:
     F014: >
       依赖 F012 已 DONE；架构/数据库决策 DEC-012 / DEC-009 已 RESOLVED（ADR-0004 / ADR-0001 / ADR-0002 ACCEPTED），
@@ -1135,13 +1142,46 @@ planning_status:
     F011: "OPEN-005 已关闭（All-or-Nothing，已固化为 R-IMPORT-004），无未解决产品问题；阻塞为依赖多个资源 Feature 未 DONE。"
   readiness_summary: >
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），DEC-008 ~ DEC-016 全部 RESOLVED。
-    F012（基座）、F001（Cluster）、F013（本地账号认证与会话）、F014（逻辑删除与数据一致性治理）均已 DONE 并合入 develop。
-    F014 交付删除基座：统一软删服务（唯一写入路径）、单事务加锁父删子拦、`DELETE /api/clusters/{id}`、guard 演进。
-    1 个 Feature（F015）依赖已满足，保持 READY。
-    5 个 Feature（F004/F005/F009/F010/F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
-    4 个 Feature（F002/F006/F007/F008）仍存在影响自身 scope/AC 定稿的 Feature 级产品问题（DRAFT）。
-    F002 因产品问题 OPEN-004 仍为 DRAFT，故 F009（依赖 F001/F002）仍 BLOCKED。
+    M1「平台基础可运行」全部 DONE：F012（基座）、F001（Cluster）、F013（认证）、F014（软删）、F015（内网部署）均已合入 develop。
+    当前**无 READY Feature**：实现侧可推进的 Feature 已全部完成。
+    4 个 Feature（F002/F006/F007/F008）仍为 DRAFT，存在影响自身 scope/AC 定稿的 Feature 级产品问题
+    （F002=OPEN-004；F006=OPEN-001/DEC-004；F007=OPEN-002/DEC-005；F008=OPEN-003）。
+    5 个 Feature（F004/F005/F009/F010/F011）scope/AC 可定稿，但全部（直接或间接）依赖 F002，故为 BLOCKED。
+    项目已暂停等待用户裁定 F002 的 OPEN-004（及后续 F006/F007/F008 的产品问题）；在这些问题解决前不得强行推进。
   follow_ups:
+    from_f015_review:
+      report: docs/reviews/f015-deployment.md
+      open:
+        - id: REV-01
+          severity: LOW
+          owner: Architect / Coordinator
+          summary: >
+            Architecture Handoff 文字写 nginx 构建 context=`./frontend`，但同一 Handoff 要求该 Dockerfile COPY
+            `deploy/nginx/default.conf`（在 frontend/ 之外）；实现取仓库根是唯一自洽解。已于本状态提交修正 Handoff 文字。
+        - id: NOTE-01
+          severity: NOTE
+          owner: Architect / Backend
+          summary: 部署文档用迂回措辞回避 `down -v` 字面（G-04 字面 guard 所致）；非阻塞。
+        - id: NOTE-02
+          severity: NOTE
+          owner: Tester
+          summary: pytest T-05 断言语义不变式而非字面 C.UTF-8；生产值由 G-01 + 文档 + L2 直连覆盖。
+        - id: NOTE-03
+          severity: NOTE
+          owner: Backend
+          summary: 应用镜像夹带 backend/Dockerfile；无功能影响。
+        - id: NOTE-04
+          severity: NOTE
+          owner: Backend
+          summary: nginx 仅精确匹配三个文档路径；属已知实现选择。
+        - id: NOTE-05
+          severity: NOTE
+          owner: Backend
+          summary: nginx 对相同 Cookie 的重复设置未显式去重；无观察到的功能影响。
+      resolved:
+        - id: REV-02
+          summary: >
+            project-plan 的 F015 head_commit 陈旧（056c054）；已在本状态提交修正为 head f536b06、merge 06e655a。
     from_f014_review:
       report: docs/reviews/f014-soft-delete.md
       open:
@@ -1273,15 +1313,17 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F012/F001/F013/F014 DONE, F015 IN_PROGRESS
+  decision: PROJECT PAUSED — M1 DONE (F012/F013/F014/F015), NO READY FEATURE; F002 blocked by OPEN-004
 
 execution:
-  current_feature: F015
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   started_on: "2026-09-15"
   note: >
-    F015（内网部署与运行环境）于 2026-09-16 启动。
-    Preflight 通过：工作区 clean、develop @ 5c9ca84、目标分支不存在，自 develop 创建 feature/F015-deployment。
-    start_commit 固定为 develop SHA。layers 留空，待已批准 Architecture Handoff 判定。
-    进入条件：F012/F013 均已 DONE；原额外进入条件 F012 F-03（自检面 fail-open）已由 F001 移除 /_foundation/* 消解。
-    F013 Review 的 REV-01（/docs、/redoc、/openapi.json 位于 /api 之外未认证可达）由本 Feature 记录并决定是否关闭。
+    F015（内网部署与运行环境）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 06e655a），M1「平台基础可运行」全部 DONE。
+    流程：Git Preflight → Product → Architecture（Contract NOT_REQUIRED）→ Backend + Deployment 实现
+    → Tester READY FOR REVIEW（含 L2 等价环境 E2E）→ Reviewer APPROVED WITH FOLLOW-UP → Merge Gate → 本状态提交。
+    完成后重新计算：**无 READY Feature**。F002 因产品问题 OPEN-004（BareMetal 硬件字段范围）仍为 DRAFT，
+    而 F004/F005/F009 依赖 F002、F006/F007/F008 同时依赖 F002 及自身 Feature 级产品问题（OPEN-001/002/003）
+    —— 因此关键路径上的一切剩余 Feature 都被产品决策阻塞，实现无法继续。
+    下一步需要用户裁定：OPEN-004（F002），以及后续 F006 的 OPEN-001 / DEC-004、F007 的 OPEN-002 / DEC-005、F008 的 OPEN-003。

@@ -3,7 +3,7 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend 技术层划分。
-> Last updated: 2026-09-15（DEC-008 ~ DEC-016 全部裁定；M1 进入条件改为“架构已批准 + API 契约 READY + F012 READY”；M5 移除 OPEN-005）
+> Last updated: 2026-09-16（M1 已 DONE：F012/F013/F014/F015 全部完成并合入 develop；下一 READY 为空，F002 受 OPEN-004 阻塞）
 
 完成判据统一要求：对应 Feature 的 Reviewer 为 `APPROVED` / `APPROVED WITH FOLLOW-UP`，
 必要测试通过，且 Feature Branch 已成功 merge 到 develop，项目状态已更新并提交
@@ -12,6 +12,8 @@
 ---
 
 ## M1 平台基础可运行
+
+> 状态：**DONE**（2026-09-16；F012 / F013 / F014 / F015 均 DONE 并合入 develop）
 
 **目标能力**：建立可运行、可登录的内网部署基础，并具备逻辑删除与数据一致性治理基座。
 

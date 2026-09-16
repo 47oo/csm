@@ -144,7 +144,7 @@ Backend Agent 需交付：
 Deployment Agent（可由 Backend 承担）需交付：
 
 1. **`docker-compose.prod.yml`（新，仓库根）** — 与 `docker-compose.dev.yml` 对称、互相独立：
-   - 服务：`postgres`（`postgres:16`）、`app`（build `backend/Dockerfile`，context `.`）、`nginx`（build `frontend/Dockerfile`，context `./frontend`）。
+   - 服务：`postgres`（`postgres:16`）、`app`（build `backend/Dockerfile`，context `.`）、`nginx`（build `frontend/Dockerfile`，context `.`，`dockerfile: frontend/Dockerfile`；因该 Dockerfile 需 `COPY deploy/nginx/default.conf`，仓库根上下文是唯一自洽解）。
    - **仅 nginx 发布端口**：`ports: ["${CSM_HTTP_PORT:-80}:80"]`；`app` 与 `postgres` 只用 `expose`（`8000` / `5432`），**不发布到宿主 / 内网**。
    - **命名卷**：`csm-prod-pgdata → /var/lib/postgresql/data`。
    - **启动顺序**：`app depends_on postgres: condition: service_healthy`；`nginx depends_on app: condition: service_healthy`。
@@ -223,7 +223,7 @@ deployment: true     # 新增键（PROPOSED，请协调器/PM 写入 project-pla
 **结论**
 
 - **文件落点**：新增 `docker-compose.prod.yml`（仓库根，与 `docker-compose.dev.yml` 并列）。
-- **镜像构建**：`app` 用 `backend/Dockerfile`（context = 仓库根）；`nginx + 前端` 用 `frontend/Dockerfile`（context = `./frontend`，多阶段构建）。**不从本机构建前端后挂载目录**。
+- **镜像构建**：`app` 用 `backend/Dockerfile`（context = 仓库根）；`nginx + 前端` 用 `frontend/Dockerfile`（**context = 仓库根**，`dockerfile: frontend/Dockerfile`；该 Dockerfile 需要 `COPY deploy/nginx/default.conf`，该路径在 `frontend/` 之外，故仓库根上下文是唯一自洽解）。**不从本机构建前端后挂载目录**。
 - **服务依赖 / 启动顺序**：`postgres`（healthy）→ `app`（healthy）→ `nginx`；由 `depends_on: condition: service_healthy` 表达（解析 NQ-6）。
 - **数据卷命名**：`csm-prod-pgdata`（命名卷，非 bind mount）。
 - **端口发布**：仅 `nginx` 的 `"${CSM_HTTP_PORT:-80}:80"`；`app` / `postgres` 仅 `expose`。
@@ -585,7 +585,7 @@ Testing Agent 应验证以下**最小集合**，逐条映射 AC-01 ~ AC-12。
 1. **交付层记录方式**：`layers` 新增 `deployment: true`（另建议 `implementation.deployment`）。
 2. **探针取 (a)**：`postgres` = `pg_isready`；`app` / `nginx` = TCP 连接（Q4）。
 3. **nginx 对三个框架文档路径显式 `return 404`**（纵深防御，使 AC-05 的 E2E 观察无歧义）。
-4. **文件落点**：`docker-compose.prod.yml`（根）、`backend/Dockerfile`、`frontend/Dockerfile`（`context: ./frontend`）、`deploy/nginx/default.conf`、`deploy/env.prod.example`、`.dockerignore`（根）、`docs/deployment/csm-v1-internal-deployment.md`。
+4. **文件落点**：`docker-compose.prod.yml`（根）、`backend/Dockerfile`、`frontend/Dockerfile`（nginx 服务 `build.context: .` + `dockerfile: frontend/Dockerfile`；见 Q2 修正）、`deploy/nginx/default.conf`、`deploy/env.prod.example`、`.dockerignore`（根）、`docs/deployment/csm-v1-internal-deployment.md`。
 5. **凭据注入形态**：单一 `CSM_POSTGRES_PASSWORD`（+ user / db），DSN 由编排插值组装（密码须 URL-safe 或 URL 编码）。
 6. **`restart: unless-stopped`**（三个服务；工程默认，非产品验收项 —— NQ-2）。
 7. **`CSM_HTTP_PORT` 默认 `80`**（`${CSM_HTTP_PORT:-80}`）。
