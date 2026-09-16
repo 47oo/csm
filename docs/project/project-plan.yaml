@@ -480,16 +480,16 @@ features:
     name: VirtualMachine 登记与管理
     epic: E03
     priority: P1
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F002]
     blocking: []
     git:
       base_branch: develop
       branch: feature/F006-virtual-machine
       start_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
-      head_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: 3bd2da22a9e35bd1813e57dff4c546a1baa301ad
+      merge_commit: 01077bede139bad9bd449dfa52af860b2fc40a25
+    current_stage: null
     layers:
       database: true      # 新增 virtual_machines 表 + migration 0004_f006_virtual_machines
       backend: true       # models/virtual_machine.py + app/virtual_machines/** + bare_metals/deletion 接线 + guard 演进
@@ -502,7 +502,7 @@ features:
       backend: COMPLETE           # 7844a17（含 Tester 缺陷修复）；400 passed
       frontend: COMPLETE          # 5d87d20；242 passed + build
       test: COMPLETE              # docs/test-reports/f006-virtual-machine.md（复验 READY FOR REVIEW）
-      review: PENDING
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f006-virtual-machine.md；merge 01077be
     product_document: docs/product/requirements.md
     requirements:
       - R-VM-001
@@ -573,10 +573,9 @@ features:
     name: Container 资源模型与登记
     epic: E03
     priority: P1
-    status: BLOCKED
+    status: READY
     depends_on: [F006, F002]
-    blocking:
-      - "依赖 F006 未 DONE"
+    blocking: []
     product_document: docs/product/requirements.md
     requirements:
       - "§10 Container（允许领域模型表达 Container 资源）"
@@ -1257,15 +1256,15 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F004, F006]
+  ready_features: [F004, F007]
   blocked_draft_features:
-    BLOCKED: [F005, F007, F008, F010, F011]
+    BLOCKED: [F005, F008, F010, F011]
     DRAFT: []
   counts:
     READY: 2
-    BLOCKED: 5
+    BLOCKED: 4
     DRAFT: 0
-    DONE: 7
+    DONE: 8
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -1335,6 +1334,17 @@ planning_status:
       guard G-009-1~6 经对抗注入确认真实可失败：路由集合恰一条、全 OpenAPI 无 NIC/IP/VM/Container/Service token、
       alias 与 canonical 的 200 schema 相等、既有 `EXPECTED_GET_ROUTES` 仅追加未削弱。
       完成 M2（F001 + F002 + F009 均 DONE）。
+    F006: >
+      base f74e7dd → head 3bd2da2 → merge 01077be（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；46 文件 / +7553 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 后端 400 passed、前端 242 passed 且构建成功、ruff 干净、migration 可重复 / 可重建、base 未改。
+      **关键交付**：`virtual_machines`（12 列，含 R-VM-006 六列）+ migration 0004；5 端点；name **全局**活跃唯一（partial unique）跨宿主跨 Cluster、大小写敏感；
+      宿主 `bare_metal_id` 必选 + FK RESTRICT；创建对宿主行取 `FOR SHARE`；**无 status 列、无 cluster_id 列**（Q-002=B / R-VM-005）。
+      同时交付 `GET ?bare_metal_id=` 宿主限定读取（供 F010 复用）。
+      **第二个真实 F014 端到端**：宿主有活跃 VM → 409 ACTIVE_CHILDREN_EXIST；并发孤立记录不变式 0 行。
+      **过程缺陷并修复**：Tester 判 RETURN TO IMPLEMENTATION（F006-T-01 MEDIUM）——本 Feature 曾把 F009 / F002 的全 OpenAPI 边界扫描收窄到本模块，
+      导致非 GET 越界路由无 guard 防护（注入 `POST /api/containers` 时 68 项 guard 全过）；已修复为「保持全局扫描、仅移除已合法化的 vm/virtual token」（7844a17），
+      并经 Tester 与 Reviewer 双向独立注入复证。
   ready_rationale:
     F014: >
       依赖 F012 已 DONE；架构/数据库决策 DEC-012 / DEC-009 已 RESOLVED（ADR-0004 / ADR-0001 / ADR-0002 ACCEPTED），
@@ -1358,12 +1368,24 @@ planning_status:
     F011: "OPEN-005 已关闭（All-or-Nothing，已固化为 R-IMPORT-004），无未解决产品问题；阻塞为依赖多个资源 Feature 未 DONE。"
   readiness_summary: >
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），全部产品问题已关闭，无 DRAFT Feature。
-    DONE：F012（基座）、F001（Cluster）、F013（认证）、F014（软删）、F015（内网部署）、F002（BareMetal）、F009（Cluster 视角查询）。
-    **M2「基础资源可登记与查询」已 DONE**（F001 + F002 + F009）：已形成替代 Excel 的最小核心闭环。
-    2 个 Feature（F004 / F006）依赖已满足 → READY。
-    5 个 Feature（F005 / F007 / F008 / F010 / F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
-    下一批可推进 F004（NetworkInterface，解锁 F005）与 F006（VirtualMachine，解锁 F007/F008）。
+    DONE：F012（基座）、F001（Cluster）、F013（认证）、F014（软删）、F015（内网部署）、F002（BareMetal）、F009（Cluster 视角查询）、F006（VirtualMachine）。
+    **M2 已 DONE**（F001 + F002 + F009）；M4 的 F006 已完成，F007 因依赖满足而 READY。
+    2 个 Feature（F004 / F007）依赖已满足 → READY。
+    4 个 Feature（F005 / F008 / F010 / F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
+    下一批可推进 F004（NetworkInterface，解锁 F005）与 F007（Container，解锁 F008 → F010/F011）。
   follow_ups:
+    from_f006_review:
+      report: docs/reviews/f006-virtual-machine.md
+      open:
+        - id: REV-3 / F007 预期演进点
+          severity: NOTE
+          owner: Backend (F007)
+          summary: VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS 当前显式空元组，F007 落地 Container 时须追加「活跃 Container」检查（R-CONTAINER-005）。
+      resolved:
+        - id: REV-1
+          summary: project-plan 的 F006 head_commit 陈旧（f74e7dd）；已在本状态提交修正为 head 3bd2da2、merge 01077be。
+        - id: REV-2
+          summary: domain-model.yaml 的 must_not_assume 中 VM→BareMetal 条目措辞自相矛盾；已删除该过时条目（绑定已由 R-VM-005 确认为必选）。
     from_f009_review:
       report: docs/reviews/f009-cluster-resource-view.md
       open: []
@@ -1565,15 +1587,16 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — M2 DONE (F009); NEXT READY = F004 / F006
+  decision: PROJECT IN PROGRESS — F006 DONE; NEXT READY = F004 / F007
 
 execution:
-  current_feature: F006
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   started_on: "2026-09-16"
   note: >
-    F009（Cluster 视角资源查询）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 6529b0d）。
-    流程：Product → Architecture（database:false / backend:true / frontend:false，契约 READY）→ Backend
-    → Tester READY FOR REVIEW → Reviewer APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）→ Merge Gate → 本状态提交。
-    完成后重算：F004 / F006 仍为 READY；F005 / F007 / F008 / F010 / F011 仍因依赖未 DONE 而 BLOCKED；无 DRAFT。
-    M2 完成。当前无进行中的 Feature。下一批 READY：F004（NetworkInterface）/ F006（VirtualMachine）。
+    F006（VirtualMachine 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 01077be）。
+    流程：Product → Architecture（database/backend/frontend = true，契约 READY）→ Database Design → Backend + Frontend 并行
+    → Tester RETURN TO IMPLEMENTATION（F006-T-01 MEDIUM：边界 guard 被收窄）→ Backend Fix → Tester 复验 READY FOR REVIEW
+    → Reviewer APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）→ Merge Gate → 本状态提交。
+    完成后重算：F007 因依赖满足而 READY；F005 / F008 / F010 / F011 仍因依赖未 DONE 而 BLOCKED；无 DRAFT。
+    当前无进行中的 Feature。下一批 READY：F004（NetworkInterface）/ F007（Container）。

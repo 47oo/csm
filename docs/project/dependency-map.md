@@ -3,7 +3,7 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > 依赖仅表示真正的实施依赖（B 无法在 A 未 DONE 时正确实现）。依赖为 DAG，无循环。
-> Last updated: 2026-09-16（M2 已 DONE：F001 / F002 / F009 全部完成并合入 develop；F004 / F006 → READY）
+> Last updated: 2026-09-16（F006 已 DONE；F007 → READY；依赖结构不变）
 >
 > 依赖结构未因已完成 Feature 而变化；仅状态变化：F009 → DONE，M2 完成；
 > F004 / F006 因依赖满足而 READY；F005 / F007 / F008 / F010 / F011 仍因依赖未 DONE 而 BLOCKED；无 DRAFT Feature。
