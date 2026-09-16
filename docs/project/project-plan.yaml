@@ -489,7 +489,7 @@ features:
       start_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
       head_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
       merge_commit: null
-    current_stage: TEST
+    current_stage: IMPLEMENTATION
     layers:
       database: true      # 新增 virtual_machines 表 + migration 0004_f006_virtual_machines
       backend: true       # models/virtual_machine.py + app/virtual_machines/** + bare_metals/deletion 接线 + guard 演进
@@ -499,9 +499,9 @@ features:
       doc: docs/api/f006-virtual-machine.md
     implementation:
       database_design: COMPLETE    # docs/database/f006-virtual-machine-migration.md（READY FOR DATABASE IMPLEMENTATION）
-      backend: COMPLETE           # 5d87d20；400 passed
+      backend: BLOCKED            # 5d87d20；Tester 判 RETURN TO IMPLEMENTATION（F006-T-01 MEDIUM）
       frontend: COMPLETE          # 5d87d20；242 passed + build
-      test: PENDING
+      test: BLOCKED               # docs/test-reports/f006-virtual-machine.md；AC-01~32 功能全 PASS，守卫覆盖缺陷
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -1569,7 +1569,7 @@ planning_status:
 
 execution:
   current_feature: F006
-  current_stage: TEST
+  current_stage: IMPLEMENTATION
   started_on: "2026-09-16"
   note: >
     F009（Cluster 视角资源查询）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 6529b0d）。
