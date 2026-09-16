@@ -853,7 +853,10 @@ open_questions:
     detail: CPU / Memory / GPU / Storage / Vendor / Model / Serial Number 的 V1 必填与可选范围
     resolve_in_feature: F002
     blocking: false
-    status: OPEN
+    status: CLOSED_RESOLVED
+    resolution: >
+      用户 2026-09-16 裁定：全部可选、纯文本、允许 NULL；Serial Number 不参与唯一性。
+      已固化为 requirements.md §8 R-BM-007，并已写入 resources[BareMetal].fields。
   - id: OPEN-005
     topic: Excel 部分成功导入策略
     status: CLOSED_RESOLVED

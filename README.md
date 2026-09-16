@@ -4,9 +4,10 @@
 
 CSM **不以建设完整 CMDB 为目标**；具体产品范围与业务规则以 `docs/product/` 中已确认的文档为准。
 
-> 当前里程碑：**F013 — 本地账号认证与会话**（继承 F012 基座与 F001 Cluster）。
-> 已交付 F012 基座、F001 Cluster 的 5 个产品端点，以及 F013 认证：本地账号、
-> 服务端会话、覆盖全部 `/api/*` 的 fail-closed 认证边界、初始管理员 CLI、登录页。
+> 当前里程碑：**F002 — BareMetal 登记与管理**（继承 F012 基座、F001 Cluster、F013 认证、F014 软删）。
+> 已交付 F012 基座、F001 Cluster 的 5 个产品端点、F013 认证，以及 F002 BareMetal 的 5 个产品端点：
+> 登记、查询、状态 / R-BM-007 硬件字段维护、逻辑删除，并落地 F014
+> 「Cluster 有活跃 BareMetal → 拒删」端到端与 `FOR SHARE` 并发协议。
 > 技术栈与关键决策见 `docs/architecture/adr/`（ADR-0001 ~ ADR-0005，全部 `ACCEPTED`）。
 
 ---
@@ -98,8 +99,10 @@ python3 -m venv .venv
 ```
 
 应创建 `clusters` 表、`ck_clusters_name_no_slash` 约束与 `ux_clusters_name_active`
-partial unique index，以及 F013 的 `users` / `sessions` 表（`docs/database/f012-baseline-migration.md`、
-`docs/database/csm-v1-schema-design.md`）。
+partial unique index，F013 的 `users` / `sessions` 表，以及 F002 的 `bare_metals` 表
+（`fk_bare_metals_cluster` RESTRICT、`ck_bare_metals_status`、`ux_bare_metals_cluster_hostname_active`
+partial unique index）；见 `docs/database/f012-baseline-migration.md`、
+`docs/database/f002-bare-metal-migration.md`、`docs/database/csm-v1-schema-design.md`）。
 
 ### 3.5 启动后端 API
 
@@ -198,8 +201,14 @@ AC-09：F012 交付物**不包含任何具体资源的字段定义、唯一性�
 | `GET` | `/api/clusters/by-name/{cluster_name}` | 需要 | 只读名称别名（大小写敏感）；未命中 → `404 NOT_FOUND` |
 | `PATCH` | `/api/clusters/{cluster_id}` | 需要 | 更新名称（复用创建时的同一套领域校验） |
 | `DELETE` | `/api/clusters/{cluster_id}` | 需要 | 逻辑删除（F014）→ `204` 无响应体；不存在 / 已删除 → `404`；存在活跃子资源 → `409` |
+| `POST` | `/api/bare-metals` | 需要 | 登记 BareMetal（`cluster_id` + `hostname` 必填）；同 Cluster 活跃同名 → `409`；父不存在 / 已删 → `404`；`201` |
+| `GET` | `/api/bare-metals` | 需要 | 列出活跃 BareMetal（分页 `page` / `page_size`，可选 `cluster_id`）；空集合 `200` + `items: []`；`cluster_id` 不存在 / 已删 → `404` |
+| `GET` | `/api/bare-metals/{bare_metal_id}` | 需要 | 按 id 读取；不存在 / 已逻辑删除 → `404 NOT_FOUND` |
+| `PATCH` | `/api/bare-metals/{bare_metal_id}` | 需要 | 更新 `status` + R-BM-007 七字段；`hostname` / `cluster_id` 不可变；非法 `status` → `400` |
+| `DELETE` | `/api/bare-metals/{bare_metal_id}` | 需要 | 逻辑删除 → `204`；不存在 / 已删 → `404`（委托统一软删服务） |
 
-- 契约正文见 `docs/api/f001-cluster.md`、`docs/api/f013-auth.md`、`docs/api/f014-soft-delete.md`；通用约定见 `docs/api/api-conventions.md`。
+- 契约正文见 `docs/api/f001-cluster.md`、`docs/api/f002-bare-metal.md`、`docs/api/f013-auth.md`、
+  `docs/api/f014-soft-delete.md`；通用约定见 `docs/api/api-conventions.md`。
 - **F014 后** `DELETE /api/clusters/{cluster_id}` 可用：逻辑删除（行仍物理存在）、已删不占唯一性可同名重建、不提供 `by-name` 删除别名、无恢复能力。删除经系统内唯一的软删领域服务 `app/deletion/service.py`（ADR-0004）。
 
 ### 5.1 认证边界与初始账号
@@ -241,14 +250,15 @@ backend/
 │   ├── api/            # 产品 HTTP 路由（health）+ 请求依赖（事务边界）
 │   ├── auth/           # F013 认证：passwords / policy / tokens / repository / service / router / middleware / cli
 │   ├── clusters/       # F001/F014 Cluster 模块：router / schemas / validation / service / repository / deletion
+│   ├── bare_metals/    # F002 BareMetal 模块：router / schemas / validation / service / repository / deletion
 │   ├── common/         # 横切关注点：错误信封、SQLSTATE 映射、分页
 │   ├── db/             # Declarative Base、mixin、引擎/会话、deleted_at 过滤原语
 │   ├── deletion/       # F014 统一软删领域服务（唯一写 deleted_at 的路径）+ 活跃子检查声明类型
-│   ├── models/         # 每类资源一个独立模块、一张独立表（+ users / sessions）
+│   ├── models/         # 每类资源一个独立模块、一张独立表（cluster / bare_metal + users / sessions）
 │   ├── schemas/        # Pydantic schema
 │   ├── config.py       # 环境变量配置
 │   └── main.py         # 应用工厂（挂载 AuthMiddleware）
-└── migrations/         # Alembic（env.py + versions/0001_f012_baseline.py + 0002_f013_auth.py）
+└── migrations/         # Alembic（env.py + versions/0001_f012_baseline.py + 0002_f013_auth.py + 0003_f002_bare_metals.py）
 
 tests/
 ├── database/           # 绕过应用层、直接对 PostgreSQL 的约束 / 迁移 / 认证表测试

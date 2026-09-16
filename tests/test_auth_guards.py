@@ -105,6 +105,8 @@ EXPECTED_GET_ROUTES = {
     "/api/clusters",
     "/api/clusters/by-name/{cluster_name}",
     "/api/clusters/{cluster_id}",
+    "/api/bare-metals",
+    "/api/bare-metals/{bare_metal_id}",
     "/api/auth/session",
 }
 

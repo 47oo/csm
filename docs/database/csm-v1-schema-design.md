@@ -145,11 +145,19 @@ CREATE UNIQUE INDEX ux_clusters_name_active
 | `cluster_id` | `BIGINT` | NOT NULL | — | 所属 Cluster（R-BM-001 必选） |
 | `hostname` | `TEXT` | NOT NULL | — | 主机名（R-BM-002） |
 | `status` | `TEXT` | NOT NULL | `'IDLE'` | 状态（R-BM-003~006） |
+| `vendor` | `TEXT` | NULL | — | 厂商（R-BM-007，可选） |
+| `model` | `TEXT` | NULL | — | 型号（R-BM-007，可选） |
+| `serial_number` | `TEXT` | NULL | — | 序列号（R-BM-007，可选；**不参与唯一性**） |
+| `cpu` | `TEXT` | NULL | — | CPU（R-BM-007，可选，纯文本） |
+| `memory` | `TEXT` | NULL | — | 内存（R-BM-007，可选，纯文本） |
+| `gpu` | `TEXT` | NULL | — | GPU（R-BM-007，可选，纯文本） |
+| `storage` | `TEXT` | NULL | — | 存储（R-BM-007，可选，纯文本） |
 | `created_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | 登记时间 |
 | `updated_at` | `TIMESTAMPTZ` | NOT NULL | `now()` | 最近更新时间 |
 | `deleted_at` | `TIMESTAMPTZ` | NULL | — | 逻辑删除标记 |
 
-> **不设计**：CPU / Memory / GPU / Storage / Vendor / Model / Serial Number 等硬件字段（**OPEN-004 未确认，不得自行发明**，见 Open Questions）、Rack / U Position（§13 已从 V1 删除）、状态来源 / 监控字段（R-BM-006）。
+> **不设计**：Rack / U Position（§13 已从 V1 删除）、状态来源 / 监控字段（R-BM-006）。
+> **硬件字段（R-BM-007，2026-09-16 用户裁定，OPEN-004 已关闭）**：`vendor` / `model` / `serial_number` / `cpu` / `memory` / `gpu` / `storage` 均为**可选 `TEXT` 且允许 NULL**（Serial 不参与唯一性），已并入上表列清单，并在 `0003_f002_bare_metals` 首次建表时**同一条 `CREATE TABLE`** 内一并创建；**不添加**任何长度 / 格式 / 唯一约束。
 
 #### Primary Key
 
@@ -868,7 +876,7 @@ UNCONFIRMED 关系（VM→BareMetal、Container→载体）不得在 API 层被�
 
 ### Non-blocking
 
-1. **OPEN-004（BareMetal 硬件字段）延后到 F002 的 Product 阶段** —— 归属 `project-plan.yaml` F002；本设计**故意不包含**任何 CPU / Memory / GPU / Storage / Vendor / Model / Serial Number 列。字段确认后以**新增列**的增量 migration 落地（可空列或带默认值的非空列），对本设计无破坏。
+1. ~~**OPEN-004（BareMetal 硬件字段）延后到 F002 的 Product 阶段**~~ → **✅ 已关闭（2026-09-16，用户裁定 R-BM-007）**：`vendor` / `model` / `serial_number` / `cpu` / `memory` / `gpu` / `storage` 七列为**可选 `TEXT` 且允许 NULL**、`serial_number` 不参与唯一性，已并入 `bare_metals` 列清单，并在 `0003_f002_bare_metals` **首次建表时**一并创建（不再作为「后续新增列」落地）。无长度 / 格式 / 唯一约束；不使用 `ON DELETE CASCADE`、触发器或 `COLLATE`。
 2. **OPEN-001 / OPEN-002 / OPEN-003（VM / Container / Service 字段与粒度）延后到对应 Feature 的 Product 阶段** —— `virtual_machines` / `containers` / `services` 表本次**不设计、不给出字段清单**。未来接入时的模式（仅说明模式，不涉字段）：
    - Service 与 Cluster 的关联由运行载体推导，**不得**落 `service.cluster_id`（R-SVC-004 / R-SVC-006）；Service↔Host 需一张绑定表（N:M）；
    - 若未来某一资源（如 VirtualMachine）也需要「同 Cluster 内唯一」的名称 / 地址，可复用与 `ip_addresses.cluster_id` 相同的**反规范化 `cluster_id` + 受控写入路径 + 一致性测试**模式；是否反规范化须在其 Product 阶段依唯一性边界决定，**不得预先落地**；

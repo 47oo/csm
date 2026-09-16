@@ -66,7 +66,7 @@ describe('ClusterDetailPage 状态渲染', () => {
     })
   })
 
-  it('成功 → 仅呈现 Cluster 自身 4 个字段（原样值），无 BareMetal / 跨资源内容', async () => {
+  it('成功 → 仅呈现 Cluster 自身 4 个字段（原样值），无裸金属数据 / 跨资源内容', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, CLUSTER_A)))
 
     const wrapper = mountDetailPage()
@@ -80,9 +80,11 @@ describe('ClusterDetailPage 状态渲染', () => {
     expect(text).toContain('cluster-a')
     // 时间为 RFC 3339 不透明字符串，原样展示（契约 §2）。
     expect(text).toContain('2026-09-15T10:00:00Z')
-    // 详情页边界：不呈现 BareMetal（F009）、跨资源视图（F010）、
-    // deleted_at / 状态 / 位置字段（契约 §2）。删除入口自 F014 起提供（见下方用例）。
-    expect(text).not.toContain('裸金属')
+    // 详情页边界：不呈现裸金属数据（Cluster 视角成员列表属 F009）、跨资源视图
+    // （F010）、deleted_at / 状态 / 位置字段（契约 §2）。
+    // F002 起「查看裸金属」为导航入口（f002-bare-metal-handoff.md Frontend Work #4，
+    // 跳转该集群裸金属列表），不属数据呈现，见下方 F002 用例。
+    expect(wrapper.find('.el-table').exists()).toBe(false)
     expect(text).not.toContain('deleted_at')
     expect(text).not.toContain('状态')
   })
@@ -132,6 +134,23 @@ describe('ClusterDetailPage 状态渲染', () => {
     await backButton!.trigger('click')
 
     expect(wrapper.emitted('back')).toHaveLength(1)
+  })
+
+  it('F002：内容态存在「查看裸金属」入口 → emit openBareMetals(clusterId)（携带 cluster_id）', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, CLUSTER_A)))
+
+    const wrapper = mountDetailPage(7)
+    await vi.waitFor(() => {
+      expect(wrapper.attributes('data-state')).toBe('content')
+    })
+
+    const bareMetalsButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('查看裸金属'))
+    expect(bareMetalsButton).toBeDefined()
+    await bareMetalsButton!.trigger('click')
+
+    expect(wrapper.emitted('openBareMetals')).toEqual([[7]])
   })
 })
 

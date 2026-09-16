@@ -15,7 +15,7 @@ from sqlalchemy import Engine, create_engine, text
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-MIGRATION_HEAD = "0002_f013_auth"
+MIGRATION_HEAD = "0003_f002_bare_metals"
 
 SKIP_REASON = "未配置 PostgreSQL 测试库：设置 CSM_TEST_DATABASE_URL 后重跑。"
 

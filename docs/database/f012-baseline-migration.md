@@ -126,11 +126,18 @@ CREATE INDEX ix_sessions_expires_at ON sessions (expires_at);
 
 ```sql
 CREATE TABLE bare_metals (
-  id          BIGINT GENERATED ALWAYS AS IDENTITY,
-  cluster_id  BIGINT      NOT NULL,
-  hostname    TEXT        NOT NULL,
-  status      TEXT        NOT NULL DEFAULT 'IDLE',
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  id            BIGINT GENERATED ALWAYS AS IDENTITY,
+  cluster_id    BIGINT      NOT NULL,
+  hostname      TEXT        NOT NULL,
+  status        TEXT        NOT NULL DEFAULT 'IDLE',
+  vendor        TEXT        NULL,          -- R-BM-007
+  model         TEXT        NULL,          -- R-BM-007
+  serial_number TEXT        NULL,          -- R-BM-007（不参与唯一性）
+  cpu           TEXT        NULL,          -- R-BM-007
+  memory        TEXT        NULL,          -- R-BM-007
+  gpu           TEXT        NULL,          -- R-BM-007
+  storage       TEXT        NULL,          -- R-BM-007
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted_at  TIMESTAMPTZ NULL,
   CONSTRAINT pk_bare_metals PRIMARY KEY (id),
@@ -255,7 +262,7 @@ alembic downgrade base && alembic upgrade head
 
 **无。** 绿色字段启动，库中无既有数据；基线为首次建表，不存在数据回填、类型转换、唯一性冲突清理。
 
-（后续 F002 的 OPEN-004 硬件字段、F006/F007/F008 的新表为**新增列 / 新增表**，均可用可空列或带默认值的方式增量迁移，无需数据迁移；破坏性变更须单独说明并经用户确认。）
+（F002 的 R-BM-007 硬件字段已随 `0003_f002_bare_metals` 首次建表一并创建，**不涉及新增列或数据回填**；F006/F007/F008 的新表为**新增表**，无需数据迁移；破坏性变更须单独说明并经用户确认。）
 
 ---
 

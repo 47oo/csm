@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from app.api import health as health_api
 from app.auth.middleware import AuthMiddleware
 from app.auth.router import router as auth_router
+from app.bare_metals.router import router as bare_metals_router
 from app.clusters.router import router as clusters_router
 from app.common.error_handlers import register_error_handlers
 from app.config import Settings, get_settings
@@ -53,9 +54,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # /api/*（唯一豁免 POST /api/auth/login）。必须在 include_router 前注册。
     app.add_middleware(AuthMiddleware)
 
-    # 产品 API 面：health + clusters + auth。全部位于 /api 前缀下。
+    # 产品 API 面：health + clusters + bare-metals + auth。全部位于 /api 前缀下。
     app.include_router(health_api.router, prefix="/api")
     app.include_router(clusters_router, prefix="/api")
+    app.include_router(bare_metals_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
 
     return app
