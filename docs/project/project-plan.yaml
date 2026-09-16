@@ -498,7 +498,7 @@ features:
       status: READY
       doc: docs/api/f006-virtual-machine.md
     implementation:
-      database_design: PENDING
+      database_design: COMPLETE    # docs/database/f006-virtual-machine-migration.md（READY FOR DATABASE IMPLEMENTATION）
       backend: PENDING
       frontend: PENDING
       test: PENDING
