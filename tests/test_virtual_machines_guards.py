@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import ast
+
 from app.bare_metals.deletion import BARE_METAL_ACTIVE_CHILD_CHECKS
 from app.virtual_machines.deletion import (
     VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS,
@@ -58,6 +60,26 @@ def _field_constraint_flags(model, field_name: str) -> set[str]:
     return flags
 
 
+def _soft_delete_active_children_args(source: str) -> list[str]:
+    """AST 扫描全部 ``soft_delete(...)`` 调用中 ``active_children=`` 实参的源码文本。
+
+    仅做子串匹配会在常量名仅出现于注释 / docstring 时误判；AST 只解析真实代码，
+    故「删掉 import 与实参、仅留注释」的注入无法通过。
+    """
+    values: list[str] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        callee = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+        if callee != "soft_delete":
+            continue
+        for keyword in node.keywords:
+            if keyword.arg == "active_children":
+                values.append(ast.unparse(keyword.value))
+    return values
+
+
 # --------------------------------------------------------------------------- #
 # 字段封闭（契约 §2）
 # --------------------------------------------------------------------------- #
@@ -106,8 +128,10 @@ def test_g5_t26_bare_metal_active_child_checks_contain_vm_check():
 
 def test_t26_bare_metal_delete_path_consumes_declared_checks():
     source = (REPO_ROOT / "backend/app/bare_metals/service.py").read_text(encoding="utf-8")
-    assert "BARE_METAL_ACTIVE_CHILD_CHECKS" in source
     assert "soft_delete(" in source
+    assert "BARE_METAL_ACTIVE_CHILD_CHECKS" in _soft_delete_active_children_args(source), (
+        "BareMetal 删除必须通过 active_children= 关键字真实传入声明的活跃子检查"
+    )
 
 
 def test_t26_bare_metal_active_child_check_blocks_delete(auth_client_and_raw, monkeypatch):
@@ -150,7 +174,9 @@ def test_g6_t27_vm_active_child_checks_explicitly_declared():
 def test_g6_t27_vm_delete_path_passes_active_child_checks():
     source = (REPO_ROOT / "backend/app/virtual_machines/service.py").read_text(encoding="utf-8")
     assert "soft_delete(" in source, "VirtualMachine 删除必须委托统一软删服务"
-    assert "VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS" in source, "必须显式传入声明的活跃子检查"
+    assert "VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS" in _soft_delete_active_children_args(source), (
+        "必须通过 active_children= 关键字真实传入声明的活跃子检查（仅注释 / docstring 不算）"
+    )
 
 
 # --------------------------------------------------------------------------- #

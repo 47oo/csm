@@ -108,8 +108,8 @@ def delete_bare_metal(session: Session, bare_metal_id: int) -> BareMetal:
     """逻辑删除 BareMetal：委托系统内唯一的软删写入路径（F014）。
 
     BareMetal 自身的活跃子资源检查由模块声明
-    （``BARE_METAL_ACTIVE_CHILD_CHECKS``，当前显式空元组）并**显式传入**，
-    不假定「无子资源」。
+    （``BARE_METAL_ACTIVE_CHILD_CHECKS``，F006 起包含「是否存在活跃 VirtualMachine」
+    检查）并**显式传入**，不假定「无子资源」。
     """
     return soft_delete(
         session,
