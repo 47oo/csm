@@ -397,4 +397,144 @@ $ npm run build → vue-tsc 通过 + vite build 成功
 
 ---
 
+# Re-verification（修复复验）
+
+> 复验角色：tester（独立）
+> 复验日期：2026-09-18
+> base `develop` = `f74e7ddbf369910e6f83b99758b672019b4fe4c9`
+> 上一轮实现 HEAD = `5d87d207d92c06e2b8d0e7e34d0b7436064bf992`（其后 `03db90a` 计划检查点）
+> 修复后 HEAD = `7844a173394a5249d9267598c1c76363dc6c5b5e`（`4ec20c5` 独立验收 + `7844a17` 修复）
+> 复验范围：F006-T-01 / F006-T-02 / F006-T-03，并独立验证修复未削弱其它 guard。
+
+原报告内容全部保留；本小节为追加。
+
+## 修复差异（`git diff f74e7dd..7844a17 -- tests/... backend/app/bare_metals/service.py`）
+
+| 文件 | 修复内容 |
+|---|---|
+| `tests/test_cluster_views_guards.py` | `BOUNDARY_TOKENS` **仅**移除已合法化的 `virtual-machine` / `virtual_machine`；`test_g009_2` 扫描范围**恢复为全部 OpenAPI path**（`_openapi()["paths"]`），注释明确非 GET 越界路由仍须检出 |
+| `tests/test_bare_metals_api.py` | `forbidden_prefixes` = `(nic, ip, network-interface, network_interface, container, service)`（**仅**移除 `vm`/`virtual`，保留 `nic`/`ip`/`container`/`service` 并新增两种 `network-interface` 写法）；扫描范围**保持全部 `/api/*` path** |
+| `tests/test_virtual_machines_guards.py` | 新增 AST 辅助 `_soft_delete_active_children_args`，`test_g6_t27_vm_delete_path_passes_active_child_checks` 与 `test_t26_bare_metal_delete_path_consumes_declared_checks` 改为断言 `soft_delete(...)` 调用中 `active_children=` 关键字**真实解析到常量** |
+| `backend/app/bare_metals/service.py` | `delete_bare_metal` docstring 由「当前显式空元组」改为「F006 起包含『是否存在活跃 VirtualMachine』检查」 |
+
+**功能性变更集**：`git diff 03db90a..7844a17 -- backend/app/` 仅含上述 docstring（零行为变更）。
+
+## 环境
+
+| 项 | 值 |
+|---|---|
+| PostgreSQL | **16.2**（`.venv` 内 `pgserver` 真实实例，socket `/tmp/f006-reverify/pgdata`，本次新建） |
+| 测试库 | `csm_f006_rv`（pytest 每夹具重建）、`csm_mig_rv`（迁移 / schema 检查）、`csm_api_rv`（预留） |
+| Node / npm | v24.14.0 / 11.9.0（Vitest 5.0.1） |
+| ruff | 0.16.7 |
+
+## F006-T-01 复验（跨模块边界 guard）→ **Re-verified**
+
+**注入**：临时向 `backend/app/main.py`（**非** cluster_views / bare_metals 模块）追加 `POST /api/containers` 与 `POST /api/network-interfaces`，随后运行两条原判缺陷 guard：
+
+```text
+$ CSM_TEST_DATABASE_URL=...csm_f006_rv... .venv/bin/python -m pytest -q \
+    "tests/test_cluster_views_guards.py::test_g009_2_no_forbidden_resource_tokens_in_any_path" \
+    "tests/test_bare_metals_api.py::test_t29_no_other_resource_endpoints_or_columns"
+FAILED tests/test_cluster_views_guards.py::test_g009_2_no_forbidden_resource_tokens_in_any_path
+FAILED tests/test_bare_metals_api.py::test_t29_no_other_resource_endpoints_or_columns
+2 failed
+```
+
+T-29 报错明细证明其命中的是**跨模块越界路由**：
+
+```text
+AssertionError: F002 不得注册其它资源端点：['/api/network-interfaces', '/api/containers']
+```
+
+**通过**（`5d87d20` 旧的收窄实现下同一注入漏检：68 项 guard 全通过）。
+
+**全局覆盖确认**：
+- `test_g009_2`：`for path in _openapi()["paths"]`，遍历整个 OpenAPI 文档的全部 path，非单模块 `router.routes`。
+- `test_t29`：`for path in paths if path.startswith("/api/") and path[len("/api/"):].startswith(prefix)`，遍历全部 `/api/*` path，非 `startswith("/api/bare-metals")`。
+
+两条 guard 均恢复为跨模块全局扫描，仅合法化 VM token。
+
+**还原**：`sha256sum backend/app/main.py` = `80d5d063…84`（注入前后一致），`git status --short` 为空。
+
+## F006-T-02 复验（VM 删除路径静态 guard）→ **Re-verified**
+
+**注入**：临时从 `backend/app/virtual_machines/service.py` 删除 `from app.virtual_machines.deletion import VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS` 与 `active_children=VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS,` 实参，仅保留 docstring 中的常量名（`grep` 确认文件中该名字只剩第 107 行 docstring）：
+
+```text
+$ CSM_TEST_DATABASE_URL=... .venv/bin/python -m pytest -q \
+    "tests/test_virtual_machines_guards.py::test_g6_t27_vm_delete_path_passes_active_child_checks"
+FAILED tests/test_virtual_machines_guards.py::test_g6_t27_vm_delete_path_passes_active_child_checks
+tests/test_virtual_machines_guards.py:177: AssertionError
+1 failed
+```
+
+失败点即 AST 断言第 177 行 `assert "VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS" in _soft_delete_active_children_args(source)`，证明「仅注释 / docstring 出现常量名」不再误判通过。
+
+**还原**：`sha256sum backend/app/virtual_machines/service.py` = `b75fcae6…31`，`git status --short` 为空。
+
+## F006-T-03 复验（docstring 漂移）→ **Re-verified**
+
+`backend/app/bare_metals/service.py::delete_bare_metal` docstring 现为「…（`BARE_METAL_ACTIVE_CHILD_CHECKS`，F006 起包含『是否存在活跃 VirtualMachine』检查）并**显式传入**…」，与 `backend/app/bare_metals/deletion.py` 的 `BARE_METAL_ACTIVE_CHILD_CHECKS: tuple[ActiveChildCheck, ...] = (has_active_virtual_machines,)` 一致。文档漂移已消除。
+
+## 修复未削弱其它 guard（独立验证）
+
+1. **全量 tests diff 逐行核对**（排除本 Feature 新增文件）：`git diff f74e7dd..7844a17 -- tests/` 中被删行仅 15 行，全部为**受控演进**，无断言被净删除：
+   - `MIGRATION_HEAD` / `alembic_current` / `EXPECTED_TABLES` / `Base.metadata.tables` / `table_names` 断言：`0003`→`0004`、表集合**追加** `virtual_machines`；
+   - `BOUNDARY_TOKENS`：仅删 `virtual-machine` / `virtual_machine`（已合法资源）；
+   - `forbidden_prefixes`：仅删 `vm` / `virtual`，`nic`/`ip`/`container`/`service` 保留并新增 `network-interface`/`network_interface`；
+   - `BARE_METAL_ACTIVE_CHILD_CHECKS`：由 `== ()` **加强**为 `len(...) >= 1` 且必须含 `has_active_virtual_machines`（由 fail-open 改为 fail-closed）；
+   - 其余为断言 message / 注释文本更新。
+2. **抽查另一条被演进 guard 的真实可失败性**：临时把 `BARE_METAL_ACTIVE_CHILD_CHECKS` 改回 `()` 后：
+
+```text
+$ .venv/bin/python -m pytest -q \
+    tests/test_bare_metals_guards.py::test_t22_bare_metal_active_child_checks_explicitly_declared \
+    tests/test_virtual_machines_guards.py::test_g5_t26_bare_metal_active_child_checks_contain_vm_check
+FAILED tests/test_bare_metals_guards.py::test_t22_bare_metal_active_child_checks_explicitly_declared
+FAILED tests/test_virtual_machines_guards.py::test_g5_t26_bare_metal_active_child_checks_contain_vm_check
+2 failed
+```
+
+   `sha256sum backend/app/bare_metals/deletion.py` = `7d141846…d4` 还原一致，`git status --short` 为空。
+3. 结论：未发现修复把任何 guard 改成无法失败的形式，也未一并削弱其它 guard（另有 F006-T-01 注入的跨模块反证）。
+
+## 工程门禁（真实执行）
+
+```text
+$ alembic upgrade head（真实 PG csm_mig_rv）→ 0001 → 0002 → 0003 → 0004_f006_virtual_machines
+$ alembic current                            → 0004_f006_virtual_machines (head)
+$ alembic upgrade head（重复）                → no-op
+$ alembic check                              → No new upgrade operations detected.
+$ CSM_TEST_DATABASE_URL=...csm_f006_rv... .venv/bin/python -m pytest -q
+  400 passed, 2 warnings in 267.16s（无 skipped）
+$ .venv/bin/ruff check backend tests          → All checks passed!
+$ .venv/bin/ruff format --check backend tests → 103 files already formatted
+$ cd frontend && npm run typecheck            → exit 0
+$ npm run test                                → Test Files 20 passed，Tests 242 passed
+$ npm run build                               → vite build 成功（dist/assets/index-B8mECZbk.js 1,049.38 kB，仅 chunk 体积告警）
+```
+
+## 集成（Integration）
+
+修复 commit（`03db90a..7844a17`）对 `backend/app/**` 的唯一改动是 docstring，**零功能性变更**；因此上一轮已实际执行的真实前后端集成行为不受影响。本轮以真实 PostgreSQL 重新执行了后端全量套件（`400 passed`，含 F006 API / 约束 / 并发），前端 `typecheck + test(242) + build` 全绿。跨进程 uvicorn + 前端真实 client 探针**未在本轮重跑**（无功能性差异，不构成新的验证面）。
+
+## 复验结论
+
+| Defect | Severity | 复验结果 |
+|---|---|---|
+| F006-T-01 跨模块边界 guard 收窄 | MEDIUM | **Re-verified / Fixed** — 全局扫描已恢复，注入越界 `POST /api/containers` 后两条 guard 均 FAILED |
+| F006-T-02 VM 删除路径静态 guard 可绕过 | LOW | **Re-verified / Fixed** — AST 检查真实解析 `active_children=` 实参，仅 docstring 出现常量名时 FAILED |
+| F006-T-03 `delete_bare_metal` docstring 过期 | LOW | **Re-verified / Fixed** — 注释与实际 `BARE_METAL_ACTIVE_CHILD_CHECKS` 内容一致 |
+
+无新增缺陷；无 BLOCKER / HIGH；修复未削弱其它 guard。
+
+## New Test Status
+
+`READY FOR REVIEW`
+
+依据：上一轮 3 个缺陷全部独立复验修复（每项均以真实注入证明 guard 可失败并逐字节还原，`git status` 干净）；AC-01 ~ AC-32 在上一轮已全部 PASS 且功能语义不变（修复对 `backend/app/**` 仅 docstring）；全量后端 `400 passed`（无 skipped）、ruff / format 全绿、前端 `typecheck + 242 passed + build` 全绿；无 BLOCKER / HIGH / 必须修复的 MEDIUM，无新增缺陷。
+
+---
+
 GIT: NONE
