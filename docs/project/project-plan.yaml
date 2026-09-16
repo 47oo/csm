@@ -250,7 +250,7 @@ features:
       start_commit: 897b32539927c137b933aa0ebed700d3bc26be5b
       head_commit: 592e96e2cce091b481e13ad030462546b387d6a1
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     layers:
       database: false     # 无 Schema / migration 变更；clusters.deleted_at / ux_clusters_name_active 由 F012 基线冻结
       backend: true       # app/deletion/ 统一软删服务 + clusters DELETE 路径 + guard 演进 + 测试
@@ -262,7 +262,7 @@ features:
       database_design: NOT_REQUIRED   # database: false；数据库侧仅为测试断言
       backend: COMPLETE           # 592e96e；155 passed
       frontend: COMPLETE          # 592e96e；105 passed + build
-      test: PENDING
+      test: COMPLETE              # docs/test-reports/f014-soft-delete.md（READY FOR REVIEW）
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -1214,7 +1214,7 @@ planning_status:
 
 execution:
   current_feature: F014
-  current_stage: TEST
+  current_stage: REVIEW
   started_on: "2026-09-15"
   note: >
     F014（逻辑删除与数据一致性治理）于 2026-09-16 启动。
