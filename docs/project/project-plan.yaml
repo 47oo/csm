@@ -480,9 +480,26 @@ features:
     name: VirtualMachine 登记与管理
     epic: E03
     priority: P1
-    status: READY
+    status: IN_PROGRESS
     depends_on: [F002]
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F006-virtual-machine
+      start_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
+      head_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
+      merge_commit: null
+    current_stage: PRODUCT
+    layers: {}
+    contract:
+      status: NOT_REQUIRED
+      doc: null
+    implementation:
+      database_design: PENDING
+      backend: PENDING
+      frontend: PENDING
+      test: PENDING
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-VM-001
@@ -1500,8 +1517,8 @@ planning_status:
   decision: PROJECT IN PROGRESS — M2 DONE (F009); NEXT READY = F004 / F006
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F006
+  current_stage: PRODUCT
   started_on: "2026-09-16"
   note: >
     F009（Cluster 视角资源查询）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 6529b0d）。
