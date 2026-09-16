@@ -1,54 +1,114 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getCurrentSession, logout } from './api/auth'
 import type { AuthenticatedUser } from './api/auth'
 import { setUnauthenticatedHandler } from './api/http'
 import LoginPage from './pages/LoginPage.vue'
 import ClusterListPage from './pages/ClusterListPage.vue'
 import ClusterDetailPage from './pages/ClusterDetailPage.vue'
+import BareMetalListPage from './pages/BareMetalListPage.vue'
+import BareMetalDetailPage from './pages/BareMetalDetailPage.vue'
 
 /**
- * 会话与视图状态（F013；仍不引入 vue-router，f013-auth-handoff.md PROPOSED-5）。
+ * 会话与视图状态（F013；仍不引入 vue-router，f013-auth-handoff.md PROPOSED-5；
+ * F002 起扩展为 Cluster / BareMetal 两组资源视图，f002-bare-metal-handoff.md
+ * Frontend Work #4：导航形式不构成产品规则）。
  *
  * 视图状态：bootstrap（启动会话探测中）→ login（未认证 / 会话失效）↔ app（已认证）。
  *
  * - 挂载时 GET /api/auth/session（f013-auth.md §5.3）：已登录 → 直接进入 app；
  *   未登录（401）→ 登录页；
  * - 全局 401（未抑制的请求收到 UNAUTHENTICATED，如会话过期后的资源请求）→
- *   切回 login 并清除当前视图状态（不保留任何资源数据，含 selectedClusterId）；
+ *   切回 login 并清除当前视图状态（不保留任何资源数据，含资源视图）；
  * - app 视图头部提供登出按钮：logout() 无论 204 还是 401 都切到 login
  *   （f013-auth.md §5.2 幂等语义：调用方把 204 与 401 归一为同一处理）；
  * - Cookie（csm_session，HttpOnly）由浏览器管理，前端不读不写任何令牌。
  */
 type AppView = 'bootstrap' | 'login' | 'app'
 
+/**
+ * 资源视图状态（F002 起含 BareMetal）：
+ * - cluster-list / cluster-detail：F001 既有视图；
+ * - bare-metal-list：裸金属列表；clusterId 非空 = 按 Cluster 限定
+ *   （从集群详情「查看裸金属」进入，携带 cluster_id），null = 全部；
+ * - bare-metal-detail：裸金属详情；clusterId 记录进入前的列表过滤上下文，
+ *   返回时恢复该上下文。
+ */
+type ResourceView =
+  | { kind: 'cluster-list' }
+  | { kind: 'cluster-detail'; clusterId: number }
+  | { kind: 'bare-metal-list'; clusterId: number | null }
+  | { kind: 'bare-metal-detail'; bareMetalId: number; clusterId: number | null }
+
 const view = ref<AppView>('bootstrap')
 const currentUser = ref<AuthenticatedUser | null>(null)
-/** 资源视图状态：null → 集群列表；非 null → 集群详情（按 id 读取）。 */
-const selectedClusterId = ref<number | null>(null)
+const resourceView = ref<ResourceView>({ kind: 'cluster-list' })
 const loggingOut = ref(false)
 
 /** 切回登录页并清除当前视图状态（不保留任何资源数据）。 */
 function resetToLogin(): void {
   view.value = 'login'
   currentUser.value = null
-  selectedClusterId.value = null
+  resourceView.value = { kind: 'cluster-list' }
 }
 
-/** 登录成功 / 启动会话有效 → 进入系统（资源视图从列表开始）。 */
+/** 登录成功 / 启动会话有效 → 进入系统（资源视图从集群列表开始）。 */
 function enterApp(user: AuthenticatedUser): void {
   currentUser.value = user
-  selectedClusterId.value = null
+  resourceView.value = { kind: 'cluster-list' }
   view.value = 'app'
 }
 
-function openDetail(clusterId: number): void {
-  selectedClusterId.value = clusterId
+// ---- 资源视图导航（Cluster ↔ BareMetal） ----
+
+function openClusterList(): void {
+  resourceView.value = { kind: 'cluster-list' }
 }
 
-function backToList(): void {
-  selectedClusterId.value = null
+function openBareMetalList(): void {
+  resourceView.value = { kind: 'bare-metal-list', clusterId: null }
 }
+
+function openClusterDetail(clusterId: number): void {
+  resourceView.value = { kind: 'cluster-detail', clusterId }
+}
+
+function backToClusterList(): void {
+  resourceView.value = { kind: 'cluster-list' }
+}
+
+/** 从集群详情进入该集群的裸金属列表（携带 cluster_id）。 */
+function openClusterBareMetals(clusterId: number): void {
+  resourceView.value = { kind: 'bare-metal-list', clusterId }
+}
+
+/** 裸金属列表返回：从集群详情进入的回到该集群详情，否则回集群列表。 */
+function backFromBareMetalList(): void {
+  const current = resourceView.value
+  resourceView.value =
+    current.kind === 'bare-metal-list' && current.clusterId !== null
+      ? { kind: 'cluster-detail', clusterId: current.clusterId }
+      : { kind: 'cluster-list' }
+}
+
+/** 进入裸金属详情，保留当前列表的过滤上下文（返回时恢复）。 */
+function openBareMetalDetail(bareMetalId: number): void {
+  const current = resourceView.value
+  const clusterId = current.kind === 'bare-metal-list' ? current.clusterId : null
+  resourceView.value = { kind: 'bare-metal-detail', bareMetalId, clusterId }
+}
+
+/** 裸金属详情返回：回到进入前的裸金属列表（保留 cluster_id 过滤上下文）。 */
+function backFromBareMetalDetail(): void {
+  const current = resourceView.value
+  const clusterId = current.kind === 'bare-metal-detail' ? current.clusterId : null
+  resourceView.value = { kind: 'bare-metal-list', clusterId }
+}
+
+/** 头部导航高亮：当前资源区域（cluster-* / bare-metal-*）。 */
+const navSection = computed<'cluster' | 'bare-metal'>(() =>
+  resourceView.value.kind.startsWith('cluster') ? 'cluster' : 'bare-metal',
+)
 
 /**
  * 全局未认证处理（api/http.ts）：任意未抑制的请求收到 UNAUTHENTICATED
@@ -91,7 +151,25 @@ async function handleLogout(): Promise<void> {
     <LoginPage v-else-if="view === 'login'" @success="enterApp" />
     <template v-else>
       <header class="app-shell__header">
-        <span class="app-shell__brand">CSM</span>
+        <div class="app-shell__brand-nav">
+          <span class="app-shell__brand">CSM</span>
+          <nav class="app-shell__nav">
+            <el-button
+              :type="navSection === 'cluster' ? 'primary' : 'default'"
+              data-testid="nav-clusters"
+              @click="openClusterList"
+            >
+              集群
+            </el-button>
+            <el-button
+              :type="navSection === 'bare-metal' ? 'primary' : 'default'"
+              data-testid="nav-bare-metals"
+              @click="openBareMetalList"
+            >
+              裸金属
+            </el-button>
+          </nav>
+        </div>
         <div class="app-shell__session">
           <span v-if="currentUser !== null" class="app-shell__username">
             {{ currentUser.username }}
@@ -99,8 +177,27 @@ async function handleLogout(): Promise<void> {
           <el-button :loading="loggingOut" @click="handleLogout">登出</el-button>
         </div>
       </header>
-      <ClusterListPage v-if="selectedClusterId === null" @open-detail="openDetail" />
-      <ClusterDetailPage v-else :cluster-id="selectedClusterId" @back="backToList" />
+      <ClusterListPage
+        v-if="resourceView.kind === 'cluster-list'"
+        @open-detail="openClusterDetail"
+      />
+      <ClusterDetailPage
+        v-else-if="resourceView.kind === 'cluster-detail'"
+        :cluster-id="resourceView.clusterId"
+        @back="backToClusterList"
+        @open-bare-metals="openClusterBareMetals"
+      />
+      <BareMetalListPage
+        v-else-if="resourceView.kind === 'bare-metal-list'"
+        :cluster-id="resourceView.clusterId"
+        @open-detail="openBareMetalDetail"
+        @back="backFromBareMetalList"
+      />
+      <BareMetalDetailPage
+        v-else
+        :bare-metal-id="resourceView.bareMetalId"
+        @back="backFromBareMetalDetail"
+      />
     </template>
   </div>
 </template>
@@ -122,9 +219,21 @@ async function handleLogout(): Promise<void> {
   border-bottom: 1px solid #e4e7ed;
 }
 
+.app-shell__brand-nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
 .app-shell__brand {
   font-size: 18px;
   font-weight: 600;
+}
+
+.app-shell__nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .app-shell__session {

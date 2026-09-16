@@ -18,16 +18,21 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     include: ['tests/**/*.spec.ts'],
+    // element-plus（ESM 包）默认被外部化、由 Node 原生 import，
+    // 其内部对 CJS 依赖 async-validator（无 exports 字段，main 指向 dist-node）
+    // 的默认导入会解析成整个 module.exports 而非构造函数，导致 el-form
+    // 校验在测试环境静默失效（validate 恒为 true）。
+    // 浏览器构建走 module 字段（dist-web ESM）无此问题。
+    // 内联 element-plus 后其依赖经 Vite 解析，回归正常。
     server: {
       deps: {
-        // element-plus（ESM 包）默认被外部化、由 Node 原生 import，
-        // 其内部对 CJS 依赖 async-validator（无 exports 字段，main 指向 dist-node）
-        // 的默认导入会解析成整个 module.exports 而非构造函数，导致 el-form
-        // 校验在测试环境静默失效（validate 恒为 true）。
-        // 浏览器构建走 module 字段（dist-web ESM）无此问题。
-        // 内联 element-plus 后其依赖经 Vite 解析，回归正常。
         inline: ['element-plus'],
       },
     },
+    // 全量并行时多个 worker 同时内联转换 element-plus 会争抢 CPU，
+    // 使既有 vi.waitFor（默认 1000ms）偶发超时；限制并发 worker 数
+    // 并持久化模块转换缓存，保证时序敏感用例的确定性。
+    maxWorkers: 4,
+    fsModuleCache: true,
   },
 })

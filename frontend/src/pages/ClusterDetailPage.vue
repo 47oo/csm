@@ -18,13 +18,16 @@ import ErrorState from '../components/ErrorState.vue'
  *   两者不区分）→ 重新读取 → 404 → 进入既有独立 Not Found 态；409 CONFLICT →
  *   保留详情内容并按 error.code 渲染冲突提示；401 → 既有全局会话失效处理；
  *   提交中 Loading 且禁止重复提交。删除守卫由后端裁决（§21），前端不预判；
+ * - F002：内容态提供「查看裸金属」入口 → 进入该集群的裸金属列表
+ *   （GET /api/bare-metals?cluster_id={id}，契约 f002-bare-metal.md §3.2）；
+ *   本页仍不呈现裸金属数据（Cluster 视角成员视图属 F009）；
  * - 时间字段按不透明字符串原样展示（契约 §2）；
  * - 不呈现 BareMetal 列表 / 状态（F009）、不呈现跨资源视图（F010）。
  */
 
 const props = defineProps<{ clusterId: number }>()
 
-const emit = defineEmits<{ back: [] }>()
+const emit = defineEmits<{ back: []; openBareMetals: [clusterId: number] }>()
 
 const { data, loading, error, run } = useAsyncQuery(() => getCluster(props.clusterId))
 
@@ -75,6 +78,11 @@ function backToList(): void {
   emit('back')
 }
 
+/** F002：进入该集群的裸金属列表（携带 cluster_id）。 */
+function openBareMetals(): void {
+  emit('openBareMetals', props.clusterId)
+}
+
 /** 二次确认通过后删除当前集群；状态管理与错误渲染见 useClusterDelete。 */
 function confirmDelete(): void {
   void requestDelete(props.clusterId)
@@ -89,20 +97,24 @@ function confirmDelete(): void {
         <h1 class="cluster-detail__title">集群详情</h1>
       </div>
       <!-- F014 删除入口：仅内容态出现；「是否存在活跃子资源」由后端 409 裁决
-           （§21），前端不预判。 -->
-      <el-popconfirm
-        v-if="state === 'content'"
-        title="确定删除该集群吗？删除后不可恢复。"
-        confirm-button-text="删除"
-        cancel-button-text="取消"
-        confirm-button-type="danger"
-        :width="200"
-        @confirm="confirmDelete"
-      >
-        <template #reference>
-          <el-button type="danger" plain :loading="deletingId !== null">删除集群</el-button>
-        </template>
-      </el-popconfirm>
+           （§21），前端不预判。F002「查看裸金属」入口：跳转该集群裸金属列表。 -->
+      <div v-if="state === 'content'" class="cluster-detail__actions">
+        <el-button type="primary" plain data-testid="open-bare-metals" @click="openBareMetals">
+          查看裸金属
+        </el-button>
+        <el-popconfirm
+          title="确定删除该集群吗？删除后不可恢复。"
+          confirm-button-text="删除"
+          cancel-button-text="取消"
+          confirm-button-type="danger"
+          :width="200"
+          @confirm="confirmDelete"
+        >
+          <template #reference>
+            <el-button type="danger" plain :loading="deletingId !== null">删除集群</el-button>
+          </template>
+        </el-popconfirm>
+      </div>
     </header>
 
     <section class="cluster-detail__body">
@@ -159,6 +171,12 @@ function confirmDelete(): void {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.cluster-detail__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .cluster-detail__delete-error {

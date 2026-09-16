@@ -7,8 +7,9 @@
 分类体系。
 """
 
+from app.models.bare_metal import BareMetal
 from app.models.cluster import Cluster
 from app.models.session import Session
 from app.models.user import User
 
-__all__ = ["Cluster", "Session", "User"]
+__all__ = ["BareMetal", "Cluster", "Session", "User"]
