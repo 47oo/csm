@@ -38,8 +38,8 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
 | P2 | 0 |
 | READY | 1（F002） |
-| BLOCKED | 7（F004, F005, F006, F007, F009, F010, F011） |
-| DRAFT | 1（F008） |
+| BLOCKED | 8（F004, F005, F006, F007, F008, F009, F010, F011） |
+| DRAFT | 0 |
 | DONE | 5（F012, F001, F013, F014, F015） |
 | Blocking Decisions (OPEN) | **0**（DEC-008 ~ DEC-016 全部裁定；DEC-001 ~ DEC-014 无 OPEN 项） |
 
@@ -72,7 +72,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
-| F008 | Service 资源管理与 Cluster 共享关联 | P1 | DRAFT | F001, F002, F006, F007 | OPEN-003, 依赖 F001/F002/F006/F007 未 DONE | requirements.md §14, §15 |
+| F008 | Service 资源管理与 Cluster 共享关联 | P1 | BLOCKED | F001, F002, F006, F007 | 依赖 F002/F006/F007 未 DONE | requirements.md §14, §15 |
 
 ## E05 资源查询与视图
 
@@ -139,7 +139,7 @@ F001 / F002 / F006 / F007 的关键产品问题已全部关闭。
 |---|---|---|---|
 | OPEN-001 | F006 | VirtualMachine 字段范围及其标识与唯一性规则 | **已关闭（R-VM-004/005/006）** |
 | OPEN-002 | F007 | Container 管理粒度 | **已关闭（R-CONTAINER-001 ~ 005）** |
-| OPEN-003 | F008 | Service 字段 | OPEN |
+| OPEN-003 | F008 | Service 字段 | **已关闭（R-SVC-007/008/009）** |
 | OPEN-004 | F002 | BareMetal 硬件字段 | OPEN |
 | OPEN-005 | F011 | Excel 部分成功导入策略 | **已关闭（All-or-Nothing，固化为 R-IMPORT-004）** |
 | OPEN-006 | — | 虚拟资源运行时集成 | **已关闭（已确认排除）** |

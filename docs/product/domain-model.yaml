@@ -407,26 +407,62 @@ resources:
     category: service
     in_v1: true
     status_model: null
+    status_note: V1 不设状态（Q-002=B）。
     fields:
       - name: name
         label: 服务名称
         required: true
+        is_identifier: true
         free_form: true
-        note: Service Name / Type 等产品字段应允许根据实际服务自由登记
-        rule_ids: [R-SVC-001]
+        type: text
+        uniqueness:
+          scope: global
+          applies_to: 所有当前有效 Service
+          case_sensitive: true
+          rule_ids: [R-SVC-008]
+      - name: service_type
+        label: 服务类型
+        required: false
+        nullable: true
+        type: text
+        free_form: true
+        rule_ids: [R-SVC-001, R-SVC-007]
+      # 可选字段（R-SVC-007，2026-09-16 用户裁定）：全部可选、纯文本、允许 NULL。
       - name: url
         label: 服务 URL
-        required: UNCONFIRMED
-        example: https://10.1.1.1:8080
-      - name: host_bindings
-        label: 绑定的载体
-        required: true
-        multiple: true
-        rule_ids: [R-SVC-005]
-    remaining_fields_unspecified:
-      candidates: [Port, Protocol, Owner, Description, Credential reference, Health information]
-      state: UNCONFIRMED
-      open_question: OPEN-003
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-SVC-007]
+      - name: port
+        label: 端口
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-SVC-007]
+      - name: protocol
+        label: 协议
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-SVC-007]
+      - name: owner
+        label: 负责人
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-SVC-007]
+      - name: description
+        label: 描述
+        required: false
+        nullable: true
+        type: text
+        rule_ids: [R-SVC-007]
+    excluded_fields:
+      - name: credential_reference
+        reason: 系统无密钥管理，不记录凭据引用，避免变相存储密钥（R-SVC-007）
+      - name: health_information
+        reason: V1 无监控接入且 Service 不设状态（Q-002=B；R-SVC-007）
     binding_to_hosts:
       targets: [BareMetal, VirtualMachine, Container]
       mandatory: true
@@ -434,6 +470,11 @@ resources:
       binding_state: CONFIRMED
       rule_ids: [R-SVC-005]
       note: 不允许存在未绑定任何运行载体的 Service
+    lifecycle:
+      soft_delete: true
+      cascade: false
+      carrier_deletion: blocked_when_bound_by_active_service
+      rule_ids: [R-SVC-009]
     cluster_association:
       mechanism: derived_from_host_bindings
       direct_binding: false
@@ -451,6 +492,9 @@ resources:
       - R-SVC-004
       - R-SVC-005
       - R-SVC-006
+      - R-SVC-007
+      - R-SVC-008
+      - R-SVC-009
 
   - name: NetworkInterface
     label: 网络接口

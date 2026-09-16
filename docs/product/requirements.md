@@ -53,6 +53,13 @@
 >   - 决策来源：用户 2026-09-16 对 F007 OPEN-002 / DEC-005 的裁定。
 >   - 规则总数：**53 → 58**。
 >
+> - **2026-09-16 — Service 阶段产品裁定（新增 3 条规则）**
+>   - **OPEN-003 关闭**：Service 字段范围定为 name（必填）+ service_type / url / port / protocol / owner / description（均可选、纯文本、允许 NULL）；**credential_reference 与 health_information 不属 V1**；新增 **R-SVC-007**（§14）。
+>   - Service `name` **全局唯一**、比较区分大小写；已软删释放唯一性；新增 **R-SVC-008**。
+>   - 被活跃 Service 绑定的运行载体**不得删除**；Service 软删不级联；新增 **R-SVC-009**。
+>   - 决策来源：用户 2026-09-16 对 F008 OPEN-003 的裁定。
+>   - 规则总数：**58 → 61**。
+>
 > 本文件为 CSM V1 的 Primary Requirements Source；与 `docs/product/domain-model.md` 的同步另行维护，冲突优先级见 `AGENTS.md` §3。
 
 ---
@@ -759,6 +766,40 @@ Service 与 Cluster 的关联通过其**运行载体的 Cluster 归属推导**�
 
 ---
 
+## R-SVC-007
+
+Service 在 V1 记录以下字段：
+
+* `name`（服务名称）：**必填**，自由文本（R-SVC-001）；
+* `service_type`（服务类型）：可选，自由文本（R-SVC-001，不强制固定分类）；
+* `url`、`port`、`protocol`、`owner`、`description`：均为**可选**、纯文本、允许为空（`NULL`）。
+
+**不属 V1**：
+
+* **Credential reference**（凭据引用）——系统无密钥管理，不记录凭据引用，避免变相存储密钥；
+* **Health information**（健康信息）——V1 无监控接入且 Service 不设状态（Q-002=B）。
+
+---
+
+## R-SVC-008
+
+Service 必须拥有 `name`；`name` 在所有当前有效 Service 范围内**全局唯一**。
+
+`name` 比较**区分大小写**（与 Cluster / BareMetal / VirtualMachine 一致，§22）。
+
+已逻辑删除的 Service 不再占用该唯一性（R-DELETE-006）。
+
+---
+
+## R-SVC-009
+
+生命周期：
+
+* 绑定了活跃 Service 的运行载体（BareMetal / VirtualMachine / Container），在其仍被该 Service 绑定时**不得删除**（R-DELETE-004 的泛化）；需先解除绑定或删除 Service；
+* 逻辑删除 Service **不得自动级联**删除其运行载体或其他资源（R-DELETE-005）。
+
+---
+
 # 15. Resource Relationship
 
 CSM 不只是资源列表。
@@ -1374,21 +1415,16 @@ Container 登记粒度与绑定已于 2026-09-16 由用户裁定：
 
 ---
 
-## OPEN-003 Service 字段
+## OPEN-003 Service 字段（已关闭）
 
-**已确认部分**：Service Name / Type 允许根据实际服务自由登记（R-SVC-001）。
+Service 字段范围已于 2026-09-16 由用户裁定：
 
-**仍需确认**：Service 的以下字段中哪些属于 V1：
+* `name` 必填；`service_type` / `url` / `port` / `protocol` / `owner` / `description` 均可选、纯文本、允许 NULL；
+* **Credential reference 与 Health information 不属 V1**；
+* `name` 全局唯一、区分大小写；
+* 被活跃 Service 绑定的载体不得删除。
 
-* URL；
-* Port；
-* Protocol；
-* Owner；
-* Description；
-* Credential reference；
-* Health information。
-
-尚需按真实业务确认。
+已固化为 **R-SVC-007 / R-SVC-008 / R-SVC-009**（§14），不再是待确认项。
 
 ---
 
