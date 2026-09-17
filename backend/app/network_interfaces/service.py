@@ -101,7 +101,7 @@ def delete_network_interface(session: Session, network_interface_id: int) -> Net
     """逻辑删除 NetworkInterface：委托系统内唯一的软删写入路径（F014）。
 
     NetworkInterface 自身的活跃子资源检查由模块声明
-    （``NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS``，当前显式空元组）并**显式传入**，
+    （``NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS``，F005 起包含「是否存在活跃 IPAddress」检查）并**显式传入**，
     不假定「无子资源」（F005 追加位置）。
     """
     return soft_delete(

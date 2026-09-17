@@ -37,10 +37,10 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | P0 | 7（F001, F002, F009, F012, F013, F014, F015） |
 | P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
 | P2 | 0 |
-| READY | 2（F005, F007） |
+| READY | 1（F007） |
 | BLOCKED | 3（F008, F010, F011） |
 | DRAFT | 0 |
-| DONE | 9（F012, F001, F013, F014, F015, F002, F009, F006, F004） |
+| DONE | 10（F012, F001, F013, F014, F015, F002, F009, F006, F004, F005） |
 | Blocking Decisions (OPEN) | **0**（DEC-008 ~ DEC-016 全部裁定；DEC-001 ~ DEC-014 无 OPEN 项） |
 
 产品冲突 DEC-001 ~ DEC-014 已全部裁定，DEC-015 / DEC-016 为新裁定的规模与部署决策，均不作为项目级阻塞（见下方状态表）。
@@ -59,7 +59,7 @@ DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `pl
 | ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
 |---|---|---|---|---|---|---|
 | F004 | NetworkInterface 管理 | P1 | **DONE** | F002 | — | requirements.md §11 |
-| F005 | IPAddress 管理 | P1 | READY | F004 | — | requirements.md §12 |
+| F005 | IPAddress 管理 | P1 | **DONE** | F004 | — | requirements.md §12 |
 
 ## E03 虚拟资源管理
 

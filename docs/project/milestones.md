@@ -3,7 +3,7 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend 技术层划分。
-> Last updated: 2026-09-17（M2 已 DONE；M3 进行中：F004 已 DONE，F005 待完成；M4 进行中：F006 已 DONE，F007 / F008 待完成）
+> Last updated: 2026-09-18（M2 / M3 已 DONE；M4 进行中：F006 已 DONE，F007 待完成，F008 待启动）
 
 完成判据统一要求：对应 Feature 的 Reviewer 为 `APPROVED` / `APPROVED WITH FOLLOW-UP`，
 必要测试通过，且 Feature Branch 已成功 merge 到 develop，项目状态已更新并提交
@@ -72,6 +72,8 @@
 ---
 
 ## M3 网络资源管理
+
+> 状态：**DONE**（2026-09-18；F004 / F005 均 DONE 并合入 develop）
 
 **目标能力**：统一管理网络接口与 IP 地址；阻止同 Cluster IP 重复。
 

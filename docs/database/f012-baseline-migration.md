@@ -179,7 +179,7 @@ CREATE INDEX ix_network_interfaces_bare_metal_id
   ON network_interfaces (bare_metal_id);
 ```
 
-### `0005_f005_ip_addresses`（F005）
+### `0006_f005_ip_addresses`（F005）
 
 ```sql
 CREATE TABLE ip_addresses (
