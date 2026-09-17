@@ -56,7 +56,7 @@ alembic_version
         └─ 0005_f004_network_interfaces (F004) network_interfaces
            └─ 0006_f005_ip_addresses    (F005) ip_addresses
               └─ 0007_f007_containers   (F007) containers
-              └─ 0008_f008_...          (延后)
+                 └─ 0008_f008_services  (F008) services, service_carriers
 ```
 
 - **Alembic 配置为单一线性 head**（`down_revision` 串成一条链），不使用多 head / merge，避免 4 个实现分支并行时产生分支与 merge revision。
@@ -335,7 +335,7 @@ alembic downgrade base && alembic upgrade head
   - `name` 含 `/` 被拒绝（`23514`）；
   - `SELECT ('cluster-a' = 'Cluster-A')` 为 `false`。
 - [ ] 部署文档（F015 交付）记录数据库 locale / encoding 要求、`datcollate` / `datctype` 期望值、PostgreSQL 大版本，以及「该环境中大小写敏感回归测试必须通过」的要求（架构 Risk #1）。
-- [ ] 后续 revision（`0002`~`0007`）按 §3 / §4 顺序提交，每个 revision 只创建自己负责的表，不改动基线（`0001` 一经合入即冻结）。
+- [ ] 后续 revision（`0002`~`0008`）按 §3 / §4 顺序提交，每个 revision 只创建自己负责的表，不改动基线（`0001` 一经合入即冻结）。
 - [ ] 数据访问层统一提供 `deleted_at IS NULL` 过滤基座（F014），并与 partial index 的 predicate 保持一致。
 - [ ] 不引入触发器；`updated_at` 由应用层维护。
 - [ ] 不创建任何 extension；数据库 / role / locale 由部署层负责。
