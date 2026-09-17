@@ -14,6 +14,8 @@ EXPECTED_TABLES = {
     "bare_metals",
     "virtual_machines",
     "network_interfaces",
+    # F005：IPAddress 独立资源表。
+    "ip_addresses",
 }
 
 

@@ -264,6 +264,8 @@ CREATE INDEX ix_network_interfaces_bare_metal_id
 
 ### Table: `ip_addresses`（F005，IPAddress）
 
+> Migration：`0006_f005_ip_addresses`（`down_revision = "0005_f004_network_interfaces"`）。
+
 **用途**：IP 地址登记，V1 无状态；唯一性边界是 **Cluster**，而直接父是 NetworkInterface → 需反规范化 `cluster_id`。
 
 #### Columns
@@ -559,7 +561,9 @@ CREATE UNIQUE INDEX ux_ip_addresses_cluster_ip_active
 - `ip_addresses.network_interface_id` 引用的 NIC 在物理上存在（FK）；
 - **不能**保证 `ip_addresses.cluster_id` 等于 `network_interfaces.bare_metal_id → bare_metals.cluster_id` 的推导结果。
 
-**受控写入路径（必须由 F014 领域服务强制，不得由调用方直接赋值）：**
+**受控写入路径（归属已由 F014 迁移至 F005：`app/ip_addresses/derivation.py::derive_cluster_id` 强制，唯一写入点为 `app/ip_addresses/repository.py::IpAddressRepository.create`；不得由调用方直接赋值）：**
+
+> 归属变更记录（2026-09-18）：本条原写「必须由 F014 领域服务强制」。F014 裁定 `ip_addresses` 表不存在于 F014，一致性治理义务移交 F005（见 `docs/architecture/f014-soft-delete-handoff.md` 与 `docs/product/handoffs/f005-ip-address.md` 的变更影响 #3）。**规则本身未变**，仅归属与文件级落点更新为 F005。
 
 | 触发写入 | 必须执行的推导/联动 |
 |---|---|

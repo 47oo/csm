@@ -66,4 +66,37 @@ def test_only_expected_tables_registered():
         "bare_metals",
         "virtual_machines",
         "network_interfaces",
+        "ip_addresses",
     }
+
+
+#: 已批准的产品资源路径前缀（``/api`` 下的首段）。新增 Feature 时**追加**。
+APPROVED_API_PREFIXES = {
+    "health",
+    "auth",
+    "clusters",
+    "bare-metals",
+    "virtual-machines",
+    "network-interfaces",
+    "ip-addresses",
+}
+
+
+def test_product_api_surface_is_closed():
+    """交付面封闭：``/api`` 下每个 path 的首段必须属于已批准资源前缀。
+
+    该 allowlist 比 ``BOUNDARY_TOKENS`` 的 denylist 更强：它使任何未批准的
+    新资源端点（如 ``/api/vpns`` / ``/api/containers``）都会被检出。
+    """
+    from app.config import Settings
+    from app.main import create_app
+    from tests.conftest import OFFLINE_DSN
+
+    app = create_app(Settings(environment="dev", database_url=OFFLINE_DSN))
+    offenders = []
+    for path in app.openapi()["paths"]:
+        assert path.startswith("/api"), path
+        first = path[len("/api/") :].split("/", 1)[0]
+        if first not in APPROVED_API_PREFIXES:
+            offenders.append(path)
+    assert offenders == [], f"不得注册未批准资源端点：{offenders}"

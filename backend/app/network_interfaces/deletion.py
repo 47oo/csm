@@ -3,9 +3,10 @@
 两件事：
 
 1. ``NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS``：NetworkInterface **自身**删除前必须执行的
-   活跃子资源检查元组。当前 ``ip_addresses`` 表尚不存在，故**显式**声明为空元组，
-   而不是由统一软删服务假定「NetworkInterface 无子资源」（AC-30 / ADR-0004 §5）。
-   **F005** 落地时在此追加「活跃 IPAddress」检查（R-IP 绑定）。
+   活跃子资源检查元组。F005 起包含「该 NIC 下是否存在活跃 IPAddress」检查
+   （``has_active_ip_addresses``），使 ``DELETE /api/network-interfaces/{id}`` 在存在活跃
+   IP 时返回 ``409``（R-IP 绑定 / R-DELETE-004 / AC-27）。后续若新增子资源在此继续追加
+   （AC-30 / ADR-0004 §5）。
 2. ``has_active_network_interfaces``：供 **BareMetal** 删除路径消费的「该宿主下是否存在
    活跃 NetworkInterface」检查，被 ``app/bare_metals/deletion.py`` 的
    ``BARE_METAL_ACTIVE_CHILD_CHECKS`` 引用（R-NIC-003 / R-DELETE-004 / AC-25）。
@@ -18,11 +19,11 @@ from sqlalchemy.orm import Session
 
 from app.db.active import active_filter
 from app.deletion.checks import ActiveChildCheck
+from app.ip_addresses.deletion import has_active_ip_addresses
 from app.models.network_interface import NetworkInterface
 
-#: NetworkInterface 自身的活跃子资源检查（当前显式空：ip_addresses 尚不存在；
-#: F005 追加位置）。
-NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS: tuple[ActiveChildCheck, ...] = ()
+#: NetworkInterface 自身的活跃子资源检查（F005 起含活跃 IPAddress）。必须为非空元组。
+NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS: tuple[ActiveChildCheck, ...] = (has_active_ip_addresses,)
 
 
 def has_active_network_interfaces(session: Session, bare_metal_id: int) -> bool:

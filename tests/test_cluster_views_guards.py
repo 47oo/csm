@@ -58,11 +58,11 @@ ORIGINAL_GET_ROUTES = {
 #: F006 演进：VirtualMachine 已成为合法资源（``/api/virtual-machines``），故从全局
 #: 边界 token 中移除 ``virtual-machine`` / ``virtual_machine``。
 #: F004 演进：NetworkInterface 已成为合法资源（``/api/network-interfaces``），故仅
-#: 移除 ``network-interface`` / ``network_interface``；``ip-address`` / ``ip_address`` /
-#: ``container`` / ``service`` 仍对**全部** OpenAPI path 全局扫描（不得收窄到单模块）。
+#: 移除 ``network-interface`` / ``network_interface``。
+#: F005 演进：IPAddress 已成为合法资源（``/api/ip-addresses``），故**仅移除**
+#: ``ip-address`` / ``ip_address``；``container`` / ``service`` 仍对**全部** OpenAPI path
+#: 全局扫描（不得收窄到单模块）。
 BOUNDARY_TOKENS = (
-    "ip-address",
-    "ip_address",
     "container",
     "service",
 )

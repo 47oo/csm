@@ -24,11 +24,18 @@ import NetworkInterfaceFormDialog from '../components/NetworkInterfaceFormDialog
  *   删除成功（204）或目标已不存在（404，两者不区分）→ 重新读取 → 404 →
  *   既有独立 Not Found 态；409 按 error.code 渲染冲突提示；401 交由全局会话
  *   失效处理；提交中 Loading 且禁重复提交。删除守卫由后端裁决（§21）；
- * - 修改 / 删除失败均按 error.code 分支渲染，不解析 message。
+ * - 修改 / 删除失败均按 error.code 分支渲染，不解析 message；
+ * - F005：「查看 IP 地址」入口 → 进入该网络接口的 IP 地址列表
+ *   （GET /api/ip-addresses?network_interface_id={id}，契约
+ *   f005-ip-address.md §3.2）；本页仍不呈现 IP 数据（关联查询视图归 F010，
+ *   F010 必须复用该能力）。
  */
 const props = defineProps<{ networkInterfaceId: number }>()
 
-const emit = defineEmits<{ back: [] }>()
+const emit = defineEmits<{
+  back: []
+  openIpAddresses: [networkInterfaceId: number]
+}>()
 
 const { data, loading, error, run } = useAsyncQuery(() =>
   getNetworkInterface(props.networkInterfaceId),
@@ -90,6 +97,11 @@ function backToList(): void {
   emit('back')
 }
 
+/** F005：进入该网络接口的 IP 地址列表（携带 network_interface_id）。 */
+function openIpAddresses(): void {
+  emit('openIpAddresses', props.networkInterfaceId)
+}
+
 /** 二次确认通过后删除当前网络接口；状态管理与错误渲染见 useNetworkInterfaceDelete。 */
 function confirmDelete(): void {
   void requestDelete(props.networkInterfaceId)
@@ -113,8 +125,17 @@ function handleUpdated(): void {
         <h1 class="network-interface-detail__title">网络接口详情</h1>
       </div>
       <!-- 枚举修改入口与删除入口：仅内容态出现；name / bare_metal_id 不可变
-           （契约 §3.4 / NQ-3），不提供编辑；删除守卫由后端 409 裁决（§21）。 -->
+           （契约 §3.4 / NQ-3），不提供编辑；删除守卫由后端 409 裁决（§21）。
+           F005「查看 IP 地址」入口：跳转该网络接口的 IP 过滤列表。 -->
       <div v-if="state === 'content'" class="network-interface-detail__actions">
+        <el-button
+          type="primary"
+          plain
+          data-testid="open-ip-addresses"
+          @click="openIpAddresses"
+        >
+          查看 IP 地址
+        </el-button>
         <el-button type="primary" plain data-testid="open-edit-dialog" @click="editDialogVisible = true">
           编辑
         </el-button>

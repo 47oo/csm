@@ -230,12 +230,12 @@ def test_g10_no_generic_eav_json_or_polymorphic_for_vm():
 
 
 # --------------------------------------------------------------------------- #
-# G-11：MIGRATION_HEAD 与当前 head 一致（F004 演进：head 从 0004 → 0005）
+# G-11：MIGRATION_HEAD 与当前 head 一致（F005 演进：head 从 0005 → 0006）
 # --------------------------------------------------------------------------- #
 def test_g11_migration_head_is_current_head():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0005_f004_network_interfaces"
+    assert MIGRATION_HEAD == "0006_f005_ip_addresses"
 
 
 # --------------------------------------------------------------------------- #

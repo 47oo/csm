@@ -4,12 +4,14 @@
 
 CSM **不以建设完整 CMDB 为目标**；具体产品范围与业务规则以 `docs/product/` 中已确认的文档为准。
 
-> 当前里程碑：**F004 — NetworkInterface 登记与管理**（继承 F012 基座、F001 Cluster、F009 视角、F013 认证、F014 软删、F002 BareMetal、F006 VirtualMachine）。
+> 当前里程碑：**F005 — IPAddress 登记与管理**（继承 F012 基座、F001 Cluster、F009 视角、F013 认证、F014 软删、F002 BareMetal、F006 VirtualMachine、F004 NetworkInterface）。
 > 已交付 F012 基座、F001 Cluster 的 5 个产品端点、F009 Cluster 视角只读别名、F013 认证、
-> F002 BareMetal 的 5 个产品端点、F006 VirtualMachine 的 5 个产品端点，以及 F004 NetworkInterface
-> 的 5 个产品端点：登记（必选绑定宿主 BareMetal）、查询（含按宿主限定）、`technology_type` /
-> `purpose` 两个封闭枚举的维护、逻辑删除，并落地 F014「宿主有活跃 VM 或活跃 NIC → 拒删宿主」
-> 端到端与创建侧 `FOR SHARE` 并发协议。NetworkInterface **无状态、无 IP / MAC / 速率 / MTU 字段、无名称唯一性**。
+> F002 BareMetal 的 5 个产品端点、F006 VirtualMachine 的 5 个产品端点、F004 NetworkInterface
+> 的 5 个产品端点，以及 F005 IPAddress 的 5 个产品端点：登记（必选绑定父 NetworkInterface）、
+> 查询（含按 NIC 限定）、`ip_address` 字面值修正、逻辑删除；**同 Cluster 内 IP 字面唯一**由
+> partial unique index 最终保证，`cluster_id` 由领域服务从 NIC→BareMetal **受控推导**（漂移检测回归 0 行），
+> 并落地 F014「NIC 有活跃 IP → 拒删 NIC」端到端与创建侧 `FOR SHARE` 并发协议。
+> IPAddress **无状态、无 VRF / 命名空间、无 IP 池 / DHCP / DNS / 自动发现、无格式校验与归一化**。
 > 技术栈与关键决策见 `docs/architecture/adr/`（ADR-0001 ~ ADR-0005，全部 `ACCEPTED`）。
 
 ---
@@ -107,9 +109,13 @@ partial unique index），F006 的 `virtual_machines` 表（`fk_virtual_machines
 RESTRICT、`ux_virtual_machines_name_active` partial unique index），以及 F004 的
 `network_interfaces` 表（`fk_network_interfaces_bare_metal` RESTRICT、
 `ck_network_interfaces_technology_type` / `ck_network_interfaces_purpose` 两个封闭枚举 CHECK、
-`ix_network_interfaces_bare_metal_id`；**无任何唯一索引**）；见
+`ix_network_interfaces_bare_metal_id`；**无任何唯一索引**），以及 F005 的 `ip_addresses` 表
+（`fk_ip_addresses_network_interface` / `fk_ip_addresses_cluster` 均 RESTRICT、
+`ux_ip_addresses_cluster_ip_active (cluster_id, ip_address) WHERE deleted_at IS NULL` partial unique、
+`ix_ip_addresses_cluster_id` / `ix_ip_addresses_network_interface_id`；**CHECK 集合为空、无 COLLATE / 无 lower() 索引**）；见
 `docs/database/f012-baseline-migration.md`、`docs/database/f002-bare-metal-migration.md`、
 `docs/database/f006-virtual-machine-migration.md`、`docs/database/f004-network-interface-migration.md`、
+`docs/database/f005-ip-address-migration.md`、
 `docs/database/csm-v1-schema-design.md`）。
 
 ### 3.5 启动后端 API
@@ -224,13 +230,20 @@ AC-09：F012 交付物**不包含任何具体资源的字段定义、唯一性�
 | `GET` | `/api/network-interfaces` | 需要 | 列出活跃 NetworkInterface（分页 `page` / `page_size`，可选 `bare_metal_id`）；空集合 `200` + `items: []`；`bare_metal_id` 不存在 / 已删 → `404` |
 | `GET` | `/api/network-interfaces/{network_interface_id}` | 需要 | 按 id 读取；不存在 / 已逻辑删除 → `404 NOT_FOUND` |
 | `PATCH` | `/api/network-interfaces/{network_interface_id}` | 需要 | 更新 `technology_type` / `purpose`（封闭枚举）；`name` / `bare_metal_id` 不可变；空 body → `400` |
-| `DELETE` | `/api/network-interfaces/{network_interface_id}` | 需要 | 逻辑删除 → `204`；不存在 / 已删 → `404`（委托统一软删服务） |
+| `DELETE` | `/api/network-interfaces/{network_interface_id}` | 需要 | 逻辑删除 → `204`；不存在 / 已删 → `404`；存在活跃 IP → `409`（委托统一软删服务，F005 接线） |
+| `POST` | `/api/ip-addresses` | 需要 | 登记 IPAddress（`network_interface_id` + `ip_address` 必填）；父 NIC 不存在 / 已删 → `404`；同 Cluster 活跃重复字面值 → `409`（`details[].code == "DUPLICATE"`）；`201` |
+| `GET` | `/api/ip-addresses` | 需要 | 列出活跃 IPAddress（分页 `page` / `page_size`，可选 `network_interface_id`）；空集合 `200` + `items: []`；`network_interface_id` 不存在 / 已删 → `404` |
+| `GET` | `/api/ip-addresses/{ip_address_id}` | 需要 | 按 id 读取；不存在 / 已逻辑删除 → `404 NOT_FOUND` |
+| `PATCH` | `/api/ip-addresses/{ip_address_id}` | 需要 | 修正 `ip_address` 字面值并重校验同 Cluster 唯一性；父绑定 / `cluster_id` 不可变；空 body / `null` → `400` |
+| `DELETE` | `/api/ip-addresses/{ip_address_id}` | 需要 | 逻辑删除 → `204`；不存在 / 已删 → `404`（委托统一软删服务） |
 
 - 契约正文见 `docs/api/f001-cluster.md`、`docs/api/f002-bare-metal.md`、`docs/api/f006-virtual-machine.md`、`docs/api/f009-cluster-resource-view.md`、`docs/api/f013-auth.md`、
   `docs/api/f004-network-interface.md`、`docs/api/f014-soft-delete.md`；通用约定见 `docs/api/api-conventions.md`。
 - **F006 后** `virtual-machines` 端点可用：VirtualMachine 必属恰好一个宿主 BareMetal（无 `cluster_id`、无 `status` 字段），`name` 在所有活跃 VM 范围内**全局唯一**（跨宿主、跨 Cluster，大小写敏感，软删释放），`GET /api/virtual-machines?bare_metal_id={id}` 为按宿主限定的 canonical 读取能力（供 F010 复用）。
 - **F004 后** `network-interfaces` 端点可用：NetworkInterface 必属恰好一个宿主 BareMetal（无 `cluster_id`、无 `status` 字段、无 IP / MAC / 速率 / MTU 字段），`technology_type` 为封闭四值 `Ethernet / InfiniBand / RoCE / Other`，`purpose` 为封闭七值 `BMC / Management / Business / Compute / Storage / DataTransfer / Other`；`name` **无长度 / trim / 字符约束且无唯一性**（同宿主同名允许多张）；`GET /api/network-interfaces?bare_metal_id={id}` 为按宿主限定的 canonical 读取能力（供 F010 复用）。
 - **F004 后** `DELETE /api/bare-metals/{bare_metal_id}` 在宿主有活跃 VirtualMachine **或活跃 NetworkInterface** 时返回 `409 CONFLICT`（`details[].code == "ACTIVE_CHILDREN_EXIST"`）；软删全部活跃子资源后（含活跃 VM 与活跃 NIC）可删。
+- **F005 后** `ip-addresses` 端点可用：IPAddress 必属恰好一个父 NetworkInterface（无 `cluster_id` / `status` 字段），`ip_address` 按**字面精确、大小写敏感**存取的唯一登记字段；**同 Cluster 内活跃字面唯一**（跨 Cluster 可重复、软删释放），由 partial unique index `ux_ip_addresses_cluster_ip_active` 最终保证；`cluster_id` 由领域服务从 `NIC → BareMetal` 受控推导（请求侧永不接受、响应侧不暴露）；`GET /api/ip-addresses?network_interface_id={id}` 为按父 NIC 限定的 canonical 读取能力（供 F010 复用）；**IPAddress 是 V1 叶子资源**，其自身活跃子检查显式为空。
+- **F005 后** `DELETE /api/network-interfaces/{network_interface_id}` 在该 NIC 存在活跃 IPAddress 时返回 `409 CONFLICT`（`details[].code == "ACTIVE_CHILDREN_EXIST"`）；软删全部活跃 IP 后可删。`NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS` 已由 F004 的空元组演进为含 `has_active_ip_addresses`。
 - **F009 后** `GET /api/clusters/by-name/{cluster_name}/bare-metals` 可用：按 Cluster 名称寻址其活跃 BareMetal，与 canonical `GET /api/bare-metals?cluster_id={id}` 逐字段一致；只读、复用同一软删过滤路径，不提供写 / 删除 / 恢复别名。
 - **F014 后** `DELETE /api/clusters/{cluster_id}` 可用：逻辑删除（行仍物理存在）、已删不占唯一性可同名重建、不提供 `by-name` 删除别名、无恢复能力。删除经系统内唯一的软删领域服务 `app/deletion/service.py`（ADR-0004）。
 
@@ -277,14 +290,15 @@ backend/
 │   ├── bare_metals/    # F002 BareMetal 模块：router / schemas / validation / service / repository / deletion
 │   ├── virtual_machines/ # F006 VirtualMachine 模块：router / schemas / service / repository / deletion
 │   ├── network_interfaces/ # F004 NetworkInterface 模块：router / schemas / validation / service / repository / deletion
+│   ├── ip_addresses/   # F005 IPAddress 模块：router / schemas / derivation / service / repository / deletion
 │   ├── common/         # 横切关注点：错误信封、SQLSTATE 映射、分页
 │   ├── db/             # Declarative Base、mixin、引擎/会话、deleted_at 过滤原语
 │   ├── deletion/       # F014 统一软删领域服务（唯一写 deleted_at 的路径）+ 活跃子检查声明类型
-│   ├── models/         # 每类资源一个独立模块、一张独立表（cluster / bare_metal / virtual_machine / network_interface + users / sessions）
+│   ├── models/         # 每类资源一个独立模块、一张独立表（cluster / bare_metal / virtual_machine / network_interface / ip_address + users / sessions）
 │   ├── schemas/        # Pydantic schema
 │   ├── config.py       # 环境变量配置
 │   └── main.py         # 应用工厂（挂载 AuthMiddleware）
-└── migrations/         # Alembic（env.py + versions/0001_f012_baseline.py + 0002_f013_auth.py + 0003_f002_bare_metals.py + 0004_f006_virtual_machines.py + 0005_f004_network_interfaces.py）
+└── migrations/         # Alembic（env.py + versions/0001_f012_baseline.py + 0002_f013_auth.py + 0003_f002_bare_metals.py + 0004_f006_virtual_machines.py + 0005_f004_network_interfaces.py + 0006_f005_ip_addresses.py）
 
 tests/
 ├── database/           # 绕过应用层、直接对 PostgreSQL 的约束 / 迁移 / 认证表测试
@@ -306,7 +320,12 @@ tests/
 ├── test_virtual_machines_guards.py
 ├── test_network_interfaces_api.py
 ├── test_network_interfaces_concurrency.py
-└── test_network_interfaces_guards.py
+├── test_network_interfaces_guards.py
+├── test_ip_addresses_api.py
+├── test_ip_addresses_concurrency.py
+├── test_ip_addresses_consistency.py
+├── test_ip_addresses_guards.py
+└── ip_address_drift_helpers.py
 
 frontend/               # Vue 3 + TS + Vite + Element Plus（见 frontend/README.md）
 docs/                   # 产品 / 架构 / 数据库 / API 契约（权威来源）
@@ -326,7 +345,8 @@ requirements*.txt
 以下两点由**绕过应用层、直接对数据库操作**的测试固定（`tests/database/`）：
 
 1. **大小写敏感**：`cluster-a` 与 `Cluster-A` 是不同值；`SELECT ('cluster-a' = 'Cluster-A')` 为 `false`（§22）。
-2. **软删不占唯一性**：`ux_clusters_name_active` 的 predicate 为 `deleted_at IS NULL`，已软删行不占用唯一性（ADR-0004 / R-DELETE-006）；BareMetal `hostname` 同 Cluster 唯一与 VirtualMachine `name` 全局唯一同理（`ux_bare_metals_cluster_hostname_active` / `ux_virtual_machines_name_active`）。**NetworkInterface 无已确认唯一性规则**（NQ-2），`network_interfaces` 表**不存在任何唯一索引**，也不实现应用层名称唯一性预检（同宿主同名允许多张）。
+2. **软删不占唯一性**：`ux_clusters_name_active` 的 predicate 为 `deleted_at IS NULL`，已软删行不占用唯一性（ADR-0004 / R-DELETE-006）；BareMetal `hostname` 同 Cluster 唯一、VirtualMachine `name` 全局唯一与 IPAddress `ip_address` 同 Cluster 唯一同理（`ux_bare_metals_cluster_hostname_active` / `ux_virtual_machines_name_active` / `ux_ip_addresses_cluster_ip_active`）。**NetworkInterface 无已确认唯一性规则**（NQ-2），`network_interfaces` 表**不存在任何唯一索引**，也不实现应用层名称唯一性预检（同宿主同名允许多张）。
+3. **`cluster_id` 受控推导**：`ip_addresses.cluster_id` 只能由 `app/ip_addresses/derivation.py::derive_cluster_id` 从 `NIC → BareMetal` 推导、经 `IpAddressRepository.create` 写入；数据库层不保证其与链路一致（ADR-0002 已知取舍）。`tests/ip_address_drift_helpers.py::DRIFT_QUERY` 是唯一能从数据库侧发现漂移的手段，`tests/test_ip_addresses_consistency.py` 持续断言其恒为 0 行，并以反例（T-35）与「漂移破坏唯一性」证明（T-36）证明检测有效。
 
 部署文档（F015）必须记录数据库的 `datcollate` / `datctype` / `encoding` 与 PostgreSQL 大版本，并把上述断言作为「locale 未被静默改变」的持续回归。
 `updated_at` 由应用层维护，**不得**作为审计或并发控制依据。
