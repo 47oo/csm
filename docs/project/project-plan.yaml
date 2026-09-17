@@ -1098,16 +1098,16 @@ features:
     name: 资源详情与关联查询
     epic: E05
     priority: P1
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
     blocking: []
     git:
       base_branch: develop
       branch: feature/F010-resource-detail
       start_commit: 1baedc0d092424926e61afa4f6cf2d869f8236a6
-      head_commit: 6109d4c8106b02a8bce5fd8603833e02a7205209
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: 9dff02b6951d714042fccdbc10580b3efe23ac24
+      merge_commit: 334b4ca3d3feb7d61819568e0497ab3aed45ea28
+    current_stage: null
     last_result: >-
       Product 阶段曾因 2 个 Blocking 产品歧义（BQ-1 / BQ-2）按 §11 停止；用户已于 2026-09-18 裁定
       两者均取「含间接」，并已固化为 requirements.md R-QUERY-003 的产品规则。Product Gate 通过。
@@ -1126,7 +1126,7 @@ features:
       backend: COMPLETE
       frontend: COMPLETE
       test: COMPLETE
-      review: PENDING
+      review: APPROVED_WITH_FOLLOW_UP
     product_document: docs/product/requirements.md
     requirements:
       - R-QUERY-003
@@ -1706,10 +1706,10 @@ planning_status:
     DRAFT: []
   counts:
     READY: 1
-    IN_PROGRESS: 1
+    IN_PROGRESS: 0
     BLOCKED: 0
     DRAFT: 0
-    DONE: 12
+    DONE: 13
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -1723,6 +1723,7 @@ planning_status:
       仅被其他 Feature 的产品决策间接影响、不改变本 Feature 交付边界时，仍按 BLOCKED 处理。
       判定依据见本文件顶部注释与 .pi/agents/project-manager.md §8。
   done_rationale:
+    F010: "base 1baedc0 → head 9dff02b → merge 334b4ca（--no-ff 合入 develop；集成树与已审阅候选 9dff02b 逐字节一致，父提交为 1baedc0 与 9dff02b）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；25 文件 / +3699 行经完整差异 Review，评审在自建真实 PostgreSQL 上独立重跑并自写探针。 验收：后端 965 passed（0 skipped；协调器 / Tester / Reviewer 各自独立重跑）、前端 typecheck + 562 passed（连续 2 次）+ build、ruff 干净、无 migration（database: false）、0001–0008 与 app/deletion/service.py 逐字节未改（sha256 三方相等）。 **关键交付**：GET /api/bare-metals/{bare_metal_id}/related 单一只读聚合端点（五类关联：NIC / IP / VM / Container / Service）+ 前端 BareMetalDetailPage「关联资源」区。 **本 Feature 的正确性压在两条被显式写下的自我声明上，而两条都被独立证伪式验证**：① **「组合既有 per-resource 读取而非重实现」**——Tester 与 Reviewer **各自自造数据、各自直接调 canonical 端点**、与聚合逐类**集合深等比较**（含多载体 Service 去重与 210/205 项完整快照）；新模块 grep deleted_at **零匹配**。② **「只有主机检查会抛 not-found」**——「主机活跃但某类为空」「主机活跃但子资源已软删」**均 200**（这是最容易被写错、写错后最难发现的失败模式：处处复用带守卫的访问器会让空类变成主机不存在）。 **多态推导按用户裁定（BQ-1/BQ-2 = 含间接）**：Container 含「载体为 B 上活跃 VM」、Service 含「载体与 R(B) 有交集」，同一 Service 因多载体相关时**只出现一次**；已固化为 requirements.md R-QUERY-003 的产品规则，且**明确只适用于查询相关性、不改变删除拦截语义**（父删子拦仍以直接绑定为准）。 **深度固定 ≤3 跳、无递归 / 无深度参数 / 无关系类型参数**；guard G-010-7 断言主机下二段路径**恰为** related，被否决的五个子资源端点不可能逐个回来。 **404 判定主体唯一**：仅 bare_metals.service.get_bare_metal_by_id 抛 404；五类共用同一判定（AC-10/AC-12）。 **guard 演进**：Tester 9 组 + Reviewer 4 组对抗注入全部被检出并逐字节还原；EXPECTED_GET_ROUTES **追加 +1 行**（M6 删既有成员被试出）；无既有 guard 被删除。**BOUNDARY_TOKENS 已空、deny-list 恒真**——两方各自注入未批准路由，证明真正可独立失败的防线是 APPROVED_API_PREFIXES allow-list。 **过程与遗留**：契约示例曾把 technology_type/purpose 误写为大写 ETHERNET/BUSINESS（canonical 为大小写敏感的 Ethernet/Business），由 **Frontend Agent 在实现时发现并按 canonical 定义处理**（未照抄示例），已在评审前修正契约；一条 F009 源码 token guard 曾被我在 App.vue 新注释的措辞触发，Frontend Agent **改注释而未动 guard**（正确做法）。**未修复但已记录**：REV-2（G-010-5 只检出 deleted_at **写入**、不检出**读取**谓词——当前实现读谓词为零，属纵深缺口而非缺陷）、REV-3（架构声称「一致快照」但实际为默认 READ COMMITTED，各语句各自取快照，并发软删下可能静默少项；风险低且与既有视图同取向，留待 Architect）。"
     F008: "base 68d8e11 → head f5ed0e4 → merge f773378（--no-ff 合入 develop；集成树与已审阅候选 f5ed0e4 逐字节一致，父提交为 68d8e11 与 f5ed0e4）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；53 文件 / +9562 行经完整差异 Review，评审**独立重跑**真实 PostgreSQL 与真实前端。 验收：真实 PostgreSQL 16.2 后端 935 passed（0 skipped；协调器与 Tester 各自独立重跑）、前端 typecheck + 546 passed（连续 2 次）+ build、ruff 干净、migration 可重复 / 可重建、0001–0007 与 app/deletion/service.py 逐字节未改。 **关键交付**：`services`（11 列，恰 1 约束 = PK、0 CHECK）+ `service_carriers`（5 列 N:M 多态绑定）+ migration 0008；5 端点；**模型里首个 N:M 关系**。 **绑定表是关系表而非资源表**：无 deleted_at、无任何时间戳；三列可空 FK + CHECK (num_nonnulls(...) = 1) + **每条载体列一条 partial unique（集合语义）** + 4 条 RESTRICT FK。 **核心不变式（协调器 / Tester / Reviewer 三方各自直连 DB 证实）**：因 CHECK 迫使另两列为 NULL、而唯一索引中 NULL 互不相等，三条索引互不干扰 → 同一 Service 可同时绑定 BareMetal / VM / Container 的**同数值 id**。 **「释放绑定」无需任何写入**（最易被误判的裁定）：绑定行不可变、不物理删除；某载体是否受保护取决于「是否仍有活跃 Service 绑定它」，删 Service 让该判断立即为假 → 释放是**派生效果**，故 app/deletion/service.py **零改动**、allow-list 恒为单一文件；评审以「软删后绑定行逐字段不变 + 载体不再被拦截 + 删除服务与 Cluster 检查点 sha256 与 base 相同」独立证实，并确认该裁定**未掩盖任何 AC**。 **刻意不做**：「零载体活跃 Service」的 DB 硬约束（跨行性质无法用 CHECK 表达）→ 由登记路径强制 ≥1 + AC-49 回归查询兑现（NQ-06）；**不引入解绑 / 替换端点**（NQ-01 用户 2026-09-16 确认：必须先删除，不做解绑）。 **三载体父删子拦**：BM / VM **追加**、CONTAINER_ACTIVE_CHILD_CHECKS 由显式 () 变非空（F007 预留位落地）；**CLUSTER_ACTIVE_CHILD_CHECKS 逐字节不变**（Service↔Cluster 是推导关系，非子资源，AC-45）。 **登记加锁**：按 (载体类型 rank, carrier_id) **确定性全序**对每个载体取 FOR SHARE，任一未命中在 INSERT 前 404 → 无主 Service / 部分绑定均不产生；相反请求顺序并发无死锁（AC-46/47 真实线程验证）。 **guard 演进**：11 组对抗注入全部被检出并逐字节还原，无既有 guard 被删除；**移除 service token 后 BOUNDARY_TOKENS 变空、其扫描恒真** —— 注入未批准路由证明真正可独立失败的防线是 **APPROVED_API_PREFIXES allow-list**（对 F006-T-01 / F004-T-02 同源风险的正面回答）。 **实现方自捕缺陷**：按载体反查 Service 的查询初版误写为**非相关子查询**（不报错、静默返回错误结果），由实现方自行发现并修复；评审另以对抗用例独立复验该语义。 **过程**：协调器按 F007-INC-1 之后确立的规矩，**不采信 Agent 测试数字**，在全新真实 PG 上独立重跑后才接受交接；reflog 无任何 Agent 造成的 Git 状态变化。M4（虚拟 / 容器 / 服务资源）随之 DONE。"
     F007: "base 06b3c5b → head 2c383a9 → merge ff347be（--no-ff 合入 develop；集成树与已审阅候选 2c383a9 逐字节一致，父提交为 06b3c5b 与 2c383a9）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；50 文件 / +8560 行经完整差异 Review。 验收：真实 PostgreSQL 16.2 下后端 798 passed（0 skipped）、前端 typecheck + 460 passed（连续 2 次）+ build、ruff 干净、migration 可重复 / 可重建、0001–0006 逐字节未改。 **关键交付**：`containers`（11 列）+ migration 0007；5 端点；**模型里首个多态载体**。 **多态载体裁定**：两列可空 FK（bare_metal_id / virtual_machine_id）+ CHECK (num_nonnulls(...) = 1) + **每载体列一条** partial unique index；**保留两条真实 FK RESTRICT**——否决「判别列 + 无 FK」，因其把「载体必须存在」推给应用层，违反 AGENTS.md §6 与 ADR-0002；否决生成列，因功能等价却引入本项目从未用过的 schema 机制。 **唯一性边界 = 载体（非全局、非 Cluster）**：因 CHECK 保证另一列为 NULL、而唯一索引中 NULL 互不相等，两条索引互不干扰 → **BareMetal 与 VM 同数值 id 同名 Container 可共存**（AC-15，本设计的承重不变式；Tester 与 Reviewer 各自**绕过应用层直连 DB** 独立证实）；大小写敏感；软删释放。 **刻意不加 cluster_id**：F005 的 ip_addresses 需反规范化 cluster_id 是因**其唯一性边界是 Cluster**；Container 边界是载体且两列已在表内（文档明写不得照搬 F005 模式）。 **恰 1 个 CHECK**：name 与四可选字段的长度 / trim / 空串 / 格式未确认 → 不建任何约束，并显式声明「空串当前会被接受」但**不得解读为已确认合法**（NQ-4）。 **F014 双载体端到端**：VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS **首次由显式空元组变非空**（F006 REV-3 预留位落地，其 guard 断言同步演进），BARE_METAL_ACTIVE_CHILD_CHECKS **追加**而非替换（保留 VM + NIC），CONTAINER_ACTIVE_CHILD_CHECKS 留显式 () 作为 F008 追加点；并发孤立记录不变式 0 行（AC-36/37 真实并发）。 **guard 演化纪律**：BOUNDARY_TOKENS **仅移除 container、保留 service、全局 /api/* 扫描未收窄**（注入未批准 POST /api/services 证明仍可检出）；8 组对抗注入全部被检出并逐字节还原；无既有 guard 被删除。 **过程事件（已记录）**：F007-INC-1 Backend Agent 违规执行 git stash -u（并行期），协调器因此**不采信其报告**、在全新真实 PG 上独立重跑全部测试后才接受交接；F007-INC-2 协调器提交信息含反引号被 shell 吞掉，致一条**信息截断且重复**的提交 30592ec（内容为其后提交的严格子集，HEAD 正确），**未改写历史**，此后一律用 git commit -F。"
     F012: >
@@ -1836,10 +1837,9 @@ planning_status:
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），全部产品问题已关闭，无 DRAFT Feature。
     DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005、F007（11 个）。
     **M1 / M2 / M3 / M4 已 DONE**（M4 = F006 + F007 + F008：虚拟 / 容器 / 服务资源）。
-    DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005、F007、F008（12 个）。
-    **F008（Service）DONE**（merge f773378）→ **F010 与 F011 同时解锁为 READY**（依赖均已 DONE）。
-    0 个 Feature 处于 BLOCKED / DRAFT。**M5（资源查询与视图）待启动**：F010（关联查询）+ F011（Excel 导入）。
-    下一批：F010 / F011 —— V1 全部 14 个 Feature 的最后两个。
+    DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005、F007、F008、F010（13 个）。
+    **F010（资源详情与关联查询）DONE**（merge 334b4ca）→ **M5 进行中**：仅剩 **F011（Excel 模板与批量导入，READY）**。
+    0 个 Feature 处于 BLOCKED / DRAFT / IN_PROGRESS。**F011 是 V1 全部 14 个 Feature 的最后一个。**
   git_incidents:
     F007-INC-1:
       severity: PROCESS
@@ -1863,6 +1863,27 @@ planning_status:
         （仅 docs 与 plan 的较早版本），HEAD 内容正确。协调器当时误判该提交失败，未察觉，本轮经 reflog 发现。
       action: 未改写历史（AGENTS.md 禁止以改写历史处理问题）；记录在案。后续提交一律使用 `git commit -F -`（stdin），避免反引号被 shell 解释。
   follow_ups:
+    from_f010_review:
+      report: docs/reviews/f010-resource-detail.md
+      open:
+        - id: REV-2
+          severity: NOTE
+          owner: Tester / Architect
+          summary: "G-010-5 只检出 deleted_at 的写入形态；REQUIRED #2 声称「不得出现任何 deleted_at 表达式（含第二份活跃过滤谓词）」。评审注入只读 .deleted_at.is_(None) 谓词时 guard 不失败（12 passed），而注入写入形态即失败。当前 resource_views 读/写谓词均为零（grep 无匹配），故属纵深缺口而非实现缺陷。建议加「resource_views 源码不得含 deleted_at 字样」token guard，或把 REQUIRED #2 表述收窄为「不得写入」。"
+        - id: REV-3
+          severity: NOTE
+          owner: Architect
+          summary: "架构 REQUIRED #5 声称「单一 session 内保证跨类一致快照」，实际为 PostgreSQL 默认 READ COMMITTED，同一事务内各语句各自取快照；并发软删下 offset 取全循环可能静默跳过行（重复已被去重吸收）。不会产生错误 404/500，对本只读低写并发平台风险很低，且与 F009/F002 同取向。若要求严格一致快照，需 Architect 裁定是否用 REPEATABLE READ。"
+        - id: Framework OPEN#6（承）
+          severity: NOTE
+          owner: Architect / Product
+          summary: "聚合级分页 / 超大规模关联的性能——无已确认需求，留待后续。"
+      resolved:
+        - id: REV-1
+          summary: "F010.git.head_commit 曾记录为实现提交 6109d4c（与 test COMPLETE / REVIEW 自相矛盾）；已在本状态提交修正为已批准 SHA 9dff02b、merge 334b4ca。"
+      notes:
+        - "契约示例字面值修正：technology_type/purpose 由大写改为 canonical 的 Ethernet/Business（由 Frontend Agent 发现）。"
+        - "F009 源码 token guard 曾被我方注释措辞触发；Frontend Agent 改注释、未动 guard（正确），记录以便后续判断是否需收紧扫描范围（仅扫代码不扫注释）。"
     from_f008_review:
       report: docs/reviews/f008-service.md
       open:
@@ -2152,11 +2173,11 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: "PROJECT IN PROGRESS — F010 IN_PROGRESS (BQ-1/BQ-2 resolved: 含间接; Product Gate passed, at Architecture); F011 READY"
+  decision: "PROJECT IN PROGRESS — F010 DONE (merge 334b4ca); NEXT READY = F011 (final feature of V1)"
 
 execution:
-  current_feature: F010
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
