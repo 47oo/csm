@@ -525,8 +525,7 @@ features:
         summary: name 与归属 BareMetal 的登记后可变性未确认；默认不提供（PROPOSED-3）。
       - id: NQ-4
         blocking: false
-        resolved_by: architecture
-        summary: 裁定不在响应暴露 cluster_id（请求侧永不接受）；集群归属由内部推导写入。
+        summary: Other 是否需伴随自由文本 / 中文映射；R-NIC-001/002 已确认封闭集合且无伴随字段；默认不实现（PROPOSED-2）。
       - id: NQ-5
         blocking: false
         resolved_by: architecture
@@ -534,12 +533,10 @@ features:
       - id: NQ-6
         blocking: false
         resolved_by: architecture
-        resolved_by: architecture
-        summary: 裁定为 F005 提供 GET /api/ip-addresses?network_interface_id=（与 F002/F004/F006 对称，不新增端点），F010 必须复用。
+        summary: 裁定为 F004 提供 GET /api/network-interfaces?bare_metal_id=（与 F002/F006 对称，不新增端点），F010 必须复用。
       - id: NQ-7
         blocking: false
-        resolved_by: architecture
-        summary: 裁定父不存在 / 已删 → 404 NOT_FOUND；唯一性 → 409 CONFLICT + details[].code=DUPLICATE。
+        summary: PATCH 可变字段集合固定为 technology_type + purpose。
       - id: NQ-8
         blocking: false
         summary: name 的长度 / 空白 / 空串 / 字符 / `/` 约束未定义；不实现、不承诺（PROPOSED-4）。
@@ -1806,17 +1803,9 @@ execution:
   current_stage: REVIEW
   started_on: "2026-09-16"
   note: >-
-    F004（NetworkInterface 管理）已于 2026-09-17 完成并 --no-ff 合入 develop（merge 4a99fa0）。
-    流程：Product → Architecture（database/backend/frontend = true，契约 READY）→ Database Design → Backend + Frontend 并行
-    → Tester RETURN TO IMPLEMENTATION（F004-T-01 MEDIUM 前端非确定性 / F004-T-02 LOW guard token）→ 双分支修复
-    → Tester 复验 READY FOR REVIEW → Reviewer APPROVED WITH FOLLOW-UP → Merge Gate → 本状态提交。
-    完成后重算：F005 因依赖满足而 READY；F008 / F010 / F011 仍 BLOCKED；无 DRAFT。
-    当前无进行中的 Feature。下一批 READY：F005（IPAddress）/ F007（Container）。
-  started_on: "2026-09-16"
-  note: >
-    F006（VirtualMachine 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 01077be）。
-    流程：Product → Architecture（database/backend/frontend = true，契约 READY）→ Database Design → Backend + Frontend 并行
-    → Tester RETURN TO IMPLEMENTATION（F006-T-01 MEDIUM：边界 guard 被收窄）→ Backend Fix → Tester 复验 READY FOR REVIEW
-    → Reviewer APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）→ Merge Gate → 本状态提交。
-    完成后重算：F007 因依赖满足而 READY；F005 / F008 / F010 / F011 仍因依赖未 DONE 而 BLOCKED；无 DRAFT。
-    当前无进行中的 Feature。下一批 READY：F004（NetworkInterface）/ F007（Container）。
+    F005（IPAddress 管理）当前处于 REVIEW 阶段，分支 feature/F005-ip-address（start 881ee23）。
+    流程至今：Product → Architecture（database/backend/frontend = true，契约 READY）→ Database Design
+    → Backend + Frontend 并行 → Tester READY FOR REVIEW（AC-01~AC-42 全 PASS；漂移三件套与
+    cluster_id 单一写入点经独立注入复证）→ 等待 Reviewer 结论。
+    F005 DONE 后预期解锁：无直接后继（F008 依赖 F007；F010 / F011 依赖 F007 与 F008）。
+    此前已完成并合入：F012 / F001 / F013 / F014 / F015 / F002 / F009 / F006 / F004（9 个 DONE）。
