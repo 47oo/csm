@@ -420,3 +420,176 @@ $ npx vitest run tests/zzTmpF004Integration.spec.ts → Test Files 1 passed | Te
 ---
 
 GIT: NONE
+
+---
+
+# Re-verification（修复复验）
+
+> 复验角色：tester（独立）
+> 复验日期：2026-09-18
+> base `develop` = `cf03e014a9abbd0dad88a00da57947e731778513`
+> 上一轮实现 HEAD = `6ec3b9ea388c89e74a270fb416bf1bddb8652646`（其后 `e22e234` 计划检查点）
+> 修复后 HEAD = `1af0bbeba9eac87148b19f4af8b978538a629b2d`（`5c63168` 修复 + `1af0bbe` 计划检查点）
+> 复验范围：F004-T-01（MEDIUM，前端测试非确定性）/ F004-T-02（LOW，`test_t29` `nic` token 覆盖缺口），并独立判断修复未掩盖其它问题。
+
+原报告内容全部保留；本小节为追加。
+
+## 修复差异（`git diff 6ec3b9e..1af0bbe -- frontend/tests frontend/vite.config.ts tests/test_bare_metals_api.py`）
+
+| 文件 | 修复内容 | 性质 |
+|---|---|---|
+| `frontend/tests/networkInterfaceListPage.spec.ts` | 新增 `submitWhenEnabled(wrapper)` 辅助：先 `waitForUi` 等 `nic-form-submit` 的 `disabled` 消失再 `trigger('click')`；7 处提交点击由裸 `trigger('click')` 改为 `await submitWhenEnabled(...)` | 测试加固（等待 DOM 就绪），**无断言被删** |
+| `frontend/tests/setup/monotonic-date-now.ts` | **新增** 测试进程 `Date.now()` 单调化 setup（幂等、时钟正常时恒等） | 测试基础设施补丁 |
+| `frontend/vite.config.ts` | 新增 `test.setupFiles: ['tests/setup/monotonic-date-now.ts']` | 启用上述 setup |
+| `tests/test_bare_metals_api.py` | `test_t29` 的 `forbidden_prefixes` **加回** `"nic"`（`(nic, ip, container, service)`） | guard **加强** |
+
+**功能代码零改动**：`git diff 6ec3b9e..1af0bbe -- backend/app backend/migrations frontend/src` 为**空**。修复仅涉及测试代码与测试配置。
+
+## 环境
+
+| 项 | 值 |
+|---|---|
+| PostgreSQL | **16.2**（`.venv` 内 `pgserver` 真实实例，Unix socket `/tmp/f004-rev/pgdata`，本次新建） |
+| 测试库 | `csm_f004`（pytest 每夹具 `DROP SCHEMA` + `alembic upgrade head` 重建）、`csm_mig`（迁移 / schema 检查），本次新建 |
+| Node / npm | v24.14.0 / 11.9.0（Vitest 5.0.1，happy-dom） |
+| ruff | 0.16.7 |
+
+环境全新；实现方结论未被复用，以下所有结果均来自本次独立执行。
+
+## F004-T-01 复验（前端 `networkInterfaceListPage.spec.ts` 非确定性）→ **Re-verified / Fixed**
+
+### 启用修复的 setup（默认配置）
+
+```text
+$ cd frontend && for i in 1..8: npx vitest run tests/networkInterfaceListPage.spec.ts
+  8 / 8 次：Test Files 1 passed (1) / Tests 28 passed (28)
+$ cd frontend && for i in 1..3: npm run test
+  3 / 3 次：Test Files 24 passed (24) / Tests 307 passed (307)
+```
+
+单文件 8/8、全量 3/3 全绿。
+
+### 关键独立判断：临时禁用 monotonic setup 后再测（仅临时配置文件，验证后删除）
+
+创建临时 `frontend/zz-tmp-nosetup.config.ts`（与 `vite.config.ts` 完全一致，**仅去掉 `setupFiles`**），运行后已删除（`git status` 干净）：
+
+```text
+$ npx vitest run --config zz-tmp-nosetup.config.ts tests/networkInterfaceListPage.spec.ts
+  20 次：8 次 1 failed | 27 passed，12 次 28 passed   → 约 40% 失败
+  失败用例在「打开登记对话框」/「填表提交」/「404 NOT_FOUND」/「空 name 提交」/
+  「同名提交」之间漂移，均以 waitForUi 轮询 ~10s 超时结束（无 POST / 无对话框）
+$ npx vitest run --config zz-tmp-nosetup.config.ts   （全量，4 次）
+  4 次中 1 次失败：Test Files 4 failed | 20 passed，Tests 4 failed | 303 passed
+  失败横跨 4 个**不同** spec 文件：
+    tests/bareMetalListPage.spec.ts / tests/networkInterfaceDetailPage.spec.ts /
+    tests/networkInterfaceListPage.spec.ts / tests/virtualMachineListPage.spec.ts
+```
+
+对比结论：**启用后稳定、禁用后不稳定** → `monotonic-date-now` 补丁**有效且必要**。
+
+### 根因独立核实（非采信注释）
+
+1. **宿主机时钟确实会向后跳变**：本次独立看门狗（2ms 采样，`node -e` 进程）在 292.7s 内记录 **20 次回拨**，幅度 **195~526ms**，约每 15s 一次（`/tmp/clockwatch.log`）。这与注释声称的「每 10~30s、0.5~2.5s」量级一致（幅度略小）。
+2. **Vue / VTU 两处代码确认**（`frontend/node_modules`，非推测）：
+   - `@vue/runtime-dom` `createInvoker`：`if (!e._vts) { e._vts = Date.now(); } else if (e._vts <= invoker.attached) { return; }`（`invoker.attached` 挂载时取 `getNow()`，即 `Date.now()`）；
+   - `@vue/test-utils` `trigger()`：`event._vts = Date.now() + 1`。
+   
+   当时钟在「invoker 挂载」与「trigger」之间回拨超过 1ms，`_vts <= attached` 成立 → Vue **静默吞掉该点击**，无异常、无 handler 调用。这与观测到的「点击对话框/提交后无任何请求、10s 超时」症状吻合。
+3. 另注：VTU `trigger()` 还有 `if (this.element && !this.isDisabled())` 分支——这是上一轮定位的「未等 disabled 解除即点击」竞态，本次修复以 `submitWhenEnabled` 处理。**两者是两条独立触发路径**：本次实验证明，即便已有 `submitWhenEnabled`，去掉 monotonic setup 后仍约 40% 失败，说明时钟回拨路径真实存在且未被前者覆盖。
+
+### 独立判定：该补丁是否掩盖真实缺陷？
+
+**结论：不掩盖产品缺陷，不构成验证削弱；判定该补丁为必要且正当的测试基础设施修复。** 理由：
+
+- 被吞掉的点击发生在 **Vue 事件分发层**（在业务 handler 之前）。失败时产品代码根本没有执行，故不存在「绕过业务逻辑让错误实现通过」的情形；这是**环境（宿主机时钟）异常**导致的事件丢失，而非产品缺陷。
+- 失败**横跨 4 个不同 spec 文件**，其中 `bareMetalListPage` / `virtualMachineListPage` / `networkInterfaceDetailPage` 的用例**本次修复未触碰**。即：该时钟异常是**全前端测试套件级**的，setup 是全局归一化，而非只针对 F004 spec 的定向掩盖。
+- 补丁**不改断言、不放宽超时、不重试、不跳过、不改 `src/**`**；时钟正常时对 `Date.now()` 恒等。断言完整性已逐行核对（见下）。
+- **残余风险（报告但不判缺陷）**：setup 对**全部**前端 spec 生效。若某用例潜藏「仅当真实时钟回拨时才失败」的时序缺陷，补丁会使其在异常时钟下仍「通过」。但 (a) 该类失败由宿主环境触发、不代表产品行为；(b) 本次全量套件在启用下 3/3 全绿、禁用下亦有整轮全绿（说明无该 spec 每次都依赖回拨），未观测到被掩盖的用例。
+
+### 断言完整性（未被削弱）
+
+`networkInterfaceListPage.spec.ts` 的 diff 仅：新增 `submitWhenEnabled` 函数体（其内部为真实断言 `expect(button.attributes('disabled')).toBeUndefined()`）、把 7 处裸 `trigger('click')` 替换为 `await submitWhenEnabled(...)`、更新 1 行注释。**无任何 `expect` 被删除或放宽**；测试数量仍为 28，与上一轮稳定运行时的数量一致。
+
+## F004-T-02 复验（`test_t29` `nic` token 覆盖缺口）→ **Re-verified / Fixed**
+
+修复后 `forbidden_prefixes = ("nic", "ip", "container", "service")`，且扫描逻辑仍为**全部 `/api/*` path**（`path.startswith("/api/") and remaining.startswith(prefix)`），未收窄范围。
+
+**注入**：临时向 `backend/app/main.py`（非任何资源模块，`create_app` 内 `return app` 前）追加 `POST /api/nics` / `POST /api/containers` / `POST /api/ip-addresses`，运行：
+
+```text
+FAILED tests/test_bare_metals_api.py::test_t29_no_other_resource_endpoints_or_columns
+  AssertionError: F002 不得注册其它资源端点：['/api/ip-addresses', '/api/nics', '/api/containers']
+FAILED tests/test_cluster_views_guards.py::test_g009_2_no_forbidden_resource_tokens_in_any_path
+  AssertionError: 不得注册其它资源端点：['/api/containers', '/api/ip-addresses']
+```
+
+**隔离验证（仅注入 `POST /api/nics`）**，以区分两条 guard 各自的覆盖：
+
+```text
+FAILED tests/test_bare_metals_api.py::test_t29_no_other_resource_endpoints_or_columns
+PASSED tests/test_cluster_views_guards.py::test_g009_2_no_forbidden_resource_tokens_in_any_path
+PASSED tests/test_network_interfaces_guards.py::test_g7_boundary_tokens_narrowed_but_global
+1 failed, 2 passed
+```
+
+**对 `test_g009_2` 表现的记录与理由**：`test_g009_2` 的 `BOUNDARY_TOKENS`（F009，`(ip-address, ip_address, container, service)`）**不含** `nic`，故对 `/api/nics` 本就不覆盖；上面全量三路由注入时它之所以 FAILED，是命中了 `/api/containers` 与 `/api/ip-addresses`（其报错明细亦只列出这两条）。因此 `/api/nics` 的检出**由 `test_t29` 独立承担**，修复后该缺口已闭合；`test_g009_2`/`test_g7` 的 F009 token 列表无需变动（其语义是 IP/容器/服务边界，非 NIC 缩写）。
+
+**还原**：`cp` 备份回写后 `sha256sum backend/app/main.py` = `0b80f8a27f9027971b390f7cabc791ee774c83f8a0999d2e48db66d3de673362`（注入前备份一致），`git status --short` 为空。
+
+## 修复未削弱其它 guard（独立验证）
+
+1. **guard 代码 diff 逐行核对**：`git diff 6ec3b9e..1af0bbe` 中唯一触碰 guard 的行是 `tests/test_bare_metals_api.py` **新增** `"nic"` token——**纯加强**，无断言删除。
+2. **未把 guard 改成恒真**：`test_t29` 仍保留完整 offenders 计算、列集合断言、`/api/bare-metals/by-name/{hostname}` 断言；无 `or True` / 提前 `return` / 断言删除。
+3. **抽查 F006 guard 仍可失败**：临时给 `VirtualMachineCreate.name` 加 `min_length=1` 后：
+
+```text
+FAILED tests/test_virtual_machines_guards.py::test_g7_vm_schemas_have_no_undefined_constraints
+  AssertionError: assert {'min_length'} == set()
+```
+
+   `sha256sum backend/app/virtual_machines/schemas.py` = `0919a53e...57a7` 还原一致，`git status` 干净。
+4. **抽查 F009 guard 仍可失败**：见上（`test_g009_2` 对越界 `containers` / `ip-addresses` FAILED）。
+5. **无新增/删除测试文件**：F004 前端 spec 数仍为 1（28 用例），全量 24 spec 文件 / 307 用例，与上一轮稳定基线一致。
+
+## 工程门禁（真实执行）
+
+```text
+$ CSM_TEST_DATABASE_URL=.../csm_f004... .venv/bin/python -m pytest -q
+  551 passed, 2 warnings in 444.33s (0:07:24)（无 skipped）
+$ .venv/bin/ruff check backend tests           → All checks passed!  exit 0
+$ .venv/bin/ruff format --check backend tests  → 117 files already formatted  exit 0
+
+# 迁移（真实 PG 16.2，csm_mig，本次新建）
+$ alembic upgrade head   → 0001 → 0002 → 0003 → 0004_f006_virtual_machines → 0005_f004_network_interfaces
+$ alembic current        → 0005_f004_network_interfaces (head)
+$ alembic upgrade head   → no-op
+$ alembic check          → No new upgrade operations detected.
+
+# 前端
+$ cd frontend && npm run typecheck   → exit 0
+$ npm run build                      → vue-tsc + vite build 成功
+                                       dist/assets/index-SImFp6qX.js 1,065.05 kB（仅 chunk 体积告警）
+```
+
+## Integration
+
+修复 commit（`5c63168`）对 `backend/app/**`、`backend/migrations/**`、`frontend/src/**` 的改动为**零**（`git diff 6ec3b9e..1af0bbe` 该范围为空），故上一轮**已实际执行**的真实前后端集成（真实 uvicorn + 真实 PG + 前端真实 API client）在契约层面**字节不变、仍然有效**；本轮未重复启动跨进程 uvicorn + 前端 client 探针。后端全量套件（真实 PG，含全部 F004 API / 约束 / 并发）本轮 **551 passed**，前端全量 **307 passed**。
+
+## 复验结论
+
+| Defect | Severity | 复验结果 |
+|---|---|---|
+| F004-T-01 前端 `networkInterfaceListPage.spec.ts` 非确定性失败 | MEDIUM | **Re-verified / Fixed** — 启用 setup 单文件 8/8、全量 3/3；禁用 setup 单文件 8/20 失败、全量 1/4 轮失败（跨 4 个 spec 文件）。monotonic `Date.now()` 补丁有效且必要，且经独立核实（宿主时钟 20 次回拨 + Vue/VTU 源码）不掩盖产品缺陷。 |
+| F004-T-02 `test_t29` `nic` token 覆盖缺口 | LOW | **Re-verified / Fixed** — `nic` 已加回，全局扫描保持；注入 `/api/nics` 后 `test_t29` FAILED（隔离验证），逐字节还原、`git status` 干净。 |
+
+无新增缺陷；无 BLOCKER / HIGH；修复未削弱其它 guard；产品代码零改动。
+
+## New Test Status
+
+`READY FOR REVIEW`
+
+依据：上一轮 2 个缺陷（F004-T-01 MEDIUM / F004-T-02 LOW）均**独立复验修复**，每项以真实注入 / 对照实验证明并逐字节还原；AC-01 ~ AC-34 在上一轮已全部 PASS，且本轮确认修复对产品代码**零改动**，功能语义不变；真实 PG 16.2 全量后端 `551 passed`（无 skipped）、ruff / format 全绿、migration head 一致无漂移；前端 `typecheck + 307 passed + build` 全绿。无 BLOCKER / HIGH / 必须修复的 MEDIUM，无新增缺陷。
+
+---
+
+GIT: NONE
