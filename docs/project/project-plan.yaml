@@ -525,7 +525,8 @@ features:
         summary: name 与归属 BareMetal 的登记后可变性未确认；默认不提供（PROPOSED-3）。
       - id: NQ-4
         blocking: false
-        summary: Other 是否需伴随自由文本 / 中文映射；R-NIC-001/002 已确认封闭集合且无伴随字段；默认不实现（PROPOSED-2）。
+        resolved_by: architecture
+        summary: 裁定不在响应暴露 cluster_id（请求侧永不接受）；集群归属由内部推导写入。
       - id: NQ-5
         blocking: false
         resolved_by: architecture
@@ -533,10 +534,12 @@ features:
       - id: NQ-6
         blocking: false
         resolved_by: architecture
-        summary: 裁定为 F004 提供 GET /api/network-interfaces?bare_metal_id=（与 F002/F006 对称，不新增端点），F010 必须复用。
+        resolved_by: architecture
+        summary: 裁定为 F005 提供 GET /api/ip-addresses?network_interface_id=（与 F002/F004/F006 对称，不新增端点），F010 必须复用。
       - id: NQ-7
         blocking: false
-        summary: PATCH 可变字段集合固定为 technology_type + purpose。
+        resolved_by: architecture
+        summary: 裁定父不存在 / 已删 → 404 NOT_FOUND；唯一性 → 409 CONFLICT + details[].code=DUPLICATE。
       - id: NQ-8
         blocking: false
         summary: name 的长度 / 空白 / 空串 / 字符 / `/` 约束未定义；不实现、不承诺（PROPOSED-4）。
@@ -557,11 +560,14 @@ features:
       start_commit: 881ee230851c1234c705ac7e3367938f243e31ef
       head_commit: 881ee230851c1234c705ac7e3367938f243e31ef
       merge_commit: null
-    current_stage: ARCHITECTURE
-    layers: {}
+    current_stage: IMPLEMENTATION
+    layers:
+      database: true      # 新增 ip_addresses 表 + migration 0006_f005_ip_addresses
+      backend: true       # models/ip_address.py + app/ip_addresses/**（含 derivation）+ network_interfaces/deletion 追加 + guard 演进
+      frontend: true      # api/ipAddresses.ts + 列表/详情/登记/修正/删除
     contract:
-      status: NOT_REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f005-ip-address.md
     implementation:
       database_design: PENDING
       backend: PENDING
@@ -1794,7 +1800,7 @@ planning_status:
 
 execution:
   current_feature: F005
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   started_on: "2026-09-16"
   note: >-
     F004（NetworkInterface 管理）已于 2026-09-17 完成并 --no-ff 合入 develop（merge 4a99fa0）。
