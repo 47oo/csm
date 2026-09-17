@@ -762,7 +762,7 @@ features:
     name: Container 资源模型与登记
     epic: E03
     priority: P1
-    status: IN_PROGRESS
+    status: IN_REVIEW
     depends_on: [F006, F002]
     blocking: []
     git:
