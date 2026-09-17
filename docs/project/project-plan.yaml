@@ -1107,19 +1107,22 @@ features:
       start_commit: 1baedc0d092424926e61afa4f6cf2d869f8236a6
       head_commit: 1baedc0d092424926e61afa4f6cf2d869f8236a6
       merge_commit: null
-    current_stage: ARCHITECTURE
+    current_stage: IMPLEMENTATION
     last_result: >-
       Product 阶段曾因 2 个 Blocking 产品歧义（BQ-1 / BQ-2）按 §11 停止；用户已于 2026-09-18 裁定
       两者均取「含间接」，并已固化为 requirements.md R-QUERY-003 的产品规则。Product Gate 通过。
     next_action: >-
-      Architecture / API Contract（含 NQ-5 聚合形态裁定、固定深度 ≤3 跳推导、404/Empty 判定位置、
-      AC-18 复用既有 canonical 过滤、边界 guard）。契约落点预计 docs/api/f010-resource-detail.md。
-    layers: {}
+      Backend + Frontend 并行实现（database: false，无需 Database Design）。Backend 交付 app/resource_views/**
+      单一只读聚合端点 GET /api/bare-metals/{id}/related；Frontend 在 BareMetalDetailPage 增加「关联资源」区。
+    layers:
+      database: false    # 无 schema 变更 / 无 migration；全部读取委托既有 canonical 过滤原语与既有索引
+      backend: true      # 新增 app/resource_views/**（router/service/schemas）+ main 挂载 + EXPECTED_GET_ROUTES 追加 + G-010 guard
+      frontend: true     # api/bareMetals.ts + BareMetalDetailPage「关联资源」区 + App.vue 导航 + 三态
     contract:
-      status: NOT_REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f010-resource-detail.md
     implementation:
-      database_design: PENDING
+      database_design: NOT_REQUIRED   # database: false
       backend: PENDING
       frontend: PENDING
       test: PENDING
@@ -1157,7 +1160,8 @@ features:
         summary: 排序 / 关键字 / 筛选 / 导出 / 分页形态；默认不实现，沿用既有分页约定。
       - id: NQ-5
         blocking: false
-        summary: 聚合形态（单一聚合读取 vs 前端调用多条 canonical 读取）属 Architecture 裁定；产品只要求 AC-17/AC-18。
+        resolved_by: docs/architecture/f010-resource-detail-handoff.md
+        summary: "已裁定：**单一只读聚合端点** GET /api/bare-metals/{bare_metal_id}/related。否决「五个子资源端点」（契约/guard 面 ×5、快照不一致、与 F004/F005/F006 拒绝嵌套路由的结论冲突）与「前端多轮调用聚合」（无事务一致快照、AC-10/AC-11 退化为页面级）。"
       - id: NQ-6
         blocking: false
         summary: VM 是否拥有独立 NetworkInterface（R-NIC-003 未确认，F004 NQ-1）；F010 不得假设。
@@ -2152,7 +2156,7 @@ planning_status:
 
 execution:
   current_feature: F010
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
