@@ -647,16 +647,19 @@ features:
         summary: ip_address 字面值登记后可变性；默认可变（修正字面值）并重校验唯一性。
       - id: NQ-4
         blocking: false
-        summary: 响应是否暴露推导得到的 cluster_id（只读派生值）；由 Architecture 裁定，请求侧永不接受。
+        resolved_by: architecture
+        summary: 裁定不在响应暴露 cluster_id（请求侧永不接受）；Cluster 归属由内部推导写入。
       - id: NQ-5
         blocking: false
         summary: BareMetal 跨 Cluster 迁移的连带重推导属未来 Feature（F002 NQ-1）；V1 无改属产品路径故触发条件不可达；F005 不实现、不预留。
       - id: NQ-6
         blocking: false
-        summary: 按 NIC 限定读取的路由形态与 F010 归属；F005 承诺提供可复用能力并满足 R-QUERY-004，形态由 Architecture 裁定。
+        resolved_by: architecture
+        summary: 裁定为 F005 提供 GET /api/ip-addresses?network_interface_id=（与 F002/F004/F006 对称，不新增端点），F010 必须复用。
       - id: NQ-7
         blocking: false
-        summary: 精确响应码；建议沿用先例（父不存在 / 已删 → 404；唯一性 → 409 + DUPLICATE）；AC 已按「被阻止 + 无写入 + 非 5xx」固定。
+        resolved_by: architecture
+        summary: 裁定父不存在 / 已删 → 404 NOT_FOUND；唯一性 → 409 CONFLICT + details[].code=DUPLICATE。
       - id: NQ-8
         blocking: false
         summary: IP 的 by-name 只读别名；ip_address 非全局唯一，建议不提供（PROPOSED-F005-1）。
