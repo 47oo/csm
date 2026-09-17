@@ -853,7 +853,9 @@ open_questions:
     detail: Port / Protocol / Owner / Description / Credential reference / Health information 中哪些属于 V1
     resolve_in_feature: F008
     blocking: false
-    status: OPEN
+    status: CLOSED_RESOLVED
+    resolved_on: "2026-09-16"
+    resolution: R-SVC-001~009（字段集合 name + 6 可选字段，不含 credential_reference / health_information；N:M 必选绑定；Cluster 归属推导；name 全局唯一；三载体父删子拦；V1 无状态）
   - id: OPEN-004
     topic: BareMetal 硬件字段
     detail: CPU / Memory / GPU / Storage / Vendor / Model / Serial Number 的 V1 必填与可选范围

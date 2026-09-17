@@ -879,7 +879,8 @@ features:
         summary: 文档漂移同步（domain-model.yaml relationship/OPEN-002/must_not_assume；domain-model.md §6/§8；schema-design 442/731/892；本 plan）。
       - id: NQ-9
         blocking: false
-        summary: F008 义务——须向 CONTAINER_ACTIVE_CHILD_CHECKS 追加活跃 Service 检查并补端到端。
+        resolved_by: docs/product/handoffs/f008-service.md
+        summary: F008 义务——向 CONTAINER_ACTIVE_CHILD_CHECKS 追加活跃 Service 检查并补端到端（已写入 F008 AC-43 / AC-44，F008 实现阶段落地）。
       - id: NQ-10
         blocking: false
         summary: F011 导入 Container 行须复用同一套领域校验。
@@ -896,7 +897,7 @@ features:
       start_commit: 68d8e115085fbca7b1bfeb62719b4b815cc3459f
       head_commit: 68d8e115085fbca7b1bfeb62719b4b815cc3459f
       merge_commit: null
-    current_stage: PRODUCT
+    current_stage: ARCHITECTURE
     layers: {}
     contract:
       status: NOT_REQUIRED
@@ -918,18 +919,99 @@ features:
       - R-SVC-007
       - R-SVC-008
       - R-SVC-009
+      - R-DELETE-001
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-004
+      - R-DELETE-005
+      - R-DELETE-006
+      - R-QUERY-003
+      - R-QUERY-004
+      - "§21 Data Consistency"
+      - "§22 Case Sensitivity"
+      - "§23 Scope Limits"
+      - "Q-002=B"
     acceptance_criteria:
-      - Service Name / Type 等产品字段允许按实际服务自由登记，不强制固定类别（R-SVC-001）。
-      - Service 必选绑定运行载体（BareMetal / VirtualMachine / Container），不允许存在未绑定任何运行载体的 Service（R-SVC-005）。
-      - 一个 Service 可绑定多个运行载体，并可通过绑定跨 Cluster 的多个载体实现被多个 Cluster 共享（R-SVC-002, R-SVC-005, R-SVC-006）。
-      - 共享服务只登记一次，模型能表达 Service N:N Cluster 或等价语义（R-SVC-003）。
-      - Service 与 Cluster 的关联由运行载体的 Cluster 归属推导，不设计为强制 service.cluster_id（R-SVC-004, R-SVC-006）。
-      - Service name 必填、在所有活跃 Service 范围内全局唯一、比较区分大小写；已软删释放唯一性（R-SVC-008、R-DELETE-006）。
-      - 字段范围：service_type / url / port / protocol / owner / description 均可选、纯文本、允许为空（NULL）；**不包含** credential_reference 与 health_information（R-SVC-007）。
-      - 绑定了活跃 Service 的运行载体在绑定期间不得删除（R-DELETE-004 泛化）；Service 软删不级联（R-SVC-009、R-DELETE-005）。
-      - Service 在 V1 不设状态（Q-002=B）。
-    open_questions: []
-
+      - "AC-01~AC-03 分别以 BareMetal / VirtualMachine / Container（存在且活跃）为载体登记 → 201；响应含 name 与载体绑定（类型+标识）；6 个可选字段未提供时返回 null 而非省略。"
+      - "AC-04 一次请求给出 3 个载体（分属三类型）→ 201，3 个绑定全部保留，无遗漏无截断。"
+      - "AC-05 name 必填：缺失或非字符串 → 400 + details[].field=name；不产生 Service 行与绑定行。"
+      - "AC-06/AC-07 载体必填：完全不提供载体 或 空载体集合 → 400；不产生任何写入（R-SVC-005 的登记路径落地）。"
+      - "AC-08 多载体中任一无效 → 整请求失败，不产生 Service 行、不产生任何绑定行，不得 5xx（响应码见 NQ-07）。"
+      - "AC-09 拒绝非载体资源类型（Cluster / NIC / IP）或三值集合外的载体类型 → 400（schema 封闭）。"
+      - "AC-10 载体类型与标识必须一致；不一致 → 拒绝、无写入、非 5xx。"
+      - "AC-11 合法资源关系保存前阻止，不依赖 UI（§21）。"
+      - "AC-12 字段集合封闭：恰为 id + name + service_type/url/port/protocol/owner/description + 载体绑定 + created_at/updated_at；无 deleted_at / status / cluster_id / 凭据 / 健康 / 位置字段；未识别字段 → 400。"
+      - "AC-13 6 个可选字段全缺失 → 201 且各为 null。"
+      - "AC-14 纯文本往返不结构化：url 可为非法 URL 字面、port 可为 abc / 8080-8090、protocol 自由文本、中文与含换行长文本原样存取。"
+      - "AC-15 未定义约束不实现：name 与 6 字段无长度 / trim / 空串 / 字符 / `/` / URL 格式 / 端口数字校验；空串与含首尾空白 name 不被拒。此为事实陈述，不得解读为已确认合法。"
+      - "AC-16 同一 Service 绑定多个载体：详情可观察全部绑定，数量与登记一致。"
+      - "AC-17 同一载体被多个 Service 绑定（N:M 反向）：按该载体限定读取返回全部绑定到它的活跃 Service。"
+      - "AC-18 跨 Cluster 载体 = 被多个 Cluster 共享且只登记一次：活跃同名 Service 行数恰为 1；关联 Cluster 集合 = 全部载体 Cluster 归属之并集且至少 2 个不同 Cluster。"
+      - "AC-19 从任一 Cluster 视角可推导：对每个载体 C，按 C 限定读取含 S；对无绑定载体 C' 不含 S；该推导在两个以上 Cluster 上同时成立。"
+      - "AC-20 不存 cluster_id：请求 / 响应 / 表 / 查询参数均无 cluster_id / cluster / cluster_name。"
+      - "AC-21 归属仅由载体推导、不持久化；详情只暴露载体绑定。"
+      - "AC-22 全局唯一且保存前阻止：不同 Cluster 的载体上同名活跃 Service → 409 + details[].field=name。"
+      - "AC-23 唯一性边界对照：Service 全局唯一与 Container 载体内唯一严格分离，互不削弱、不得混用。"
+      - "AC-24 不与其它资源类型名称冲突：同名 Cluster/BareMetal/VM/Container 存在时登记同名 Service → 201；各资源唯一性各自独立。"
+      - "AC-25 大小写敏感：mon 与 MON 可共存；无 lower(name) 索引或大小写折叠。"
+      - "AC-26 保存前阻止 + DB 最终权威：绕应用层直插第二条同名活跃 Service 被 DB 拒绝。"
+      - "AC-27 软删释放唯一性：软删后可重新登记同名 → 201；旧行 deleted_at 未改写。"
+      - "AC-28 无状态：请求 / 响应 / 表 / 端点均无 status。"
+      - "AC-29 列表分页 200 + 空信封；无活跃 Service 时 items==[]，不得 404。"
+      - "AC-30 详情：不存在或已软删 id → 404（不区分）。"
+      - "AC-31 按载体限定读取（三种载体类型均成立）：载体活跃但无绑定 → 200 + items==[]；载体不存在 / 已删 → 404；只返回绑定到该载体的活跃 Service（形态见 NQ-09，须供 F010 复用）。"
+      - "AC-32 载体过滤参数成对：仅给其一 → 400。"
+      - "AC-33 列表 / 详情 / 按载体结果均排除已软删 Service；按 id → 404。"
+      - "AC-34 PATCH 6 个可选字段可更新；null 清空；缺省不变；再次读取一致。"
+      - "AC-35 PATCH schema 封闭：未识别 / 不可变字段（id、name、载体绑定、cluster_id、status、deleted_at、凭据、健康）→ 400；空 body → 400；name 与载体绑定不可变（NQ-01/NQ-02）。"
+      - "AC-36 可选字段不参与任何唯一性；更新不触发唯一性冲突。"
+      - "AC-37 DELETE → 204 无响应体；行仍物理存在且 deleted_at 非空；不再出现在列表 / 详情 / 按载体结果。"
+      - "AC-38 删除不级联：全部载体各字段逐字段不变。"
+      - "AC-39 软删后释放载体：软删 Service 后其原载体在满足其它活跃子检查的前提下可删 → 204；即绑定解除由「删除 Service」达成。"
+      - "AC-40 无 restore / undelete / purge / 批量 / include_deleted。"
+      - "AC-41/AC-42/AC-43 三载体父删子拦：BareMetal / VirtualMachine / Container 被活跃 Service 直接绑定时 DELETE → 409 + details[].code=ACTIVE_CHILDREN_EXIST，且载体 deleted_at 仍 NULL。AC-43 即 F007 AC-41 的落地。"
+      - "AC-44 检查点只做追加：BM 保留活跃 VM/NIC/Container 并追加活跃 Service；VM 保留活跃 Container 并追加活跃 Service；CONTAINER_ACTIVE_CHILD_CHECKS 由 () 变为含活跃 Service；三者均被删除路径真实消费。"
+      - "AC-45 拦截仅针对直接绑定；不新增传递性 Service 检查；CLUSTER_ACTIVE_CHILD_CHECKS 保持不变（Service↔Cluster 是推导关系，非子资源关系）。"
+      - "AC-46 并发孤立记录不变式 = 0 行（三种载体类型各一条查询）。"
+      - "AC-47 登记侧同事务对每一个载体行取共享锁并确认活跃；任一未命中 → 拒绝登记（不留无主 Service、不留部分绑定）；多载体锁顺序必须确定以避免死锁。"
+      - "AC-48 不存在解绑路径：绑定写入路径恰两条——登记建立、Service 软删释放。"
+      - "AC-49 零载体不变式（产品路径）：活跃 Service 且活跃绑定数为 0 的行数必须为 0。"
+      - "AC-50 零载体在数据层可表达这一事实被显式对待：产品路径兑现 AC-49；保留可重复执行的一致性查询作为回归断言；不据此引入触发器 / 跨行约束，是否追加 DB 层硬约束由 Architecture 裁定（NQ-06）。"
+      - "AC-51 不越界：不注册 / 不修改其它资源端点；services 表无位置字段；不新增 Cluster → Service 视图。"
+      - "AC-52 无监控 / 健康 / 凭据 / 密钥 / 外部平台 id / 自动发现 / 同步字段与端点。"
+      - "AC-53 未认证 → 401 UNAUTHENTICATED 且不改变数据；已认证可执行全部操作（V1 无 RBAC）。"
+      - "AC-54 前端三态互不相同；Empty 与 Not Found 可区分；错误按 error.code；不重复实现业务守卫；登记表单仅提供三种载体类型且至少选择一项才能提交。"
+    open_questions:
+      - id: NQ-01
+        blocking: false
+        summary: "范围敏感：绑定变更（登记后追加 / 解除 / 替换载体）与「解除全部绑定 → 零载体」未确认；默认不提供（登记时确定、登记后不可变），R-SVC-009 的解除由「删除 Service」达成。若用户要求纳入 F008，本项立即升级为 Blocking，AC-48/AC-49 与端点范围须重做后再进入 Architecture。"
+      - id: NQ-02
+        blocking: false
+        summary: name 登记后可变性未确认（先例不一致）；默认不可变（PROPOSED-4）。
+      - id: NQ-03
+        blocking: false
+        summary: by-name 只读别名无规则要求；默认不提供。
+      - id: NQ-04
+        blocking: false
+        summary: 同一请求内重复给出同一载体未确认；默认绑定集合以（载体类型, 载体标识）为元素，建议拒绝（400）。
+      - id: NQ-05
+        blocking: false
+        summary: 读取是否附加推导出的 Cluster 归属未确认；默认不返回（PROPOSED-2，沿用 F006 NQ-7 / F007 AC-22 口径）。
+      - id: NQ-06
+        blocking: false
+        summary: 「零载体活跃 Service」的数据库层硬约束机制；属 Architecture 裁定。产品只要求 AC-49 产品路径不变式 + AC-50 回归断言；建议不引入触发器 / 跨行约束（ADR-0002）。
+      - id: NQ-07
+        blocking: false
+        summary: 载体无效时的响应码未固定；建议沿用 F002/F004/F006/F007 的 404 NOT_FOUND 先例。
+      - id: NQ-08
+        blocking: false
+        summary: F011 义务——若 Excel 模板含 Service 行，导入须复用同一套领域校验；N:M 载体在行式模板中的表达属 F011 待确认项。
+      - id: NQ-09
+        blocking: false
+        summary: 按载体限定读取的路由 / 参数形态由 Architecture 裁定；须与 F007 的 carrier_type + carrier_id 成对语义一致（扩展 CONTAINER），并保证 F010 可复用。
+      - id: NQ-10
+        blocking: false
+        summary: 文档漂移同步（domain-model.yaml OPEN-003 → CLOSED_RESOLVED；domain-model.md §8 补录 Service name 全局唯一；schema-design 439/440/697/894；本 plan）。
   # ---- E05 资源查询与视图 ----
   - id: F009
     name: Cluster 视角资源查询
@@ -1992,7 +2074,7 @@ planning_status:
 
 execution:
   current_feature: F008
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   started_on: "2026-09-16"
   note: >-
     F007 引入**首个多态载体关系**（Container 必属恰好一个 BareMetal 或 VirtualMachine）。
