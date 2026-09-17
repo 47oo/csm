@@ -38,6 +38,18 @@ const BARE_METAL_A = {
   updated_at: '2026-09-16T10:00:00Z',
 }
 const BARE_METAL_LIST_BODY = { items: [BARE_METAL_A], total: 1, page: 1, page_size: 50 }
+
+/**
+ * F010：空五类关联聚合响应体（f010-resource-detail.md §2）。裸金属详情页
+ * 挂载时会并行请求 GET /api/bare-metals/{id}/related。
+ */
+const RELATED_EMPTY_BODY = {
+  network_interfaces: { items: [], total: 0 },
+  ip_addresses: { items: [], total: 0 },
+  virtual_machines: { items: [], total: 0 },
+  containers: { items: [], total: 0 },
+  services: { items: [], total: 0 },
+}
 const VIRTUAL_MACHINE_A = {
   id: 7,
   bare_metal_id: 11,
@@ -76,6 +88,7 @@ function stubFetch() {
     if (url.includes('/api/auth/session')) return jsonResponse(200, SESSION_USER)
     if (/\/api\/virtual-machines\/\d+/.test(url)) return jsonResponse(200, VIRTUAL_MACHINE_A)
     if (url.includes('/api/virtual-machines')) return jsonResponse(200, VIRTUAL_MACHINE_LIST_BODY)
+    if (/\/api\/bare-metals\/\d+\/related/.test(url)) return jsonResponse(200, RELATED_EMPTY_BODY)
     if (/\/api\/bare-metals\/\d+/.test(url)) return jsonResponse(200, BARE_METAL_A)
     if (url.includes('/api/bare-metals')) return jsonResponse(200, BARE_METAL_LIST_BODY)
     if (/\/api\/clusters\/\d+/.test(url)) return jsonResponse(200, CLUSTER_A)

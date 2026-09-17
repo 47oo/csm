@@ -59,6 +59,34 @@ function noContent(): Response {
   return new Response(null, { status: 204 })
 }
 
+/**
+ * F010：空五类关联聚合响应体（f010-resource-detail.md §2：主体活跃但各类
+ * 无关联 → 200 + 各类 { items: [], total: 0 }）。
+ */
+const RELATED_EMPTY_BODY = {
+  network_interfaces: { items: [], total: 0 },
+  ip_addresses: { items: [], total: 0 },
+  virtual_machines: { items: [], total: 0 },
+  containers: { items: [], total: 0 },
+  services: { items: [], total: 0 },
+}
+
+/**
+ * 页面级 GET 路由桩：/api/bare-metals/{id}/related → 关联聚合（默认空五类），
+ * 其余 → 详情响应。F010 起详情页并行发出这两个请求。
+ */
+function stubPageFetch(
+  detail: () => Response | Promise<Response>,
+  related?: () => Response | Promise<Response>,
+) {
+  return vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input).endsWith('/related')) {
+      return related?.() ?? jsonResponse(200, RELATED_EMPTY_BODY)
+    }
+    return detail()
+  })
+}
+
 function mountDetailPage(bareMetalId = 1) {
   return mount(BareMetalDetailPage, {
     props: { bareMetalId },
@@ -86,7 +114,7 @@ describe('BareMetalDetailPage 状态渲染', () => {
     const detailPromise = new Promise<Response>((res) => {
       resolveDetail = (body: unknown) => res(jsonResponse(200, body))
     })
-    vi.stubGlobal('fetch', vi.fn(async () => detailPromise))
+    vi.stubGlobal('fetch', stubPageFetch(() => detailPromise))
 
     const wrapper = mountDetailPage()
 
@@ -103,7 +131,7 @@ describe('BareMetalDetailPage 状态渲染', () => {
   })
 
   it('成功（硬件字段全 null）→ 展示全部 13 字段，null 渲染「—」（契约 §2：返回 null 而非省略）', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, BARE_METAL_NULLS)))
+    vi.stubGlobal('fetch', stubPageFetch(() => jsonResponse(200, BARE_METAL_NULLS)))
 
     const wrapper = mountDetailPage()
 
@@ -135,7 +163,7 @@ describe('BareMetalDetailPage 状态渲染', () => {
   })
 
   it('成功（硬件字段已登记）→ 原样展示纯文本值', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, BARE_METAL_FULL)))
+    vi.stubGlobal('fetch', stubPageFetch(() => jsonResponse(200, BARE_METAL_FULL)))
 
     const wrapper = mountDetailPage()
 
@@ -188,7 +216,7 @@ describe('BareMetalDetailPage 状态渲染', () => {
   })
 
   it('点击「返回列表」→ emit back', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, BARE_METAL_NULLS)))
+    vi.stubGlobal('fetch', stubPageFetch(() => jsonResponse(200, BARE_METAL_NULLS)))
 
     const wrapper = mountDetailPage()
     await waitForUi(() => {
@@ -215,6 +243,8 @@ function stubDetailFetch(routes: {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     if (init?.method === 'PATCH') return routes.patch?.() ?? noContent()
     if (init?.method === 'DELETE') return routes.remove?.() ?? noContent()
+    // F010：详情页并行发出的关联聚合 GET（默认空五类）。
+    if (String(input).endsWith('/related')) return jsonResponse(200, RELATED_EMPTY_BODY)
     return routes.detail()
   })
   vi.stubGlobal('fetch', fetchMock)
@@ -353,9 +383,13 @@ describe('BareMetalDetailPage 编辑入口（PATCH，T-FE-01 / AC-12）', () => 
       expect(wrapper.find('[data-status]').attributes('data-status')).toBe('DOWN')
     })
     expect(wrapper.text()).toContain('2026-09-16T12:00:00Z')
-    // 请求序列：初始 GET → PATCH → 重新读取 GET。
-    expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(fetchMock.mock.calls[2]![0]).toBe('/api/bare-metals/1')
+    // 请求序列：初始 GET（详情 + 关联聚合）→ PATCH → 重新读取 GET。
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/bare-metals/1/related',
+      expect.objectContaining({ method: 'GET' }),
+    )
+    expect(fetchMock.mock.calls[3]![0]).toBe('/api/bare-metals/1')
   })
 
   it('400 VALIDATION_ERROR（非法 status 等，契约 §3.4）→ 对话框内按 error.code 渲染字段级提示', async () => {
@@ -510,7 +544,8 @@ describe('BareMetalDetailPage 删除入口（T-FE-01 / AC-18）', () => {
 
     wrapper.findComponent(ElPopconfirm).vm.$emit('cancel', new MouseEvent('click'))
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    // 初始两个 GET（详情 + 关联聚合），无 DELETE。
+    expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(wrapper.attributes('data-state')).toBe('content')
   })
 
@@ -536,9 +571,9 @@ describe('BareMetalDetailPage 删除入口（T-FE-01 / AC-18）', () => {
     expect(alert.text()).toContain('资源不存在，或已被删除')
     expect(wrapper.find('.el-descriptions').exists()).toBe(false)
     expect(wrapper.find('[data-delete-error-code]').exists()).toBe(false)
-    // 请求序列：初始 GET → DELETE → 重新读取 GET（404）。
-    expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(fetchMock.mock.calls[2]![0]).toBe('/api/bare-metals/1')
+    // 请求序列：初始 GET（详情 + 关联聚合）→ DELETE → 重新读取 GET（404）。
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(fetchMock.mock.calls[3]![0]).toBe('/api/bare-metals/1')
   })
 
   it('409 CONFLICT → 保留详情内容并按 error.code 渲染冲突提示（不解析 message）', async () => {

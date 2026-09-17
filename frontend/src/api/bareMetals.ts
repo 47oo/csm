@@ -13,9 +13,17 @@
  *   不假设非空、不做长度 / 字符 / 空串分支；
  * - 写操作一律走 id（ADR-0003）；错误语义由 api/http.ts 统一解析为 ApiError，
  *   消费方按 error.code 分支，不解析 message。
+ * - F010（f010-resource-detail.md §2）：新增唯一只读聚合端点
+ *   GET /api/bare-metals/{bare_metal_id}/related，一次返回五类关联；元素
+ *   schema 复用各资源 canonical Read（本模块只引用，不另立一份）。
  */
 import type { PageParams, Paginated } from '../types/api'
 import { apiRequest } from './http'
+import type { ContainerRead } from './containers'
+import type { IpAddressRead } from './ipAddresses'
+import type { NetworkInterfaceRead } from './networkInterfaces'
+import type { ServiceRead } from './services'
+import type { VirtualMachineRead } from './virtualMachines'
 
 /** BareMetal 状态封闭集合（R-BM-003；domain-model.md §7.1，仅 BareMetal 有状态）。 */
 export type BareMetalStatus = 'IDLE' | 'ALLOC' | 'DOWN' | 'UNKNOWN'
@@ -143,6 +151,56 @@ export function listBareMetals(
  */
 export function getBareMetal(bareMetalId: number): Promise<BareMetalRead> {
   return apiRequest<BareMetalRead>(`/api/bare-metals/${bareMetalId}`, { method: 'GET' })
+}
+
+/** 单一类别的关联集合（F010 契约 §2）：恰为 {items, total}，total == items.length。 */
+export interface RelatedSet<T> {
+  items: T[]
+  total: number
+}
+
+/**
+ * BareMetal 五类关联聚合结果（F010 契约 §2）。
+ *
+ * - 顶层字段集合封闭：恰为五类键，无其他资源字段；
+ * - items 元素 schema **逐字段等于**对应 canonical Read：NetworkInterfaceRead /
+ *   IpAddressRead（无 cluster_id）/ VirtualMachineRead / ContainerRead（载体以
+ *   carrier_type + carrier_id 表达）/ ServiceRead（含 carriers）；
+ * - 不存在 deleted_at、cluster_id、推导 Cluster 归属、状态 / 位置 / 发现字段
+ *   （契约 §2 / §7）；各类 items 按 id 升序，已逻辑删除资源不出现也不计入 total；
+ * - 非分页快照（契约 §7：不提供聚合级分页 / 排序 / 关键字）。
+ */
+export interface RelatedResources {
+  /** 活跃 NIC 且 nic.bare_metal_id = B.id（1 跳）。 */
+  network_interfaces: RelatedSet<NetworkInterfaceRead>
+  /** 活跃 IP 且 ip.network_interface_id ∈ {B 的活跃 NIC}（2 跳；IP 无 bare_metal_id）。 */
+  ip_addresses: RelatedSet<IpAddressRead>
+  /** 活跃 VM 且 vm.bare_metal_id = B.id（1 跳）。 */
+  virtual_machines: RelatedSet<VirtualMachineRead>
+  /** 活跃 Container，载体为 B 或 B 的活跃 VM（1~2 跳，含间接；BQ-1 裁定）。 */
+  containers: RelatedSet<ContainerRead>
+  /** 活跃 Service，载体与 R(B) 有交集（1~3 跳，含间接；BQ-2 裁定；按 id 去重）。 */
+  services: RelatedSet<ServiceRead>
+}
+
+/**
+ * 读取 BareMetal 的五类关联聚合（F010 契约 §2，本 Feature 唯一新增端点，只读）。
+ *
+ * - 一次请求获得五类清单及每类空 / 非空（R-QUERY-003「一次获得、无需拼接」）；
+ *   前端不得在浏览器端拼接 / 推导 IP / Container / Service 的关联
+ *   （NQ-5 裁定 a1：单一聚合端点），一律消费本端点返回的五类清单；
+ * - 主体 BareMetal 不存在或已被逻辑删除 → 404 NOT_FOUND（两者不区分；五类
+ *   共用同一 404 判定，任何一类为空绝不产生 404）；主体存在且活跃但某类
+ *   （或全部类）无关联 → 200 且该类 { items: [], total: 0 }（Empty，不得
+ *   渲染为错误，R-QUERY-004）；
+ * - 401 UNAUTHENTICATED 由全局会话失效处理；其余错误按 error.code 分支，
+ *   不解析 message；
+ * - 无 query 参数、无请求体（契约 §2：客户端不得发送）。
+ */
+export function getBareMetalRelated(bareMetalId: number): Promise<RelatedResources> {
+  return apiRequest<RelatedResources>(`/api/bare-metals/${bareMetalId}/related`, {
+    method: 'GET',
+  })
 }
 
 /**

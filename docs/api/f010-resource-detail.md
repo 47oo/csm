@@ -54,7 +54,7 @@
   "network_interfaces": {
     "items": [
       { "id": 11, "bare_metal_id": 1, "name": "eth0",
-        "technology_type": "ETHERNET", "purpose": "BUSINESS",
+        "technology_type": "Ethernet", "purpose": "Business",
         "created_at": "2026-09-18T10:00:00Z", "updated_at": "2026-09-18T10:00:00Z" }
     ],
     "total": 1
