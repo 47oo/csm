@@ -43,14 +43,19 @@ def _field_constraint_flags(model, field_name: str) -> set[str]:
 def test_t22_bare_metal_active_child_checks_explicitly_declared():
     # F006 演进：BARE_METAL_ACTIVE_CHILD_CHECKS 由显式空元组演进为包含「活跃
     # VirtualMachine」检查（R-VM-005 / AC-28）；不再允许 fail-open 的空元组。
+    # F004 演进：追加「活跃 NetworkInterface」检查，**保留** VM 检查
+    # （R-NIC-003 / AC-29）。
+    from app.network_interfaces.deletion import has_active_network_interfaces
     from app.virtual_machines.deletion import has_active_virtual_machines
 
     assert isinstance(BARE_METAL_ACTIVE_CHILD_CHECKS, tuple)
     assert len(BARE_METAL_ACTIVE_CHILD_CHECKS) >= 1
     assert has_active_virtual_machines in BARE_METAL_ACTIVE_CHILD_CHECKS
+    assert has_active_network_interfaces in BARE_METAL_ACTIVE_CHILD_CHECKS
     source = (REPO_ROOT / "backend/app/bare_metals/deletion.py").read_text(encoding="utf-8")
     assert "BARE_METAL_ACTIVE_CHILD_CHECKS" in source
     assert "has_active_virtual_machines" in source, "必须显式声明活跃 VM 检查"
+    assert "has_active_network_interfaces" in source, "必须显式声明活跃 NIC 检查"
 
 
 def test_t22_delete_path_passes_active_child_checks(auth_client_and_raw, monkeypatch):

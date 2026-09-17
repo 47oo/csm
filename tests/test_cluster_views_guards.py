@@ -56,11 +56,11 @@ ORIGINAL_GET_ROUTES = {
 
 #: G-009-2：R-QUERY-003 资源类型 token（F010 归属，不得出现）。
 #: F006 演进：VirtualMachine 已成为合法资源（``/api/virtual-machines``），故从全局
-#: 边界 token 中移除 ``virtual-machine`` / ``virtual_machine``；``network-interface`` /
-#: ``ip-address`` / ``container`` / ``service`` 仍对**全部** OpenAPI path 全局扫描。
+#: 边界 token 中移除 ``virtual-machine`` / ``virtual_machine``。
+#: F004 演进：NetworkInterface 已成为合法资源（``/api/network-interfaces``），故仅
+#: 移除 ``network-interface`` / ``network_interface``；``ip-address`` / ``ip_address`` /
+#: ``container`` / ``service`` 仍对**全部** OpenAPI path 全局扫描（不得收窄到单模块）。
 BOUNDARY_TOKENS = (
-    "network-interface",
-    "network_interface",
     "ip-address",
     "ip_address",
     "container",

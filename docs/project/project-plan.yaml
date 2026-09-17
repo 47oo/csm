@@ -438,21 +438,111 @@ features:
     name: NetworkInterface 管理
     epic: E02
     priority: P1
-    status: READY
+    status: IN_REVIEW
     depends_on: [F002]
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F004-network-interface
+      start_commit: cf03e014a9abbd0dad88a00da57947e731778513
+      head_commit: cf03e014a9abbd0dad88a00da57947e731778513
+      merge_commit: null
+    current_stage: REVIEW
+    layers:
+      database: true      # 新增 network_interfaces 表 + migration 0005_f004_network_interfaces
+      backend: true       # models/network_interface.py + app/network_interfaces/** + bare_metals/deletion 追加 + guard 演进
+      frontend: true      # api/networkInterfaces.ts + 列表/详情/登记/维护/删除
+    contract:
+      status: READY
+      doc: docs/api/f004-network-interface.md
+    implementation:
+      database_design: COMPLETE    # docs/database/f004-network-interface-migration.md（READY FOR DATABASE IMPLEMENTATION）
+      backend: FIX_COMPLETE       # 5c63168 修复 F004-T-02（恢复 nic 扫描，注入验证）
+      frontend: FIX_COMPLETE      # 5c63168 修复 F004-T-01（单调时钟 + 等待按钮启用；12/12 单文件 + 4/4 全量绿）
+      test: COMPLETE              # docs/test-reports/f004-network-interface.md（复验 READY FOR REVIEW）
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-NIC-001
       - R-NIC-002
       - R-NIC-003
+      - R-DELETE-001
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-004
+      - R-DELETE-005
+      - R-DELETE-006
+      - R-QUERY-004
+      - "§15 Resource Relationship"
+      - "§17 Soft Delete"
+      - "§21 Data Consistency"
+      - "§23 Scope Limits"
+      - "Q-002=B"
     acceptance_criteria:
-      - 记录 technology_type，至少表达 Ethernet / InfiniBand / RoCE / Other（R-NIC-001）。
-      - 记录 purpose，至少表达 BMC / Management / Business / Compute / Storage / DataTransfer / Other，内部枚举稳定（R-NIC-002）。
-      - NetworkInterface 能与其所属资源建立明确关系，核心对象为 BareMetal（R-NIC-003）。
-      - NetworkInterface 在 V1 不设状态（Q-002=B）。
+      - AC-01 登记 201；响应字段恰为 {id, bare_metal_id, name, technology_type, purpose, created_at, updated_at}；无 deleted_at / status / MAC / 速率 / MTU / IP / VM / Container / Cluster 字段。
+      - AC-02 name 必填；缺失或非字符串 → 400 + field=name。
+      - AC-03 technology_type 必填且封闭（Ethernet / InfiniBand / RoCE / Other）；非法值 → 400 + field=technology_type；字面精确匹配，不做大小写折叠或 trim。
+      - AC-04 purpose 必填且封闭（BMC / Management / Business / Compute / Storage / DataTransfer / Other）；非法值 → 400。
+      - AC-05 Other 是合法成员而非自由填写入口；无 other_text / description 伴随字段；任意非枚举字符串不得被接受。
+      - AC-06 父 BareMetal 必填；缺失或非整数 → 400 + details[].field。
+      - AC-07 引用不存在或已软删父 → 写入被阻止、无记录、非 5xx（响应码见 NQ-5）。
+      - AC-08 绑定恰好一个 BareMetal；请求 schema 封闭（拒绝多父 / 非 BareMetal 载体 / 载体类型选择器）；DB 父列 NOT NULL + FK ON DELETE RESTRICT。
+      - AC-09 一个 BareMetal 可有多张 NIC。
+      - AC-10 含中文 / 点号 / 连字符的 name 与枚举字面值原样往返。
+      - AC-11 name 无长度 / trim / 空串 / 字符 / `/` 校验；不得被解读为已确认空 name 合法。
+      - AC-12 不实现、不承诺任何 NIC 名称唯一性校验；不得被解读为「同名合法」是已确认规则。
+      - AC-13 无状态：请求 / 响应 / 表 / 端点 / 参数均无 status 字段、枚举、默认值与过滤。
+      - AC-14 列表分页 200 + {items,total,page,page_size}；无活跃 NIC 时 items==[]，不得 404。
+      - AC-15 详情：不存在或已软删 id → 404 NOT_FOUND（不区分）。
+      - AC-16 按 BareMetal 限定读取：父不存在或已删 → 404；父存在但无活跃 NIC → 200 + items==[]。
+      - AC-17 绕过应用层预置的已软删 NIC 不出现在列表 items/total；按 id → 404。
+      - AC-18 PATCH 合法枚举字段 → 200 返回新值；再次读取一致；缺省字段不变。
+      - AC-19 PATCH 非法枚举 → 400 + details[].field 且无写入；绕过应用层直写非法值被 DB CHECK 拒绝（23514 → 400，永不 500）。
+      - AC-20 PATCH schema 封闭：未识别字段（含 id / deleted_at / bare_metal_id / name / created_at）→ 400；空 body → 400；name 与父绑定不可变。
+      - AC-21 DELETE 活跃行 → 204 无响应体；行仍物理存在且 deleted_at 非空。
+      - AC-22 删除不级联：父 BareMetal 的 deleted_at / hostname / cluster_id / status / updated_at 逐字段不变。
+      - AC-23 无 restore / undelete / purge / 批量 / include_deleted。
+      - AC-24 已删不产生任何新的唯一性约束行为，且已删行 deleted_at 不被改写。
+      - AC-25 父有活跃 NIC → DELETE /api/bare-metals/{id} → 409 + details[].code=ACTIVE_CHILDREN_EXIST；宿主 deleted_at 仍 NULL。
+      - AC-26 先软删该宿主全部活跃 NIC（及其它活跃子资源）后 → DELETE 宿主 204。
+      - AC-27 并发创建 NIC vs 删除宿主后「父已删 + 子活跃」孤立记录 = 0 行。
+      - AC-28 创建 NIC 时对父行取共享锁并同事务确认活跃；未命中 → 拒绝创建。
+      - AC-29 BARE_METAL_ACTIVE_CHILD_CHECKS 非空且同时包含活跃 VM（F006 既有）与活跃 NIC 检查，并被宿主删除路径真实消费。
+      - AC-30 NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS 显式声明（当前空）且被 NIC 删除路径真实传入；F005 须追加活跃 IPAddress 检查。
+      - AC-31 不承载任何 IP 语义：无 IP 端点 / 表 / 字段 / cluster_id 列；NIC 删除当前不被 IP 拦截（归 F005）。
+      - AC-32 不注册 VM / Container / Service 端点；表无这些实体结构与 VM 归属列；Cluster 视角与聚合视图归 F009 / F010。
+      - AC-33 无 MAC / 速率 / MTU / 光模块 / 端口 / 自动发现 / 外部平台同步字段或端点。
+      - AC-34 前端三态互不相同；Empty 与 Not Found 可区分；错误按 error.code；不重复实现业务守卫。
     open_questions:
-      - "R-NIC-003：VirtualMachine 等资源是否拥有独立 NetworkInterface（须由对应 Feature 确认，不得自动推导）。"
+      - id: NQ-1
+        blocking: false
+        summary: VirtualMachine 等资源是否拥有独立 NetworkInterface（R-NIC-003 未确认）；F004 不裁定、不预留 VM 载体字段。
+      - id: NQ-2
+        blocking: false
+        summary: NIC name 在同一 BareMetal 内是否唯一（及是否区分大小写）未确认；F004 不实现、不承诺任何唯一性校验（PROPOSED-1）。
+      - id: NQ-3
+        blocking: false
+        summary: name 与归属 BareMetal 的登记后可变性未确认；默认不提供（PROPOSED-3）。
+      - id: NQ-4
+        blocking: false
+        summary: Other 是否需伴随自由文本 / 中文映射；R-NIC-001/002 已确认封闭集合且无伴随字段；默认不实现（PROPOSED-2）。
+      - id: NQ-5
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定为 404 NOT_FOUND（与 F002 / F006 一致）；无写入、非 5xx。
+      - id: NQ-6
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定为 F004 提供 GET /api/network-interfaces?bare_metal_id=（与 F002/F006 对称，不新增端点），F010 必须复用。
+      - id: NQ-7
+        blocking: false
+        summary: PATCH 可变字段集合固定为 technology_type + purpose。
+      - id: NQ-8
+        blocking: false
+        summary: name 的长度 / 空白 / 空串 / 字符 / `/` 约束未定义；不实现、不承诺（PROPOSED-4）。
+      - id: NQ-9
+        blocking: false
+        summary: F005 义务——须向 NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS 追加活跃 IPAddress 检查并补端到端。
 
   - id: F005
     name: IPAddress 管理
@@ -1590,8 +1680,11 @@ planning_status:
   decision: PROJECT IN PROGRESS — F006 DONE; NEXT READY = F004 / F007
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F004
+  current_stage: REVIEW
+  next_action: >-
+    Reviewer 审查（重点：全局 monotonic Date.now() 测试补丁、既有 spec 超时改动、
+    shift 后的 guard 演进是否仍全局扫描），然后 Merge Gate。
   started_on: "2026-09-16"
   note: >
     F006（VirtualMachine 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 01077be）。

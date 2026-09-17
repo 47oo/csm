@@ -6,6 +6,15 @@ import ClusterDetailPage from '../src/pages/ClusterDetailPage.vue'
 import ClusterListPage from '../src/pages/ClusterListPage.vue'
 
 /**
+ * vi.waitFor 包装：全量并行负载下页面挂载 / el-dialog 挂载 / 异步完成偶发超过
+ * vi.waitFor 默认 1s（单文件运行稳定）。随测试文件数增长，已先后放宽到
+ * 5s、10s；仅放宽超时上限，不改变断言语义。
+ */
+async function waitForUi(callback: () => void | Promise<void>): Promise<void> {
+  await vi.waitFor(callback, { timeout: 10000 })
+}
+
+/**
  * 集群详情页（骨架）测试。
  *
  * - 仅呈现 Cluster 自身字段（契约 §2 封闭集合）；
@@ -54,14 +63,14 @@ describe('ClusterDetailPage 状态渲染', () => {
 
     const wrapper = mountDetailPage()
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('loading')
     })
     expect(wrapper.find('.el-skeleton').exists()).toBe(true)
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
 
     resolveDetail(CLUSTER_A)
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('content')
     })
   })
@@ -71,7 +80,7 @@ describe('ClusterDetailPage 状态渲染', () => {
 
     const wrapper = mountDetailPage()
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('content')
     })
 
@@ -94,7 +103,7 @@ describe('ClusterDetailPage 状态渲染', () => {
 
     const wrapper = mountDetailPage(999)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('not-found')
     })
     const alert = wrapper.find('[role="alert"]')
@@ -111,7 +120,7 @@ describe('ClusterDetailPage 状态渲染', () => {
 
     const wrapper = mountDetailPage()
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('error')
     })
     const alert = wrapper.find('[role="alert"]')
@@ -123,7 +132,7 @@ describe('ClusterDetailPage 状态渲染', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, CLUSTER_A)))
 
     const wrapper = mountDetailPage()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('content')
     })
 
@@ -140,7 +149,7 @@ describe('ClusterDetailPage 状态渲染', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, CLUSTER_A)))
 
     const wrapper = mountDetailPage(7)
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('content')
     })
 
@@ -161,14 +170,14 @@ describe('A16：详情 404 态与列表 Empty 态可区分（R-QUERY-004）', ()
     const listWrapper = mount(ClusterListPage, {
       global: { plugins: [ElementPlus] },
     })
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(listWrapper.find('[data-state]').attributes('data-state')).toBe('empty')
     })
 
     // 详情 404：GET /api/clusters/{id} → 404 NOT_FOUND。
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(404, NOT_FOUND_BODY)))
     const detailWrapper = mountDetailPage(999)
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(detailWrapper.attributes('data-state')).toBe('not-found')
     })
 
@@ -217,7 +226,7 @@ function stubDetailFetch(routes: {
 /** 挂载并等待内容态就绪。 */
 async function mountDetailContent(): Promise<VueWrapper> {
   const wrapper = mountDetailPage()
-  await vi.waitFor(() => {
+  await waitForUi(() => {
     expect(wrapper.attributes('data-state')).toBe('content')
   })
   return wrapper
@@ -251,7 +260,7 @@ describe('ClusterDetailPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     const wrapper = mountDetailPage(999)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('not-found')
     })
     expect(wrapper.findComponent(ElPopconfirm).exists()).toBe(false)
@@ -287,7 +296,7 @@ describe('ClusterDetailPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     confirmDelete(wrapper)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('not-found')
     })
     // 独立 Not Found 态：ErrorState 渲染 NOT_FOUND 分支，详情内容不再呈现。
@@ -312,7 +321,7 @@ describe('ClusterDetailPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     confirmDelete(wrapper)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-delete-error-code="CONFLICT"]').exists()).toBe(true)
     })
     // 详情内容保留（删除守卫由后端裁决，失败后资源仍存在且可查看），仍处内容态。
@@ -342,7 +351,7 @@ describe('ClusterDetailPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     confirmDelete(wrapper)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('not-found')
     })
     expect(wrapper.find('[data-delete-error-code]').exists()).toBe(false)
@@ -367,7 +376,7 @@ describe('ClusterDetailPage 删除入口（F014，T-FE-01 / AC-10）', () => {
     const wrapper = await mountDetailContent()
 
     confirmDelete(wrapper)
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(
         fetchMock.mock.calls.filter(
           (call) => (call[1] as RequestInit | undefined)?.method === 'DELETE',
@@ -376,7 +385,7 @@ describe('ClusterDetailPage 删除入口（F014，T-FE-01 / AC-10）', () => {
     })
 
     // 提交中：删除按钮 Loading（el-button loading 隐含禁用）。
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       const deleteButton = wrapper
         .findAll('button')
         .find((b) => b.text().includes('删除集群'))
@@ -393,7 +402,7 @@ describe('ClusterDetailPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     // 请求落地（204）→ 重新读取 404 → 独立 Not Found 态。
     releaseDelete()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('not-found')
     })
   })

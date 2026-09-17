@@ -5,6 +5,15 @@ import App from '../src/App.vue'
 import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
+ * vi.waitFor 包装：全量并行负载下页面挂载 / el-dialog 挂载 / 异步完成偶发超过
+ * vi.waitFor 默认 1s（单文件运行稳定）。随测试文件数增长，已先后放宽到
+ * 5s、10s；仅放宽超时上限，不改变断言语义。
+ */
+async function waitForUi(callback: () => void | Promise<void>): Promise<void> {
+  await vi.waitFor(callback, { timeout: 10000 })
+}
+
+/**
  * App 极简视图状态测试：集群列表 ↔ 集群详情切换（不引入 vue-router，
  * f001-cluster-handoff.md Frontend Work #5）。fetch 桩替换，响应体严格按
  * docs/api/f001-cluster.md 与 docs/api/f013-auth.md 构造。
@@ -55,7 +64,7 @@ describe('App 视图切换（列表 ↔ 详情）', () => {
     const wrapper = mount(App, { global: { plugins: [ElementPlus] } })
 
     // 启动会话探测通过后进入 app 视图：集群列表（请求 GET /api/clusters）。
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
     expect(wrapper.text()).toContain('集群列表')
@@ -68,10 +77,10 @@ describe('App 视图切换（列表 ↔ 详情）', () => {
     expect(detailButton).toBeDefined()
     await detailButton!.trigger('click')
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.text()).toContain('集群详情')
     })
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.text()).toContain('2026-09-15T10:00:00Z')
     })
     expect(wrapper.text()).toContain('cluster-a')
@@ -83,7 +92,7 @@ describe('App 视图切换（列表 ↔ 详情）', () => {
     expect(backButton).toBeDefined()
     await backButton!.trigger('click')
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
     expect(wrapper.text()).toContain('集群列表')

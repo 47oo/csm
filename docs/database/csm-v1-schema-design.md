@@ -206,6 +206,10 @@ CREATE INDEX ix_bare_metals_cluster_id
 
 **用途**：网络接口登记，V1 无状态。
 
+> Migration：`0005_f004_network_interfaces`（`down_revision = "0004_f006_virtual_machines"`）。F006 先于 F004 占用 `0004`（实际实施顺序），故本表顺延至 `0005`。
+>
+> **无唯一性约束**：NIC 名称同宿主内是否唯一**未确认**（R-NIC 未定义；见 Open Questions），故本表**不含任何 `UNIQUE` 索引**，也不得在应用层实现唯一性预检。
+
 #### Columns
 
 | 列 | 类型 | 空 | 默认 | 业务含义 |

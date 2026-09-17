@@ -35,7 +35,7 @@ function jsonResponse(status: number, body: unknown): Response {
 }
 
 async function waitForUi(callback: () => void | Promise<void>): Promise<void> {
-  await vi.waitFor(callback, { timeout: 5000 })
+  await vi.waitFor(callback, { timeout: 10000 })
 }
 
 afterEach(() => {

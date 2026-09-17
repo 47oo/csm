@@ -6,6 +6,15 @@ import ClusterListPage from '../src/pages/ClusterListPage.vue'
 import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
+ * vi.waitFor 包装：全量并行负载下页面挂载 / el-dialog 挂载 / 异步完成偶发超过
+ * vi.waitFor 默认 1s（单文件运行稳定）。随测试文件数增长，已先后放宽到
+ * 5s、10s；仅放宽超时上限，不改变断言语义。
+ */
+async function waitForUi(callback: () => void | Promise<void>): Promise<void> {
+  await vi.waitFor(callback, { timeout: 10000 })
+}
+
+/**
  * 集群列表页三态测试（AC-14 / A16）。
  *
  * F012 判据 6（前端三态基座）的验证力自 F001 起由本产品页承载：
@@ -73,7 +82,7 @@ describe('ClusterListPage 三态互不相同（AC-14）', () => {
 
     const wrapper = mountPage()
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-state]').attributes('data-state')).toBe('loading')
     })
     expect(wrapper.find('.el-skeleton').exists()).toBe(true)
@@ -83,7 +92,7 @@ describe('ClusterListPage 三态互不相同（AC-14）', () => {
 
     // 让挂起的请求落地，避免测试结束后残留未决 promise。
     resolveList(EMPTY_LIST_BODY)
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-state]').attributes('data-state')).toBe('empty')
     })
   })
@@ -93,7 +102,7 @@ describe('ClusterListPage 三态互不相同（AC-14）', () => {
 
     const wrapper = mountPage()
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-state]').attributes('data-state')).toBe('empty')
     })
     expect(wrapper.find('.el-empty').exists()).toBe(true)
@@ -108,7 +117,7 @@ describe('ClusterListPage 三态互不相同（AC-14）', () => {
 
     const wrapper = mountPage()
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-state]').attributes('data-state')).toBe('error')
     })
     const alert = wrapper.find('[role="alert"]')
@@ -126,7 +135,7 @@ describe('ClusterListPage 三态互不相同（AC-14）', () => {
 
     const wrapper = mountPage()
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-state]').attributes('data-state')).toBe('error')
     })
     const alert = wrapper.find('[role="alert"]')
@@ -143,7 +152,7 @@ describe('ClusterListPage 内容与分页', () => {
 
     const wrapper = mountPage()
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(2)
     })
 
@@ -159,7 +168,7 @@ describe('ClusterListPage 内容与分页', () => {
 
     const wrapper = mountPage()
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findComponent(ElPagination).exists()).toBe(true)
     })
 
@@ -176,13 +185,13 @@ describe('ClusterListPage 内容与分页', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const wrapper = mountPage()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
 
     wrapper.findComponent(ElPagination).vm.$emit('current-change', 2)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(fetchMock).toHaveBeenLastCalledWith(
         '/api/clusters?page=2&page_size=50',
         expect.anything(),
@@ -198,13 +207,13 @@ describe('ClusterListPage 内容与分页', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const wrapper = mountPage()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
 
     wrapper.findComponent(ElPagination).vm.$emit('size-change', 20)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(fetchMock).toHaveBeenLastCalledWith(
         '/api/clusters?page=1&page_size=20',
         expect.anything(),
@@ -217,7 +226,7 @@ describe('ClusterListPage 内容与分页', () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, LIST_BODY)))
 
     const wrapper = mountPage()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(2)
     })
 
@@ -272,7 +281,7 @@ function stubListFetch(routes: {
 /** 挂载并等待两行数据就绪（内容态）。 */
 async function mountListWithRows(): Promise<VueWrapper> {
   const wrapper = mountPage()
-  await vi.waitFor(() => {
+  await waitForUi(() => {
     expect(wrapper.findAll('.el-table__row')).toHaveLength(2)
   })
   return wrapper
@@ -341,7 +350,7 @@ describe('ClusterListPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     confirmRowDelete(wrapper, 0)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(deleteCalls(fetchMock)).toBe(1)
     })
     expect(fetchMock).toHaveBeenCalledWith(
@@ -365,7 +374,7 @@ describe('ClusterListPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     confirmRowDelete(wrapper, 0)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
     expect(wrapper.findAll('.el-table__row')[0]!.text()).toContain('Cluster-A')
@@ -388,13 +397,13 @@ describe('ClusterListPage 删除入口（F014，T-FE-01 / AC-10）', () => {
     })
 
     const wrapper = mountPage()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
 
     confirmRowDelete(wrapper, 0)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-state]').attributes('data-state')).toBe('empty')
     })
     expect(wrapper.text()).toContain('暂无集群')
@@ -412,7 +421,7 @@ describe('ClusterListPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     confirmRowDelete(wrapper, 0)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-delete-error-code="CONFLICT"]').exists()).toBe(true)
     })
     // 行保留（未因失败消失），且未触发列表刷新（仍只有首次 GET + 一次 DELETE）。
@@ -433,13 +442,13 @@ describe('ClusterListPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     const wrapper = await mountListWithRows()
     confirmRowDelete(wrapper, 0)
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-delete-error-code="CONFLICT"]').exists()).toBe(true)
     })
 
     await wrapper.find('.el-alert__close-btn').trigger('click')
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-delete-error-code]').exists()).toBe(false)
     })
     expect(wrapper.findAll('.el-table__row')).toHaveLength(2)
@@ -461,7 +470,7 @@ describe('ClusterListPage 删除入口（F014，T-FE-01 / AC-10）', () => {
     confirmRowDelete(wrapper, 0)
 
     // 404 与成功同构：刷新列表，行消失，无任何错误渲染。
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
     expect(wrapper.find('[data-state]').attributes('data-state')).toBe('content')
@@ -481,11 +490,11 @@ describe('ClusterListPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     confirmRowDelete(wrapper, 0)
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(unauthenticated).toHaveBeenCalledTimes(1)
     })
     // 401 不产生删除失败提示（会话失效由 App 全局处理切回登录页）；行保留。
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-delete-error-code]').exists()).toBe(false)
     })
     expect(wrapper.findAll('.el-table__row')).toHaveLength(2)
@@ -510,12 +519,12 @@ describe('ClusterListPage 删除入口（F014，T-FE-01 / AC-10）', () => {
     const wrapper = await mountListWithRows()
 
     confirmRowDelete(wrapper, 0)
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(deleteCalls(fetchMock)).toBe(1)
     })
 
     // 提交中：目标行按钮 Loading，其余行删除入口禁用。
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(findRowDeleteButton(wrapper, 0).classes()).toContain('is-loading')
     })
     expect(findRowDeleteButton(wrapper, 1).attributes('disabled')).toBeDefined()
@@ -527,7 +536,7 @@ describe('ClusterListPage 删除入口（F014，T-FE-01 / AC-10）', () => {
 
     // 请求落地（204）→ 刷新列表，被删行消失。
     releaseDelete()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
   })

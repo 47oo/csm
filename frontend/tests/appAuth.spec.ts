@@ -5,6 +5,15 @@ import App from '../src/App.vue'
 import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
+ * vi.waitFor 包装：全量并行负载下页面挂载 / el-dialog 挂载 / 异步完成偶发超过
+ * vi.waitFor 默认 1s（单文件运行稳定）。随测试文件数增长，已先后放宽到
+ * 5s、10s；仅放宽超时上限，不改变断言语义。
+ */
+async function waitForUi(callback: () => void | Promise<void>): Promise<void> {
+  await vi.waitFor(callback, { timeout: 10000 })
+}
+
+/**
  * App 会话流测试（T-18 / T-19，AC-05）：
  * - 启动期 getCurrentSession 探测（已登录直接进入 / 未登录到登录页）；
  * - 全局 401（未抑制请求收到 UNAUTHENTICATED）→ 切回登录页且不渲染任何资源数据；
@@ -95,10 +104,10 @@ describe('启动会话探测（T-18）', () => {
     // 挂载后先处于 bootstrap（会话探测进行中）。
     expect(viewOf(wrapper)).toBe('bootstrap')
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewOf(wrapper)).toBe('app')
     })
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
     expect(fetchMock).toHaveBeenCalledWith(
@@ -117,7 +126,7 @@ describe('启动会话探测（T-18）', () => {
 
     const wrapper = mountApp()
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewOf(wrapper)).toBe('login')
     })
     expect(wrapper.find('input[autocomplete="username"]').exists()).toBe(true)
@@ -139,7 +148,7 @@ describe('登录流程：未登录启动 → 失败停留 → 成功进入（T-1
     })
 
     const wrapper = mountApp()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewOf(wrapper)).toBe('login')
     })
 
@@ -148,7 +157,7 @@ describe('登录流程：未登录启动 → 失败停留 → 成功进入（T-1
     await wrapper.find('input[autocomplete="current-password"]').setValue('wrong')
     await wrapper.find('form').trigger('submit')
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.find('[data-error-code="UNAUTHENTICATED"]').exists()).toBe(true)
     })
     expect(viewOf(wrapper)).toBe('login')
@@ -159,10 +168,10 @@ describe('登录流程：未登录启动 → 失败停留 → 成功进入（T-1
     await wrapper.find('input[autocomplete="current-password"]').setValue('correct horse')
     await wrapper.find('form').trigger('submit')
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewOf(wrapper)).toBe('app')
     })
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
   })
@@ -176,7 +185,7 @@ describe('全局 401：会话失效切回登录页（T-18 / AC-05）', () => {
     })
 
     const wrapper = mountApp()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
     expect(wrapper.text()).toContain('cluster-a')
@@ -185,7 +194,7 @@ describe('全局 401：会话失效切回登录页（T-18 / AC-05）', () => {
     routes.clusters = () => jsonResponse(401, UNAUTHENTICATED_BODY)
     await findButton(wrapper, '刷新').trigger('click')
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewOf(wrapper)).toBe('login')
     })
     // 不渲染任何资源数据：表格、行、页面标题、旧身份均消失。
@@ -207,13 +216,13 @@ describe('登出（T-19 / AC-05）', () => {
     })
 
     const wrapper = mountApp()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
 
     await findButton(wrapper, '登出').trigger('click')
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewOf(wrapper)).toBe('login')
     })
     expect(fetchMock).toHaveBeenCalledWith(
@@ -233,13 +242,13 @@ describe('登出（T-19 / AC-05）', () => {
     })
 
     const wrapper = mountApp()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
 
     await findButton(wrapper, '登出').trigger('click')
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewOf(wrapper)).toBe('login')
     })
     expect(wrapper.find('.el-table').exists()).toBe(false)
@@ -255,14 +264,14 @@ describe('会话失效后重新登录（T-19）', () => {
     })
 
     const wrapper = mountApp()
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
 
     // 会话失效 → 登录页。
     routes.clusters = () => jsonResponse(401, UNAUTHENTICATED_BODY)
     await findButton(wrapper, '刷新').trigger('click')
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewOf(wrapper)).toBe('login')
     })
 
@@ -273,10 +282,10 @@ describe('会话失效后重新登录（T-19）', () => {
     await wrapper.find('input[autocomplete="current-password"]').setValue('correct horse')
     await wrapper.find('form').trigger('submit')
 
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(viewOf(wrapper)).toBe('app')
     })
-    await vi.waitFor(() => {
+    await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
     expect(wrapper.text()).toContain('ops')

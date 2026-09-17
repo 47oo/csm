@@ -10,12 +10,15 @@ import BareMetalListPage from './pages/BareMetalListPage.vue'
 import BareMetalDetailPage from './pages/BareMetalDetailPage.vue'
 import VirtualMachineListPage from './pages/VirtualMachineListPage.vue'
 import VirtualMachineDetailPage from './pages/VirtualMachineDetailPage.vue'
+import NetworkInterfaceListPage from './pages/NetworkInterfaceListPage.vue'
+import NetworkInterfaceDetailPage from './pages/NetworkInterfaceDetailPage.vue'
 
 /**
  * 会话与视图状态（F013；仍不引入 vue-router，f013-auth-handoff.md PROPOSED-5；
  * F002 起扩展为 Cluster / BareMetal 两组资源视图，f002-bare-metal-handoff.md
  * Frontend Work #4；F006 起再增加 VirtualMachine 视图，f006-virtual-machine-
- * handoff.md Frontend Work #6：导航形式不构成产品规则）。
+ * handoff.md Frontend Work #6；F004 起再增加 NetworkInterface 视图，
+ * f004-network-interface-handoff.md Frontend Work #6：导航形式不构成产品规则）。
  *
  * 视图状态：bootstrap（启动会话探测中）→ login（未认证 / 会话失效）↔ app（已认证）。
  *
@@ -41,7 +44,13 @@ type AppView = 'bootstrap' | 'login' | 'app'
  *   returnClusterId 记录进入前裸金属详情的集群过滤上下文，
  *   返回宿主详情时恢复该上下文；
  * - virtual-machine-detail：虚拟机详情；bareMetalId 记录进入前的列表过滤上下文，
- *   returnClusterId 随视图链保留，返回时恢复。
+ *   returnClusterId 随视图链保留，返回时恢复；
+ * - network-interface-list：网络接口列表（F004）；bareMetalId 非空 = 按宿主裸金属
+ *   限定（从裸金属详情「查看网络接口」进入，携带 bare_metal_id），null = 全部；
+ *   returnClusterId 记录进入前裸金属详情的集群过滤上下文，
+ *   返回宿主详情时恢复该上下文；
+ * - network-interface-detail：网络接口详情；bareMetalId / returnClusterId 随视图链
+ *   保留，返回时恢复。
  */
 type ResourceView =
   | { kind: 'cluster-list' }
@@ -52,6 +61,13 @@ type ResourceView =
   | {
       kind: 'virtual-machine-detail'
       virtualMachineId: number
+      bareMetalId: number | null
+      returnClusterId: number | null
+    }
+  | { kind: 'network-interface-list'; bareMetalId: number | null; returnClusterId: number | null }
+  | {
+      kind: 'network-interface-detail'
+      networkInterfaceId: number
       bareMetalId: number | null
       returnClusterId: number | null
     }
@@ -168,14 +184,74 @@ function backFromVirtualMachineDetail(): void {
   resourceView.value = { kind: 'virtual-machine-list', bareMetalId, returnClusterId }
 }
 
-/** 头部导航高亮：当前资源区域（cluster-* / bare-metal-* / virtual-machine-*）。 */
-const navSection = computed<'cluster' | 'bare-metal' | 'virtual-machine'>(() =>
-  resourceView.value.kind.startsWith('cluster')
-    ? 'cluster'
-    : resourceView.value.kind.startsWith('bare-metal')
-      ? 'bare-metal'
-      : 'virtual-machine',
-)
+// ---- 资源视图导航（NetworkInterface，F004） ----
+
+/** 头部导航进入全局网络接口列表（无过滤）。 */
+function openNetworkInterfaceList(): void {
+  resourceView.value = {
+    kind: 'network-interface-list',
+    bareMetalId: null,
+    returnClusterId: null,
+  }
+}
+
+/**
+ * 从裸金属详情进入该宿主的网络接口列表（携带 bare_metal_id）；
+ * 同时捕获该详情的集群过滤上下文，返回宿主详情时恢复该上下文。
+ */
+function openBareMetalNetworkInterfaces(bareMetalId: number): void {
+  const current = resourceView.value
+  const returnClusterId = current.kind === 'bare-metal-detail' ? current.clusterId : null
+  resourceView.value = { kind: 'network-interface-list', bareMetalId, returnClusterId }
+}
+
+/** 网络接口列表返回：从宿主详情进入的回到该裸金属详情（恢复该上下文），否则回集群列表。 */
+function backFromNetworkInterfaceList(): void {
+  const current = resourceView.value
+  resourceView.value =
+    current.kind === 'network-interface-list' && current.bareMetalId !== null
+      ? {
+          kind: 'bare-metal-detail',
+          bareMetalId: current.bareMetalId,
+          clusterId: current.returnClusterId,
+        }
+      : { kind: 'cluster-list' }
+}
+
+/** 进入网络接口详情，保留当前列表的过滤上下文（返回时恢复）。 */
+function openNetworkInterfaceDetail(networkInterfaceId: number): void {
+  const current = resourceView.value
+  const bareMetalId = current.kind === 'network-interface-list' ? current.bareMetalId : null
+  const returnClusterId =
+    current.kind === 'network-interface-list' ? current.returnClusterId : null
+  resourceView.value = {
+    kind: 'network-interface-detail',
+    networkInterfaceId,
+    bareMetalId,
+    returnClusterId,
+  }
+}
+
+/** 网络接口详情返回：回到进入前的网络接口列表（保留过滤上下文）。 */
+function backFromNetworkInterfaceDetail(): void {
+  const current = resourceView.value
+  const bareMetalId = current.kind === 'network-interface-detail' ? current.bareMetalId : null
+  const returnClusterId =
+    current.kind === 'network-interface-detail' ? current.returnClusterId : null
+  resourceView.value = { kind: 'network-interface-list', bareMetalId, returnClusterId }
+}
+
+/** 头部导航高亮：当前资源区域（cluster-* / bare-metal-* / virtual-machine-* /
+ * network-interface-*）。 */
+const navSection = computed<
+  'cluster' | 'bare-metal' | 'virtual-machine' | 'network-interface'
+>(() => {
+  const kind = resourceView.value.kind
+  if (kind.startsWith('cluster')) return 'cluster'
+  if (kind.startsWith('bare-metal')) return 'bare-metal'
+  if (kind.startsWith('virtual-machine')) return 'virtual-machine'
+  return 'network-interface'
+})
 
 /**
  * 全局未认证处理（api/http.ts）：任意未抑制的请求收到 UNAUTHENTICATED
@@ -242,6 +318,13 @@ async function handleLogout(): Promise<void> {
             >
               虚拟机
             </el-button>
+            <el-button
+              :type="navSection === 'network-interface' ? 'primary' : 'default'"
+              data-testid="nav-network-interfaces"
+              @click="openNetworkInterfaceList"
+            >
+              网络接口
+            </el-button>
           </nav>
         </div>
         <div class="app-shell__session">
@@ -272,6 +355,7 @@ async function handleLogout(): Promise<void> {
         :bare-metal-id="resourceView.bareMetalId"
         @back="backFromBareMetalDetail"
         @open-virtual-machines="openBareMetalVirtualMachines"
+        @open-network-interfaces="openBareMetalNetworkInterfaces"
       />
       <VirtualMachineListPage
         v-else-if="resourceView.kind === 'virtual-machine-list'"
@@ -280,9 +364,20 @@ async function handleLogout(): Promise<void> {
         @back="backFromVirtualMachineList"
       />
       <VirtualMachineDetailPage
-        v-else
+        v-else-if="resourceView.kind === 'virtual-machine-detail'"
         :virtual-machine-id="resourceView.virtualMachineId"
         @back="backFromVirtualMachineDetail"
+      />
+      <NetworkInterfaceListPage
+        v-else-if="resourceView.kind === 'network-interface-list'"
+        :bare-metal-id="resourceView.bareMetalId"
+        @open-detail="openNetworkInterfaceDetail"
+        @back="backFromNetworkInterfaceList"
+      />
+      <NetworkInterfaceDetailPage
+        v-else
+        :network-interface-id="resourceView.networkInterfaceId"
+        @back="backFromNetworkInterfaceDetail"
       />
     </template>
   </div>

@@ -52,9 +52,9 @@ alembic_version
   0001_f012_baseline                 (F012)  clusters
   └─ 0002_f013_auth                  (F013)  users, sessions
      └─ 0003_f002_bare_metals        (F002)  bare_metals
-        └─ 0004_f004_network_interfaces (F004) network_interfaces
-           └─ 0005_f005_ip_addresses    (F005) ip_addresses
-              └─ 0006_f006_...          (延后, Product 未确认)
+     └─ 0004_f006_virtual_machines (F006)  virtual_machines
+        └─ 0005_f004_network_interfaces (F004) network_interfaces
+           └─ 0006_f005_ip_addresses    (F005) ip_addresses
               └─ 0007_f007_...          (延后)
               └─ 0008_f008_...          (延后)
 ```
@@ -154,7 +154,7 @@ CREATE UNIQUE INDEX ux_bare_metals_cluster_hostname_active
 CREATE INDEX ix_bare_metals_cluster_id ON bare_metals (cluster_id);
 ```
 
-### `0004_f004_network_interfaces`（F004）
+### `0005_f004_network_interfaces`（F004）
 
 ```sql
 CREATE TABLE network_interfaces (
