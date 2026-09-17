@@ -1098,10 +1098,26 @@ features:
     name: 资源详情与关联查询
     epic: E05
     priority: P1
-    status: READY
+    status: IN_PROGRESS
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
-    blocking:
-      - "依赖多个资源 Feature 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F010-resource-detail
+      start_commit: 1baedc0d092424926e61afa4f6cf2d869f8236a6
+      head_commit: 1baedc0d092424926e61afa4f6cf2d869f8236a6
+      merge_commit: null
+    current_stage: PRODUCT
+    layers: {}
+    contract:
+      status: NOT_REQUIRED
+      doc: null
+    implementation:
+      database_design: PENDING
+      backend: PENDING
+      frontend: PENDING
+      test: PENDING
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-QUERY-003
@@ -1645,13 +1661,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F010, F011]
+  ready_features: [F011]
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
   counts:
-    READY: 2
-    IN_PROGRESS: 0
+    READY: 1
+    IN_PROGRESS: 1
     BLOCKED: 0
     DRAFT: 0
     DONE: 12
@@ -2097,11 +2113,11 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F008 DONE (merge f773378); NEXT READY = F010 / F011
+  decision: PROJECT IN PROGRESS — F010 IN_PROGRESS (Product stage); F011 remains READY
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F010
+  current_stage: PRODUCT
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
