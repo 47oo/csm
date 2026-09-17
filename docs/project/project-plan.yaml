@@ -897,7 +897,7 @@ features:
       start_commit: 68d8e115085fbca7b1bfeb62719b4b815cc3459f
       head_commit: 6d099941afc0a36045453f037e47f634fbcdaed0
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     layers:
       database: true     # services + service_carriers + migration 0008_f008_services（实现由 Backend 负责）
       backend: true      # app/services/** + models + 三个 *_ACTIVE_CHILD_CHECKS 演进 + main 接线 + guard 演进
@@ -909,7 +909,7 @@ features:
       database_design: COMPLETE
       backend: COMPLETE
       frontend: COMPLETE
-      test: PENDING
+      test: COMPLETE
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -2078,7 +2078,7 @@ planning_status:
 
 execution:
   current_feature: F008
-  current_stage: TEST
+  current_stage: REVIEW
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
@@ -2093,4 +2093,4 @@ execution:
     Backend + Frontend 已并行完成（实现提交 6d09994）。协调器在全新真实 PostgreSQL 上**独立重跑**验证：
     后端 935 passed（0 skipped）、前端 typecheck 干净 + 546 passed + build 成功、ruff 干净，
     且 0001–0007 与 app/deletion/service.py 逐字节未改（已由协调器核对，未采信 Agent 报告）。
-    现处 Test（status = IN_REVIEW，head_commit = 6d09994）。下一步 Tester → Reviewer。
+    现处 Review（database_design / backend / frontend / test 均 COMPLETE，status = IN_REVIEW，head_commit = 6d09994）。Tester 结论 READY FOR REVIEW：54/54 AC 全 PASS、无缺陷；对抗注入 11/11 被检出并逐字节还原，并证明 BOUNDARY_TOKENS 清空后真正可独立失败的防线是 APPROVED_API_PREFIXES allow-list。下一步 Reviewer。
