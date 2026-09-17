@@ -438,16 +438,16 @@ features:
     name: NetworkInterface 管理
     epic: E02
     priority: P1
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F002]
     blocking: []
     git:
       base_branch: develop
       branch: feature/F004-network-interface
       start_commit: cf03e014a9abbd0dad88a00da57947e731778513
-      head_commit: cf03e014a9abbd0dad88a00da57947e731778513
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: 8958252acc26579eb515e73038cc5318af26904d
+      merge_commit: 4a99fa00f5778a1850ed6bcbd023cbd34b3f359a
+    current_stage: null
     layers:
       database: true      # 新增 network_interfaces 表 + migration 0005_f004_network_interfaces
       backend: true       # models/network_interface.py + app/network_interfaces/** + bare_metals/deletion 追加 + guard 演进
@@ -460,7 +460,7 @@ features:
       backend: FIX_COMPLETE       # 5c63168 修复 F004-T-02（恢复 nic 扫描，注入验证）
       frontend: FIX_COMPLETE      # 5c63168 修复 F004-T-01（单调时钟 + 等待按钮启用；12/12 单文件 + 4/4 全量绿）
       test: COMPLETE              # docs/test-reports/f004-network-interface.md（复验 READY FOR REVIEW）
-      review: PENDING
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f004-network-interface.md；merge 4a99fa0
     product_document: docs/product/requirements.md
     requirements:
       - R-NIC-001
@@ -548,10 +548,9 @@ features:
     name: IPAddress 管理
     epic: E02
     priority: P1
-    status: BLOCKED
+    status: READY
     depends_on: [F004]
-    blocking:
-      - "依赖 F004 未 DONE"
+    blocking: []
     product_document: docs/product/requirements.md
     requirements:
       - R-IP-001
@@ -1346,15 +1345,15 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F004, F007]
+  ready_features: [F005, F007]
   blocked_draft_features:
-    BLOCKED: [F005, F008, F010, F011]
+    BLOCKED: [F008, F010, F011]
     DRAFT: []
   counts:
     READY: 2
-    BLOCKED: 4
+    BLOCKED: 3
     DRAFT: 0
-    DONE: 8
+    DONE: 9
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -1435,6 +1434,14 @@ planning_status:
       **过程缺陷并修复**：Tester 判 RETURN TO IMPLEMENTATION（F006-T-01 MEDIUM）——本 Feature 曾把 F009 / F002 的全 OpenAPI 边界扫描收窄到本模块，
       导致非 GET 越界路由无 guard 防护（注入 `POST /api/containers` 时 68 项 guard 全过）；已修复为「保持全局扫描、仅移除已合法化的 vm/virtual token」（7844a17），
       并经 Tester 与 Reviewer 双向独立注入复证。
+    F004: >
+      base cf03e01 → head 8958252 → merge 4a99fa0（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；60 文件 / +8263 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 后端 551 passed、前端 307 passed 且构建成功、ruff 干净、migration 可重复 / 可重建、base 未改。
+      **关键交付**：`network_interfaces`（8 列）+ migration 0005；5 端点；technology_type（4 值）/ purpose（7 值）**封闭枚举**（应用层 400 + DB CHECK 最终权威，永不 500）；宿主必选 + FK RESTRICT；创建对宿主取 `FOR SHARE`；**无状态、无 IP/MAC/速率/MTU/载体列**。
+      **无任何名称唯一性**（无唯一索引、无预检、无 409 DUPLICATE）——NQ-2 未确认，契约明确「不强制唯一性 ≠ 已确认允许重复」。
+      **第三个真实 F014 端到端**：宿主有活跃 NIC → 409 ACTIVE_CHILDREN_EXIST；`BARE_METAL_ACTIVE_CHILD_CHECKS` **追加**为 (活跃 VM, 活跃 NIC)（保留 F006 检查）。建立 `NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS`（空，供 F005）。
+      **过程缺陷并修复**：Tester RETURN TO IMPLEMENTATION（F004-T-01 MEDIUM 前端测试非确定性 → 根因实为**宿主机时钟回跳**使点击被 Vue 去重丢弃；修复为测试进程内单调 `Date.now()` + 等待按钮启用；F004-T-02 LOW → `nit` 缩写 token 被误删，已恢复）。两缺陷均经 Tester 与 Reviewer 独立注入/对照复证。
   ready_rationale:
     F014: >
       依赖 F012 已 DONE；架构/数据库决策 DEC-012 / DEC-009 已 RESOLVED（ADR-0004 / ADR-0001 / ADR-0002 ACCEPTED），
@@ -1458,12 +1465,24 @@ planning_status:
     F011: "OPEN-005 已关闭（All-or-Nothing，已固化为 R-IMPORT-004），无未解决产品问题；阻塞为依赖多个资源 Feature 未 DONE。"
   readiness_summary: >
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），全部产品问题已关闭，无 DRAFT Feature。
-    DONE：F012（基座）、F001（Cluster）、F013（认证）、F014（软删）、F015（内网部署）、F002（BareMetal）、F009（Cluster 视角查询）、F006（VirtualMachine）。
-    **M2 已 DONE**（F001 + F002 + F009）；M4 的 F006 已完成，F007 因依赖满足而 READY。
-    2 个 Feature（F004 / F007）依赖已满足 → READY。
-    4 个 Feature（F005 / F008 / F010 / F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
-    下一批可推进 F004（NetworkInterface，解锁 F005）与 F007（Container，解锁 F008 → F010/F011）。
+    DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004（9 个）。
+    **M2 已 DONE**；**M3 进行中**（F004 已 DONE，F005 READY）；**M4 进行中**（F006 DONE，F007 READY，F008 BLOCKED）。
+    2 个 Feature（F005 / F007）依赖已满足 → READY。
+    3 个 Feature（F008 / F010 / F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
+    下一批可推进 F005（IPAddress，解锁 F010/F011 依赖链）与 F007（Container，解锁 F008）。
   follow_ups:
+    from_f004_review:
+      report: docs/reviews/f004-network-interface.md
+      open:
+        - id: REV-2
+          severity: LOW
+          owner: Backend
+          summary: 前缀匹配的固有边界——移除 `network-interface` token 后，`/api/network-interface`（单数）等变体不再被两条边界 guard 检出；属 follow-up，非阻塞。
+      resolved:
+        - id: REV-1
+          summary: project-plan 的 F004 head_commit 陈旧（cf03e01）；已在本状态提交修正为 head 8958252、merge 4a99fa0。
+      notes:
+        - REV-3 / REV-4 / REV-5 为 NOTE（monotonic 补丁适用边界、超时回收、F005 检查点 guard 演进）。
     from_f006_review:
       report: docs/reviews/f006-virtual-machine.md
       open:
@@ -1677,14 +1696,19 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F006 DONE; NEXT READY = F004 / F007
+  decision: PROJECT IN PROGRESS — F004 DONE; NEXT READY = F005 / F007
 
 execution:
-  current_feature: F004
-  current_stage: REVIEW
-  next_action: >-
-    Reviewer 审查（重点：全局 monotonic Date.now() 测试补丁、既有 spec 超时改动、
-    shift 后的 guard 演进是否仍全局扫描），然后 Merge Gate。
+  current_feature: null
+  current_stage: null
+  started_on: "2026-09-16"
+  note: >-
+    F004（NetworkInterface 管理）已于 2026-09-17 完成并 --no-ff 合入 develop（merge 4a99fa0）。
+    流程：Product → Architecture（database/backend/frontend = true，契约 READY）→ Database Design → Backend + Frontend 并行
+    → Tester RETURN TO IMPLEMENTATION（F004-T-01 MEDIUM 前端非确定性 / F004-T-02 LOW guard token）→ 双分支修复
+    → Tester 复验 READY FOR REVIEW → Reviewer APPROVED WITH FOLLOW-UP → Merge Gate → 本状态提交。
+    完成后重算：F005 因依赖满足而 READY；F008 / F010 / F011 仍 BLOCKED；无 DRAFT。
+    当前无进行中的 Feature。下一批 READY：F005（IPAddress）/ F007（Container）。
   started_on: "2026-09-16"
   note: >
     F006（VirtualMachine 登记与管理）已于 2026-09-16 完成并 --no-ff 合入 develop（merge 01077be）。
