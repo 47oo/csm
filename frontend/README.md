@@ -20,6 +20,7 @@ CSM Web 前端。
 | **F005** | IPAddress API 客户端、列表 / 详情 / 登记 / 修正 / 删除；从 NetworkInterface 详情进入「该网络接口 IP」 | `docs/api/f005-ip-address.md` |
 | **F007** | Container API 客户端、列表（载体筛选：`carrier_type` + `carrier_id` 成对）/ 详情 / 登记（载体类型选择器 + 载体 ID 输入）/ 可选字段维护 / 删除；详情页登记成功后跳转新容器详情 | `docs/api/f007-container.md` |
 | **F008** | Service API 客户端、列表（载体筛选：`carrier_type` + `carrier_id` 成对，三值载体类型）/ 详情（`carriers` 列表展示）/ 登记（多载体选择：三种类型 + 载体 ID，至少一项）/ 6 个可选字段维护 / 删除；详情页登记成功后跳转新服务详情 | `docs/api/f008-service.md` |
+| **F010** | BareMetal 详情「关联资源」区：一次聚合请求获知五类清单（NIC / IP / VM / Container / Service），每类遵循三态基座；Empty（某类为空）与页面级 Not Found 可区分；每条目自带关系依据（AC-08）；可从条目直接进入对应详情并保留返回上下文；前端不自行推导关联（不调用任何 canonical 列表端点） | `docs/api/f010-resource-detail.md` |
 
 **跨 Feature 的渲染约定**（全部页面一致）：
 
@@ -30,7 +31,7 @@ CSM Web 前端。
 - **未定义约束不做任何变换**：`name` / `hostname` 等字段不做长度 / trim / 归一化 / 空串校验，也不基于 `undefined_constraints` 编写业务分支；
 - 所有 HTTP 调用集中在 `src/api/`，页面组件不得直接 `fetch`。
 
-**当前未交付**（属后续 Feature）：资源详情与关联查询聚合视图（F010）、Excel 批量导入（F011）的 UI；恢复 / 回收站 / 已删资源查看 / 批量操作 / 审计展示 / 导出 / 高级筛选；账号管理页与口令修改。
+**当前未交付**（属后续 Feature）：Excel 批量导入（F011）的 UI；恢复 / 回收站 / 已删资源查看 / 批量操作 / 审计展示 / 导出 / 高级筛选；账号管理页与口令修改。
 
 ## 环境要求
 
@@ -72,7 +73,7 @@ frontend/
 ├── src/
 │   ├── api/
 │   │   ├── auth.ts               # 认证 API 客户端（f013-auth.md）
-│   │   ├── bareMetals.ts         # BareMetal API 客户端（f002-bare-metal.md）
+│   │   ├── bareMetals.ts         # BareMetal API 客户端 + 五类关联聚合读取（f002-bare-metal.md / f010-resource-detail.md）
 │   │   ├── clusters.ts           # Cluster API 客户端（f001-cluster.md / f014-soft-delete.md）
 │   │   ├── containers.ts         # Container API 客户端（f007-container.md）
 │   │   ├── http.ts               # 统一请求封装 + ApiError 归一化 + 全局 401 处理（基座）

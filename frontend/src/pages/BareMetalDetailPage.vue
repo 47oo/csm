@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { BARE_METAL_HARDWARE_FIELDS, getBareMetal } from '../api/bareMetals'
-import type { BareMetalHardwareField, BareMetalRead } from '../api/bareMetals'
+import { BARE_METAL_HARDWARE_FIELDS, getBareMetal, getBareMetalRelated } from '../api/bareMetals'
+import type {
+  BareMetalHardwareField,
+  BareMetalRead,
+  RelatedResources,
+} from '../api/bareMetals'
 import { useAsyncQuery } from '../composables/useAsyncQuery'
 import { useBareMetalDelete } from '../composables/useBareMetalDelete'
 import ErrorState from '../components/ErrorState.vue'
+import ListStates from '../components/ListStates.vue'
 import BareMetalStatusTag from '../components/BareMetalStatusTag.vue'
 import BareMetalFormDialog from '../components/BareMetalFormDialog.vue'
 
@@ -26,11 +31,22 @@ import BareMetalFormDialog from '../components/BareMetalFormDialog.vue'
  * - 修改 / 删除失败均按 error.code 分支渲染，不解析 message；
  * - F006：「查看虚拟机」入口 → 进入该宿主的虚拟机列表
  *   （GET /api/virtual-machines?bare_metal_id={id}，契约 f006-virtual-machine.md
- *   §3.2）；本页仍不呈现虚拟机数据（关联查询视图归 F010，F010 必须复用该能力）；
+ *   §3.2）；本页不重复呈现虚拟机列表数据（聚合视图归 F010，见下方关联资源区）；
  * - F004：「查看网络接口」入口 → 进入该宿主的网络接口列表
  *   （GET /api/network-interfaces?bare_metal_id={id}，契约
- *   f004-network-interface.md §3.2）；本页仍不呈现网络接口数据（关联查询
- *   视图归 F010，F010 必须复用该能力）。
+ *   f004-network-interface.md §3.2）；本页不重复呈现网络接口列表数据（聚合视图
+ *   归 F010，见下方关联资源区）；
+ * - F010：「关联资源」区（GET /api/bare-metals/{id}/related，契约
+ *   f010-resource-detail.md §2，单一聚合端点）：与详情请求并行、独立管理三态；
+ *   一次请求获知五类清单（NIC / IP / VM / Container / Service），每类遵循
+ *   ListStates（Loading / Empty / Error）；Empty（200 + items == []）渲染为
+ *   「该裸金属暂无××」而非错误，与页面级 404 Not Found 态（不同 data-state、
+ *   不同文案）可区分（AC-13 / R-QUERY-004）；Empty 不触发全局会话失效
+ *   （仅 UNAUTHENTICATED 触发）；每条目自带关系依据（AC-08：NIC→
+ *   bare_metal_id；IP→network_interface_id；VM→bare_metal_id；Container→
+ *   carrier_type + carrier_id；Service→carriers 原样展示，不做交集筛选）；
+ *   前端不做任何关联推导 / 过滤（NQ-5 裁定 a1，一律消费聚合端点返回的五类
+ *   清单）；可从条目直接进入对应资源详情（AC-17，保留返回上下文）。
  */
 const props = defineProps<{ bareMetalId: number }>()
 
@@ -38,6 +54,17 @@ const emit = defineEmits<{
   back: []
   openVirtualMachines: [bareMetalId: number]
   openNetworkInterfaces: [bareMetalId: number]
+  /** F010：从关联条目进入网络接口详情。 */
+  openNetworkInterfaceDetail: [networkInterfaceId: number]
+  /** F010：从关联条目进入 IP 地址详情（携带关系依据 network_interface_id，
+   * 供 App 恢复返回链上下文）。 */
+  openIpAddressDetail: [ipAddressId: number, networkInterfaceId: number]
+  /** F010：从关联条目进入虚拟机详情。 */
+  openVirtualMachineDetail: [virtualMachineId: number]
+  /** F010：从关联条目进入容器详情。 */
+  openContainerDetail: [containerId: number]
+  /** F010：从关联条目进入服务详情。 */
+  openServiceDetail: [serviceId: number]
 }>()
 
 const { data, loading, error, run } = useAsyncQuery(() => getBareMetal(props.bareMetalId))
@@ -50,7 +77,51 @@ const { deletingId, deleteErrorView, requestDelete, clearDeleteError } = useBare
 
 onMounted(() => {
   void run()
+  // F010：关联聚合与详情并行读取；关联区仅在内容态渲染（主体 404 时两请求
+  // 均 404，页面进入既有 Not Found 态，关联区不呈现）。
+  void runRelated()
 })
+
+// ---- F010：关联资源（单一聚合端点，一次请求获知五类） ----
+
+const {
+  data: relatedData,
+  loading: relatedRequestLoading,
+  error: relatedError,
+  run: runRelated,
+} = useAsyncQuery(() => getBareMetalRelated(props.bareMetalId))
+
+/**
+ * 关联区 Loading 判定：聚合请求进行中，或首次请求尚未返回（data 与 error
+ * 均为空），避免首帧闪现空内容（与列表页 isLoading 同一模式）。
+ */
+const relatedLoading = computed(
+  () =>
+    relatedRequestLoading.value ||
+    (relatedData.value === null && relatedError.value === null),
+)
+
+/** 五类关联键（契约 §2 顶层字段集合，封闭）。 */
+type RelatedCategoryKey = keyof RelatedResources
+
+/** 各类条目（契约原样值，不做任何变换；未加载时为空数组，不参与 Empty 判定）。 */
+function relatedItems<K extends RelatedCategoryKey>(key: K): RelatedResources[K]['items'] {
+  return relatedData.value?.[key].items ?? ([] as RelatedResources[K]['items'])
+}
+
+/**
+ * 各类 Empty 判定：聚合请求成功（200）且该类 items 为空（契约 §2 Empty
+ * 语义；主体活跃而某类为空绝不产生 404）。渲染为「该裸金属暂无××」，
+ * 不是错误，也不触发全局会话失效（AC-13）。
+ */
+function relatedEmpty(key: RelatedCategoryKey): boolean {
+  return relatedData.value !== null && relatedData.value[key].items.length === 0
+}
+
+/** 各类 total（契约 §2：total == items.length）；未加载时为 0。 */
+function relatedTotal(key: RelatedCategoryKey): number {
+  return relatedData.value?.[key].total ?? 0
+}
 
 /** R-BM-007 硬件字段展示标签。 */
 const HARDWARE_LABELS: Record<BareMetalHardwareField, string> = {
@@ -117,6 +188,28 @@ function openVirtualMachines(): void {
 /** F004：进入该宿主的网络接口列表（携带 bare_metal_id）。 */
 function openNetworkInterfaces(): void {
   emit('openNetworkInterfaces', props.bareMetalId)
+}
+
+// ---- F010：从关联条目进入对应资源详情（AC-17，保留返回上下文）。 ----
+
+function openRelatedNetworkInterface(networkInterfaceId: number): void {
+  emit('openNetworkInterfaceDetail', networkInterfaceId)
+}
+
+function openRelatedIpAddress(ipAddressId: number, networkInterfaceId: number): void {
+  emit('openIpAddressDetail', ipAddressId, networkInterfaceId)
+}
+
+function openRelatedVirtualMachine(virtualMachineId: number): void {
+  emit('openVirtualMachineDetail', virtualMachineId)
+}
+
+function openRelatedContainer(containerId: number): void {
+  emit('openContainerDetail', containerId)
+}
+
+function openRelatedService(serviceId: number): void {
+  emit('openServiceDetail', serviceId)
 }
 
 /** 二次确认通过后删除当前裸金属；状态管理与错误渲染见 useBareMetalDelete。 */
@@ -206,6 +299,224 @@ function handleUpdated(): void {
             <template v-else>{{ item.value }}</template>
           </el-descriptions-item>
         </el-descriptions>
+
+        <!-- F010 关联资源：一次请求（单一聚合端点）获知五类；前端不自行推导。
+             每类遵循 ListStates 三态；Empty 与页面级 Not Found 是不同
+             data-state / 文案（AC-13）；每条自带关系依据（AC-08）。 -->
+        <section class="bare-metal-related" data-testid="related-resources">
+          <h2 class="bare-metal-related__title">关联资源</h2>
+
+          <!-- 网络接口（1 跳：nic.bare_metal_id = B.id） -->
+          <section class="bare-metal-related__category" data-related="network_interfaces">
+            <h3 class="bare-metal-related__category-title">
+              网络接口
+              <span v-if="relatedData !== null" class="bare-metal-related__count">
+                （共 {{ relatedTotal('network_interfaces') }} 项）
+              </span>
+            </h3>
+            <ListStates
+              :loading="relatedLoading"
+              :error="relatedError"
+              :empty="relatedEmpty('network_interfaces')"
+              empty-description="该裸金属暂无网络接口"
+            >
+              <el-table :data="relatedItems('network_interfaces')" size="small">
+                <el-table-column prop="id" label="ID" width="72" />
+                <el-table-column prop="name" label="名称" min-width="120" />
+                <el-table-column prop="technology_type" label="技术类型" min-width="100" />
+                <el-table-column prop="purpose" label="用途" min-width="96" />
+                <el-table-column label="关系依据" min-width="200">
+                  <template #default="{ row }">
+                    <span data-testid="related-evidence">
+                      宿主裸金属 #{{ row.bare_metal_id }}（bare_metal_id）
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="72">
+                  <template #default="{ row }">
+                    <el-button
+                      link
+                      type="primary"
+                      data-testid="related-detail"
+                      @click="openRelatedNetworkInterface(row.id)"
+                    >
+                      详情
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </ListStates>
+          </section>
+
+          <!-- IP 地址（2 跳：IP 无 bare_metal_id，经 network_interface_id → B 的 NIC） -->
+          <section class="bare-metal-related__category" data-related="ip_addresses">
+            <h3 class="bare-metal-related__category-title">
+              IP 地址
+              <span v-if="relatedData !== null" class="bare-metal-related__count">
+                （共 {{ relatedTotal('ip_addresses') }} 项）
+              </span>
+            </h3>
+            <ListStates
+              :loading="relatedLoading"
+              :error="relatedError"
+              :empty="relatedEmpty('ip_addresses')"
+              empty-description="该裸金属暂无 IP 地址"
+            >
+              <el-table :data="relatedItems('ip_addresses')" size="small">
+                <el-table-column prop="id" label="ID" width="72" />
+                <el-table-column prop="ip_address" label="IP 地址" min-width="150" />
+                <el-table-column label="关系依据" min-width="220">
+                  <template #default="{ row }">
+                    <span data-testid="related-evidence">
+                      所属网络接口 #{{ row.network_interface_id }}（network_interface_id）
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="72">
+                  <template #default="{ row }">
+                    <el-button
+                      link
+                      type="primary"
+                      data-testid="related-detail"
+                      @click="openRelatedIpAddress(row.id, row.network_interface_id)"
+                    >
+                      详情
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </ListStates>
+          </section>
+
+          <!-- 虚拟机（1 跳：vm.bare_metal_id = B.id） -->
+          <section class="bare-metal-related__category" data-related="virtual_machines">
+            <h3 class="bare-metal-related__category-title">
+              虚拟机
+              <span v-if="relatedData !== null" class="bare-metal-related__count">
+                （共 {{ relatedTotal('virtual_machines') }} 项）
+              </span>
+            </h3>
+            <ListStates
+              :loading="relatedLoading"
+              :error="relatedError"
+              :empty="relatedEmpty('virtual_machines')"
+              empty-description="该裸金属暂无虚拟机"
+            >
+              <el-table :data="relatedItems('virtual_machines')" size="small">
+                <el-table-column prop="id" label="ID" width="72" />
+                <el-table-column prop="name" label="名称" min-width="140" />
+                <el-table-column label="关系依据" min-width="200">
+                  <template #default="{ row }">
+                    <span data-testid="related-evidence">
+                      宿主裸金属 #{{ row.bare_metal_id }}（bare_metal_id）
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="72">
+                  <template #default="{ row }">
+                    <el-button
+                      link
+                      type="primary"
+                      data-testid="related-detail"
+                      @click="openRelatedVirtualMachine(row.id)"
+                    >
+                      详情
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </ListStates>
+          </section>
+
+          <!-- 容器（1~2 跳：载体为 B 或 B 上的活跃 VM，含间接；BQ-1 裁定） -->
+          <section class="bare-metal-related__category" data-related="containers">
+            <h3 class="bare-metal-related__category-title">
+              容器
+              <span v-if="relatedData !== null" class="bare-metal-related__count">
+                （共 {{ relatedTotal('containers') }} 项）
+              </span>
+            </h3>
+            <ListStates
+              :loading="relatedLoading"
+              :error="relatedError"
+              :empty="relatedEmpty('containers')"
+              empty-description="该裸金属暂无容器"
+            >
+              <el-table :data="relatedItems('containers')" size="small">
+                <el-table-column prop="id" label="ID" width="72" />
+                <el-table-column prop="name" label="名称" min-width="140" />
+                <el-table-column label="关系依据" min-width="260">
+                  <template #default="{ row }">
+                    <span data-testid="related-evidence">
+                      载体 {{ row.carrier_type }} #{{ row.carrier_id }}（carrier_type + carrier_id）
+                    </span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="72">
+                  <template #default="{ row }">
+                    <el-button
+                      link
+                      type="primary"
+                      data-testid="related-detail"
+                      @click="openRelatedContainer(row.id)"
+                    >
+                      详情
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </ListStates>
+          </section>
+
+          <!-- 服务（1~3 跳：载体与 R(B) 有交集，含间接；BQ-2 裁定； carriers
+               原样展示全部绑定，不做交集筛选） -->
+          <section class="bare-metal-related__category" data-related="services">
+            <h3 class="bare-metal-related__category-title">
+              服务
+              <span v-if="relatedData !== null" class="bare-metal-related__count">
+                （共 {{ relatedTotal('services') }} 项）
+              </span>
+            </h3>
+            <ListStates
+              :loading="relatedLoading"
+              :error="relatedError"
+              :empty="relatedEmpty('services')"
+              empty-description="该裸金属暂无服务"
+            >
+              <el-table :data="relatedItems('services')" size="small">
+                <el-table-column prop="id" label="ID" width="72" />
+                <el-table-column prop="name" label="名称" min-width="140" />
+                <el-table-column label="关系依据" min-width="280">
+                  <template #default="{ row }">
+                    <div class="bare-metal-related__carriers" data-testid="related-evidence">
+                      <span>载体绑定（carriers）：</span>
+                      <el-tag
+                        v-for="carrier in row.carriers"
+                        :key="`${carrier.carrier_type}:${carrier.carrier_id}`"
+                        size="small"
+                        class="bare-metal-related__carrier"
+                      >
+                        {{ carrier.carrier_type }} #{{ carrier.carrier_id }}
+                      </el-tag>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="72">
+                  <template #default="{ row }">
+                    <el-button
+                      link
+                      type="primary"
+                      data-testid="related-detail"
+                      @click="openRelatedService(row.id)"
+                    >
+                      详情
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </ListStates>
+          </section>
+        </section>
       </template>
     </section>
 
@@ -260,5 +571,37 @@ function handleUpdated(): void {
 
 .bare-metal-detail__delete-error {
   margin-bottom: 16px;
+}
+
+.bare-metal-related {
+  margin-top: 32px;
+}
+
+.bare-metal-related__title {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.bare-metal-related__category {
+  margin-top: 16px;
+}
+
+.bare-metal-related__category-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bare-metal-related__count {
+  color: #909399;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.bare-metal-related__carriers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
 }
 </style>

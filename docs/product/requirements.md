@@ -914,6 +914,27 @@ BareMetal
 
 具体页面组织由 Frontend 设计，但不得要求用户为了获得一个资源的基本信息手工跨多个独立 Excel 式页面拼接信息。
 
+### 「与 BareMetal 相关」的确切含义（2026-09-18 确认）
+
+「相关」按**已确认关系链推导**判定，不是只看「直接挂在机器上的列」：
+
+| 资源 | 「与 BareMetal B 相关」的判定 |
+|---|---|
+| NetworkInterface | 其 `bare_metal_id` = B |
+| IPAddress | 其所属 NetworkInterface 的 `bare_metal_id` = B（**间接**：IP → NIC → B；IP 无 `bare_metal_id`） |
+| VirtualMachine | 其 `bare_metal_id` = B |
+| Container | 其运行载体 = B，**或**其运行载体为 **B 上的活跃 VirtualMachine**（**含间接**） |
+| Service | 其运行载体集合与「B 的相关载体集合 R(B)」有交集（**含间接**） |
+
+其中 **R(B)** = {B} ∪ {B 上的活跃 VirtualMachine} ∪ {
+运行载体为 B 或 B 上活跃 VirtualMachine 的活跃 Container }。
+
+因此：一个绑定在「B 上某台 VM」上的 Service、以及一个跑在「B 上某台 VM 里的 Container」的 Service，
+**都算与 B 相关**；同一 Service 因多个载体与 B 相关时**只出现一次**。
+
+**本裁定仅适用于「查询相关性」，不改变任何删除拦截语义**：R-DELETE-004 / R-SVC-009 的父删子拦
+始终以**直接绑定**为准，不因本条而新增传递性拦截。
+
 ---
 
 ## R-QUERY-004

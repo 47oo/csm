@@ -1098,10 +1098,35 @@ features:
     name: 资源详情与关联查询
     epic: E05
     priority: P1
-    status: READY
+    status: IN_REVIEW
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
-    blocking:
-      - "依赖多个资源 Feature 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F010-resource-detail
+      start_commit: 1baedc0d092424926e61afa4f6cf2d869f8236a6
+      head_commit: 6109d4c8106b02a8bce5fd8603833e02a7205209
+      merge_commit: null
+    current_stage: REVIEW
+    last_result: >-
+      Product 阶段曾因 2 个 Blocking 产品歧义（BQ-1 / BQ-2）按 §11 停止；用户已于 2026-09-18 裁定
+      两者均取「含间接」，并已固化为 requirements.md R-QUERY-003 的产品规则。Product Gate 通过。
+    next_action: >-
+      Reviewer（独立复核 AC-18 集合深等与「唯一 404 网关」、G-010 注入可失败性、allow-list 未退化、
+      0001–0008 与 deletion service 未改）→ Merge Gate。Tester 结论 READY FOR REVIEW（25/25 PASS、无缺陷、9 组注入全部检出）。
+    layers:
+      database: false    # 无 schema 变更 / 无 migration；全部读取委托既有 canonical 过滤原语与既有索引
+      backend: true      # 新增 app/resource_views/**（router/service/schemas）+ main 挂载 + EXPECTED_GET_ROUTES 追加 + G-010 guard
+      frontend: true     # api/bareMetals.ts + BareMetalDetailPage「关联资源」区 + App.vue 导航 + 三态
+    contract:
+      status: READY
+      doc: docs/api/f010-resource-detail.md
+    implementation:
+      database_design: NOT_REQUIRED   # database: false
+      backend: COMPLETE
+      frontend: COMPLETE
+      test: COMPLETE
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-QUERY-003
@@ -1112,7 +1137,37 @@ features:
       - 查询结果区分 Resource Not Found 与 Empty Relationship（R-QUERY-004）。
       - 用户无需为获得一个资源的基本信息而跨多个独立 Excel 式页面手工拼接（R-QUERY-003）。
       - 页面组织由 Frontend 设计，不在本计划中固化（R-QUERY-003）。
-    open_questions: []
+    open_questions:
+      - id: BQ-1
+        blocking: false
+        resolved_by: user-decision-2026-09-18
+        summary: "已裁定：**含间接**。载体为「B 上活跃 VM」的活跃 Container 算与 B 相关（AC-05-a 生效，AC-05-b 作废）。已固化为 requirements.md R-QUERY-003「『与 BareMetal 相关』的确切含义」。"
+      - id: BQ-2
+        blocking: false
+        resolved_by: user-decision-2026-09-18
+        summary: "已裁定：**含间接**。载体与 R(B) 有交集的活跃 Service 算与 B 相关（AC-07-a 生效，AC-07-b 作废）；同一 Service 因多个载体相关时只出现一次。**仅适用于查询相关性**，不改变删除拦截语义（仍以直接绑定为准）。"
+      - id: NQ-1
+        blocking: false
+        summary: 推导出的 Cluster 归属是否展示；默认不展示（沿用 F006 NQ-7 / F007 AC-22 / F008 PROPOSED-2 的最小范围口径）。
+      - id: NQ-2
+        blocking: false
+        summary: 是否提供反向关联视图（IP/Container/Service → 所属 BareMetal）；R-QUERY-003 已把主体固定为 BareMetal，默认本次不交付。
+      - id: NQ-3
+        blocking: false
+        summary: 状态汇总 / 计数；默认不实现（F009 NQ-1 先例）。
+      - id: NQ-4
+        blocking: false
+        summary: 排序 / 关键字 / 筛选 / 导出 / 分页形态；默认不实现，沿用既有分页约定。
+      - id: NQ-5
+        blocking: false
+        resolved_by: docs/architecture/f010-resource-detail-handoff.md
+        summary: "已裁定：**单一只读聚合端点** GET /api/bare-metals/{bare_metal_id}/related。否决「五个子资源端点」（契约/guard 面 ×5、快照不一致、与 F004/F005/F006 拒绝嵌套路由的结论冲突）与「前端多轮调用聚合」（无事务一致快照、AC-10/AC-11 退化为页面级）。"
+      - id: NQ-6
+        blocking: false
+        summary: VM 是否拥有独立 NetworkInterface（R-NIC-003 未确认，F004 NQ-1）；F010 不得假设。
+      - id: NQ-7
+        blocking: false
+        summary: 计划元数据落盘（本项已在 Product 阶段完成）；契约落点预计 docs/api/f010-resource-detail.md。
 
   # ---- E06 数据导入 ----
   - id: F011
@@ -1645,13 +1700,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F010, F011]
+  ready_features: [F011]
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
   counts:
-    READY: 2
-    IN_PROGRESS: 0
+    READY: 1
+    IN_PROGRESS: 1
     BLOCKED: 0
     DRAFT: 0
     DONE: 12
@@ -1758,7 +1813,7 @@ planning_status:
       **第四个真实 F014 端到端**：`NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS` **追加**为 `(has_active_ip_addresses,)`（保留 VM/NIC 链路）；
       删除守卫链条 `Cluster → BareMetal → NIC → IP` 闭合。M3（网络资源）随之 DONE。
   ready_rationale:
-    F010: "依赖 F001 / F002 / F004 / F005 / F006 / F007 / F008 均已 DONE（F008 merge f773378）。DEC-001 / DEC-003 / DEC-006 均已解决，未改变本 Feature 的 AC 定稿 → READY。义务：必须复用 F002 的 cluster_id 限定 BareMetal 读取与 F008 的 list_active_services_by_carrier，不得另写过滤；并自行完成 Service → 载体 → Cluster 推导（不得要求 F008 落 cluster_id）。"
+    F010: "BQ-1 / BQ-2 已于 2026-09-18 由用户裁定为「含间接」并固化为 requirements.md R-QUERY-003 的产品规则；依赖 F001~F008 均已 DONE → READY。义务：AC-18 要求各清单成员集合与既有 canonical 过滤深等（复用 ?bare_metal_id= / ?network_interface_id= / carrier_type+carrier_id），F010 自行完成 ≤3 跳推导，不得另写过滤；且不得新增任何 cluster_id 类列或 Cluster 视角。"
     F011: "依赖 F001 / F002 / F004 / F005 / F006 / F007 / F008 均已 DONE；OPEN-005 已关闭（All-or-Nothing，R-IMPORT-004）→ READY。义务：导入各资源行必须复用对应 Feature 的同一套领域校验（R-IMPORT-002）；Service 行的 N:M 载体在行式模板中的表达属本 Feature 待确认项（NQ-08）。"
     F008: "依赖 F001 / F002 / F006 / F007 均已 DONE（F007 merge ff347be）；产品问题 OPEN-003 已于 2026-09-16 解决（R-SVC-007/008/009），scope/AC 可定稿；无未解决产品问题 → READY。F007 建立的 CONTAINER_ACTIVE_CHILD_CHECKS 声明点与 AST guard 已就位，F008 须在此追加「活跃 Service」检查并补端到端（NQ-9）。"
     F014: >
@@ -2097,11 +2152,11 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F008 DONE (merge f773378); NEXT READY = F010 / F011
+  decision: "PROJECT IN PROGRESS — F010 IN_PROGRESS (BQ-1/BQ-2 resolved: 含间接; Product Gate passed, at Architecture); F011 READY"
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F010
+  current_stage: REVIEW
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。

@@ -43,6 +43,16 @@ import ServiceDetailPage from './pages/ServiceDetailPage.vue'
 type AppView = 'bootstrap' | 'login' | 'app'
 
 /**
+ * F010：从裸金属详情「关联资源」进入子资源详情时记录的返回目标
+ * （保留返回上下文：裸金属详情及其集群过滤上下文），返回时恢复该视图。
+ */
+interface BareMetalDetailReturn {
+  kind: 'bare-metal-detail'
+  bareMetalId: number
+  clusterId: number | null
+}
+
+/**
  * 资源视图状态（F002 起含 BareMetal；F006 起含 VirtualMachine）：
  * - cluster-list / cluster-detail：F001 既有视图；
  * - bare-metal-list：裸金属列表；clusterId 非空 = 按 Cluster 限定
@@ -69,12 +79,18 @@ type AppView = 'bootstrap' | 'login' | 'app'
  *   returnClusterId 随视图链保留，返回时恢复；
  * - container-list：容器列表（F007）；无 App 级过滤上下文（载体筛选为列表页
  *   内能力，carrier_type + carrier_id 成对），返回时回集群列表；
- * - container-detail：容器详情；登记成功后可跳转到新容器的详情（openDetail），
- *   返回时回容器列表；
+ * - container-detail：容器详情；登记成功后可跳转到新容器的详情（openDetail）；
+ *   F010 起从裸金属关联区进入的携带 returnView，返回时回裸金属详情，
+ *   否则回容器列表；
  * - service-list：服务列表（F008）；无 App 级过滤上下文（载体筛选为列表页
  *   内能力，carrier_type + carrier_id 成对），返回时回集群列表；
- * - service-detail：服务详情；登记成功后可跳转到新服务的详情（openDetail），
- *   返回时回服务列表。
+ * - service-detail：服务详情；登记成功后可跳转到新服务的详情（openDetail）；
+ *   F010 起从裸金属关联区进入的携带 returnView，返回时回裸金属详情，
+ *   否则回服务列表。
+ *
+ * F010 起五个子资源详情视图均携带可选 returnView（从裸金属详情「关联资源」
+ * 进入时的返回目标，保留集群过滤上下文；f010-resource-detail-handoff.md
+ * Frontend Work #3，导航形式不构成产品规则）。
  */
 type ResourceView =
   | { kind: 'cluster-list' }
@@ -87,6 +103,8 @@ type ResourceView =
       virtualMachineId: number
       bareMetalId: number | null
       returnClusterId: number | null
+      /** F010：从裸金属关联区进入时的直接返回目标。 */
+      returnView?: BareMetalDetailReturn
     }
   | { kind: 'network-interface-list'; bareMetalId: number | null; returnClusterId: number | null }
   | {
@@ -94,6 +112,8 @@ type ResourceView =
       networkInterfaceId: number
       bareMetalId: number | null
       returnClusterId: number | null
+      /** F010：从裸金属关联区进入时的直接返回目标。 */
+      returnView?: BareMetalDetailReturn
     }
   | {
       kind: 'ip-address-list'
@@ -107,11 +127,23 @@ type ResourceView =
       networkInterfaceId: number | null
       returnBareMetalId: number | null
       returnClusterId: number | null
+      /** F010：从裸金属关联区进入时的直接返回目标。 */
+      returnView?: BareMetalDetailReturn
     }
   | { kind: 'container-list' }
-  | { kind: 'container-detail'; containerId: number }
+  | {
+      kind: 'container-detail'
+      containerId: number
+      /** F010：从裸金属关联区进入时的直接返回目标；否则返回容器列表。 */
+      returnView?: BareMetalDetailReturn
+    }
   | { kind: 'service-list' }
-  | { kind: 'service-detail'; serviceId: number }
+  | {
+      kind: 'service-detail'
+      serviceId: number
+      /** F010：从裸金属关联区进入时的直接返回目标；否则返回服务列表。 */
+      returnView?: BareMetalDetailReturn
+    }
 
 const view = ref<AppView>('bootstrap')
 const currentUser = ref<AuthenticatedUser | null>(null)
@@ -217,9 +249,14 @@ function openVirtualMachineDetail(virtualMachineId: number): void {
   }
 }
 
-/** 虚拟机详情返回：回到进入前的虚拟机列表（保留过滤上下文）。 */
+/** 虚拟机详情返回：回到进入前的虚拟机列表（保留过滤上下文）；F010 关联
+ * 区进入的优先直接回裸金属详情（保留返回上下文）。 */
 function backFromVirtualMachineDetail(): void {
   const current = resourceView.value
+  if (current.kind === 'virtual-machine-detail' && current.returnView !== undefined) {
+    resourceView.value = { ...current.returnView }
+    return
+  }
   const bareMetalId = current.kind === 'virtual-machine-detail' ? current.bareMetalId : null
   const returnClusterId = current.kind === 'virtual-machine-detail' ? current.returnClusterId : null
   resourceView.value = { kind: 'virtual-machine-list', bareMetalId, returnClusterId }
@@ -273,9 +310,14 @@ function openNetworkInterfaceDetail(networkInterfaceId: number): void {
   }
 }
 
-/** 网络接口详情返回：回到进入前的网络接口列表（保留过滤上下文）。 */
+/** 网络接口详情返回：回到进入前的网络接口列表（保留过滤上下文）；F010
+ * 关联区进入的优先直接回裸金属详情（保留返回上下文）。 */
 function backFromNetworkInterfaceDetail(): void {
   const current = resourceView.value
+  if (current.kind === 'network-interface-detail' && current.returnView !== undefined) {
+    resourceView.value = { ...current.returnView }
+    return
+  }
   const bareMetalId = current.kind === 'network-interface-detail' ? current.bareMetalId : null
   const returnClusterId =
     current.kind === 'network-interface-detail' ? current.returnClusterId : null
@@ -345,9 +387,14 @@ function openIpAddressDetail(ipAddressId: number): void {
   }
 }
 
-/** IP 地址详情返回：回到进入前的 IP 地址列表（保留过滤上下文）。 */
+/** IP 地址详情返回：回到进入前的 IP 地址列表（保留过滤上下文）；F010
+ * 关联区进入的优先直接回裸金属详情（保留返回上下文）。 */
 function backFromIpAddressDetail(): void {
   const current = resourceView.value
+  if (current.kind === 'ip-address-detail' && current.returnView !== undefined) {
+    resourceView.value = { ...current.returnView }
+    return
+  }
   const networkInterfaceId =
     current.kind === 'ip-address-detail' ? current.networkInterfaceId : null
   const returnBareMetalId =
@@ -374,8 +421,13 @@ function openContainerDetail(containerId: number): void {
   resourceView.value = { kind: 'container-detail', containerId }
 }
 
-/** 容器详情返回：回到容器列表。 */
+/** 容器详情返回：F010 关联区进入的回裸金属详情（保留返回上下文），否则回容器列表。 */
 function backFromContainerDetail(): void {
+  const current = resourceView.value
+  if (current.kind === 'container-detail' && current.returnView !== undefined) {
+    resourceView.value = { ...current.returnView }
+    return
+  }
   resourceView.value = { kind: 'container-list' }
 }
 
@@ -391,9 +443,82 @@ function openServiceDetail(serviceId: number): void {
   resourceView.value = { kind: 'service-detail', serviceId }
 }
 
-/** 服务详情返回：回到服务列表。 */
+/** 服务详情返回：F010 关联区进入的回裸金属详情（保留返回上下文），否则回服务列表。 */
 function backFromServiceDetail(): void {
+  const current = resourceView.value
+  if (current.kind === 'service-detail' && current.returnView !== undefined) {
+    resourceView.value = { ...current.returnView }
+    return
+  }
   resourceView.value = { kind: 'service-list' }
+}
+
+// ---- 资源视图导航（F010：裸金属详情「关联资源」入口） ----
+
+/** 捕获当前裸金属详情视图作为返回目标（不在该视图时为 undefined，不生效）。 */
+function bareMetalReturnView(): BareMetalDetailReturn | undefined {
+  const current = resourceView.value
+  return current.kind === 'bare-metal-detail'
+    ? { kind: 'bare-metal-detail', bareMetalId: current.bareMetalId, clusterId: current.clusterId }
+    : undefined
+}
+
+/**
+ * 从裸金属关联区进入五类子资源详情（AC-17）：记录返回目标（裸金属详情及其
+ * 集群过滤上下文），子详情「返回列表」直接回到该目标；同时保留各详情既有的
+ * 链式返回上下文（如 NIC 详情 →「查看 IP 地址」后仍可沿链回到裸金属详情）。
+ */
+function openBareMetalRelatedNetworkInterface(networkInterfaceId: number): void {
+  const current = resourceView.value
+  const from = current.kind === 'bare-metal-detail' ? current : null
+  resourceView.value = {
+    kind: 'network-interface-detail',
+    networkInterfaceId,
+    bareMetalId: from?.bareMetalId ?? null,
+    returnClusterId: from?.clusterId ?? null,
+    returnView: bareMetalReturnView(),
+  }
+}
+
+function openBareMetalRelatedIpAddress(ipAddressId: number, networkInterfaceId: number): void {
+  const current = resourceView.value
+  const from = current.kind === 'bare-metal-detail' ? current : null
+  resourceView.value = {
+    kind: 'ip-address-detail',
+    ipAddressId,
+    networkInterfaceId,
+    returnBareMetalId: from?.bareMetalId ?? null,
+    returnClusterId: from?.clusterId ?? null,
+    returnView: bareMetalReturnView(),
+  }
+}
+
+function openBareMetalRelatedVirtualMachine(virtualMachineId: number): void {
+  const current = resourceView.value
+  const from = current.kind === 'bare-metal-detail' ? current : null
+  resourceView.value = {
+    kind: 'virtual-machine-detail',
+    virtualMachineId,
+    bareMetalId: from?.bareMetalId ?? null,
+    returnClusterId: from?.clusterId ?? null,
+    returnView: bareMetalReturnView(),
+  }
+}
+
+function openBareMetalRelatedContainer(containerId: number): void {
+  resourceView.value = {
+    kind: 'container-detail',
+    containerId,
+    returnView: bareMetalReturnView(),
+  }
+}
+
+function openBareMetalRelatedService(serviceId: number): void {
+  resourceView.value = {
+    kind: 'service-detail',
+    serviceId,
+    returnView: bareMetalReturnView(),
+  }
 }
 
 /** 头部导航高亮：当前资源区域（cluster-* / bare-metal-* / virtual-machine-* /
@@ -541,6 +666,11 @@ async function handleLogout(): Promise<void> {
         @back="backFromBareMetalDetail"
         @open-virtual-machines="openBareMetalVirtualMachines"
         @open-network-interfaces="openBareMetalNetworkInterfaces"
+        @open-network-interface-detail="openBareMetalRelatedNetworkInterface"
+        @open-ip-address-detail="openBareMetalRelatedIpAddress"
+        @open-virtual-machine-detail="openBareMetalRelatedVirtualMachine"
+        @open-container-detail="openBareMetalRelatedContainer"
+        @open-service-detail="openBareMetalRelatedService"
       />
       <VirtualMachineListPage
         v-else-if="resourceView.kind === 'virtual-machine-list'"
