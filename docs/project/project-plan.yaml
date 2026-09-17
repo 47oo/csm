@@ -897,11 +897,14 @@ features:
       start_commit: 68d8e115085fbca7b1bfeb62719b4b815cc3459f
       head_commit: 68d8e115085fbca7b1bfeb62719b4b815cc3459f
       merge_commit: null
-    current_stage: ARCHITECTURE
-    layers: {}
+    current_stage: DATABASE
+    layers:
+      database: true     # services + service_carriers + migration 0008_f008_services（实现由 Backend 负责）
+      backend: true      # app/services/** + models + 三个 *_ACTIVE_CHILD_CHECKS 演进 + main 接线 + guard 演进
+      frontend: true     # api/services.ts + List/Detail 页 + FormDialog（多载体选择 ≥1）+ 三态
     contract:
-      status: NOT_REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f008-service.md
     implementation:
       database_design: PENDING
       backend: PENDING
@@ -2075,10 +2078,15 @@ planning_status:
 
 execution:
   current_feature: F008
-  current_stage: ARCHITECTURE
+  current_stage: DATABASE
   started_on: "2026-09-16"
   note: >-
-    F007 引入**首个多态载体关系**（Container 必属恰好一个 BareMetal 或 VirtualMachine）。
-    Architecture 已裁定：多态载体用**两列可空 FK + CHECK (num_nonnulls(...) = 1) + 两列 partial unique index**
-    表示（否决了「判别列 + 无 FK」方案，因为它会放弃数据库级参照完整性，违反 AGENTS.md §6 与 ADR-0002）；
-    契约统一用 carrier_type + carrier_id 表达载体，载体缺失一律 404。契约 READY：docs/api/f007-container.md。
+    F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
+    NQ-01 已由用户确认（2026-09-16）：**必须先删除，不做解绑功能**，已固化为 R-SVC-009。
+    Architecture 两项关键裁定：① N:M 多态绑定用**单张 service_carriers + 三列可空 FK + CHECK (num_nonnulls(...) = 1)
+    + 三条 partial unique（集合语义）**（否决三张绑定表：语义无增益却三倍 schema / guard 成本）；
+    ② 「释放绑定」**无需任何写入**——绑定行不可变、不物理删除、无 deleted_at，活跃性由 services.deleted_at 派生，
+    故 app/deletion/service.py **零改动**、allow-list 恒为 {backend/app/deletion/service.py}。
+    注意：移除 `service` token 后 BOUNDARY_TOKENS 变为空，**不得删除 test_g009_2**，且必须保留
+    APPROVED_API_PREFIXES allow-list 作为真正的越界防线（历史两次 MEDIUM 均因收窄扫描范围）。
+    下一步：Database Design（0008_f008_services）→ Backend + Frontend 并行。
