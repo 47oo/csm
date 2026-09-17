@@ -9,6 +9,10 @@ from __future__ import annotations
 import ast
 
 from app.bare_metals.deletion import BARE_METAL_ACTIVE_CHILD_CHECKS
+from app.containers.deletion import (
+    has_active_containers_on_bare_metal,
+    has_active_containers_on_virtual_machine,
+)
 from app.virtual_machines.deletion import (
     VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS,
     has_active_virtual_machines,
@@ -124,6 +128,8 @@ def test_g5_t26_bare_metal_active_child_checks_contain_vm_check():
     assert isinstance(BARE_METAL_ACTIVE_CHILD_CHECKS, tuple)
     assert len(BARE_METAL_ACTIVE_CHILD_CHECKS) >= 1, "BareMetal 删除守卫不得 fail-open 为空"
     assert has_active_virtual_machines in BARE_METAL_ACTIVE_CHILD_CHECKS
+    # F007 演进：BM 检查必须**追加**活跃 Container 检查（而非替换）。
+    assert has_active_containers_on_bare_metal in BARE_METAL_ACTIVE_CHILD_CHECKS
 
 
 def test_t26_bare_metal_delete_path_consumes_declared_checks():
@@ -164,11 +170,13 @@ def test_t26_bare_metal_active_child_check_blocks_delete(auth_client_and_raw, mo
 # G-6 / T-27：VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS 显式声明且被删除路径传入
 # --------------------------------------------------------------------------- #
 def test_g6_t27_vm_active_child_checks_explicitly_declared():
+    # F007 演进：由**显式空元组**演进为**非空**且含活跃 Container 检查
+    # （F006 REV-3 的预留追加位置落地；不得删除本 guard）。
     assert isinstance(VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS, tuple)
-    assert VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS == ()
+    assert VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS, "F007 后不得为显式空元组"
+    assert has_active_containers_on_virtual_machine in VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS
     source = (REPO_ROOT / "backend/app/virtual_machines/deletion.py").read_text(encoding="utf-8")
     assert "VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS" in source
-    assert "= ()" in source, "必须显式声明空元组，而非隐式缺省"
 
 
 def test_g6_t27_vm_delete_path_passes_active_child_checks():
@@ -230,12 +238,12 @@ def test_g10_no_generic_eav_json_or_polymorphic_for_vm():
 
 
 # --------------------------------------------------------------------------- #
-# G-11：MIGRATION_HEAD 与当前 head 一致（F005 演进：head 从 0005 → 0006）
+# G-11：MIGRATION_HEAD 与当前 head 一致（F007 演进：head 从 0006 → 0007）
 # --------------------------------------------------------------------------- #
 def test_g11_migration_head_is_current_head():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0006_f005_ip_addresses"
+    assert MIGRATION_HEAD == "0007_f007_containers"
 
 
 # --------------------------------------------------------------------------- #

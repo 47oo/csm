@@ -691,10 +691,11 @@ def test_t29_no_other_resource_endpoints_or_columns(auth_client_and_raw):
     # （``"network-interfaces".startswith("nic")`` 为假），缩写越界路由 ``/api/nics``
     # 仍须被检出。
     # F005 演进：IPAddress 已成为合法资源（``/api/ip-addresses``），从越界 prefix 中
-    # 移除 ``ip``；``nic`` / ``container`` / ``service`` 必须保持全局覆盖。
+    # 移除 ``ip``；``nic`` / ``service`` 必须保持全局覆盖。
+    # F007 演进：Container 已成为合法资源（``/api/containers``），从越界 prefix 中移除
+    # ``container``；``service`` 仍须被全局检出。
     forbidden_prefixes = (
         "nic",
-        "container",
         "service",
     )
     offenders = [

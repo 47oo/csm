@@ -17,6 +17,8 @@ CSM Web 前端。
 | **F009** | Cluster 视角成员视图（复用 F002 的集群限定列表，无新增前端实现）；按名称寻址的只读别名仅由后端提供 | `docs/api/f009-cluster-resource-view.md` |
 | **F006** | VirtualMachine API 客户端、列表 / 详情 / 登记 / 可选字段维护 / 删除；从 BareMetal 详情进入「该宿主虚拟机」 | `docs/api/f006-virtual-machine.md` |
 | **F004** | NetworkInterface API 客户端、列表 / 详情 / 登记 / 技术类型与用途维护 / 删除；从 BareMetal 详情进入「该宿主网络接口」 | `docs/api/f004-network-interface.md` |
+| **F005** | IPAddress API 客户端、列表 / 详情 / 登记 / 修正 / 删除；从 NetworkInterface 详情进入「该网络接口 IP」 | `docs/api/f005-ip-address.md` |
+| **F007** | Container API 客户端、列表（载体筛选：`carrier_type` + `carrier_id` 成对）/ 详情 / 登记（载体类型选择器 + 载体 ID 输入）/ 可选字段维护 / 删除；详情页登记成功后跳转新容器详情 | `docs/api/f007-container.md` |
 
 **跨 Feature 的渲染约定**（全部页面一致）：
 
@@ -27,7 +29,7 @@ CSM Web 前端。
 - **未定义约束不做任何变换**：`name` / `hostname` 等字段不做长度 / trim / 归一化 / 空串校验，也不基于 `undefined_constraints` 编写业务分支；
 - 所有 HTTP 调用集中在 `src/api/`，页面组件不得直接 `fetch`。
 
-**当前未交付**（属后续 Feature）：Container（F007）、Service（F008）、资源详情与关联查询聚合视图（F010）、Excel 批量导入（F011）的 UI；恢复 / 回收站 / 已删资源查看 / 批量操作 / 审计展示 / 导出 / 高级筛选；账号管理页与口令修改。
+**当前未交付**（属后续 Feature）：Service（F008）、资源详情与关联查询聚合视图（F010）、Excel 批量导入（F011）的 UI；恢复 / 回收站 / 已删资源查看 / 批量操作 / 审计展示 / 导出 / 高级筛选；账号管理页与口令修改。
 
 ## 环境要求
 
@@ -71,7 +73,9 @@ frontend/
 │   │   ├── auth.ts               # 认证 API 客户端（f013-auth.md）
 │   │   ├── bareMetals.ts         # BareMetal API 客户端（f002-bare-metal.md）
 │   │   ├── clusters.ts           # Cluster API 客户端（f001-cluster.md / f014-soft-delete.md）
+│   │   ├── containers.ts         # Container API 客户端（f007-container.md）
 │   │   ├── http.ts               # 统一请求封装 + ApiError 归一化 + 全局 401 处理（基座）
+│   │   ├── ipAddresses.ts        # IPAddress API 客户端（f005-ip-address.md）
 │   │   ├── networkInterfaces.ts  # NetworkInterface API 客户端（f004-network-interface.md）
 │   │   └── virtualMachines.ts    # VirtualMachine API 客户端（f006-virtual-machine.md）
 │   ├── components/
@@ -79,6 +83,8 @@ frontend/
 │   │   ├── ListStates.vue        # 列表 Loading / Error / Empty / 内容容器（基座）
 │   │   ├── BareMetalFormDialog.vue
 │   │   ├── BareMetalStatusTag.vue
+│   │   ├── ContainerFormDialog.vue
+│   │   ├── IpAddressFormDialog.vue
 │   │   ├── NetworkInterfaceFormDialog.vue
 │   │   └── VirtualMachineFormDialog.vue
 │   ├── composables/
@@ -87,13 +93,17 @@ frontend/
 │   │   ├── useClusterDelete.ts
 │   │   ├── useBareMetalDelete.ts
 │   │   ├── useVirtualMachineDelete.ts
-│   │   └── useNetworkInterfaceDelete.ts
+│   │   ├── useNetworkInterfaceDelete.ts
+│   │   ├── useIpAddressDelete.ts
+│   │   └── useContainerDelete.ts
 │   ├── pages/
 │   │   ├── LoginPage.vue
 │   │   ├── ClusterListPage.vue / ClusterDetailPage.vue
 │   │   ├── BareMetalListPage.vue / BareMetalDetailPage.vue
 │   │   ├── VirtualMachineListPage.vue / VirtualMachineDetailPage.vue
-│   │   └── NetworkInterfaceListPage.vue / NetworkInterfaceDetailPage.vue
+│   │   ├── NetworkInterfaceListPage.vue / NetworkInterfaceDetailPage.vue
+│   │   ├── IpAddressListPage.vue / IpAddressDetailPage.vue
+│   │   └── ContainerListPage.vue / ContainerDetailPage.vue
 │   ├── types/
 │   │   └── api.ts                # 契约类型（错误信封 / 分页信封 / 错误码）
 │   ├── App.vue                   # 会话门控 + 极简视图状态（bootstrap / login / app）

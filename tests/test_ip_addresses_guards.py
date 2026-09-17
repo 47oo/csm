@@ -288,10 +288,11 @@ def test_g5_table_whitelist_includes_ip_addresses():
     assert "ip_addresses" in EXPECTED_TABLES
 
 
-def test_g5_migration_head_is_0006():
+def test_g5_migration_head_is_0007():
+    # F007 演进：head 从 0006 → 0007（不得删除本 guard，只更新当前 head）。
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0006_f005_ip_addresses"
+    assert MIGRATION_HEAD == "0007_f007_containers"
 
 
 # --------------------------------------------------------------------------- #
@@ -313,7 +314,7 @@ def test_g6_expected_get_routes_contains_ip_routes():
 
 
 # --------------------------------------------------------------------------- #
-# G-7：BOUNDARY_TOKENS 收窄（移除两个 ip token）、保留 container / service、全局扫描
+# G-7：BOUNDARY_TOKENS 收窄（移除两个 ip token）、保留 service、全局扫描
 # --------------------------------------------------------------------------- #
 def test_g7_boundary_tokens_narrowed_but_global():
     from tests import test_cluster_views_guards as cv
@@ -321,8 +322,10 @@ def test_g7_boundary_tokens_narrowed_but_global():
     tokens = cv.BOUNDARY_TOKENS
     assert "ip-address" not in tokens
     assert "ip_address" not in tokens
-    for kept in ("container", "service"):
-        assert kept in tokens
+    # F007 演进：Container 已成为合法资源（``/api/containers``），故**仅移除**
+    # ``container``；``service`` 仍在集合中，且扫描仍为全局。
+    assert "container" not in tokens
+    assert "service" in tokens
 
     source = (REPO_ROOT / "tests/test_cluster_views_guards.py").read_text(encoding="utf-8")
     assert '_openapi()["paths"]' in source
@@ -535,6 +538,8 @@ def test_g13_no_generic_eav_json_or_polymorphic():
         "virtual_machines",
         "network_interfaces",
         "ip_addresses",
+        # F007：Container 独立资源表。
+        "containers",
     }
 
 
@@ -599,10 +604,11 @@ def test_g15_ip_module_does_not_import_network_interfaces_module():
 def test_g16_migration_revision_chain():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0006_f005_ip_addresses"
-    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0006_f005_ip_addresses.py"
+    # F007 演进：head 为 0007，其 down_revision 指向 0006。
+    assert MIGRATION_HEAD == "0007_f007_containers"
+    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0007_f007_containers.py"
     source = migration.read_text(encoding="utf-8")
-    assert 'down_revision: str | None = "0005_f004_network_interfaces"' in source
+    assert 'down_revision: str | None = "0006_f005_ip_addresses"' in source
 
 
 # --------------------------------------------------------------------------- #

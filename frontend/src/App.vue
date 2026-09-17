@@ -14,6 +14,8 @@ import NetworkInterfaceListPage from './pages/NetworkInterfaceListPage.vue'
 import NetworkInterfaceDetailPage from './pages/NetworkInterfaceDetailPage.vue'
 import IpAddressListPage from './pages/IpAddressListPage.vue'
 import IpAddressDetailPage from './pages/IpAddressDetailPage.vue'
+import ContainerListPage from './pages/ContainerListPage.vue'
+import ContainerDetailPage from './pages/ContainerDetailPage.vue'
 
 /**
  * 会话与视图状态（F013；仍不引入 vue-router，f013-auth-handoff.md PROPOSED-5；
@@ -21,8 +23,9 @@ import IpAddressDetailPage from './pages/IpAddressDetailPage.vue'
  * Frontend Work #4；F006 起再增加 VirtualMachine 视图，f006-virtual-machine-
  * handoff.md Frontend Work #6；F004 起再增加 NetworkInterface 视图，
  * f004-network-interface-handoff.md Frontend Work #6；F005 起再增加
- * IPAddress 视图，f005-ip-address-handoff.md Frontend Work #6：
- * 导航形式不构成产品规则）。
+ * IPAddress 视图，f005-ip-address-handoff.md Frontend Work #6；F007 起再增加
+ * Container 视图，f007-container-handoff.md Frontend Work
+ * （导航形式不构成产品规则）。
  *
  * 视图状态：bootstrap（启动会话探测中）→ login（未认证 / 会话失效）↔ app（已认证）。
  *
@@ -60,7 +63,11 @@ type AppView = 'bootstrap' | 'login' | 'app'
  *   null = 全部；returnBareMetalId / returnClusterId 记录进入前网络接口详情的
  *   列表过滤上下文，返回该详情时恢复该上下文；
  * - ip-address-detail：IP 地址详情；networkInterfaceId / returnBareMetalId /
- *   returnClusterId 随视图链保留，返回时恢复。
+ *   returnClusterId 随视图链保留，返回时恢复；
+ * - container-list：容器列表（F007）；无 App 级过滤上下文（载体筛选为列表页
+ *   内能力，carrier_type + carrier_id 成对），返回时回集群列表；
+ * - container-detail：容器详情；登记成功后可跳转到新容器的详情（openDetail），
+ *   返回时回容器列表。
  */
 type ResourceView =
   | { kind: 'cluster-list' }
@@ -94,6 +101,8 @@ type ResourceView =
       returnBareMetalId: number | null
       returnClusterId: number | null
     }
+  | { kind: 'container-list' }
+  | { kind: 'container-detail'; containerId: number }
 
 const view = ref<AppView>('bootstrap')
 const currentUser = ref<AuthenticatedUser | null>(null)
@@ -344,16 +353,39 @@ function backFromIpAddressDetail(): void {
   }
 }
 
+// ---- 资源视图导航（Container，F007） ----
+
+/** 头部导航进入全局容器列表（无过滤；载体筛选为列表页内能力）。 */
+function openContainerList(): void {
+  resourceView.value = { kind: 'container-list' }
+}
+
+/** 进入容器详情（列表行入口，或详情页登记成功后跳转到新容器）。 */
+function openContainerDetail(containerId: number): void {
+  resourceView.value = { kind: 'container-detail', containerId }
+}
+
+/** 容器详情返回：回到容器列表。 */
+function backFromContainerDetail(): void {
+  resourceView.value = { kind: 'container-list' }
+}
+
 /** 头部导航高亮：当前资源区域（cluster-* / bare-metal-* / virtual-machine-* /
- * network-interface-* / ip-address-*）。 */
+ * network-interface-* / ip-address-* / container-*）。 */
 const navSection = computed<
-  'cluster' | 'bare-metal' | 'virtual-machine' | 'network-interface' | 'ip-address'
+  | 'cluster'
+  | 'bare-metal'
+  | 'virtual-machine'
+  | 'network-interface'
+  | 'ip-address'
+  | 'container'
 >(() => {
   const kind = resourceView.value.kind
   if (kind.startsWith('cluster')) return 'cluster'
   if (kind.startsWith('bare-metal')) return 'bare-metal'
   if (kind.startsWith('virtual-machine')) return 'virtual-machine'
   if (kind.startsWith('network-interface')) return 'network-interface'
+  if (kind.startsWith('container')) return 'container'
   return 'ip-address'
 })
 
@@ -436,6 +468,13 @@ async function handleLogout(): Promise<void> {
             >
               IP 地址
             </el-button>
+            <el-button
+              :type="navSection === 'container' ? 'primary' : 'default'"
+              data-testid="nav-containers"
+              @click="openContainerList"
+            >
+              容器
+            </el-button>
           </nav>
         </div>
         <div class="app-shell__session">
@@ -498,9 +537,20 @@ async function handleLogout(): Promise<void> {
         @back="backFromIpAddressList"
       />
       <IpAddressDetailPage
-        v-else
+        v-else-if="resourceView.kind === 'ip-address-detail'"
         :ip-address-id="resourceView.ipAddressId"
         @back="backFromIpAddressDetail"
+      />
+      <ContainerListPage
+        v-else-if="resourceView.kind === 'container-list'"
+        @open-detail="openContainerDetail"
+        @back="backToClusterList"
+      />
+      <ContainerDetailPage
+        v-else
+        :container-id="resourceView.containerId"
+        @open-detail="openContainerDetail"
+        @back="backFromContainerDetail"
       />
     </template>
   </div>

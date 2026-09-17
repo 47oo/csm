@@ -62,10 +62,9 @@ ORIGINAL_GET_ROUTES = {
 #: F005 演进：IPAddress 已成为合法资源（``/api/ip-addresses``），故**仅移除**
 #: ``ip-address`` / ``ip_address``；``container`` / ``service`` 仍对**全部** OpenAPI path
 #: 全局扫描（不得收窄到单模块）。
-BOUNDARY_TOKENS = (
-    "container",
-    "service",
-)
+#: F007 演进：Container 已成为合法资源（``/api/containers``），故**仅移除**
+#: ``container``；``service`` 仍对**全部** OpenAPI path 全局扫描（不得收窄到单模块）。
+BOUNDARY_TOKENS = ("service",)
 
 #: G-009-4：不得新增的 Cluster 状态 / 位置 / 自动发现字段 token。
 FORBIDDEN_FIELD_TOKENS = (
@@ -106,7 +105,7 @@ def test_g009_1_expected_get_routes_evolved_not_replaced():
 # --------------------------------------------------------------------------- #
 def test_g009_2_no_forbidden_resource_tokens_in_any_path():
     # F006 演进：扫描范围保持**全部 OpenAPI path**（跨模块全局边界），仅移除已成为
-    # 合法资源的 VM token；非 GET 越界路由（如 ``POST /api/containers``）必须仍被检出。
+    # 合法资源的 VM token；非 GET 越界路由（如 ``POST /api/services``）必须仍被检出。
     offenders = [
         path
         for path in _openapi()["paths"]

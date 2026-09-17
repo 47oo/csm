@@ -118,6 +118,9 @@ EXPECTED_GET_ROUTES = {
     # F005：IPAddress 只读 GET 路由（仅新增，不得删除既有成员）。
     "/api/ip-addresses",
     "/api/ip-addresses/{ip_address_id}",
+    # F007：Container 只读 GET 路由（仅新增，不得删除既有成员）。
+    "/api/containers",
+    "/api/containers/{container_id}",
     "/api/auth/session",
 }
 
