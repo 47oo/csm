@@ -1543,12 +1543,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F007]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F008, F010, F011]
     DRAFT: []
   counts:
-    READY: 1
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 3
     DRAFT: 0
     DONE: 10
@@ -1664,7 +1665,6 @@ planning_status:
   draft_rationale: {}
   blocked_rationale:
     F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
-    F007: "产品问题 OPEN-002 / DEC-005 已于 2026-09-16 解决（R-CONTAINER-001~005），scope/AC 可定稿；阻塞仅为依赖 F006 / F002 未 DONE。"
     F008: "产品问题 OPEN-003 已于 2026-09-16 解决（R-SVC-007/008/009），scope/AC 可定稿；阻塞仅为依赖 F001 / F002 / F006 / F007 未 DONE。"
     F004: >
       DEC-006 已解决（V1 无状态）；保留的 R-NIC-003「VM 等资源是否拥有独立 NetworkInterface」不改变本 Feature
@@ -1676,10 +1676,10 @@ planning_status:
   readiness_summary: >
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），全部产品问题已关闭，无 DRAFT Feature。
     DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005（10 个）。
-    **M1 / M2 / M3 已 DONE**（M3 = F004 + F005 网络资源）；**M4 进行中**（F006 DONE，F007 READY，F008 BLOCKED）。
-    1 个 Feature（F007）依赖已满足 → READY。
+    **M1 / M2 / M3 已 DONE**（M3 = F004 + F005 网络资源）；**M4 进行中**（F006 DONE，F007 IN_PROGRESS，F008 BLOCKED）。
+    0 个 Feature 处于 READY。**F007（Container）IN_PROGRESS**——Product 与 Architecture 已完成、契约 READY，现处 Database Design。
     3 个 Feature（F008 / F010 / F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
-    下一批：F007（Container）→ 解锁 F008 → 再解锁 F010 / F011。
+    F007 DONE 后解锁 F008 → 再解锁 F010 / F011。
   follow_ups:
     from_f005_review:
       report: docs/reviews/f005-ip-address.md
@@ -1926,7 +1926,7 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F005 DONE; NEXT READY = F007
+  decision: PROJECT IN PROGRESS — F007 IN_PROGRESS (Product + Architecture DONE, contract READY); NEXT = F007 database design
 
 execution:
   current_feature: F007
