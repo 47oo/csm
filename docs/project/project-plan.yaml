@@ -762,9 +762,26 @@ features:
     name: Container 资源模型与登记
     epic: E03
     priority: P1
-    status: READY
+    status: IN_PROGRESS
     depends_on: [F006, F002]
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F007-container
+      start_commit: 06b3c5b6bbd36b2be48f7810b6d08a1612ef3b84
+      head_commit: 06b3c5b6bbd36b2be48f7810b6d08a1612ef3b84
+      merge_commit: null
+    current_stage: PRODUCT
+    layers: {}
+    contract:
+      status: NOT_REQUIRED
+      doc: null
+    implementation:
+      database_design: PENDING
+      backend: PENDING
+      frontend: PENDING
+      test: PENDING
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - "§10 Container（允许领域模型表达 Container 资源）"
@@ -1831,12 +1848,10 @@ planning_status:
   decision: PROJECT IN PROGRESS — F005 DONE; NEXT READY = F007
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F007
+  current_stage: PRODUCT
   started_on: "2026-09-16"
   note: >-
-    F005（IPAddress 管理）已于 2026-09-18 完成并 --no-ff 合入 develop（merge 7beb6e7）。
-    流程：Product → Architecture（database/backend/frontend = true，契约 READY）→ Database Design → Backend + Frontend 并行
-    → Tester READY FOR REVIEW → Reviewer CHANGES REQUIRED（唯一 MEDIUM 为计划元数据被误覆盖，非代码缺陷）→ 修复 REV-1
-    → 限定范围复审 APPROVED → Merge Gate → 本状态提交。M3（网络资源）随之 DONE。
-    当前无进行中的 Feature。下一批 READY：F007（Container）→ F008 → F010 / F011。
+    F007（Container 资源模型与登记）已自 develop（06b3c5b）创建分支 feature/F007-container。
+    依赖 F006 / F002 均已 DONE。本 Feature 引入**首个多态载体关系**（Container 必属恰好一个 BareMetal 或 VirtualMachine），
+    与其唯一性边界（同载体内 name 唯一）、以及「两个载体类型都需拦截活跃 Container」的 F014 义务。
