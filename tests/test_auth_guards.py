@@ -115,6 +115,9 @@ EXPECTED_GET_ROUTES = {
     # F004：NetworkInterface 只读 GET 路由（仅新增，不得删除既有成员）。
     "/api/network-interfaces",
     "/api/network-interfaces/{network_interface_id}",
+    # F005：IPAddress 只读 GET 路由（仅新增，不得删除既有成员）。
+    "/api/ip-addresses",
+    "/api/ip-addresses/{ip_address_id}",
     "/api/auth/session",
 }
 

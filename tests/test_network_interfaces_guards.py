@@ -237,10 +237,11 @@ def test_g5_table_whitelist_includes_nic():
     assert "network_interfaces" in EXPECTED_TABLES
 
 
-def test_g5_migration_head_is_0005():
+def test_g5_migration_head_is_current():
+    # F005 演进：head 从 0005 → 0006（不得删除本 guard，只更新当前 head）。
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0005_f004_network_interfaces"
+    assert MIGRATION_HEAD == "0006_f005_ip_addresses"
 
 
 # --------------------------------------------------------------------------- #
@@ -257,12 +258,16 @@ def test_g6_expected_get_routes_contains_nic_routes():
 # G-7：BOUNDARY_TOKENS 移除 NIC token、保留其它、保持全局扫描
 # --------------------------------------------------------------------------- #
 def test_g7_boundary_tokens_narrowed_but_global():
+    # F005 演进：IPAddress 已成为合法资源（``/api/ip-addresses``），故**仅移除**
+    # ``ip-address`` / ``ip_address``；``container`` / ``service`` 仍在集合中，且扫描仍为全局。
     from tests import test_cluster_views_guards as cv
 
     tokens = cv.BOUNDARY_TOKENS
     assert "network-interface" not in tokens
     assert "network_interface" not in tokens
-    for kept in ("ip-address", "ip_address", "container", "service"):
+    assert "ip-address" not in tokens
+    assert "ip_address" not in tokens
+    for kept in ("container", "service"):
         assert kept in tokens
 
     # 全局扫描不得被收窄到单模块：guard 源码仍对**全部** OpenAPI path 扫描。
@@ -292,11 +297,14 @@ def test_g8_bare_metal_delete_path_consumes_declared_checks():
 # G-9：NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS 显式声明 = () 且删除路径 AST 传入
 # --------------------------------------------------------------------------- #
 def test_g9_nic_active_child_checks_explicitly_declared():
+    # F005 演进：由 F004 的空元组演进为**非空**且含活跃 IPAddress 检查。
+    from app.ip_addresses.deletion import has_active_ip_addresses
+
     assert isinstance(NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS, tuple)
-    assert NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS == ()
+    assert NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS, "F005 后不得为显式空元组"
+    assert has_active_ip_addresses in NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS
     source = (REPO_ROOT / "backend/app/network_interfaces/deletion.py").read_text(encoding="utf-8")
     assert "NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS" in source
-    assert "= ()" in source, "必须显式声明空元组，而非隐式缺省"
 
 
 def test_g9_nic_delete_path_passes_active_child_checks():

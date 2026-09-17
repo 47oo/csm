@@ -12,13 +12,17 @@ import VirtualMachineListPage from './pages/VirtualMachineListPage.vue'
 import VirtualMachineDetailPage from './pages/VirtualMachineDetailPage.vue'
 import NetworkInterfaceListPage from './pages/NetworkInterfaceListPage.vue'
 import NetworkInterfaceDetailPage from './pages/NetworkInterfaceDetailPage.vue'
+import IpAddressListPage from './pages/IpAddressListPage.vue'
+import IpAddressDetailPage from './pages/IpAddressDetailPage.vue'
 
 /**
  * 会话与视图状态（F013；仍不引入 vue-router，f013-auth-handoff.md PROPOSED-5；
  * F002 起扩展为 Cluster / BareMetal 两组资源视图，f002-bare-metal-handoff.md
  * Frontend Work #4；F006 起再增加 VirtualMachine 视图，f006-virtual-machine-
  * handoff.md Frontend Work #6；F004 起再增加 NetworkInterface 视图，
- * f004-network-interface-handoff.md Frontend Work #6：导航形式不构成产品规则）。
+ * f004-network-interface-handoff.md Frontend Work #6；F005 起再增加
+ * IPAddress 视图，f005-ip-address-handoff.md Frontend Work #6：
+ * 导航形式不构成产品规则）。
  *
  * 视图状态：bootstrap（启动会话探测中）→ login（未认证 / 会话失效）↔ app（已认证）。
  *
@@ -50,7 +54,13 @@ type AppView = 'bootstrap' | 'login' | 'app'
  *   returnClusterId 记录进入前裸金属详情的集群过滤上下文，
  *   返回宿主详情时恢复该上下文；
  * - network-interface-detail：网络接口详情；bareMetalId / returnClusterId 随视图链
- *   保留，返回时恢复。
+ *   保留，返回时恢复；
+ * - ip-address-list：IP 地址列表（F005）；networkInterfaceId 非空 = 按父网络
+ *   接口限定（从网络接口详情「查看 IP 地址」进入，携带 network_interface_id），
+ *   null = 全部；returnBareMetalId / returnClusterId 记录进入前网络接口详情的
+ *   列表过滤上下文，返回该详情时恢复该上下文；
+ * - ip-address-detail：IP 地址详情；networkInterfaceId / returnBareMetalId /
+ *   returnClusterId 随视图链保留，返回时恢复。
  */
 type ResourceView =
   | { kind: 'cluster-list' }
@@ -69,6 +79,19 @@ type ResourceView =
       kind: 'network-interface-detail'
       networkInterfaceId: number
       bareMetalId: number | null
+      returnClusterId: number | null
+    }
+  | {
+      kind: 'ip-address-list'
+      networkInterfaceId: number | null
+      returnBareMetalId: number | null
+      returnClusterId: number | null
+    }
+  | {
+      kind: 'ip-address-detail'
+      ipAddressId: number
+      networkInterfaceId: number | null
+      returnBareMetalId: number | null
       returnClusterId: number | null
     }
 
@@ -241,16 +264,97 @@ function backFromNetworkInterfaceDetail(): void {
   resourceView.value = { kind: 'network-interface-list', bareMetalId, returnClusterId }
 }
 
+// ---- 资源视图导航（IPAddress，F005） ----
+
+/** 头部导航进入全局 IP 地址列表（无过滤）。 */
+function openIpAddressList(): void {
+  resourceView.value = {
+    kind: 'ip-address-list',
+    networkInterfaceId: null,
+    returnBareMetalId: null,
+    returnClusterId: null,
+  }
+}
+
+/**
+ * 从网络接口详情进入该网络接口的 IP 地址列表（携带 network_interface_id）；
+ * 同时捕获该详情的列表过滤上下文（宿主裸金属 / 集群），返回时恢复该上下文。
+ */
+function openNetworkInterfaceIpAddresses(networkInterfaceId: number): void {
+  const current = resourceView.value
+  const returnBareMetalId =
+    current.kind === 'network-interface-detail' ? current.bareMetalId : null
+  const returnClusterId =
+    current.kind === 'network-interface-detail' ? current.returnClusterId : null
+  resourceView.value = {
+    kind: 'ip-address-list',
+    networkInterfaceId,
+    returnBareMetalId,
+    returnClusterId,
+  }
+}
+
+/** IP 地址列表返回：从网络接口详情进入的回到该网络接口详情（恢复该上下文），
+ * 否则回集群列表。 */
+function backFromIpAddressList(): void {
+  const current = resourceView.value
+  resourceView.value =
+    current.kind === 'ip-address-list' && current.networkInterfaceId !== null
+      ? {
+          kind: 'network-interface-detail',
+          networkInterfaceId: current.networkInterfaceId,
+          bareMetalId: current.returnBareMetalId,
+          returnClusterId: current.returnClusterId,
+        }
+      : { kind: 'cluster-list' }
+}
+
+/** 进入 IP 地址详情，保留当前列表的过滤上下文（返回时恢复）。 */
+function openIpAddressDetail(ipAddressId: number): void {
+  const current = resourceView.value
+  const networkInterfaceId =
+    current.kind === 'ip-address-list' ? current.networkInterfaceId : null
+  const returnBareMetalId =
+    current.kind === 'ip-address-list' ? current.returnBareMetalId : null
+  const returnClusterId =
+    current.kind === 'ip-address-list' ? current.returnClusterId : null
+  resourceView.value = {
+    kind: 'ip-address-detail',
+    ipAddressId,
+    networkInterfaceId,
+    returnBareMetalId,
+    returnClusterId,
+  }
+}
+
+/** IP 地址详情返回：回到进入前的 IP 地址列表（保留过滤上下文）。 */
+function backFromIpAddressDetail(): void {
+  const current = resourceView.value
+  const networkInterfaceId =
+    current.kind === 'ip-address-detail' ? current.networkInterfaceId : null
+  const returnBareMetalId =
+    current.kind === 'ip-address-detail' ? current.returnBareMetalId : null
+  const returnClusterId =
+    current.kind === 'ip-address-detail' ? current.returnClusterId : null
+  resourceView.value = {
+    kind: 'ip-address-list',
+    networkInterfaceId,
+    returnBareMetalId,
+    returnClusterId,
+  }
+}
+
 /** 头部导航高亮：当前资源区域（cluster-* / bare-metal-* / virtual-machine-* /
- * network-interface-*）。 */
+ * network-interface-* / ip-address-*）。 */
 const navSection = computed<
-  'cluster' | 'bare-metal' | 'virtual-machine' | 'network-interface'
+  'cluster' | 'bare-metal' | 'virtual-machine' | 'network-interface' | 'ip-address'
 >(() => {
   const kind = resourceView.value.kind
   if (kind.startsWith('cluster')) return 'cluster'
   if (kind.startsWith('bare-metal')) return 'bare-metal'
   if (kind.startsWith('virtual-machine')) return 'virtual-machine'
-  return 'network-interface'
+  if (kind.startsWith('network-interface')) return 'network-interface'
+  return 'ip-address'
 })
 
 /**
@@ -325,6 +429,13 @@ async function handleLogout(): Promise<void> {
             >
               网络接口
             </el-button>
+            <el-button
+              :type="navSection === 'ip-address' ? 'primary' : 'default'"
+              data-testid="nav-ip-addresses"
+              @click="openIpAddressList"
+            >
+              IP 地址
+            </el-button>
           </nav>
         </div>
         <div class="app-shell__session">
@@ -375,9 +486,21 @@ async function handleLogout(): Promise<void> {
         @back="backFromNetworkInterfaceList"
       />
       <NetworkInterfaceDetailPage
-        v-else
+        v-else-if="resourceView.kind === 'network-interface-detail'"
         :network-interface-id="resourceView.networkInterfaceId"
         @back="backFromNetworkInterfaceDetail"
+        @open-ip-addresses="openNetworkInterfaceIpAddresses"
+      />
+      <IpAddressListPage
+        v-else-if="resourceView.kind === 'ip-address-list'"
+        :network-interface-id="resourceView.networkInterfaceId"
+        @open-detail="openIpAddressDetail"
+        @back="backFromIpAddressList"
+      />
+      <IpAddressDetailPage
+        v-else
+        :ip-address-id="resourceView.ipAddressId"
+        @back="backFromIpAddressDetail"
       />
     </template>
   </div>

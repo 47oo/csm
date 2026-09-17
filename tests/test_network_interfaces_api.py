@@ -852,16 +852,20 @@ def test_t25_host_deletable_after_nics_soft_deleted(auth_client_and_raw):
 
 
 # --------------------------------------------------------------------------- #
-# T-30 / AC-31：不注册 IP 端点、无 ip_addresses 表、无 IP 字段 / cluster_id 列
+# T-30 / AC-31：NetworkInterface **自身**无 IP 字段 / cluster_id 列。
+# F005 演进：IPAddress 已成为独立资源（``/api/ip-addresses`` + ``ip_addresses`` 表），
+# 因此不再断言「系统内无 IP 端点 / 无 ip_addresses 表」；改为断言 NIC 表 / schema
+# 仍不携带任何 IP 字段与 cluster_id（IP 归属是独立推导值，不落在 NIC 上）。
 # --------------------------------------------------------------------------- #
-def test_t30_no_ip_semantics(auth_client_and_raw):
+def test_t30_nic_has_no_ip_semantics(auth_client_and_raw):
     client, conn = auth_client_and_raw
     from app.db.base import Base
 
+    # F005 后 IPAddress 是独立资源：独立端点 + 独立表。
     paths = set(client.app.openapi()["paths"])
-    assert not any("ip-address" in path or "ip_address" in path for path in paths)
-    assert "ip_addresses" not in Base.metadata.tables
-    assert "ip_addresses" not in {
+    assert any("ip-address" in path for path in paths), "F005 应注册独立 IP 端点"
+    assert "ip_addresses" in Base.metadata.tables
+    assert "ip_addresses" in {
         row[0]
         for row in conn.execute(
             "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
