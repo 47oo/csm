@@ -1,6 +1,8 @@
 # Product Handoff — F010 资源详情与关联查询
 
-> Status: **`BLOCKED`**（存在 2 个 Blocking 产品歧义；其余内容已定稿，裁定后即可进入 Architecture）
+> Status: **`READY FOR ARCHITECT`**
+> **✅ BQ-1 / BQ-2 已由用户裁定（2026-09-18）：「按建议来」→ 两者均取「含间接」。**
+> 该裁定已固化为 `requirements.md` R-QUERY-003 的「『与 BareMetal 相关』的确切含义」小节；AC-05-a / AC-07-a 生效，AC-05-b / AC-07-b 作废。
 > Author Role: product-manager
 > Feature: F010（E05，P1，`depends_on: [F001, F002, F004, F005, F006, F007, F008]` 均已 DONE）
 > Product Source: `requirements.md` §16 R-QUERY-003 / R-QUERY-004、§15、§13、§21、§23、§17、R-DELETE-002/003/005/006；`domain-model.md` §5.2~§5.7 / §6 / §7.2 / §9；`domain-model.yaml > relationships`（全部条目）、`Service-to-Cluster(derived)`；`docs/product/handoffs/f009/f008/f007/f006/f005/f004/f002`；`docs/api/api-conventions.md`、`docs/api/f009-cluster-resource-view.md`、`docs/api/f014-soft-delete.md`；ADR-0002 / ADR-0003 §2 / ADR-0004 / ADR-0005
@@ -97,8 +99,8 @@ F001~F008 已让每一类资源各自成为可信事实。F009 只解决了「Cl
 | **NetworkInterface** | 活跃 NIC 且 `nic.bare_metal_id = B.id` | 直接父（1 跳） | ✅ 是 |
 | **IPAddress** | 活跃 IP 且 `ip.network_interface_id ∈ {B 的活跃 NIC}` | **间接**（IP → NIC → B，2 跳） | ✅ 是（IP **无** `bare_metal_id`，非间接则子集恒空） |
 | **VirtualMachine** | 活跃 VM 且 `vm.bare_metal_id = B.id` | 直接宿主（1 跳） | ✅ 是 |
-| **Container** | **候选 A（仅直接）**：活跃 Container 且载体 = B；**候选 B（含间接）**：另含载体 ∈ {B 的活跃 VM} 的活跃 Container | 直接载体 / 载体链（1~2 跳） | ❌ **未唯一确定 → BQ-1** |
-| **Service** | **候选 A（仅直接）**：活跃 Service 绑定 B；**候选 B（含间接）**：活跃 Service 的载体与「相关载体集合 R(B)」有交集 | 直接绑定 / 载体链（1~3 跳） | ❌ **未唯一确定 → BQ-2** |
+| **Container** | ✅ **已裁定（含间接）**：活跃 Container 且载体 = B，**或**载体 ∈ {B 的活跃 VM} | 直接载体 / 载体链（1~2 跳） | ✅ BQ-1 = 含间接（AC-05-a 生效） |
+| **Service** | ✅ **已裁定（含间接）**：活跃 Service 的载体与「相关载体集合 R(B)」有交集 | 直接绑定 / 载体链（1~3 跳） | ✅ BQ-2 = 含间接（AC-07-a 生效） |
 
 **相关载体集合 R(B)**（用于 Service 的候选 B）：
 
@@ -108,7 +110,7 @@ R(B) = {B}
      ∪ Container 相关集合                            -- 若 BQ-2 取「含间接」
 ```
 
-**耦合说明（必须显式记录）**：若 BQ-2 取「含间接」而 BQ-1 取「仅直接」，则 R(B) 内的 Container 部分只含**直接**载体为 B 的 Container，即「绑定到 B 上某 VM 内容器」的 Service **不会**出现。**BQ-1 与 BQ-2 的裁定必须同时给出，二者不独立。**
+**耦合（已解除）**：原先 BQ-1 与 BQ-2 互相依赖。两项现已**同时裁定为「含间接」**，故 R(B) 的 Container 部分包含「载体为 B 或 B 上活跃 VM」的活跃 Container，耦合消失；AC-05-b / AC-07-b 作废。
 
 **所有候选定义共同排除**：其他 BareMetal / 其他 VM 上的资源；已软删资源；R-QUERY-003 五类之外的任何资源类型。
 
@@ -216,9 +218,11 @@ F010 为**纯读取**，不含任何导入 / 写校验；F011 负责模板与 Al
 
 ## Blocking Questions
 
-**2 项。二者均会实质改变本次交付边界（哪些数据出现在用户看到的结果里），且无法从 CONFIRMED 规则唯一确定。**
+**None —— 原 2 项均已裁定（2026-09-18）。**
 
-### BQ-1（Container 的相关性是否包含「经 VM」的间接情形）
+原 BQ-1 / BQ-2 均取「含间接」，已固化为 `requirements.md` R-QUERY-003 的产品规则；AC-05-a / AC-07-a 生效，AC-05-b / AC-07-b 作废。裁定理由：IP 类**只能**经 `IP → NIC → B` 推导（不存在 `ip_addresses.bare_metal_id`），说明 R-QUERY-003 的「相关」对 IP 已非「直接列」语义；若 Container 取「仅直接」须额外解释为何 IP 走链路而 Container 不走载体链。以下为原记录。
+
+### BQ-1 → ✅ 已裁定：**含间接**（2026-09-18）
 
 - **歧义**：R-QUERY-003 只写「与 BareMetal **相关**」，未定义「相关」是否为沿已确认关系链的推导闭包。Container 的载体为多态（BareMetal 或 VirtualMachine），可经 VM 间接挂到 B 上。
 - **两种解释的可见差异**：
@@ -229,7 +233,7 @@ F010 为**纯读取**，不含任何导入 / 写校验；F011 负责模板与 Al
 - **建议**：取**「包含间接」**（与 IP 的推导语义一致，且更贴合 F010「资源详情 / 无需拼接」的产品目的）。若用户选择「仅直接」，则 AC-05-b 生效，且该决定必须写成显式产品规则（不得由实现方解释）。
 - **影响**：决定 AC-05-a/05-b、AC-18 的 Container 分支、以及 BQ-2 的载体集合范围。
 
-### BQ-2（Service 的相关性是否包含「经载体」的间接情形）
+### BQ-2 → ✅ 已裁定：**含间接**（2026-09-18）
 
 - **歧义**：Service 绑定载体（BareMetal / VM / Container，N:M）。「与 B 相关的 Service」可能是「直接绑定 B」，也可能是「绑定到任何与 B 相关的载体」。
 - **两种解释的可见差异**：绑定「B 上 VM」或「B 上 Container」的 Service 是否出现在 B 的清单中；一个共享 Service 是否会在多个 BareMetal 的清单中同时出现。
@@ -244,11 +248,12 @@ F010 为**纯读取**，不含任何导入 / 写校验；F011 负责模板与 Al
 2. **不确认会改变交付边界**（清单成员集合、以及是否需要跨 2~3 跳推导）。
 3. **不得自行裁定成规则**（AGENTS.md §2.2/§2.7；§15「不得仅根据资源分类自动产生关系」）。
 
-**裁定方式**：用户只需回答两项，各二选一（可直接采纳建议）：
-- **BQ-1** = 含间接 / 仅直接（**建议：含间接**）
-- **BQ-2** = 含间接 / 仅直接（**建议：含间接**）
+**裁定结果（2026-09-18，用户：「按建议来」）**：
+- **BQ-1 = 含间接** ✅ —— 载体为「B 上活跃 VM」的活跃 Container 算与 B 相关（AC-05-a 生效）。
+- **BQ-2 = 含间接** ✅ —— 载体与 R(B) 有交集的活跃 Service 算与 B 相关（AC-07-a 生效）。
 
-裁定后本 Handoff 全部 AC 立即定稿，`Handoff Status` 转为 `READY FOR ARCHITECT`（AC-05-b / AC-07-b 相应作废）。
+已固化为产品规则：`requirements.md` R-QUERY-003「『与 BareMetal 相关』的确切含义」小节（含 R(B) 定义与「同一 Service 只出现一次」）。
+**明确边界**：该裁定**只适用于查询相关性**，**不改变任何删除拦截语义**（R-DELETE-004 / R-SVC-009 的父删子拦仍以**直接绑定**为准，不新增传递性拦截）。
 
 ### 为何以下问题**不**是 Blocking
 
@@ -328,8 +333,8 @@ F010 为**纯读取**，不含任何导入 / 写校验；F011 负责模板与 Al
 
 ## Handoff Status
 
-`NOT READY FOR ARCHITECT`（**BLOCKED**）
+`READY FOR ARCHITECT`
 
-阻塞原因：**BQ-1（间接 Container）/ BQ-2（间接 Service）** 无法从已确认规则唯一确定，且直接改变本次交付边界。两项裁定完成后（建议均为「含间接」），本 Handoff 的 AC-05 / AC-07 分支即可收敛，状态转为 `READY FOR ARCHITECT`。其余内容（五类关系定义、404 / Empty 语义、软删过滤、只读与边界、AC-01~AC-25 中的 23 条）均已在两种裁定下可判定。
+无 Blocking 问题。BQ-1 / BQ-2 已由用户裁定为「含间接」并固化为 R-QUERY-003 的产品规则，AC-05 / AC-07 的分支收敛为 AC-05-a / AC-07-a（AC-05-b / AC-07-b 作废）。五类关系定义、404 / Empty 语义（五类分别成立）、软删过滤、只读与边界均由 AC-01~AC-25 可判定覆盖。
 
 GIT: NONE
