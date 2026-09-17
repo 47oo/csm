@@ -888,16 +888,16 @@ features:
     name: Service 资源管理与 Cluster 共享关联
     epic: E04
     priority: P1
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F001, F002, F006, F007]
     blocking: []
     git:
       base_branch: develop
       branch: feature/F008-service
       start_commit: 68d8e115085fbca7b1bfeb62719b4b815cc3459f
-      head_commit: 6d099941afc0a36045453f037e47f634fbcdaed0
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: f5ed0e41459898124703817cea0436780f4ebaec
+      merge_commit: f7733783f4f7ea3063d52e41f4d9be622327ffde
+    current_stage: null
     layers:
       database: true     # services + service_carriers + migration 0008_f008_services（实现由 Backend 负责）
       backend: true      # app/services/** + models + 三个 *_ACTIVE_CHILD_CHECKS 演进 + main 接线 + guard 演进
@@ -910,7 +910,7 @@ features:
       backend: COMPLETE
       frontend: COMPLETE
       test: COMPLETE
-      review: PENDING
+      review: COMPLETE
     product_document: docs/product/requirements.md
     requirements:
       - R-SVC-001
@@ -1098,7 +1098,7 @@ features:
     name: 资源详情与关联查询
     epic: E05
     priority: P1
-    status: BLOCKED
+    status: READY
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
     blocking:
       - "依赖多个资源 Feature 未 DONE"
@@ -1119,7 +1119,7 @@ features:
     name: Excel 模板与批量导入
     epic: E06
     priority: P1
-    status: BLOCKED
+    status: READY
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
     blocking:
       - "依赖多个资源 Feature 未 DONE"
@@ -1645,16 +1645,16 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: []
+  ready_features: [F010, F011]
   blocked_draft_features:
-    BLOCKED: [F010, F011]
+    BLOCKED: []
     DRAFT: []
   counts:
-    READY: 0
-    IN_PROGRESS: 1
-    BLOCKED: 2
+    READY: 2
+    IN_PROGRESS: 0
+    BLOCKED: 0
     DRAFT: 0
-    DONE: 11
+    DONE: 12
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -1668,6 +1668,7 @@ planning_status:
       仅被其他 Feature 的产品决策间接影响、不改变本 Feature 交付边界时，仍按 BLOCKED 处理。
       判定依据见本文件顶部注释与 .pi/agents/project-manager.md §8。
   done_rationale:
+    F008: "base 68d8e11 → head f5ed0e4 → merge f773378（--no-ff 合入 develop；集成树与已审阅候选 f5ed0e4 逐字节一致，父提交为 68d8e11 与 f5ed0e4）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；53 文件 / +9562 行经完整差异 Review，评审**独立重跑**真实 PostgreSQL 与真实前端。 验收：真实 PostgreSQL 16.2 后端 935 passed（0 skipped；协调器与 Tester 各自独立重跑）、前端 typecheck + 546 passed（连续 2 次）+ build、ruff 干净、migration 可重复 / 可重建、0001–0007 与 app/deletion/service.py 逐字节未改。 **关键交付**：`services`（11 列，恰 1 约束 = PK、0 CHECK）+ `service_carriers`（5 列 N:M 多态绑定）+ migration 0008；5 端点；**模型里首个 N:M 关系**。 **绑定表是关系表而非资源表**：无 deleted_at、无任何时间戳；三列可空 FK + CHECK (num_nonnulls(...) = 1) + **每条载体列一条 partial unique（集合语义）** + 4 条 RESTRICT FK。 **核心不变式（协调器 / Tester / Reviewer 三方各自直连 DB 证实）**：因 CHECK 迫使另两列为 NULL、而唯一索引中 NULL 互不相等，三条索引互不干扰 → 同一 Service 可同时绑定 BareMetal / VM / Container 的**同数值 id**。 **「释放绑定」无需任何写入**（最易被误判的裁定）：绑定行不可变、不物理删除；某载体是否受保护取决于「是否仍有活跃 Service 绑定它」，删 Service 让该判断立即为假 → 释放是**派生效果**，故 app/deletion/service.py **零改动**、allow-list 恒为单一文件；评审以「软删后绑定行逐字段不变 + 载体不再被拦截 + 删除服务与 Cluster 检查点 sha256 与 base 相同」独立证实，并确认该裁定**未掩盖任何 AC**。 **刻意不做**：「零载体活跃 Service」的 DB 硬约束（跨行性质无法用 CHECK 表达）→ 由登记路径强制 ≥1 + AC-49 回归查询兑现（NQ-06）；**不引入解绑 / 替换端点**（NQ-01 用户 2026-09-16 确认：必须先删除，不做解绑）。 **三载体父删子拦**：BM / VM **追加**、CONTAINER_ACTIVE_CHILD_CHECKS 由显式 () 变非空（F007 预留位落地）；**CLUSTER_ACTIVE_CHILD_CHECKS 逐字节不变**（Service↔Cluster 是推导关系，非子资源，AC-45）。 **登记加锁**：按 (载体类型 rank, carrier_id) **确定性全序**对每个载体取 FOR SHARE，任一未命中在 INSERT 前 404 → 无主 Service / 部分绑定均不产生；相反请求顺序并发无死锁（AC-46/47 真实线程验证）。 **guard 演进**：11 组对抗注入全部被检出并逐字节还原，无既有 guard 被删除；**移除 service token 后 BOUNDARY_TOKENS 变空、其扫描恒真** —— 注入未批准路由证明真正可独立失败的防线是 **APPROVED_API_PREFIXES allow-list**（对 F006-T-01 / F004-T-02 同源风险的正面回答）。 **实现方自捕缺陷**：按载体反查 Service 的查询初版误写为**非相关子查询**（不报错、静默返回错误结果），由实现方自行发现并修复；评审另以对抗用例独立复验该语义。 **过程**：协调器按 F007-INC-1 之后确立的规矩，**不采信 Agent 测试数字**，在全新真实 PG 上独立重跑后才接受交接；reflog 无任何 Agent 造成的 Git 状态变化。M4（虚拟 / 容器 / 服务资源）随之 DONE。"
     F007: "base 06b3c5b → head 2c383a9 → merge ff347be（--no-ff 合入 develop；集成树与已审阅候选 2c383a9 逐字节一致，父提交为 06b3c5b 与 2c383a9）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；50 文件 / +8560 行经完整差异 Review。 验收：真实 PostgreSQL 16.2 下后端 798 passed（0 skipped）、前端 typecheck + 460 passed（连续 2 次）+ build、ruff 干净、migration 可重复 / 可重建、0001–0006 逐字节未改。 **关键交付**：`containers`（11 列）+ migration 0007；5 端点；**模型里首个多态载体**。 **多态载体裁定**：两列可空 FK（bare_metal_id / virtual_machine_id）+ CHECK (num_nonnulls(...) = 1) + **每载体列一条** partial unique index；**保留两条真实 FK RESTRICT**——否决「判别列 + 无 FK」，因其把「载体必须存在」推给应用层，违反 AGENTS.md §6 与 ADR-0002；否决生成列，因功能等价却引入本项目从未用过的 schema 机制。 **唯一性边界 = 载体（非全局、非 Cluster）**：因 CHECK 保证另一列为 NULL、而唯一索引中 NULL 互不相等，两条索引互不干扰 → **BareMetal 与 VM 同数值 id 同名 Container 可共存**（AC-15，本设计的承重不变式；Tester 与 Reviewer 各自**绕过应用层直连 DB** 独立证实）；大小写敏感；软删释放。 **刻意不加 cluster_id**：F005 的 ip_addresses 需反规范化 cluster_id 是因**其唯一性边界是 Cluster**；Container 边界是载体且两列已在表内（文档明写不得照搬 F005 模式）。 **恰 1 个 CHECK**：name 与四可选字段的长度 / trim / 空串 / 格式未确认 → 不建任何约束，并显式声明「空串当前会被接受」但**不得解读为已确认合法**（NQ-4）。 **F014 双载体端到端**：VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS **首次由显式空元组变非空**（F006 REV-3 预留位落地，其 guard 断言同步演进），BARE_METAL_ACTIVE_CHILD_CHECKS **追加**而非替换（保留 VM + NIC），CONTAINER_ACTIVE_CHILD_CHECKS 留显式 () 作为 F008 追加点；并发孤立记录不变式 0 行（AC-36/37 真实并发）。 **guard 演化纪律**：BOUNDARY_TOKENS **仅移除 container、保留 service、全局 /api/* 扫描未收窄**（注入未批准 POST /api/services 证明仍可检出）；8 组对抗注入全部被检出并逐字节还原；无既有 guard 被删除。 **过程事件（已记录）**：F007-INC-1 Backend Agent 违规执行 git stash -u（并行期），协调器因此**不采信其报告**、在全新真实 PG 上独立重跑全部测试后才接受交接；F007-INC-2 协调器提交信息含反引号被 shell 吞掉，致一条**信息截断且重复**的提交 30592ec（内容为其后提交的严格子集，HEAD 正确），**未改写历史**，此后一律用 git commit -F。"
     F012: >
       首个完成 Feature。base 2c2a753 → head 966d56a → merge 3b8646c（--no-ff 合入 develop）。
@@ -1757,6 +1758,8 @@ planning_status:
       **第四个真实 F014 端到端**：`NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS` **追加**为 `(has_active_ip_addresses,)`（保留 VM/NIC 链路）；
       删除守卫链条 `Cluster → BareMetal → NIC → IP` 闭合。M3（网络资源）随之 DONE。
   ready_rationale:
+    F010: "依赖 F001 / F002 / F004 / F005 / F006 / F007 / F008 均已 DONE（F008 merge f773378）。DEC-001 / DEC-003 / DEC-006 均已解决，未改变本 Feature 的 AC 定稿 → READY。义务：必须复用 F002 的 cluster_id 限定 BareMetal 读取与 F008 的 list_active_services_by_carrier，不得另写过滤；并自行完成 Service → 载体 → Cluster 推导（不得要求 F008 落 cluster_id）。"
+    F011: "依赖 F001 / F002 / F004 / F005 / F006 / F007 / F008 均已 DONE；OPEN-005 已关闭（All-or-Nothing，R-IMPORT-004）→ READY。义务：导入各资源行必须复用对应 Feature 的同一套领域校验（R-IMPORT-002）；Service 行的 N:M 载体在行式模板中的表达属本 Feature 待确认项（NQ-08）。"
     F008: "依赖 F001 / F002 / F006 / F007 均已 DONE（F007 merge ff347be）；产品问题 OPEN-003 已于 2026-09-16 解决（R-SVC-007/008/009），scope/AC 可定稿；无未解决产品问题 → READY。F007 建立的 CONTAINER_ACTIVE_CHILD_CHECKS 声明点与 AST guard 已就位，F008 须在此追加「活跃 Service」检查并补端到端（NQ-9）。"
     F014: >
       依赖 F012 已 DONE；架构/数据库决策 DEC-012 / DEC-009 已 RESOLVED（ADR-0004 / ADR-0001 / ADR-0002 ACCEPTED），
@@ -1774,15 +1777,14 @@ planning_status:
       的 V1 交付边界（核心对象为 BareMetal），按规则仍计为 BLOCKED。阻塞为依赖 F002 未 DONE。
     F005: "DEC-006 已解决（V1 无状态），无未解决产品问题；阻塞为依赖 F004 未 DONE。"
     F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
-    F010: "上游资源模型决策 DEC-001 / DEC-003 / DEC-006 均已解决，不改变本 Feature 的 AC 定稿；阻塞为依赖多个资源 Feature 未 DONE。"
-    F011: "OPEN-005 已关闭（All-or-Nothing，已固化为 R-IMPORT-004），无未解决产品问题；阻塞为依赖多个资源 Feature 未 DONE。"
   readiness_summary: >
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），全部产品问题已关闭，无 DRAFT Feature。
     DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005、F007（11 个）。
-    **M1 / M2 / M3 已 DONE**（M3 = F004 + F005 网络资源）；**M4 进行中**（F006 + F007 DONE，F008 现为 READY）。
-    **F007（Container）DONE**（merge ff347be）→ **F008 解锁为 READY**（依赖 F001 / F002 / F006 / F007 均已 DONE）。
-    2 个 Feature（F010 / F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
-    下一批：F008（Service）→ 再解锁 F010 / F011（即 V1 全部 14 个 Feature）。
+    **M1 / M2 / M3 / M4 已 DONE**（M4 = F006 + F007 + F008：虚拟 / 容器 / 服务资源）。
+    DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005、F007、F008（12 个）。
+    **F008（Service）DONE**（merge f773378）→ **F010 与 F011 同时解锁为 READY**（依赖均已 DONE）。
+    0 个 Feature 处于 BLOCKED / DRAFT。**M5（资源查询与视图）待启动**：F010（关联查询）+ F011（Excel 导入）。
+    下一批：F010 / F011 —— V1 全部 14 个 Feature 的最后两个。
   git_incidents:
     F007-INC-1:
       severity: PROCESS
@@ -1806,6 +1808,27 @@ planning_status:
         （仅 docs 与 plan 的较早版本），HEAD 内容正确。协调器当时误判该提交失败，未察觉，本轮经 reflog 发现。
       action: 未改写历史（AGENTS.md 禁止以改写历史处理问题）；记录在案。后续提交一律使用 `git commit -F -`（stdin），避免反引号被 shell 解释。
   follow_ups:
+    from_f008_review:
+      report: docs/reviews/f008-service.md
+      open:
+        - id: REV-F008-2
+          severity: NOTE
+          owner: Backend / Coordinator
+          summary: "tests/test_bare_metals_api.py T-29 上方历史注释曾称「service 仍须被全局检出」，与 F008 后 forbidden_prefixes=(nic,) 矛盾；已标注为历史，并补上「真正防线是 APPROVED_API_PREFIXES allow-list」的结论。"
+        - id: REV-F008-3
+          severity: NOTE
+          owner: Tester / Coordinator
+          summary: "Tester 报告基线标注 ca75a1c 而候选 HEAD 为 f5ed0e4（差异仅 2 个 docs、代码零变更，测试证据仍有效）；建议未来报告标注更精确。"
+        - id: F004 REV-2（承）
+          severity: LOW
+          owner: Backend
+          summary: "BOUNDARY_TOKENS 清空后单数变体路由（如 /api/service）依赖 allow-list 而非 deny-list；本次 allow-list 经注入证实有效，属既有设计边界。"
+      resolved:
+        - id: REV-F008-1
+          summary: "F008.git.head_commit 曾记录为实现提交 6d09994；已在本状态提交修正为已批准 SHA f5ed0e4、merge f773378。"
+      notes:
+        - "NQ-09：F010 必须复用 app/services/repository.list_active_services_by_carrier（canonical 按载体过滤），不得另写过滤。"
+        - "NQ-10：F011 若导入 Service 行，必须复用同一套领域校验；行式模板的 N:M 载体表达属 F011 待确认项。"
     from_f007_review:
       report: docs/reviews/f007-container.md
       open:
@@ -2074,11 +2097,11 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F008 IN_PROGRESS (Product stage); F010 / F011 remain BLOCKED
+  decision: PROJECT IN PROGRESS — F008 DONE (merge f773378); NEXT READY = F010 / F011
 
 execution:
-  current_feature: F008
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。

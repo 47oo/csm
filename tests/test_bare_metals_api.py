@@ -691,11 +691,14 @@ def test_t29_no_other_resource_endpoints_or_columns(auth_client_and_raw):
     # （``"network-interfaces".startswith("nic")`` 为假），缩写越界路由 ``/api/nics``
     # 仍须被检出。
     # F005 演进：IPAddress 已成为合法资源（``/api/ip-addresses``），从越界 prefix 中
-    # 移除 ``ip``；``nic`` / ``service`` 必须保持全局覆盖。
+    # 移除 ``ip``。（当时 ``nic`` / ``service`` 仍保持全局覆盖 —— 见下方各次演进。）
     # F007 演进：Container 已成为合法资源（``/api/containers``），从越界 prefix 中移除
-    # ``container``；``service`` 仍须被全局检出。
+    # ``container``。（当时 ``service`` 仍须被全局检出 —— 已在 F008 被移除。）
     # F008 演进：Service 已成为合法资源（``/api/services``），从越界 prefix 中移除
     # ``service``；``nic`` 仍须保持全局覆盖（缩写越界路由 ``/api/nics`` 仍被检出）。
+    # 结论：本列表现在只剩 ``nic``；越界端点的真正防线是 `APPROVED_API_PREFIXES`
+    # allow-list（``test_product_api_surface_is_closed``），因为 ``BOUNDARY_TOKENS``
+    # 已在 F008 清空、其 deny-list 扫描恒真。
     forbidden_prefixes = ("nic",)
     offenders = [
         path

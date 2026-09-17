@@ -99,6 +99,8 @@
 
 ## M4 虚拟资源与共享服务
 
+> 状态：**DONE**（2026-09-18；F006 / F007 / F008 均 DONE 并合入 develop）
+
 **目标能力**：登记虚拟资源（VirtualMachine / Container），并管理必选绑定运行载体的共享 Service。
 
 **包含 Feature**
