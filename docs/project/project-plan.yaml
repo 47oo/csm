@@ -560,7 +560,7 @@ features:
       start_commit: 881ee230851c1234c705ac7e3367938f243e31ef
       head_commit: 881ee230851c1234c705ac7e3367938f243e31ef
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     layers:
       database: true      # 新增 ip_addresses 表 + migration 0006_f005_ip_addresses
       backend: true       # models/ip_address.py + app/ip_addresses/**（含 derivation）+ network_interfaces/deletion 追加 + guard 演进
@@ -572,7 +572,7 @@ features:
       database_design: COMPLETE    # docs/database/f005-ip-address-migration.md（READY FOR DATABASE IMPLEMENTATION）
       backend: COMPLETE           # 6dadc73；686 passed（含漂移三件套 T-34/35/36）
       frontend: COMPLETE          # 6dadc73；380 passed（连续 2 次全绿）+ build
-      test: PENDING
+      test: COMPLETE              # docs/test-reports/f005-ip-address.md（READY FOR REVIEW）
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -1803,7 +1803,7 @@ planning_status:
 
 execution:
   current_feature: F005
-  current_stage: TEST
+  current_stage: REVIEW
   started_on: "2026-09-16"
   note: >-
     F004（NetworkInterface 管理）已于 2026-09-17 完成并 --no-ff 合入 develop（merge 4a99fa0）。
