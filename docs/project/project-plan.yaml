@@ -771,7 +771,7 @@ features:
       start_commit: 06b3c5b6bbd36b2be48f7810b6d08a1612ef3b84
       head_commit: 06b3c5b6bbd36b2be48f7810b6d08a1612ef3b84
       merge_commit: null
-    current_stage: PRODUCT
+    current_stage: ARCHITECTURE
     layers: {}
     contract:
       status: NOT_REQUIRED
@@ -784,24 +784,100 @@ features:
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
-      - "§10 Container（允许领域模型表达 Container 资源）"
+      - "§10 Container"
       - R-CONTAINER-001
       - R-CONTAINER-002
       - R-CONTAINER-003
       - R-CONTAINER-004
       - R-CONTAINER-005
+      - R-DELETE-001
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-004
+      - R-DELETE-005
+      - R-DELETE-006
+      - R-QUERY-003
+      - R-QUERY-004
+      - "§21 Data Consistency"
+      - "§22 Case Sensitivity"
+      - "§23 Scope Limits"
+      - "Q-002=B"
     acceptance_criteria:
-      - 领域模型能够表达 Container 资源（§10）。
-      - 不因存在 Container 类型而引入 Kubernetes / Docker API / Container Runtime 自动发现（§10；R-CONTAINER-001）。
-      - 登记粒度为长期服务型 Container 实例；不登记短生命周期 / 临时容器，不引入 K8s workload 等更高层对象（R-CONTAINER-001）。
-      - Container 必须属于**恰好一个**运行载体（BareMetal 或 VirtualMachine）；Cluster 归属由载体推导（R-CONTAINER-002）。
-      - Container 必须拥有 name（必填），name **同一载体内唯一**、比较区分大小写；已软删不占用唯一性（R-CONTAINER-003、R-DELETE-006）。
-      - 可选字段（image / cpu / memory / owner）均为**可选**、纯文本、允许为空（NULL）（R-CONTAINER-004）。
-      - 载体存在活跃 Container 时不得删除载体（R-DELETE-004）；Container 软删不级联（R-DELETE-005）（R-CONTAINER-005）。
-      - Container 在 V1 不设状态（Q-002=B）。
-    open_questions: []
-
-  # ---- E04 服务资源管理 ----
+      - AC-01 以 BareMetal 为载体登记 201；响应字段恰为 {id, <载体类型>, <载体标识>, name, image, cpu, memory, owner, created_at, updated_at}；无 deleted_at / status / cluster_id / K8s / 位置字段。
+      - AC-02 以 VirtualMachine 为载体登记 201，字段集合相同。
+      - AC-03 name 必填；缺失或非字符串 → 400 + field=name。
+      - AC-04 载体必填：两者都不给 → 400 + details[].field，不产生记录。
+      - AC-05 拒绝多载体：两者都给 / 载体列表 → 400。
+      - AC-06 拒绝其它资源类型为载体（Cluster / Service / NIC / IP）→ 400（schema 封闭）。
+      - AC-07 载体类型与标识必须一致：断言类型与实际指向不符 → 拒绝、无记录、非 5xx。
+      - AC-08 载体必须存在且活跃：不存在或已软删 → 拒绝、无记录、非 5xx（响应码见 NQ-2）。
+      - AC-09 可选字段全缺失仍 201，响应为 null 而非省略。
+      - AC-10 中文 name 与可选字段原样往返；image/cpu/memory 不拆分不归一不校验格式。
+      - AC-11 name 与可选字段无长度 / trim / 空串 / 字符 / `/` / 格式校验；不得被解读为已确认空 name 合法。
+      - AC-12 同一载体内唯一：同载体再登记同名活跃 → 409 + details[].field=name，不产生第二条活跃记录。
+      - AC-13 不同载体可重名（跨载体类型）：BareMetal 与其上 VM 各自 web → 均 201。
+      - AC-14 同类型不同标识的载体可重名。
+      - AC-15 跨载体类型即使标识数值相同也不冲突（载体身份 = 类型 + 标识）。
+      - AC-16 不得与 R-VM-004 混用：VM 名 web 时其上 Container 名 web → 201；多载体同名 Container → 均 201；不削弱 VM 全局唯一。
+      - AC-17 大小写敏感：同载体内 web 与 WEB 可共存；无 lower(name) 索引。
+      - AC-18 保存前阻止 + DB 最终权威：绕过应用层直插同载体重复活跃 (载体,name) 被数据库拒绝。
+      - AC-19 软删释放唯一性：软删后可在同一载体重新登记同名 → 201；旧行 deleted_at 未改写。
+      - AC-20 唯一性边界是载体而非 Cluster：同 Cluster 下两台不同 BareMetal 各自 web → 均 201。
+      - AC-21 不存 cluster_id：请求 / 响应 / 表 / 查询参数均无 cluster_id / cluster / cluster_name。
+      - AC-22 归属由载体决定且仅以载体表达；系统不持久化 Container 的 Cluster 归属。
+      - AC-23 无状态：请求 / 响应 / 表 / 端点均无 status。
+      - AC-24 列表分页 200 + 空信封；无活跃 Container 时 items==[]，不得 404。
+      - AC-25 详情：不存在或已软删 id → 404（不区分）。
+      - AC-26 按载体限定读取（两种载体类型均成立）：载体存在但无活跃 Container → 200 + items==[]；载体不存在 / 已删 → 404。
+      - AC-27 绕过应用层预置的已软删 Container 不出现在列表与按载体结果中；按 id → 404。
+      - AC-28 PATCH 可选字段可更新；null 清空；缺省不变；再次读取一致。
+      - AC-29 PATCH schema 封闭：未识别字段（含 id/deleted_at/cluster_id/status/载体字段/name）→ 400；空 body → 400；name 与载体绑定不可变。
+      - AC-30 DELETE 活跃行 → 204 无响应体；行仍物理存在且 deleted_at 非空。
+      - AC-31 删除不级联（两种载体类型）：载体各字段逐字段不变。
+      - AC-32 无 restore / undelete / purge / 批量 / include_deleted。
+      - AC-33 BareMetal 有活跃 Container → DELETE /api/bare-metals/{id} → 409 + details[].code=ACTIVE_CHILDREN_EXIST；宿主 deleted_at 仍 NULL。
+      - AC-34 VirtualMachine 有活跃 Container → DELETE /api/virtual-machines/{id} → 409 + ACTIVE_CHILDREN_EXIST；VM deleted_at 仍 NULL。
+      - AC-35 先软删载体下全部活跃 Container（及其它活跃子资源）后 → 删除载体 204。
+      - AC-36 并发创建 Container vs 删除其 BareMetal 载体后孤立记录 = 0 行。
+      - AC-37 并发创建 Container vs 删除其 VirtualMachine 载体后孤立记录 = 0 行。
+      - AC-38 创建时对选中载体行取共享锁并同事务确认活跃；未命中 → 拒绝创建。
+      - AC-39 BARE_METAL_ACTIVE_CHILD_CHECKS 非空且同时含活跃 VM / NIC / Container 检查，并被真实消费。
+      - AC-40 VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS 由空变非空且含活跃 Container 检查，并被 VM 删除路径真实消费。
+      - AC-41 CONTAINER_ACTIVE_CHILD_CHECKS 显式声明（当前空）且被删除路径真实传入；F008 须追加活跃 Service 检查。
+      - AC-42 无 K8s / Docker / Runtime 客户端、凭据、外部平台 id、同步字段或端点；无 Pod / Deployment / DaemonSet 对象或归属字段。
+      - AC-43 不注册其它资源端点；containers 表无指向 Cluster / NIC / IP / Service 的载体或归属结构；请求不接受以这些实体为载体。
+      - AC-44 前端三态互不相同；Empty 与 Not Found 可区分；错误按 error.code；不重复实现业务守卫。
+    open_questions:
+      - id: NQ-1
+        blocking: false
+        summary: name 与载体绑定的登记后可变性未确认；默认不提供（PROPOSED：软删 + 重新登记）。
+      - id: NQ-2
+        blocking: false
+        summary: 引用不存在 / 已软删载体的响应码未固定；建议由 Architecture 裁定并与 F002/F004/F006 的 404 NOT_FOUND 先例一致。
+      - id: NQ-3
+        blocking: false
+        summary: 宿主 BareMetal 改属 Cluster 对推导归属的影响；Container 不持久化 Cluster 归属，故 F007 无需维护；不自行裁定。
+      - id: NQ-4
+        blocking: false
+        summary: name 与可选字段的长度 / trim / 空串 / 字符 / `/` / 格式约束未定义；不实现、不承诺。
+      - id: NQ-5
+        blocking: false
+        summary: 「长期服务型」无判别字段；F007 不引入任何判别字段或校验（R-CONTAINER-001 为登记口径约束）。
+      - id: NQ-6
+        blocking: false
+        summary: 按载体限定读取的路由形态与 F010 归属；由 Architecture 裁定，须保证 F010 可复用。
+      - id: NQ-7
+        blocking: false
+        summary: Container 的 by-name 只读别名；name 仅载体内唯一、全局不可判定，默认不提供。
+      - id: NQ-8
+        blocking: false
+        summary: 文档漂移同步（domain-model.yaml relationship/OPEN-002/must_not_assume；domain-model.md §6/§8；schema-design 442/731/892；本 plan）。
+      - id: NQ-9
+        blocking: false
+        summary: F008 义务——须向 CONTAINER_ACTIVE_CHILD_CHECKS 追加活跃 Service 检查并补端到端。
+      - id: NQ-10
+        blocking: false
+        summary: F011 导入 Container 行须复用同一套领域校验。
   - id: F008
     name: Service 资源管理与 Cluster 共享关联
     epic: E04
@@ -1849,7 +1925,7 @@ planning_status:
 
 execution:
   current_feature: F007
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   started_on: "2026-09-16"
   note: >-
     F007（Container 资源模型与登记）已自 develop（06b3c5b）创建分支 feature/F007-container。
