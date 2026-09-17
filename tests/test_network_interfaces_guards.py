@@ -238,10 +238,10 @@ def test_g5_table_whitelist_includes_nic():
 
 
 def test_g5_migration_head_is_current():
-    # F007 演进：head 从 0006 → 0007（不得删除本 guard，只更新当前 head）。
+    # F008 演进：head 从 0007 → 0008（不得删除本 guard，只更新当前 head）。
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0007_f007_containers"
+    assert MIGRATION_HEAD == "0008_f008_services"
 
 
 # --------------------------------------------------------------------------- #
@@ -262,6 +262,8 @@ def test_g7_boundary_tokens_narrowed_but_global():
     # ``ip-address`` / ``ip_address``；``container`` / ``service`` 仍在集合中，且扫描仍为全局。
     # F007 演进：Container 已成为合法资源（``/api/containers``），故**仅移除**
     # ``container``；``service`` 仍在集合中，且扫描仍为全局。
+    # F008 演进：Service 已成为合法资源（``/api/services``），故**仅移除** ``service``；
+    # 扫描仍为全局（不得收窄）。
     from tests import test_cluster_views_guards as cv
 
     tokens = cv.BOUNDARY_TOKENS
@@ -270,7 +272,7 @@ def test_g7_boundary_tokens_narrowed_but_global():
     assert "ip-address" not in tokens
     assert "ip_address" not in tokens
     assert "container" not in tokens
-    assert "service" in tokens
+    assert "service" not in tokens
 
     # 全局扫描不得被收窄到单模块：guard 源码仍对**全部** OpenAPI path 扫描。
     source = (REPO_ROOT / "tests/test_cluster_views_guards.py").read_text(encoding="utf-8")

@@ -64,7 +64,11 @@ ORIGINAL_GET_ROUTES = {
 #: 全局扫描（不得收窄到单模块）。
 #: F007 演进：Container 已成为合法资源（``/api/containers``），故**仅移除**
 #: ``container``；``service`` 仍对**全部** OpenAPI path 全局扫描（不得收窄到单模块）。
-BOUNDARY_TOKENS = ("service",)
+#: F008 演进：Service 已成为合法资源（``/api/services``），故**仅移除** ``service``。
+#: 至此 deny-list 为空元组，``test_g009_2`` 变为「恒真但保留结构」的扫描。**不得删除
+#: 该测试**；真正的越界端点防线是 ``tests/test_structure_guard.py`` 的
+#: ``APPROVED_API_PREFIXES`` allow-list（``test_product_api_surface_is_closed``）。
+BOUNDARY_TOKENS = ()
 
 #: G-009-4：不得新增的 Cluster 状态 / 位置 / 自动发现字段 token。
 FORBIDDEN_FIELD_TOKENS = (
@@ -104,8 +108,10 @@ def test_g009_1_expected_get_routes_evolved_not_replaced():
 # G-009-2：边界 token guard（全部 OpenAPI path）
 # --------------------------------------------------------------------------- #
 def test_g009_2_no_forbidden_resource_tokens_in_any_path():
-    # F006 演进：扫描范围保持**全部 OpenAPI path**（跨模块全局边界），仅移除已成为
-    # 合法资源的 VM token；非 GET 越界路由（如 ``POST /api/services``）必须仍被检出。
+    # F008 演进：Service 已成为合法资源（``/api/services``），``BOUNDARY_TOKENS`` 已清空。
+    # 扫描范围保持**全部 OpenAPI path**（跨模块全局边界），不得删除本测试。deny-list 的
+    # 实质防线由 ``APPROVED_API_PREFIXES`` allow-list（``test_product_api_surface_is_closed``）
+    # 继续承担——任何未批准的新资源端点（如 ``/api/vpns``）都会被检出。
     offenders = [
         path
         for path in _openapi()["paths"]

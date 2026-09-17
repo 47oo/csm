@@ -69,6 +69,9 @@ def test_only_expected_tables_registered():
         "ip_addresses",
         # F007：Container 独立资源表。
         "containers",
+        # F008：Service 资源表 + N:M 多态绑定关系表。
+        "services",
+        "service_carriers",
     }
 
 
@@ -83,6 +86,8 @@ APPROVED_API_PREFIXES = {
     "ip-addresses",
     # F007：Container 资源端点。
     "containers",
+    # F008：Service 资源端点。
+    "services",
 }
 
 

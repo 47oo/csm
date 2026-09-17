@@ -879,7 +879,8 @@ features:
         summary: 文档漂移同步（domain-model.yaml relationship/OPEN-002/must_not_assume；domain-model.md §6/§8；schema-design 442/731/892；本 plan）。
       - id: NQ-9
         blocking: false
-        summary: F008 义务——须向 CONTAINER_ACTIVE_CHILD_CHECKS 追加活跃 Service 检查并补端到端。
+        resolved_by: docs/product/handoffs/f008-service.md
+        summary: F008 义务——向 CONTAINER_ACTIVE_CHILD_CHECKS 追加活跃 Service 检查并补端到端（已写入 F008 AC-43 / AC-44，F008 实现阶段落地）。
       - id: NQ-10
         blocking: false
         summary: F011 导入 Container 行须复用同一套领域校验。
@@ -887,10 +888,29 @@ features:
     name: Service 资源管理与 Cluster 共享关联
     epic: E04
     priority: P1
-    status: READY
+    status: IN_REVIEW
     depends_on: [F001, F002, F006, F007]
-    blocking:
-      - "依赖 F001 / F002 / F006 / F007 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F008-service
+      start_commit: 68d8e115085fbca7b1bfeb62719b4b815cc3459f
+      head_commit: 6d099941afc0a36045453f037e47f634fbcdaed0
+      merge_commit: null
+    current_stage: REVIEW
+    layers:
+      database: true     # services + service_carriers + migration 0008_f008_services（实现由 Backend 负责）
+      backend: true      # app/services/** + models + 三个 *_ACTIVE_CHILD_CHECKS 演进 + main 接线 + guard 演进
+      frontend: true     # api/services.ts + List/Detail 页 + FormDialog（多载体选择 ≥1）+ 三态
+    contract:
+      status: READY
+      doc: docs/api/f008-service.md
+    implementation:
+      database_design: COMPLETE
+      backend: COMPLETE
+      frontend: COMPLETE
+      test: COMPLETE
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
       - R-SVC-001
@@ -902,18 +922,100 @@ features:
       - R-SVC-007
       - R-SVC-008
       - R-SVC-009
+      - R-DELETE-001
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-004
+      - R-DELETE-005
+      - R-DELETE-006
+      - R-QUERY-003
+      - R-QUERY-004
+      - "§21 Data Consistency"
+      - "§22 Case Sensitivity"
+      - "§23 Scope Limits"
+      - "Q-002=B"
     acceptance_criteria:
-      - Service Name / Type 等产品字段允许按实际服务自由登记，不强制固定类别（R-SVC-001）。
-      - Service 必选绑定运行载体（BareMetal / VirtualMachine / Container），不允许存在未绑定任何运行载体的 Service（R-SVC-005）。
-      - 一个 Service 可绑定多个运行载体，并可通过绑定跨 Cluster 的多个载体实现被多个 Cluster 共享（R-SVC-002, R-SVC-005, R-SVC-006）。
-      - 共享服务只登记一次，模型能表达 Service N:N Cluster 或等价语义（R-SVC-003）。
-      - Service 与 Cluster 的关联由运行载体的 Cluster 归属推导，不设计为强制 service.cluster_id（R-SVC-004, R-SVC-006）。
-      - Service name 必填、在所有活跃 Service 范围内全局唯一、比较区分大小写；已软删释放唯一性（R-SVC-008、R-DELETE-006）。
-      - 字段范围：service_type / url / port / protocol / owner / description 均可选、纯文本、允许为空（NULL）；**不包含** credential_reference 与 health_information（R-SVC-007）。
-      - 绑定了活跃 Service 的运行载体在绑定期间不得删除（R-DELETE-004 泛化）；Service 软删不级联（R-SVC-009、R-DELETE-005）。
-      - Service 在 V1 不设状态（Q-002=B）。
-    open_questions: []
-
+      - "AC-01~AC-03 分别以 BareMetal / VirtualMachine / Container（存在且活跃）为载体登记 → 201；响应含 name 与载体绑定（类型+标识）；6 个可选字段未提供时返回 null 而非省略。"
+      - "AC-04 一次请求给出 3 个载体（分属三类型）→ 201，3 个绑定全部保留，无遗漏无截断。"
+      - "AC-05 name 必填：缺失或非字符串 → 400 + details[].field=name；不产生 Service 行与绑定行。"
+      - "AC-06/AC-07 载体必填：完全不提供载体 或 空载体集合 → 400；不产生任何写入（R-SVC-005 的登记路径落地）。"
+      - "AC-08 多载体中任一无效 → 整请求失败，不产生 Service 行、不产生任何绑定行，不得 5xx（响应码见 NQ-07）。"
+      - "AC-09 拒绝非载体资源类型（Cluster / NIC / IP）或三值集合外的载体类型 → 400（schema 封闭）。"
+      - "AC-10 载体类型与标识必须一致；不一致 → 拒绝、无写入、非 5xx。"
+      - "AC-11 合法资源关系保存前阻止，不依赖 UI（§21）。"
+      - "AC-12 字段集合封闭：恰为 id + name + service_type/url/port/protocol/owner/description + 载体绑定 + created_at/updated_at；无 deleted_at / status / cluster_id / 凭据 / 健康 / 位置字段；未识别字段 → 400。"
+      - "AC-13 6 个可选字段全缺失 → 201 且各为 null。"
+      - "AC-14 纯文本往返不结构化：url 可为非法 URL 字面、port 可为 abc / 8080-8090、protocol 自由文本、中文与含换行长文本原样存取。"
+      - "AC-15 未定义约束不实现：name 与 6 字段无长度 / trim / 空串 / 字符 / `/` / URL 格式 / 端口数字校验；空串与含首尾空白 name 不被拒。此为事实陈述，不得解读为已确认合法。"
+      - "AC-16 同一 Service 绑定多个载体：详情可观察全部绑定，数量与登记一致。"
+      - "AC-17 同一载体被多个 Service 绑定（N:M 反向）：按该载体限定读取返回全部绑定到它的活跃 Service。"
+      - "AC-18 跨 Cluster 载体 = 被多个 Cluster 共享且只登记一次：活跃同名 Service 行数恰为 1；关联 Cluster 集合 = 全部载体 Cluster 归属之并集且至少 2 个不同 Cluster。"
+      - "AC-19 从任一 Cluster 视角可推导：对每个载体 C，按 C 限定读取含 S；对无绑定载体 C' 不含 S；该推导在两个以上 Cluster 上同时成立。"
+      - "AC-20 不存 cluster_id：请求 / 响应 / 表 / 查询参数均无 cluster_id / cluster / cluster_name。"
+      - "AC-21 归属仅由载体推导、不持久化；详情只暴露载体绑定。"
+      - "AC-22 全局唯一且保存前阻止：不同 Cluster 的载体上同名活跃 Service → 409 + details[].field=name。"
+      - "AC-23 唯一性边界对照：Service 全局唯一与 Container 载体内唯一严格分离，互不削弱、不得混用。"
+      - "AC-24 不与其它资源类型名称冲突：同名 Cluster/BareMetal/VM/Container 存在时登记同名 Service → 201；各资源唯一性各自独立。"
+      - "AC-25 大小写敏感：mon 与 MON 可共存；无 lower(name) 索引或大小写折叠。"
+      - "AC-26 保存前阻止 + DB 最终权威：绕应用层直插第二条同名活跃 Service 被 DB 拒绝。"
+      - "AC-27 软删释放唯一性：软删后可重新登记同名 → 201；旧行 deleted_at 未改写。"
+      - "AC-28 无状态：请求 / 响应 / 表 / 端点均无 status。"
+      - "AC-29 列表分页 200 + 空信封；无活跃 Service 时 items==[]，不得 404。"
+      - "AC-30 详情：不存在或已软删 id → 404（不区分）。"
+      - "AC-31 按载体限定读取（三种载体类型均成立）：载体活跃但无绑定 → 200 + items==[]；载体不存在 / 已删 → 404；只返回绑定到该载体的活跃 Service（形态见 NQ-09，须供 F010 复用）。"
+      - "AC-32 载体过滤参数成对：仅给其一 → 400。"
+      - "AC-33 列表 / 详情 / 按载体结果均排除已软删 Service；按 id → 404。"
+      - "AC-34 PATCH 6 个可选字段可更新；null 清空；缺省不变；再次读取一致。"
+      - "AC-35 PATCH schema 封闭：未识别 / 不可变字段（id、name、载体绑定、cluster_id、status、deleted_at、凭据、健康）→ 400；空 body → 400；name 与载体绑定不可变（NQ-01/NQ-02）。"
+      - "AC-36 可选字段不参与任何唯一性；更新不触发唯一性冲突。"
+      - "AC-37 DELETE → 204 无响应体；行仍物理存在且 deleted_at 非空；不再出现在列表 / 详情 / 按载体结果。"
+      - "AC-38 删除不级联：全部载体各字段逐字段不变。"
+      - "AC-39 软删后释放载体：软删 Service 后其原载体在满足其它活跃子检查的前提下可删 → 204；即绑定解除由「删除 Service」达成。"
+      - "AC-40 无 restore / undelete / purge / 批量 / include_deleted。"
+      - "AC-41/AC-42/AC-43 三载体父删子拦：BareMetal / VirtualMachine / Container 被活跃 Service 直接绑定时 DELETE → 409 + details[].code=ACTIVE_CHILDREN_EXIST，且载体 deleted_at 仍 NULL。AC-43 即 F007 AC-41 的落地。"
+      - "AC-44 检查点只做追加：BM 保留活跃 VM/NIC/Container 并追加活跃 Service；VM 保留活跃 Container 并追加活跃 Service；CONTAINER_ACTIVE_CHILD_CHECKS 由 () 变为含活跃 Service；三者均被删除路径真实消费。"
+      - "AC-45 拦截仅针对直接绑定；不新增传递性 Service 检查；CLUSTER_ACTIVE_CHILD_CHECKS 保持不变（Service↔Cluster 是推导关系，非子资源关系）。"
+      - "AC-46 并发孤立记录不变式 = 0 行（三种载体类型各一条查询）。"
+      - "AC-47 登记侧同事务对每一个载体行取共享锁并确认活跃；任一未命中 → 拒绝登记（不留无主 Service、不留部分绑定）；多载体锁顺序必须确定以避免死锁。"
+      - "AC-48 不存在解绑路径：绑定写入路径恰两条——登记建立、Service 软删释放。"
+      - "AC-49 零载体不变式（产品路径）：活跃 Service 且活跃绑定数为 0 的行数必须为 0。"
+      - "AC-50 零载体在数据层可表达这一事实被显式对待：产品路径兑现 AC-49；保留可重复执行的一致性查询作为回归断言；不据此引入触发器 / 跨行约束，是否追加 DB 层硬约束由 Architecture 裁定（NQ-06）。"
+      - "AC-51 不越界：不注册 / 不修改其它资源端点；services 表无位置字段；不新增 Cluster → Service 视图。"
+      - "AC-52 无监控 / 健康 / 凭据 / 密钥 / 外部平台 id / 自动发现 / 同步字段与端点。"
+      - "AC-53 未认证 → 401 UNAUTHENTICATED 且不改变数据；已认证可执行全部操作（V1 无 RBAC）。"
+      - "AC-54 前端三态互不相同；Empty 与 Not Found 可区分；错误按 error.code；不重复实现业务守卫；登记表单仅提供三种载体类型且至少选择一项才能提交。"
+    open_questions:
+      - id: NQ-01
+        blocking: false
+        resolved_by: user-decision-2026-09-16
+        summary: "已确认：必须先删除，不做解绑功能。V1 不提供任何解除绑定能力（不追加 / 不解除 / 不替换）；载体绑定登记时一次确定、登记后不可变；释放运行载体的唯一途径是逻辑删除该 Service。已固化为 R-SVC-009（requirements.md §14）；AC-48 / AC-49 / AC-35 由「默认」转为已确认规则。"
+      - id: NQ-02
+        blocking: false
+        summary: name 登记后可变性未确认（先例不一致）；默认不可变（PROPOSED-4）。
+      - id: NQ-03
+        blocking: false
+        summary: by-name 只读别名无规则要求；默认不提供。
+      - id: NQ-04
+        blocking: false
+        summary: 同一请求内重复给出同一载体未确认；默认绑定集合以（载体类型, 载体标识）为元素，建议拒绝（400）。
+      - id: NQ-05
+        blocking: false
+        summary: 读取是否附加推导出的 Cluster 归属未确认；默认不返回（PROPOSED-2，沿用 F006 NQ-7 / F007 AC-22 口径）。
+      - id: NQ-06
+        blocking: false
+        summary: 「零载体活跃 Service」的数据库层硬约束机制；属 Architecture 裁定。产品只要求 AC-49 产品路径不变式 + AC-50 回归断言；建议不引入触发器 / 跨行约束（ADR-0002）。
+      - id: NQ-07
+        blocking: false
+        summary: 载体无效时的响应码未固定；建议沿用 F002/F004/F006/F007 的 404 NOT_FOUND 先例。
+      - id: NQ-08
+        blocking: false
+        summary: F011 义务——若 Excel 模板含 Service 行，导入须复用同一套领域校验；N:M 载体在行式模板中的表达属 F011 待确认项。
+      - id: NQ-09
+        blocking: false
+        summary: 按载体限定读取的路由 / 参数形态由 Architecture 裁定；须与 F007 的 carrier_type + carrier_id 成对语义一致（扩展 CONTAINER），并保证 F010 可复用。
+      - id: NQ-10
+        blocking: false
+        summary: 文档漂移同步（domain-model.yaml OPEN-003 → CLOSED_RESOLVED；domain-model.md §8 补录 Service name 全局唯一；schema-design 439/440/697/894；本 plan）。
   # ---- E05 资源查询与视图 ----
   - id: F009
     name: Cluster 视角资源查询
@@ -1543,13 +1645,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F008]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F010, F011]
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 2
     DRAFT: 0
     DONE: 11
@@ -1972,14 +2074,23 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F007 DONE (merge ff347be); NEXT READY = F008
+  decision: PROJECT IN PROGRESS — F008 IN_PROGRESS (Product stage); F010 / F011 remain BLOCKED
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F008
+  current_stage: REVIEW
   started_on: "2026-09-16"
   note: >-
-    F007 引入**首个多态载体关系**（Container 必属恰好一个 BareMetal 或 VirtualMachine）。
-    Architecture 已裁定：多态载体用**两列可空 FK + CHECK (num_nonnulls(...) = 1) + 两列 partial unique index**
-    表示（否决了「判别列 + 无 FK」方案，因为它会放弃数据库级参照完整性，违反 AGENTS.md §6 与 ADR-0002）；
-    契约统一用 carrier_type + carrier_id 表达载体，载体缺失一律 404。契约 READY：docs/api/f007-container.md。
+    F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
+    NQ-01 已由用户确认（2026-09-16）：**必须先删除，不做解绑功能**，已固化为 R-SVC-009。
+    Architecture 两项关键裁定：① N:M 多态绑定用**单张 service_carriers + 三列可空 FK + CHECK (num_nonnulls(...) = 1)
+    + 三条 partial unique（集合语义）**（否决三张绑定表：语义无增益却三倍 schema / guard 成本）；
+    ② 「释放绑定」**无需任何写入**——绑定行不可变、不物理删除、无 deleted_at，活跃性由 services.deleted_at 派生，
+    故 app/deletion/service.py **零改动**、allow-list 恒为 {backend/app/deletion/service.py}。
+    注意：移除 `service` token 后 BOUNDARY_TOKENS 变为空，**不得删除 test_g009_2**，且必须保留
+    APPROVED_API_PREFIXES allow-list 作为真正的越界防线（历史两次 MEDIUM 均因收窄扫描范围）。
+    Database Design 完成（0008_f008_services：2 表 / 16 列 / 1 CHECK / 4 FK RESTRICT / 8 索引），
+    Backend + Frontend 已并行完成（实现提交 6d09994）。协调器在全新真实 PostgreSQL 上**独立重跑**验证：
+    后端 935 passed（0 skipped）、前端 typecheck 干净 + 546 passed + build 成功、ruff 干净，
+    且 0001–0007 与 app/deletion/service.py 逐字节未改（已由协调器核对，未采信 Agent 报告）。
+    现处 Review（database_design / backend / frontend / test 均 COMPLETE，status = IN_REVIEW，head_commit = 6d09994）。Tester 结论 READY FOR REVIEW：54/54 AC 全 PASS、无缺陷；对抗注入 11/11 被检出并逐字节还原，并证明 BOUNDARY_TOKENS 清空后真正可独立失败的防线是 APPROVED_API_PREFIXES allow-list。下一步 Reviewer。

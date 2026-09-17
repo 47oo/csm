@@ -288,11 +288,11 @@ def test_g5_table_whitelist_includes_ip_addresses():
     assert "ip_addresses" in EXPECTED_TABLES
 
 
-def test_g5_migration_head_is_0007():
-    # F007 演进：head 从 0006 → 0007（不得删除本 guard，只更新当前 head）。
+def test_g5_migration_head_is_0008():
+    # F008 演进：head 从 0007 → 0008（不得删除本 guard，只更新当前 head）。
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0007_f007_containers"
+    assert MIGRATION_HEAD == "0008_f008_services"
 
 
 # --------------------------------------------------------------------------- #
@@ -324,8 +324,9 @@ def test_g7_boundary_tokens_narrowed_but_global():
     assert "ip_address" not in tokens
     # F007 演进：Container 已成为合法资源（``/api/containers``），故**仅移除**
     # ``container``；``service`` 仍在集合中，且扫描仍为全局。
+    # F008 演进：Service 已成为合法资源（``/api/services``），故**仅移除** ``service``。
     assert "container" not in tokens
-    assert "service" in tokens
+    assert "service" not in tokens
 
     source = (REPO_ROOT / "tests/test_cluster_views_guards.py").read_text(encoding="utf-8")
     assert '_openapi()["paths"]' in source
@@ -540,6 +541,9 @@ def test_g13_no_generic_eav_json_or_polymorphic():
         "ip_addresses",
         # F007：Container 独立资源表。
         "containers",
+        # F008：Service 资源表 + N:M 多态绑定关系表。
+        "services",
+        "service_carriers",
     }
 
 
@@ -604,11 +608,11 @@ def test_g15_ip_module_does_not_import_network_interfaces_module():
 def test_g16_migration_revision_chain():
     from tests.database.helpers import MIGRATION_HEAD
 
-    # F007 演进：head 为 0007，其 down_revision 指向 0006。
-    assert MIGRATION_HEAD == "0007_f007_containers"
-    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0007_f007_containers.py"
+    # F008 演进：head 为 0008，其 down_revision 指向 0007。
+    assert MIGRATION_HEAD == "0008_f008_services"
+    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0008_f008_services.py"
     source = migration.read_text(encoding="utf-8")
-    assert 'down_revision: str | None = "0006_f005_ip_addresses"' in source
+    assert 'down_revision: str | None = "0007_f007_containers"' in source
 
 
 # --------------------------------------------------------------------------- #

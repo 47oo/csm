@@ -21,9 +21,12 @@ from sqlalchemy.orm import Session
 from app.db.active import active_filter
 from app.deletion.checks import ActiveChildCheck
 from app.models.container import Container
+from app.services.deletion import has_active_services_on_container
 
-#: Container 自身的活跃子资源检查（当前显式空：Service 尚不存在；F008 追加位置）。
-CONTAINER_ACTIVE_CHILD_CHECKS: tuple[ActiveChildCheck, ...] = ()
+#: Container 自身的活跃子资源检查。F007 曾**显式**声明为空元组（Service 表尚不存在）；
+#: F008 落地追加点，由 ``()`` 演进为**非空**且包含活跃 Service 检查（F007 AC-41 /
+#: F007 NQ-9）。必须保留本显式声明，不得删除。
+CONTAINER_ACTIVE_CHILD_CHECKS: tuple[ActiveChildCheck, ...] = (has_active_services_on_container,)
 
 
 def _has_active_container(session: Session, condition) -> bool:

@@ -19,6 +19,7 @@ from app.containers.deletion import (
 )
 from app.containers.router import router as containers_router
 from app.containers.schemas import OPTIONAL_FIELDS
+from app.services.deletion import has_active_services_on_container
 from app.virtual_machines.deletion import VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS
 from tests.deletion_guard_helpers import (
     ALLOWED_DELETED_AT_WRITER,
@@ -294,14 +295,15 @@ def test_g6_expected_get_routes_contains_container_routes():
 
 
 # --------------------------------------------------------------------------- #
-# G-7：BOUNDARY_TOKENS 仅移除 container、保留 service、全局扫描不收窄
+# G-7：BOUNDARY_TOKENS 移除 container、保留服务演进、全局扫描不收窄
 # --------------------------------------------------------------------------- #
 def test_g7_boundary_tokens_narrowed_but_global():
     from tests import test_cluster_views_guards as cv
 
     tokens = cv.BOUNDARY_TOKENS
     assert "container" not in tokens
-    assert "service" in tokens
+    # F008 演进：Service 已成为合法资源（``/api/services``），``service`` 也已被移除。
+    assert "service" not in tokens
 
     source = (REPO_ROOT / "tests/test_cluster_views_guards.py").read_text(encoding="utf-8")
     assert '_openapi()["paths"]' in source
@@ -344,7 +346,7 @@ def test_g9_no_generic_eav_json_or_polymorphic_for_container():
 
 
 # --------------------------------------------------------------------------- #
-# G-10：活跃子检查点（BM 含 Container；VM 非空含 Container；Container 显式空）
+# G-10：活跃子检查点（BM 含 Container；VM 非空含 Container；Container 非空含 Service）
 # --------------------------------------------------------------------------- #
 def test_g10_active_child_checks_are_wired():
     assert isinstance(BARE_METAL_ACTIVE_CHILD_CHECKS, tuple)
@@ -355,11 +357,13 @@ def test_g10_active_child_checks_are_wired():
     assert VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS, "F007 后 VM 删除守卫不得为空"
     assert has_active_containers_on_virtual_machine in VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS
 
+    # F008 演进：``CONTAINER_ACTIVE_CHILD_CHECKS`` 由显式空元组演进为**非空**且含
+    # 活跃 Service 检查（落实 F007 AC-41 / F007 NQ-9）。不得删除本 guard。
     assert isinstance(CONTAINER_ACTIVE_CHILD_CHECKS, tuple)
-    assert CONTAINER_ACTIVE_CHILD_CHECKS == ()
+    assert CONTAINER_ACTIVE_CHILD_CHECKS, "F008 后 Container 删除守卫不得为空"
+    assert has_active_services_on_container in CONTAINER_ACTIVE_CHILD_CHECKS
     source = (REPO_ROOT / "backend/app/containers/deletion.py").read_text(encoding="utf-8")
     assert "CONTAINER_ACTIVE_CHILD_CHECKS" in source
-    assert "= ()" in source, "必须显式声明空元组，而非隐式缺省"
 
 
 def test_g10_delete_paths_consume_declared_checks():
@@ -417,15 +421,15 @@ def test_g11_no_out_of_scope_container_routes_or_params():
 
 
 # --------------------------------------------------------------------------- #
-# G-12：migration head / revision chain
+# G-12：migration head / revision chain（F008 演进：head 从 0007 → 0008）
 # --------------------------------------------------------------------------- #
-def test_g12_migration_head_is_0007():
+def test_g12_migration_head_is_0008():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0007_f007_containers"
-    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0007_f007_containers.py"
+    assert MIGRATION_HEAD == "0008_f008_services"
+    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0008_f008_services.py"
     source = migration.read_text(encoding="utf-8")
-    assert 'down_revision: str | None = "0006_f005_ip_addresses"' in source
+    assert 'down_revision: str | None = "0007_f007_containers"' in source
 
 
 # --------------------------------------------------------------------------- #

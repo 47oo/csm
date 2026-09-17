@@ -699,7 +699,9 @@ def test_t29_no_other_resource_or_position_structure(auth_client_and_raw):
     from app.db.base import Base
 
     paths = set(client.app.openapi()["paths"])
-    forbidden_prefixes = ("nic", "network-interface", "ip-address", "container", "service")
+    # F008 演进：Service 已成为合法资源（``/api/services``），从越界 prefix 中移除
+    # ``service``。
+    forbidden_prefixes = ("nic", "network-interface", "ip-address", "container")
     offenders = [
         path
         for path in paths

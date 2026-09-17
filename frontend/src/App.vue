@@ -16,6 +16,8 @@ import IpAddressListPage from './pages/IpAddressListPage.vue'
 import IpAddressDetailPage from './pages/IpAddressDetailPage.vue'
 import ContainerListPage from './pages/ContainerListPage.vue'
 import ContainerDetailPage from './pages/ContainerDetailPage.vue'
+import ServiceListPage from './pages/ServiceListPage.vue'
+import ServiceDetailPage from './pages/ServiceDetailPage.vue'
 
 /**
  * 会话与视图状态（F013；仍不引入 vue-router，f013-auth-handoff.md PROPOSED-5；
@@ -24,7 +26,8 @@ import ContainerDetailPage from './pages/ContainerDetailPage.vue'
  * handoff.md Frontend Work #6；F004 起再增加 NetworkInterface 视图，
  * f004-network-interface-handoff.md Frontend Work #6；F005 起再增加
  * IPAddress 视图，f005-ip-address-handoff.md Frontend Work #6；F007 起再增加
- * Container 视图，f007-container-handoff.md Frontend Work
+ * Container 视图，f007-container-handoff.md Frontend Work；F008 起再增加
+ * Service 视图，f008-service-handoff.md Frontend Work
  * （导航形式不构成产品规则）。
  *
  * 视图状态：bootstrap（启动会话探测中）→ login（未认证 / 会话失效）↔ app（已认证）。
@@ -67,7 +70,11 @@ type AppView = 'bootstrap' | 'login' | 'app'
  * - container-list：容器列表（F007）；无 App 级过滤上下文（载体筛选为列表页
  *   内能力，carrier_type + carrier_id 成对），返回时回集群列表；
  * - container-detail：容器详情；登记成功后可跳转到新容器的详情（openDetail），
- *   返回时回容器列表。
+ *   返回时回容器列表；
+ * - service-list：服务列表（F008）；无 App 级过滤上下文（载体筛选为列表页
+ *   内能力，carrier_type + carrier_id 成对），返回时回集群列表；
+ * - service-detail：服务详情；登记成功后可跳转到新服务的详情（openDetail），
+ *   返回时回服务列表。
  */
 type ResourceView =
   | { kind: 'cluster-list' }
@@ -103,6 +110,8 @@ type ResourceView =
     }
   | { kind: 'container-list' }
   | { kind: 'container-detail'; containerId: number }
+  | { kind: 'service-list' }
+  | { kind: 'service-detail'; serviceId: number }
 
 const view = ref<AppView>('bootstrap')
 const currentUser = ref<AuthenticatedUser | null>(null)
@@ -370,8 +379,25 @@ function backFromContainerDetail(): void {
   resourceView.value = { kind: 'container-list' }
 }
 
+// ---- 资源视图导航（Service，F008） ----
+
+/** 头部导航进入全局服务列表（无过滤；载体筛选为列表页内能力）。 */
+function openServiceList(): void {
+  resourceView.value = { kind: 'service-list' }
+}
+
+/** 进入服务详情（列表行入口，或详情页登记成功后跳转到新服务）。 */
+function openServiceDetail(serviceId: number): void {
+  resourceView.value = { kind: 'service-detail', serviceId }
+}
+
+/** 服务详情返回：回到服务列表。 */
+function backFromServiceDetail(): void {
+  resourceView.value = { kind: 'service-list' }
+}
+
 /** 头部导航高亮：当前资源区域（cluster-* / bare-metal-* / virtual-machine-* /
- * network-interface-* / ip-address-* / container-*）。 */
+ * network-interface-* / ip-address-* / container-* / service-*）。 */
 const navSection = computed<
   | 'cluster'
   | 'bare-metal'
@@ -379,6 +405,7 @@ const navSection = computed<
   | 'network-interface'
   | 'ip-address'
   | 'container'
+  | 'service'
 >(() => {
   const kind = resourceView.value.kind
   if (kind.startsWith('cluster')) return 'cluster'
@@ -386,6 +413,7 @@ const navSection = computed<
   if (kind.startsWith('virtual-machine')) return 'virtual-machine'
   if (kind.startsWith('network-interface')) return 'network-interface'
   if (kind.startsWith('container')) return 'container'
+  if (kind.startsWith('service')) return 'service'
   return 'ip-address'
 })
 
@@ -475,6 +503,13 @@ async function handleLogout(): Promise<void> {
             >
               容器
             </el-button>
+            <el-button
+              :type="navSection === 'service' ? 'primary' : 'default'"
+              data-testid="nav-services"
+              @click="openServiceList"
+            >
+              服务
+            </el-button>
           </nav>
         </div>
         <div class="app-shell__session">
@@ -547,10 +582,21 @@ async function handleLogout(): Promise<void> {
         @back="backToClusterList"
       />
       <ContainerDetailPage
-        v-else
+        v-else-if="resourceView.kind === 'container-detail'"
         :container-id="resourceView.containerId"
         @open-detail="openContainerDetail"
         @back="backFromContainerDetail"
+      />
+      <ServiceListPage
+        v-else-if="resourceView.kind === 'service-list'"
+        @open-detail="openServiceDetail"
+        @back="backToClusterList"
+      />
+      <ServiceDetailPage
+        v-else
+        :service-id="resourceView.serviceId"
+        @open-detail="openServiceDetail"
+        @back="backFromServiceDetail"
       />
     </template>
   </div>
