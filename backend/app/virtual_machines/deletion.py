@@ -20,10 +20,13 @@ from app.containers.deletion import has_active_containers_on_virtual_machine
 from app.db.active import active_filter
 from app.deletion.checks import ActiveChildCheck
 from app.models.virtual_machine import VirtualMachine
+from app.services.deletion import has_active_services_on_virtual_machine
 
-#: VirtualMachine 自身的活跃子资源检查（F007 起含活跃 Container）。必须为非空元组。
+#: VirtualMachine 自身的活跃子资源检查（F007 起含活跃 Container；F008 起**追加**
+#: 活跃 Service）。必须为非空元组且两个检查均保留。
 VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS: tuple[ActiveChildCheck, ...] = (
     has_active_containers_on_virtual_machine,
+    has_active_services_on_virtual_machine,
 )
 
 

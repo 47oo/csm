@@ -694,10 +694,9 @@ def test_t29_no_other_resource_endpoints_or_columns(auth_client_and_raw):
     # 移除 ``ip``；``nic`` / ``service`` 必须保持全局覆盖。
     # F007 演进：Container 已成为合法资源（``/api/containers``），从越界 prefix 中移除
     # ``container``；``service`` 仍须被全局检出。
-    forbidden_prefixes = (
-        "nic",
-        "service",
-    )
+    # F008 演进：Service 已成为合法资源（``/api/services``），从越界 prefix 中移除
+    # ``service``；``nic`` 仍须保持全局覆盖（缩写越界路由 ``/api/nics`` 仍被检出）。
+    forbidden_prefixes = ("nic",)
     offenders = [
         path
         for path in paths

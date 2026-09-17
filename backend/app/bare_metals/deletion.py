@@ -29,15 +29,17 @@ from app.db.active import active_filter
 from app.deletion.checks import ActiveChildCheck
 from app.models.bare_metal import BareMetal
 from app.network_interfaces.deletion import has_active_network_interfaces
+from app.services.deletion import has_active_services_on_bare_metal
 from app.virtual_machines.deletion import has_active_virtual_machines
 
 #: BareMetal 自身的活跃子资源检查（F006 起含活跃 VirtualMachine；F004 起含活跃
-#: NetworkInterface；F007 起含活跃 Container）。三个检查都必须保留
-#: （AC-39，不得丢弃 F006 的 VM 检查或 F004 的 NIC 检查）。
+#: NetworkInterface；F007 起含活跃 Container；F008 起**追加**活跃 Service）。四个检查都
+#: 必须保留（AC-39 / AC-44，不得丢弃任何既有检查）。
 BARE_METAL_ACTIVE_CHILD_CHECKS: tuple[ActiveChildCheck, ...] = (
     has_active_virtual_machines,
     has_active_network_interfaces,
     has_active_containers_on_bare_metal,
+    has_active_services_on_bare_metal,
 )
 
 

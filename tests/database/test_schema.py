@@ -18,6 +18,9 @@ EXPECTED_TABLES = {
     "ip_addresses",
     # F007：Container 独立资源表。
     "containers",
+    # F008：Service 资源表 + N:M 多态绑定关系表。
+    "services",
+    "service_carriers",
 }
 
 

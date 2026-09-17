@@ -19,6 +19,7 @@ CSM Web 前端。
 | **F004** | NetworkInterface API 客户端、列表 / 详情 / 登记 / 技术类型与用途维护 / 删除；从 BareMetal 详情进入「该宿主网络接口」 | `docs/api/f004-network-interface.md` |
 | **F005** | IPAddress API 客户端、列表 / 详情 / 登记 / 修正 / 删除；从 NetworkInterface 详情进入「该网络接口 IP」 | `docs/api/f005-ip-address.md` |
 | **F007** | Container API 客户端、列表（载体筛选：`carrier_type` + `carrier_id` 成对）/ 详情 / 登记（载体类型选择器 + 载体 ID 输入）/ 可选字段维护 / 删除；详情页登记成功后跳转新容器详情 | `docs/api/f007-container.md` |
+| **F008** | Service API 客户端、列表（载体筛选：`carrier_type` + `carrier_id` 成对，三值载体类型）/ 详情（`carriers` 列表展示）/ 登记（多载体选择：三种类型 + 载体 ID，至少一项）/ 6 个可选字段维护 / 删除；详情页登记成功后跳转新服务详情 | `docs/api/f008-service.md` |
 
 **跨 Feature 的渲染约定**（全部页面一致）：
 
@@ -29,7 +30,7 @@ CSM Web 前端。
 - **未定义约束不做任何变换**：`name` / `hostname` 等字段不做长度 / trim / 归一化 / 空串校验，也不基于 `undefined_constraints` 编写业务分支；
 - 所有 HTTP 调用集中在 `src/api/`，页面组件不得直接 `fetch`。
 
-**当前未交付**（属后续 Feature）：Service（F008）、资源详情与关联查询聚合视图（F010）、Excel 批量导入（F011）的 UI；恢复 / 回收站 / 已删资源查看 / 批量操作 / 审计展示 / 导出 / 高级筛选；账号管理页与口令修改。
+**当前未交付**（属后续 Feature）：资源详情与关联查询聚合视图（F010）、Excel 批量导入（F011）的 UI；恢复 / 回收站 / 已删资源查看 / 批量操作 / 审计展示 / 导出 / 高级筛选；账号管理页与口令修改。
 
 ## 环境要求
 
@@ -77,6 +78,7 @@ frontend/
 │   │   ├── http.ts               # 统一请求封装 + ApiError 归一化 + 全局 401 处理（基座）
 │   │   ├── ipAddresses.ts        # IPAddress API 客户端（f005-ip-address.md）
 │   │   ├── networkInterfaces.ts  # NetworkInterface API 客户端（f004-network-interface.md）
+│   │   ├── services.ts           # Service API 客户端（f008-service.md）
 │   │   └── virtualMachines.ts    # VirtualMachine API 客户端（f006-virtual-machine.md）
 │   ├── components/
 │   │   ├── ErrorState.vue        # 按 error.code 分支渲染的错误态（基座）
@@ -86,6 +88,7 @@ frontend/
 │   │   ├── ContainerFormDialog.vue
 │   │   ├── IpAddressFormDialog.vue
 │   │   ├── NetworkInterfaceFormDialog.vue
+│   │   ├── ServiceFormDialog.vue
 │   │   └── VirtualMachineFormDialog.vue
 │   ├── composables/
 │   │   ├── useAsyncQuery.ts      # 异步查询三态管理 + 竞态防护（基座）
@@ -95,7 +98,8 @@ frontend/
 │   │   ├── useVirtualMachineDelete.ts
 │   │   ├── useNetworkInterfaceDelete.ts
 │   │   ├── useIpAddressDelete.ts
-│   │   └── useContainerDelete.ts
+│   │   ├── useContainerDelete.ts
+│   │   └── useServiceDelete.ts
 │   ├── pages/
 │   │   ├── LoginPage.vue
 │   │   ├── ClusterListPage.vue / ClusterDetailPage.vue
@@ -103,7 +107,8 @@ frontend/
 │   │   ├── VirtualMachineListPage.vue / VirtualMachineDetailPage.vue
 │   │   ├── NetworkInterfaceListPage.vue / NetworkInterfaceDetailPage.vue
 │   │   ├── IpAddressListPage.vue / IpAddressDetailPage.vue
-│   │   └── ContainerListPage.vue / ContainerDetailPage.vue
+│   │   ├── ContainerListPage.vue / ContainerDetailPage.vue
+│   │   └── ServiceListPage.vue / ServiceDetailPage.vue
 │   ├── types/
 │   │   └── api.ts                # 契约类型（错误信封 / 分页信封 / 错误码）
 │   ├── App.vue                   # 会话门控 + 极简视图状态（bootstrap / login / app）

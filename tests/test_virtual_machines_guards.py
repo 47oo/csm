@@ -13,6 +13,10 @@ from app.containers.deletion import (
     has_active_containers_on_bare_metal,
     has_active_containers_on_virtual_machine,
 )
+from app.services.deletion import (
+    has_active_services_on_bare_metal,
+    has_active_services_on_virtual_machine,
+)
 from app.virtual_machines.deletion import (
     VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS,
     has_active_virtual_machines,
@@ -130,6 +134,8 @@ def test_g5_t26_bare_metal_active_child_checks_contain_vm_check():
     assert has_active_virtual_machines in BARE_METAL_ACTIVE_CHILD_CHECKS
     # F007 演进：BM 检查必须**追加**活跃 Container 检查（而非替换）。
     assert has_active_containers_on_bare_metal in BARE_METAL_ACTIVE_CHILD_CHECKS
+    # F008 演进：BM 检查必须**追加**活跃 Service 检查（而非替换）。
+    assert has_active_services_on_bare_metal in BARE_METAL_ACTIVE_CHILD_CHECKS
 
 
 def test_t26_bare_metal_delete_path_consumes_declared_checks():
@@ -175,6 +181,8 @@ def test_g6_t27_vm_active_child_checks_explicitly_declared():
     assert isinstance(VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS, tuple)
     assert VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS, "F007 后不得为显式空元组"
     assert has_active_containers_on_virtual_machine in VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS
+    # F008 演进：VM 检查必须**追加**活跃 Service 检查（而非替换）。
+    assert has_active_services_on_virtual_machine in VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS
     source = (REPO_ROOT / "backend/app/virtual_machines/deletion.py").read_text(encoding="utf-8")
     assert "VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS" in source
 
@@ -238,12 +246,12 @@ def test_g10_no_generic_eav_json_or_polymorphic_for_vm():
 
 
 # --------------------------------------------------------------------------- #
-# G-11：MIGRATION_HEAD 与当前 head 一致（F007 演进：head 从 0006 → 0007）
+# G-11：MIGRATION_HEAD 与当前 head 一致（F008 演进：head 从 0007 → 0008）
 # --------------------------------------------------------------------------- #
 def test_g11_migration_head_is_current_head():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0007_f007_containers"
+    assert MIGRATION_HEAD == "0008_f008_services"
 
 
 # --------------------------------------------------------------------------- #

@@ -121,6 +121,9 @@ EXPECTED_GET_ROUTES = {
     # F007：Container 只读 GET 路由（仅新增，不得删除既有成员）。
     "/api/containers",
     "/api/containers/{container_id}",
+    # F008：Service 只读 GET 路由（仅新增，不得删除既有成员）。
+    "/api/services",
+    "/api/services/{service_id}",
     "/api/auth/session",
 }
 
