@@ -1696,7 +1696,7 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F010, F011]
+  ready_features: [F011]
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
