@@ -771,7 +771,7 @@ features:
       start_commit: 06b3c5b6bbd36b2be48f7810b6d08a1612ef3b84
       head_commit: 0fb1419dfcd64fbe312966ca5d8f7e9d45ccec1d
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     layers:
       database: true
       backend: true
@@ -783,7 +783,7 @@ features:
       database_design: COMPLETE
       backend: COMPLETE
       frontend: COMPLETE
-      test: PENDING
+      test: COMPLETE
       review: PENDING
     product_document: docs/product/requirements.md
     requirements:
@@ -1677,7 +1677,7 @@ planning_status:
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），全部产品问题已关闭，无 DRAFT Feature。
     DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005（10 个）。
     **M1 / M2 / M3 已 DONE**（M3 = F004 + F005 网络资源）；**M4 进行中**（F006 DONE，F007 IN_PROGRESS，F008 BLOCKED）。
-    0 个 Feature 处于 READY。**F007（Container）IN_PROGRESS**——Product 与 Architecture 已完成、契约 READY，现处 Test（database_design / backend / frontend 均 COMPLETE，status = IN_REVIEW）；head_commit = 0fb1419。
+    0 个 Feature 处于 READY。**F007（Container）IN_PROGRESS**——Product 与 Architecture 已完成、契约 READY，现处 Review（database_design / backend / frontend / test 均 COMPLETE，status = IN_REVIEW）；head_commit = 0fb1419。Tester 结论 READY FOR REVIEW，AC-01~AC-44 全 PASS，无缺陷。下一步 Reviewer。
     3 个 Feature（F008 / F010 / F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
     F007 DONE 后解锁 F008 → 再解锁 F010 / F011。
   git_incidents:
@@ -1952,7 +1952,7 @@ planning_status:
 
 execution:
   current_feature: F007
-  current_stage: TEST
+  current_stage: REVIEW
   started_on: "2026-09-16"
   note: >-
     F007 引入**首个多态载体关系**（Container 必属恰好一个 BareMetal 或 VirtualMachine）。
