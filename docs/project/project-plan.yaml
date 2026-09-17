@@ -569,7 +569,7 @@ features:
       status: READY
       doc: docs/api/f005-ip-address.md
     implementation:
-      database_design: PENDING
+      database_design: COMPLETE    # docs/database/f005-ip-address-migration.md（READY FOR DATABASE IMPLEMENTATION）
       backend: PENDING
       frontend: PENDING
       test: PENDING
