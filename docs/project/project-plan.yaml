@@ -1098,7 +1098,7 @@ features:
     name: 资源详情与关联查询
     epic: E05
     priority: P1
-    status: IN_PROGRESS
+    status: DRAFT
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
     blocking: []
     git:
@@ -1108,6 +1108,12 @@ features:
       head_commit: 1baedc0d092424926e61afa4f6cf2d869f8236a6
       merge_commit: null
     current_stage: PRODUCT
+    last_result: >-
+      Product 阶段返回 **BLOCKED**：发现 2 个 Blocking 产品歧义（BQ-1 / BQ-2），均直接改变交付边界，
+      且无法从 CONFIRMED 规则唯一确定。Product Manager 拒绝自行裁定，已按 §11 停止。
+    next_action: >-
+      **User Decision**：需用户裁定 BQ-1 与 BQ-2（各二选一，建议均为「含间接」）。裁定后本 Feature
+      转为 READY，从 Product Gate 重入并进入 Architecture。
     layers: {}
     contract:
       status: NOT_REQUIRED
@@ -1128,7 +1134,34 @@ features:
       - 查询结果区分 Resource Not Found 与 Empty Relationship（R-QUERY-004）。
       - 用户无需为获得一个资源的基本信息而跨多个独立 Excel 式页面手工拼接（R-QUERY-003）。
       - 页面组织由 Frontend 设计，不在本计划中固化（R-QUERY-003）。
-    open_questions: []
+    open_questions:
+      - id: BQ-1
+        blocking: true
+        summary: "「与 BareMetal 相关的 Container」是否包含经 VM 的间接情形（Container→VM→BareMetal）。候选 A 仅直接；候选 B 含间接（建议）。两种解释下同类清单内容不同 → 改变交付边界，且 §15 与 domain-model.yaml 均未定义「相关」是否为关系链闭包。"
+      - id: BQ-2
+        blocking: true
+        summary: "「与 BareMetal 相关的 Service」是否包含经载体的间接情形（Service→载体(R(B))→BareMetal）。候选 A 仅直接；候选 B 含间接（建议）。与 BQ-1 耦合：R(B) 的 Container 部分取决于 BQ-1，两项裁定必须成对给出。"
+      - id: NQ-1
+        blocking: false
+        summary: 推导出的 Cluster 归属是否展示；默认不展示（沿用 F006 NQ-7 / F007 AC-22 / F008 PROPOSED-2 的最小范围口径）。
+      - id: NQ-2
+        blocking: false
+        summary: 是否提供反向关联视图（IP/Container/Service → 所属 BareMetal）；R-QUERY-003 已把主体固定为 BareMetal，默认本次不交付。
+      - id: NQ-3
+        blocking: false
+        summary: 状态汇总 / 计数；默认不实现（F009 NQ-1 先例）。
+      - id: NQ-4
+        blocking: false
+        summary: 排序 / 关键字 / 筛选 / 导出 / 分页形态；默认不实现，沿用既有分页约定。
+      - id: NQ-5
+        blocking: false
+        summary: 聚合形态（单一聚合读取 vs 前端调用多条 canonical 读取）属 Architecture 裁定；产品只要求 AC-17/AC-18。
+      - id: NQ-6
+        blocking: false
+        summary: VM 是否拥有独立 NetworkInterface（R-NIC-003 未确认，F004 NQ-1）；F010 不得假设。
+      - id: NQ-7
+        blocking: false
+        summary: 计划元数据落盘（本项已在 Product 阶段完成）；契约落点预计 docs/api/f010-resource-detail.md。
 
   # ---- E06 数据导入 ----
   - id: F011
@@ -1664,12 +1697,12 @@ planning_status:
   ready_features: [F011]
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: []
+    DRAFT: [F010]
   counts:
     READY: 1
-    IN_PROGRESS: 1
+    IN_PROGRESS: 0
     BLOCKED: 0
-    DRAFT: 0
+    DRAFT: 1
     DONE: 12
   status_decision_rules:
     DRAFT: >
@@ -1785,7 +1818,8 @@ planning_status:
       部署打包 docker-compose、PostgreSQL、内网 Internal IP + HTTP）；无未解决产品问题 → READY。
       原额外进入条件 F012 follow-up F-03（自检面 fail-open）已由 F001 彻底移除 /_foundation/* 而消解；
       REV-01（框架默认 /docs、/redoc、/openapi.json 位于 /api 之外未认证可达）由 F015 记录并决定是否关闭。
-  draft_rationale: {}
+  draft_rationale:
+    F010: "Product 阶段发现 2 个 Blocking 产品歧义且无 CONFIRMED 规则可唯一确定：BQ-1「与 BareMetal 相关的 Container 是否含经 VM 的间接情形」、BQ-2「相关的 Service 是否含经载体的间接情形」。二者直接决定五类关联清单的成员集合（即本 Feature 自身 acceptance_criteria 的定稿），故计为 DRAFT 而非 BLOCKED。建议均为「含间接」；理由：IP 类只能经 IP→NIC→BareMetal 推导（IP 无 bare_metal_id），说明 R-QUERY-003 的「相关」对 IP 已不是「直接列」语义，若 Container 取「仅直接」需额外解释。裁定后本 Feature 转为 READY。" 
   blocked_rationale:
     F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
     F004: >
@@ -2113,7 +2147,7 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F010 IN_PROGRESS (Product stage); F011 remains READY
+  decision: "PROJECT IN PROGRESS — F010 DRAFT (blocked on user decision: BQ-1 / BQ-2); F011 READY"
 
 execution:
   current_feature: F010
