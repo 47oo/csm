@@ -16,6 +16,8 @@ EXPECTED_TABLES = {
     "network_interfaces",
     # F005：IPAddress 独立资源表。
     "ip_addresses",
+    # F007：Container 独立资源表。
+    "containers",
 }
 
 

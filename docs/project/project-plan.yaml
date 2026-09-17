@@ -762,29 +762,127 @@ features:
     name: Container 资源模型与登记
     epic: E03
     priority: P1
-    status: READY
+    status: IN_REVIEW
     depends_on: [F006, F002]
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F007-container
+      start_commit: 06b3c5b6bbd36b2be48f7810b6d08a1612ef3b84
+      head_commit: 0fb1419dfcd64fbe312966ca5d8f7e9d45ccec1d
+      merge_commit: null
+    current_stage: REVIEW
+    layers:
+      database: true
+      backend: true
+      frontend: true
+    contract:
+      status: READY
+      doc: docs/api/f007-container.md
+    implementation:
+      database_design: COMPLETE
+      backend: COMPLETE
+      frontend: COMPLETE
+      test: COMPLETE
+      review: PENDING
     product_document: docs/product/requirements.md
     requirements:
-      - "§10 Container（允许领域模型表达 Container 资源）"
+      - "§10 Container"
       - R-CONTAINER-001
       - R-CONTAINER-002
       - R-CONTAINER-003
       - R-CONTAINER-004
       - R-CONTAINER-005
+      - R-DELETE-001
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-004
+      - R-DELETE-005
+      - R-DELETE-006
+      - R-QUERY-003
+      - R-QUERY-004
+      - "§21 Data Consistency"
+      - "§22 Case Sensitivity"
+      - "§23 Scope Limits"
+      - "Q-002=B"
     acceptance_criteria:
-      - 领域模型能够表达 Container 资源（§10）。
-      - 不因存在 Container 类型而引入 Kubernetes / Docker API / Container Runtime 自动发现（§10；R-CONTAINER-001）。
-      - 登记粒度为长期服务型 Container 实例；不登记短生命周期 / 临时容器，不引入 K8s workload 等更高层对象（R-CONTAINER-001）。
-      - Container 必须属于**恰好一个**运行载体（BareMetal 或 VirtualMachine）；Cluster 归属由载体推导（R-CONTAINER-002）。
-      - Container 必须拥有 name（必填），name **同一载体内唯一**、比较区分大小写；已软删不占用唯一性（R-CONTAINER-003、R-DELETE-006）。
-      - 可选字段（image / cpu / memory / owner）均为**可选**、纯文本、允许为空（NULL）（R-CONTAINER-004）。
-      - 载体存在活跃 Container 时不得删除载体（R-DELETE-004）；Container 软删不级联（R-DELETE-005）（R-CONTAINER-005）。
-      - Container 在 V1 不设状态（Q-002=B）。
-    open_questions: []
-
-  # ---- E04 服务资源管理 ----
+      - AC-01 以 BareMetal 为载体登记 201；响应字段恰为 {id, <载体类型>, <载体标识>, name, image, cpu, memory, owner, created_at, updated_at}；无 deleted_at / status / cluster_id / K8s / 位置字段。
+      - AC-02 以 VirtualMachine 为载体登记 201，字段集合相同。
+      - AC-03 name 必填；缺失或非字符串 → 400 + field=name。
+      - AC-04 载体必填：两者都不给 → 400 + details[].field，不产生记录。
+      - AC-05 拒绝多载体：两者都给 / 载体列表 → 400。
+      - AC-06 拒绝其它资源类型为载体（Cluster / Service / NIC / IP）→ 400（schema 封闭）。
+      - AC-07 载体类型与标识必须一致：断言类型与实际指向不符 → 拒绝、无记录、非 5xx。
+      - AC-08 载体必须存在且活跃：不存在或已软删 → 拒绝、无记录、非 5xx（响应码见 NQ-2）。
+      - AC-09 可选字段全缺失仍 201，响应为 null 而非省略。
+      - AC-10 中文 name 与可选字段原样往返；image/cpu/memory 不拆分不归一不校验格式。
+      - AC-11 name 与可选字段无长度 / trim / 空串 / 字符 / `/` / 格式校验；不得被解读为已确认空 name 合法。
+      - AC-12 同一载体内唯一：同载体再登记同名活跃 → 409 + details[].field=name，不产生第二条活跃记录。
+      - AC-13 不同载体可重名（跨载体类型）：BareMetal 与其上 VM 各自 web → 均 201。
+      - AC-14 同类型不同标识的载体可重名。
+      - AC-15 跨载体类型即使标识数值相同也不冲突（载体身份 = 类型 + 标识）。
+      - AC-16 不得与 R-VM-004 混用：VM 名 web 时其上 Container 名 web → 201；多载体同名 Container → 均 201；不削弱 VM 全局唯一。
+      - AC-17 大小写敏感：同载体内 web 与 WEB 可共存；无 lower(name) 索引。
+      - AC-18 保存前阻止 + DB 最终权威：绕过应用层直插同载体重复活跃 (载体,name) 被数据库拒绝。
+      - AC-19 软删释放唯一性：软删后可在同一载体重新登记同名 → 201；旧行 deleted_at 未改写。
+      - AC-20 唯一性边界是载体而非 Cluster：同 Cluster 下两台不同 BareMetal 各自 web → 均 201。
+      - AC-21 不存 cluster_id：请求 / 响应 / 表 / 查询参数均无 cluster_id / cluster / cluster_name。
+      - AC-22 归属由载体决定且仅以载体表达；系统不持久化 Container 的 Cluster 归属。
+      - AC-23 无状态：请求 / 响应 / 表 / 端点均无 status。
+      - AC-24 列表分页 200 + 空信封；无活跃 Container 时 items==[]，不得 404。
+      - AC-25 详情：不存在或已软删 id → 404（不区分）。
+      - AC-26 按载体限定读取（两种载体类型均成立）：载体存在但无活跃 Container → 200 + items==[]；载体不存在 / 已删 → 404。
+      - AC-27 绕过应用层预置的已软删 Container 不出现在列表与按载体结果中；按 id → 404。
+      - AC-28 PATCH 可选字段可更新；null 清空；缺省不变；再次读取一致。
+      - AC-29 PATCH schema 封闭：未识别字段（含 id/deleted_at/cluster_id/status/载体字段/name）→ 400；空 body → 400；name 与载体绑定不可变。
+      - AC-30 DELETE 活跃行 → 204 无响应体；行仍物理存在且 deleted_at 非空。
+      - AC-31 删除不级联（两种载体类型）：载体各字段逐字段不变。
+      - AC-32 无 restore / undelete / purge / 批量 / include_deleted。
+      - AC-33 BareMetal 有活跃 Container → DELETE /api/bare-metals/{id} → 409 + details[].code=ACTIVE_CHILDREN_EXIST；宿主 deleted_at 仍 NULL。
+      - AC-34 VirtualMachine 有活跃 Container → DELETE /api/virtual-machines/{id} → 409 + ACTIVE_CHILDREN_EXIST；VM deleted_at 仍 NULL。
+      - AC-35 先软删载体下全部活跃 Container（及其它活跃子资源）后 → 删除载体 204。
+      - AC-36 并发创建 Container vs 删除其 BareMetal 载体后孤立记录 = 0 行。
+      - AC-37 并发创建 Container vs 删除其 VirtualMachine 载体后孤立记录 = 0 行。
+      - AC-38 创建时对选中载体行取共享锁并同事务确认活跃；未命中 → 拒绝创建。
+      - AC-39 BARE_METAL_ACTIVE_CHILD_CHECKS 非空且同时含活跃 VM / NIC / Container 检查，并被真实消费。
+      - AC-40 VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS 由空变非空且含活跃 Container 检查，并被 VM 删除路径真实消费。
+      - AC-41 CONTAINER_ACTIVE_CHILD_CHECKS 显式声明（当前空）且被删除路径真实传入；F008 须追加活跃 Service 检查。
+      - AC-42 无 K8s / Docker / Runtime 客户端、凭据、外部平台 id、同步字段或端点；无 Pod / Deployment / DaemonSet 对象或归属字段。
+      - AC-43 不注册其它资源端点；containers 表无指向 Cluster / NIC / IP / Service 的载体或归属结构；请求不接受以这些实体为载体。
+      - AC-44 前端三态互不相同；Empty 与 Not Found 可区分；错误按 error.code；不重复实现业务守卫。
+    open_questions:
+      - id: NQ-1
+        blocking: false
+        summary: name 与载体绑定的登记后可变性未确认；默认不提供（PROPOSED：软删 + 重新登记）。
+      - id: NQ-2
+        blocking: false
+        resolved_by: docs/architecture/f007-container-handoff.md
+        summary: 已裁定 404 NOT_FOUND（载体不存在 / 已软删 / 类型与标识不一致同形不可区分），details == []，与 F002/F004/F006 先例一致。
+      - id: NQ-3
+        blocking: false
+        summary: 宿主 BareMetal 改属 Cluster 对推导归属的影响；Container 不持久化 Cluster 归属，故 F007 无需维护；不自行裁定。
+      - id: NQ-4
+        blocking: false
+        summary: name 与可选字段的长度 / trim / 空串 / 字符 / `/` / 格式约束未定义；不实现、不承诺。
+      - id: NQ-5
+        blocking: false
+        summary: 「长期服务型」无判别字段；F007 不引入任何判别字段或校验（R-CONTAINER-001 为登记口径约束）。
+      - id: NQ-6
+        blocking: false
+        resolved_by: docs/architecture/f007-container-handoff.md
+        summary: 已裁定统一 carrier_type + carrier_id（请求 / 响应 / query 同一对词汇）；F010 必须复用该过滤，不得另写。
+      - id: NQ-7
+        blocking: false
+        summary: Container 的 by-name 只读别名；name 仅载体内唯一、全局不可判定，默认不提供。
+      - id: NQ-8
+        blocking: false
+        summary: 文档漂移同步（domain-model.yaml relationship/OPEN-002/must_not_assume；domain-model.md §6/§8；schema-design 442/731/892；本 plan）。
+      - id: NQ-9
+        blocking: false
+        summary: F008 义务——须向 CONTAINER_ACTIVE_CHILD_CHECKS 追加活跃 Service 检查并补端到端。
+      - id: NQ-10
+        blocking: false
+        summary: F011 导入 Container 行须复用同一套领域校验。
   - id: F008
     name: Service 资源管理与 Cluster 共享关联
     epic: E04
@@ -1445,12 +1543,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F007]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F008, F010, F011]
     DRAFT: []
   counts:
-    READY: 1
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 3
     DRAFT: 0
     DONE: 10
@@ -1566,7 +1665,6 @@ planning_status:
   draft_rationale: {}
   blocked_rationale:
     F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
-    F007: "产品问题 OPEN-002 / DEC-005 已于 2026-09-16 解决（R-CONTAINER-001~005），scope/AC 可定稿；阻塞仅为依赖 F006 / F002 未 DONE。"
     F008: "产品问题 OPEN-003 已于 2026-09-16 解决（R-SVC-007/008/009），scope/AC 可定稿；阻塞仅为依赖 F001 / F002 / F006 / F007 未 DONE。"
     F004: >
       DEC-006 已解决（V1 无状态）；保留的 R-NIC-003「VM 等资源是否拥有独立 NetworkInterface」不改变本 Feature
@@ -1578,10 +1676,32 @@ planning_status:
   readiness_summary: >
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），全部产品问题已关闭，无 DRAFT Feature。
     DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005（10 个）。
-    **M1 / M2 / M3 已 DONE**（M3 = F004 + F005 网络资源）；**M4 进行中**（F006 DONE，F007 READY，F008 BLOCKED）。
-    1 个 Feature（F007）依赖已满足 → READY。
+    **M1 / M2 / M3 已 DONE**（M3 = F004 + F005 网络资源）；**M4 进行中**（F006 DONE，F007 IN_PROGRESS，F008 BLOCKED）。
+    0 个 Feature 处于 READY。**F007（Container）IN_PROGRESS**——Product 与 Architecture 已完成、契约 READY，现处 Review（database_design / backend / frontend / test 均 COMPLETE，status = IN_REVIEW）；head_commit = 0fb1419。Tester 结论 READY FOR REVIEW，AC-01~AC-44 全 PASS，无缺陷。下一步 Reviewer。
     3 个 Feature（F008 / F010 / F011）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
-    下一批：F007（Container）→ 解锁 F008 → 再解锁 F010 / F011。
+    F007 DONE 后解锁 F008 → 再解锁 F010 / F011。
+  git_incidents:
+    F007-INC-1:
+      severity: PROCESS
+      discovered: "2026-09-18"
+      summary: >-
+        Backend 实现 Subagent 在**并行前端仍在写入**期间执行了 `git stash -u` 与 `git stash pop`
+        （AGENTS.md §9.2 明确禁止自动 stash）。该 Agent 已在报告中主动如实披露，声明与 `git reflog`
+        一致（reflog 可见一条 `reset: moving to HEAD`；`git stash list` 现为空）。
+        净效果核查：未 commit、未切分支、未 reset --hard、未 clean；40 个实现文件与 8 个前端新文件
+        全部存在且内容完整；`0001`–`0006` migration 未被触碰。**协调器因此未采信两个 Agent 的测试结论，
+        在全新真实 PostgreSQL 16.2 上独立重跑**：后端 798 passed / 0 skipped、前端 typecheck 干净 /
+        460 passed / build 成功、ruff 干净，与报告一致。
+      action: 已由协调器独立复现验证；实现交接内容接受，违规行为记录在案。
+    F007-INC-2:
+      severity: PROCESS
+      discovered: "2026-09-18"
+      summary: >-
+        协调器在上一轮提交 Architecture Handoff 时，提交信息含反引号对，被 shell 当作命令替换，
+        导致**信息被截断**并尝试执行名为 `carrier` 的命令（该命令不存在，执行失败，无副作用）。
+        该次提交实际成功，产生了与后一次提交**信息相同**的额外提交 30592ec；其内容为 85963ce 的严格子集
+        （仅 docs 与 plan 的较早版本），HEAD 内容正确。协调器当时误判该提交失败，未察觉，本轮经 reflog 发现。
+      action: 未改写历史（AGENTS.md 禁止以改写历史处理问题）；记录在案。后续提交一律使用 `git commit -F -`（stdin），避免反引号被 shell 解释。
   follow_ups:
     from_f005_review:
       report: docs/reviews/f005-ip-address.md
@@ -1828,15 +1948,14 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: PROJECT IN PROGRESS — F005 DONE; NEXT READY = F007
+  decision: PROJECT IN PROGRESS — F007 IN_PROGRESS (Product + Architecture DONE, contract READY); NEXT = F007 database design
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F007
+  current_stage: REVIEW
   started_on: "2026-09-16"
   note: >-
-    F005（IPAddress 管理）已于 2026-09-18 完成并 --no-ff 合入 develop（merge 7beb6e7）。
-    流程：Product → Architecture（database/backend/frontend = true，契约 READY）→ Database Design → Backend + Frontend 并行
-    → Tester READY FOR REVIEW → Reviewer CHANGES REQUIRED（唯一 MEDIUM 为计划元数据被误覆盖，非代码缺陷）→ 修复 REV-1
-    → 限定范围复审 APPROVED → Merge Gate → 本状态提交。M3（网络资源）随之 DONE。
-    当前无进行中的 Feature。下一批 READY：F007（Container）→ F008 → F010 / F011。
+    F007 引入**首个多态载体关系**（Container 必属恰好一个 BareMetal 或 VirtualMachine）。
+    Architecture 已裁定：多态载体用**两列可空 FK + CHECK (num_nonnulls(...) = 1) + 两列 partial unique index**
+    表示（否决了「判别列 + 无 FK」方案，因为它会放弃数据库级参照完整性，违反 AGENTS.md §6 与 ADR-0002）；
+    契约统一用 carrier_type + carrier_id 表达载体，载体缺失一律 404。契约 READY：docs/api/f007-container.md。

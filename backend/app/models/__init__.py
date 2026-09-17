@@ -9,6 +9,7 @@
 
 from app.models.bare_metal import BareMetal
 from app.models.cluster import Cluster
+from app.models.container import Container
 from app.models.ip_address import IpAddress
 from app.models.network_interface import NetworkInterface
 from app.models.session import Session
@@ -18,6 +19,7 @@ from app.models.virtual_machine import VirtualMachine
 __all__ = [
     "BareMetal",
     "Cluster",
+    "Container",
     "IpAddress",
     "NetworkInterface",
     "Session",

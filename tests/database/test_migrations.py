@@ -26,12 +26,13 @@ def test_migration_applies_repeats_and_rebuilds(database_url):
         "virtual_machines",
         "network_interfaces",
         "ip_addresses",
+        "containers",
     } <= table_names(engine)
-    assert alembic_current(database_url) == "0006_f005_ip_addresses"
+    assert alembic_current(database_url) == "0007_f007_containers"
 
     # 重复应用 → no-op，无错误
     assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
-    assert alembic_current(database_url) == "0006_f005_ip_addresses"
+    assert alembic_current(database_url) == "0007_f007_containers"
 
     # 可从空库重建（downgrade base → upgrade head）
     assert run_alembic("downgrade", "base", dsn=database_url).returncode == 0
@@ -48,6 +49,7 @@ def test_migration_applies_repeats_and_rebuilds(database_url):
         "virtual_machines",
         "network_interfaces",
         "ip_addresses",
+        "containers",
     } <= table_names(engine)
     engine.dispose()
 
@@ -76,7 +78,34 @@ def test_f005_downgrade_to_0005_drops_ip_addresses_and_preserves_existing(databa
 
         assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
         assert "ip_addresses" in table_names(engine)
+        assert alembic_current(database_url) == "0007_f007_containers"
+    finally:
+        engine.dispose()
+
+
+def test_f007_downgrade_to_0006_drops_containers_and_preserves_existing(database_url):
+    """F007：``alembic downgrade 0006_f005_ip_addresses`` 后 ``containers`` 被删、
+    既有表（含 ``ip_addresses``）完好；再次 ``upgrade head`` 可重建。"""
+    engine = upgrade_to_head(database_url)
+    try:
+        assert run_alembic("downgrade", "0006_f005_ip_addresses", dsn=database_url).returncode == 0
         assert alembic_current(database_url) == "0006_f005_ip_addresses"
+        with engine.connect() as conn:
+            containers = conn.execute(text("SELECT to_regclass('public.containers')")).scalar()
+        assert containers is None, "downgrade 后 containers 必须被删除"
+        assert {
+            "clusters",
+            "users",
+            "sessions",
+            "bare_metals",
+            "virtual_machines",
+            "network_interfaces",
+            "ip_addresses",
+        } <= table_names(engine)
+
+        assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
+        assert "containers" in table_names(engine)
+        assert alembic_current(database_url) == "0007_f007_containers"
     finally:
         engine.dispose()
 
@@ -103,7 +132,7 @@ def test_f004_downgrade_to_0004_drops_nic_and_preserves_existing(database_url):
 
         assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
         assert "network_interfaces" in table_names(engine)
-        assert alembic_current(database_url) == "0006_f005_ip_addresses"
+        assert alembic_current(database_url) == "0007_f007_containers"
     finally:
         engine.dispose()
 
@@ -122,7 +151,7 @@ def test_f006_downgrade_to_0003_drops_vm_and_preserves_existing(database_url):
 
         assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
         assert "virtual_machines" in table_names(engine)
-        assert alembic_current(database_url) == "0006_f005_ip_addresses"
+        assert alembic_current(database_url) == "0007_f007_containers"
     finally:
         engine.dispose()
 

@@ -67,6 +67,8 @@ def test_only_expected_tables_registered():
         "virtual_machines",
         "network_interfaces",
         "ip_addresses",
+        # F007：Container 独立资源表。
+        "containers",
     }
 
 
@@ -79,6 +81,8 @@ APPROVED_API_PREFIXES = {
     "virtual-machines",
     "network-interfaces",
     "ip-addresses",
+    # F007：Container 资源端点。
+    "containers",
 }
 
 

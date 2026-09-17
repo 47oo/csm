@@ -694,11 +694,13 @@ relationships:
   - id: Container-to-Hosts
     from: Container
     to: [VirtualMachine, BareMetal]
-    cardinality: UNCONFIRMED
-    mandatory: UNCONFIRMED
-    binding_state: UNCONFIRMED
+    cardinality: many_to_one
+    mandatory: true
+    selector: exactly_one
+    binding_state: CONFIRMED
+    rule_ids: [R-CONTAINER-002]
     resolve_in_feature: F007
-    must_not_assume: 不得默认绑定为必选
+    resolved_on: "2026-09-16"
 
 relationship_rules:
   - 不得仅根据资源分类自动产生关系
@@ -842,7 +844,9 @@ open_questions:
     detail: 是否登记每个 Container、是否仅登记长期服务型、是否需要 K8s workload 等更高层对象
     resolve_in_feature: F007
     blocking: false
-    status: OPEN
+    status: CLOSED_RESOLVED
+    resolved_on: "2026-09-16"
+    resolution: R-CONTAINER-001~005（长期服务型实例、载体恰好一个、载体内 name 唯一、可选字段纯文本、双载体父删子拦）
   - id: OPEN-003
     topic: Service 字段
     confirmed_part: Service Name / Type 允许自由登记
@@ -884,7 +888,7 @@ must_not_assume:
   - 所有实时状态都需要永久保存
   - 虚拟化平台必须在第一版接入
   - CSM 必须具备传统 CMDB 的全部能力
-  - 容器绑定运行载体是必选的
+  - 容器绑定运行载体是必选的（R-CONTAINER-002 已于 2026-09-16 确认为必选且恰好一个；本条不再适用）
   - Excel 导入支持部分成功（2026-09-15 已裁定为 All-or-Nothing）
   - 口令可以任意长度（R-AUTH-004 已确认至少 8 位）
   - 用户名大小写不敏感（R-AUTH-005 已确认区分大小写）

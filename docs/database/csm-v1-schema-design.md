@@ -439,7 +439,7 @@ CREATE INDEX ix_sessions_expires_at ON sessions (expires_at);
 | Service → BareMetal / VM / Container | N:M | 是（R-SVC-005） | **本次不设计**（F008 延后） | — | — |
 | Service ↔ Cluster | 推导 | — | **不落列**（R-SVC-004 / R-SVC-006 禁止 `service.cluster_id`） | — | — |
 | VirtualMachine → BareMetal | N:1 | **是**（R-VM-005，2026-09-16 确认） | `virtual_machines.bare_metal_id NOT NULL` + FK | `ON DELETE RESTRICT` | 否（无 `cluster_id`：Cluster 归属由宿主推导） |
-| Container → 载体（BareMetal / VirtualMachine） | 未确认 | UNCONFIRMED | **本次不设计**，且**不得**固化为 `NOT NULL` | — | — |
+| Container → 载体（BareMetal / VirtualMachine） | N:0..1 ×2 | **是**（R-CONTAINER-002，2026-09-16 确认） | `containers.bare_metal_id` **或** `containers.virtual_machine_id`（**恰好一个非空**，由 `ck_containers_carrier_exactly_one` 保证）；两列均 `NULL` 允许 | `ON DELETE RESTRICT` | 否（无 `cluster_id`：Cluster 归属由载体推导） |
 
 **不级联结论**：全部 FK 使用 `ON DELETE RESTRICT`，无一处 `ON DELETE CASCADE`（R-DELETE-005 / ADR-0004）。逻辑删除是 `UPDATE ... SET deleted_at = now()`，不触发 FK。
 
@@ -690,7 +690,11 @@ COMMIT;
 | `0003_f002_bare_metals` | F002 | `bare_metals` + FK + status CHECK + partial unique + 索引 |
 | `0004_f004_network_interfaces` | F004 | `network_interfaces` + FK + 两个 CHECK + 索引 |
 | `0005_f005_ip_addresses` | F005 | `ip_addresses` + 两条 FK + partial unique + 索引 |
-| `0006+`（延后） | F006 / F007 / F008 | `virtual_machines` / `containers` / `services` + 绑定表 —— **字段待 Product 阶段确认，本次不设计** |
+| `0004` | F006 | `virtual_machines`（12 列）—— **✅ 已交付**（R-VM-004/005/006） |
+| `0005` | F004 | `network_interfaces`（8 列）—— **✅ 已交付** |
+| `0006` | F005 | `ip_addresses`（7 列）—— **✅ 已交付** |
+| `0007` | F007 | `containers`（11 列）—— **✅ 已交付**（设计见 `docs/database/f007-container-migration.md`） |
+| `0008+`（延后） | F008 | `services` + Service↔Host/Container 绑定表 —— **字段待 Product 阶段确认，本次不设计** |
 
 - **是否首次建表**：是（全部）。
 - **是否新增字段 / 约束 / 索引**：是（全部，属首次创建）。
@@ -728,7 +732,7 @@ ip_addresses.cluster_id == （NIC→BareMetal→Cluster 推导结果）
 「父资源存在活跃子资源时不得删除」的软删除拦截（必须在同一事务内对父行加锁）
 任何物理删除都不会被产品路径触发（R-DELETE-001）
 updated_at 是否准确（应用层维护；不得作为审计依据）
-UNCONFIRMED 关系（VM→BareMetal、Container→载体）不得在 API 层被当作必选
+已确认必选关系：VM→BareMetal（R-VM-005）、Container→载体（R-CONTAINER-002，恰好一个，BareMetal 或 VM 二选一）
 ```
 
 ---
@@ -886,10 +890,10 @@ UNCONFIRMED 关系（VM→BareMetal、Container→载体）不得在 API 层被�
 ### Non-blocking
 
 1. ~~**OPEN-004（BareMetal 硬件字段）延后到 F002 的 Product 阶段**~~ → **✅ 已关闭（2026-09-16，用户裁定 R-BM-007）**：`vendor` / `model` / `serial_number` / `cpu` / `memory` / `gpu` / `storage` 七列为**可选 `TEXT` 且允许 NULL**、`serial_number` 不参与唯一性，已并入 `bare_metals` 列清单，并在 `0003_f002_bare_metals` **首次建表时**一并创建（不再作为「后续新增列」落地）。无长度 / 格式 / 唯一约束；不使用 `ON DELETE CASCADE`、触发器或 `COLLATE`。
-2. **OPEN-001 / OPEN-002 / OPEN-003（VM / Container / Service 字段与粒度）延后到对应 Feature 的 Product 阶段** —— `virtual_machines` / `containers` / `services` 表本次**不设计、不给出字段清单**。未来接入时的模式（仅说明模式，不涉字段）：
+2. **OPEN-001 / OPEN-002 / OPEN-003（VM / Container / Service 字段与粒度）延后到对应 Feature 的 Product 阶段** —— ~~`virtual_machines` / `containers` / `services` 表本次**不设计、不给出字段清单**~~ → **✅ OPEN-001（R-VM-004/005/006，F006）与 OPEN-002（R-CONTAINER-001~005，F007）均已关闭**，`virtual_machines` 与 `containers` 已交付；**仅 `services` 仍待 F008**。未来接入时的模式（仅说明模式，不涉字段）：
    - Service 与 Cluster 的关联由运行载体推导，**不得**落 `service.cluster_id`（R-SVC-004 / R-SVC-006）；Service↔Host 需一张绑定表（N:M）；
    - ~~若未来某一资源（如 VirtualMachine）也需要「同 Cluster 内唯一」的名称 / 地址，可复用反规范化 `cluster_id` 模式~~ → **✅ 已关闭（R-VM-005 / R-VM-004，2026-09-16）**：VirtualMachine 名称唯一性边界是**全局**（跨宿主跨 Cluster），**不需要** `cluster_id`，且 R-VM-005 明确 VM **不单独记录** Cluster 归属；**不得**为 `virtual_machines` 落 `cluster_id` 列。
-   - VM→BareMetal、Container→载体在 DDL 中**不得**默认 `NOT NULL`（DEC-004 / DEC-005 归属 F006 / F007）。
+   - ~~VM→BareMetal、Container→载体在 DDL 中**不得**默认 `NOT NULL`~~ → **✅ 已关闭**：VM→BareMetal 由 R-VM-005 确认为必选（`virtual_machines.bare_metal_id NOT NULL`，F006）；Container→载体由 R-CONTAINER-002 确认为**恰好一个**（`containers` 两列可空 FK + `num_nonnulls(...) = 1`，F007）。
 3. **NIC 名称在同一 BareMetal 内是否唯一**未确认 → 当前**无唯一约束**；如需，属 F004 产品确认后新增 partial unique index。
 4. **`ip_address` 的格式校验与归一化**未确认 → 当前为 `TEXT`，无格式 CHECK；未来若确认应校验为合法 IP（含 / 不此前缀），需产品确认后再引入（`inet` 类型切换属语义变更，不可静默进行）。
 5. **Cluster 名称 / hostname 的长度、首尾空白、空字符串、Unicode NFC 规范化**未确认（domain-model `undefined_constraints`）→ 当前无 CHECK；NFC 归一化架构已记为 Non-blocking「当前不做」。
