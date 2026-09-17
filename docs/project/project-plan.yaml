@@ -984,7 +984,8 @@ features:
     open_questions:
       - id: NQ-01
         blocking: false
-        summary: "范围敏感：绑定变更（登记后追加 / 解除 / 替换载体）与「解除全部绑定 → 零载体」未确认；默认不提供（登记时确定、登记后不可变），R-SVC-009 的解除由「删除 Service」达成。若用户要求纳入 F008，本项立即升级为 Blocking，AC-48/AC-49 与端点范围须重做后再进入 Architecture。"
+        resolved_by: user-decision-2026-09-16
+        summary: "已确认：必须先删除，不做解绑功能。V1 不提供任何解除绑定能力（不追加 / 不解除 / 不替换）；载体绑定登记时一次确定、登记后不可变；释放运行载体的唯一途径是逻辑删除该 Service。已固化为 R-SVC-009（requirements.md §14）；AC-48 / AC-49 / AC-35 由「默认」转为已确认规则。"
       - id: NQ-02
         blocking: false
         summary: name 登记后可变性未确认（先例不一致）；默认不可变（PROPOSED-4）。

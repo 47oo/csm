@@ -795,7 +795,9 @@ Service 必须拥有 `name`；`name` 在所有当前有效 Service 范围内**�
 
 生命周期：
 
-* 绑定了活跃 Service 的运行载体（BareMetal / VirtualMachine / Container），在其仍被该 Service 绑定时**不得删除**（R-DELETE-004 的泛化）；需先解除绑定或删除 Service；
+* 绑定了活跃 Service 的运行载体（BareMetal / VirtualMachine / Container），在其仍被该 Service 绑定时**不得删除**（R-DELETE-004 的泛化）；需**先删除该 Service**；
+* **V1 不提供「解除绑定」能力**（2026-09-16 确认）：Service 的运行载体绑定在**登记时一次确定、登记后不可变**——既不能追加、也不能解除或替换；因此释放运行载体的**唯一**途径是逻辑删除该 Service。
+* 由此推出：活跃 Service **必须**始终绑定至少一个运行载体（R-SVC-005），且**不存在任何使已有活跃 Service 变为零载体的产品路径**；删除 Service 后其原载体不再受该 Service 约束（R-DELETE-006 的绑定侧表现），且删除 Service **不级联**删除载体（下条）。
 * 逻辑删除 Service **不得自动级联**删除其运行载体或其他资源（R-DELETE-005）。
 
 ---
