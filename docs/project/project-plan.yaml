@@ -1098,22 +1098,22 @@ features:
     name: 资源详情与关联查询
     epic: E05
     priority: P1
-    status: IN_PROGRESS
+    status: IN_REVIEW
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
     blocking: []
     git:
       base_branch: develop
       branch: feature/F010-resource-detail
       start_commit: 1baedc0d092424926e61afa4f6cf2d869f8236a6
-      head_commit: 1baedc0d092424926e61afa4f6cf2d869f8236a6
+      head_commit: 6109d4c8106b02a8bce5fd8603833e02a7205209
       merge_commit: null
-    current_stage: IMPLEMENTATION
+    current_stage: TEST
     last_result: >-
       Product 阶段曾因 2 个 Blocking 产品歧义（BQ-1 / BQ-2）按 §11 停止；用户已于 2026-09-18 裁定
       两者均取「含间接」，并已固化为 requirements.md R-QUERY-003 的产品规则。Product Gate 通过。
     next_action: >-
-      Backend + Frontend 并行实现（database: false，无需 Database Design）。Backend 交付 app/resource_views/**
-      单一只读聚合端点 GET /api/bare-metals/{id}/related；Frontend 在 BareMetalDetailPage 增加「关联资源」区。
+      Tester（重点：AC-18 集合深等、AC-10 的「已软删 B 仍 404」、嵌套查找不抛 404（空类/已删子不得使活跃主机变 404）、
+      AC-11/AC-12 五类分别空、AC-14 逐类预置软删子资源、AC-16 软删 B、G-010-1~8 注入可失败性）→ Reviewer → Merge Gate。
     layers:
       database: false    # 无 schema 变更 / 无 migration；全部读取委托既有 canonical 过滤原语与既有索引
       backend: true      # 新增 app/resource_views/**（router/service/schemas）+ main 挂载 + EXPECTED_GET_ROUTES 追加 + G-010 guard
@@ -1123,8 +1123,8 @@ features:
       doc: docs/api/f010-resource-detail.md
     implementation:
       database_design: NOT_REQUIRED   # database: false
-      backend: PENDING
-      frontend: PENDING
+      backend: COMPLETE
+      frontend: COMPLETE
       test: PENDING
       review: PENDING
     product_document: docs/product/requirements.md
@@ -2156,7 +2156,7 @@ planning_status:
 
 execution:
   current_feature: F010
-  current_stage: IMPLEMENTATION
+  current_stage: TEST
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
