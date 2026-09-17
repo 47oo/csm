@@ -2,81 +2,32 @@
 
 CSM Web 前端。
 
-技术栈（ADR-0001，`ACCEPTED`）：**Vue 3 + TypeScript + Vite + Element Plus**。除该技术栈外未引入其他状态管理 / UI / CSS 框架。
+技术栈（ADR-0001，`ACCEPTED`）：**Vue 3 + TypeScript + Vite + Element Plus**。除该技术栈外未引入其他状态管理 / UI / CSS 框架，也**未引入 `vue-router`**——页面切换由 `App.vue` 内的极简视图状态完成，多资源导航出现前再决策路由方案。
 
-## 当前范围（F001）
+## 已交付范围
 
-F001 交付 **Cluster 登记与管理** 的前端部分（契约：`docs/api/f001-cluster.md`，`READY`）：
+前端按 Feature 增量交付，每个 Feature 的范围以其产品 / 架构 Handoff 与 `docs/api/` 契约为准。**API 契约唯一权威来源是 `docs/api/`，代码中不得另立约定。**
 
-- **Cluster API 客户端**（`src/api/clusters.ts`）：5 个端点（`POST /api/clusters`、
-  `GET /api/clusters`、`GET /api/clusters/{id}`、`GET /api/clusters/by-name/{name}`、
-  `PATCH /api/clusters/{id}`），复用统一请求封装 `src/api/http.ts`，不新建请求层；
-  类型 `ClusterRead` 字段集合封闭（`id` / `name` / `created_at` / `updated_at`），
-  时间字段按不透明字符串展示 / 传递；
-- **集群列表页**（`ClusterListPage`）：展示 4 个字段与分页（`page` / `page_size`）；
-  **Loading / Empty / Error 三态互不相同**（Empty = `200` + `items` 为空；
-  Error 按 `error.code` 分支渲染，**不解析 `message`**）；
-- **集群详情页骨架**（`ClusterDetailPage`）：仅呈现 Cluster 自身字段；
-  `404 NOT_FOUND` 渲染为独立的「资源不存在或已被删除」态，与列表 Empty 是
-  **不同**状态（R-QUERY-004 / `api-conventions.md` §7）；
-- **三态基座**（`ListStates` / `ErrorState` / `useAsyncQuery`）：自 F012 保留为
-  可复用基座，由产品页面与其测试使用；F012 判据 6 的验证力由 Cluster 列表页
-  三态测试承载；
-- 页面切换由 `App.vue` 内的极简视图状态完成（**不引入 `vue-router`**，
-  多资源导航出现前再决策路由方案）。
+| Feature | 交付内容 | 契约 |
+| --- | --- | --- |
+| **F012 / F001** | 三态基座（`ListStates` / `ErrorState` / `useAsyncQuery`）；Cluster 列表页与详情页骨架（`404` 独立于 Empty） | `docs/api/f001-cluster.md` |
+| **F013** | 认证 API 客户端、登录页、`App.vue` 会话门控（`bootstrap → login → app`）、全局 401 处理 | `docs/api/f013-auth.md` |
+| **F014** | 删除流程基座（`useResourceDelete`）与 Cluster 删除入口（列表 / 详情、二次确认、`409` 冲突提示） | `docs/api/f014-soft-delete.md` |
+| **F002** | BareMetal API 客户端、列表 / 详情 / 登记 / 状态维护 / 删除；从 Cluster 详情进入「集群限定」列表 | `docs/api/f002-bare-metal.md` |
+| **F009** | Cluster 视角成员视图（复用 F002 的集群限定列表，无新增前端实现）；按名称寻址的只读别名仅由后端提供 | `docs/api/f009-cluster-resource-view.md` |
+| **F006** | VirtualMachine API 客户端、列表 / 详情 / 登记 / 可选字段维护 / 删除；从 BareMetal 详情进入「该宿主虚拟机」 | `docs/api/f006-virtual-machine.md` |
+| **F004** | NetworkInterface API 客户端、列表 / 详情 / 登记 / 技术类型与用途维护 / 删除；从 BareMetal 详情进入「该宿主网络接口」 | `docs/api/f004-network-interface.md` |
 
-> F012 的非产品自检面 `/_foundation/*` 已于 F001 彻底移除：dev 自检页与
-> `src/api/foundation.ts` 已删除，Vite dev proxy 仅保留 `/api`。
+**跨 Feature 的渲染约定**（全部页面一致）：
 
-F001 前端**不包含**：登记 / 改名表单（PROPOSED，不构成 AC；API 客户端已就绪）、
-Cluster 删除入口（已于 F014 交付，见下文「当前范围（F014）」）、BareMetal 相关内容
-（F002+）。
+- **Loading / Empty / Error 三态互不相同**；Empty（`200` + `items` 为空）与 Not Found（`404`）必须渲染为**不同**状态（`api-conventions.md` §7 / R-QUERY-004）；
+- 错误分支只依赖 `error.code`（必要时 `details[].code` / `details[].field`），`error.message` 仅作补充展示、**不参与任何分支判断**；
+- 删除 / 维护失败：`409` 保留内容并渲染冲突提示，`404` 与成功同构（资源已不在活跃集合 → 刷新视图），`401` 交由全局会话失效处理；
+- **领域校验全部在服务端**（§21）：唯一性、父资源存在性与活跃性、删除守卫、枚举合法性均由后端裁决，前端不预判、不禁用、不隐藏入口；
+- **未定义约束不做任何变换**：`name` / `hostname` 等字段不做长度 / trim / 归一化 / 空串校验，也不基于 `undefined_constraints` 编写业务分支；
+- 所有 HTTP 调用集中在 `src/api/`，页面组件不得直接 `fetch`。
 
-## 当前范围（F013）
-
-F013 交付**本地账号认证与会话**的前端部分（契约：`docs/api/f013-auth.md`，
-`READY`）：
-
-- **认证 API 客户端**（`src/api/auth.ts`）：`login` / `logout` /
-  `getCurrentSession`，类型 `AuthenticatedUser`（`id` / `username`，字段集合
-  封闭），复用 `src/api/http.ts`，不新建请求层；会话 Cookie（`csm_session`，
-  `HttpOnly`）由浏览器管理，前端不读不写任何令牌；`login` 与启动期
-  `getCurrentSession` 抑制全局 401 跳转，由请求方自行处理 401 语义；
-- **全局 401 处理**（`src/api/http.ts`）：`setUnauthenticatedHandler(handler)`，
-  未抑制的请求收到 `error.code === 'UNAUTHENTICATED'` 时调用（典型：会话过期
-  后的资源请求 → 切回登录页）；仍不解析 `message`；
-- **登录页**（`LoginPage`）：`username` + `password` 仅必填校验（R-AUTH-004
-  不属登录路径）；默认 / 提交 Loading（禁重复提交）/ 失败提示（401 → 停留
-  + 固定提示，按 `error.code` 分支，不区分失败原因，R-AUTH-006）三态互不相同；
-- **App 会话门控**（`App.vue`）：视图状态 `bootstrap → login → app`（仍不引入
-  `vue-router`）；挂载时 `getCurrentSession()`；全局 401 → 切回登录页并清除当前
-  视图状态；登出按钮把 `204` 与 `401` 归一为同一处理（契约 §5.2）。
-
-F013 前端**不包含**：注册页 / 注册表单、账号管理页、口令修改 / 找回、路由库。
-
-## 当前范围（F014）
-
-F014 交付**逻辑删除（Cluster 删除路径）**的前端部分（契约：
-`docs/api/f014-soft-delete.md`，`READY`）：
-
-- **Cluster API 客户端**（`src/api/clusters.ts`）：新增 `deleteCluster`（
-  `DELETE /api/clusters/{id}`；成功 `204` 无响应体；不发送请求体），
-  复用 `src/api/http.ts`，不新建请求层；
-- **删除流程基座**（`src/composables/useClusterDelete.ts`）：二次确认后的删除
-  请求、提交中防重复、`204` / `404`（与成功同构：资源已不在活跃集合 → 通知调用方
-  刷新视图）、`401`（交由既有全局会话失效处理）、其余失败按 `error.code`
-  （必要时 `details[].code`，如 `ACTIVE_CHILDREN_EXIST`）生成固定文案——
-  **不解析 `message`**；
-- **集群列表页**：每行删除入口（`el-popconfirm` 二次确认）；删除成功 → 刷新列表，
-  被删行消失，当前页变空 → Empty 态；`409 CONFLICT`（存在活跃子资源）→ 保留行并
-  渲染冲突提示（可关闭）；提交中按钮 Loading 且禁止重复提交；
-- **集群详情页**：内容态删除入口；删除成功或目标已不存在 → 重新读取 → 进入既有
-  独立 Not Found 态；`409` → 保留详情内容并渲染冲突提示；
-- 删除守卫（父资源存在活跃子资源）**完全由后端裁决**（§21），前端不预判、不禁用、
-  不隐藏删除入口。
-
-F014 前端**不包含**：恢复 / 回收站 / 已删资源查看 / 批量删除 / 审计展示 /
-BareMetal 相关 UI（F002+）。
+**当前未交付**（属后续 Feature）：Container（F007）、Service（F008）、资源详情与关联查询聚合视图（F010）、Excel 批量导入（F011）的 UI；恢复 / 回收站 / 已删资源查看 / 批量操作 / 审计展示 / 导出 / 高级筛选；账号管理页与口令修改。
 
 ## 环境要求
 
@@ -117,25 +68,38 @@ CSM_DEV_API_TARGET=http://127.0.0.1:9000 npm run dev
 frontend/
 ├── src/
 │   ├── api/
-│   │   ├── auth.ts               # 认证 API 客户端（契约 f013-auth.md）
-│   │   ├── clusters.ts           # Cluster 产品 API 客户端（契约 f001-cluster.md / f014-soft-delete.md）
-│   │   └── http.ts               # 统一请求封装 + ApiError 归一化 + 全局 401 处理（基座）
+│   │   ├── auth.ts               # 认证 API 客户端（f013-auth.md）
+│   │   ├── bareMetals.ts         # BareMetal API 客户端（f002-bare-metal.md）
+│   │   ├── clusters.ts           # Cluster API 客户端（f001-cluster.md / f014-soft-delete.md）
+│   │   ├── http.ts               # 统一请求封装 + ApiError 归一化 + 全局 401 处理（基座）
+│   │   ├── networkInterfaces.ts  # NetworkInterface API 客户端（f004-network-interface.md）
+│   │   └── virtualMachines.ts    # VirtualMachine API 客户端（f006-virtual-machine.md）
 │   ├── components/
 │   │   ├── ErrorState.vue        # 按 error.code 分支渲染的错误态（基座）
-│   │   └── ListStates.vue        # 列表 Loading / Error / Empty / 内容容器（基座）
+│   │   ├── ListStates.vue        # 列表 Loading / Error / Empty / 内容容器（基座）
+│   │   ├── BareMetalFormDialog.vue
+│   │   ├── BareMetalStatusTag.vue
+│   │   ├── NetworkInterfaceFormDialog.vue
+│   │   └── VirtualMachineFormDialog.vue
 │   ├── composables/
 │   │   ├── useAsyncQuery.ts      # 异步查询三态管理 + 竞态防护（基座）
-│   │   └── useClusterDelete.ts   # Cluster 删除流程（防重复 / 404 同构 / 401 全局 / 错误按 code 渲染）
+│   │   ├── useResourceDelete.ts   # 删除流程共享基座（二次确认 / 防重复 / 404 同构 / 401 全局 / 错误按 code）
+│   │   ├── useClusterDelete.ts
+│   │   ├── useBareMetalDelete.ts
+│   │   ├── useVirtualMachineDelete.ts
+│   │   └── useNetworkInterfaceDelete.ts
 │   ├── pages/
-│   │   ├── ClusterDetailPage.vue # 集群详情页（404 态独立于 Empty；F014 起含删除入口）
-│   │   ├── ClusterListPage.vue   # 集群列表页（产品页，三态 + 分页；F014 起含行级删除入口）
-│   │   └── LoginPage.vue         # 登录页（三态 + 仅必填校验）
+│   │   ├── LoginPage.vue
+│   │   ├── ClusterListPage.vue / ClusterDetailPage.vue
+│   │   ├── BareMetalListPage.vue / BareMetalDetailPage.vue
+│   │   ├── VirtualMachineListPage.vue / VirtualMachineDetailPage.vue
+│   │   └── NetworkInterfaceListPage.vue / NetworkInterfaceDetailPage.vue
 │   ├── types/
 │   │   └── api.ts                # 契约类型（错误信封 / 分页信封 / 错误码）
-│   ├── App.vue                   # 会话门控 + 极简视图状态：bootstrap / login / app
+│   ├── App.vue                   # 会话门控 + 极简视图状态（bootstrap / login / app）
 │   ├── main.ts
 │   └── assets/main.css
-├── tests/                        # vitest 单元测试
+├── tests/                        # vitest 单元测试（含 setup/）
 ├── index.html
 ├── package.json
 ├── tsconfig.json
@@ -150,9 +114,22 @@ frontend/
   `error.message` 仅作为补充文案展示，不参与任何分支判断；
 - Empty（请求成功但无数据）与 Not Found（404）必须渲染为不同状态
   （`api-conventions.md` §7 / R-QUERY-004）；
-- 领域校验（`/` 禁令、活跃唯一性）全部在服务端，前端不重复实现业务规则，
-  也不对 `name` 做长度 / trim / 归一化等任何变换（`undefined_constraints`）；
-- 测试环境备注：`vite.config.ts` 中将 `element-plus` 内联（
-  `test.server.deps.inline`），因其 CJS 依赖 `async-validator` 在 vitest
-  外部化加载时默认导入解析错误，会导致 `el-form` 校验在测试中静默失效；
-  浏览器构建不受影响。
+- 领域校验（唯一性、父资源活跃性、删除守卫、枚举合法性）全部在服务端，前端不重复实现业务规则，
+  也不对 `name` 等字段做长度 / trim / 归一化等任何变换（`undefined_constraints`）。
+
+## 测试环境备注
+
+以下 `vite.config.ts` 配置都是**测试基础设施**，不影响浏览器构建，且均已附带原因注释：
+
+- **`element-plus` 内联**（`test.server.deps.inline`）：其 CJS 依赖 `async-validator`
+  在 vitest 外部化加载时默认导入解析错误，会导致 `el-form` 校验在测试中静默失效。
+- **`maxWorkers: 4` / `fsModuleCache: true`**：限制并发 worker 数并持久化模块转换缓存，
+  降低多 worker 同时内联转换 `element-plus` 时的时序抖动。
+- **`testTimeout: 20000`** 与 spec 内的 `waitForUi`（10s）：仅放宽**时序上限**，
+  **不改变任何断言语义**。
+- **`tests/setup/monotonic-date-now.ts`**：在测试进程内把 `Date.now()` 单调化（时钟正常时为恒等操作）。
+  宿主机 NTP 校时会让系统时钟周期性**向后跳变**，而 Vue 的事件调用器会丢弃时间戳早于自身的
+  事件（`e._vts <= invoker.attached`），导致 `trigger()` 的点击被静默吞掉、测试随机超时。
+  单调化后这一比较恢复「健康机器」语义；**它不改变产品代码，也不会让错误实现通过**——
+  被丢弃的点击发生在业务 handler 之前。若在未来环境或 vitest 版本下不再需要，可移除本文件与注册项，并
+  预期测试仍稳定。
