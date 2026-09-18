@@ -77,12 +77,15 @@ FORBIDDEN_SOURCE_TOKENS = (
     "networkx",
 )
 
-#: G-010-8：F009 交付的 Cluster 视角路径集合（F010 不得新增）。
+#: G-010-8 / G-018-8：F009 交付的 Cluster 视角路径集合。
+#: F018 演进：**追加** Cluster 内搜索路径（保留 F009 四条）。
 F009_CLUSTER_PATHS = {
     "/api/clusters",
     "/api/clusters/by-name/{cluster_name}",
     "/api/clusters/{cluster_id}",
     "/api/clusters/by-name/{cluster_name}/bare-metals",
+    # F018：Cluster 内关键字搜索（仅追加，不得删除 F009 四条）。
+    "/api/clusters/{cluster_id}/search",
 }
 
 

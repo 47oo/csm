@@ -18,6 +18,10 @@ import ContainerListPage from './pages/ContainerListPage.vue'
 import ContainerDetailPage from './pages/ContainerDetailPage.vue'
 import ServiceListPage from './pages/ServiceListPage.vue'
 import ServiceDetailPage from './pages/ServiceDetailPage.vue'
+import SearchResultsPage from './pages/SearchResultsPage.vue'
+import { listClusters } from './api/clusters'
+import type { ClusterRead } from './api/clusters'
+import { ApiError } from './api/http'
 
 /**
  * 会话与视图状态（F013；仍不引入 vue-router，f013-auth-handoff.md PROPOSED-5；
@@ -27,7 +31,9 @@ import ServiceDetailPage from './pages/ServiceDetailPage.vue'
  * f004-network-interface-handoff.md Frontend Work #6；F005 起再增加
  * IPAddress 视图，f005-ip-address-handoff.md Frontend Work #6；F007 起再增加
  * Container 视图，f007-container-handoff.md Frontend Work；F008 起再增加
- * Service 视图，f008-service-handoff.md Frontend Work
+ * Service 视图，f008-service-handoff.md Frontend Work；F018 起侧边栏新增
+ * 搜索区与 search 视图（f018-cluster-keyword-search-handoff.md Frontend
+ * Work #2，R-QUERY-005 / AC-D5）
  * （导航形式不构成产品规则）。
  *
  * 视图状态：bootstrap（启动会话探测中）→ login（未认证 / 会话失效）↔ app（已认证）。
@@ -50,6 +56,16 @@ interface BareMetalDetailReturn {
   kind: 'bare-metal-detail'
   bareMetalId: number
   clusterId: number | null
+}
+
+/**
+ * F018：从搜索结果进入资源详情时记录的返回目标（仿 F010 returnView 模式），
+ * 保留搜索上下文（范围 Cluster 与关键字），返回时恢复搜索结果视图。
+ */
+interface SearchReturn {
+  kind: 'search'
+  clusterId: number
+  keyword: string
 }
 
 /**
@@ -86,25 +102,37 @@ interface BareMetalDetailReturn {
  *   内能力，carrier_type + carrier_id 成对），返回时回集群列表；
  * - service-detail：服务详情；登记成功后可跳转到新服务的详情（openDetail）；
  *   F010 起从裸金属关联区进入的携带 returnView，返回时回裸金属详情，
- *   否则回服务列表。
+ *   否则回服务列表；
+ * - search：搜索结果（F018，R-QUERY-005）；单一混合列表（不分组），范围
+ *   恒为触发搜索时选定的 Cluster，关键字原样保留；结果行进入六类详情时
+ *   以 SearchReturn 携带本视图为返回目标。
  *
  * F010 起五个子资源详情视图均携带可选 returnView（从裸金属详情「关联资源」
  * 进入时的返回目标，保留集群过滤上下文；f010-resource-detail-handoff.md
- * Frontend Work #3，导航形式不构成产品规则）。
+ * Frontend Work #3，导航形式不构成产品规则）。F018 起六类详情视图从搜索
+ * 结果进入时携带 SearchReturn（f018-cluster-keyword-search-handoff.md
+ * Frontend Work #2；裸金属详情为 F018 新增的可选字段，其余五类 widening
+ * 既有可选字段，未携带时行为不变）。
  */
 type ResourceView =
   | { kind: 'cluster-list' }
   | { kind: 'cluster-detail'; clusterId: number }
   | { kind: 'bare-metal-list'; clusterId: number | null }
-  | { kind: 'bare-metal-detail'; bareMetalId: number; clusterId: number | null }
+  | {
+      kind: 'bare-metal-detail'
+      bareMetalId: number
+      clusterId: number | null
+      /** F018：从搜索结果进入时的直接返回目标；缺省时返回裸金属列表（不变）。 */
+      returnView?: SearchReturn
+    }
   | { kind: 'virtual-machine-list'; bareMetalId: number | null; returnClusterId: number | null }
   | {
       kind: 'virtual-machine-detail'
       virtualMachineId: number
       bareMetalId: number | null
       returnClusterId: number | null
-      /** F010：从裸金属关联区进入时的直接返回目标。 */
-      returnView?: BareMetalDetailReturn
+      /** F010：从裸金属关联区进入时的直接返回目标；F018 起亦可为搜索视图。 */
+      returnView?: BareMetalDetailReturn | SearchReturn
     }
   | { kind: 'network-interface-list'; bareMetalId: number | null; returnClusterId: number | null }
   | {
@@ -112,8 +140,8 @@ type ResourceView =
       networkInterfaceId: number
       bareMetalId: number | null
       returnClusterId: number | null
-      /** F010：从裸金属关联区进入时的直接返回目标。 */
-      returnView?: BareMetalDetailReturn
+      /** F010：从裸金属关联区进入时的直接返回目标；F018 起亦可为搜索视图。 */
+      returnView?: BareMetalDetailReturn | SearchReturn
     }
   | {
       kind: 'ip-address-list'
@@ -127,34 +155,112 @@ type ResourceView =
       networkInterfaceId: number | null
       returnBareMetalId: number | null
       returnClusterId: number | null
-      /** F010：从裸金属关联区进入时的直接返回目标。 */
-      returnView?: BareMetalDetailReturn
+      /** F010：从裸金属关联区进入时的直接返回目标；F018 起亦可为搜索视图。 */
+      returnView?: BareMetalDetailReturn | SearchReturn
     }
   | { kind: 'container-list' }
   | {
       kind: 'container-detail'
       containerId: number
-      /** F010：从裸金属关联区进入时的直接返回目标；否则返回容器列表。 */
-      returnView?: BareMetalDetailReturn
+      /** F010：从裸金属关联区进入时的直接返回目标；F018 起亦可为搜索视图；
+       * 否则返回容器列表。 */
+      returnView?: BareMetalDetailReturn | SearchReturn
     }
   | { kind: 'service-list' }
   | {
       kind: 'service-detail'
       serviceId: number
-      /** F010：从裸金属关联区进入时的直接返回目标；否则返回服务列表。 */
-      returnView?: BareMetalDetailReturn
+      /** F010：从裸金属关联区进入时的直接返回目标；F018 起亦可为搜索视图；
+       * 否则返回服务列表。 */
+      returnView?: BareMetalDetailReturn | SearchReturn
     }
+  | { kind: 'search'; clusterId: number; keyword: string }
 
 const view = ref<AppView>('bootstrap')
 const currentUser = ref<AuthenticatedUser | null>(null)
 const resourceView = ref<ResourceView>({ kind: 'cluster-list' })
 const loggingOut = ref(false)
 
+// ---- 外壳搜索区（F018，R-QUERY-005 / AC-D5） ----
+
+/** 搜索范围：已选定的 Cluster（与 resourceView 的集群上下文相互独立，
+ * f018 handoff PROPOSED-4）。 */
+const searchClusterId = ref<number | null>(null)
+/** 搜索关键字（原样值；仅用于「仅空白不可发起」的 UI 前置，不 trim 提交）。 */
+const searchKeyword = ref('')
+/** Cluster 选项（懒加载：首次展开选择器时 listClusters）。 */
+const searchClusterOptions = ref<ClusterRead[]>([])
+const searchClusterOptionsLoading = ref(false)
+const searchClusterOptionsError = ref<ApiError | null>(null)
+/** 选项是否已成功加载（失败不置位，下次展开重试）。 */
+let searchClusterOptionsLoaded = false
+
+/** 懒加载 Cluster 选项（与登记对话框同一取法：单次请求取上限重选项）。 */
+async function loadSearchClusterOptions(): Promise<void> {
+  if (searchClusterOptionsLoaded || searchClusterOptionsLoading.value) return
+  searchClusterOptionsLoading.value = true
+  searchClusterOptionsError.value = null
+  try {
+    const data = await listClusters({ page: 1, page_size: 200 })
+    searchClusterOptions.value = data.items
+    searchClusterOptionsLoaded = true
+  } catch (err) {
+    searchClusterOptions.value = []
+    searchClusterOptionsError.value =
+      err instanceof ApiError
+        ? err
+        : new ApiError({ status: 0, code: 'UNKNOWN_ERROR', message: '发生未知错误。' })
+  } finally {
+    searchClusterOptionsLoading.value = false
+  }
+}
+
+/** 首次展开选择器时懒加载选项（不在挂载时请求，不影响既有页面加载）。 */
+function handleSearchClusterVisible(visible: boolean): void {
+  if (visible) void loadSearchClusterOptions()
+}
+
+/** 搜索发起前置（AC-D5 / R-QUERY-005）：已选定 Cluster 且关键字非仅空白。 */
+const searchDisabled = computed(
+  () => searchClusterId.value === null || searchKeyword.value.trim() === '',
+)
+
+/** 再次触发的序号：同条件重复搜索时强制重新挂载结果页（重新请求）。 */
+const searchSequence = ref(0)
+
+function openSearchResults(clusterId: number, keyword: string): void {
+  searchSequence.value += 1
+  resourceView.value = { kind: 'search', clusterId, keyword }
+}
+
+/** 发起搜索：未选定 Cluster 或关键字仅空白时不可发起（按钮禁用同一判定）。 */
+function handleSearch(): void {
+  if (searchClusterId.value === null) return
+  if (searchKeyword.value.trim() === '') return
+  openSearchResults(searchClusterId.value, searchKeyword.value)
+}
+
+/**
+ * F018：捕获当前搜索视图作为返回目标（不在该视图时为 undefined，不生效）；
+ * 从搜索结果进入六类资源详情时携带，详情「返回列表」直接回到搜索结果。
+ */
+function searchReturnView(): SearchReturn | undefined {
+  const current = resourceView.value
+  return current.kind === 'search'
+    ? { kind: 'search', clusterId: current.clusterId, keyword: current.keyword }
+    : undefined
+}
+
 /** 切回登录页并清除当前视图状态（不保留任何资源数据）。 */
 function resetToLogin(): void {
   view.value = 'login'
   currentUser.value = null
   resourceView.value = { kind: 'cluster-list' }
+  searchClusterId.value = null
+  searchKeyword.value = ''
+  searchClusterOptions.value = []
+  searchClusterOptionsError.value = null
+  searchClusterOptionsLoaded = false
 }
 
 /** 登录成功 / 启动会话有效 → 进入系统（资源视图从集群列表开始）。 */
@@ -196,16 +302,27 @@ function backFromBareMetalList(): void {
       : { kind: 'cluster-list' }
 }
 
-/** 进入裸金属详情，保留当前列表的过滤上下文（返回时恢复）。 */
+/** 进入裸金属详情，保留当前列表的过滤上下文（返回时恢复）；F018 起从
+ * 搜索结果进入时携带搜索视图为返回目标。 */
 function openBareMetalDetail(bareMetalId: number): void {
   const current = resourceView.value
   const clusterId = current.kind === 'bare-metal-list' ? current.clusterId : null
-  resourceView.value = { kind: 'bare-metal-detail', bareMetalId, clusterId }
+  resourceView.value = {
+    kind: 'bare-metal-detail',
+    bareMetalId,
+    clusterId,
+    returnView: searchReturnView(),
+  }
 }
 
-/** 裸金属详情返回：回到进入前的裸金属列表（保留 cluster_id 过滤上下文）。 */
+/** 裸金属详情返回：F018 搜索进入的优先回搜索结果（保留搜索上下文），
+ * 否则回到进入前的裸金属列表（保留 cluster_id 过滤上下文）。 */
 function backFromBareMetalDetail(): void {
   const current = resourceView.value
+  if (current.kind === 'bare-metal-detail' && current.returnView !== undefined) {
+    resourceView.value = { ...current.returnView }
+    return
+  }
   const clusterId = current.kind === 'bare-metal-detail' ? current.clusterId : null
   resourceView.value = { kind: 'bare-metal-list', clusterId }
 }
@@ -236,7 +353,8 @@ function backFromVirtualMachineList(): void {
       : { kind: 'cluster-list' }
 }
 
-/** 进入虚拟机详情，保留当前列表的过滤上下文（返回时恢复）。 */
+/** 进入虚拟机详情，保留当前列表的过滤上下文（返回时恢复）；F018 起从
+ * 搜索结果进入时携带搜索视图为返回目标。 */
 function openVirtualMachineDetail(virtualMachineId: number): void {
   const current = resourceView.value
   const bareMetalId = current.kind === 'virtual-machine-list' ? current.bareMetalId : null
@@ -246,6 +364,7 @@ function openVirtualMachineDetail(virtualMachineId: number): void {
     virtualMachineId,
     bareMetalId,
     returnClusterId,
+    returnView: searchReturnView(),
   }
 }
 
@@ -296,7 +415,8 @@ function backFromNetworkInterfaceList(): void {
       : { kind: 'cluster-list' }
 }
 
-/** 进入网络接口详情，保留当前列表的过滤上下文（返回时恢复）。 */
+/** 进入网络接口详情，保留当前列表的过滤上下文（返回时恢复）；F018 起从
+ * 搜索结果进入时携带搜索视图为返回目标。 */
 function openNetworkInterfaceDetail(networkInterfaceId: number): void {
   const current = resourceView.value
   const bareMetalId = current.kind === 'network-interface-list' ? current.bareMetalId : null
@@ -307,6 +427,7 @@ function openNetworkInterfaceDetail(networkInterfaceId: number): void {
     networkInterfaceId,
     bareMetalId,
     returnClusterId,
+    returnView: searchReturnView(),
   }
 }
 
@@ -369,7 +490,8 @@ function backFromIpAddressList(): void {
       : { kind: 'cluster-list' }
 }
 
-/** 进入 IP 地址详情，保留当前列表的过滤上下文（返回时恢复）。 */
+/** 进入 IP 地址详情，保留当前列表的过滤上下文（返回时恢复）；F018 起从
+ * 搜索结果进入时携带搜索视图为返回目标。 */
 function openIpAddressDetail(ipAddressId: number): void {
   const current = resourceView.value
   const networkInterfaceId =
@@ -384,6 +506,7 @@ function openIpAddressDetail(ipAddressId: number): void {
     networkInterfaceId,
     returnBareMetalId,
     returnClusterId,
+    returnView: searchReturnView(),
   }
 }
 
@@ -416,9 +539,10 @@ function openContainerList(): void {
   resourceView.value = { kind: 'container-list' }
 }
 
-/** 进入容器详情（列表行入口，或详情页登记成功后跳转到新容器）。 */
+/** 进入容器详情（列表行入口，或详情页登记成功后跳转到新容器）；F018 起
+ * 从搜索结果进入时携带搜索视图为返回目标。 */
 function openContainerDetail(containerId: number): void {
-  resourceView.value = { kind: 'container-detail', containerId }
+  resourceView.value = { kind: 'container-detail', containerId, returnView: searchReturnView() }
 }
 
 /** 容器详情返回：F010 关联区进入的回裸金属详情（保留返回上下文），否则回容器列表。 */
@@ -438,9 +562,10 @@ function openServiceList(): void {
   resourceView.value = { kind: 'service-list' }
 }
 
-/** 进入服务详情（列表行入口，或详情页登记成功后跳转到新服务）。 */
+/** 进入服务详情（列表行入口，或详情页登记成功后跳转到新服务）；F018 起
+ * 从搜索结果进入时携带搜索视图为返回目标。 */
 function openServiceDetail(serviceId: number): void {
-  resourceView.value = { kind: 'service-detail', serviceId }
+  resourceView.value = { kind: 'service-detail', serviceId, returnView: searchReturnView() }
 }
 
 /** 服务详情返回：F010 关联区进入的回裸金属详情（保留返回上下文），否则回服务列表。 */
@@ -522,7 +647,8 @@ function openBareMetalRelatedService(serviceId: number): void {
 }
 
 /** 侧边栏导航高亮：当前资源区域（cluster-* / bare-metal-* / virtual-machine-* /
- * network-interface-* / ip-address-* / container-* / service-*）。 */
+ * network-interface-* / ip-address-* / container-* / service-*）；搜索视图为
+ * 跨资源区域，不高亮任何导航项（F018；f018 handoff OPEN-5 的默认策略）。 */
 const navSection = computed<
   | 'cluster'
   | 'bare-metal'
@@ -531,8 +657,10 @@ const navSection = computed<
   | 'ip-address'
   | 'container'
   | 'service'
+  | null
 >(() => {
   const kind = resourceView.value.kind
+  if (kind === 'search') return null
   if (kind.startsWith('cluster')) return 'cluster'
   if (kind.startsWith('bare-metal')) return 'bare-metal'
   if (kind.startsWith('virtual-machine')) return 'virtual-machine'
@@ -643,6 +771,55 @@ async function handleLogout(): Promise<void> {
               服务
             </el-button>
           </nav>
+          <!-- F018 外壳搜索区（R-QUERY-005 / AC-D5）：位于 nav 之后、会话区之前；
+               未选定范围或关键字仅空白时按钮禁用、不可发起。搜索控件文本不
+               含导航项文案（F017 Risks #1：避免 findButton 首个子串匹配误中）。 -->
+          <div class="app-shell__search" data-testid="shell-search-area">
+            <div class="app-shell__search-label">资源搜索</div>
+            <el-select
+              v-model="searchClusterId"
+              class="app-shell__search-cluster"
+              placeholder="搜索范围"
+              size="small"
+              data-testid="shell-search-cluster"
+              :loading="searchClusterOptionsLoading"
+              @visible-change="handleSearchClusterVisible"
+            >
+              <el-option
+                v-for="cluster in searchClusterOptions"
+                :key="cluster.id"
+                :label="cluster.name"
+                :value="cluster.id"
+              />
+            </el-select>
+            <div
+              v-if="searchClusterOptionsError !== null"
+              class="app-shell__search-hint"
+              :data-error-code="searchClusterOptionsError.code"
+            >
+              搜索范围加载失败（{{ searchClusterOptionsError.code }}）。
+              <el-button link type="primary" size="small" @click="loadSearchClusterOptions">
+                重试
+              </el-button>
+            </div>
+            <el-input
+              v-model="searchKeyword"
+              class="app-shell__search-keyword"
+              placeholder="关键字"
+              size="small"
+              data-testid="shell-search-keyword"
+            />
+            <el-button
+              class="app-shell__search-button"
+              type="primary"
+              size="small"
+              data-testid="shell-search"
+              :disabled="searchDisabled"
+              @click="handleSearch"
+            >
+              搜索
+            </el-button>
+          </div>
           <div class="app-shell__session">
             <span v-if="currentUser !== null" class="app-shell__username">
               {{ currentUser.username }}
@@ -729,6 +906,21 @@ async function handleLogout(): Promise<void> {
             @open-detail="openServiceDetail"
             @back="backToClusterList"
           />
+          <!-- F018 搜索结果：单一混合列表（不分组、不承诺排序）；再次触发搜索时
+               以序号 key 强制重新挂载（重新请求）。 -->
+          <SearchResultsPage
+            v-else-if="resourceView.kind === 'search'"
+            :key="searchSequence"
+            :cluster-id="resourceView.clusterId"
+            :keyword="resourceView.keyword"
+            @open-bare-metal-detail="openBareMetalDetail"
+            @open-network-interface-detail="openNetworkInterfaceDetail"
+            @open-ip-address-detail="openIpAddressDetail"
+            @open-virtual-machine-detail="openVirtualMachineDetail"
+            @open-container-detail="openContainerDetail"
+            @open-service-detail="openServiceDetail"
+            @back="backToClusterList"
+          />
           <ServiceDetailPage
             v-else
             :service-id="resourceView.serviceId"
@@ -791,6 +983,40 @@ async function handleLogout(): Promise<void> {
   color: #fff;
   background-color: #409eff;
   border-color: #409eff;
+}
+
+/* F018 外壳搜索区：nav 之后、会话区之前。 */
+.app-shell__search {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid #e4e7ed;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.app-shell__search-label {
+  color: #909399;
+  font-size: 12px;
+}
+
+.app-shell__search .el-select,
+.app-shell__search .el-input {
+  width: 100%;
+}
+
+.app-shell__search-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: #f56c6c;
+  font-size: 12px;
+}
+
+.app-shell__search .app-shell__search-button {
+  width: 100%;
 }
 
 .app-shell__session {
