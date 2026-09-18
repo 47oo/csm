@@ -219,3 +219,52 @@ BQ-1 规模、BQ-3 导入语义（OPEN-005 → R-IMPORT-004）、BQ-4 部署打�
 | NQ-1 | F017 | 用户是否确实要求实施 | **否（已裁定「做」，2026-09-18）** |
 | NQ-2 | F017 | 侧边栏视觉细节（折叠 / 图标 / 记忆折叠状态 / 宽度） | 否（UI 设计，最小改动） |
 | NQ-3 | F017 | 是否采用 Element Plus `el-menu`（实现选择，不写入 AC） | 否 |
+
+---
+
+# 2026-09-18 增补（二）：F018（集群内资源关键字搜索）
+
+> 权威定义见 `docs/project/project-plan.yaml`。**只追加，不重建既有正文**（漂移声明见上）。
+
+## 新增 Feature
+
+| ID | Feature | Epic | Priority | 状态 | depends_on | 阻塞原因 |
+|---|---|---|---|---|---|---|
+| F018 | 集群内资源关键字搜索 | E05 | P1 | **READY**（NQ-1~5 与 DEC-021 已裁定） | F001, F002, F004, F005, F006, F007, F008（均 DONE） | 无阻塞。实现前须先完成 Product（§16 新增产品规则）与 Architecture / Contract（契约形态 + 索引）；**入口在外壳，需 F017 先 merge** |
+
+**汇总增量**：`Feature 总数 17`、`DONE 14`、`CANCELLED 1`、`READY 1（F018）`、`IN_PROGRESS 1（F017）`、`DRAFT 0`、`BLOCKED 0`。
+**产品规则**：`requirements.md §16` **尚无对应 R-xxx**——本 Feature 需先由 Product 新增 / 修订一条关键字搜索规则。
+
+## Blocking Decisions（增量）
+
+| ID | type | 关联 | 状态 | 问题 |
+|---|---|---|---|---|
+| DEC-021 | product | F018, F002, F005, F009, F010 | **RESOLVED（2026-09-18 用户裁定「做」）** | 是否新增「集群内任意关键字查询」？若新增，是否因此**修订三份既有契约**中「不存在关键字查询参数、前端与调用方不得构造」的立场（及 F002 的「筛选」排除项）？ |
+
+**决策依据（既有契约原文，非推测）**：
+- `docs/api/f005-ip-address.md:129`：「**不存在** `cluster_id` / `vrf` / `status` / IP 前缀 / 排序 / **关键字**等第二维度查询参数；本契约不定义此类参数，前端与调用方**不得构造**。」
+- `docs/api/f009-cluster-resource-view.md:181`：「分页之外的排序 / **关键字** / 状态筛选 / 导出（无已确认需求）。」
+- `docs/api/f010-resource-detail.md:172`：「聚合级分页 / 排序 / **关键字** / 导出（本轮为按 `id` 升序的完整快照，无已确认需求）。」
+- `docs/api/f002-bare-metal.md:454`：「硬件字段的结构化拆分、统计 / 报表 / **筛选**」（排除项）。
+
+**另**：§16 Resource Query 仅 R-QUERY-001~004，**均不涉及关键字 / 模糊 / 全文搜索**；后端 `backend/app/**` **无任何**搜索实现；前端 `*ListPage.vue` **无任何**搜索输入。
+
+## Open Questions（增量）
+
+| ID | 阻塞 | 问题 |
+|---|---|---|
+| NQ-1 | **否（已裁定）** | 搜索范围：仅该 Cluster 下的 BareMetal，还是含 R-QUERY-003 的五类关联资源（含「含间接」推导）？ |
+| NQ-2 | **否（已裁定）** | 搜索字段：仅标识字段（name / hostname / ip_address），还是也含 vendor / model / cpu / os / owner / description 等描述性字段？ |
+| NQ-3 | **否（已裁定）** | 匹配语义：子串 / 前缀 / 全词？是否区分大小写（§22 与 `by-name` 均为区分大小写）？是否多关键字（AND / OR）？ |
+| NQ-4 | **否（已裁定）** | 结果呈现：分组还是混合列表？是否分页？是否显示命中字段？无结果时是否复用 R-QUERY-004 的 Empty？ |
+| NQ-5 | **否（已裁定）** | 入口位置：应用外壳全局搜索 / Cluster 详情页内搜索 / 选定集群后的列表页搜索框？（若落在外壳则与在途 F017 存在 `App.vue` 文件所有权冲突） |
+| NQ-6 | 否 | 索引与性能（10^5 规模下 `ILIKE '%kw%'` 无 B-tree）——归 Architecture / Database。 |
+| NQ-7 | 否 | 契约形态：新增独立搜索端点 vs 既有列表端点追加 `keyword` 参数——归 Architecture。 |
+| NQ-8 | 否 | 产品规则落点：在 §16 新增 / 修订一条规则——归 Product。 |
+| NQ-9 | 否 | 里程碑归属确认（M8 只含 F018）。 |
+
+## Milestones（增量）
+
+| ID | 名称 | Features | 状态 |
+|---|---|---|---|
+| M8 | 集群内资源关键字搜索 | F018 | READY — 已获用户批准；实现前须先完成 Product 与 Architecture/Contract；建议 F017 先 merge |
