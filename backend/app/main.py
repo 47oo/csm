@@ -25,6 +25,7 @@ from app.db.session import create_db_engine, create_session_factory
 from app.ip_addresses.router import router as ip_addresses_router
 from app.network_interfaces.router import router as network_interfaces_router
 from app.resource_views.router import router as resource_views_router
+from app.search.router import router as search_router
 from app.services.router import router as services_router
 from app.virtual_machines.router import router as virtual_machines_router
 
@@ -64,7 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # 产品 API 面：health + clusters + F009 cluster-views + bare-metals +
     # F010 resource-views（BareMetal 五类关联聚合）+ F006 virtual-machines +
     # F004 network-interfaces + F005 ip-addresses + F007 containers +
-    # F008 services + auth。全部位于 /api 前缀下。
+    # F008 services + F018 search + auth。全部位于 /api 前缀下。
     app.include_router(health_api.router, prefix="/api")
     app.include_router(clusters_router, prefix="/api")
     app.include_router(cluster_views_router, prefix="/api")
@@ -75,6 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(ip_addresses_router, prefix="/api")
     app.include_router(containers_router, prefix="/api")
     app.include_router(services_router, prefix="/api")
+    app.include_router(search_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
 
     return app
