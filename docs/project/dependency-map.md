@@ -181,7 +181,7 @@ F010 ─┘
 F001 ─┐
 F002 ─┤
 F004 ─┤
-F005 ─┼──> F018 集群内资源关键字搜索 (P1, DRAFT)
+F005 ─┼──> F018 集群内资源关键字搜索 (P1, READY)
 F006 ─┤      layers: database=false（待 NQ-6 裁定） / backend=true / frontend=true
 F007 ─┤      contract: REQUIRED（须新增或修订既有契约的关键字立场）
 F008 ─┘
