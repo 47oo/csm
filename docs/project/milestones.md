@@ -3,7 +3,7 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend 技术层划分。
-> Last updated: 2026-09-18（M2 / M3 已 DONE；M4 进行中：F006 已 DONE，F007 待完成，F008 待启动）
+> Last updated: 2026-09-18（**M1–M6 全部 DONE**；新增 M7（F017，DRAFT）待用户确认）
 
 完成判据统一要求：对应 Feature 的 Reviewer 为 `APPROVED` / `APPROVED WITH FOLLOW-UP`，
 必要测试通过，且 Feature Branch 已成功 merge 到 develop，项目状态已更新并提交
@@ -156,3 +156,29 @@
 
 达到明确 Milestone 后，是否将 develop 合并到 main 由独立授权的 Release 流程决定，
 本计划不自动 push、打 tag 或发布（见 `docs/project/git-workflow.md` §1）。
+
+---
+
+## M7 — 应用外壳侧边栏导航（post-V1，呈现层）· 状态：DRAFT（待用户确认）
+
+> **2026-09-18 追加。** 本里程碑由用户的**可行性询问**登记，**尚未确认为需求**。
+> 权威定义见 `docs/project/project-plan.yaml` 的 `milestones[M7]` 与 `features[F017]`。
+
+| ID | Feature | Priority | 状态 |
+|---|---|---|---|
+| F017 | 应用外壳侧边栏导航 | P2 | DRAFT（唯一未处置 Feature） |
+
+**进入条件**
+- **用户明确确认实施**（解除 F017 的 NQ-1 与 `DEC-020` OPEN）——这是唯一的未满足条件。
+- F012 / F013 / F001 / F002 / F004 / F005 / F006 / F007 / F008 / F010 均已 DONE（已满足）。
+
+**完成判据**
+- 7 个资源区在侧边栏全部可达，当前所在区高亮正确（AC-01 / AC-02）。
+- 用户名 / 登出、登录页与 bootstrap、既有视图切换与「返回」链路均不受影响（AC-03 / AC-04 / AC-05）。
+- 5 个既有导航测试的活跃态断言（15 处 `el-button--primary`）**改写而非删除**；`f009ClusterResourceView.spec.ts` 的源码 token 扫描不得被删除（AC-06）。
+- 无 vue-router、无新增依赖、无 API / DB / 契约改动（AC-08）。
+- 满足统一 Git Gate（Reviewer 批准、测试通过、merge 到 develop、状态更新并提交）。
+
+**边界声明**：本里程碑**不**改变任何业务行为，**不**新增任何产品规则；导航形态不构成产品规则
+（`requirements.md` §5 的「页面导航」仅述资源分类的作用之一；`f002-bare-metal-handoff.md:230`
+与 `frontend/src/App.vue:23/31/93` 均明确写明）。
