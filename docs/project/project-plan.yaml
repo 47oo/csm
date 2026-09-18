@@ -2022,21 +2022,45 @@ planning_status:
     from_f016_review:
       open:
         - id: REV-1
-          severity: MEDIUM（可 follow-up，不阻塞已完成）
+          severity: MEDIUM（已修复）
           owner: Frontend
           summary: >-
-            AC-05 保障非穷尽。静态 guard 的 token 白名单与组件探针取值无法捕获等价实现：
-            startsWith/endsWith('/')、match/search/charAt/replace，以及**模板层** maxlength /
-            minlength / el-form :rules（rules 不进 <script>，token 扫描不到）。评审独立注入
-            startsWith('/') 与 maxlength="5" 各得 27 passed（未捕获）。当前实现无这些写法，
-            故非缺陷；风险是后续有人悄悄加拦截时永久测试仍全绿。**修复方向**：扩 token 清单
-            + 增加「以 '/' 开头」「超长名称」的提交探针 + 对模板属性的断言。
+            **已闭合（2026-09-18）**：修复分支 fix/F016-rev1-guard-hardening，候选 HEAD 2497167，
+            merge_commit 38c9260。前半（脚本层等价写法 startsWith/endsWith/charAt/match/search/
+            replace/正则/与 '/' 比较）全部进入 BANNED_TOKENS；后半（模板层 maxlength/minlength/
+            rules/:rules/:model/pattern）新增**模板静态断言**——这是 maxlength 类限制的唯一出路，
+            因为 VTU setValue 直接写 DOM value、绕过属性截断（行为探针在此**必然**失明；写一个
+            「提交超长名称」的用例会给出虚假安全感，该边界已写入用例注释）。
+            验证：协调器与 Reviewer **各自独立**注入 startsWith('/')（此前 0 失败 → 现 5 failed）
+            与 maxlength="5"（此前 0 → 现 1 failed），均逐字节还原。残余见 REV-5 与
+            docs/reviews/f016-cluster-registration-ui.md 的「仍未覆盖的绕过路径」清单（已作为正式产物）。
         - id: REV-4
+          severity: NOTE（前半已闭合，限作用域）
+          owner: Frontend
+          summary: >-
+            **前半已闭合（限作用域）**：ClusterFormDialog 的 import 模块来源集合被钉死为
+            {vue, ../types/api, ../api/http, ../api/clusters}，新增 helper import 会立即失败
+            （注入实证）。但**不覆盖**「逻辑塞进已白名单模块内部」或「新组件自建表单」——
+            该声明只在「新增 import」范围内成立，**不得**当成「helper 绕过已全封」。
+            **后半已闭合**：行注释改为只剥整行，并由「注释剥离前提」用例把该假设固化为可失败
+            不变量（Reviewer 核验 frontend/src 现有 0 处行内 // 、/* 、<!--）。
+        - id: REV-5
           severity: NOTE
           owner: Frontend（可选）
           summary: >-
-            guard 只扫 3 个固定文件且按 token 列表匹配；若把校验封装到**其他模块**的 helper
-            再调用，可绕过。可改为「被扫描文件集合 = Cluster 写入路径全部触达文件」的清单守卫。
+            模板层静态断言按**字面 token** 匹配，可被拼接键规避（Reviewer 注入
+            v-bind="{ ['max'+'length']: 5 }" → **两层同时漏**：token 不匹配，行为探针又被
+            setValue 绕过截断而失明）。当前实现干净，属 token 扫描固有边界。更强做法：模板属性
+            改**白名单枚举**而非黑名单 token。**正因如此，「任意一种等价拦截都会被捕获」在任何
+            记录中均未被声称**——被声称的是更窄且更真的一句：已枚举的写法，加上行为测试能观察到的一切。
+        - id: REV-6
+          severity: NOTE
+          owner: Frontend / Coordinator
+          summary: >-
+            加宽后的 token 对若干**合法**未来写法会误报（:model-value、aria-pattern、展示用
+            .replace(）。评审判断为**可接受的取舍**（写路径单一、失败 fail-closed 且指名 token、
+            误报成本可逆局部），但建议在 token 注释中标明已知误报面，避免后人误以为 guard 坏了
+            而直接删 token。
         - id: F016-T-01
           severity: LOW
           owner: Frontend
@@ -2048,8 +2072,16 @@ planning_status:
           severity: LOW / NOTE
           owner: Coordinator
           summary: >-
-            REV-2 head_commit 落后（已在本次最终状态提交更正为 ddf49d，并填 merge_commit 9372919）；
-            REV-3 F016.last_result 的 R1/R2 笔误（已修正）。**均已在本提交内关闭。**
+            REV-2 head_commit 落后（已在 F016 最终状态提交更正为 ddf49d，并填 merge_commit 9372919）；
+            REV-3 F016.last_result 的 R1/R2 笔误（已修正）。**均已关闭。**
+      resolved_by_followup:
+        merge_commit: "38c92600ee2bfe876e55dc7f57ca3c898ac39ec7"
+        branch_commit: "2497167281a7260fd2420f932f588db857971c32"
+        note: >-
+          REV-1（两半）与 REV-4（两半）已闭合，见各条 summary。本次为**纯测试加固**：
+          frontend/src/** 逐字节未动（ClusterFormDialog.vue sha256 恒为 7f3cecd9…cccd），
+          只改 2 个测试文件（+256 / −16）；既有 604 用例未削弱（dialog spec +84 / −0，token 只增不减）。
+          门禁：typecheck 零输出、**618 passed 连续 2 次**、build ✓。
     from_f016_test:
       open:
         - id: F016-T-01

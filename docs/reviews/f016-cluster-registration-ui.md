@@ -219,3 +219,69 @@ APPROVED WITH FOLLOW-UP
 **额外发现（非缺陷，值得记录）**：`POST {"name":""}`（空串）**实测返回 `201` 并落库**。这是 `undefined_constraints` 所描述的后果在**真实服务端**被实证——不是缺陷，也**不得**被解读为「空名称已确认合法」。该行为与产品 Handoff、架构 Handoff、契约 §7 的声明完全一致；UI 按 AC-05 不拦截是**正确**的。已作为事实记录，供未来 PROPOSED-3 裁定参考。
 
 核验数据均已清理（4 行均为软删历史，活跃 Cluster = 0）。
+
+---
+
+## 追加复核：REV-1 / REV-4 修复（2026-09-18）
+
+> Verdict: **`APPROVED WITH FOLLOW-UP`**
+> 修复分支 `fix/F016-rev1-guard-hardening`；start_commit `8e35bee`（= 当时的 develop）；候选 HEAD `2497167`；范围**恰 2 个测试文件**（+256 / −16）；merge_commit **`38c9260`**。
+> 本小节由协调器在 **merge 之后**追加，故不影响上述已批准的 HEAD。
+
+### REV-1 / REV-4 闭合判定（Reviewer）
+
+| finding | 判定 | 依据 |
+|---|---|---|
+| **REV-1 前半**（脚本层等价写法：`startsWith` / `endsWith` / `charAt` / `match` / `search` / `replace` / 正则 / 与 `'/'` 比较） | **已闭合（对可枚举写法）** | 全部进入 `BANNED_TOKENS`；当前源码零命中（无误报）。注入 `startsWith('/')` → 此前 **0 失败**，现 **5 failed** |
+| **REV-1 后半**（模板层 `maxlength` / `minlength` / `rules` / `:rules` / `:model` / `pattern`） | **已闭合** | 新增模板静态断言。注入 `maxlength="5"` → 此前 **0 失败**，现 **1 failed**（且 Reviewer 独立复证：行为探针 30 条全绿、**只有**模板断言失败） |
+| **REV-4 前半**（helper 绕过） | **在限定作用域内闭合** | `ClusterFormDialog` 的 import 模块集合被钉死为 `{vue, ../types/api, ../api/http, ../api/clusters}`；注入新 helper import → 失败。**但不覆盖**「逻辑塞进已白名单模块内部」或「新组件自建表单」 |
+| **REV-4 后半**（注释剥离吞代码） | **已闭合** | 行注释只剥整行，并由「注释剥离前提」用例把该假设固化为**可失败**不变量；注入行内 `//` → 失败。Reviewer 另行核验：`frontend/src` 现有 **0 处**行内 `//` / `/*` / `<!--`，该不变量与既有代码风格一致、非为本用例新造 |
+
+### 复核独立尝试的绕过（均非实现者 / 协调器所用写法）
+
+| # | 注入 | 结果 |
+|---|---|---|
+| A | `includes(String.fromCharCode(47))`（未知语法，绕开 token） | **被检出**——token 未命中，但**行为探针** 9 条失败（写请求数 0）。证明分层设计有效：静态管家可枚举写法，行为兜未知语法 |
+| B | `v-bind="{ ['max' + 'length']: 5 }"`（拼接键） | **未检出** → 新增 **REV-5**（NOTE） |
+| C | `maxlength="5"` | 被检出（模板断言）——复证 REV-1 后半 |
+| D | 新增 `import { validateName } from '../utils/…'` | 被检出（import 白名单）——复证 REV-4 前半 |
+| E | 行内 `aria-description="a//b"` | 被检出（注释剥离前提）——复证 REV-4 后半 |
+
+五组注入**全部逐字节还原**（`ClusterFormDialog.vue` sha256 恒为 `7f3cecd9…cccd`），结束时全量复跑 **618 passed**。
+
+### 新 Finding
+
+- **REV-5**（NOTE，Frontend，可选）：模板层静态断言按**字面 token** 匹配，可被拼接键规避；而行为探针因 `setValue` 绕过属性截断而失明——**两层同时漏**。当前实现干净，属 token 扫描固有边界。更强做法：模板属性改**白名单枚举**而非黑名单 token。
+- **REV-6**（NOTE，Frontend / Coordinator）：加宽后的 token 对若干**合法**未来写法会误报（`:model-value`、`aria-pattern`、展示用 `.replace(`）。**判断为可接受的取舍**（写路径单一、失败 fail-closed 且指名 token、误报成本可逆），但建议在 token 注释中标明已知误报面；并把「helper 封堵」的作用域限定为「仅新增 import」。
+
+### 「脆弱 guard」判断（Reviewer 第 2 项）
+
+**未改判为缺陷。** 理由：三个文件是单一职责写路径，出现上述写法的概率低；失败是 fail-closed 且**指名 token**，不会静默；相对「AC-05 未来静默退化」的代价，误报成本可逆且局部。唯一建议是**把已知误报面写进注释**，避免后人误以为 guard 坏了而直接删 token（→ REV-6）。
+
+### `maxlength` 认知核对
+
+**论断成立、注释未夸大。** Reviewer 独立实证：`maxlength="5"` 在场时，VTU `setValue` 写入 300 字符**不被截断**、请求体逐字节原样、探针全绿；**只有**模板静态断言能失败。组件探针中「超长名称」用例的注释明确写着「只能证明**脚本层**没有长度校验、**不能**证明模板层没有 `maxlength`」——边界表述准确。
+
+### 仍未覆盖的绕过路径（**本条为正式产物**，此前仅存在于提交信息中）
+
+Reviewer 指出「6 条未覆盖清单」未落盘，无法逐字核对。现正式记录（经 Reviewer 补充后为 7 条，逐条独立，不宜合并计数）：
+
+1. **已白名单模块内部**：校验逻辑若藏进 `../api/clusters.ts` / `../api/http.ts` / `vue` 内部，静态层不扫描（前者属冻结面、禁改）。行为兜底：探针的 body 逐字节比对会捕获任何**实际**变换。
+2. **新建文件 / 第二个组件自建表单**：静态 guard 只扫 3 个固定文件。既有页面级测试（入口打开的是 `ClusterFormDialog`）提供部分行为兜底。
+3. **脚本层长度阈值高于探针取值**（如 `if (name.length > 1000) return`）：300 字符探针不触发；`name.length` 形式的 token 因潜在误报未列入。
+4. **拼接 / 动态构造的模板属性**（REV-5，如 `v-bind="{ ['max' + 'length']: 5 }"`）：静态字面 token 与行为探针**两层同时漏**。
+5. **多行模板字符串行首含注释定界符**：静态不可区分（当前文件无多行模板字符串，且「注释剥离前提」用例已封堵单行情形）。
+6. **仅真实浏览器生效且不改变请求体的机制**（如纯 CSS / 视觉限制）：不在 AC-05 范围内。
+7. **真实浏览器人工输入路径**（`maxlength` 截断的实际体验）：无自动化覆盖，与本文「Unreviewed Areas」一致。
+
+### 协调器独立验证（不采信 Frontend 与 Reviewer 的声明）
+
+| 复核项 | 结果 |
+|---|---|
+| 改动范围 | 恰 2 个测试文件；`git diff -- frontend/src/` **空** |
+| 实现是否被动过 | `ClusterFormDialog.vue` sha256 `7f3cecd9…cccd`、两页 `cd9ba7ce…` / `b8d67b24…` —— 与合并前**逐字节一致** |
+| 独立注入（协调器自做 3 组） | A `startsWith('/')` → **5 failed**（此前 0）；B `maxlength="5"` → **1 failed**（此前 0）；C 未白名单 helper import → **1 failed**。全部先确认锚点命中，再逐字节还原（sha 前后一致） |
+| 工程门禁 | typecheck 零输出；`test` **40 files / 618 passed 连续 2 次**（基线 604，+14）；build ✓ |
+| 既有测试是否被削弱 | dialog spec **+84 / −0**（纯追加）；guard spec 原 4 用例保留、token 只增不减 |
+
+**结论**：REV-1 两半、REV-4 两半均**已闭合**（REV-4 前半限于「新增 import」作用域）。残余 7 条已作为正式产物记录。新增 REV-5 / REV-6 为 NOTE，不阻塞。**「任意一种等价拦截都会被捕获」在任何记录中均未被声称**——被声称的是更窄且更真的一句：**已枚举的写法，加上行为测试能观察到的一切**。
