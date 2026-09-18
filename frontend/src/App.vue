@@ -36,7 +36,7 @@ import ServiceDetailPage from './pages/ServiceDetailPage.vue'
  *   未登录（401）→ 登录页；
  * - 全局 401（未抑制的请求收到 UNAUTHENTICATED，如会话过期后的资源请求）→
  *   切回 login 并清除当前视图状态（不保留任何资源数据，含资源视图）；
- * - app 视图头部提供登出按钮：logout() 无论 204 还是 401 都切到 login
+ * - app 视图侧边栏会话区提供登出按钮：logout() 无论 204 还是 401 都切到 login
  *   （f013-auth.md §5.2 幂等语义：调用方把 204 与 401 归一为同一处理）；
  * - Cookie（csm_session，HttpOnly）由浏览器管理，前端不读不写任何令牌。
  */
@@ -212,7 +212,7 @@ function backFromBareMetalDetail(): void {
 
 // ---- 资源视图导航（VirtualMachine，F006） ----
 
-/** 头部导航进入全局虚拟机列表（无过滤）。 */
+/** 侧边栏导航进入全局虚拟机列表（无过滤）。 */
 function openVirtualMachineList(): void {
   resourceView.value = { kind: 'virtual-machine-list', bareMetalId: null, returnClusterId: null }
 }
@@ -264,7 +264,7 @@ function backFromVirtualMachineDetail(): void {
 
 // ---- 资源视图导航（NetworkInterface，F004） ----
 
-/** 头部导航进入全局网络接口列表（无过滤）。 */
+/** 侧边栏导航进入全局网络接口列表（无过滤）。 */
 function openNetworkInterfaceList(): void {
   resourceView.value = {
     kind: 'network-interface-list',
@@ -326,7 +326,7 @@ function backFromNetworkInterfaceDetail(): void {
 
 // ---- 资源视图导航（IPAddress，F005） ----
 
-/** 头部导航进入全局 IP 地址列表（无过滤）。 */
+/** 侧边栏导航进入全局 IP 地址列表（无过滤）。 */
 function openIpAddressList(): void {
   resourceView.value = {
     kind: 'ip-address-list',
@@ -411,7 +411,7 @@ function backFromIpAddressDetail(): void {
 
 // ---- 资源视图导航（Container，F007） ----
 
-/** 头部导航进入全局容器列表（无过滤；载体筛选为列表页内能力）。 */
+/** 侧边栏导航进入全局容器列表（无过滤；载体筛选为列表页内能力）。 */
 function openContainerList(): void {
   resourceView.value = { kind: 'container-list' }
 }
@@ -433,7 +433,7 @@ function backFromContainerDetail(): void {
 
 // ---- 资源视图导航（Service，F008） ----
 
-/** 头部导航进入全局服务列表（无过滤；载体筛选为列表页内能力）。 */
+/** 侧边栏导航进入全局服务列表（无过滤；载体筛选为列表页内能力）。 */
 function openServiceList(): void {
   resourceView.value = { kind: 'service-list' }
 }
@@ -521,7 +521,7 @@ function openBareMetalRelatedService(serviceId: number): void {
   }
 }
 
-/** 头部导航高亮：当前资源区域（cluster-* / bare-metal-* / virtual-machine-* /
+/** 侧边栏导航高亮：当前资源区域（cluster-* / bare-metal-* / virtual-machine-* /
  * network-interface-* / ip-address-* / container-* / service-*）。 */
 const navSection = computed<
   | 'cluster'
@@ -582,152 +582,161 @@ async function handleLogout(): Promise<void> {
     <div v-if="view === 'bootstrap'" class="app-shell__bootstrap">正在加载…</div>
     <LoginPage v-else-if="view === 'login'" @success="enterApp" />
     <template v-else>
-      <header class="app-shell__header">
-        <div class="app-shell__brand-nav">
-          <span class="app-shell__brand">CSM</span>
+      <div class="app-shell__layout">
+        <aside class="app-shell__sidebar" data-testid="app-sidebar">
+          <div class="app-shell__brand">CSM</div>
           <nav class="app-shell__nav">
             <el-button
-              :type="navSection === 'cluster' ? 'primary' : 'default'"
               data-testid="nav-clusters"
+              :class="{ 'app-shell__nav-item--active': navSection === 'cluster' }"
+              :aria-current="navSection === 'cluster' ? 'true' : undefined"
               @click="openClusterList"
             >
               集群
             </el-button>
             <el-button
-              :type="navSection === 'bare-metal' ? 'primary' : 'default'"
               data-testid="nav-bare-metals"
+              :class="{ 'app-shell__nav-item--active': navSection === 'bare-metal' }"
+              :aria-current="navSection === 'bare-metal' ? 'true' : undefined"
               @click="openBareMetalList"
             >
               裸金属
             </el-button>
             <el-button
-              :type="navSection === 'virtual-machine' ? 'primary' : 'default'"
               data-testid="nav-virtual-machines"
+              :class="{ 'app-shell__nav-item--active': navSection === 'virtual-machine' }"
+              :aria-current="navSection === 'virtual-machine' ? 'true' : undefined"
               @click="openVirtualMachineList"
             >
               虚拟机
             </el-button>
             <el-button
-              :type="navSection === 'network-interface' ? 'primary' : 'default'"
               data-testid="nav-network-interfaces"
+              :class="{ 'app-shell__nav-item--active': navSection === 'network-interface' }"
+              :aria-current="navSection === 'network-interface' ? 'true' : undefined"
               @click="openNetworkInterfaceList"
             >
               网络接口
             </el-button>
             <el-button
-              :type="navSection === 'ip-address' ? 'primary' : 'default'"
               data-testid="nav-ip-addresses"
+              :class="{ 'app-shell__nav-item--active': navSection === 'ip-address' }"
+              :aria-current="navSection === 'ip-address' ? 'true' : undefined"
               @click="openIpAddressList"
             >
               IP 地址
             </el-button>
             <el-button
-              :type="navSection === 'container' ? 'primary' : 'default'"
               data-testid="nav-containers"
+              :class="{ 'app-shell__nav-item--active': navSection === 'container' }"
+              :aria-current="navSection === 'container' ? 'true' : undefined"
               @click="openContainerList"
             >
               容器
             </el-button>
             <el-button
-              :type="navSection === 'service' ? 'primary' : 'default'"
               data-testid="nav-services"
+              :class="{ 'app-shell__nav-item--active': navSection === 'service' }"
+              :aria-current="navSection === 'service' ? 'true' : undefined"
               @click="openServiceList"
             >
               服务
             </el-button>
           </nav>
-        </div>
-        <div class="app-shell__session">
-          <span v-if="currentUser !== null" class="app-shell__username">
-            {{ currentUser.username }}
-          </span>
-          <el-button :loading="loggingOut" @click="handleLogout">登出</el-button>
-        </div>
-      </header>
-      <ClusterListPage
-        v-if="resourceView.kind === 'cluster-list'"
-        @open-detail="openClusterDetail"
-      />
-      <ClusterDetailPage
-        v-else-if="resourceView.kind === 'cluster-detail'"
-        :cluster-id="resourceView.clusterId"
-        @back="backToClusterList"
-        @open-bare-metals="openClusterBareMetals"
-      />
-      <BareMetalListPage
-        v-else-if="resourceView.kind === 'bare-metal-list'"
-        :cluster-id="resourceView.clusterId"
-        @open-detail="openBareMetalDetail"
-        @back="backFromBareMetalList"
-      />
-      <BareMetalDetailPage
-        v-else-if="resourceView.kind === 'bare-metal-detail'"
-        :bare-metal-id="resourceView.bareMetalId"
-        @back="backFromBareMetalDetail"
-        @open-virtual-machines="openBareMetalVirtualMachines"
-        @open-network-interfaces="openBareMetalNetworkInterfaces"
-        @open-network-interface-detail="openBareMetalRelatedNetworkInterface"
-        @open-ip-address-detail="openBareMetalRelatedIpAddress"
-        @open-virtual-machine-detail="openBareMetalRelatedVirtualMachine"
-        @open-container-detail="openBareMetalRelatedContainer"
-        @open-service-detail="openBareMetalRelatedService"
-      />
-      <VirtualMachineListPage
-        v-else-if="resourceView.kind === 'virtual-machine-list'"
-        :bare-metal-id="resourceView.bareMetalId"
-        @open-detail="openVirtualMachineDetail"
-        @back="backFromVirtualMachineList"
-      />
-      <VirtualMachineDetailPage
-        v-else-if="resourceView.kind === 'virtual-machine-detail'"
-        :virtual-machine-id="resourceView.virtualMachineId"
-        @back="backFromVirtualMachineDetail"
-      />
-      <NetworkInterfaceListPage
-        v-else-if="resourceView.kind === 'network-interface-list'"
-        :bare-metal-id="resourceView.bareMetalId"
-        @open-detail="openNetworkInterfaceDetail"
-        @back="backFromNetworkInterfaceList"
-      />
-      <NetworkInterfaceDetailPage
-        v-else-if="resourceView.kind === 'network-interface-detail'"
-        :network-interface-id="resourceView.networkInterfaceId"
-        @back="backFromNetworkInterfaceDetail"
-        @open-ip-addresses="openNetworkInterfaceIpAddresses"
-      />
-      <IpAddressListPage
-        v-else-if="resourceView.kind === 'ip-address-list'"
-        :network-interface-id="resourceView.networkInterfaceId"
-        @open-detail="openIpAddressDetail"
-        @back="backFromIpAddressList"
-      />
-      <IpAddressDetailPage
-        v-else-if="resourceView.kind === 'ip-address-detail'"
-        :ip-address-id="resourceView.ipAddressId"
-        @back="backFromIpAddressDetail"
-      />
-      <ContainerListPage
-        v-else-if="resourceView.kind === 'container-list'"
-        @open-detail="openContainerDetail"
-        @back="backToClusterList"
-      />
-      <ContainerDetailPage
-        v-else-if="resourceView.kind === 'container-detail'"
-        :container-id="resourceView.containerId"
-        @open-detail="openContainerDetail"
-        @back="backFromContainerDetail"
-      />
-      <ServiceListPage
-        v-else-if="resourceView.kind === 'service-list'"
-        @open-detail="openServiceDetail"
-        @back="backToClusterList"
-      />
-      <ServiceDetailPage
-        v-else
-        :service-id="resourceView.serviceId"
-        @open-detail="openServiceDetail"
-        @back="backFromServiceDetail"
-      />
+          <div class="app-shell__session">
+            <span v-if="currentUser !== null" class="app-shell__username">
+              {{ currentUser.username }}
+            </span>
+            <el-button :loading="loggingOut" @click="handleLogout">登出</el-button>
+          </div>
+        </aside>
+        <main class="app-shell__content">
+          <ClusterListPage
+            v-if="resourceView.kind === 'cluster-list'"
+            @open-detail="openClusterDetail"
+          />
+          <ClusterDetailPage
+            v-else-if="resourceView.kind === 'cluster-detail'"
+            :cluster-id="resourceView.clusterId"
+            @back="backToClusterList"
+            @open-bare-metals="openClusterBareMetals"
+          />
+          <BareMetalListPage
+            v-else-if="resourceView.kind === 'bare-metal-list'"
+            :cluster-id="resourceView.clusterId"
+            @open-detail="openBareMetalDetail"
+            @back="backFromBareMetalList"
+          />
+          <BareMetalDetailPage
+            v-else-if="resourceView.kind === 'bare-metal-detail'"
+            :bare-metal-id="resourceView.bareMetalId"
+            @back="backFromBareMetalDetail"
+            @open-virtual-machines="openBareMetalVirtualMachines"
+            @open-network-interfaces="openBareMetalNetworkInterfaces"
+            @open-network-interface-detail="openBareMetalRelatedNetworkInterface"
+            @open-ip-address-detail="openBareMetalRelatedIpAddress"
+            @open-virtual-machine-detail="openBareMetalRelatedVirtualMachine"
+            @open-container-detail="openBareMetalRelatedContainer"
+            @open-service-detail="openBareMetalRelatedService"
+          />
+          <VirtualMachineListPage
+            v-else-if="resourceView.kind === 'virtual-machine-list'"
+            :bare-metal-id="resourceView.bareMetalId"
+            @open-detail="openVirtualMachineDetail"
+            @back="backFromVirtualMachineList"
+          />
+          <VirtualMachineDetailPage
+            v-else-if="resourceView.kind === 'virtual-machine-detail'"
+            :virtual-machine-id="resourceView.virtualMachineId"
+            @back="backFromVirtualMachineDetail"
+          />
+          <NetworkInterfaceListPage
+            v-else-if="resourceView.kind === 'network-interface-list'"
+            :bare-metal-id="resourceView.bareMetalId"
+            @open-detail="openNetworkInterfaceDetail"
+            @back="backFromNetworkInterfaceList"
+          />
+          <NetworkInterfaceDetailPage
+            v-else-if="resourceView.kind === 'network-interface-detail'"
+            :network-interface-id="resourceView.networkInterfaceId"
+            @back="backFromNetworkInterfaceDetail"
+            @open-ip-addresses="openNetworkInterfaceIpAddresses"
+          />
+          <IpAddressListPage
+            v-else-if="resourceView.kind === 'ip-address-list'"
+            :network-interface-id="resourceView.networkInterfaceId"
+            @open-detail="openIpAddressDetail"
+            @back="backFromIpAddressList"
+          />
+          <IpAddressDetailPage
+            v-else-if="resourceView.kind === 'ip-address-detail'"
+            :ip-address-id="resourceView.ipAddressId"
+            @back="backFromIpAddressDetail"
+          />
+          <ContainerListPage
+            v-else-if="resourceView.kind === 'container-list'"
+            @open-detail="openContainerDetail"
+            @back="backToClusterList"
+          />
+          <ContainerDetailPage
+            v-else-if="resourceView.kind === 'container-detail'"
+            :container-id="resourceView.containerId"
+            @open-detail="openContainerDetail"
+            @back="backFromContainerDetail"
+          />
+          <ServiceListPage
+            v-else-if="resourceView.kind === 'service-list'"
+            @open-detail="openServiceDetail"
+            @back="backToClusterList"
+          />
+          <ServiceDetailPage
+            v-else
+            :service-id="resourceView.serviceId"
+            @open-detail="openServiceDetail"
+            @back="backFromServiceDetail"
+          />
+        </main>
+      </div>
     </template>
   </div>
 </template>
@@ -739,20 +748,21 @@ async function handleLogout(): Promise<void> {
   text-align: center;
 }
 
-.app-shell__header {
+.app-shell__layout {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 56px;
-  padding: 0 24px;
-  background-color: #fff;
-  border-bottom: 1px solid #e4e7ed;
+  align-items: stretch;
+  min-height: 100vh;
 }
 
-.app-shell__brand-nav {
+.app-shell__sidebar {
+  flex: 0 0 200px;
+  width: 200px;
   display: flex;
-  align-items: center;
-  gap: 24px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: #fff;
+  border-right: 1px solid #e4e7ed;
 }
 
 .app-shell__brand {
@@ -762,11 +772,29 @@ async function handleLogout(): Promise<void> {
 
 .app-shell__nav {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app-shell__nav .el-button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+/* Element Plus 给相邻按钮默认加 margin-left: 12px，纵向堆叠时表现为缩进，复位为 0。 */
+.app-shell__nav .el-button + .el-button {
+  margin-left: 0;
+}
+
+/* 活跃态：当前资源区导航项（class 由 navSection 单一真相源派生，仅呈现）。 */
+.app-shell__nav .app-shell__nav-item--active {
+  color: #fff;
+  background-color: #409eff;
+  border-color: #409eff;
 }
 
 .app-shell__session {
+  margin-top: auto;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -774,5 +802,10 @@ async function handleLogout(): Promise<void> {
 
 .app-shell__username {
   color: #606266;
+}
+
+.app-shell__content {
+  flex: 1;
+  min-width: 0;
 }
 </style>

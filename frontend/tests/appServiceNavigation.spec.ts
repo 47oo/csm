@@ -159,7 +159,7 @@ describe('App 头部导航：全局服务列表（无载体过滤）', () => {
       expect(wrapper.text()).toContain('服务列表')
     })
     const navService = wrapper.find('[data-testid="nav-services"]')
-    expect(navService.classes()).toContain('el-button--primary')
+    expect(navService.classes()).toContain('app-shell__nav-item--active')
 
     // 切回集群区域：高亮恢复。
     await findButton(wrapper, '集群').trigger('click')
@@ -167,9 +167,9 @@ describe('App 头部导航：全局服务列表（无载体过滤）', () => {
       expect(wrapper.text()).toContain('集群列表')
     })
     expect(wrapper.find('[data-testid="nav-services"]').classes()).not.toContain(
-      'el-button--primary',
+      'app-shell__nav-item--active',
     )
-    expect(wrapper.find('[data-testid="nav-clusters"]').classes()).toContain('el-button--primary')
+    expect(wrapper.find('[data-testid="nav-clusters"]').classes()).toContain('app-shell__nav-item--active')
   })
 })
 
