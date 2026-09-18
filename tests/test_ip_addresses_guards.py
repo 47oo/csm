@@ -130,25 +130,63 @@ def _enclosing_function(tree: ast.Module, node: ast.AST) -> str:
     return names[-1] if names else "<module>"
 
 
+def _cluster_id_write_locations_in(relpath: str, source: str) -> set[tuple[str, str]]:
+    """G-9 断言 1（单文件）：向 ``IpAddress`` / ``ip_addresses`` 写 ``cluster_id`` 的位置。
+
+    F005 REV-3 加固：原实现只盖 ``IpAddress(cluster_id=...)`` 构造、``setattr`` 与
+    属性赋值三种形态，**漏掉** ``update(...).values(cluster_id=...)`` 等 ORM / 裸 SQL
+    形态（评审已注入证实可绕过）。现一并覆盖：
+
+    - 任何调用出现 ``cluster_id=`` **关键字实参**（含 ``.values(cluster_id=...)``）；
+    - 任何调用中出现含 ``"cluster_id"`` 键的**字典字面量**（含 ``.values({...})``）；
+    - ``text("... cluster_id ...")`` / ``execute("UPDATE ... cluster_id ...")`` 等
+      含 ``cluster_id`` 字面量的**裸 SQL**。
+    """
+    found: set[tuple[str, str]] = set()
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            func = node.func
+            callee = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+            if callee == "IpAddress" and any(kw.arg == "cluster_id" for kw in node.keywords):
+                found.add((relpath, _enclosing_function(tree, node)))
+            if callee == "setattr" and len(node.args) >= 2:
+                second = node.args[1]
+                if isinstance(second, ast.Constant) and second.value == "cluster_id":
+                    found.add((relpath, _enclosing_function(tree, node)))
+            # 形态 A：ORM 赋值形态——``.values(cluster_id=...)`` 或 ``dict(cluster_id=...)``。
+            # 注意：**不得**写成「任何出现 cluster_id= 的调用」，那会把
+            # ``list_active(params, cluster_id=...)`` 这类**过滤参数传递**误判为写入
+            # （本仓库存在此类合法读取路径）。只认真正赋值列的 callee。
+            if callee in {"values", "dict"} and any(kw.arg == "cluster_id" for kw in node.keywords):
+                found.add((relpath, _enclosing_function(tree, node)))
+            # 形态 B：字典字面量含 "cluster_id" 键（含 .values({"cluster_id": ...})）。
+            for arg in node.args:
+                if isinstance(arg, ast.Dict) and any(
+                    isinstance(key, ast.Constant) and key.value == "cluster_id" for key in arg.keys
+                ):
+                    found.add((relpath, _enclosing_function(tree, node)))
+            # 形态 C：裸 SQL 字面量含 cluster_id。
+            if callee in {"text", "execute", "exec_driver_sql"}:
+                for arg in node.args:
+                    if (
+                        isinstance(arg, ast.Constant)
+                        and isinstance(arg.value, str)
+                        and "cluster_id" in arg.value
+                    ):
+                        found.add((relpath, _enclosing_function(tree, node)))
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Attribute) and target.attr == "cluster_id":
+                    found.add((relpath, _enclosing_function(tree, node)))
+    return found
+
+
 def _cluster_id_write_locations() -> set[tuple[str, str]]:
     """G-9 断言 1：向 ``IpAddress`` 实例 / ``ip_addresses`` 写 ``cluster_id`` 的位置。"""
     found: set[tuple[str, str]] = set()
     for relpath, source in _all_app_sources():
-        tree = ast.parse(source)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Call):
-                func = node.func
-                callee = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
-                if callee == "IpAddress" and any(kw.arg == "cluster_id" for kw in node.keywords):
-                    found.add((relpath, _enclosing_function(tree, node)))
-                if callee == "setattr" and len(node.args) >= 2:
-                    second = node.args[1]
-                    if isinstance(second, ast.Constant) and second.value == "cluster_id":
-                        found.add((relpath, _enclosing_function(tree, node)))
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Attribute) and target.attr == "cluster_id":
-                        found.add((relpath, _enclosing_function(tree, node)))
+        found |= _cluster_id_write_locations_in(relpath, source)
     return found
 
 
@@ -398,6 +436,31 @@ def test_g8_nic_delete_path_consumes_declared_checks():
 # --------------------------------------------------------------------------- #
 def test_g9_cluster_id_write_path_is_unique():
     assert _cluster_id_write_locations() == {("backend/app/ip_addresses/repository.py", "create")}
+
+
+def test_g9_detector_covers_orm_and_raw_sql_write_forms():
+    """F005 REV-3 回归：检测器必须盖住 ORM / 裸 SQL 写入形态。
+
+    评审注入 ``update(IpAddress).values(cluster_id=...)`` 时原检测器**不失败**
+    （G-9 仍 PASS），即单一写入路径 guard 存在可绕过的缺口。本测试以合成源码固定
+    各形态均被检出，使「检测器覆盖范围」本身可被反驳。
+    """
+    stmt = "update(IpAddress).where(IpAddress.id == 1)"
+    source = "\n".join(
+        [
+            "def probe():\n",
+            f"    session.execute({stmt}.values(cluster_id=2))\n",
+            f"    session.execute({stmt}.values({{'cluster_id': 2}}))\n",
+            f"    session.execute({stmt}.values(dict(cluster_id=2)))\n",
+            "    session.execute(text('UPDATE ip_addresses SET cluster_id = 2'))\n",
+            "    session.execute('UPDATE ip_addresses SET cluster_id = 2')\n",
+            "    row.cluster_id = 2\n",
+            "    setattr(row, 'cluster_id', 2)\n",
+            "    IpAddress(cluster_id=2)\n",
+        ]
+    )
+    locations = _cluster_id_write_locations_in("synthetic/probe.py", source)
+    assert locations == {("synthetic/probe.py", "probe")}, locations
 
 
 def test_g9_cluster_chain_read_is_unique():
