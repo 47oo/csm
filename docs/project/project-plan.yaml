@@ -1223,7 +1223,7 @@ features:
     depends_on: [F001, F013, F014]
     blocking: []
     git: {base_branch: develop, branch: feature/F016-cluster-registration-ui, start_commit: "67a498fab950f130330189e92756870623222a3d", head_commit: "638813473d09ae18b6f18a053bce8f6af20420ee", merge_commit: null}
-    current_stage: TEST
+    current_stage: REVIEW
     last_result: >
       Product Gate 通过（READY FOR ARCHITECT，无 Blocking）。Architecture Gate 通过
       （READY FOR IMPLEMENTATION）：判定纯前端、零后端改动；登记与改名共用同一
@@ -1234,9 +1234,9 @@ features:
       最高风险 R1：R2 拷贝 BareMetalFormDialog 的 listClusters 做「重名预检」——已由
       REQUIRED #5（对话框禁引用读 API）+ 静态 guard + 组件探针三重封堵。
     next_action: >
-      Tester（独立验证：① 前端确实未实现业务校验——自写探针注入并确认 guard 会失败；
-      ② 错误分支确实按 error.code 而非 message；③ 既有三态 / Empty vs Not Found / F014 删除入口
-      与 F009 入口未被破坏；④ 401 只触发全局处理器；⑤ 零后端 / 零契约改动）。
+      Reviewer（确认 AC-05「前端未实现业务校验」的保障可失败且非空转；错误分支确按 code；
+      既有三态 / Empty vs Not Found / F014 删除入口与 F009 入口未破坏；零后端 / 零契约改动；
+      并权衡 Tester 记录的 4 个「细节不匹配」错误分支缺永久回归保护这一 LOW follow-up）。
     verification_at_implementation: >
       协调器**不采信 Frontend 的测试声明**，独立在 clean 检出上重跑：typecheck 零输出、
       前端 40 文件 / 604 用例**连续 2 次**全绿（基线 562 / 38，本次 +42 用例 +2 文件）、build 成功。
@@ -1246,7 +1246,7 @@ features:
       逐字节未改。既有页面仅 2 行被替换（1 处 import、1 处按钮移入 actions 容器），属加法。
     layers: {database: false, backend: false, frontend: true}
     contract: {status: READY, doc: docs/api/f001-cluster.md}
-    implementation: {database_design: NOT_REQUIRED, backend: NOT_REQUIRED, frontend: COMPLETE, test: PENDING, review: PENDING}
+    implementation: {database_design: NOT_REQUIRED, backend: NOT_REQUIRED, frontend: COMPLETE, test: COMPLETE, review: PENDING}
     product_document: docs/product/requirements.md
     requirements:
       - R-CLUSTER-001
@@ -2010,6 +2010,18 @@ planning_status:
         本变更集上完整后端套件曾跑过一次：966 passed + 1 failed，唯一失败是 lint 测试抓出
         **我自己写的超长行（E501）**；重排后重跑全树 ruff 与受影响的 guard 文件均为绿。
         未改前端代码，故前端套件仅用于回答上述 flaky 问题（8 + 2 次运行）。
+    from_f016_test:
+      open:
+        - id: F016-T-01
+          severity: LOW
+          owner: Frontend
+          summary: >-
+            Tester 的 14 条临时探针中，4 个「细节不匹配」错误分支未被**永久**覆盖（Frontend 的 23 条
+            永久探针覆盖了主路径，但未覆盖这些情形）：① 409 且 field='name' 但 code≠'DUPLICATE' →
+            应走通用「数据冲突」而非同名文案；② 409 且 code='DUPLICATE' 但 field≠'name' → 同上；
+            ③ 未知 / 未来错误码（如 SERVICE_UNAVAILABLE）→ default 分支；④ 400 且 details[].field
+            缺失 → 回退渲染 details[].code。**当前实现正确**（Tester 以临时探针实测 PASS），缺的只是
+            永久回归保护。可逆且局部。
     from_f010_review:
       report: docs/reviews/f010-resource-detail.md
       open:
@@ -2324,7 +2336,7 @@ planning_status:
 
 execution:
   current_feature: F016
-  current_stage: TEST
+  current_stage: REVIEW
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
