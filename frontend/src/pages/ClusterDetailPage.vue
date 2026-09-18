@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getCluster, type ClusterRead } from '../api/clusters'
 import { useAsyncQuery } from '../composables/useAsyncQuery'
 import { useClusterDelete } from '../composables/useClusterDelete'
 import ErrorState from '../components/ErrorState.vue'
+import ClusterFormDialog from '../components/ClusterFormDialog.vue'
 
 /**
  * 集群详情页（F001 骨架页；F014 起提供删除入口）。
@@ -21,6 +22,9 @@ import ErrorState from '../components/ErrorState.vue'
  * - F002：内容态提供「查看裸金属」入口 → 进入该集群的裸金属列表
  *   （GET /api/bare-metals?cluster_id={id}，契约 f002-bare-metal.md §3.2）；
  *   本页仍不呈现裸金属数据（Cluster 视角成员视图属 F009）；
+ * - F016：内容态提供「改名」入口（ClusterFormDialog，PATCH /api/clusters/{id}，
+ *   契约 §3.5）。表单恰一个 name 输入并预填当前名称，业务校验全部由服务端
+ *   裁决；改名成功（200）→ 重新读取详情（展示新 name 与 updated_at）；
  * - 时间字段按不透明字符串原样展示（契约 §2）；
  * - 不呈现 BareMetal 列表 / 状态（F009）、不呈现跨资源视图（F010）。
  */
@@ -87,6 +91,15 @@ function openBareMetals(): void {
 function confirmDelete(): void {
   void requestDelete(props.clusterId)
 }
+
+// ---- 改名入口（F016，PATCH /api/clusters/{id}，契约 §3.5） ----
+
+const editDialogVisible = ref(false)
+
+/** F016：改名成功（200）→ 重新读取详情（展示新 name 与 updated_at）。 */
+function handleUpdated(): void {
+  void run()
+}
 </script>
 
 <template>
@@ -101,6 +114,11 @@ function confirmDelete(): void {
       <div v-if="state === 'content'" class="cluster-detail__actions">
         <el-button type="primary" plain data-testid="open-bare-metals" @click="openBareMetals">
           查看裸金属
+        </el-button>
+        <!-- F016 改名入口：打开 ClusterFormDialog（edit 模式，预填当前名称）；
+             业务校验由服务端裁决。 -->
+        <el-button plain data-testid="open-edit-dialog" @click="editDialogVisible = true">
+          改名
         </el-button>
         <el-popconfirm
           title="确定删除该集群吗？删除后不可恢复。"
@@ -150,6 +168,14 @@ function confirmDelete(): void {
         </el-descriptions>
       </template>
     </section>
+
+    <!-- F016 改名表单（PATCH）：恰一个 name 输入，预填当前名称；成功后重读详情。 -->
+    <ClusterFormDialog
+      v-model="editDialogVisible"
+      mode="edit"
+      :cluster="data"
+      @success="handleUpdated"
+    />
   </main>
 </template>
 

@@ -30,6 +30,15 @@ project:
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
   status: DONE
   completed_on: "2026-09-18"
+  reopened_on: "2026-09-18"
+  reopened_closed_on: "2026-09-18"
+  reopened_reason: >
+    F016：用户在已部署的生产实例上反馈「找不到登记集群的地方」。经查证这是 F001 留下的
+    真实 UI 交付缺口——后端 POST/PATCH 可用且已被测试，前端无任何入口；createCluster /
+    updateCluster 有 0 个调用者；6 个 *FormDialog 中唯独缺 ClusterFormDialog。用户裁定
+    「补做」，范围纯前端（登记 + 改名共用同一对话框）。
+    **该缺口已闭合（2026-09-18）**：F016 已 DONE，merge_commit 9372919。13 DONE + 1 CANCELLED
+    的历史结论不变，现为 14 DONE + 1 CANCELLED。
   completion_note: >
     全部 14 个 Feature 已处置完毕：13 个 DONE（F012 / F001 / F013 / F014 / F015 / F002 / F009 /
     F006 / F004 / F005 / F007 / F008 / F010），1 个 CANCELLED（F011，2026-09-18 用户决定取消，
@@ -1205,6 +1214,68 @@ features:
       - 导入失败时明确指出哪一行、哪一个字段、什么原因（R-IMPORT-003）。
       - 导入为 All-or-Nothing：任一行失败则整个导入不产生任何写入，且一次性报告全部失败行（R-IMPORT-004）。
     open_questions: []
+  # ---- F016：post-V1 缺口闭合：F001 遗留的 Cluster 登记 / 改名 UI ----
+  # 上游依据：用户 2026-09-18 在已部署生产实例上发现「找不到登记集群的地方」并裁定补做。
+  # 纯前端：后端 POST/PATCH 已可用且已测试，契约 f001-cluster.md 保持冻结。
+  - id: F016
+    name: Cluster 登记与改名 UI
+    epic: E01
+    priority: P1
+    status: DONE
+    depends_on: [F001, F013, F014]
+    blocking: []
+    git: {base_branch: develop, branch: feature/F016-cluster-registration-ui, start_commit: "67a498fab950f130330189e92756870623222a3d", head_commit: "ddf49dbc15943153753f6f2a7b2a35dcf6704e9c", merge_commit: "937291914ce7c6eeb1b1898fe72849a3165d544c"}
+    current_stage: null
+    last_result: >
+      Product Gate 通过（READY FOR ARCHITECT，无 Blocking）。Architecture Gate 通过
+      （READY FOR IMPLEMENTATION）：判定纯前端、零后端改动；登记与改名共用同一
+      ClusterFormDialog（create/edit 双模式，恰一个 name 字段）；登记成功跳转新集群详情
+      （因列表按 id 升序 + page_size 50，仅刷新当前页不保证可观察，故用 201 返回的 id）；
+      错误按 error.code 分支渲染固定文案、不解析 message；不抽公共 composable 以避免波及其余
+      6 个 FormDialog。**契约不新建、复用已冻结的 docs/api/f001-cluster.md（READY）**。
+      最高风险 R1：拷贝 BareMetalFormDialog 的 listClusters 做「重名预检」——已由
+      REQUIRED #5（对话框禁引用读 API）+ 静态 guard + 组件探针三重封堵。
+    next_action: >
+      Feature 已完成（DONE）。Merge Gate 由协调器逐项核对并补做真实前后端集成核验；merge_commit
+      9372919（父 67a498f + ddf49d，集成树与已审阅候选树逐字节一致）。遗留：REV-1（MEDIUM 可
+      follow-up）等，见 planning_status.follow_ups.from_f016_review。
+    review_result: >-
+      Watch：APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）。**评审独立发现
+      REV-1**：AC-05「前端未实现业务校验」的静态 guard + 探针**非穷尽**——注入 `startsWith('/')`
+      与 `maxlength="5"` 均未被捕获（27 passed）。当前实现干净，故非缺陷；风险是**未来回归**
+      会让 AC-05 静默退化。协调器在 Merge Gate 补做真实集成核验（对已部署实例：400 带
+      field=name、409 带 code=DUPLICATE、PATCH 自身名 200、404、未认证 401 全部符合 UI 假设），
+      并实证「空串 name → 201 落库」，与 undefined_constraints 声明一致。
+    verification_at_implementation: >
+      协调器**不采信 Frontend 的测试声明**，独立在 clean 检出上重跑：typecheck 零输出、
+      前端 40 文件 / 604 用例**连续 2 次**全绿（基线 562 / 38，本次 +42 用例 +2 文件）、build 成功。
+      并自行做 4 组注入证伪（斜杠提前 return / trim 变换 / listClusters 重名预检 / 按钮按空串禁用），
+      **全部被检出**，随后逐字节还原（sha256 前后一致）并复跑全量 604 passed。
+      实现提交 6388134 恰含 7 个预期文件；App.vue / api/** / package.json / backend/** / docs/api/**
+      逐字节未改。既有页面仅 2 行被替换（1 处 import、1 处按钮移入 actions 容器），属加法。
+    layers: {database: false, backend: false, frontend: true}
+    contract: {status: READY, doc: docs/api/f001-cluster.md}
+    implementation: {database_design: NOT_REQUIRED, backend: NOT_REQUIRED, frontend: COMPLETE, test: COMPLETE, review: APPROVED_WITH_FOLLOW_UP}
+    product_document: docs/product/requirements.md
+    requirements:
+      - R-CLUSTER-001
+      - R-CLUSTER-002
+      - R-CLUSTER-003
+      - R-CLUSTER-005
+      - §21 Data Consistency
+      - §22 Case Sensitivity
+      - R-QUERY-004
+    acceptance_criteria:
+      - 集群列表页提供「登记集群」入口，提交合法名称后无需手工刷新即可看到新集群（AC-01 / AC-06）。
+      - 已存在集群提供「改名」入口，编辑模式预填当前 name，成功后界面呈现新名称与新的 updated_at（AC-02 / AC-09）。
+      - 登记与改名由同一个对话框组件承载，不存在第二套表单（AC-03）。
+      - 对话框输入项恰为 name 一项，无状态 / 上级 / 位置 / 关系 / 删除字段（AC-04）。
+      - 前端不实现任何业务校验或名称变换（不检测 `/`、不比对重名、不折叠大小写、不 trim、不做 NFC、不按空串拦截），name 原样提交（AC-05）。
+      - 失败按 error.code 渲染固定文案且不解析 message：400 字段级 / 409 活跃同名 / 404 不存在或已删 / 401 交既有全局会话失效（AC-07 / AC-10）。
+      - 提交中 Loading 且禁止重复提交；取消不产生写入；失败后表单不锁死（AC-13 / AC-14 / AC-15）。
+      - 不破坏既有三态与 Empty / Not Found 区分，不影响 F014 删除入口（AC-16 / AC-17）。
+      - 零后端改动：无新端点、无契约变更、无 migration；docs/api/f001-cluster.md 保持冻结。
+    open_questions: []
 
 # ---------------------------------------------------------------------------
 # Blocking Decisions
@@ -1495,6 +1566,19 @@ milestones:
       - 导入采用 All-or-Nothing：任一行失败即整体不写入，并一次性报告全部失败行（R-IMPORT-004）。
       - Reviewer 批准并成功 merge 到 develop。
 
+  - id: M6
+    name: 补 F001 遗留的 Cluster 登记 UI（post-V1 缺口闭合）
+    goal: 为已冻结的 Cluster 写入能力补上前端入口，使「登记集群 / 改名」不再只能靠直接调 API。
+    features: [F016]
+    entry_conditions:
+      - M1 / M2 完成（F001 的登记与改名端点、F013 认证、F014 删除入口均已 DONE）。
+      - 用户已裁定补做（2026-09-18，范围：登记 + 改名，共用同一对话框）。
+    completion_criteria:
+      - 集群列表页可发起登记、集群详情页可发起改名，两者共用同一对话框组件。
+      - 业务校验仍由后端裁决（`/` 禁令、活跃名称全局唯一、大小写敏感），前端不重复实现、不预判拦截。
+      - 后端与 API 契约零改动（docs/api/f001-cluster.md 保持冻结）；无 migration。
+      - Reviewer 批准并成功 merge 到 develop。
+
 # ---------------------------------------------------------------------------
 # Existing Work — Greenfield，无任何已实现能力
 # ---------------------------------------------------------------------------
@@ -1724,7 +1808,7 @@ planning_status:
     IN_PROGRESS: 0
     BLOCKED: 0
     DRAFT: 0
-    DONE: 13
+    DONE: 14
     CANCELLED: 1
   status_decision_rules:
     DRAFT: >
@@ -1935,6 +2019,81 @@ planning_status:
         本变更集上完整后端套件曾跑过一次：966 passed + 1 failed，唯一失败是 lint 测试抓出
         **我自己写的超长行（E501）**；重排后重跑全树 ruff 与受影响的 guard 文件均为绿。
         未改前端代码，故前端套件仅用于回答上述 flaky 问题（8 + 2 次运行）。
+    from_f016_review:
+      open:
+        - id: REV-1
+          severity: MEDIUM（已修复）
+          owner: Frontend
+          summary: >-
+            **已闭合（2026-09-18）**：修复分支 fix/F016-rev1-guard-hardening，候选 HEAD 2497167，
+            merge_commit 38c9260。前半（脚本层等价写法 startsWith/endsWith/charAt/match/search/
+            replace/正则/与 '/' 比较）全部进入 BANNED_TOKENS；后半（模板层 maxlength/minlength/
+            rules/:rules/:model/pattern）新增**模板静态断言**——这是 maxlength 类限制的唯一出路，
+            因为 VTU setValue 直接写 DOM value、绕过属性截断（行为探针在此**必然**失明；写一个
+            「提交超长名称」的用例会给出虚假安全感，该边界已写入用例注释）。
+            验证：协调器与 Reviewer **各自独立**注入 startsWith('/')（此前 0 失败 → 现 5 failed）
+            与 maxlength="5"（此前 0 → 现 1 failed），均逐字节还原。残余见 REV-5 与
+            docs/reviews/f016-cluster-registration-ui.md 的「仍未覆盖的绕过路径」清单（已作为正式产物）。
+        - id: REV-4
+          severity: NOTE（前半已闭合，限作用域）
+          owner: Frontend
+          summary: >-
+            **前半已闭合（限作用域）**：ClusterFormDialog 的 import 模块来源集合被钉死为
+            {vue, ../types/api, ../api/http, ../api/clusters}，新增 helper import 会立即失败
+            （注入实证）。但**不覆盖**「逻辑塞进已白名单模块内部」或「新组件自建表单」——
+            该声明只在「新增 import」范围内成立，**不得**当成「helper 绕过已全封」。
+            **后半已闭合**：行注释改为只剥整行，并由「注释剥离前提」用例把该假设固化为可失败
+            不变量（Reviewer 核验 frontend/src 现有 0 处行内 // 、/* 、<!--）。
+        - id: REV-5
+          severity: NOTE
+          owner: Frontend（可选）
+          summary: >-
+            模板层静态断言按**字面 token** 匹配，可被拼接键规避（Reviewer 注入
+            v-bind="{ ['max'+'length']: 5 }" → **两层同时漏**：token 不匹配，行为探针又被
+            setValue 绕过截断而失明）。当前实现干净，属 token 扫描固有边界。更强做法：模板属性
+            改**白名单枚举**而非黑名单 token。**正因如此，「任意一种等价拦截都会被捕获」在任何
+            记录中均未被声称**——被声称的是更窄且更真的一句：已枚举的写法，加上行为测试能观察到的一切。
+        - id: REV-6
+          severity: NOTE
+          owner: Frontend / Coordinator
+          summary: >-
+            加宽后的 token 对若干**合法**未来写法会误报（:model-value、aria-pattern、展示用
+            .replace(）。评审判断为**可接受的取舍**（写路径单一、失败 fail-closed 且指名 token、
+            误报成本可逆局部），但建议在 token 注释中标明已知误报面，避免后人误以为 guard 坏了
+            而直接删 token。
+        - id: F016-T-01
+          severity: LOW
+          owner: Frontend
+          summary: >-
+            4 个「细节不匹配」错误分支缺永久回归保护（409 的 field/code 不一致、未知错误码 default、
+            400 缺 field 回退）。契约保证真实 409 恒 field=name&code=DUPLICATE、400 恒带 field，
+            故这些分支防御性/不可达；实现正确，缺的只是回归保护。评审独立重评：LOW 恰当。
+        - id: REV-2 / REV-3
+          severity: LOW / NOTE
+          owner: Coordinator
+          summary: >-
+            REV-2 head_commit 落后（已在 F016 最终状态提交更正为 ddf49d，并填 merge_commit 9372919）；
+            REV-3 F016.last_result 的 R1/R2 笔误（已修正）。**均已关闭。**
+      resolved_by_followup:
+        merge_commit: "38c92600ee2bfe876e55dc7f57ca3c898ac39ec7"
+        branch_commit: "2497167281a7260fd2420f932f588db857971c32"
+        note: >-
+          REV-1（两半）与 REV-4（两半）已闭合，见各条 summary。本次为**纯测试加固**：
+          frontend/src/** 逐字节未动（ClusterFormDialog.vue sha256 恒为 7f3cecd9…cccd），
+          只改 2 个测试文件（+256 / −16）；既有 604 用例未削弱（dialog spec +84 / −0，token 只增不减）。
+          门禁：typecheck 零输出、**618 passed 连续 2 次**、build ✓。
+    from_f016_test:
+      open:
+        - id: F016-T-01
+          severity: LOW
+          owner: Frontend
+          summary: >-
+            Tester 的 14 条临时探针中，4 个「细节不匹配」错误分支未被**永久**覆盖（Frontend 的 23 条
+            永久探针覆盖了主路径，但未覆盖这些情形）：① 409 且 field='name' 但 code≠'DUPLICATE' →
+            应走通用「数据冲突」而非同名文案；② 409 且 code='DUPLICATE' 但 field≠'name' → 同上；
+            ③ 未知 / 未来错误码（如 SERVICE_UNAVAILABLE）→ default 分支；④ 400 且 details[].field
+            缺失 → 回退渲染 details[].code。**当前实现正确**（Tester 以临时探针实测 PASS），缺的只是
+            永久回归保护。可逆且局部。
     from_f010_review:
       report: docs/reviews/f010-resource-detail.md
       open:
@@ -2245,7 +2404,7 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: "PROJECT DONE — 13 DONE + F011 CANCELLED by user (2026-09-18); scope records corrected per option A"
+  decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
   current_feature: null

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { listClusters } from '../api/clusters'
+import type { ClusterRead } from '../api/clusters'
 import { useAsyncQuery } from '../composables/useAsyncQuery'
 import { useClusterDelete } from '../composables/useClusterDelete'
 import ListStates from '../components/ListStates.vue'
+import ClusterFormDialog from '../components/ClusterFormDialog.vue'
 
 /**
  * 集群列表页（F001 产品页；F014 起提供行级删除入口）。
@@ -18,6 +20,10 @@ import ListStates from '../components/ListStates.vue'
  *   409 CONFLICT（存在活跃子资源）→ 保留行并按 error.code 渲染冲突提示；
  *   401 → 既有全局会话失效处理；提交中 Loading 且禁止重复提交。
  *   删除守卫由后端裁决（§21），前端不预判、不禁用、不隐藏入口；
+ * - F016：头部提供「登记集群」入口（ClusterFormDialog，POST /api/clusters，
+ *   契约 §3.1）。表单恰一个 name 输入，业务校验全部由服务端裁决；登记成功
+ *   （201）→ 跳转到新集群详情（emit openDetail，用 201 返回的 id 保证新集群
+ *   无需人工刷新即可观察，列表按 id 升序时新集群可能位于其他页）；
  * - 时间字段按不透明字符串原样展示（契约 §2：不解析、不假设时区）；
  * - name 原样展示，不假设非空或已 trim（契约 §7 undefined_constraints）；
  * - 分页参数合法性（page ≥ 1、1 ≤ page_size ≤ 200）由服务端校验
@@ -87,13 +93,33 @@ function openDetail(clusterId: number): void {
 function confirmDelete(clusterId: number): void {
   void requestDelete(clusterId)
 }
+
+// ---- 登记入口（F016，POST /api/clusters，契约 §3.1） ----
+
+const createDialogVisible = ref(false)
+
+/** F016：登记成功（201）→ 跳转到新集群详情（新集群按 id 升序可能位于其他页，
+ *  用 201 返回的 id 直接展示，保证无需人工刷新即可观察）。 */
+function handleCreated(cluster: ClusterRead): void {
+  openDetail(cluster.id)
+}
 </script>
 
 <template>
   <main class="cluster-list">
     <header class="cluster-list__header">
       <h1 class="cluster-list__title">集群列表</h1>
-      <el-button :loading="loading" @click="refresh">刷新</el-button>
+      <div class="cluster-list__actions">
+        <el-button :loading="loading" @click="refresh">刷新</el-button>
+        <!-- F016 登记入口：打开 ClusterFormDialog（create 模式）；业务校验由服务端裁决。 -->
+        <el-button
+          type="primary"
+          data-testid="open-create-dialog"
+          @click="createDialogVisible = true"
+        >
+          登记集群
+        </el-button>
+      </div>
     </header>
 
     <section class="cluster-list__body">
@@ -166,6 +192,13 @@ function confirmDelete(clusterId: number): void {
         </div>
       </ListStates>
     </section>
+
+    <!-- F016 登记表单（POST）：恰一个 name 输入；name 原样提交，业务校验由服务端裁决。 -->
+    <ClusterFormDialog
+      v-model="createDialogVisible"
+      mode="create"
+      @success="handleCreated"
+    />
   </main>
 </template>
 
@@ -181,6 +214,12 @@ function confirmDelete(clusterId: number): void {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.cluster-list__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .cluster-list__title {

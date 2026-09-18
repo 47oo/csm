@@ -4,6 +4,8 @@ import type { VueWrapper } from '@vue/test-utils'
 import ElementPlus, { ElPopconfirm } from 'element-plus'
 import ClusterDetailPage from '../src/pages/ClusterDetailPage.vue'
 import ClusterListPage from '../src/pages/ClusterListPage.vue'
+import ClusterFormDialog from '../src/components/ClusterFormDialog.vue'
+import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
  * vi.waitFor 包装：全量并行负载下页面挂载 / el-dialog 挂载 / 异步完成偶发超过
@@ -405,5 +407,264 @@ describe('ClusterDetailPage 删除入口（F014，T-FE-01 / AC-10）', () => {
     await waitForUi(() => {
       expect(wrapper.attributes('data-state')).toBe('not-found')
     })
+  })
+})
+
+// ---- 改名入口（F016，PATCH /api/clusters/{id}，契约 §3.5） ----
+
+const RENAMED_CLUSTER = {
+  id: 1,
+  name: 'cluster-b',
+  created_at: '2026-09-15T10:00:00Z',
+  updated_at: '2026-09-18T12:00:00Z',
+}
+
+/** 契约 §5：message 不构成契约；使用与展示无关的文案。 */
+const RENAME_DUPLICATE_BODY = {
+  error: {
+    code: 'CONFLICT',
+    message: '与展示无关的重复文案',
+    details: [{ field: 'name', code: 'DUPLICATE', message: '与展示无关的字段文案' }],
+  },
+}
+const RENAME_NOT_FOUND_BODY = { error: { code: 'NOT_FOUND', message: '与展示无关的未找到文案' } }
+const RENAME_VALIDATION_BODY = {
+  error: {
+    code: 'VALIDATION_ERROR',
+    message: '与展示无关的校验文案',
+    details: [{ field: 'name', code: 'INVALID_CHARACTER', message: '与展示无关的字段提示' }],
+  },
+}
+const RENAME_UNAUTHENTICATED_BODY = { error: { code: 'UNAUTHENTICATED', message: '未认证' } }
+
+/** 按方法分发的 fetch 桩：PATCH → patch()；其余（GET 详情）→ detail()。 */
+function stubRenameFetch(routes: {
+  detail: () => Response
+  patch?: () => Response | Promise<Response>
+}) {
+  const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === 'PATCH') return routes.patch?.() ?? jsonResponse(200, RENAMED_CLUSTER)
+    return routes.detail()
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+/** PATCH /api/clusters/{id} 的调用次数。 */
+function patchCalls(fetchMock: ReturnType<typeof vi.fn>): number {
+  return fetchMock.mock.calls.filter(
+    (call) => (call[1] as RequestInit | undefined)?.method === 'PATCH',
+  ).length
+}
+
+/** 打开改名对话框并等待表单渲染就绪（el-dialog 内容首开才挂载）。 */
+async function openRenameDialog(wrapper: VueWrapper): Promise<void> {
+  await wrapper.find('[data-testid="open-edit-dialog"]').trigger('click')
+  await waitForUi(() => {
+    expect(wrapper.find('[data-testid="cluster-form-submit"]').exists()).toBe(true)
+  })
+}
+
+/** 等待提交按钮可用后点击（沿用既有 submitWhenEnabled 形态；本对话框禁用仅为提交中）。 */
+async function submitClusterForm(wrapper: VueWrapper): Promise<void> {
+  await waitForUi(() => {
+    expect(wrapper.find('[data-testid="cluster-form-submit"]').attributes('disabled')).toBeUndefined()
+  })
+  await wrapper.find('[data-testid="cluster-form-submit"]').trigger('click')
+}
+
+describe('ClusterDetailPage 改名入口（F016，AC-02 / AC-03 / AC-09 / AC-10 / AC-11 / AC-16 / AC-17）', () => {
+  afterEach(() => {
+    // 本 describe 的 401 用例注册全局未认证处理器，用例后清除保证隔离
+    //（本文件既有顶层 afterEach 仅 unstub fetch）。
+    setUnauthenticatedHandler(null)
+  })
+
+  it('内容态存在「改名」入口；打开 edit 模式 ClusterFormDialog 并预填当前 name（AC-02 / AC-03）', async () => {
+    const fetchMock = stubRenameFetch({ detail: () => jsonResponse(200, CLUSTER_A) })
+
+    const wrapper = await mountDetailContent()
+
+    const button = wrapper.find('[data-testid="open-edit-dialog"]')
+    expect(button.exists()).toBe(true)
+    expect(button.text()).toContain('改名')
+    // 登记与改名共用同一 ClusterFormDialog 组件（AC-03）：详情页挂载 edit 模式。
+    expect(wrapper.findComponent(ClusterFormDialog).props('mode')).toBe('edit')
+
+    await openRenameDialog(wrapper)
+
+    expect(
+      (wrapper.find('[data-testid="cluster-form-name"]').element as HTMLInputElement).value,
+    ).toBe('cluster-a')
+    // 打开不发起任何请求：仍只有初始 GET。
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('Not Found 态不渲染「改名」入口（AC-16：独立 404 态不受接线影响）', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(404, NOT_FOUND_BODY)))
+
+    const wrapper = mountDetailPage(999)
+    await waitForUi(() => {
+      expect(wrapper.attributes('data-state')).toBe('not-found')
+    })
+    expect(wrapper.find('[data-testid="open-edit-dialog"]').exists()).toBe(false)
+  })
+
+  it('改名成功（200）→ 关闭对话框并重新读取，展示新 name 与 updated_at（AC-09）', async () => {
+    const mutable = { detail: () => jsonResponse(200, CLUSTER_A) }
+    const fetchMock = stubRenameFetch({
+      detail: () => mutable.detail(),
+      patch: () => {
+        mutable.detail = () => jsonResponse(200, RENAMED_CLUSTER)
+        return jsonResponse(200, RENAMED_CLUSTER)
+      },
+    })
+
+    const wrapper = await mountDetailContent()
+    await openRenameDialog(wrapper)
+
+    await wrapper.find('[data-testid="cluster-form-name"]').setValue('cluster-b')
+    await submitClusterForm(wrapper)
+
+    // 详情重新读取并展示服务端返回的新 name 与 updated_at。
+    await waitForUi(() => {
+      expect(wrapper.text()).toContain('cluster-b')
+    })
+    expect(wrapper.text()).toContain('2026-09-18T12:00:00Z')
+    // 请求序列：初始 GET → PATCH → 重新读取 GET。
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(fetchMock.mock.calls[2]![0]).toBe('/api/clusters/1')
+    expect(wrapper.findComponent(ClusterFormDialog).props('modelValue')).toBe(false)
+  })
+
+  it('改为自身当前名称 → 200 成功，不显示冲突提示（AC-11）', async () => {
+    const fetchMock = stubRenameFetch({
+      detail: () => jsonResponse(200, CLUSTER_A),
+      patch: () => jsonResponse(200, CLUSTER_A),
+    })
+
+    const wrapper = await mountDetailContent()
+    await openRenameDialog(wrapper)
+
+    // 不修改预填的当前名称，直接提交。
+    await submitClusterForm(wrapper)
+
+    await waitForUi(() => {
+      expect(patchCalls(fetchMock)).toBe(1)
+    })
+    // 成功：对话框关闭、详情重读（GET → PATCH → GET）；无任何冲突 / 本地失败提示。
+    await waitForUi(() => {
+      expect(wrapper.findComponent(ClusterFormDialog).props('modelValue')).toBe(false)
+    })
+    await waitForUi(() => {
+      expect(wrapper.attributes('data-state')).toBe('content')
+    })
+    expect(wrapper.find('[data-error-code]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('cluster-a')
+  })
+
+  it('409 CONFLICT（DUPLICATE）→ 对话框内固定文案，详情内容保留、不重读（AC-10）', async () => {
+    const fetchMock = stubRenameFetch({
+      detail: () => jsonResponse(200, CLUSTER_A),
+      patch: () => jsonResponse(409, RENAME_DUPLICATE_BODY),
+    })
+
+    const wrapper = await mountDetailContent()
+    await openRenameDialog(wrapper)
+
+    await wrapper.find('[data-testid="cluster-form-name"]').setValue('cluster-b')
+    await submitClusterForm(wrapper)
+
+    await waitForUi(() => {
+      expect(wrapper.find('[data-error-code="CONFLICT"]').exists()).toBe(true)
+    })
+    const alert = wrapper.find('[data-error-code="CONFLICT"]')
+    expect(alert.text()).toContain('无法保存')
+    expect(alert.text()).toContain('已存在活跃的同名集群')
+    expect(wrapper.text()).not.toContain('与展示无关的重复文案')
+    // 详情内容保留（仍处内容态），对话框保持打开。
+    expect(wrapper.attributes('data-state')).toBe('content')
+    expect(wrapper.text()).toContain('cluster-a')
+    expect(wrapper.findComponent(ClusterFormDialog).props('modelValue')).toBe(true)
+    // 失败不重读详情：初始 GET + 一次 PATCH。
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('404 NOT_FOUND（已被其他操作删除）→ 对话框内固定文案，不解析 message（AC-10）', async () => {
+    stubRenameFetch({
+      detail: () => jsonResponse(200, CLUSTER_A),
+      patch: () => jsonResponse(404, RENAME_NOT_FOUND_BODY),
+    })
+
+    const wrapper = await mountDetailContent()
+    await openRenameDialog(wrapper)
+
+    await wrapper.find('[data-testid="cluster-form-name"]').setValue('cluster-b')
+    await submitClusterForm(wrapper)
+
+    await waitForUi(() => {
+      expect(wrapper.find('[data-error-code="NOT_FOUND"]').exists()).toBe(true)
+    })
+    const alert = wrapper.find('[data-error-code="NOT_FOUND"]')
+    expect(alert.text()).toContain('无法保存')
+    expect(alert.text()).toContain('该集群不存在或已被删除')
+    expect(wrapper.text()).not.toContain('与展示无关的未找到文案')
+    // 失败不重读、不关闭：详情内容保留，对话框保持打开。
+    expect(wrapper.attributes('data-state')).toBe('content')
+    expect(wrapper.findComponent(ClusterFormDialog).props('modelValue')).toBe(true)
+  })
+
+  it('400 VALIDATION_ERROR → 字段级提示指向 name（AC-10）', async () => {
+    stubRenameFetch({
+      detail: () => jsonResponse(200, CLUSTER_A),
+      patch: () => jsonResponse(400, RENAME_VALIDATION_BODY),
+    })
+
+    const wrapper = await mountDetailContent()
+    await openRenameDialog(wrapper)
+
+    await wrapper.find('[data-testid="cluster-form-name"]').setValue('a/b')
+    await submitClusterForm(wrapper)
+
+    await waitForUi(() => {
+      expect(wrapper.find('[data-error-code="VALIDATION_ERROR"]').exists()).toBe(true)
+    })
+    const alert = wrapper.find('[data-error-code="VALIDATION_ERROR"]')
+    expect(alert.text()).toContain('请求校验失败')
+    expect(alert.text()).toContain('name')
+    expect(wrapper.findComponent(ClusterFormDialog).props('modelValue')).toBe(true)
+  })
+
+  it('401 UNAUTHENTICATED → 全局会话失效处理，无本地提示（AC-10）', async () => {
+    stubRenameFetch({
+      detail: () => jsonResponse(200, CLUSTER_A),
+      patch: () => jsonResponse(401, RENAME_UNAUTHENTICATED_BODY),
+    })
+    const unauthenticated = vi.fn()
+    setUnauthenticatedHandler(unauthenticated)
+
+    const wrapper = await mountDetailContent()
+    await openRenameDialog(wrapper)
+
+    await wrapper.find('[data-testid="cluster-form-name"]').setValue('cluster-b')
+    await submitClusterForm(wrapper)
+
+    await waitForUi(() => {
+      expect(unauthenticated).toHaveBeenCalledTimes(1)
+    })
+    expect(wrapper.find('[data-error-code]').exists()).toBe(false)
+  })
+
+  it('F014 删除入口与 F002「查看裸金属」入口不受改名接线影响（AC-17）', async () => {
+    stubDetailFetch({
+      detail: () => jsonResponse(200, CLUSTER_A),
+      remove: () => noContent(),
+    })
+
+    const wrapper = await mountDetailContent()
+
+    expect(wrapper.find('[data-testid="open-bare-metals"]').exists()).toBe(true)
+    expect(wrapper.findComponent(ElPopconfirm).exists()).toBe(true)
+    expect(wrapper.find('[data-testid="open-edit-dialog"]').exists()).toBe(true)
   })
 })
