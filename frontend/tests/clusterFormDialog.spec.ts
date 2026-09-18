@@ -636,3 +636,87 @@ describe('ClusterFormDialog edit 模式（改名，契约 §3.5）', () => {
     )
   })
 })
+
+/**
+ * F016 REV-1 加固：对抗性取值（create / edit 两模式）。
+ *
+ * 对每一个「可能被前端悄悄限制」的取值断言三件事：
+ * 1. 提交按钮未被禁用（禁用条件不得依赖名称内容，REQUIRED #4）；
+ * 2. 恰好一次写请求、且无任何其他请求（无预检读）；
+ * 3. 请求体逐字节原样（JSON.stringify({ name: value })，未被 trim /
+ *    替换 / 拦截 / 截断）。
+ *
+ * 诚实边界（勿把结论说过头）：VTU 的 setValue 直接写 DOM value，**绕过**
+ * maxlength 属性的截断（只有真实浏览器的人工输入会被截断），因此「超长
+ * 名称」用例只能证明**脚本层**没有长度校验 / 拦截，**不能**证明模板层没
+ * 有 maxlength——后者由静态 guard 的模板层断言覆盖
+ * （clusterFormNoClientValidation.spec.ts，REV-1 R-B 的唯一出路）。
+ * 反之，脚本层未知语法的校验（如 startsWith）本探针能捕获（提交被拦截
+ * → 写请求数为 0），但已知 / 可枚举语法由静态 token 更早失败、定位更准。
+ * 两层互补，缺一不可。
+ *
+ * 这些取值本身属 undefined_constraints（契约 §7）：探针断言的是「前端
+ * 不拦截、不变换」，**不是**「这些名称在业务上合法」——合法性与否由
+ * 服务端裁决（§21）。
+ */
+const ADVERSARIAL_NAMES: ReadonlyArray<{ label: string; value: string }> = [
+  { label: '纯斜杠', value: '/' },
+  { label: '首斜杠（绝对路径形态）', value: '/absolute/path' },
+  { label: '尾斜杠', value: 'trailing/' },
+  { label: '全空白（三空格）', value: '   ' },
+  { label: '超长名称（300 字符）', value: 'x'.repeat(300) },
+]
+
+describe('ClusterFormDialog create 模式：对抗性取值（AC-05，REV-1 加固）', () => {
+  it.each(ADVERSARIAL_NAMES)(
+    '$label → 提交按钮未禁用、恰一次 POST、body 逐字节原样',
+    async ({ value }) => {
+      const fetchMock = stubDialogFetch({})
+
+      const wrapper = mountDialog('create')
+      await waitForDialogReady(wrapper)
+
+      await nameInput(wrapper).setValue(value)
+      // 禁用条件不得依赖名称内容（REQUIRED #4；undefined_constraints）。
+      expect(wrapper.find('[data-testid="cluster-form-submit"]').attributes('disabled')).toBeUndefined()
+
+      await wrapper.find('[data-testid="cluster-form-submit"]').trigger('click')
+
+      await waitForUi(() => {
+        expect(methodCalls(fetchMock, 'POST')).toBe(1)
+      })
+      // 恰一次写请求、无任何其他请求（无预检读）。
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/clusters',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: value }) }),
+      )
+    },
+  )
+})
+
+describe('ClusterFormDialog edit 模式：对抗性取值（AC-05，REV-1 加固）', () => {
+  it.each(ADVERSARIAL_NAMES)(
+    '$label → 提交按钮未禁用、恰一次 PATCH、body 逐字节原样',
+    async ({ value }) => {
+      const fetchMock = stubDialogFetch({})
+
+      const wrapper = mountDialog('edit', CLUSTER_A)
+      await waitForDialogReady(wrapper)
+
+      await nameInput(wrapper).setValue(value)
+      expect(wrapper.find('[data-testid="cluster-form-submit"]').attributes('disabled')).toBeUndefined()
+
+      await wrapper.find('[data-testid="cluster-form-submit"]').trigger('click')
+
+      await waitForUi(() => {
+        expect(methodCalls(fetchMock, 'PATCH')).toBe(1)
+      })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/clusters/1',
+        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ name: value }) }),
+      )
+    },
+  )
+})
