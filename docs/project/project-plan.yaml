@@ -1881,6 +1881,60 @@ planning_status:
         （仅 docs 与 plan 的较早版本），HEAD 内容正确。协调器当时误判该提交失败，未察觉，本轮经 reflog 发现。
       action: 未改写历史（AGENTS.md 禁止以改写历史处理问题）；记录在案。后续提交一律使用 `git commit -F -`（stdin），避免反引号被 shell 解释。
   follow_ups:
+    # ----------------------------------------------------------------------- #
+    # Post-V1 维护：已记入各 Feature 评审的 LOW / NOTE 跟进项处置结果。
+    # 各条原始 finding 文本保留在各 from_fXXX_review.open 中作为历史，
+    # 其「是否已闭合」以本块为准（避免就地改写历史结论）。
+    # 分支 chore/followups-post-v1，提交 84e0ee3，merge 288dd42。
+    # ----------------------------------------------------------------------- #
+    post_v1_maintenance:
+      merged: 288dd42
+      branch_commit: 84e0ee3
+      note: >-
+        无生产代码变更：本批只动 **guard 与文档**。两处缺口的本质都是「文档承诺」与
+        「guard 实际强制」之间的差距，两侧任一侧都可以改来对齐；选择**加宽 guard**
+        而不是**收窄承诺**，因为这些承诺描述的是值得拥有的性质。
+      resolved:
+        - id: F005 REV-3
+          summary: >-
+            G-9「cluster_id 单一写入路径」检测器原只认构造参数 / setattr / 属性赋值，
+            漏 `update(...).values(cluster_id=...)`；已注入证实可绕过。现覆盖 ORM `.values(cluster_id=...)`、
+            `.values({"cluster_id": ...})`、`dict(cluster_id=...)` 与裸 SQL（`text(...)` / `execute(...)`）。
+            首版放宽**过宽**（任何 `cluster_id=` 关键字都会命中，把 `list_active(..., cluster_id=...)`
+            这类**过滤参数传递**误判为写入），已收窄为只认真正赋值列的 callee。新增合成源码回归测试，
+            使「检测器覆盖范围」本身可被反驳。
+        - id: F010 REV-2
+          summary: >-
+            F010 的软删 guard 只覆盖**写入**形态，而架构 REQUIRED #2 承诺模块内**无任何**
+            deleted_at 表达式。修复：把 `deleted_at` 加入该 guard 已在扫描的 `FORBIDDEN_SOURCE_TOKENS`
+            （扫源码文本，读 / 写均命中）；此前注入保持全绿的只读谓词 `.deleted_at.is_(None)` 现已失败。
+            并加一条测试固定该 token 不得被后人移除。
+        - id: F004 REV-2
+          summary: >-
+            **无需改动，已由后续 Feature 的更强防线闭合**。原 finding：移除 `network-interface` token 后，
+            前缀 deny-list 会漏掉单数变体 `/api/network-interface`。以注入复验：该单数路由**已被**
+            `test_product_api_surface_is_closed`（`APPROVED_API_PREFIXES` 首段 allow-list，F007/F008 引入）
+            检出。以**证据**闭合而非让 finding 悄然消失。
+        - id: F010 REV-3
+          summary: >-
+            文档过度声明而非代码故障：架构 REQUIRED #5 与契约曾称「单一 session 保证跨类一致快照」，
+            实际为 PostgreSQL 默认 READ COMMITTED（各语句各自取快照），并发软删下 offset 取全循环
+            可能**静默跳过**行（重复项被 id 去重吸收，跳过项不会）。两处文档已改为准确表述并写明
+            「若需更强保证须由 Architect 裁定是否用 REPEATABLE READ」。
+        - id: F002-T-01
+          summary: >-
+            F013 `appAuth.spec.ts` 并行偶发超时：**未复现**——单 spec 连跑 8 次 + 全量并行跑 2 次
+            （各 562 passed）全部通过。与 F004 的单调时钟补丁已缓解该问题一致。**按「不再复现」记录，
+            不按「已修复」记录**：间歇性失败连续 10 次不出现，不等于已被解释。若再现，Owner 为 Test Infra。
+      still_open:
+        - id: Framework OPEN#6
+          summary: 聚合级分页 / 超大规模关联的性能——无已确认需求，留待后续。
+        - id: F007-INC-1 / F007-INC-2
+          summary: 过程事件记录（违规 stash；被截断的重复提交）——事实已固定，无代码动作。
+      verification: >-
+        本变更集上完整后端套件曾跑过一次：966 passed + 1 failed，唯一失败是 lint 测试抓出
+        **我自己写的超长行（E501）**；重排后重跑全树 ruff 与受影响的 guard 文件均为绿。
+        未改前端代码，故前端套件仅用于回答上述 flaky 问题（8 + 2 次运行）。
     from_f010_review:
       report: docs/reviews/f010-resource-detail.md
       open:
