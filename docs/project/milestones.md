@@ -3,7 +3,7 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend 技术层划分。
-> Last updated: 2026-09-18（**M1–M6 全部 DONE**；新增 M7（F017，DRAFT）待用户确认）
+> Last updated: 2026-09-18（**M1–M6 全部 DONE**；M7（F017）已获用户批准，执行中）
 
 完成判据统一要求：对应 Feature 的 Reviewer 为 `APPROVED` / `APPROVED WITH FOLLOW-UP`，
 必要测试通过，且 Feature Branch 已成功 merge 到 develop，项目状态已更新并提交
@@ -159,17 +159,17 @@
 
 ---
 
-## M7 — 应用外壳侧边栏导航（post-V1，呈现层）· 状态：DRAFT（待用户确认）
+## M7 — 应用外壳侧边栏导航（post-V1，呈现层）· 状态：READY（已获用户批准）
 
-> **2026-09-18 追加。** 本里程碑由用户的**可行性询问**登记，**尚未确认为需求**。
+> **2026-09-18 追加并获批。** 本里程碑由用户的可行性询问登记；**DEC-020 已由用户裁定「做」**（2026-09-18），故 F017 转 READY 并开始执行。
 > 权威定义见 `docs/project/project-plan.yaml` 的 `milestones[M7]` 与 `features[F017]`。
 
 | ID | Feature | Priority | 状态 |
 |---|---|---|---|
-| F017 | 应用外壳侧边栏导航 | P2 | DRAFT（唯一未处置 Feature） |
+| F017 | 应用外壳侧边栏导航 | P2 | READY（唯一未处置 Feature） |
 
 **进入条件**
-- **用户明确确认实施**（解除 F017 的 NQ-1 与 `DEC-020` OPEN）——这是唯一的未满足条件。
+- ~~用户明确确认实施~~ **已满足（2026-09-18 DEC-020 = 做）**。
 - F012 / F013 / F001 / F002 / F004 / F005 / F006 / F007 / F008 / F010 均已 DONE（已满足）。
 
 **完成判据**

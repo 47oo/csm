@@ -148,14 +148,14 @@ F007（P1）在 F006 完成后即可执行，不必等待所有 P0 完成。执�
 
 ## 6. 2026-09-18 追加：F017（应用外壳侧边栏导航）
 
-> 权威定义见 `docs/project/project-plan.yaml`。F017 状态 `DRAFT`（待用户确认是否实施，`DEC-020` OPEN）。
+> 权威定义见 `docs/project/project-plan.yaml`。F017 状态 `READY`（`DEC-020` 已由用户裁定为「做」，2026-09-18）。
 
 ```text
 F012 ─┐
 F013 ─┤
 F001 ─┤
 F002 ─┤
-F004 ─┼──> F017 应用外壳侧边栏导航 (P2, DRAFT)
+F004 ─┼──> F017 应用外壳侧边栏导航 (P2, READY)
 F005 ─┤      纯呈现层：database=false / backend=false / frontend=true
 F006 ─┤      契约 NOT_REQUIRED（无新端点）
 F007 ─┤
