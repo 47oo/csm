@@ -3,7 +3,7 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend 技术层划分。
-> Last updated: 2026-09-18（**M1–M6 全部 DONE**；M7（F017）已获用户批准，执行中）
+> Last updated: 2026-09-18（**M1–M6 全部 DONE**；M7（F017）执行中；新增 M8（F018，DRAFT）待用户裁定）
 
 完成判据统一要求：对应 Feature 的 Reviewer 为 `APPROVED` / `APPROVED WITH FOLLOW-UP`，
 必要测试通过，且 Feature Branch 已成功 merge 到 develop，项目状态已更新并提交
@@ -182,3 +182,29 @@
 **边界声明**：本里程碑**不**改变任何业务行为，**不**新增任何产品规则；导航形态不构成产品规则
 （`requirements.md` §5 的「页面导航」仅述资源分类的作用之一；`f002-bare-metal-handoff.md:230`
 与 `frontend/src/App.vue:23/31/93` 均明确写明）。
+
+---
+
+## M8 — 集群内资源关键字搜索 · 状态：DRAFT（待裁定）
+
+> **2026-09-18 追加（二）。** 本里程碑由用户新输入「还需要添加一个搜索功能，允许选定集群后，
+> 通过任意关键字查询」登记。权威定义见 `docs/project/project-plan.yaml` 的 `milestones[M8]` 与 `features[F018]`。
+
+| ID | Feature | Priority | 状态 |
+|---|---|---|---|
+| F018 | 集群内资源关键字搜索 | P1 | DRAFT（5 个 blocking 产品 NQ + DEC-021 OPEN） |
+
+**进入条件**
+- `DEC-021` 裁定为「做」，且既有契约的关键字立场已按裁定修订（三份契约当前**明确禁止**该参数）。
+- F018 的 blocking NQ-1 ~ NQ-5 全部裁定，scope / AC 由 Product 定稿，并在 `requirements.md` §16 新增 / 修订一条产品规则（NQ-8）。
+- 依赖的资源 Feature（F001 / F002 / F004 / F005 / F006 / F007 / F008）均已 DONE（**已满足**）。
+- 若搜索入口落在应用外壳（NQ-5），F017 须先 merge 或先划清 `frontend/src/App.vue` 的所有权。
+
+**完成判据**
+- 交付范围与可判定 AC 经 Product 定稿。
+- 搜索契约 READY（新增或修订既有契约）；**无「契约禁止、实现却有」的分裂**。
+- 未认证 → 401；软删资源不出现在结果中；Cluster 不存在 / 已删 → 404 与 Empty 可区分（R-QUERY-004）。
+- 满足统一 Git Gate（Reviewer 批准、测试通过、merge 到 develop、状态更新并提交）。
+
+**为什么单列一个里程碑**：搜索是**独立于呈现层**的功能能力；M7（F017）是纯呈现层改动。
+把两者并入同一里程碑会把不相关的交付混在一起，违反「里程碑按产品交付能力划分」的原则。

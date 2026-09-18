@@ -170,3 +170,29 @@ F010 ─┘
 - **不引入循环**：F017 不修改任何资源 Feature 的对外行为，前置 Feature 也不依赖 F017。
 - F017 **不触发 `vue-router` 决策**（该立场仍是 OPEN 非阻塞项）：侧边栏只是把同一套视图状态切换器
   的呈现从顶栏改为侧栏，不需要路由库。二者相互独立——本图**不**增设 vue-router 节点。
+
+---
+
+## 7. 2026-09-18 追加：F018（集群内资源关键字搜索）
+
+> 权威定义见 `docs/project/project-plan.yaml`。F018 状态 `DRAFT`（5 个 blocking 产品 NQ + `DEC-021` OPEN）。
+
+```text
+F001 ─┐
+F002 ─┤
+F004 ─┤
+F005 ─┼──> F018 集群内资源关键字搜索 (P1, DRAFT)
+F006 ─┤      layers: database=false（待 NQ-6 裁定） / backend=true / frontend=true
+F007 ─┤      contract: REQUIRED（须新增或修订既有契约的关键字立场）
+F008 ─┘
+```
+
+**说明**
+- **F004–F008 是暂列依赖**：它们只因 NQ-1（搜索范围）**可能**覆盖 R-QUERY-003 的五类关联资源而列入；
+  NQ-1 裁定后须**收窄**（若仅搜 BareMetal，则只保留 F001/F002）。全部前置当前已 DONE，故不构成阻塞。
+- **F009 / F010 非硬依赖**，但其 canonical 过滤（Cluster 视角、关联过滤 / `carrier_type+carrier_id`）
+  **必须复用**，不得另写一份。
+- F018 是**新的独立叶子节点**，无 Feature 依赖它；**不引入循环**。
+- **与 F017 无依赖边**（搜索不要求侧边栏先完成）。唯一潜在交互：若 NQ-5 把搜索入口放在应用外壳，
+  两者都会改 `frontend/src/App.vue`，须先划清文件所有权或让 F017 先 merge（`git-workflow.md` §3）。
+- `F011` 仍 `CANCELLED`（未进入本图）。

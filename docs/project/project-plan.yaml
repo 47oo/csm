@@ -28,8 +28,18 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: IN_PROGRESS
+  status: DRAFT
   status_changed_on: "2026-09-18"
+  status_note_append: >
+    2026-09-18 追加输入：「添加搜索功能，允许选定集群后按任意关键字查询」。据此**新增** F018（DRAFT）、
+    DEC-021（OPEN）与 M8。**既有结论一律不变**：14 DONE + 1 CANCELLED、M1–M6、全部 merge commit /
+    Tester / Review 证据、以及各 Feature 的 git 元数据均保留。
+    本计划由 IN_PROGRESS 转 DRAFT **仅表示新增输入待用户批准**，既不代表既有交付被推翻，
+    也**不表示 F017 被撤销**——F017 的范围已由用户 DEC-020「做」批准，其 status / current_stage /
+    git.* / execution.current_feature 全部原样保留。
+    **须注意的后果（协调器指出）**：`/implement-project` 第 2 节把 `DRAFT` 视为硬停止条件
+    （输出 `PROJECT PLAN APPROVAL REQUIRED`），因此**在用户批准本计划之前，F017 不会被自动继续**。
+    这是有意的：新增输入改变了 Backlog 与契约立场，应由用户看过再决定 F017 是否继续。
   status_note: >
     **2026-09-18 重新规划并获批准**：V1 全部 Feature（14 DONE + 1 CANCELLED）处置完毕后，用户就
     「UI 导航栏是否可改为侧边栏」提出可行性询问。据此登记 F017 与 DEC-020。
@@ -148,8 +158,8 @@ epics:
     features: [F008]
   - id: E05
     name: 资源查询与视图
-    description: 从 Cluster 视角及资源详情视角查询资源与关系。
-    features: [F009, F010]
+    description: 从 Cluster 视角及资源详情视角查询资源与关系；F018 起含 Cluster 范围内的关键字搜索。
+    features: [F009, F010, F018]
   - id: E06
     name: 数据导入
     description: Excel 模板与批量资源导入。
@@ -1345,6 +1355,125 @@ features:
         summary: >
           是否采用 Element Plus 的 el-menu / el-menu-item / el-aside 属**实现选择**，不写入 AC
           （AC 只描述用户可观察行为）；不得据此引入 vue-router 或任何新依赖。
+  # ---- F018：集群内资源关键字搜索（**严重欠定义，DRAFT；不得在裁定前实现**）----
+  # 上游输入（原文）：用户 2026-09-18「还需要添加一个搜索功能，允许选定集群后，通过任意关键字查询」。
+  # 关键事实：§16 无任何关键字规则（仅 R-QUERY-001~004）；**三份已冻结契约明确禁止关键字参数**
+  # （f005:129 / f009:181 / f010:172，另 f002:454 排除「筛选」）；后端与前端均无任何搜索能力。
+  # 故这不是「加一个输入框」，而是**要推翻三处已冻结契约立场 + 新增产品规则**。
+  - id: F018
+    name: 集群内资源关键字搜索
+    epic: E05
+    priority: P1
+    status: DRAFT
+    depends_on: [F001, F002, F004, F005, F006, F007, F008]
+    blocking: [NQ-1, NQ-2, NQ-3, NQ-4, NQ-5, DEC-021]
+    git: {base_branch: develop, branch: null, start_commit: null, head_commit: null, merge_commit: null}
+    current_stage: null
+    last_result: >
+      尚未进入实施。本 Feature 由用户 2026-09-18 的新输入登记；**搜索范围 / 字段 / 匹配语义 /
+      结果呈现 / 入口位置五项均未确认**（NQ-1~NQ-5 全部 blocking），且 DEC-021（是否修订三份契约的
+      关键字立场）OPEN。未创建分支、未产出任何 Handoff。
+    next_action: >
+      等待用户裁定 DEC-021 与 NQ-1~NQ-5。裁定后：先由 Product 在 requirements.md §16 新增 / 修订
+      一条关键字搜索产品规则（NQ-8），再修订三份既有契约立场，然后 Architecture 定稿契约形态（NQ-7）
+      与索引方案（NQ-6），最后才进入实现。
+    depends_on_note: >
+      F001 / F002 是 Cluster 与 BareMetal 的最小真实前置；F004–F008 **仅因 NQ-1（搜索范围）可能覆盖
+      R-QUERY-003 的五类关联资源而暂列**，待 NQ-1 裁定后须收窄（若仅搜 BareMetal 则只保留 F001/F002）。
+      全部前置当前已 DONE，故依赖不构成阻塞。F009 / F010 非硬依赖，但其 canonical 过滤必须复用
+      （F009 的 Cluster 视角、F010 的关联过滤 / `carrier_type+carrier_id`），**不得另写一份**。
+    layers: {database: false, backend: true, frontend: true}
+    layers_note: >
+      `database: false` 的前提是「匹配语义不需要新索引」。若 NQ-3 裁定为子串匹配，10^5 规模下
+      `ILIKE '%kw%'` 无法使用 B-tree，可能需 pg_trgm GIN / tsvector（NQ-6，归 Architecture / Database 裁定）；
+      届时本字段可能由 false 变 true。
+    contract: {status: REQUIRED, doc: null}
+    contract_note: >
+      本 Feature **必须**有契约变更，不能沿用既有契约——三份已冻结契约明确「不存在关键字参数 /
+      不得构造」。Architecture 须在 DEC-021 裁定后决定形态：**新增独立搜索端点**，或**在既有
+      per-resource 列表端点追加 `keyword` 参数**；两种形态都需要新增契约或修订既有契约
+      （f002 / f005 / f009 / f010）。**不得出现「契约禁止、实现却有」的分裂。**
+    implementation: {database_design: NOT_REQUIRED, backend: NOT_STARTED, frontend: NOT_STARTED, test: NOT_STARTED, review: NOT_STARTED}
+    product_document: docs/product/requirements.md
+    requirements: []
+    requirements_note: >
+      §16 Resource Query 仅 R-QUERY-001 ~ R-QUERY-004，**均不涉及关键字 / 模糊 / 全文搜索**。
+      「任意关键字查询」是本次新提出的产品能力，**必须先由 Product 新增或修订一条产品规则**，
+      本 Feature 才能挂 requirement ID。Project Manager 与协调器均**不得**自行发明该产品规则。
+    acceptance_criteria:
+      - AC-01 只读：搜索不创建 / 修改 / 删除任何资源，不存在写端点或写副作用。
+      - AC-02 软删过滤：已逻辑删除的资源不出现在任何搜索结果中（R-DELETE-002；ADR-0004）。
+      - AC-03 认证：未认证访问搜索相关端点 → 401 UNAUTHENTICATED 且不返回资源数据。
+      - AC-04 Not Found / Empty 区分（R-QUERY-004）：目标 Cluster 不存在或已软删 → 404 NOT_FOUND；Cluster 存在但无命中 → 200 + 空结果并渲染 Empty 态；二者界面互不相同且可独立断言。
+      - AC-05 不改既有语义：搜索不新增任何资源唯一性约束，不修改 §22 大小写语义、`by-name` 大小写敏感、用户名查找禁止 `lower()/ILIKE` 等既有规则。
+      - AC-06 契约一致：搜索契约已持久化且 contract.status=READY，且既有契约中「不存在关键字参数 / 不得构造」的立场已按 DEC-021 裁定同步修订；**不得存在「契约禁止、实现却有」的分裂**。
+      - AC-07 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
+      - AC-08 范围边界：不引入自动资产发现 / 外部平台同步 / 未确认的排序 / 导出 / 状态筛选能力。
+      - "AC-D1（**占位，待 NQ-1 裁定；非验收基准**）搜索范围：命中对象限定为裁定后的资源类型集合，且不越界。"
+      - "AC-D2（**占位，待 NQ-2 裁定；非验收基准**）搜索字段：仅在裁定后的字段集合上匹配，其余字段不参与。"
+      - "AC-D3（**占位，待 NQ-3 裁定；非验收基准**）匹配语义：子串 / 前缀 / 全词、大小写敏感与否、单 / 多关键字（AND / OR）按裁定实现并测试。"
+      - "AC-D4（**占位，待 NQ-4 裁定；非验收基准**）结果呈现：分组 / 混合、分页形态、是否显示命中字段，按裁定实现。"
+      - "AC-D5（**占位，待 NQ-5 裁定；非验收基准**）入口位置：搜索入口出现在裁定位置，且选定 Cluster 后才可用。"
+    acceptance_criteria_note: >
+      AC-D1 ~ AC-D5 **不是已确认验收条件**，是对未确认语义的占位；在 NQ-1 ~ NQ-5 裁定前
+      **不得作为验收基准，也不得据此进入实现**。AC-01 ~ AC-08 与这些语义无关，现在即可判定。
+    open_questions:
+      - id: NQ-1
+        blocking: true
+        summary: >
+          搜索范围：「选定集群后」是指在该 Cluster 范围内搜索吗？涵盖哪些资源类型？待选项：
+          (a) 仅该 Cluster 下的 BareMetal（及其状态）；(b) Cluster 下 BareMetal + R-QUERY-003 的五类关联资源
+          （NetworkInterface / IPAddress / VirtualMachine / Container / Service，含 2026-09-18 确认的「含间接」推导）；
+          (c) 其它。**不得由他人代为选定。**
+      - id: NQ-2
+        blocking: true
+        summary: >
+          搜索字段：「任意关键字」匹配哪些字段？待选项：(a) 仅标识字段（Cluster.name / BareMetal.hostname /
+          VM.name / Container.name / Service.name / NIC.name / IP.ip_address）；(b) 标识 + 描述性字段
+          （vendor / model / serial_number / cpu / memory / gpu / storage / os / hypervisor / owner / image /
+          service_type / url / port / protocol / description / technology_type / purpose，见 domain-model.yaml）；
+          (c) 其它。**不得由他人代为选定。**
+      - id: NQ-3
+        blocking: true
+        summary: >
+          匹配语义：子串 contains？前缀？全词 / 分词全文？是否**区分大小写**（注意 §22 与 `by-name` 均为
+          区分大小写，而用户对搜索的预期可能是「不区分」——这是产品选择，须显式声明为**搜索专属**语义，
+          不得静默改变唯一性与登录语义）？是否允许多关键字（AND / OR）？**不得由他人代为选定。**
+      - id: NQ-4
+        blocking: true
+        summary: >
+          结果呈现：分类型分组展示还是单一混合列表？是否分页（是否沿用 `{items,total,page,page_size}`）？
+          是否显示「命中字段 / 命中原因」？无结果时是否复用 R-QUERY-004 的 Empty 语义？**不得由他人代为选定。**
+      - id: NQ-5
+        blocking: true
+        summary: >
+          入口位置：待选项：(a) 应用外壳全局搜索；(b) Cluster 详情页内的「在该集群中搜索」；
+          (c) 选定集群后的列表页顶部搜索框。**注意**：若落在应用外壳（`frontend/src/App.vue`），
+          与在途 F017 存在**文件所有权冲突**（git-workflow §3），须先划清或让 F017 先 merge。
+          **不得由他人代为选定。**
+      - id: NQ-6
+        blocking: false
+        resolved_by: architecture
+        summary: >
+          索引与性能：10^5 规模下子串匹配 `ILIKE '%kw%'` 无 B-tree 可用；是否引入 pg_trgm GIN / tsvector 等，
+          归 Architecture / Database 裁定；若需要，layers.database 可能由 false 变 true（NQ-3 的派生物）。
+      - id: NQ-7
+        blocking: false
+        resolved_by: architecture
+        summary: >
+          契约形态：新增独立搜索端点 vs 在既有 per-resource 列表端点追加 `keyword` 参数？须在 DEC-021 裁定后定，
+          并保证与既有 canonical 过滤（F002 `?cluster_id=`、F004 `?bare_metal_id=`、F005 `?network_interface_id=`、
+          F007/F008 `carrier_type+carrier_id`）复用一致，不得另写一份。
+      - id: NQ-8
+        blocking: false
+        resolved_by: product
+        summary: >
+          产品规则落点：需在 requirements.md §16 新增 / 修订一条关键字搜索规则（编号由 Product 决定），
+          本 Feature 才能挂 requirement ID；属 Product 职责。
+      - id: NQ-9
+        blocking: false
+        summary: >
+          里程碑归属确认：M8 只含 F018；若用户希望并入既有里程碑则调整 M8，不改变 F018 的 scope。
 
 # ---------------------------------------------------------------------------
 # Blocking Decisions
@@ -1586,6 +1715,25 @@ decisions_required:
       ⑤ 无权限 / 删除 / 全局标识影响；**不存在真正阻塞的长期架构决策**。
       本项属**产品 / UX 取舍**，由用户决定；Project Manager 与协调器均不自行裁定（AGENTS.md §2.8）。
 
+  - id: DEC-021
+    type: product
+    status: OPEN
+    topic: 是否新增「集群内任意关键字查询」能力，以及是否因此修订四份既有契约的关键字 / 筛选立场
+    question: >
+      是否新增「选定集群后，通过任意关键字查询」这一产品能力？若新增，是否因此**修订**三份既有
+      已冻结 API 契约中「不存在关键字查询参数、前端与调用方不得构造」的立场（及 F002 契约的「筛选」排除项）？
+    decision_basis:
+      - "docs/api/f005-ip-address.md:129 — 「**不存在** `cluster_id` / `vrf` / `status` / IP 前缀 / 排序 / **关键字**等第二维度查询参数；本契约不定义此类参数，前端与调用方**不得构造**（Cluster 视角归 F009；未确认筛选不实现）。」"
+      - "docs/api/f009-cluster-resource-view.md:181 — 「分页之外的排序 / **关键字** / 状态筛选 / 导出（无已确认需求）。」"
+      - "docs/api/f010-resource-detail.md:172 — 「聚合级分页 / 排序 / **关键字** / 导出（本轮为按 `id` 升序的完整快照，无已确认需求）。」"
+      - "docs/api/f002-bare-metal.md:454 — 「硬件字段的结构化拆分、统计 / 报表 / **筛选**（R-BM-007）。」（排除项）"
+    impact_features: [F018, F002, F005, F009, F010]
+    note: >
+      **DEC-020 已 RESOLVED，本项不得改动它。** 本项为**产品 / 契约立场取舍**，由用户裁定；
+      Project Manager 与协调器均不自行裁定。若裁定为「不做」，则 F018 撤销（CANCELLED），
+      四份契约保持冻结不变；若裁定为「做」，则必须先修订契约立场，再由 Product 新增 / 修订一条
+      产品规则（NQ-8），随后 Architecture / Contract 定稿形态（NQ-7）与索引方案（NQ-6）。
+
 # 已关闭的 open question（不再是 open question）
 closed_open_questions:
   - id: OPEN-006
@@ -1690,6 +1838,21 @@ milestones:
       - 用户名 / 登出、登录页与 bootstrap、既有视图切换与返回链路均不受影响。
       - 无 vue-router、无新增依赖、无 API / DB / 契约改动。
       - 5 个导航测试的活跃态断言（15 处）改写而非删除；typecheck + test（连跑 2 次）+ build 通过。
+      - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
+
+  - id: M8
+    name: 集群内资源关键字搜索
+    goal: 在选定 Cluster 范围内，通过任意关键字快速定位资源（具体范围 / 字段 / 语义待 F018 的 NQ 裁定）。
+    features: [F018]
+    entry_conditions:
+      - DEC-021 裁定为「做」，且既有契约的关键字立场已按裁定修订。
+      - F018 的 blocking NQ-1 ~ NQ-5 全部裁定，scope / AC 由 Product 定稿，并在 requirements.md 新增 / 修订一条产品规则（NQ-8）。
+      - 依赖的资源 Feature（F001/F002/F004/F005/F006/F007/F008）均已 DONE（已满足）。
+      - 若搜索入口落在应用外壳（NQ-5），F017 须先 merge 或先划清 frontend/src/App.vue 的所有权（git-workflow §3）。
+    completion_criteria:
+      - 交付范围与可判定 AC 经 Product 定稿。
+      - 搜索契约 READY（新增或修订既有契约）；无「契约禁止、实现却有」的分裂。
+      - 未认证 → 401；软删资源不出现；Cluster 不存在 / 已删 → 404 与 Empty 可区分（R-QUERY-004）。
       - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
 # ---------------------------------------------------------------------------
@@ -1911,16 +2074,16 @@ requirement_coverage_sections:
 # ---------------------------------------------------------------------------
 planning_status:
   plan_completeness: complete
-  status: ACCEPTED
+  status: DRAFT
   ready_features: []
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: []
+    DRAFT: [F018]
   counts:
     READY: 0
     IN_PROGRESS: 1
     BLOCKED: 0
-    DRAFT: 0
+    DRAFT: 1
     DONE: 14
     CANCELLED: 1
   status_decision_rules:
@@ -2043,7 +2206,12 @@ planning_status:
       依赖全部 DONE、无架构 / 数据库 / 环境阻塞，故 READY。计划同时转 ACCEPTED 并开始执行。
       义务：AC-06 要求把 5 个既有导航测试中 15 处 el-button--primary 断言**改写**为侧边栏活跃态的
       等价断言（不得削弱或删除其验证的真实行为）；不得删除 f009ClusterResourceView 的源码 guard。
-  draft_rationale: {}
+  draft_rationale:
+    F018: >
+      存在直接影响本 Feature scope / acceptance_criteria 定稿的未解决产品问题：搜索范围（NQ-1）、
+      搜索字段（NQ-2）、匹配语义（NQ-3）、结果呈现（NQ-4）、入口位置（NQ-5）均未确认，且 DEC-021 OPEN。
+      按本文件顶部 status_decision_rules「存在未解决产品问题且直接影响自身 scope / AC 定稿 → DRAFT」，
+      故取 DRAFT 而非 BLOCKED——全部 depends_on 已 DONE，阻塞**不是**依赖。
   blocked_rationale:
     F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
     F004: >
@@ -2052,9 +2220,14 @@ planning_status:
     F005: "DEC-006 已解决（V1 无状态），无未解决产品问题；阻塞为依赖 F004 未 DONE。"
     F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
   readiness_summary: >
-    **2026-09-18 追加并已获批准**：用户就应用外壳导航形态提出可行性询问，据此登记 F017 与 DEC-020
-    （详见 `decisions_required[DEC-020]`）。DEC-020 已由用户裁定为「做」，故 F017 转 READY、
-    计划转 ACCEPTED、开始执行 M7。**既有结论不变**：14 DONE + 1 CANCELLED，M1–M6 全部 DONE。
+    **2026-09-18 追加（二）**：用户要求「选定集群后按任意关键字查询」，据此新增 F018（DRAFT）、
+    DEC-021（OPEN）与 M8，计划转 DRAFT（待用户批准）。F018 因 5 个 blocking 产品 NQ 与 DEC-021 保持 DRAFT；
+    解除后须由 Product 在 requirements.md §16 新增 / 修订一条产品规则，并修订既有契约立场，方可进入实现。
+    **F017 仍 IN_PROGRESS（PRODUCT）**：其范围已由用户 DEC-020「做」批准，与搜索**无实施依赖**，
+    本次**不撤销、不重置**；但按 `/implement-project` 第 2 节，计划为 DRAFT 期间 F017 **不会被自动继续**。
+    **2026-09-18 追加（一）**：用户就应用外壳导航形态提出可行性询问，据此登记 F017 与 DEC-020
+    （详见 `decisions_required[DEC-020]`）。DEC-020 已由用户裁定为「做」，F017 转 READY 并开始执行 M7。
+    **既有结论不变**：14 DONE + 1 CANCELLED，M1–M6 全部 DONE。
     以下为原 readiness summary（保留）。
     架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），全部产品问题已关闭，无 DRAFT Feature。
     DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005、F007（11 个）。
@@ -2533,8 +2706,12 @@ execution:
   current_stage: PRODUCT
   note_append: >
     2026-09-18：项目在原结论（14 DONE + 1 CANCELLED）之上收到「UI 导航栏是否可改为侧边栏」的
-    **可行性询问**，已登记 F017（DRAFT）与 DEC-020（OPEN，待用户确认）。F017 未确认前不启动
-    Feature Workflow；**不重置**既有执行检查点、Git 元数据与历史结论。
+    可行性询问，已登记 F017 与 DEC-020；DEC-020 已由用户裁定「做」，F017 转 READY 并开始执行。
+    2026-09-18（二）：收到新输入「添加搜索功能，允许选定集群后按任意关键字查询」，据此**新增**
+    F018（DRAFT）、DEC-021（OPEN）与 M8，并把计划转 DRAFT（待用户批准）。
+    **F017 不撤销、不重置**：其 status / current_stage / git.* 原样保留。F018 与 F017 **无实施依赖**；
+    唯一潜在交互是 NQ-5 若把搜索入口放在应用外壳，则两者都会改 `frontend/src/App.vue`
+    （须先划清文件所有权，或让 F017 先 merge）。
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
