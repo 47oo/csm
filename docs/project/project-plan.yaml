@@ -1223,15 +1223,19 @@ features:
     depends_on: [F001, F013, F014]
     blocking: []
     git: {base_branch: develop, branch: feature/F016-cluster-registration-ui, start_commit: "67a498fab950f130330189e92756870623222a3d", head_commit: null, merge_commit: null}
-    current_stage: PRODUCT
+    current_stage: FRONTEND
     last_result: >
-      F001 遗留缺口已确认为事实并经用户裁定补做：后端 POST /api/clusters 与
-      PATCH /api/clusters/{id} 可用且已测试，前端既无登记也无改名入口——
-      createCluster / updateCluster 零调用者，6 个 *FormDialog 中唯独缺 ClusterFormDialog。
-      Product Gate 通过（READY FOR ARCHITECT，无 Blocking 问题）。
+      Product Gate 通过（READY FOR ARCHITECT，无 Blocking）。Architecture Gate 通过
+      （READY FOR IMPLEMENTATION）：判定纯前端、零后端改动；登记与改名共用同一
+      ClusterFormDialog（create/edit 双模式，恰一个 name 字段）；登记成功跳转新集群详情
+      （因列表按 id 升序 + page_size 50，仅刷新当前页不保证可观察，故用 201 返回的 id）；
+      错误按 error.code 分支渲染固定文案、不解析 message；不抽公共 composable 以避免波及其余
+      6 个 FormDialog。**契约不新建、复用已冻结的 docs/api/f001-cluster.md（READY）**。
+      最高风险 R1：R2 拷贝 BareMetalFormDialog 的 listClusters 做「重名预检」——已由
+      REQUIRED #5（对话框禁引用读 API）+ 静态 guard + 组件探针三重封堵。
     next_action: >
-      Architect（确认纯前端、零后端改动；定 ClusterFormDialog 组件契约与入口接线、
-      错误按 error.code 渲染的统一路径、以及「前端不实现业务校验」的可失败保障）。
+      Frontend 实现（新增 ClusterFormDialog.vue；ClusterListPage 加「登记集群」入口与成功导航；
+      ClusterDetailPage 加「改名」入口与成功重读；新增组件测试 + 静态 guard）。
     layers: {database: false, backend: false, frontend: true}
     contract: {status: READY, doc: docs/api/f001-cluster.md}
     implementation: {database_design: NOT_REQUIRED, backend: NOT_REQUIRED, frontend: PENDING, test: PENDING, review: PENDING}
@@ -2312,7 +2316,7 @@ planning_status:
 
 execution:
   current_feature: F016
-  current_stage: PRODUCT
+  current_stage: FRONTEND
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
