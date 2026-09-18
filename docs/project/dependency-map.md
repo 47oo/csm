@@ -175,7 +175,7 @@ F010 ─┘
 
 ## 7. 2026-09-18 追加：F018（集群内资源关键字搜索）
 
-> 权威定义见 `docs/project/project-plan.yaml`。F018 状态 `DRAFT`（5 个 blocking 产品 NQ + `DEC-021` OPEN）。
+> 权威定义见 `docs/project/project-plan.yaml`。F018 状态 **`READY`**（NQ-1~5 与 `DEC-021` 已于 2026-09-18 裁定）。
 
 ```text
 F001 ─┐
@@ -188,11 +188,10 @@ F008 ─┘
 ```
 
 **说明**
-- **F004–F008 是暂列依赖**：它们只因 NQ-1（搜索范围）**可能**覆盖 R-QUERY-003 的五类关联资源而列入；
-  NQ-1 裁定后须**收窄**（若仅搜 BareMetal，则只保留 F001/F002）。全部前置当前已 DONE，故不构成阻塞。
+- **F004–F008 已成为真实前置**：NQ-1 已裁定为 **(b)**——搜索范围包含 R-QUERY-003 的五类关联资源（含「含间接」推导），故这五个 Feature 的实体与 canonical 过滤是本 Feature 的真实依赖（不再是暂列）。全部前置已 DONE。
 - **F009 / F010 非硬依赖**，但其 canonical 过滤（Cluster 视角、关联过滤 / `carrier_type+carrier_id`）
   **必须复用**，不得另写一份。
 - F018 是**新的独立叶子节点**，无 Feature 依赖它；**不引入循环**。
-- **与 F017 无依赖边**（搜索不要求侧边栏先完成）。唯一潜在交互：若 NQ-5 把搜索入口放在应用外壳，
-  两者都会改 `frontend/src/App.vue`，须先划清文件所有权或让 F017 先 merge（`git-workflow.md` §3）。
+- **与 F017 无依赖边，但有已确认的文件冲突**：NQ-5 已裁定为「应用外壳全局搜索」，故 F018 与在途 F017
+  **都要改 `frontend/src/App.vue`**。协调器要求**串行**：F017 先完成并 merge，再启动 F018（`git-workflow.md` §3）。
 - `F011` 仍 `CANCELLED`（未进入本图）。

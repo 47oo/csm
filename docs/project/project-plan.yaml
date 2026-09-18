@@ -1364,19 +1364,25 @@ features:
     name: 集群内资源关键字搜索
     epic: E05
     priority: P1
-    status: DRAFT
+    status: READY
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
-    blocking: [NQ-1, NQ-2, NQ-3, NQ-4, NQ-5, DEC-021]
+    blocking: []
     git: {base_branch: develop, branch: null, start_commit: null, head_commit: null, merge_commit: null}
     current_stage: null
     last_result: >
-      尚未进入实施。本 Feature 由用户 2026-09-18 的新输入登记；**搜索范围 / 字段 / 匹配语义 /
-      结果呈现 / 入口位置五项均未确认**（NQ-1~NQ-5 全部 blocking），且 DEC-021（是否修订三份契约的
-      关键字立场）OPEN。未创建分支、未产出任何 Handoff。
+      **已获用户批准（2026-09-18）**：DEC-021 与 NQ-1 ~ NQ-5 全部裁定，本 Feature 由 DRAFT 转 READY。
+      裁定结果：搜索范围为 Cluster 下的 BareMetal + R-QUERY-003 五类关联资源（含「含间接」推导）；
+      搜索字段为标识字段 + 描述性字段；匹配为**模糊（子串包含）且不区分大小写**；结果为**混合列表 +
+      显示命中字段 + 无结果复用 Empty 语义**；入口为**应用外壳全局搜索，但必须先指定 Cluster**。
     next_action: >
-      等待用户裁定 DEC-021 与 NQ-1~NQ-5。裁定后：先由 Product 在 requirements.md §16 新增 / 修订
-      一条关键字搜索产品规则（NQ-8），再修订三份既有契约立场，然后 Architecture 定稿契约形态（NQ-7）
-      与索引方案（NQ-6），最后才进入实现。
+      1) ~~用户裁定~~ 已完成。2) 先由 Product 在 requirements.md §16 新增一条关键字搜索产品规则（NQ-8），
+      并把 AC-D1 ~ AC-D5 定稿为 Product Handoff 的正式 AC；3) 修订三份既有契约的关键字立场
+      （f005:129 / f009:181 / f010:172，及 f002:454 的「筛选」排除项）；4) Architecture 定稿契约形态
+      （NQ-7：独立搜索端点 vs 既有列表端点追加 `keyword`）与索引方案（NQ-6：10^5 规模下子串匹配需
+      pg_trgm GIN / tsvector 之一）；5) 之后才进入实现。
+      **执行顺序（协调器要求，非产品规则）**：本 Feature 的入口落在应用外壳，与在途 F017 都要改
+      `frontend/src/App.vue`，故**建议 F017 先完成并 merge，再启动 F018**；否则必须显式划清
+      `App.vue` 的文件所有权（git-workflow §3）。
     depends_on_note: >
       F001 / F002 是 Cluster 与 BareMetal 的最小真实前置；F004–F008 **仅因 NQ-1（搜索范围）可能覆盖
       R-QUERY-003 的五类关联资源而暂列**，待 NQ-1 裁定后须收窄（若仅搜 BareMetal 则只保留 F001/F002）。
@@ -1409,48 +1415,65 @@ features:
       - AC-06 契约一致：搜索契约已持久化且 contract.status=READY，且既有契约中「不存在关键字参数 / 不得构造」的立场已按 DEC-021 裁定同步修订；**不得存在「契约禁止、实现却有」的分裂**。
       - AC-07 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
       - AC-08 范围边界：不引入自动资产发现 / 外部平台同步 / 未确认的排序 / 导出 / 状态筛选能力。
-      - "AC-D1（**占位，待 NQ-1 裁定；非验收基准**）搜索范围：命中对象限定为裁定后的资源类型集合，且不越界。"
-      - "AC-D2（**占位，待 NQ-2 裁定；非验收基准**）搜索字段：仅在裁定后的字段集合上匹配，其余字段不参与。"
-      - "AC-D3（**占位，待 NQ-3 裁定；非验收基准**）匹配语义：子串 / 前缀 / 全词、大小写敏感与否、单 / 多关键字（AND / OR）按裁定实现并测试。"
-      - "AC-D4（**占位，待 NQ-4 裁定；非验收基准**）结果呈现：分组 / 混合、分页形态、是否显示命中字段，按裁定实现。"
-      - "AC-D5（**占位，待 NQ-5 裁定；非验收基准**）入口位置：搜索入口出现在裁定位置，且选定 Cluster 后才可用。"
+      - "AC-D1（NQ-1 已裁定 =(b)）搜索范围：结果只包含**选定 Cluster 下**的 BareMetal 及其 R-QUERY-003 五类关联资源（NetworkInterface / IPAddress / VirtualMachine / Container / Service，含「含间接」推导）；不包含其他 Cluster 的资源，不包含该 Cluster 之外的任何命中。"
+      - "AC-D2（NQ-2 已裁定 =(b)）搜索字段：命中只由**标识字段 + 描述性字段**（清单见 features[F018].open_questions[NQ-2].resolved_to）产生；未列出的字段不参与匹配。"
+      - "AC-D3（NQ-3 已裁定）匹配语义：**子串包含**即命中（输入为字段值的一段连续子串）；**不区分大小写**（`ABC` 与 `abc` 命中同一结果）。该不区分大小写**仅适用于搜索匹配**，不得改变 §22 名称唯一性、`by-name` 解析或登录语义（AC-05 的强化）。不支持多关键字 AND / OR 拆分。"
+      - "AC-D4（NQ-4 已裁定）结果呈现：结果为**单一混合列表**（不按资源类型分组），每条结果**显示其命中字段**；**无命中时复用 R-QUERY-004 的 Empty 语义**（200 + 空结果 + Empty 态，不得 404，且与 Cluster 不存在 / 已删的 Not Found 可区分，见 AC-04）。"
+      - "AC-D5（NQ-5 已裁定）入口与前置条件：搜索入口位于**应用外壳**；**未指定 Cluster 时不可发起搜索**（须先选定一个 Cluster）；指定后搜索范围恒为该 Cluster（AC-D1）。"
     acceptance_criteria_note: >
-      AC-D1 ~ AC-D5 **不是已确认验收条件**，是对未确认语义的占位；在 NQ-1 ~ NQ-5 裁定前
-      **不得作为验收基准，也不得据此进入实现**。AC-01 ~ AC-08 与这些语义无关，现在即可判定。
+      AC-D1 ~ AC-D5 已于 2026-09-18 由用户逐条裁定（NQ-1 ~ NQ-5），内容直接取自用户答案，**已可作为验收基准**；
+      仍须由 Product 阶段在 requirements.md §16 新增对应产品规则（NQ-8）并落盘 Product Handoff 时正式定稿措辞。
+      AC-01 ~ AC-08 与这些语义无关，独立成立。
+      **AC-D3 的两条限定（不区分大小写仅限搜索、模糊=子串包含）是实现前必须遵守的边界**，不得扩张解释。
     open_questions:
       - id: NQ-1
-        blocking: true
+        blocking: false
+        resolved_by: user-decision-2026-09-18
+        resolved_to: "**(b)** 搜索范围为选定 Cluster 下的 BareMetal **及** R-QUERY-003 的五类关联资源（NetworkInterface / IPAddress / VirtualMachine / Container / Service），采用 2026-09-18 已确认的「含间接」推导（与 R-QUERY-003 一致）。"
         summary: >
-          搜索范围：「选定集群后」是指在该 Cluster 范围内搜索吗？涵盖哪些资源类型？待选项：
-          (a) 仅该 Cluster 下的 BareMetal（及其状态）；(b) Cluster 下 BareMetal + R-QUERY-003 的五类关联资源
-          （NetworkInterface / IPAddress / VirtualMachine / Container / Service，含 2026-09-18 确认的「含间接」推导）；
-          (c) 其它。**不得由他人代为选定。**
+          搜索范围。**已裁定 (b)**：Cluster 下 BareMetal + R-QUERY-003 五类关联资源（含「含间接」推导）。
+          后果：F018 的 depends_on 不再是暂列——F004 ~ F008 成为**真实前置**（五类资源的实体与过滤分属它们）。
       - id: NQ-2
-        blocking: true
+        blocking: false
+        resolved_by: user-decision-2026-09-18
+        resolved_to: "**(b)** 标识字段 **+** 描述性字段：Cluster.name；BareMetal 的 hostname / vendor / model / serial_number / cpu / memory / gpu / storage；VirtualMachine 的 name / cpu / memory / disk / os / hypervisor / owner；Container 的 name / image / cpu / memory / owner；Service 的 name / service_type / url / port / protocol / owner / description；NetworkInterface 的 name / technology_type / purpose；IPAddress 的 ip_address。"
         summary: >
-          搜索字段：「任意关键字」匹配哪些字段？待选项：(a) 仅标识字段（Cluster.name / BareMetal.hostname /
-          VM.name / Container.name / Service.name / NIC.name / IP.ip_address）；(b) 标识 + 描述性字段
-          （vendor / model / serial_number / cpu / memory / gpu / storage / os / hypervisor / owner / image /
-          service_type / url / port / protocol / description / technology_type / purpose，见 domain-model.yaml）；
-          (c) 其它。**不得由他人代为选定。**
+          搜索字段。**已裁定 (b)**：标识 + 描述性字段（字段清单见 resolved_to，源自 domain-model.yaml）。
+          后果：匹配需覆盖各类型的大量文本列，Architecture 须据此定索引方案（NQ-6）；数值型字段（port / cpu /
+          memory / disk）按**文本子串**参与匹配（这是「任意关键字」的直接推论，不是新增规则）。
       - id: NQ-3
-        blocking: true
+        blocking: false
+        resolved_by: user-decision-2026-09-18
+        resolved_to: "**模糊搜索（子串包含 contains）+ 不区分大小写。** 单关键字（「任意关键字」指一段关键字文本，不拆分 AND / OR）。"
         summary: >
-          匹配语义：子串 contains？前缀？全词 / 分词全文？是否**区分大小写**（注意 §22 与 `by-name` 均为
-          区分大小写，而用户对搜索的预期可能是「不区分」——这是产品选择，须显式声明为**搜索专属**语义，
-          不得静默改变唯一性与登录语义）？是否允许多关键字（AND / OR）？**不得由他人代为选定。**
+          匹配语义。**已裁定**：模糊（子串包含）+ **不区分大小写**。
+          **⚠️ 两条必须显式限定（否则会静默改动已确认规则，AGENTS.md §2.7）**：
+          ① **「不区分大小写」仅适用于搜索匹配**，是**搜索专属**语义；**不得**改变 §22 的名称唯一性比较
+          （仍区分大小写）、`by-name` 的字面值等值解析、或用户名查找禁止 `lower()/ILIKE` 的既有规则。
+          ② **「模糊」在本 Feature 中定义为「子串包含」（`contains` / `LIKE %kw%` 语义）**，即输入是目标字段的
+          一段连续子串即命中；**不是**「容错 / 相似度 / 拼写纠错」级模糊。若用户所指为后者，属**另一条产品规则**，
+          须另行裁定（已在协调器输出中请用户确认）。
+          **多关键字**：本 Feature 不支持 AND / OR 拆分（单关键字）；「任意」指关键字内容不限，而非可多词组合。
+          如需多关键字，属新增产品规则。
       - id: NQ-4
-        blocking: true
+        blocking: false
+        resolved_by: user-decision-2026-09-18
+        resolved_to: "**混合列表**（不按资源类型分组）+ **显示「命中字段」**（命中原因）+ **无结果复用 R-QUERY-004 的 Empty 语义**。"
         summary: >
-          结果呈现：分类型分组展示还是单一混合列表？是否分页（是否沿用 `{items,total,page,page_size}`）？
-          是否显示「命中字段 / 命中原因」？无结果时是否复用 R-QUERY-004 的 Empty 语义？**不得由他人代为选定。**
+          结果呈现。**已裁定**：混合列表 + 显示命中字段 + 无结果复用 Empty 语义。
+          分页形态未在本次裁定中指定——沿用既有的 `{items,total,page,page_size}` 约定属**实现一致性选择**
+          （与全部既有列表端点一致），不构成新产品规则；由 Architecture 在契约中定稿。
       - id: NQ-5
-        blocking: true
+        blocking: false
+        resolved_by: user-decision-2026-09-18
+        resolved_to: "**应用外壳全局搜索，但必须先指定 Cluster**（即入口在外壳，且搜索前须选定一个 Cluster；无选定 Cluster 时不可发起搜索）。"
         summary: >
-          入口位置：待选项：(a) 应用外壳全局搜索；(b) Cluster 详情页内的「在该集群中搜索」；
-          (c) 选定集群后的列表页顶部搜索框。**注意**：若落在应用外壳（`frontend/src/App.vue`），
-          与在途 F017 存在**文件所有权冲突**（git-workflow §3），须先划清或让 F017 先 merge。
-          **不得由他人代为选定。**
+          入口位置。**已裁定**：应用外壳（`frontend/src/App.vue`）全局搜索，**且必须先指定 Cluster**作前置条件。
+          **⚠️ 文件所有权冲突（已确认，须在实现前解决）**：F018 与**在途的 F017（侧边栏）都要改
+          `frontend/src/App.vue`**。协调器要求：**F017 先完成并 merge，再启动 F018**；否则必须显式划清
+          `App.vue` 的所有权（git-workflow §3）并串行化。
+          另：因入口在外壳，「必须先指定 Cluster」意味着外壳需要承载一个**当前选定 Cluster** 的选择器/上下文——
+          其与既有 `resourceView` 的集群上下文（`clusterId` / `returnClusterId`）是否复用，归 Architecture 裁定。
       - id: NQ-6
         blocking: false
         resolved_by: architecture
@@ -1717,7 +1740,13 @@ decisions_required:
 
   - id: DEC-021
     type: product
-    status: OPEN
+    status: RESOLVED
+    resolution: >
+      **RESOLVED（2026-09-18，用户裁定）：做。** 用户不仅确认新增该能力，且逐一裁定了 NQ-1 ~ NQ-5 的
+      实现语义（见 features[F018].open_questions 各条的 resolved_to）——这构成对该能力与「因此修订既有契约
+      关键字立场」的明确批准。据此：三份契约（f005 / f009 / f010）与 f002 的相关排除项**必须**按裁定修订，
+      并在 requirements.md §16 新增一条关键字搜索产品规则（NQ-8，Product 职责）。
+      **DEC-020 未被改动。**
     topic: 是否新增「集群内任意关键字查询」能力，以及是否因此修订四份既有契约的关键字 / 筛选立场
     question: >
       是否新增「选定集群后，通过任意关键字查询」这一产品能力？若新增，是否因此**修订**三份既有
@@ -2075,15 +2104,15 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: DRAFT
-  ready_features: []
+  ready_features: [F018]
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: [F018]
+    DRAFT: []
   counts:
-    READY: 0
+    READY: 1
     IN_PROGRESS: 1
     BLOCKED: 0
-    DRAFT: 1
+    DRAFT: 0
     DONE: 14
     CANCELLED: 1
   status_decision_rules:
@@ -2201,17 +2230,20 @@ planning_status:
       部署打包 docker-compose、PostgreSQL、内网 Internal IP + HTTP）；无未解决产品问题 → READY。
       原额外进入条件 F012 follow-up F-03（自检面 fail-open）已由 F001 彻底移除 /_foundation/* 而消解；
       REV-01（框架默认 /docs、/redoc、/openapi.json 位于 /api 之外未认证可达）由 F015 记录并决定是否关闭。
+    F018: >
+      NQ-1 ~ NQ-5 与 DEC-021 已于 2026-09-18 全部由用户裁定，scope 与 AC 可定稿（AC-D1 ~ AC-D5 取自用户答案），
+      depends_on 全部 DONE，无阻塞产品问题 → READY。
+      义务：契约尚未就绪（三份既有契约仍明确禁止关键字参数，contract.status=REQUIRED），故**实现前必须先完成
+      Product（§16 新增产品规则，NQ-8）与 Architecture / Contract（契约形态 NQ-7、索引方案 NQ-6）**；
+      且 AC-D3 的两条限定（不区分大小写**仅限搜索匹配**；模糊=**子串包含**而非容错相似）不得扩张。
+      顺序：入口落在应用外壳（NQ-5），与在途 F017 冲突，**F017 先 merge 再启动 F018**。
     F017: >
       DEC-020 已由用户裁定为「做」（2026-09-18），NQ-1 解除；产品范围（纯呈现层、AC-01~AC-08 可定稿）、
       依赖全部 DONE、无架构 / 数据库 / 环境阻塞，故 READY。计划同时转 ACCEPTED 并开始执行。
       义务：AC-06 要求把 5 个既有导航测试中 15 处 el-button--primary 断言**改写**为侧边栏活跃态的
       等价断言（不得削弱或删除其验证的真实行为）；不得删除 f009ClusterResourceView 的源码 guard。
-  draft_rationale:
-    F018: >
-      存在直接影响本 Feature scope / acceptance_criteria 定稿的未解决产品问题：搜索范围（NQ-1）、
-      搜索字段（NQ-2）、匹配语义（NQ-3）、结果呈现（NQ-4）、入口位置（NQ-5）均未确认，且 DEC-021 OPEN。
-      按本文件顶部 status_decision_rules「存在未解决产品问题且直接影响自身 scope / AC 定稿 → DRAFT」，
-      故取 DRAFT 而非 BLOCKED——全部 depends_on 已 DONE，阻塞**不是**依赖。
+  draft_rationale: {}
+
   blocked_rationale:
     F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
     F004: >
@@ -2220,9 +2252,10 @@ planning_status:
     F005: "DEC-006 已解决（V1 无状态），无未解决产品问题；阻塞为依赖 F004 未 DONE。"
     F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
   readiness_summary: >
-    **2026-09-18 追加（二）**：用户要求「选定集群后按任意关键字查询」，据此新增 F018（DRAFT）、
-    DEC-021（OPEN）与 M8，计划转 DRAFT（待用户批准）。F018 因 5 个 blocking 产品 NQ 与 DEC-021 保持 DRAFT；
-    解除后须由 Product 在 requirements.md §16 新增 / 修订一条产品规则，并修订既有契约立场，方可进入实现。
+    **2026-09-18 追加（二）**：用户要求「选定集群后按任意关键字查询」，据此新增 F018、DEC-021 与 M8。
+    **用户随后逐一裁定 NQ-1 ~ NQ-5 与 DEC-021（均为「做」），F018 已转 READY**（AC-D1 ~ AC-D5 取自用户答案）。
+    仍待办：Product 在 §16 新增关键字搜索产品规则（NQ-8）、修订三份契约的关键字立场、Architecture 定稿
+    契约形态（NQ-7）与索引方案（NQ-6）。
     **F017 仍 IN_PROGRESS（PRODUCT）**：其范围已由用户 DEC-020「做」批准，与搜索**无实施依赖**，
     本次**不撤销、不重置**；但按 `/implement-project` 第 2 节，计划为 DRAFT 期间 F017 **不会被自动继续**。
     **2026-09-18 追加（一）**：用户就应用外壳导航形态提出可行性询问，据此登记 F017 与 DEC-020
@@ -2709,9 +2742,12 @@ execution:
     可行性询问，已登记 F017 与 DEC-020；DEC-020 已由用户裁定「做」，F017 转 READY 并开始执行。
     2026-09-18（二）：收到新输入「添加搜索功能，允许选定集群后按任意关键字查询」，据此**新增**
     F018（DRAFT）、DEC-021（OPEN）与 M8，并把计划转 DRAFT（待用户批准）。
-    **F017 不撤销、不重置**：其 status / current_stage / git.* 原样保留。F018 与 F017 **无实施依赖**；
-    唯一潜在交互是 NQ-5 若把搜索入口放在应用外壳，则两者都会改 `frontend/src/App.vue`
-    （须先划清文件所有权，或让 F017 先 merge）。
+    **F017 不撤销、不重置**：其 status / current_stage / git.* 原样保留。
+    2026-09-18（三）：用户裁定 NQ-1 ~ NQ-5 与 DEC-021，F018 转 READY。
+    **该裁定确认了此前的冲突预判**：NQ-5 选定「应用外壳全局搜索」，故 F018 与 F017 **都要改
+    `frontend/src/App.vue`**。协调器要求**串行**：**F017 先完成并 merge，再启动 F018**；否则须显式划清
+    `App.vue` 所有权（git-workflow §3）。F018 在实现前还须先完成 Product（§16 产品规则）与
+    Architecture / Contract（契约形态 + 索引方案）。
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
