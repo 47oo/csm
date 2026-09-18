@@ -451,7 +451,7 @@
 - Rack / U 位、DataCenter / 园区 / 机房等上级或位置模型（§6、§13）。
 - 自动资产发现、硬件自动采集、外部平台同步（R-BM-006、R-BM-007、§23）。
 - 实时状态源接入与状态自动推导（R-BM-006）。
-- 硬件字段的结构化拆分、统计 / 报表 / 筛选（R-BM-007）。
+- 硬件字段的结构化拆分、统计 / 报表 / 结构化硬件筛选（R-BM-007）。**Cluster 内关键字搜索不属于本契约**——其权威正文为 `docs/api/f018-cluster-keyword-search.md`（F018 独立只读端点），本契约不新增 `keyword` 参数。
 - 物理删除、Undelete / Restore、回收站、已删资源查看、批量删除（R-DELETE-001/003；ADR-0004）。
 - `hostname` / `cluster_id` 的登记后修改与跨 Cluster 迁移（未确认；Product Handoff NQ-1 / PROPOSED-3）。
 - Excel 批量导入（F011）、审计 / 历史 / 导出、认证 / 会话端点（F013）。
