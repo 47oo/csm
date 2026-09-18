@@ -1219,11 +1219,11 @@ features:
     name: Cluster 登记与改名 UI
     epic: E01
     priority: P1
-    status: IN_PROGRESS
+    status: IN_REVIEW
     depends_on: [F001, F013, F014]
     blocking: []
-    git: {base_branch: develop, branch: feature/F016-cluster-registration-ui, start_commit: "67a498fab950f130330189e92756870623222a3d", head_commit: null, merge_commit: null}
-    current_stage: FRONTEND
+    git: {base_branch: develop, branch: feature/F016-cluster-registration-ui, start_commit: "67a498fab950f130330189e92756870623222a3d", head_commit: "638813473d09ae18b6f18a053bce8f6af20420ee", merge_commit: null}
+    current_stage: TEST
     last_result: >
       Product Gate 通过（READY FOR ARCHITECT，无 Blocking）。Architecture Gate 通过
       （READY FOR IMPLEMENTATION）：判定纯前端、零后端改动；登记与改名共用同一
@@ -1234,11 +1234,19 @@ features:
       最高风险 R1：R2 拷贝 BareMetalFormDialog 的 listClusters 做「重名预检」——已由
       REQUIRED #5（对话框禁引用读 API）+ 静态 guard + 组件探针三重封堵。
     next_action: >
-      Frontend 实现（新增 ClusterFormDialog.vue；ClusterListPage 加「登记集群」入口与成功导航；
-      ClusterDetailPage 加「改名」入口与成功重读；新增组件测试 + 静态 guard）。
+      Tester（独立验证：① 前端确实未实现业务校验——自写探针注入并确认 guard 会失败；
+      ② 错误分支确实按 error.code 而非 message；③ 既有三态 / Empty vs Not Found / F014 删除入口
+      与 F009 入口未被破坏；④ 401 只触发全局处理器；⑤ 零后端 / 零契约改动）。
+    verification_at_implementation: >
+      协调器**不采信 Frontend 的测试声明**，独立在 clean 检出上重跑：typecheck 零输出、
+      前端 40 文件 / 604 用例**连续 2 次**全绿（基线 562 / 38，本次 +42 用例 +2 文件）、build 成功。
+      并自行做 4 组注入证伪（斜杠提前 return / trim 变换 / listClusters 重名预检 / 按钮按空串禁用），
+      **全部被检出**，随后逐字节还原（sha256 前后一致）并复跑全量 604 passed。
+      实现提交 6388134 恰含 7 个预期文件；App.vue / api/** / package.json / backend/** / docs/api/**
+      逐字节未改。既有页面仅 2 行被替换（1 处 import、1 处按钮移入 actions 容器），属加法。
     layers: {database: false, backend: false, frontend: true}
     contract: {status: READY, doc: docs/api/f001-cluster.md}
-    implementation: {database_design: NOT_REQUIRED, backend: NOT_REQUIRED, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: NOT_REQUIRED, backend: NOT_REQUIRED, frontend: COMPLETE, test: PENDING, review: PENDING}
     product_document: docs/product/requirements.md
     requirements:
       - R-CLUSTER-001
@@ -2316,7 +2324,7 @@ planning_status:
 
 execution:
   current_feature: F016
-  current_stage: FRONTEND
+  current_stage: TEST
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
