@@ -3,7 +3,7 @@
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Generated: 2026-09-18（**本文件为重建版**——此前正文自 M1 时期起严重漂移，经用户决定按计划重新生成）
-> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 15, 'CANCELLED': 1}`
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
 
 **重建说明**：本文件由 `project-plan.yaml` 重新生成，取代此前陈旧的正文（旧版仍写「Feature 总数 14 / DONE 10 / F007 READY / M4 进行中」等）。
 历史结论（F011 取消、M5 的实际结局、各 Feature 的 merge SHA、各条 follow-up）均按计划原样保留，未因重建而丢失。
@@ -22,7 +22,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M5 | 统一资源视图与批量导入 | F010, F011 | **DONE** |
 | M6 | 补 F001 遗留的 Cluster 登记 UI（post-V1 缺口闭合） | F016 | **DONE** |
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
-| M8 | 集群内资源关键字搜索 | F018 | **BLOCKED** |
+| M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -160,13 +160,13 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 - 5 个导航测试的活跃态断言（15 处）改写而非删除；typecheck + test（连跑 2 次）+ build 通过。
 - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
-## M8 — 集群内资源关键字搜索 · 状态：BLOCKED
+## M8 — 集群内资源关键字搜索 · 状态：DONE
 
 **目标**：在选定 Cluster 范围内，通过任意关键字快速定位资源（具体范围 / 字段 / 语义待 F018 的 NQ 裁定）。
 
 | ID | Feature | Priority | 状态 | Merge |
 |---|---|---|---|---|
-| F018 | 集群内资源关键字搜索 | P1 | **BLOCKED** | — |
+| F018 | 集群内资源关键字搜索 | P1 | **DONE** | f1ac71b1 |
 
 **进入条件**
 - DEC-021 裁定为「做」，且既有契约的关键字立场已按裁定修订。

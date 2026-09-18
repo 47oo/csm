@@ -3,7 +3,7 @@
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Generated: 2026-09-18（**本文件为重建版**——此前正文自 M1 时期起严重漂移，经用户决定按计划重新生成）
-> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 15, 'CANCELLED': 1}`
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
 
 **重建说明**：本文件由 `project-plan.yaml` 重新生成，取代此前陈旧的正文（旧版仍写「Feature 总数 14 / DONE 10 / F007 READY / M4 进行中」等）。
 历史结论（F011 取消、M5 的实际结局、各 Feature 的 merge SHA、各条 follow-up）均按计划原样保留，未因重建而丢失。
@@ -20,9 +20,9 @@
 | P0 | 7（F012、F013、F014、F015、F001、F002、F009） |
 | P1 | 9（F004、F005、F006、F007、F008、F010、F011、F016、F018） |
 | P2 | 1（F017） |
-| DONE | 15 |
+| DONE | 16 |
 | CANCELLED | 1（F011） |
-| BLOCKED | 1（F018） |
+| BLOCKED | 0（F018） |
 | READY / IN_PROGRESS / DRAFT | 0 / 0 / 0 |
 | Decisions 总数 | 21（OPEN **0**） |
 
@@ -62,7 +62,7 @@
 |---|---|---|---|---|---|---|
 | F009 | Cluster 视角资源查询 | P0 | **DONE** | F001, F002 | READY | 6529b0dc |
 | F010 | 资源详情与关联查询 | P1 | **DONE** | F001, F002, F004, F005, F006, F007, F008 | READY | 334b4ca3 |
-| F018 | 集群内资源关键字搜索 | P1 | **BLOCKED** | F001, F002, F004, F005, F006, F007, F008 | REQUIRED | — |
+| F018 | 集群内资源关键字搜索 | P1 | **DONE** | F001, F002, F004, F005, F006, F007, F008 | READY | f1ac71b1 |
 
 ### E06 数据导入
 
@@ -91,7 +91,7 @@
 | M5 | 统一资源视图与批量导入 | F010, F011 | **DONE** |
 | M6 | 补 F001 遗留的 Cluster 登记 UI（post-V1 缺口闭合） | F016 | **DONE** |
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
-| M8 | 集群内资源关键字搜索 | F018 | **BLOCKED** |
+| M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 
@@ -129,6 +129,7 @@
 ## Follow-ups（聚合；权威见计划 `planning_status.follow_ups`）
 
 - **from_f016_review**：REV-1, REV-4, REV-5, REV-6, F016-T-01, REV-2 / REV-3
+- **from_f018_review**：F018-LOW-1, F018-NOTE-1, F018-NOTE-3, F018-NOTE-4, F018-NOTE-5
 - **from_f017_review**：F017-LOW-2, F017-NOTE-4
 - **from_f016_test**：F016-T-01
 - **from_f010_review**：REV-2, REV-3, Framework OPEN#6（承）

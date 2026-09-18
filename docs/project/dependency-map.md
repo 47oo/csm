@@ -3,7 +3,7 @@
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Generated: 2026-09-18（**本文件为重建版**——此前正文自 M1 时期起严重漂移，经用户决定按计划重新生成）
-> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 15, 'CANCELLED': 1}`
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
 
 **重建说明**：本文件由 `project-plan.yaml` 重新生成，取代此前陈旧的正文（旧版仍写「Feature 总数 14 / DONE 10 / F007 READY / M4 进行中」等）。
 历史结论（F011 取消、M5 的实际结局、各 Feature 的 merge SHA、各条 follow-up）均按计划原样保留，未因重建而丢失。
@@ -31,7 +31,7 @@
 | F011 Excel 模板与批量导入 | CANCELLED | F001, F002, F004, F005, F006, F007, F008 | — |
 | F016 Cluster 登记与改名 UI | DONE | F001, F013, F014 | frontend |
 | F017 应用外壳侧边栏导航 | DONE | F012, F013, F001, F002, F004, F005, F006, F007, F008, F010 | frontend |
-| F018 集群内资源关键字搜索 | BLOCKED | F001, F002, F004, F005, F006, F007, F008 | backend, frontend |
+| F018 集群内资源关键字搜索 | DONE | F001, F002, F004, F005, F006, F007, F008 | backend, frontend |
 
 ## 全量依赖 DAG
 
@@ -63,7 +63,7 @@ F012 项目基础框架与运行环境 (P0, DONE)
 14. F011  CANCELLED
 15. F016  DONE
 16. F017  DONE
-17. F018  BLOCKED
+17. F018  DONE
 ```
 
 ## 说明
