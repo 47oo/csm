@@ -147,8 +147,8 @@ scope:
 epics:
   - id: E01
     name: 基础资源管理
-    description: Cluster / BareMetal 等基础设施资源的登记与唯一性管理。
-    features: [F001, F002]
+    description: Cluster / BareMetal 等基础设施资源的登记与唯一性管理；F016 起含 Cluster 登记 / 改名 UI。
+    features: [F001, F002, F016]
   - id: E02
     name: 网络资源管理
     description: NetworkInterface 与 IPAddress 的登记、唯一性与关联。
