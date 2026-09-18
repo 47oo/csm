@@ -30,7 +30,7 @@ F017 — 应用外壳侧边栏导航（纯呈现层；`{database:false, backend:
 
 | AC | Test | Result | Evidence |
 | --- | --- | --- | --- |
-| AC-01（侧边栏呈现 + 7 区可达） | 自写探针：7 个 `nav-*` 齐全且逐一可点击进入对应列表；侧边栏 DOM 在内容区之前；按钮恰为 7 导航 + 登出 | PASS（组件级） | 探针 7 passed；`App.vue:610` `display:flex` + `<aside>` + `<main>`；会话区在 `<aside>` 内 |
+| AC-01（侧边栏呈现 + 7 区可达） | 自写探针：7 个 `nav-*` 齐全且逐一可点击进入对应列表；侧边栏 DOM 在内容区之前；按钮恰为 7 导航 + 登出 | PASS（组件级） | 探针 7 passed；`App.vue:751-752` `display:flex`；`<aside>` 在 `586`、`<main>` 在 `653`；会话区在 `<aside>` 内 |
 | AC-02（高亮唯一且正确） | 自写探针：逐一 7 区点击后恰好一个含活跃 class 且为目标项；详情页归属其资源区探针 | PASS | 探针 7 passed + 详情探针 2 passed |
 | AC-03（用户名与登出可用） | 自写探针：用户名 = `admin`，登出按钮存在；登出 204 与 401 均回登录页；既有 `appAuth.spec.ts` 复跑 | PASS | 探针 7 passed；`appAuth.spec.ts` 通过 |
 | AC-04（登录页 / bootstrap 不受影响） | 自写探针：bootstrap 未决态显示「正在加载…」且无侧边栏；401 → login 且无侧边栏 | PASS | 探针 7 passed；`appAuth.spec.ts` 通过 |
