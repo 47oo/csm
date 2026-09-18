@@ -59,6 +59,11 @@ ROUTES_BEFORE_F010 = {
 
 #: G-010-6：新模块源码不得出现的越界 / 通用关系引擎 token。
 FORBIDDEN_SOURCE_TOKENS = (
+    # F010 REV-2 加固：``deleted_at`` 必须在**源码级**被禁，而不能只靠
+    # ``scan_deleted_at_writes``（后者只看**写入**形态）。架构 REQUIRED #2 要求
+    # resource_views 不得出现**任何** ``deleted_at`` 表达式（含只读活跃过滤谓词，
+    # 例如 ``.deleted_at.is_(None)``）——那会构成第二条活跃过滤路径（ADR-0004）。
+    "deleted_at",
     "cluster_id",
     "cluster_name",
     "status",
@@ -163,6 +168,18 @@ def test_g010_4_request_surface_is_closed():
 # --------------------------------------------------------------------------- #
 def test_g010_5_resource_views_writes_no_deleted_at():
     assert scan_deleted_at_writes(RESOURCE_VIEWS_DIR) == {}
+
+
+def test_g010_5_source_token_guard_covers_read_predicates_too():
+    """F010 REV-2 回归：源码 token guard 必须同时盖住**只读**的 deleted_at 谓词。
+
+    ``scan_deleted_at_writes`` 只识别写入形态；评审注入只读谓词 ``.deleted_at.is_(None)``
+    时该 guard 不失败。故 ``deleted_at`` 必须同时列入 ``FORBIDDEN_SOURCE_TOKENS``
+    （扫源码文本，写入与读取均命中）。本测试固定该事实，防止它被后人移除。
+    """
+    assert "deleted_at" in FORBIDDEN_SOURCE_TOKENS
+    probe = "row = session.scalars(select(X).where(X.deleted_at.is_(None))).all()"
+    assert any(token in probe.lower() for token in FORBIDDEN_SOURCE_TOKENS)
 
 
 def test_g010_5_global_deleted_at_write_allowlist_unchanged():
