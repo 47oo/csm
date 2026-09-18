@@ -3,10 +3,10 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > 依赖仅表示真正的实施依赖（B 无法在 A 未 DONE 时正确实现）。依赖为 DAG，无循环。
-> Last updated: 2026-09-15（依赖结构不变；同步 DEC-008 ~ DEC-016 全部 RESOLVED / 架构已批准，F012 已 READY）
+> Last updated: 2026-09-18（F005 已 DONE，M3 完成；F007 → READY；依赖结构不变）
 >
-> 依赖结构未因本次决策裁定而变更；仅 Feature 状态变化：F012 → READY，其余因依赖未 DONE（BLOCKED）
-> 或 Feature 级产品问题（DRAFT）尚未 READY。
+> 依赖结构未因已完成 Feature 而变化；仅状态变化：F009 → DONE，M2 完成；
+> F004 / F006 因依赖满足而 READY；F005 / F007 / F008 / F010 / F011 仍因依赖未 DONE 而 BLOCKED；无 DRAFT Feature。
 
 图例：`A --> B` 表示 **B depends_on A**（A 是 B 的前置）。
 
@@ -67,11 +67,11 @@ F003 已删除（Rack / U 位从 V1 移除），不再出现在依赖图中。
 以下分组表示：在同一批次内，各 Feature 之间**没有互相依赖**，可以在其共同前置 DONE 后并行实施。
 （实际并行仍须遵守 `docs/project/git-workflow.md`：并行前划定文件所有权。）
 
-- **Batch 0（根）**：F012（ENABLER，已 READY）。单独先行，因为它阻塞几乎所有 Feature。
-- **Batch 1**：F001（Cluster）。F013、F014 也可与资源线并行（均只依赖 F012）。
+- **Batch 0（根）**：F012（ENABLER，已 DONE）。
+- **Batch 1**：F001（Cluster，已 DONE）。F013（已 DONE）、F014（已 DONE）也可与资源线并行（均只依赖 F012）。
 - **Batch 2**：
   - 资源线：F002（BareMetal）
-  - 并行基础线：F015（部署，需 F013）
+  - 并行基础线：F015（部署，需 F013，已 DONE）
 - **Batch 3**（F002 完成后，彼此独立）：
   - F004（NetworkInterface）
   - F006（VirtualMachine）

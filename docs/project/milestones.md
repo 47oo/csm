@@ -3,7 +3,7 @@
 > Status: DRAFT（待用户确认）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend 技术层划分。
-> Last updated: 2026-09-15（DEC-008 ~ DEC-016 全部裁定；M1 进入条件改为“架构已批准 + API 契约 READY + F012 READY”；M5 移除 OPEN-005）
+> Last updated: 2026-09-18（M2 / M3 已 DONE；M4 进行中：F006 已 DONE，F007 待完成，F008 待启动）
 
 完成判据统一要求：对应 Feature 的 Reviewer 为 `APPROVED` / `APPROVED WITH FOLLOW-UP`，
 必要测试通过，且 Feature Branch 已成功 merge 到 develop，项目状态已更新并提交
@@ -12,6 +12,8 @@
 ---
 
 ## M1 平台基础可运行
+
+> 状态：**DONE**（2026-09-16；F012 / F013 / F014 / F015 均 DONE 并合入 develop）
 
 **目标能力**：建立可运行、可登录的内网部署基础，并具备逻辑删除与数据一致性治理基座。
 
@@ -41,6 +43,8 @@
 
 ## M2 基础资源可登记与查询
 
+> 状态：**DONE**（2026-09-16；F001 / F002 / F009 均 DONE 并合入 develop）
+
 **目标能力**：运维人员可登记 Cluster、BareMetal，并从 Cluster 视角查询其下资源与状态
 （建立替代 Excel 的最小核心闭环）。
 
@@ -69,6 +73,8 @@
 
 ## M3 网络资源管理
 
+> 状态：**DONE**（2026-09-18；F004 / F005 均 DONE 并合入 develop）
+
 **目标能力**：统一管理网络接口与 IP 地址；阻止同 Cluster IP 重复。
 
 **包含 Feature**
@@ -92,6 +98,8 @@
 ---
 
 ## M4 虚拟资源与共享服务
+
+> 状态：**DONE**（2026-09-18；F006 / F007 / F008 均 DONE 并合入 develop）
 
 **目标能力**：登记虚拟资源（VirtualMachine / Container），并管理必选绑定运行载体的共享 Service。
 
@@ -119,6 +127,8 @@
 ---
 
 ## M5 统一资源视图与批量导入
+
+> 状态：**用户决定不再交付**（2026-09-18；F010 DONE，F011 取消）。
 
 **目标能力**：提供跨资源关联查询与 Excel 批量导入，达成替代 Excel 的 V1 目标闭环。
 

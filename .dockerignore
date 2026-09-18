@@ -1,0 +1,40 @@
+# CSM 构建上下文排除清单（仓库根，供 backend / nginx 镜像构建共用）。
+
+# 版本控制与本地工具
+.git
+.gitignore
+
+# Python 虚拟环境与缓存
+.venv
+venv
+__pycache__
+**/__pycache__
+*.py[cod]
+*.egg-info
+.eggs
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.tox
+
+# 前端依赖与构建产物（前端镜像的 builder 阶段自行安装 / 构建）
+node_modules
+**/node_modules
+frontend/node_modules
+frontend/dist
+frontend/.vite
+dist
+
+# 测试与文档（不进入运行镜像）
+tests
+docs
+
+# 本地开发文件与模板（不进入运行镜像）
+.env
+.env.*
+!.env.example
+docker-compose.dev.yml
+Makefile
+README.md
+requirements-dev.txt
+pyproject.toml

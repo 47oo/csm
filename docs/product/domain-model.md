@@ -149,17 +149,22 @@ Cluster、VirtualMachine、Container、Service、NetworkInterface、IPAddress �
 
 同一集群内主机名称唯一。
 
+**可选硬件规格字段（R-BM-007，2026-09-16 用户裁定）**：Vendor（厂商）、Model（型号）、Serial Number（序列号）、CPU、Memory（内存）、GPU、Storage（存储）。均为可选、纯文本、允许为空（`NULL`）；**Serial Number 不参与唯一性**。这些字段不构成登记阻断条件，也不得因此引入自动资产发现或外部平台同步。
+
 ### 5.3 虚拟机 VirtualMachine
 
 虚拟机属于第一版资源范围。
 
 虚拟机与物理宿主（裸金属）之间的关系模型应能够表达实际运行位置。
 
-该关系的**强制性与生命周期规则尚未确认**，必须在 VirtualMachine Feature 的 Product 阶段确定（`requirements.md` R-VM-003）。
+**关系为必选（R-VM-005）**：每个 VirtualMachine 必须属于一个 BareMetal；Cluster 归属由宿主推导。宿主存在活跃 VirtualMachine 时不得删除宿主；VirtualMachine 软删不级联。
 
-在此之前**不得默认其为必选**。
+登记字段：
 
-登记字段：尚未确认（`requirements.md` OPEN-001）。
+* 虚拟机名称（`name`）：身份标识，必填，**全局唯一**、比较区分大小写（R-VM-004）。
+* 可选配置字段（R-VM-006）：CPU / Memory / Disk / OS / Hypervisor / Owner，均为可选、纯文本、允许为空（`NULL`）。
+
+VirtualMachine 在 V1 不设状态（Q-002=B）。
 
 ### 5.4 容器 Container
 
@@ -170,11 +175,18 @@ Cluster、VirtualMachine、Container、Service、NetworkInterface、IPAddress �
 * 虚拟机；
 * 裸金属。
 
-**登记粒度、绑定强制性与生命周期尚未确认**，必须在 Container Feature 的 Product 阶段确定（`requirements.md` §10、OPEN-002）。
+**绑定为必选且恰好一个（R-CONTAINER-002）**：每个 Container 必须属于恰好一个运行载体；Cluster 归属由载体推导。
 
-在此之前**不得默认绑定为必选**。
+**登记粒度为长期服务型 Container 实例（R-CONTAINER-001）**：不登记短生命周期 / 临时容器，不引入 Kubernetes workload 等更高层对象。
 
-登记字段：绑定的载体（最终字段范围待 Container Feature 确认）。
+登记字段：
+
+* 容器名称（`name`）：身份标识，必填，**同一运行载体内唯一**、比较区分大小写（R-CONTAINER-003）。
+* 可选字段（R-CONTAINER-004）：Image / CPU / Memory / Owner，均为可选、纯文本、允许为空（`NULL`）。
+
+生命周期（R-CONTAINER-005）：载体存在活跃 Container 时不得删除载体；Container 软删不级联。
+
+Container 在 V1 不设状态（Q-002=B）。
 
 ### 5.5 服务 Service
 
@@ -190,11 +202,13 @@ Cluster、VirtualMachine、Container、Service、NetworkInterface、IPAddress �
 
 服务与集群的关联不是直接绑定，而是通过其运行载体的集群归属推导（R-SVC-006）。
 
-登记字段：
+登记字段（R-SVC-007）：`name` 必填；`service_type` / `url` / `port` / `protocol` / `owner` / `description` 均可选、纯文本、允许为空（`NULL`）。**不属 V1**：Credential reference 与 Health information。
 
-* 服务名称；
-* 服务 URL（例如 `https://10.1.1.1:8080`）；
-* 绑定的载体。
+标识与唯一性（R-SVC-008）：`name` 在所有活跃 Service 范围内**全局唯一**、比较区分大小写；已软删释放唯一性。
+
+生命周期（R-SVC-009）：绑定了活跃 Service 的运行载体在绑定期间不得删除；Service 软删不级联。
+
+服务在 V1 不设状态（Q-002=B）。
 
 ### 5.6 网络接口 NetworkInterface
 
@@ -252,8 +266,9 @@ IP 地址 → 网络接口
 
 以下**尚未确认**，必须由对应 Feature 的 Product 阶段确定，**不得自行推导**：
 
-* 虚拟机 → 裸金属 的绑定强制性与生命周期（`requirements.md` R-VM-003）；
 * 容器 → 虚拟机 / 裸金属 的绑定强制性、登记粒度与生命周期（`requirements.md` §10）。
+
+（虚拟机 → 裸金属的绑定强制性与生命周期已于 2026-09-16 由 R-VM-005 确认为必选，见上「关系规则」。）
 
 不得仅根据资源分类自动产生关系。
 
@@ -311,6 +326,9 @@ V1 中**不设状态**的资源：
 * 集群名称全局唯一（大小写敏感），集群以集群名称唯一识别（R-CLUSTER-002）；
 * 同一集群内主机名称唯一（R-BM-002）；
 * 同一集群内 IP 地址唯一（R-IP-001）；
+* 虚拟机名称在所有活跃 VirtualMachine 范围内**全局唯一**（跨宿主、跨集群），大小写敏感（R-VM-004）；
+* 容器名称在**同一运行载体**内唯一（不同载体可重名），大小写敏感（R-CONTAINER-003）；
+* 服务名称在所有活跃 Service 范围内**全局唯一**（跨 Cluster、跨载体、跨载体类型），大小写敏感（R-SVC-008）；与容器名称的「载体内唯一」**语义相反**，不得混用；
 * 集群名称不得包含 `/`（R-CLUSTER-005，用于 URL 路径寻址）。
 
 ---
@@ -344,11 +362,9 @@ V1 中**不设状态**的资源：
 
 以下项目在 `requirements.md` §29 中已明确为待确认，其确认属于对应 Feature 的 Product 阶段：
 
-* OPEN-001：虚拟机字段范围及其标识与唯一性规则；
-* OPEN-002：容器管理粒度；
-* OPEN-003：服务字段范围；
-* OPEN-004：裸金属硬件字段；
 * OPEN-005：Excel 部分成功导入策略。
+
+OPEN-004（裸金属硬件字段）已于 2026-09-16 由用户裁定，固化为 R-BM-007；OPEN-001（虚拟机字段与绑定）已于 2026-09-16 由用户裁定，固化为 R-VM-004 / R-VM-005 / R-VM-006；OPEN-002（容器粒度与绑定）已于 2026-09-16 由用户裁定，固化为 R-CONTAINER-001 ~ R-CONTAINER-005；OPEN-003（服务字段）已于 2026-09-16 由用户裁定，固化为 R-SVC-007 / R-SVC-008 / R-SVC-009；均不再是待确认项。
 
 OPEN-006（虚拟资源运行时集成）已由已确认规则排除，不再是待确认项。
 

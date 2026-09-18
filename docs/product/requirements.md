@@ -24,6 +24,42 @@
 >   - **NIC 枚举为封闭集合（受控枚举）**：R-NIC-001 的 `technology_type` 即为 **Ethernet / InfiniBand / RoCE / Other 四种，无其他取值**；R-NIC-002 的 `purpose` 同属封闭集合。原文「至少能够表达」现解释为「内部枚举固定，中文展示可另定」，而非「允许任意扩展」。新增取值须重新走需求确认流程（同 R-BM-003 对状态集合的处理）。
 >   - 决策来源：用户 2026-09-15 对 `docs/database/csm-v1-schema-design.md` Open Questions #11 / #12 的裁定。
 >
+> - **2026-09-15 — 认证阶段产品裁定（新增 3 条规则）**
+>   - 新增 **R-AUTH-004**：口令长度至少 8 位（§19）。
+>   - 新增 **R-AUTH-005**：用户名唯一性与登录匹配**区分大小写**（§19）。
+>   - 新增 **R-AUTH-006**：登录失败**统一响应**，不区分「用户名不存在」与「口令错误」（§19）。
+>   - 规则总数：**46 → 49**。
+>   - 决策来源：用户 2026-09-15 对 `docs/product/handoffs/f013-auth.md` 中 PROPOSED-1 / PROPOSED-2 / PROPOSED-3 的裁定。
+>
+> - **2026-09-16 — BareMetal 阶段产品裁定（新增 1 条规则）**
+>   - **OPEN-004 关闭**：BareMetal 硬件字段采用「全部可选 + 纯文本 + 允许 NULL」，固化为 **R-BM-007**（§8）。
+>   - **Serial Number 不参与唯一性**（既不全局唯一，也不按 Cluster 唯一）。
+>   - 决策来源：用户 2026-09-16 对 F002 OPEN-004 的裁定。
+>   - 规则总数：**49 → 50**。
+>
+> - **2026-09-16 — VirtualMachine 阶段产品裁定（新增 3 条规则）**
+>   - **OPEN-001 关闭**：VirtualMachine 标识为 `name`，**全局唯一**、比较区分大小写；新增 **R-VM-004**（§9）。
+>   - **DEC-004 关闭**：VirtualMachine → BareMetal 绑定为**必选**；宿主有活跃 VM 时不得删除宿主，VM 软删不级联；新增 **R-VM-005**（§9）。
+>   - VirtualMachine 可选配置字段（CPU / Memory / Disk / OS / Hypervisor / Owner）全部可选、纯文本、允许 NULL；新增 **R-VM-006**（§9）。
+>   - 决策来源：用户 2026-09-16 对 F006 OPEN-001 / DEC-004 的裁定。
+>   - 规则总数：**50 → 53**。
+>
+> - **2026-09-16 — Container 阶段产品裁定（新增 5 条规则）**
+>   - **OPEN-002 关闭**：登记粒度为**仅长期服务型 Container**，不登记短生命周期 / 临时容器，不引入 K8s workload 等更高层对象；新增 **R-CONTAINER-001**（§10）。
+>   - **DEC-005 关闭**：Container → 运行载体（BareMetal 或 VirtualMachine）绑定为**必选且恰好一个**，Cluster 由载体推导；新增 **R-CONTAINER-002**。
+>   - 标识 `name` 同一载体内唯一、比较区分大小写；新增 **R-CONTAINER-003**。
+>   - 可选字段（image / cpu / memory / owner）全部可选、纯文本、允许 NULL；新增 **R-CONTAINER-004**。
+>   - 生命周期：载体有活跃 Container 时不得删除载体；软删不级联；新增 **R-CONTAINER-005**。
+>   - 决策来源：用户 2026-09-16 对 F007 OPEN-002 / DEC-005 的裁定。
+>   - 规则总数：**53 → 58**。
+>
+> - **2026-09-16 — Service 阶段产品裁定（新增 3 条规则）**
+>   - **OPEN-003 关闭**：Service 字段范围定为 name（必填）+ service_type / url / port / protocol / owner / description（均可选、纯文本、允许 NULL）；**credential_reference 与 health_information 不属 V1**；新增 **R-SVC-007**（§14）。
+>   - Service `name` **全局唯一**、比较区分大小写；已软删释放唯一性；新增 **R-SVC-008**。
+>   - 被活跃 Service 绑定的运行载体**不得删除**；Service 软删不级联；新增 **R-SVC-009**。
+>   - 决策来源：用户 2026-09-16 对 F008 OPEN-003 的裁定。
+>   - 规则总数：**58 → 61**。
+>
 > 本文件为 CSM V1 的 Primary Requirements Source；与 `docs/product/domain-model.md` 的同步另行维护，冲突优先级见 `AGENTS.md` §3。
 
 ---
@@ -41,7 +77,7 @@ CSM 是面向 HPC / AI 运维场景的内部资源管理平台。
 * 网络地址管理；
 * 虚拟资源管理；
 * 服务资源管理；
-* 批量数据导入。
+* ~~批量数据导入~~（**2026-09-18 用户取消，不在 V1 交付范围内**）。
 
 CSM V1 的重点是：
 
@@ -317,6 +353,27 @@ BareMetal 状态不能为空。
 
 ---
 
+## R-BM-007
+
+BareMetal 在 V1 **可选**记录以下硬件规格字段：
+
+* Vendor（厂商）；
+* Model（型号）；
+* Serial Number（序列号）；
+* CPU；
+* Memory（内存）；
+* GPU；
+* Storage（存储）。
+
+约束：
+
+* 上述字段均为**可选**；未登记时允许为空（`NULL`），不构成登记阻断条件；
+* 上述字段在 V1 均以**文本**记录，不拆分为结构化子字段（例如不以独立字段表达 CPU 型号 / 核数、GPU 型号 / 数量、Memory 单位、Storage 单位）；
+* **Serial Number 不参与唯一性约束**（既不全局唯一，也不按 Cluster 唯一）；
+* 不得因为存在这些字段而引入自动资产发现或外部平台同步。
+
+---
+
 # 9. VirtualMachine
 
 VirtualMachine 属于 Virtual Resource。
@@ -354,6 +411,50 @@ VirtualMachine 与物理宿主之间的具体关系模型应能够表达实际�
 
 ---
 
+## R-VM-004
+
+VirtualMachine 必须拥有 `name`（虚拟机名称），作为其身份标识。
+
+`name` 在**所有当前有效 VirtualMachine 范围内全局唯一**（不区分归属的 Cluster 或 BareMetal）。
+
+`name` 比较**区分大小写**（与 Cluster / BareMetal 一致，§22）。
+
+已逻辑删除的 VirtualMachine 不再占用该唯一性（R-DELETE-006）。
+
+---
+
+## R-VM-005
+
+VirtualMachine → BareMetal 的绑定为**必选**：每个 VirtualMachine 必须属于恰好一个 BareMetal 宿主。
+
+VirtualMachine 的 Cluster 归属由其宿主 BareMetal 的 Cluster 归属推导，不单独记录。
+
+生命周期：
+
+* 宿主 BareMetal 存在活跃 VirtualMachine 时，**不得删除该宿主**（R-DELETE-004）；
+* 逻辑删除 VirtualMachine **不得自动级联**删除其宿主或其他资源（R-DELETE-005）。
+
+---
+
+## R-VM-006
+
+VirtualMachine 在 V1 **可选**记录以下配置字段：
+
+* CPU；
+* Memory（内存）；
+* Disk（磁盘）；
+* OS（操作系统）；
+* Hypervisor（虚拟化平台名称，仅记录，不接入）；
+* Owner（负责人，纯文本）。
+
+约束：
+
+* 上述字段均为**可选**；未登记时允许为空（`NULL`），不构成登记阻断条件；
+* 上述字段在 V1 均以**文本**记录，不拆分为结构化子字段；
+* 不得因为存在这些字段而引入自动资产发现或虚拟化平台同步。
+
+---
+
 # 10. Container
 
 Container 属于 Virtual Resource。
@@ -365,13 +466,72 @@ Container 可能运行于：
 * BareMetal；
 * VirtualMachine。
 
-具体登记粒度、生命周期和运行关系应由对应 Feature 根据实际产品需求进一步确认。
-
 不得因为存在 Container 类型就自动引入：
 
 * Kubernetes；
 * Docker API；
 * Container Runtime 自动发现。
+
+---
+
+## R-CONTAINER-001
+
+V1 的 Container 登记粒度为**长期服务型 Container 实例**：
+
+* 只登记长期运行、具有运维意义的容器实例；
+* 不登记短生命周期 / 临时容器（如作业型、调试型容器）；
+* **不引入** Kubernetes workload（Pod / Deployment / DaemonSet 等）或其他更高层对象作为登记单位。
+
+---
+
+## R-CONTAINER-002
+
+Container → 运行载体的绑定为**必选**：每个 Container 必须属于**恰好一个**运行载体。
+
+运行载体可以是：
+
+* BareMetal；或
+* VirtualMachine。
+
+Container 的 Cluster 归属由其运行载体的 Cluster 归属推导，不单独记录（BareMetal → 其 Cluster；VirtualMachine → 其宿主 BareMetal → 其 Cluster）。
+
+---
+
+## R-CONTAINER-003
+
+Container 必须拥有 `name`，作为其身份标识。
+
+`name` 在**同一运行载体内唯一**；不同载体可以存在相同 `name`。
+
+`name` 比较**区分大小写**（与 Cluster / BareMetal / VirtualMachine 一致，§22）。
+
+已逻辑删除的 Container 不再占用该唯一性（R-DELETE-006）。
+
+---
+
+## R-CONTAINER-004
+
+Container 在 V1 **可选**记录以下字段：
+
+* Image（镜像）；
+* CPU；
+* Memory（内存）；
+* Owner（负责人，纯文本）。
+
+约束：
+
+* 上述字段均为**可选**；未登记时允许为空（`NULL`），不构成登记阻断条件；
+* 上述字段在 V1 均以**文本**记录，不拆分为结构化子字段；
+* 不得因为存在这些字段而引入自动资产发现或容器运行时同步。
+
+---
+
+## R-CONTAINER-005
+
+生命周期：
+
+* 运行载体（BareMetal 或 VirtualMachine）存在活跃 Container 时，**不得删除该载体**（R-DELETE-004）；
+* 逻辑删除 Container **不得自动级联**删除其载体或其他资源（R-DELETE-005）。
 
 ---
 
@@ -606,6 +766,42 @@ Service 与 Cluster 的关联通过其**运行载体的 Cluster 归属推导**�
 
 ---
 
+## R-SVC-007
+
+Service 在 V1 记录以下字段：
+
+* `name`（服务名称）：**必填**，自由文本（R-SVC-001）；
+* `service_type`（服务类型）：可选，自由文本（R-SVC-001，不强制固定分类）；
+* `url`、`port`、`protocol`、`owner`、`description`：均为**可选**、纯文本、允许为空（`NULL`）。
+
+**不属 V1**：
+
+* **Credential reference**（凭据引用）——系统无密钥管理，不记录凭据引用，避免变相存储密钥；
+* **Health information**（健康信息）——V1 无监控接入且 Service 不设状态（Q-002=B）。
+
+---
+
+## R-SVC-008
+
+Service 必须拥有 `name`；`name` 在所有当前有效 Service 范围内**全局唯一**。
+
+`name` 比较**区分大小写**（与 Cluster / BareMetal / VirtualMachine 一致，§22）。
+
+已逻辑删除的 Service 不再占用该唯一性（R-DELETE-006）。
+
+---
+
+## R-SVC-009
+
+生命周期：
+
+* 绑定了活跃 Service 的运行载体（BareMetal / VirtualMachine / Container），在其仍被该 Service 绑定时**不得删除**（R-DELETE-004 的泛化）；需**先删除该 Service**；
+* **V1 不提供「解除绑定」能力**（2026-09-16 确认）：Service 的运行载体绑定在**登记时一次确定、登记后不可变**——既不能追加、也不能解除或替换；因此释放运行载体的**唯一**途径是逻辑删除该 Service。
+* 由此推出：活跃 Service **必须**始终绑定至少一个运行载体（R-SVC-005），且**不存在任何使已有活跃 Service 变为零载体的产品路径**；删除 Service 后其原载体不再受该 Service 约束（R-DELETE-006 的绑定侧表现），且删除 Service **不级联**删除载体（下条）。
+* 逻辑删除 Service **不得自动级联**删除其运行载体或其他资源（R-DELETE-005）。
+
+---
+
 # 15. Resource Relationship
 
 CSM 不只是资源列表。
@@ -718,6 +914,27 @@ BareMetal
 
 具体页面组织由 Frontend 设计，但不得要求用户为了获得一个资源的基本信息手工跨多个独立 Excel 式页面拼接信息。
 
+### 「与 BareMetal 相关」的确切含义（2026-09-18 确认）
+
+「相关」按**已确认关系链推导**判定，不是只看「直接挂在机器上的列」：
+
+| 资源 | 「与 BareMetal B 相关」的判定 |
+|---|---|
+| NetworkInterface | 其 `bare_metal_id` = B |
+| IPAddress | 其所属 NetworkInterface 的 `bare_metal_id` = B（**间接**：IP → NIC → B；IP 无 `bare_metal_id`） |
+| VirtualMachine | 其 `bare_metal_id` = B |
+| Container | 其运行载体 = B，**或**其运行载体为 **B 上的活跃 VirtualMachine**（**含间接**） |
+| Service | 其运行载体集合与「B 的相关载体集合 R(B)」有交集（**含间接**） |
+
+其中 **R(B)** = {B} ∪ {B 上的活跃 VirtualMachine} ∪ {
+运行载体为 B 或 B 上活跃 VirtualMachine 的活跃 Container }。
+
+因此：一个绑定在「B 上某台 VM」上的 Service、以及一个跑在「B 上某台 VM 里的 Container」的 Service，
+**都算与 B 相关**；同一 Service 因多个载体与 B 相关时**只出现一次**。
+
+**本裁定仅适用于「查询相关性」，不改变任何删除拦截语义**：R-DELETE-004 / R-SVC-009 的父删子拦
+始终以**直接绑定**为准，不因本条而新增传递性拦截。
+
 ---
 
 ## R-QUERY-004
@@ -795,6 +1012,11 @@ Cluster 仍然存在有效 BareMetal：
 ---
 
 # 18. Excel Import
+
+> ⚠️ **本节的规则（R-IMPORT-001 ~ R-IMPORT-004）不在 CSM V1 的交付范围内。**
+> 用户于 **2026-09-18** 明确决定取消对应功能（计划中的 F011「Excel 模板与批量导入」，状态 CANCELLED）。
+> 以下规则文本**按原样保留**（已确认的规则不因下线功能而删除），但 **V1 不实现、不交付**，且不作为任何验收基准。
+> 若未来重新需要批量导入，应作为**新的产品需求**重新确认，而非直接沿用本节作为已交付承诺。
 
 CSM 的重要目标之一是替代现有 Excel 管理方式。
 
@@ -881,6 +1103,40 @@ V1 不要求接入：
 ## R-AUTH-003
 
 更复杂的 RBAC 权限模型如果当前没有明确产品需求，不得由 Architect 自行扩大 V1 范围。
+
+---
+
+## R-AUTH-004
+
+口令长度**至少 8 位**。
+
+低于 8 位的口令不得被接受。
+
+该规则适用于**任何建立或修改口令的路径**（当前为初始账号初始化；未来的口令修改 / 重置路径同样适用）。
+
+除长度下限外，V1 不对口令提出其他强度要求（不要求大小写混合、数字、符号，也不做弱口令黑名单）。
+
+---
+
+## R-AUTH-005
+
+用户名的**唯一性与登录匹配均区分大小写**。
+
+即 `admin` 与 `Admin` 是两个不同的用户名，且登录时必须按原样精确匹配。
+
+不得使用 `lower(username)` 唯一索引或其他大小写折叠实现。
+
+该规则与 R-CLUSTER-002 / §22 对资源标识的处理方式一致。
+
+---
+
+## R-AUTH-006
+
+登录失败时，**不得区分「用户名不存在」与「口令错误」**。
+
+两种情况必须返回**完全相同**的响应（状态码、`error.code`、文案），使调用方无法据此判断某用户名是否存在。
+
+该规则是为了避免账号枚举，属**安全下的产品行为要求**，不是实现建议。
 
 ---
 
@@ -1071,7 +1327,7 @@ IP、hostname 等关键规则应明确表达。
 * Container 资源模型；
 * Service 管理；
 * Cluster 与 Service 关联；
-* Excel 批量导入；
+* ~~Excel 批量导入~~（**2026-09-18 用户取消，不在 V1 交付范围内**）；
 * 本地账号认证；
 * 逻辑删除和数据一致性。
 
@@ -1160,75 +1416,62 @@ Reviewer = APPROVED WITH FOLLOW-UP
 
 ---
 
-## OPEN-001 VirtualMachine 字段与标识规则
+## OPEN-001 VirtualMachine 字段与标识规则（已关闭）
 
-例如：
+VirtualMachine 字段、标识与绑定规则已于 2026-09-16 由用户裁定：
 
-* CPU；
-* Memory；
-* Disk；
-* OS；
-* Hypervisor；
-* Owner。
+* 标识字段 `name`，必填，**全局唯一**，比较区分大小写；
+* 绑定 BareMetal 为**必选**；Cluster 归属由宿主推导；
+* 可选配置字段（CPU / Memory / Disk / OS / Hypervisor / Owner）全部可选、纯文本、允许 NULL；
+* 宿主有活跃 VM 时不得删除宿主；VM 软删不级联。
 
-具体字段尚需根据使用场景确认。
-
-**补充（2026-09-15 澄清新增）**：VirtualMachine 的**标识与唯一性规则**同样未被任何已确认文档定义（`domain-model.md` §8 不含 VirtualMachine）。该项需与字段范围一并在 VirtualMachine Feature 的 Product 阶段确认。
+已固化为 **R-VM-004 / R-VM-005 / R-VM-006**（§9），不再是待确认项。
 
 ---
 
-## OPEN-002 Container 管理粒度
+## OPEN-002 Container 管理粒度（已关闭）
 
-**已确认部分**：
+Container 登记粒度与绑定已于 2026-09-16 由用户裁定：
 
-* V1 需要允许领域模型表达 Container（§10）；
-* 不得引入 Kubernetes / Docker API / Container Runtime 自动发现（§10、§23）。
+* 粒度为**长期服务型 Container 实例**，不登记短生命周期 / 临时容器，不引入 K8s workload 等更高层对象；
+* 绑定运行载体（BareMetal 或 VirtualMachine）为**必选且恰好一个**；Cluster 由载体推导；
+* 标识 `name`，同一载体内唯一、区分大小写；
+* 可选字段（image / cpu / memory / owner）全部可选、纯文本、允许 NULL；
+* 载体有活跃 Container 时不得删除载体；软删不级联。
 
-**仍需确认**：
-
-* 是否登记每个 Container；
-* 是否仅登记长期服务型 Container；
-* 是否需要 Kubernetes workload 等更高层对象。
-
----
-
-## OPEN-003 Service 字段
-
-**已确认部分**：Service Name / Type 允许根据实际服务自由登记（R-SVC-001）。
-
-**仍需确认**：Service 的以下字段中哪些属于 V1：
-
-* URL；
-* Port；
-* Protocol；
-* Owner；
-* Description；
-* Credential reference；
-* Health information。
-
-尚需按真实业务确认。
+已固化为 **R-CONTAINER-001 ~ R-CONTAINER-005**（§10），不再是待确认项。
 
 ---
 
-## OPEN-004 BareMetal Hardware 字段
+## OPEN-003 Service 字段（已关闭）
 
-例如：
+Service 字段范围已于 2026-09-16 由用户裁定：
 
-* CPU；
-* Memory；
-* GPU；
-* Storage；
-* Vendor；
-* Model；
-* Serial Number。
+* `name` 必填；`service_type` / `url` / `port` / `protocol` / `owner` / `description` 均可选、纯文本、允许 NULL；
+* **Credential reference 与 Health information 不属 V1**；
+* `name` 全局唯一、区分大小写；
+* 被活跃 Service 绑定的载体不得删除。
 
-实际 V1 必填和可选字段应在 BareMetal Feature 中确认。
+已固化为 **R-SVC-007 / R-SVC-008 / R-SVC-009**（§14），不再是待确认项。
+
+---
+
+## OPEN-004 BareMetal Hardware 字段（已关闭）
+
+BareMetal 硬件字段范围已于 2026-09-16 由用户裁定：
+
+* **全部可选**：Vendor / Model / Serial Number / CPU / Memory / GPU / Storage；
+* **纯文本**记录，V1 不结构化；
+* 允许为空（`NULL`）；
+* **Serial Number 不参与唯一性**。
+
+已固化为 **R-BM-007**（§8），不再是待确认项。
 
 ---
 
 ## OPEN-005 Excel Partial Import（已关闭）
 
-Excel 批量导入发生部分错误时的语义已于 2026-09-15 由用户裁定：
+Excel 批量导入发生部分错误时的语义已于 2026-09-15 由用户裁定（**注：该功能已于 2026-09-18 取消，不在 V1 交付范围内；此条仅作历史记录保留**）：
 
 * **采用 All-or-Nothing**；
 * 不采用 Partial Success。

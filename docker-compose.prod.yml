@@ -1,0 +1,88 @@
+# ============================================================================
+# CSM V1 生产部署编排（内网单机：nginx + 应用 + PostgreSQL）
+#
+# 权威部署文档：docs/deployment/csm-v1-internal-deployment.md
+#
+# 凭据由部署环境**外部注入**（仓库内无任何生产口令 / DSN）：
+#   cp deploy/env.prod.example /etc/csm/csm.env   # 填入真实值（勿提交）
+#   docker compose -f docker-compose.prod.yml --env-file /etc/csm/csm.env up -d
+#
+# 暴露面：仅 nginx 发布宿主端口；app / postgres 只在内部网络 expose。
+# 不含 TLS / 证书 / 域名 / 公网入口。
+# ============================================================================
+name: csm-prod
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${CSM_POSTGRES_USER:?必须由部署环境提供 CSM_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${CSM_POSTGRES_PASSWORD:?必须由部署环境提供 CSM_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${CSM_POSTGRES_DB:?必须由部署环境提供 CSM_POSTGRES_DB}
+      # 固定 locale / encoding；仅在命名卷**首次初始化**时生效（见部署文档）。
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    expose:
+      - "5432"
+    volumes:
+      - csm-prod-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # 容器 / 运行时级探测（PostgreSQL 原生协议），不发起 HTTP、不返回产品数据。
+      test: ["CMD-SHELL", "pg_isready -U ${CSM_POSTGRES_USER} -d ${CSM_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      # 生产环境标签硬编码（生产必须为 prod；dev-only 文档面据此关闭）。
+      CSM_ENVIRONMENT: "prod"
+      # DSN 由同一组外部变量插值组装，避免口令在两处手工重复。
+      CSM_DATABASE_URL: "postgresql+psycopg://${CSM_POSTGRES_USER:?必须由部署环境提供 CSM_POSTGRES_USER}:${CSM_POSTGRES_PASSWORD:?必须由部署环境提供 CSM_POSTGRES_PASSWORD}@postgres:5432/${CSM_POSTGRES_DB:?必须由部署环境提供 CSM_POSTGRES_DB}"
+      # 连接池上限 = pool_size + max_overflow = 15 < PostgreSQL max_connections(100)。
+      CSM_DB_POOL_SIZE: "5"
+      CSM_DB_MAX_OVERFLOW: "10"
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # TCP 探测 127.0.0.1:8000（不发起 HTTP、不触及产品认证面、不返回任何数据）。
+      test:
+        - CMD
+        - python
+        - -c
+        - "import socket; socket.create_connection(('127.0.0.1', 8000), 2).close()"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  nginx:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    # 唯一对外发布的端口：Internal IP + HTTP（80）。
+    ports:
+      - "${CSM_HTTP_PORT:-80}:80"
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      # TCP 探测 127.0.0.1:80（不发起 HTTP、不触及产品认证面、不返回任何数据）。
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 80"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  # 命名持久卷：容器停止 / 重建 / 删除后资源数据仍在（禁止删除该卷）。
+  csm-prod-pgdata:

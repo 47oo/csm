@@ -52,11 +52,11 @@ alembic_version
   0001_f012_baseline                 (F012)  clusters
   └─ 0002_f013_auth                  (F013)  users, sessions
      └─ 0003_f002_bare_metals        (F002)  bare_metals
-        └─ 0004_f004_network_interfaces (F004) network_interfaces
-           └─ 0005_f005_ip_addresses    (F005) ip_addresses
-              └─ 0006_f006_...          (延后, Product 未确认)
-              └─ 0007_f007_...          (延后)
-              └─ 0008_f008_...          (延后)
+     └─ 0004_f006_virtual_machines (F006)  virtual_machines
+        └─ 0005_f004_network_interfaces (F004) network_interfaces
+           └─ 0006_f005_ip_addresses    (F005) ip_addresses
+              └─ 0007_f007_containers   (F007) containers
+                 └─ 0008_f008_services  (F008) services, service_carriers
 ```
 
 - **Alembic 配置为单一线性 head**（`down_revision` 串成一条链），不使用多 head / merge，避免 4 个实现分支并行时产生分支与 merge revision。
@@ -126,11 +126,18 @@ CREATE INDEX ix_sessions_expires_at ON sessions (expires_at);
 
 ```sql
 CREATE TABLE bare_metals (
-  id          BIGINT GENERATED ALWAYS AS IDENTITY,
-  cluster_id  BIGINT      NOT NULL,
-  hostname    TEXT        NOT NULL,
-  status      TEXT        NOT NULL DEFAULT 'IDLE',
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  id            BIGINT GENERATED ALWAYS AS IDENTITY,
+  cluster_id    BIGINT      NOT NULL,
+  hostname      TEXT        NOT NULL,
+  status        TEXT        NOT NULL DEFAULT 'IDLE',
+  vendor        TEXT        NULL,          -- R-BM-007
+  model         TEXT        NULL,          -- R-BM-007
+  serial_number TEXT        NULL,          -- R-BM-007（不参与唯一性）
+  cpu           TEXT        NULL,          -- R-BM-007
+  memory        TEXT        NULL,          -- R-BM-007
+  gpu           TEXT        NULL,          -- R-BM-007
+  storage       TEXT        NULL,          -- R-BM-007
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted_at  TIMESTAMPTZ NULL,
   CONSTRAINT pk_bare_metals PRIMARY KEY (id),
@@ -147,7 +154,7 @@ CREATE UNIQUE INDEX ux_bare_metals_cluster_hostname_active
 CREATE INDEX ix_bare_metals_cluster_id ON bare_metals (cluster_id);
 ```
 
-### `0004_f004_network_interfaces`（F004）
+### `0005_f004_network_interfaces`（F004）
 
 ```sql
 CREATE TABLE network_interfaces (
@@ -172,7 +179,7 @@ CREATE INDEX ix_network_interfaces_bare_metal_id
   ON network_interfaces (bare_metal_id);
 ```
 
-### `0005_f005_ip_addresses`（F005）
+### `0006_f005_ip_addresses`（F005）
 
 ```sql
 CREATE TABLE ip_addresses (
@@ -200,6 +207,49 @@ CREATE INDEX ix_ip_addresses_cluster_id
 CREATE INDEX ix_ip_addresses_network_interface_id
   ON ip_addresses (network_interface_id);
 ```
+
+### `0007_f007_containers`（F007）
+
+```sql
+CREATE TABLE containers (
+  id                 BIGINT GENERATED ALWAYS AS IDENTITY,
+  bare_metal_id      BIGINT      NULL,   -- 载体二选一（其一）
+  virtual_machine_id BIGINT      NULL,   -- 载体二选一（其一）
+  name               TEXT        NOT NULL,
+  image              TEXT        NULL,
+  cpu                TEXT        NULL,
+  memory             TEXT        NULL,
+  owner              TEXT        NULL,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at         TIMESTAMPTZ NULL,
+  CONSTRAINT pk_containers PRIMARY KEY (id),
+  CONSTRAINT ck_containers_carrier_exactly_one
+    CHECK (num_nonnulls(bare_metal_id, virtual_machine_id) = 1),
+  CONSTRAINT fk_containers_bare_metal FOREIGN KEY (bare_metal_id)
+    REFERENCES bare_metals (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT fk_containers_virtual_machine FOREIGN KEY (virtual_machine_id)
+    REFERENCES virtual_machines (id) ON DELETE RESTRICT ON UPDATE RESTRICT
+);
+
+-- 每条载体列一条 partial unique index：因 CHECK 保证另一列必为 NULL，
+-- 而唯一索引中 NULL 互不相等，故两条索引互不干扰（跨载体类型同数值 id 不冲突）。
+CREATE UNIQUE INDEX ux_containers_bare_metal_name_active
+  ON containers (bare_metal_id, name)
+  WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX ux_containers_virtual_machine_name_active
+  ON containers (virtual_machine_id, name)
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX ix_containers_bare_metal_id
+  ON containers (bare_metal_id);
+
+CREATE INDEX ix_containers_virtual_machine_id
+  ON containers (virtual_machine_id);
+```
+
+> 设计依据见 `docs/database/f007-container-migration.md`（多态载体裁定、两条索引为何互不干扰、无 `cluster_id` 的理由）。
 
 > 每个 revision 的 `downgrade` 为对应 `DROP TABLE`（自动级联删除其约束与索引）；顺序必须与 `upgrade` 相反。
 
@@ -255,7 +305,7 @@ alembic downgrade base && alembic upgrade head
 
 **无。** 绿色字段启动，库中无既有数据；基线为首次建表，不存在数据回填、类型转换、唯一性冲突清理。
 
-（后续 F002 的 OPEN-004 硬件字段、F006/F007/F008 的新表为**新增列 / 新增表**，均可用可空列或带默认值的方式增量迁移，无需数据迁移；破坏性变更须单独说明并经用户确认。）
+（F002 的 R-BM-007 硬件字段已随 `0003_f002_bare_metals` 首次建表一并创建，**不涉及新增列或数据回填**；F006/F007/F008 的新表为**新增表**，无需数据迁移；破坏性变更须单独说明并经用户确认。）
 
 ---
 
@@ -285,7 +335,7 @@ alembic downgrade base && alembic upgrade head
   - `name` 含 `/` 被拒绝（`23514`）；
   - `SELECT ('cluster-a' = 'Cluster-A')` 为 `false`。
 - [ ] 部署文档（F015 交付）记录数据库 locale / encoding 要求、`datcollate` / `datctype` 期望值、PostgreSQL 大版本，以及「该环境中大小写敏感回归测试必须通过」的要求（架构 Risk #1）。
-- [ ] 后续 revision（`0002`~`0005`）按 §3 / §4 顺序提交，每个 revision 只创建自己负责的表，不改动基线（`0001` 一经合入即冻结）。
+- [ ] 后续 revision（`0002`~`0008`）按 §3 / §4 顺序提交，每个 revision 只创建自己负责的表，不改动基线（`0001` 一经合入即冻结）。
 - [ ] 数据访问层统一提供 `deleted_at IS NULL` 过滤基座（F014），并与 partial index 的 predicate 保持一致。
 - [ ] 不引入触发器；`updated_at` 由应用层维护。
 - [ ] 不创建任何 extension；数据库 / role / locale 由部署层负责。
@@ -296,7 +346,7 @@ alembic downgrade base && alembic upgrade head
 
 - 不编写实际 Python migration 代码文件；
 - 不执行任何 migration、不修改数据库；
-- 不为 VM / Container / Service 建表或定义字段（OPEN-001~003 / DEC-004 / DEC-005 未确认）；
+- ~~不为 VM / Container / Service 建表或定义字段~~ → VM（F006 / `0004`）与 Container（F007 / `0007`）已交付；**仅 Service（F008）** 仍待确认；
 - 不引入 EAV / 通用 `resources` 表 / STI / JSONB 万能模型；
 - 不使用 `ON DELETE CASCADE`、不使用触发器、不声明 `COLLATE`；
 - 不为未确认字段（硬件字段、长度、格式、大小写不敏感）建立约束。

@@ -40,6 +40,11 @@
 * 请求和响应结构；
 * API 设计规范。
 
+## `docs/deployment/`
+
+用于保存生产内网部署的运维文档（前置条件、部署步骤、初始化、验证、升级与运行约束）。
+同一份部署详细信息只在此维护一个权威来源，`README.md` 仅保留开发流程并指向此处。
+
 ## `docs/project/`
 
 用于保存：
@@ -61,6 +66,16 @@
 ## `tests/`
 
 用于保存项目级自动化测试和测试相关资源。
+
+## `deploy/`
+
+用于保存生产部署的配置与模板：
+
+* `deploy/nginx/`：生产 nginx 配置（前端静态服务 + `/api` 反向代理）；
+* `deploy/env.prod.example`：生产环境变量模板（只含变量名，不含任何凭据）。
+
+生产编排入口为仓库根目录 `docker-compose.prod.yml`（与 dev 专用的 `docker-compose.dev.yml` 分离）。
+详细说明见 `docs/deployment/csm-v1-internal-deployment.md`。
 
 ## `.pi/agents/`
 

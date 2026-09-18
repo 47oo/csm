@@ -24,9 +24,18 @@ project:
   goal: >
     建立面向 HPC / AI 运维场景的内部资源管理平台，替代分散维护的 Excel 表格，
     提供统一、清晰、可查询、可维护的资源事实库（资源登记、查询、关系维护、
-    状态维护、网络地址管理、虚拟资源管理、服务资源管理、批量数据导入）。
+    状态维护、网络地址管理、虚拟资源管理、服务资源管理）。
     CSM V1 不是完整 CMDB。
-  status: ACCEPTED
+    （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
+    requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
+  status: DONE
+  completed_on: "2026-09-18"
+  completion_note: >
+    全部 14 个 Feature 已处置完毕：13 个 DONE（F012 / F001 / F013 / F014 / F015 / F002 / F009 /
+    F006 / F004 / F005 / F007 / F008 / F010），1 个 CANCELLED（F011，2026-09-18 用户决定取消，
+    已按用户选择 A 记录：R-IMPORT-001~004 标注为「V1 不交付」，规则文本保留，project goal 移除该项）。
+    无 READY / BLOCKED / DRAFT / IN_PROGRESS 的 Feature。各 Feature 均有 merge commit 与独立
+    Tester / Reviewer 证据（见各 done_rationale 与 docs/test-reports / docs/reviews）。
   approved_by: user
   approved_on: "2026-09-15"
   approval_note: >
@@ -149,9 +158,29 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: READY
+    status: DONE
     depends_on: []
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F012-project-foundation
+      start_commit: 2c2a7531fa1dfe9e9f6205ff49a15c7cadcd01da
+      head_commit: 966d56a480bd2d8282009c7969f5ac3b7bee3aca
+      merge_commit: 3b8646c7e78b7d86fc813fe3661b3214c57a9e9a
+    current_stage: null
+    layers:
+      database: true      # 基线 migration（clusters 表 + CHECK + partial unique index）
+      backend: true       # FastAPI 骨架、health、统一错误信封、通用校验基座
+      frontend: true      # Vue 骨架，列表 Loading / Empty / Error 三态
+    contract:
+      status: READY
+      doc: docs/api/f012-project-foundation.md
+    implementation:
+      database_design: COMPLETE   # docs/database/f012-baseline-migration.md
+      backend: COMPLETE           # 9764326
+      frontend: COMPLETE          # 9764326
+      test: COMPLETE           # dbff989
+      review: APPROVED_WITH_FOLLOW_UP   # merge 3b8646c
     product_document: docs/product/requirements.md
     requirements:
       - "§4 Resource 概念（仅分类体系，不产生数据库继承）"
@@ -170,19 +199,50 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: BLOCKED
+    status: DONE
     depends_on: [F012]
-    blocking:
-      - "依赖 F012 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F013-auth
+      start_commit: 6e7338c49d341664e7bd1ee914042b193a2cfe43
+      head_commit: 46c6d8a3dd2defd26c32cf283b1b4afe550c00f2
+      merge_commit: 4d2e48c7384771f7e949efa9fc5a33ea2ed0e8a5
+    current_stage: null
+    layers:
+      database: true      # 增量 migration 0002_f013_auth（users / sessions）；不改基线
+      backend: true       # app/auth/ 模块 + AuthMiddleware（fail-closed）+ CLI + 既有测试调整
+      frontend: true      # api/auth.ts + http.ts 全局 401 + LoginPage + App 会话态与登出
+    contract:
+      status: READY
+      doc: docs/api/f013-auth.md
+    implementation:
+      database_design: COMPLETE   # docs/database/csm-v1-schema-design.md 的 users / sessions 已 READY
+      backend: COMPLETE           # 见下
+      frontend: COMPLETE          # 见下
+      test: COMPLETE              # docs/test-reports/f013-auth.md（READY FOR REVIEW）
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f013-auth.md；merge 4d2e48c
     product_document: docs/product/requirements.md
     requirements:
       - R-AUTH-001
       - R-AUTH-002
       - R-AUTH-003
     acceptance_criteria:
-      - 使用系统本地账号进行登录认证（R-AUTH-001）。
-      - 不接入 LDAP / AD / OAuth / 企业 SSO（R-AUTH-002）。
-      - 不在无明确产品需求时扩大为复杂 RBAC（R-AUTH-003）。
+      - AC-01 未认证不得访问受保护端点：任意 /api/* 资源端点 → 401 UNAUTHENTICATED，不返回任何资源数据（R-AUTH-001）。
+      - AC-02 登录成功后获得访问能力：正确凭据登录后 GET /api/clusters → 200。
+      - AC-03 口令错误不建立会话且失败响应统一：口令错误与账号不存在返回完全相同的响应，无法判断用户名是否存在（R-AUTH-006）；均不建立会话；无口令明文泄露。
+      - AC-04 登出使会话失效：登出后同一客户端访问受保护端点 → 401 UNAUTHENTICATED，会话不可复用。
+      - AC-05 会话失效时前端回到登录页：收到 401 UNAUTHENTICATED 时回登录页，不显示资源数据。
+      - AC-06 登录页拦截未登录访问：未登录访问受保护页面 → 登录页；凭据正确进入系统，错误则停留并提示。
+      - AC-07 账号禁用即时生效：active=false 的账号无法登录，既有会话不再可用（可用绕过应用层置位 active 验证）。
+      - AC-08 不存在自助注册入口：无任何允许未认证用户创建账号的端点或页面。
+      - AC-09 仅两态、无 403 触发路径：不存在角色 / 权限 / RBAC 的表、列、端点，也无任何触发 403 的产品路径（R-AUTH-003）。
+      - AC-10 口令不以明文存储或泄露：库中无口令明文；明文字符串不出现在日志与错误响应中。
+      - AC-11 初始账号可建立且可登录：按仓库文档化步骤建立初始账号后可成功登录并访问受保护端点。
+      - AC-12 /api/clusters* 行为变更为认证保护且已记录：未认证访问一律 401，变更写入交接文档并作为 F015 部署文档输入。
+      - AC-13 /api/health 的认证行为：未认证访问 → 401 UNAUTHENTICATED（不新增豁免）；已认证仍 200，F012 的 AC-02 因此成立。
+      - AC-14 口令长度下限：不足 8 位的口令在建立 / 修改口令路径被拒绝且不产生可登录账号（R-AUTH-004）；≥8 位即使仅小写字母也被接受。
+      - AC-15 用户名区分大小写：admin 与 Admin 是两个不同用户名可共存；登录按原样精确匹配；不得存在 lower(username) 唯一索引或大小写折叠（R-AUTH-005）。
     open_questions: []
 
   - id: F014
@@ -190,10 +250,29 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: BLOCKED
+    status: DONE
     depends_on: [F012]
-    blocking:
-      - "依赖 F012 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F014-soft-delete
+      start_commit: 897b32539927c137b933aa0ebed700d3bc26be5b
+      head_commit: d2805f5e2a7fd9c88df981c4db90c5f6f38b09a8
+      merge_commit: 184ee61ffff0192a1886ef85cdbd2ccaa3616aac
+    current_stage: null
+    layers:
+      database: false     # 无 Schema / migration 变更；clusters.deleted_at / ux_clusters_name_active 由 F012 基线冻结
+      backend: true       # app/deletion/ 统一软删服务 + clusters DELETE 路径 + guard 演进 + 测试
+      frontend: true      # api/clusters.ts 删除函数 + 列表/详情删除入口与状态
+    contract:
+      status: READY
+      doc: docs/api/f014-soft-delete.md
+    implementation:
+      database_design: NOT_REQUIRED   # database: false；数据库侧仅为测试断言
+      backend: COMPLETE           # 592e96e；155 passed
+      frontend: COMPLETE          # 592e96e；105 passed + build
+      test: COMPLETE              # docs/test-reports/f014-soft-delete.md（READY FOR REVIEW）
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f014-soft-delete.md；merge 184ee61
     product_document: docs/product/requirements.md
     requirements:
       - R-DELETE-001
@@ -218,10 +297,31 @@ features:
     kind: ENABLER
     epic: E07
     priority: P0
-    status: BLOCKED
+    status: DONE
     depends_on: [F012, F013]
-    blocking:
-      - "依赖 F012 / F013 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F015-deployment
+      start_commit: 5c9ca84f94134c9bcc87c61a47fd9280ff99d411
+      head_commit: f536b064826c4187f4ef422d47e517bdf10cb0bf
+      merge_commit: 06e655a2ee864d301b96cbdb88388aa9167ed3e6
+    current_stage: null
+    layers:
+      database: false     # 无 Schema / migration 变更
+      backend: true       # prod 关闭框架文档面 + backend/Dockerfile + .dockerignore
+      frontend: false     # 无 frontend/src/** 改动（生产构建属 deployment 层）
+      deployment: true    # docker-compose.prod.yml + frontend/Dockerfile + deploy/** + 部署文档
+    contract:
+      status: NOT_REQUIRED
+      doc: null           # F015 不新增产品 API；不新增 /api/* 豁免；探针为运行时级
+    implementation:
+      database_design: NOT_REQUIRED
+      backend: COMPLETE           # 056c054；prod 文档面关闭 + 192 passed
+      frontend: NOT_REQUIRED      # 无 frontend/src/** 改动
+      deployment: COMPLETE        # 056c054；compose/nginx/Dockerfile/部署文档；L2 E2E 通过
+      test: COMPLETE              # docs/test-reports/f015-deployment.md（READY FOR REVIEW）
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f015-deployment.md；merge 06e655a
     product_document: docs/product/requirements.md
     requirements:
       - R-DEPLOY-001
@@ -238,10 +338,29 @@ features:
     name: Cluster 登记与管理
     epic: E01
     priority: P0
-    status: BLOCKED
+    status: DONE
     depends_on: [F012]
-    blocking:
-      - "依赖 F012 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F001-cluster
+      start_commit: 7a99745fbd2c03497a4377d4086f2b3dae30f27a
+      head_commit: fe36e1ab80d99eaec15afd6464413a4fc9633075
+      merge_commit: 5a96ad0c4c7c749a4b6df65cde84b491e3545c6c
+    current_stage: null
+    layers:
+      database: false     # 无 Schema 变更 / 索引 / migration；clusters 表与约束由 F012 基线提供且冻结
+      backend: true       # Cluster 模块（5 端点）+ 彻底移除 /_foundation/*
+      frontend: true      # Cluster 列表页三态 + 详情页骨架 + 移除 dev 自检页
+    contract:
+      status: READY
+      doc: docs/api/f001-cluster.md
+    implementation:
+      database_design: NOT_REQUIRED   # database: false；数据库交付仅为测试断言
+      backend: COMPLETE           # cb7f992
+      frontend: COMPLETE          # cb7f992
+      test: COMPLETE           # 报告见 docs/test-reports/f001-cluster.md
+      review: APPROVED_WITH_FOLLOW_UP   # merge 5a96ad0
     product_document: docs/product/requirements.md
     requirements:
       - R-CLUSTER-001
@@ -251,22 +370,53 @@ features:
       - R-CLUSTER-005
       - "§22 Case Sensitivity"
     acceptance_criteria:
-      - Cluster 拥有可被运维人员识别的名称（R-CLUSTER-001）。
-      - Cluster Name 在所有当前有效 Cluster 中全局唯一，且比较区分大小写（R-CLUSTER-002, §22）。
-      - Cluster 不设置统一运行状态（R-CLUSTER-003）。
-      - Cluster 可包含多个 BareMetal（R-CLUSTER-004）。
-      - Cluster 名称不得包含 `/`，登记写入路径必须校验并拒绝含 `/` 的名称（R-CLUSTER-005）。
+      - AC-01 登记成功：POST /api/clusters 合法名称 → 201，含 id/name/created_at/updated_at，不含 deleted_at、不含状态字段。
+      - AC-02 名称必填：缺失或非字符串 → 400 VALIDATION_ERROR + details[].field=="name"，且不产生记录（R-CLUSTER-001, §21）。
+      - AC-03 `/` 在 API 层被拒且非 500：→ 400 VALIDATION_ERROR + details[].field=="name"，无写入（R-CLUSTER-005 的 F001 侧）。
+      - AC-04 活跃名称全局唯一：重复活跃名 → 409 CONFLICT，details[].field 至少含 "name"，不产生第二条活跃记录（R-CLUSTER-002, §21）。
+      - AC-05 大小写敏感：cluster-a 与 Cluster-A 可共存；按 Cluster-A 查询不命中 cluster-a（R-CLUSTER-002, §22）。
+      - AC-06 by-name 别名：命中返回 200 且与 GET /api/clusters/{id} 同一资源；不存在 → 404 NOT_FOUND（adr-0003）。
+      - AC-07 已删不参与查询与解析：数据层直接置入 deleted_at 非空行后，不出现在 items、by-name → 404、按 id → 404（R-DELETE-002/006）。
+      - AC-08 列表/分页/Empty：200 + {items,total,page,page_size}；无活跃 Cluster 时 200 且 items==[]，不得 404（R-QUERY-004）。
+      - AC-09 无状态：请求体/响应体不含状态字段；clusters 表无状态列（R-CLUSTER-003）。
+      - AC-10 无上级/无位置：不含 DataCenter / 园区 / 机房 / 机柜 / U 位字段（§6, §13）。
+      - AC-11 中文名称往返正确：含中文名称可登记、可列表读出、可 by-name 精确命中（§21）。
+      - AC-12 更新名称复用同一套规则：PATCH → 200；旧名释放；违反则 400/409；不存在或已删 → 404 NOT_FOUND。
+      - AC-13 无第二条删除路径且自检面已清理：/_foundation/* 生产不可达；不存在未经 F014 统一软删领域服务的 deleted_at 写入路径（ADR-0004）。
+      - AC-14 前端三态与 Not Found 可区分：Loading / Empty / Error 互不相同；Empty 与 Not Found 可区分（R-QUERY-004）。
+    acceptance_criteria_note: >
+      R-CLUSTER-004（Cluster 可包含多个 BareMetal）不在 F001 验收：F001 内不存在 BareMetal 实体，该条不可判定。
+      其两个可验证方向分别由 F002（每个 BareMetal 必属于一个 Cluster，R-BM-001）与
+      F009（Cluster 视角查看 BareMetal 及其状态，R-QUERY-002）验收。见 Product Handoff NQ-4。
     open_questions: []
 
   - id: F002
     name: BareMetal 登记与管理
     epic: E01
     priority: P0
-    status: DRAFT
+    status: DONE
     depends_on: [F001]
-    blocking:
-      - "OPEN-004 未确认（BareMetal 硬件字段范围）"
-      - "依赖 F001 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F002-bare-metal
+      start_commit: c8e5d910b057f96cc4864959ac802d15b75abc67
+      head_commit: 03bae260a7aff5a720c14c46441b4049d77137d0
+      merge_commit: ef39557f25458dd4c275eceb97a1a39e88ac9968
+    current_stage: null
+    layers:
+      database: true      # 新增 bare_metals 表 + migration 0003_f002_bare_metals
+      backend: true       # models/bare_metal.py + app/bare_metals/** + clusters/deletion 接线 + guard 演进
+      frontend: true      # api/bareMetals.ts + 列表/详情/登记/状态/删除
+    contract:
+      status: READY
+      doc: docs/api/f002-bare-metal.md
+    implementation:
+      database_design: COMPLETE   # docs/database/f002-bare-metal-migration.md（READY FOR DATABASE IMPLEMENTATION）
+      backend: COMPLETE           # d964263；279 passed
+      frontend: COMPLETE          # d964263；171 passed + build
+      test: COMPLETE              # docs/test-reports/f002-bare-metal.md（READY FOR REVIEW）
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f002-bare-metal.md；merge ef39557
     product_document: docs/product/requirements.md
     requirements:
       - R-BM-001
@@ -275,6 +425,10 @@ features:
       - R-BM-004
       - R-BM-005
       - R-BM-006
+      - R-BM-007
+      - "§21 Data Consistency"
+      - R-DELETE-004
+      - R-DELETE-006
       - "§22 Case Sensitivity"
     acceptance_criteria:
       - 每个 BareMetal 必须属于一个 Cluster（R-BM-001）。
@@ -283,108 +437,489 @@ features:
       - 新建默认状态为 IDLE（R-BM-004）。
       - 状态不得为空，历史未知用 UNKNOWN，不用 NULL（R-BM-005）。
       - 状态允许运维人员人工维护（R-BM-006）。
+      - 硬件规格字段（vendor / model / serial_number / cpu / memory / gpu / storage）均为**可选**、纯文本、允许为空（NULL）；Serial Number **不参与唯一性**（R-BM-007）。
       - BareMetal 的直接上级只有 Cluster，不记录 Rack / U Position（requirements.md §13）。
-    open_questions:
-      - "OPEN-004：BareMetal 硬件字段（CPU / Memory / GPU / Storage / Vendor / Model / Serial Number 等）在 V1 的必填与可选范围。"
+      - F014 交接（R-DELETE-004 真实场景）：Cluster 存在活跃 BareMetal 时 DELETE /api/clusters/{id} → 409 CONFLICT；软删该 BareMetal 后删除成功；并发「创建 BareMetal vs 删除 Cluster」结束后孤立记录不变式 0 行；创建 BareMetal 必须对父 Cluster 行取 FOR SHARE 并确认活跃（F014 Architecture Handoff 问题 7）。
+    open_questions: []
 
   # ---- E02 网络资源管理 ----
   - id: F004
     name: NetworkInterface 管理
     epic: E02
     priority: P1
-    status: BLOCKED
+    status: DONE
     depends_on: [F002]
-    blocking:
-      - "依赖 F002 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F004-network-interface
+      start_commit: cf03e014a9abbd0dad88a00da57947e731778513
+      head_commit: 8958252acc26579eb515e73038cc5318af26904d
+      merge_commit: 4a99fa00f5778a1850ed6bcbd023cbd34b3f359a
+    current_stage: null
+    layers:
+      database: true      # 新增 network_interfaces 表 + migration 0005_f004_network_interfaces
+      backend: true       # models/network_interface.py + app/network_interfaces/** + bare_metals/deletion 追加 + guard 演进
+      frontend: true      # api/networkInterfaces.ts + 列表/详情/登记/维护/删除
+    contract:
+      status: READY
+      doc: docs/api/f004-network-interface.md
+    implementation:
+      database_design: COMPLETE    # docs/database/f004-network-interface-migration.md（READY FOR DATABASE IMPLEMENTATION）
+      backend: FIX_COMPLETE       # 5c63168 修复 F004-T-02（恢复 nic 扫描，注入验证）
+      frontend: FIX_COMPLETE      # 5c63168 修复 F004-T-01（单调时钟 + 等待按钮启用；12/12 单文件 + 4/4 全量绿）
+      test: COMPLETE              # docs/test-reports/f004-network-interface.md（复验 READY FOR REVIEW）
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f004-network-interface.md；merge 4a99fa0
     product_document: docs/product/requirements.md
     requirements:
       - R-NIC-001
       - R-NIC-002
       - R-NIC-003
+      - R-DELETE-001
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-004
+      - R-DELETE-005
+      - R-DELETE-006
+      - R-QUERY-004
+      - "§15 Resource Relationship"
+      - "§17 Soft Delete"
+      - "§21 Data Consistency"
+      - "§23 Scope Limits"
+      - "Q-002=B"
     acceptance_criteria:
-      - 记录 technology_type，至少表达 Ethernet / InfiniBand / RoCE / Other（R-NIC-001）。
-      - 记录 purpose，至少表达 BMC / Management / Business / Compute / Storage / DataTransfer / Other，内部枚举稳定（R-NIC-002）。
-      - NetworkInterface 能与其所属资源建立明确关系，核心对象为 BareMetal（R-NIC-003）。
-      - NetworkInterface 在 V1 不设状态（Q-002=B）。
+      - AC-01 登记 201；响应字段恰为 {id, bare_metal_id, name, technology_type, purpose, created_at, updated_at}；无 deleted_at / status / MAC / 速率 / MTU / IP / VM / Container / Cluster 字段。
+      - AC-02 name 必填；缺失或非字符串 → 400 + field=name。
+      - AC-03 technology_type 必填且封闭（Ethernet / InfiniBand / RoCE / Other）；非法值 → 400 + field=technology_type；字面精确匹配，不做大小写折叠或 trim。
+      - AC-04 purpose 必填且封闭（BMC / Management / Business / Compute / Storage / DataTransfer / Other）；非法值 → 400。
+      - AC-05 Other 是合法成员而非自由填写入口；无 other_text / description 伴随字段；任意非枚举字符串不得被接受。
+      - AC-06 父 BareMetal 必填；缺失或非整数 → 400 + details[].field。
+      - AC-07 引用不存在或已软删父 → 写入被阻止、无记录、非 5xx（响应码见 NQ-5）。
+      - AC-08 绑定恰好一个 BareMetal；请求 schema 封闭（拒绝多父 / 非 BareMetal 载体 / 载体类型选择器）；DB 父列 NOT NULL + FK ON DELETE RESTRICT。
+      - AC-09 一个 BareMetal 可有多张 NIC。
+      - AC-10 含中文 / 点号 / 连字符的 name 与枚举字面值原样往返。
+      - AC-11 name 无长度 / trim / 空串 / 字符 / `/` 校验；不得被解读为已确认空 name 合法。
+      - AC-12 不实现、不承诺任何 NIC 名称唯一性校验；不得被解读为「同名合法」是已确认规则。
+      - AC-13 无状态：请求 / 响应 / 表 / 端点 / 参数均无 status 字段、枚举、默认值与过滤。
+      - AC-14 列表分页 200 + {items,total,page,page_size}；无活跃 NIC 时 items==[]，不得 404。
+      - AC-15 详情：不存在或已软删 id → 404 NOT_FOUND（不区分）。
+      - AC-16 按 BareMetal 限定读取：父不存在或已删 → 404；父存在但无活跃 NIC → 200 + items==[]。
+      - AC-17 绕过应用层预置的已软删 NIC 不出现在列表 items/total；按 id → 404。
+      - AC-18 PATCH 合法枚举字段 → 200 返回新值；再次读取一致；缺省字段不变。
+      - AC-19 PATCH 非法枚举 → 400 + details[].field 且无写入；绕过应用层直写非法值被 DB CHECK 拒绝（23514 → 400，永不 500）。
+      - AC-20 PATCH schema 封闭：未识别字段（含 id / deleted_at / bare_metal_id / name / created_at）→ 400；空 body → 400；name 与父绑定不可变。
+      - AC-21 DELETE 活跃行 → 204 无响应体；行仍物理存在且 deleted_at 非空。
+      - AC-22 删除不级联：父 BareMetal 的 deleted_at / hostname / cluster_id / status / updated_at 逐字段不变。
+      - AC-23 无 restore / undelete / purge / 批量 / include_deleted。
+      - AC-24 已删不产生任何新的唯一性约束行为，且已删行 deleted_at 不被改写。
+      - AC-25 父有活跃 NIC → DELETE /api/bare-metals/{id} → 409 + details[].code=ACTIVE_CHILDREN_EXIST；宿主 deleted_at 仍 NULL。
+      - AC-26 先软删该宿主全部活跃 NIC（及其它活跃子资源）后 → DELETE 宿主 204。
+      - AC-27 并发创建 NIC vs 删除宿主后「父已删 + 子活跃」孤立记录 = 0 行。
+      - AC-28 创建 NIC 时对父行取共享锁并同事务确认活跃；未命中 → 拒绝创建。
+      - AC-29 BARE_METAL_ACTIVE_CHILD_CHECKS 非空且同时包含活跃 VM（F006 既有）与活跃 NIC 检查，并被宿主删除路径真实消费。
+      - AC-30 NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS 显式声明（当前空）且被 NIC 删除路径真实传入；F005 须追加活跃 IPAddress 检查。
+      - AC-31 不承载任何 IP 语义：无 IP 端点 / 表 / 字段 / cluster_id 列；NIC 删除当前不被 IP 拦截（归 F005）。
+      - AC-32 不注册 VM / Container / Service 端点；表无这些实体结构与 VM 归属列；Cluster 视角与聚合视图归 F009 / F010。
+      - AC-33 无 MAC / 速率 / MTU / 光模块 / 端口 / 自动发现 / 外部平台同步字段或端点。
+      - AC-34 前端三态互不相同；Empty 与 Not Found 可区分；错误按 error.code；不重复实现业务守卫。
     open_questions:
-      - "R-NIC-003：VirtualMachine 等资源是否拥有独立 NetworkInterface（须由对应 Feature 确认，不得自动推导）。"
+      - id: NQ-1
+        blocking: false
+        summary: VirtualMachine 等资源是否拥有独立 NetworkInterface（R-NIC-003 未确认）；F004 不裁定、不预留 VM 载体字段。
+      - id: NQ-2
+        blocking: false
+        summary: NIC name 在同一 BareMetal 内是否唯一（及是否区分大小写）未确认；F004 不实现、不承诺任何唯一性校验（PROPOSED-1）。
+      - id: NQ-3
+        blocking: false
+        summary: name 与归属 BareMetal 的登记后可变性未确认；默认不提供（PROPOSED-3）。
+      - id: NQ-4
+        blocking: false
+        summary: Other 是否需伴随自由文本 / 中文映射；R-NIC-001/002 已确认封闭集合且无伴随字段；默认不实现（PROPOSED-2）。
+      - id: NQ-5
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定为 404 NOT_FOUND（与 F002 / F006 一致）；无写入、非 5xx。
+      - id: NQ-6
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定为 F004 提供 GET /api/network-interfaces?bare_metal_id=（与 F002/F006 对称，不新增端点），F010 必须复用。
+      - id: NQ-7
+        blocking: false
+        summary: PATCH 可变字段集合固定为 technology_type + purpose。
+      - id: NQ-8
+        blocking: false
+        summary: name 的长度 / 空白 / 空串 / 字符 / `/` 约束未定义；不实现、不承诺（PROPOSED-4）。
+      - id: NQ-9
+        blocking: false
+        summary: F005 义务——须向 NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS 追加活跃 IPAddress 检查并补端到端。
 
   - id: F005
     name: IPAddress 管理
     epic: E02
     priority: P1
-    status: BLOCKED
+    status: DONE
     depends_on: [F004]
-    blocking:
-      - "依赖 F004 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F005-ip-address
+      start_commit: 881ee230851c1234c705ac7e3367938f243e31ef
+      head_commit: 32ad8bb714084292dc64b5b5344953f763ab0d80
+      merge_commit: 7beb6e724e2793b94a4f976d699894031b6dde6b
+    current_stage: null
+    layers:
+      database: true      # 新增 ip_addresses 表 + migration 0006_f005_ip_addresses
+      backend: true       # models/ip_address.py + app/ip_addresses/**（含 derivation）+ network_interfaces/deletion 追加 + guard 演进
+      frontend: true      # api/ipAddresses.ts + 列表/详情/登记/修正/删除
+    contract:
+      status: READY
+      doc: docs/api/f005-ip-address.md
+    implementation:
+      database_design: COMPLETE    # docs/database/f005-ip-address-migration.md（READY FOR DATABASE IMPLEMENTATION）
+      backend: COMPLETE           # 6dadc73；686 passed（含漂移三件套 T-34/35/36）
+      frontend: COMPLETE          # 6dadc73；380 passed（连续 2 次全绿）+ build
+      test: COMPLETE              # docs/test-reports/f005-ip-address.md（READY FOR REVIEW）
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f005-ip-address.md；merge 7beb6e7（REV-1 修复后经限定范围复审 APPROVED）
     product_document: docs/product/requirements.md
     requirements:
       - R-IP-001
       - R-IP-002
       - R-IP-003
+      - R-DELETE-001
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-004
+      - R-DELETE-005
+      - R-DELETE-006
+      - R-QUERY-004
+      - "§15 Resource Relationship"
+      - "§17 Soft Delete"
+      - "§21 Data Consistency"
+      - "§22 Case Sensitivity"
+      - "§23 Scope Limits"
+      - "Q-002=B"
     acceptance_criteria:
-      - 同一 Cluster 中 IP 地址唯一，不存在两个有效资源占用相同 IP（R-IP-001）。
-      - 不同 Cluster 之间允许相同 IP（R-IP-002）。
-      - 当前不考虑 VRF，唯一性按 cluster + ip_address 理解（R-IP-003）。
-      - IPAddress 在 V1 不设状态（Q-002=B）。
-    open_questions: []
+      - AC-01 登记 201；响应字段恰为 {id, network_interface_id, ip_address, created_at, updated_at}（cluster_id 若暴露则只读）；无 deleted_at / status / VRF / 用途 / 负责人字段。
+      - AC-02 ip_address 必填；缺失或非字符串 → 400 + field=ip_address。
+      - AC-03 父 NIC 必填；缺失或非整数 → 400 + details[].field。
+      - AC-04 引用不存在或已软删 NIC → 写入被阻止、无记录、非 5xx（响应码见 NQ-7）。
+      - AC-05 绑定恰好一个 NIC；schema 封闭（拒绝多父 / 非 NIC 载体 / 载体选择器）；DB 父列 NOT NULL + FK RESTRICT。
+      - AC-06 一个 NIC 可挂多个 IP。
+      - AC-07 请求体携带 cluster_id 或任何 VRF / Cluster 选择字段 → 400；不存在允许调用方指定 Cluster 归属的产品路径。
+      - AC-08 同 Cluster 内唯一（无论挂在哪台 BareMetal 的哪张 NIC）→ 409 + details[] 指向 ip_address，无第二条活跃记录、非 5xx。
+      - AC-09 跨 Cluster 可重复：A 与 B 各自 10.0.0.10 → 均 201。
+      - AC-10 字面精确：完全相同字面视为冲突；字面不同可共存（含 IPv6 十六进制大小写差异）；无 lower() 折叠、无 collation 变更。
+      - AC-11 数据库最终权威：绕过应用层直写同 Cluster 重复 IP 被 23505 拒绝 → 409（永不 500）；ux_ip_addresses_cluster_ip_active predicate 为 deleted_at IS NULL。
+      - AC-12 格式规则不实现：not-an-ip / 空串 / 含首尾空白 / 超长不被拒绝，按字面往返；不得被解读为已确认「任意字符串合法」。
+      - AC-13 无状态：请求 / 响应 / 表 / 端点 / 参数均无 status。
+      - AC-14 无 VRF / 命名空间：无 vrf / vrf_id / tenant / namespace 列、字段、参数、过滤、端点。
+      - AC-15 无未确认字段：无用途 / 备注 / 负责人 / 回收状态；无 DHCP / DNS / 自动发现 / 外部平台 id / 凭据。
+      - AC-16 列表分页 200 + {items,total,page,page_size}；无活跃 IP 时 items==[]，不得 404。
+      - AC-17 详情：不存在或已软删 id → 404（不区分）；重复删除 → 404。
+      - AC-18 按 NIC 限定读取：NIC 不存在或已删 → 404；NIC 存在但无活跃 IP → 200 + items==[]。
+      - AC-19 绕过应用层预置的已软删 IP 不出现在 items/total；按 id → 404。
+      - AC-20 PATCH 可修正 ip_address 字面值 → 200 新值；network_interface_id / created_at / cluster_id（若暴露）不变。
+      - AC-21 修正后重校验唯一性：修正为目标 Cluster 已占用字面 → 409 无部分写入；修正为另一 Cluster 已有但目标未占用 → 成功。
+      - AC-22 PATCH schema 封闭：未识别字段（含 id / deleted_at / network_interface_id / cluster_id / created_at）→ 400；空 body → 400；父绑定不可变。
+      - AC-23 DELETE 活跃行 → 204 无响应体；行仍物理存在且 deleted_at 非空。
+      - AC-24 软删释放唯一性：软删后可同 Cluster 重新登记同一字面值；旧行 deleted_at 未被改写。
+      - AC-25 删除不级联：父 NIC 的 deleted_at / updated_at / name / technology_type / purpose / bare_metal_id 逐字段不变；上游 BareMetal 与 Cluster 同样不变。
+      - AC-26 无 restore / undelete / purge / 批量 / include_deleted / 回收站。
+      - AC-27 NIC 有活跃 IP → DELETE /api/network-interfaces/{id} → 409 + details[].code=ACTIVE_CHILDREN_EXIST；NIC deleted_at 仍 NULL。
+      - AC-28 先软删该 NIC 全部活跃 IP（及其它活跃子资源）后 → DELETE NIC 204。
+      - AC-29 链条闭合：NIC 有活跃 IP 时其宿主 BareMetal 亦不可删 → 409（经活跃 NIC 检查间接成立）。
+      - AC-30 NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS 由空元组演进为非空且含活跃 IPAddress 检查，并被 NIC 删除路径真实消费。
+      - AC-31 并发创建 IP vs 删除父 NIC 后「父已删 + 子活跃」孤立记录 = 0 行。
+      - AC-32 创建 IP 时对父 NIC 行取共享锁并同事务确认活跃（及上游链活跃）；未命中 → 拒绝创建；锁序与 F004/F014 一致。
+      - AC-33 推导正确：通过产品路径创建的 IP 其 cluster_id == 宿主 BareMetal 的 cluster_id（非请求提供）。
+      - AC-34 漂移检测查询（存储 cluster_id ≠ 推导 cluster_id）必须 0 行（持续回归断言）。
+      - AC-35 反例证明：绕过领域服务直写漂移行 → 必须被 AC-34 查询发现（1 行），证明检测有效。
+      - AC-36 漂移即唯一性静默漏洞：真实属于 A 但存 cluster_id=B 的 10.0.0.10 不被唯一索引阻止 → 必须被漂移查询发现。
+      - AC-37 cluster_id 写入路径唯一：不存在第二条写入 ip_addresses.cluster_id 的产品路径（可失败 guard）。
+      - AC-38 不注册 Cluster 视角 / 关联聚合 / 计数端点；不实现 Excel 导入；F011 复用时校验必须与本 Feature 一致。
+      - AC-39 可失败 guard 固定无 ip_address 格式校验 / 归一化，且无 DHCP / DNS / 自动发现 / 外部同步字段或端点。
+      - AC-40 未认证访问 /api/ip-addresses* → 401 且不改数据；已认证用户即可增删改（无需角色）。
+      - AC-41 前端三态互不相同；Empty 与 Not Found 可区分；错误按 error.code；不重复实现唯一性等业务守卫。
+      - AC-42 schema / 契约 / 前端不得为 VRF、IP 状态、IP 池、多态父载体、cluster_id 可写、格式归一化预留字段、参数或分支。
+    open_questions:
+      - id: NQ-1
+        blocking: false
+        summary: ip_address 的格式 / 归一化规则未确认（空串 / 空白 / 长度 / CIDR / IPv6 大小写）；F005 不实现、不承诺任何格式校验或归一化，按字面精确比较（PROPOSED-F005-3/4）。
+      - id: NQ-2
+        blocking: false
+        summary: IP 的父绑定 network_interface_id 登记后可变性未确认；默认不可变（若可变需同事务重推导 cluster_id 并在目标 Cluster 重校验唯一性）。
+      - id: NQ-3
+        blocking: false
+        summary: ip_address 字面值登记后可变性；默认可变（修正字面值）并重校验唯一性。
+      - id: NQ-4
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定不在响应暴露 cluster_id（请求侧永不接受）；Cluster 归属由内部推导写入。
+      - id: NQ-5
+        blocking: false
+        summary: BareMetal 跨 Cluster 迁移的连带重推导属未来 Feature（F002 NQ-1）；V1 无改属产品路径故触发条件不可达；F005 不实现、不预留。
+      - id: NQ-6
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定为 F005 提供 GET /api/ip-addresses?network_interface_id=（与 F002/F004/F006 对称，不新增端点），F010 必须复用。
+      - id: NQ-7
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定父不存在 / 已删 → 404 NOT_FOUND；唯一性 → 409 CONFLICT + details[].code=DUPLICATE。
+      - id: NQ-8
+        blocking: false
+        summary: IP 的 by-name 只读别名；ip_address 非全局唯一，建议不提供（PROPOSED-F005-1）。
+      - id: NQ-9
+        blocking: false
+        summary: F011 的 IP 行导入必须复用同一套领域校验，不得绕过 IP 冲突（R-IMPORT-002）。
 
   # ---- E03 虚拟资源管理 ----
   - id: F006
     name: VirtualMachine 登记与管理
     epic: E03
     priority: P1
-    status: DRAFT
+    status: DONE
     depends_on: [F002]
-    blocking:
-      - "OPEN-001 未确认（VM 字段与唯一性规则）"
-      - "DEC-004（Feature 级，归属 F006 Product 阶段）"
-      - "依赖 F002 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F006-virtual-machine
+      start_commit: f74e7ddbf369910e6f83b99758b672019b4fe4c9
+      head_commit: 3bd2da22a9e35bd1813e57dff4c546a1baa301ad
+      merge_commit: 01077bede139bad9bd449dfa52af860b2fc40a25
+    current_stage: null
+    layers:
+      database: true      # 新增 virtual_machines 表 + migration 0004_f006_virtual_machines
+      backend: true       # models/virtual_machine.py + app/virtual_machines/** + bare_metals/deletion 接线 + guard 演进
+      frontend: true      # api/virtualMachines.ts + 列表/详情/登记/修改/删除
+    contract:
+      status: READY
+      doc: docs/api/f006-virtual-machine.md
+    implementation:
+      database_design: COMPLETE    # docs/database/f006-virtual-machine-migration.md（READY FOR DATABASE IMPLEMENTATION）
+      backend: COMPLETE           # 7844a17（含 Tester 缺陷修复）；400 passed
+      frontend: COMPLETE          # 5d87d20；242 passed + build
+      test: COMPLETE              # docs/test-reports/f006-virtual-machine.md（复验 READY FOR REVIEW）
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f006-virtual-machine.md；merge 01077be
     product_document: docs/product/requirements.md
     requirements:
       - R-VM-001
       - R-VM-002
       - R-VM-003
+      - R-VM-004
+      - R-VM-005
+      - R-VM-006
     acceptance_criteria:
-      - 支持人工登记与查询 VirtualMachine（R-VM-001）。
-      - 不要求自动接入 VMware / PVE / OpenStack 或其他虚拟化平台 API（R-VM-002）。
-      - 关系模型能够表达实际运行位置；强制性与生命周期规则在 Feature Product 阶段确认，不自行推导（R-VM-003）。
-      - VirtualMachine 在 V1 不设状态（Q-002=B）。
+      - AC-01 登记成功 201；响应字段恰为 {id, <宿主标识>, name, cpu, memory, disk, os, hypervisor, owner, created_at, updated_at}，无 deleted_at / status / cluster_id。
+      - AC-02 name 必填；缺失或非字符串 → 400 + details[].field=name。
+      - AC-03 宿主必选；缺失或非整数 → 400 + details[].field。
+      - AC-04 引用不存在或已软删宿主 → 写入被阻止且不得 5xx（响应码见 NQ-2）。
+      - AC-05 请求 schema 封闭：恰一个宿主；DB 宿主列 NOT NULL + FK ON DELETE RESTRICT。
+      - AC-06 六个可选字段均缺失仍 201，响应为 null 而非省略。
+      - AC-07 中文与纯文本（如 "8 vCPU"）原样往返，不拆分不归一。
+      - AC-08 name 无长度 / trim / 空串 / 字符 / `/` 校验；不得被解读为已确认空 name 合法。
+      - AC-09 name 全局唯一跨宿主：宿主 B 登记已存在的 vm1 → 409 + details[].field=name。
+      - AC-10 name 全局唯一跨 Cluster：跨 Cluster 重名同样拒绝。
+      - AC-11 大小写敏感：vm1 与 VM1 可共存；无 lower(name) 唯一索引。
+      - AC-12 保存前阻止：API 返回 409；绕过应用层直连 DB 插入重复活跃 name 被数据库拒绝。
+      - AC-13 软删释放唯一性：软删 vm1 后可在任意宿主重新登记；旧行 deleted_at 未被改写。
+      - AC-14 列表分页：200 + {items,total,page,page_size}；无活跃 VM 时 items==[]，不得 404。
+      - AC-15 详情：不存在或已软删 id → 404 NOT_FOUND（不区分）。
+      - AC-16 绕过应用层预置的已软删 VM 不出现在列表 items/total；按 id → 404。
+      - AC-17 宿主绑定可观察（以宿主 id 表示）；无 cluster_id / cluster_name 字段或过滤参数。
+      - AC-18 无状态：请求/响应/表/端点均无 status 字段、枚举、默认值或状态过滤。
+      - AC-19 PATCH 可选字段可更新；null 清空；缺省不变；再次读取一致。
+      - AC-20 PATCH schema 封闭：未识别字段（含 id/deleted_at/cluster_id/status）→ 400；name 与宿主不可变；空 body → 400。
+      - AC-21 DELETE → 204 无响应体；行仍物理存在且 deleted_at 非空。
+      - AC-22 删除不级联：宿主与其它资源行不被修改。
+      - AC-23 无 restore/undelete/purge/批量/include_deleted。
+      - AC-24 宿主有活跃 VM → DELETE /api/bare-metals/{id} → 409 + details[].code=ACTIVE_CHILDREN_EXIST，宿主 deleted_at 仍 NULL。
+      - AC-25 软删该宿主全部活跃 VM 后 → DELETE 宿主 204。
+      - AC-26 并发创建 VM vs 删宿主后「宿主已删 + VM 活跃」孤立记录 = 0 行。
+      - AC-27 创建 VM 时对宿主行取共享锁并同事务确认活跃；未命中 → 拒绝创建。
+      - AC-28 BARE_METAL_ACTIVE_CHILD_CHECKS 非空且含活跃 VM 检查，并被宿主删除路径真实消费。
+      - AC-29 VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS 显式声明（当前空）且被 VM 删除路径真实传入；F007 须追加活跃 Container 检查。
+      - AC-30 不接入任何虚拟化平台 API / 凭据 / 同步字段或端点；hypervisor 仅为文本字段。
+      - AC-31 不注册 NIC/IP/Container/Service 端点；表无这些实体结构，也无 DataCenter/位置字段。
+      - AC-32 前端三态互不同；Empty 与 Not Found 可区分；错误按 error.code；不重复实现业务守卫。
     open_questions:
-      - "OPEN-001：VirtualMachine 字段（CPU / Memory / Disk / OS / Hypervisor / Owner 等）范围，以及标识与唯一性规则。"
-      - "DEC-004（Feature 级，归属 F006 Product 阶段）：VM→BareMetal 绑定是否必选，以及生命周期规则（R-VM-003）。"
+      - id: NQ-1
+        blocking: false
+        summary: name 与宿主绑定的登记后可变性未确认（重命名 / 跨宿主迁移）；F006 默认不提供（PROPOSED-1）。
+      - id: NQ-2
+        blocking: false
+        resolved_by: architecture
+        summary: 引用不存在 / 已软删宿主 → 404 NOT_FOUND（与 F002 裁定一致）；无写入、非 5xx。
+      - id: NQ-3
+        blocking: false
+        summary: VM 全局 by-name 只读别名；需求未要求，默认不实现（PROPOSED-2）。
+      - id: NQ-4
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定为 F006 提供 GET /api/virtual-machines?bare_metal_id=（与 F002 ?cluster_id= 对称），F010 必须复用；仍满足 R-QUERY-004。
+      - id: NQ-5
+        blocking: false
+        summary: name 与可选字段的最小字符约束未定义，F006 不实现（PROPOSED-3）。
+      - id: NQ-6
+        blocking: false
+        summary: 文档与计划元数据同步（domain-model.md §6/§8、domain-model.yaml、schema-design、本 plan）。
+      - id: NQ-7
+        blocking: false
+        summary: VM 读路径是否附加推导出的 Cluster；按最小范围不返回。
 
   - id: F007
     name: Container 资源模型与登记
     epic: E03
     priority: P1
-    status: DRAFT
+    status: DONE
     depends_on: [F006, F002]
-    blocking:
-      - "OPEN-002 未确认（Container 管理粒度）"
-      - "DEC-005（Feature 级，归属 F007 Product 阶段）"
-      - "依赖 F006 / F002 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F007-container
+      start_commit: 06b3c5b6bbd36b2be48f7810b6d08a1612ef3b84
+      head_commit: 2c383a96f232fd824384e4aeb4efba649a8dc0ee
+      merge_commit: ff347be75b7408b934ac32f4e2057357fb028423
+    current_stage: null
+    layers:
+      database: true
+      backend: true
+      frontend: true
+    contract:
+      status: READY
+      doc: docs/api/f007-container.md
+    implementation:
+      database_design: COMPLETE
+      backend: COMPLETE
+      frontend: COMPLETE
+      test: COMPLETE
+      review: COMPLETE
     product_document: docs/product/requirements.md
     requirements:
-      - "§10 Container（允许领域模型表达 Container 资源）"
+      - "§10 Container"
+      - R-CONTAINER-001
+      - R-CONTAINER-002
+      - R-CONTAINER-003
+      - R-CONTAINER-004
+      - R-CONTAINER-005
+      - R-DELETE-001
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-004
+      - R-DELETE-005
+      - R-DELETE-006
+      - R-QUERY-003
+      - R-QUERY-004
+      - "§21 Data Consistency"
+      - "§22 Case Sensitivity"
+      - "§23 Scope Limits"
+      - "Q-002=B"
     acceptance_criteria:
-      - 领域模型能够表达 Container 资源（§10）。
-      - 不因存在 Container 类型而引入 Kubernetes / Docker API / Container Runtime 自动发现（§10）。
-      - Container 在 V1 不设状态（Q-002=B）。
+      - AC-01 以 BareMetal 为载体登记 201；响应字段恰为 {id, <载体类型>, <载体标识>, name, image, cpu, memory, owner, created_at, updated_at}；无 deleted_at / status / cluster_id / K8s / 位置字段。
+      - AC-02 以 VirtualMachine 为载体登记 201，字段集合相同。
+      - AC-03 name 必填；缺失或非字符串 → 400 + field=name。
+      - AC-04 载体必填：两者都不给 → 400 + details[].field，不产生记录。
+      - AC-05 拒绝多载体：两者都给 / 载体列表 → 400。
+      - AC-06 拒绝其它资源类型为载体（Cluster / Service / NIC / IP）→ 400（schema 封闭）。
+      - AC-07 载体类型与标识必须一致：断言类型与实际指向不符 → 拒绝、无记录、非 5xx。
+      - AC-08 载体必须存在且活跃：不存在或已软删 → 拒绝、无记录、非 5xx（响应码见 NQ-2）。
+      - AC-09 可选字段全缺失仍 201，响应为 null 而非省略。
+      - AC-10 中文 name 与可选字段原样往返；image/cpu/memory 不拆分不归一不校验格式。
+      - AC-11 name 与可选字段无长度 / trim / 空串 / 字符 / `/` / 格式校验；不得被解读为已确认空 name 合法。
+      - AC-12 同一载体内唯一：同载体再登记同名活跃 → 409 + details[].field=name，不产生第二条活跃记录。
+      - AC-13 不同载体可重名（跨载体类型）：BareMetal 与其上 VM 各自 web → 均 201。
+      - AC-14 同类型不同标识的载体可重名。
+      - AC-15 跨载体类型即使标识数值相同也不冲突（载体身份 = 类型 + 标识）。
+      - AC-16 不得与 R-VM-004 混用：VM 名 web 时其上 Container 名 web → 201；多载体同名 Container → 均 201；不削弱 VM 全局唯一。
+      - AC-17 大小写敏感：同载体内 web 与 WEB 可共存；无 lower(name) 索引。
+      - AC-18 保存前阻止 + DB 最终权威：绕过应用层直插同载体重复活跃 (载体,name) 被数据库拒绝。
+      - AC-19 软删释放唯一性：软删后可在同一载体重新登记同名 → 201；旧行 deleted_at 未改写。
+      - AC-20 唯一性边界是载体而非 Cluster：同 Cluster 下两台不同 BareMetal 各自 web → 均 201。
+      - AC-21 不存 cluster_id：请求 / 响应 / 表 / 查询参数均无 cluster_id / cluster / cluster_name。
+      - AC-22 归属由载体决定且仅以载体表达；系统不持久化 Container 的 Cluster 归属。
+      - AC-23 无状态：请求 / 响应 / 表 / 端点均无 status。
+      - AC-24 列表分页 200 + 空信封；无活跃 Container 时 items==[]，不得 404。
+      - AC-25 详情：不存在或已软删 id → 404（不区分）。
+      - AC-26 按载体限定读取（两种载体类型均成立）：载体存在但无活跃 Container → 200 + items==[]；载体不存在 / 已删 → 404。
+      - AC-27 绕过应用层预置的已软删 Container 不出现在列表与按载体结果中；按 id → 404。
+      - AC-28 PATCH 可选字段可更新；null 清空；缺省不变；再次读取一致。
+      - AC-29 PATCH schema 封闭：未识别字段（含 id/deleted_at/cluster_id/status/载体字段/name）→ 400；空 body → 400；name 与载体绑定不可变。
+      - AC-30 DELETE 活跃行 → 204 无响应体；行仍物理存在且 deleted_at 非空。
+      - AC-31 删除不级联（两种载体类型）：载体各字段逐字段不变。
+      - AC-32 无 restore / undelete / purge / 批量 / include_deleted。
+      - AC-33 BareMetal 有活跃 Container → DELETE /api/bare-metals/{id} → 409 + details[].code=ACTIVE_CHILDREN_EXIST；宿主 deleted_at 仍 NULL。
+      - AC-34 VirtualMachine 有活跃 Container → DELETE /api/virtual-machines/{id} → 409 + ACTIVE_CHILDREN_EXIST；VM deleted_at 仍 NULL。
+      - AC-35 先软删载体下全部活跃 Container（及其它活跃子资源）后 → 删除载体 204。
+      - AC-36 并发创建 Container vs 删除其 BareMetal 载体后孤立记录 = 0 行。
+      - AC-37 并发创建 Container vs 删除其 VirtualMachine 载体后孤立记录 = 0 行。
+      - AC-38 创建时对选中载体行取共享锁并同事务确认活跃；未命中 → 拒绝创建。
+      - AC-39 BARE_METAL_ACTIVE_CHILD_CHECKS 非空且同时含活跃 VM / NIC / Container 检查，并被真实消费。
+      - AC-40 VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS 由空变非空且含活跃 Container 检查，并被 VM 删除路径真实消费。
+      - AC-41 CONTAINER_ACTIVE_CHILD_CHECKS 显式声明（当前空）且被删除路径真实传入；F008 须追加活跃 Service 检查。
+      - AC-42 无 K8s / Docker / Runtime 客户端、凭据、外部平台 id、同步字段或端点；无 Pod / Deployment / DaemonSet 对象或归属字段。
+      - AC-43 不注册其它资源端点；containers 表无指向 Cluster / NIC / IP / Service 的载体或归属结构；请求不接受以这些实体为载体。
+      - AC-44 前端三态互不相同；Empty 与 Not Found 可区分；错误按 error.code；不重复实现业务守卫。
     open_questions:
-      - "OPEN-002：Container 管理粒度（是否登记每个 Container / 仅长期服务型 / 是否需要 K8s workload 等更高层对象）。"
-      - "DEC-005（Feature 级，归属 F007 Product 阶段）：Container 绑定（VM 或 BareMetal）是否必选及生命周期规则。"
-
-  # ---- E04 服务资源管理 ----
+      - id: NQ-1
+        blocking: false
+        summary: name 与载体绑定的登记后可变性未确认；默认不提供（PROPOSED：软删 + 重新登记）。
+      - id: NQ-2
+        blocking: false
+        resolved_by: docs/architecture/f007-container-handoff.md
+        summary: 已裁定 404 NOT_FOUND（载体不存在 / 已软删 / 类型与标识不一致同形不可区分），details == []，与 F002/F004/F006 先例一致。
+      - id: NQ-3
+        blocking: false
+        summary: 宿主 BareMetal 改属 Cluster 对推导归属的影响；Container 不持久化 Cluster 归属，故 F007 无需维护；不自行裁定。
+      - id: NQ-4
+        blocking: false
+        summary: name 与可选字段的长度 / trim / 空串 / 字符 / `/` / 格式约束未定义；不实现、不承诺。
+      - id: NQ-5
+        blocking: false
+        summary: 「长期服务型」无判别字段；F007 不引入任何判别字段或校验（R-CONTAINER-001 为登记口径约束）。
+      - id: NQ-6
+        blocking: false
+        resolved_by: docs/architecture/f007-container-handoff.md
+        summary: 已裁定统一 carrier_type + carrier_id（请求 / 响应 / query 同一对词汇）；F010 必须复用该过滤，不得另写。
+      - id: NQ-7
+        blocking: false
+        summary: Container 的 by-name 只读别名；name 仅载体内唯一、全局不可判定，默认不提供。
+      - id: NQ-8
+        blocking: false
+        summary: 文档漂移同步（domain-model.yaml relationship/OPEN-002/must_not_assume；domain-model.md §6/§8；schema-design 442/731/892；本 plan）。
+      - id: NQ-9
+        blocking: false
+        resolved_by: docs/product/handoffs/f008-service.md
+        summary: F008 义务——向 CONTAINER_ACTIVE_CHILD_CHECKS 追加活跃 Service 检查并补端到端（已写入 F008 AC-43 / AC-44，F008 实现阶段落地）。
+      - id: NQ-10
+        blocking: false
+        summary: F011 导入 Container 行须复用同一套领域校验。
   - id: F008
     name: Service 资源管理与 Cluster 共享关联
     epic: E04
     priority: P1
-    status: DRAFT
+    status: DONE
     depends_on: [F001, F002, F006, F007]
-    blocking:
-      - "OPEN-003 未确认（Service 字段范围）"
-      - "依赖 F001 / F002 / F006 / F007 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F008-service
+      start_commit: 68d8e115085fbca7b1bfeb62719b4b815cc3459f
+      head_commit: f5ed0e41459898124703817cea0436780f4ebaec
+      merge_commit: f7733783f4f7ea3063d52e41f4d9be622327ffde
+    current_stage: null
+    layers:
+      database: true     # services + service_carriers + migration 0008_f008_services（实现由 Backend 负责）
+      backend: true      # app/services/** + models + 三个 *_ACTIVE_CHILD_CHECKS 演进 + main 接线 + guard 演进
+      frontend: true     # api/services.ts + List/Detail 页 + FormDialog（多载体选择 ≥1）+ 三态
+    contract:
+      status: READY
+      doc: docs/api/f008-service.md
+    implementation:
+      database_design: COMPLETE
+      backend: COMPLETE
+      frontend: COMPLETE
+      test: COMPLETE
+      review: COMPLETE
     product_document: docs/product/requirements.md
     requirements:
       - R-SVC-001
@@ -393,44 +928,214 @@ features:
       - R-SVC-004
       - R-SVC-005
       - R-SVC-006
+      - R-SVC-007
+      - R-SVC-008
+      - R-SVC-009
+      - R-DELETE-001
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-004
+      - R-DELETE-005
+      - R-DELETE-006
+      - R-QUERY-003
+      - R-QUERY-004
+      - "§21 Data Consistency"
+      - "§22 Case Sensitivity"
+      - "§23 Scope Limits"
+      - "Q-002=B"
     acceptance_criteria:
-      - Service Name / Type 等产品字段允许按实际服务自由登记，不强制固定类别（R-SVC-001）。
-      - Service 必选绑定运行载体（BareMetal / VirtualMachine / Container），不允许存在未绑定任何运行载体的 Service（R-SVC-005）。
-      - 一个 Service 可绑定多个运行载体，并可通过绑定跨 Cluster 的多个载体实现被多个 Cluster 共享（R-SVC-002, R-SVC-005, R-SVC-006）。
-      - 共享服务只登记一次，模型能表达 Service N:N Cluster 或等价语义（R-SVC-003）。
-      - Service 与 Cluster 的关联由运行载体的 Cluster 归属推导，不设计为强制 service.cluster_id（R-SVC-004, R-SVC-006）。
-      - Service 在 V1 不设状态（Q-002=B）。
+      - "AC-01~AC-03 分别以 BareMetal / VirtualMachine / Container（存在且活跃）为载体登记 → 201；响应含 name 与载体绑定（类型+标识）；6 个可选字段未提供时返回 null 而非省略。"
+      - "AC-04 一次请求给出 3 个载体（分属三类型）→ 201，3 个绑定全部保留，无遗漏无截断。"
+      - "AC-05 name 必填：缺失或非字符串 → 400 + details[].field=name；不产生 Service 行与绑定行。"
+      - "AC-06/AC-07 载体必填：完全不提供载体 或 空载体集合 → 400；不产生任何写入（R-SVC-005 的登记路径落地）。"
+      - "AC-08 多载体中任一无效 → 整请求失败，不产生 Service 行、不产生任何绑定行，不得 5xx（响应码见 NQ-07）。"
+      - "AC-09 拒绝非载体资源类型（Cluster / NIC / IP）或三值集合外的载体类型 → 400（schema 封闭）。"
+      - "AC-10 载体类型与标识必须一致；不一致 → 拒绝、无写入、非 5xx。"
+      - "AC-11 合法资源关系保存前阻止，不依赖 UI（§21）。"
+      - "AC-12 字段集合封闭：恰为 id + name + service_type/url/port/protocol/owner/description + 载体绑定 + created_at/updated_at；无 deleted_at / status / cluster_id / 凭据 / 健康 / 位置字段；未识别字段 → 400。"
+      - "AC-13 6 个可选字段全缺失 → 201 且各为 null。"
+      - "AC-14 纯文本往返不结构化：url 可为非法 URL 字面、port 可为 abc / 8080-8090、protocol 自由文本、中文与含换行长文本原样存取。"
+      - "AC-15 未定义约束不实现：name 与 6 字段无长度 / trim / 空串 / 字符 / `/` / URL 格式 / 端口数字校验；空串与含首尾空白 name 不被拒。此为事实陈述，不得解读为已确认合法。"
+      - "AC-16 同一 Service 绑定多个载体：详情可观察全部绑定，数量与登记一致。"
+      - "AC-17 同一载体被多个 Service 绑定（N:M 反向）：按该载体限定读取返回全部绑定到它的活跃 Service。"
+      - "AC-18 跨 Cluster 载体 = 被多个 Cluster 共享且只登记一次：活跃同名 Service 行数恰为 1；关联 Cluster 集合 = 全部载体 Cluster 归属之并集且至少 2 个不同 Cluster。"
+      - "AC-19 从任一 Cluster 视角可推导：对每个载体 C，按 C 限定读取含 S；对无绑定载体 C' 不含 S；该推导在两个以上 Cluster 上同时成立。"
+      - "AC-20 不存 cluster_id：请求 / 响应 / 表 / 查询参数均无 cluster_id / cluster / cluster_name。"
+      - "AC-21 归属仅由载体推导、不持久化；详情只暴露载体绑定。"
+      - "AC-22 全局唯一且保存前阻止：不同 Cluster 的载体上同名活跃 Service → 409 + details[].field=name。"
+      - "AC-23 唯一性边界对照：Service 全局唯一与 Container 载体内唯一严格分离，互不削弱、不得混用。"
+      - "AC-24 不与其它资源类型名称冲突：同名 Cluster/BareMetal/VM/Container 存在时登记同名 Service → 201；各资源唯一性各自独立。"
+      - "AC-25 大小写敏感：mon 与 MON 可共存；无 lower(name) 索引或大小写折叠。"
+      - "AC-26 保存前阻止 + DB 最终权威：绕应用层直插第二条同名活跃 Service 被 DB 拒绝。"
+      - "AC-27 软删释放唯一性：软删后可重新登记同名 → 201；旧行 deleted_at 未改写。"
+      - "AC-28 无状态：请求 / 响应 / 表 / 端点均无 status。"
+      - "AC-29 列表分页 200 + 空信封；无活跃 Service 时 items==[]，不得 404。"
+      - "AC-30 详情：不存在或已软删 id → 404（不区分）。"
+      - "AC-31 按载体限定读取（三种载体类型均成立）：载体活跃但无绑定 → 200 + items==[]；载体不存在 / 已删 → 404；只返回绑定到该载体的活跃 Service（形态见 NQ-09，须供 F010 复用）。"
+      - "AC-32 载体过滤参数成对：仅给其一 → 400。"
+      - "AC-33 列表 / 详情 / 按载体结果均排除已软删 Service；按 id → 404。"
+      - "AC-34 PATCH 6 个可选字段可更新；null 清空；缺省不变；再次读取一致。"
+      - "AC-35 PATCH schema 封闭：未识别 / 不可变字段（id、name、载体绑定、cluster_id、status、deleted_at、凭据、健康）→ 400；空 body → 400；name 与载体绑定不可变（NQ-01/NQ-02）。"
+      - "AC-36 可选字段不参与任何唯一性；更新不触发唯一性冲突。"
+      - "AC-37 DELETE → 204 无响应体；行仍物理存在且 deleted_at 非空；不再出现在列表 / 详情 / 按载体结果。"
+      - "AC-38 删除不级联：全部载体各字段逐字段不变。"
+      - "AC-39 软删后释放载体：软删 Service 后其原载体在满足其它活跃子检查的前提下可删 → 204；即绑定解除由「删除 Service」达成。"
+      - "AC-40 无 restore / undelete / purge / 批量 / include_deleted。"
+      - "AC-41/AC-42/AC-43 三载体父删子拦：BareMetal / VirtualMachine / Container 被活跃 Service 直接绑定时 DELETE → 409 + details[].code=ACTIVE_CHILDREN_EXIST，且载体 deleted_at 仍 NULL。AC-43 即 F007 AC-41 的落地。"
+      - "AC-44 检查点只做追加：BM 保留活跃 VM/NIC/Container 并追加活跃 Service；VM 保留活跃 Container 并追加活跃 Service；CONTAINER_ACTIVE_CHILD_CHECKS 由 () 变为含活跃 Service；三者均被删除路径真实消费。"
+      - "AC-45 拦截仅针对直接绑定；不新增传递性 Service 检查；CLUSTER_ACTIVE_CHILD_CHECKS 保持不变（Service↔Cluster 是推导关系，非子资源关系）。"
+      - "AC-46 并发孤立记录不变式 = 0 行（三种载体类型各一条查询）。"
+      - "AC-47 登记侧同事务对每一个载体行取共享锁并确认活跃；任一未命中 → 拒绝登记（不留无主 Service、不留部分绑定）；多载体锁顺序必须确定以避免死锁。"
+      - "AC-48 不存在解绑路径：绑定写入路径恰两条——登记建立、Service 软删释放。"
+      - "AC-49 零载体不变式（产品路径）：活跃 Service 且活跃绑定数为 0 的行数必须为 0。"
+      - "AC-50 零载体在数据层可表达这一事实被显式对待：产品路径兑现 AC-49；保留可重复执行的一致性查询作为回归断言；不据此引入触发器 / 跨行约束，是否追加 DB 层硬约束由 Architecture 裁定（NQ-06）。"
+      - "AC-51 不越界：不注册 / 不修改其它资源端点；services 表无位置字段；不新增 Cluster → Service 视图。"
+      - "AC-52 无监控 / 健康 / 凭据 / 密钥 / 外部平台 id / 自动发现 / 同步字段与端点。"
+      - "AC-53 未认证 → 401 UNAUTHENTICATED 且不改变数据；已认证可执行全部操作（V1 无 RBAC）。"
+      - "AC-54 前端三态互不相同；Empty 与 Not Found 可区分；错误按 error.code；不重复实现业务守卫；登记表单仅提供三种载体类型且至少选择一项才能提交。"
     open_questions:
-      - "OPEN-003：Service 字段（URL / Port / Protocol / Owner / Description / Credential reference / Health information 等）范围。"
-
+      - id: NQ-01
+        blocking: false
+        resolved_by: user-decision-2026-09-16
+        summary: "已确认：必须先删除，不做解绑功能。V1 不提供任何解除绑定能力（不追加 / 不解除 / 不替换）；载体绑定登记时一次确定、登记后不可变；释放运行载体的唯一途径是逻辑删除该 Service。已固化为 R-SVC-009（requirements.md §14）；AC-48 / AC-49 / AC-35 由「默认」转为已确认规则。"
+      - id: NQ-02
+        blocking: false
+        summary: name 登记后可变性未确认（先例不一致）；默认不可变（PROPOSED-4）。
+      - id: NQ-03
+        blocking: false
+        summary: by-name 只读别名无规则要求；默认不提供。
+      - id: NQ-04
+        blocking: false
+        summary: 同一请求内重复给出同一载体未确认；默认绑定集合以（载体类型, 载体标识）为元素，建议拒绝（400）。
+      - id: NQ-05
+        blocking: false
+        summary: 读取是否附加推导出的 Cluster 归属未确认；默认不返回（PROPOSED-2，沿用 F006 NQ-7 / F007 AC-22 口径）。
+      - id: NQ-06
+        blocking: false
+        summary: 「零载体活跃 Service」的数据库层硬约束机制；属 Architecture 裁定。产品只要求 AC-49 产品路径不变式 + AC-50 回归断言；建议不引入触发器 / 跨行约束（ADR-0002）。
+      - id: NQ-07
+        blocking: false
+        summary: 载体无效时的响应码未固定；建议沿用 F002/F004/F006/F007 的 404 NOT_FOUND 先例。
+      - id: NQ-08
+        blocking: false
+        summary: F011 义务——若 Excel 模板含 Service 行，导入须复用同一套领域校验；N:M 载体在行式模板中的表达属 F011 待确认项。
+      - id: NQ-09
+        blocking: false
+        summary: 按载体限定读取的路由 / 参数形态由 Architecture 裁定；须与 F007 的 carrier_type + carrier_id 成对语义一致（扩展 CONTAINER），并保证 F010 可复用。
+      - id: NQ-10
+        blocking: false
+        summary: 文档漂移同步（domain-model.yaml OPEN-003 → CLOSED_RESOLVED；domain-model.md §8 补录 Service name 全局唯一；schema-design 439/440/697/894；本 plan）。
   # ---- E05 资源查询与视图 ----
   - id: F009
     name: Cluster 视角资源查询
     epic: E05
     priority: P0
-    status: BLOCKED
+    status: DONE
     depends_on: [F001, F002]
-    blocking:
-      - "依赖 F001 / F002 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F009-cluster-resource-view
+      start_commit: c6565545286bcabd4984de549dec13122941ed3e
+      head_commit: ac693d71084e80fd55c0d29fe2165453bd6f7a0d
+      merge_commit: 6529b0dcaaad37833132a5544e7120eae94c02ef
+    current_stage: null
+    layers:
+      database: false     # 无 schema 变更；复用既有 ux_clusters_name_active / ix_bare_metals_cluster_id 与 active_filter
+      backend: true       # 新增 app/cluster_views/**（router + service）+ main 挂载 + EXPECTED_GET_ROUTES 演进 + 边界/一致性 guard
+      frontend: false     # 复用 F002 已交付的 clusterId 限定 BareMetalListPage；无新增前端实现
+    contract:
+      status: READY
+      doc: docs/api/f009-cluster-resource-view.md
+    implementation:
+      database_design: NOT_REQUIRED
+      backend: COMPLETE           # 07b656d；311 passed
+      frontend: NOT_REQUIRED       # 复用 F002 已交付的 clusterId 限定 BareMetalListPage
+      test: COMPLETE              # docs/test-reports/f009-cluster-resource-view.md（READY FOR REVIEW）
+      review: APPROVED_WITH_FOLLOW_UP   # docs/reviews/f009-cluster-resource-view.md；merge 6529b0d
     product_document: docs/product/requirements.md
     requirements:
       - R-QUERY-001
       - R-QUERY-002
       - R-QUERY-004
+      - R-CLUSTER-004
+      - R-DELETE-002
+      - R-DELETE-003
+      - R-DELETE-005
+      - "§15 Resource Relationship"
+      - "§21 Data Consistency"
+      - "§22 Case Sensitivity"
     acceptance_criteria:
-      - 用户能够从 Cluster 视角查看其所属资源（R-QUERY-001）。
-      - 支持查看 Cluster → BareMetal 以及 BareMetal 的状态（R-QUERY-002）。
-      - 查询结果区分 Resource Not Found 与 Empty Relationship（R-QUERY-004）。
-    open_questions: []
+      - 从 Cluster 视角可见其下活跃 BareMetal 清单及状态（R-QUERY-001, R-QUERY-002, R-CLUSTER-004）。
+      - 每条记录可观察到 hostname 与 status，status 属于 IDLE/ALLOC/DOWN/UNKNOWN 且非空（R-BM-003/005）。
+      - 只含本 Cluster 的 BareMetal，不含其他 Cluster（R-BM-001）。
+      - 状态修改后重新查询可见最新值（R-BM-006）。
+      - 中文 Cluster 名 / hostname 字面往返正确（§21）。
+      - R-QUERY-004：Cluster 不存在 → 404 NOT_FOUND，不得返回 200 空清单；界面不得渲染为「暂无机器」。
+      - R-QUERY-004：已软删 Cluster 与不存在同样 → 404，不区分。
+      - R-QUERY-004：Cluster 存在但无活跃 BareMetal → 200 + 空集合，界面渲染 Empty 态。
+      - Empty 态与 Not Found 态、Error 态在界面上互不相同且可独立断言。
+      - Empty 不呈现错误提示、不触发全局会话失效。
+      - 已软删 BareMetal（绕过应用层预置）不出现在视图中（R-DELETE-002；ADR-0004）。
+      - 软删某 BareMetal 后重新查询不再出现，其余不受影响。
+      - 无 restore / undelete / include_deleted / 回收站入口或参数（R-DELETE-003）。
+      - 不得出现 NIC / IP / VM / Container / Service 的列表、计数、占位或关系入口（R-QUERY-003 归属 F010）。
+      - 不得新增 Cluster 状态字段、DataCenter / 位置字段、自动发现 / 实时状态源字段。
+      - 未认证访问 Cluster 视角相关端点 → 401 UNAUTHENTICATED 且不返回资源数据（ADR-0005）。
+      - AC-17 alias：GET /api/clusters/by-name/{cluster_name}/bare-metals 返回与 GET /api/bare-metals?cluster_id={id} 同一结果集（同字段 / 同排序 / 同分页信封）；名称不存在或 Cluster 已删 → 404 NOT_FOUND；无活跃成员 → 200 + items==[]；大小写敏感；未认证 → 401（ADR-0003 §2）。
+      - AC-18 边界封闭：F009 端点集合恰为上述 1 条；无 NIC/IP/VM/Container/Service 的路径、字段或占位；软删过滤仍恰有 1 条写入路径与统一读取原语（G-009-1 ~ G-009-6）。
+    open_questions:
+      - id: NQ-1
+        blocking: false
+        summary: Cluster 级状态汇总 / 计数未确认（PROPOSED-1），F009 不实现。
+      - id: NQ-2
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定为「复用 F002 cluster_id 限定读取作为 canonical + F009 交付只读别名端点」；前端不新增视图。
+      - id: NQ-3
+        blocking: false
+        resolved_by: architecture
+        summary: 裁定为交付 GET /api/clusters/by-name/{cluster_name}/bare-metals（履行 ADR-0003 §2），契约落点 docs/api/f009-cluster-resource-view.md。
+      - id: NQ-4
+        blocking: false
+        summary: 展示字段范围（最小 hostname + status），PROPOSED-2。
+      - id: NQ-5
+        blocking: false
+        summary: F009 计划元数据（layers / contract / AC）待 Architecture 阶段落盘。
 
   - id: F010
     name: 资源详情与关联查询
     epic: E05
     priority: P1
-    status: BLOCKED
+    status: DONE
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
-    blocking:
-      - "依赖多个资源 Feature 未 DONE"
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F010-resource-detail
+      start_commit: 1baedc0d092424926e61afa4f6cf2d869f8236a6
+      head_commit: 9dff02b6951d714042fccdbc10580b3efe23ac24
+      merge_commit: 334b4ca3d3feb7d61819568e0497ab3aed45ea28
+    current_stage: null
+    last_result: >-
+      Product 阶段曾因 2 个 Blocking 产品歧义（BQ-1 / BQ-2）按 §11 停止；用户已于 2026-09-18 裁定
+      两者均取「含间接」，并已固化为 requirements.md R-QUERY-003 的产品规则。Product Gate 通过。
+    next_action: >-
+      Reviewer（独立复核 AC-18 集合深等与「唯一 404 网关」、G-010 注入可失败性、allow-list 未退化、
+      0001–0008 与 deletion service 未改）→ Merge Gate。Tester 结论 READY FOR REVIEW（25/25 PASS、无缺陷、9 组注入全部检出）。
+    layers:
+      database: false    # 无 schema 变更 / 无 migration；全部读取委托既有 canonical 过滤原语与既有索引
+      backend: true      # 新增 app/resource_views/**（router/service/schemas）+ main 挂载 + EXPECTED_GET_ROUTES 追加 + G-010 guard
+      frontend: true     # api/bareMetals.ts + BareMetalDetailPage「关联资源」区 + App.vue 导航 + 三态
+    contract:
+      status: READY
+      doc: docs/api/f010-resource-detail.md
+    implementation:
+      database_design: NOT_REQUIRED   # database: false
+      backend: COMPLETE
+      frontend: COMPLETE
+      test: COMPLETE
+      review: APPROVED_WITH_FOLLOW_UP
     product_document: docs/product/requirements.md
     requirements:
       - R-QUERY-003
@@ -441,17 +1146,53 @@ features:
       - 查询结果区分 Resource Not Found 与 Empty Relationship（R-QUERY-004）。
       - 用户无需为获得一个资源的基本信息而跨多个独立 Excel 式页面手工拼接（R-QUERY-003）。
       - 页面组织由 Frontend 设计，不在本计划中固化（R-QUERY-003）。
-    open_questions: []
+    open_questions:
+      - id: BQ-1
+        blocking: false
+        resolved_by: user-decision-2026-09-18
+        summary: "已裁定：**含间接**。载体为「B 上活跃 VM」的活跃 Container 算与 B 相关（AC-05-a 生效，AC-05-b 作废）。已固化为 requirements.md R-QUERY-003「『与 BareMetal 相关』的确切含义」。"
+      - id: BQ-2
+        blocking: false
+        resolved_by: user-decision-2026-09-18
+        summary: "已裁定：**含间接**。载体与 R(B) 有交集的活跃 Service 算与 B 相关（AC-07-a 生效，AC-07-b 作废）；同一 Service 因多个载体相关时只出现一次。**仅适用于查询相关性**，不改变删除拦截语义（仍以直接绑定为准）。"
+      - id: NQ-1
+        blocking: false
+        summary: 推导出的 Cluster 归属是否展示；默认不展示（沿用 F006 NQ-7 / F007 AC-22 / F008 PROPOSED-2 的最小范围口径）。
+      - id: NQ-2
+        blocking: false
+        summary: 是否提供反向关联视图（IP/Container/Service → 所属 BareMetal）；R-QUERY-003 已把主体固定为 BareMetal，默认本次不交付。
+      - id: NQ-3
+        blocking: false
+        summary: 状态汇总 / 计数；默认不实现（F009 NQ-1 先例）。
+      - id: NQ-4
+        blocking: false
+        summary: 排序 / 关键字 / 筛选 / 导出 / 分页形态；默认不实现，沿用既有分页约定。
+      - id: NQ-5
+        blocking: false
+        resolved_by: docs/architecture/f010-resource-detail-handoff.md
+        summary: "已裁定：**单一只读聚合端点** GET /api/bare-metals/{bare_metal_id}/related。否决「五个子资源端点」（契约/guard 面 ×5、快照不一致、与 F004/F005/F006 拒绝嵌套路由的结论冲突）与「前端多轮调用聚合」（无事务一致快照、AC-10/AC-11 退化为页面级）。"
+      - id: NQ-6
+        blocking: false
+        summary: VM 是否拥有独立 NetworkInterface（R-NIC-003 未确认，F004 NQ-1）；F010 不得假设。
+      - id: NQ-7
+        blocking: false
+        summary: 计划元数据落盘（本项已在 Product 阶段完成）；契约落点预计 docs/api/f010-resource-detail.md。
 
   # ---- E06 数据导入 ----
   - id: F011
     name: Excel 模板与批量导入
     epic: E06
     priority: P1
-    status: BLOCKED
+    status: CANCELLED
+    cancelled_on: "2026-09-18"
+    cancelled_by: user
+    cancellation_note: >
+      用户于 2026-09-18 明确指示「F011 功能取消」。本 Feature **不实现、不交付**；
+      R-IMPORT-001 ~ R-IMPORT-004 的规则文本仍保留在 requirements.md（未经确认不得删除已确认规则），
+      但**不在 CSM V1 的交付范围内**。此前为此 Feature 保留的复用义务（导入须复用各资源同一套领域校验）
+      随之失效；本 Feature 的 acceptance_criteria 保留原文以备追溯，不再作为验收基准。
     depends_on: [F001, F002, F004, F005, F006, F007, F008]
-    blocking:
-      - "依赖多个资源 Feature 未 DONE"
+    blocking: []
     product_document: docs/product/requirements.md
     requirements:
       - R-IMPORT-001
@@ -514,10 +1255,11 @@ decisions_required:
       在 Feature Product 阶段确认，domain-model.md 规定 VM→BareMetal 必选。需确认。
     impact_features: [F006, F007, F010, F011]
     type: product
-    status: DEFERRED_TO_FEATURE
+    status: RESOLVED
     resolution: >
-      DEFERRED_TO_FEATURE（2026-09-15）：归属 F006 Product 阶段（依据 requirements.md R-VM-003 原意），
-      不再作为项目级阻塞；已记录为 F006 的 Feature 级 open_question。
+      RESOLVED（2026-09-16，用户裁定）：VM→BareMetal 绑定为**必选**；Cluster 归属由宿主推导；
+      宿主 BareMetal 存在活跃 VM 时不得删除宿主（R-DELETE-004）；VM 软删不级联（R-DELETE-005）。
+      已落为 R-VM-005，并同时关闭 OPEN-001（name 全局唯一、大小写敏感）与新增 R-VM-006（可选字段）。
 
   - id: DEC-005
     question: >
@@ -525,10 +1267,11 @@ decisions_required:
       requirements.md §10 要求在 Feature 阶段确认，domain-model.md 规定必选。需确认。
     impact_features: [F007, F010, F011]
     type: product
-    status: DEFERRED_TO_FEATURE
+    status: RESOLVED
     resolution: >
-      DEFERRED_TO_FEATURE（2026-09-15）：归属 F007 Product 阶段（依据 requirements.md §10），
-      不再作为项目级阻塞；已记录为 F007 的 Feature 级 open_question。
+      RESOLVED（2026-09-16，用户裁定）：登记粒度为长期服务型 Container 实例；绑定运行载体
+      （BareMetal 或 VirtualMachine）为必选且恰好一个，Cluster 由载体推导；name 同一载体内唯一；
+      载体有活跃 Container 不得删除；软删不级联。已落为 R-CONTAINER-001 ~ R-CONTAINER-005，并关闭 OPEN-002。
 
   - id: DEC-006
     question: >
@@ -646,6 +1389,23 @@ decisions_required:
       结论来自用户确认；在该阈值内单机 PostgreSQL 足够，DEC-010 选型无需重审。
       见 csm-v1-foundation-architecture.md「规模假设与阈值」。
 
+  - id: DEC-017
+    type: product
+    status: RESOLVED
+    topic: 口令强度策略
+    resolution: >
+      用户 2026-09-15 裁定：口令长度至少 8 位（R-AUTH-004）。除长度下限外不要求大小写混合 / 数字 / 符号，
+      也不做弱口令黑名单。适用于任何建立或修改口令的路径。
+  - id: DEC-018
+    type: product
+    status: RESOLVED
+    topic: 用户名大小写语义
+    resolution: 用户 2026-09-15 裁定：用户名唯一性与登录匹配均区分大小写（R-AUTH-005）；不得使用 lower(username) 折叠。
+  - id: DEC-019
+    type: product
+    status: RESOLVED
+    topic: 登录失败响应语义
+    resolution: 用户 2026-09-15 裁定：登录失败统一响应，不区分「用户名不存在」与「口令错误」（R-AUTH-006）。
   - id: DEC-016
     question: >
       部署打包方式未确定（BQ-4）：影响 F015 内网部署的交付形态。
@@ -780,7 +1540,10 @@ requirement_coverage:
   - id: R-CLUSTER-003
     covered_by: [F001]
   - id: R-CLUSTER-004
-    covered_by: [F001]
+    covered_by: [F002, F009]
+    note: >
+      F001 不验收该条（F001 内无 BareMetal 实体，不可判定）：F002 覆盖 N:1 方向（R-BM-001），
+      F009 覆盖 Cluster 视角方向（R-QUERY-002）。归属修正见 docs/product/handoffs/f001-cluster.md NQ-4。
   - id: R-CLUSTER-005
     covered_by: [F001]
   - id: R-BM-001
@@ -795,12 +1558,41 @@ requirement_coverage:
     covered_by: [F002]
   - id: R-BM-006
     covered_by: [F002]
+  - id: R-BM-007
+    covered_by: [F002]
+    note: >
+      BareMetal 硬件规格字段（vendor / model / serial_number / cpu / memory / gpu / storage）全部可选、纯文本、允许 NULL；
+      Serial Number 不参与唯一性。用户 2026-09-16 裁定，关闭 OPEN-004。
   - id: R-VM-001
     covered_by: [F006]
   - id: R-VM-002
     covered_by: [F006]
   - id: R-VM-003
     covered_by: [F006]
+  - id: R-VM-004
+    covered_by: [F006]
+    note: VirtualMachine 标识 name 必填、全局唯一、大小写敏感；用户 2026-09-16 裁定，关闭 OPEN-001。
+  - id: R-VM-005
+    covered_by: [F006]
+    note: VM→BareMetal 绑定必选，Cluster 归属由宿主推导；宿主有活跃 VM 不得删；软删不级联；用户 2026-09-16 裁定，关闭 DEC-004。
+  - id: R-VM-006
+    covered_by: [F006]
+    note: VM 可选配置字段全部可选、纯文本、允许 NULL；用户 2026-09-16 裁定。
+  - id: R-CONTAINER-001
+    covered_by: [F007]
+    note: 粒度=长期服务型 Container 实例，不登记临时容器，不引入 K8s workload；用户 2026-09-16 裁定，关闭 OPEN-002。
+  - id: R-CONTAINER-002
+    covered_by: [F007]
+    note: 绑定必选且恰好一个运行载体（BareMetal 或 VirtualMachine），Cluster 由载体推导；用户 2026-09-16 裁定，关闭 DEC-005。
+  - id: R-CONTAINER-003
+    covered_by: [F007]
+    note: name 必填、同一载体内唯一、大小写敏感；已软删释放唯一性。
+  - id: R-CONTAINER-004
+    covered_by: [F007]
+    note: image/cpu/memory/owner 可选、纯文本、允许 NULL。
+  - id: R-CONTAINER-005
+    covered_by: [F007]
+    note: 载体有活跃 Container 不得删除；软删不级联（R-DELETE-004/005）。
   - id: R-NIC-001
     covered_by: [F004]
   - id: R-NIC-002
@@ -825,6 +1617,15 @@ requirement_coverage:
     covered_by: [F008]
   - id: R-SVC-006
     covered_by: [F008]
+  - id: R-SVC-007
+    covered_by: [F008]
+    note: name 必填；service_type/url/port/protocol/owner/description 可选纯文本；排除 credential_reference/health_information；用户 2026-09-16 裁定，关闭 OPEN-003。
+  - id: R-SVC-008
+    covered_by: [F008]
+    note: Service name 全局唯一、大小写敏感；软删释放唯一性。
+  - id: R-SVC-009
+    covered_by: [F008]
+    note: 被活跃 Service 绑定的载体不得删除；Service 软删不级联（R-DELETE-004/005）。
   - id: R-QUERY-001
     covered_by: [F009]
   - id: R-QUERY-002
@@ -840,7 +1641,11 @@ requirement_coverage:
   - id: R-DELETE-003
     covered_by: [F014]
   - id: R-DELETE-004
-    covered_by: [F014]
+    covered_by: [F014, F002]
+    note: >
+      F014 交付删除守卫机制（单事务先锁后检查、声明式 active_children、409 稳定 code、无部分写入）；
+      「Cluster 存在活跃 BareMetal → 删除被拒」的真实端到端与并发孤立记录不变式归 F002（见 F014 Product NQ-1 /
+      Architecture 问题 7），已写入 F002 的 acceptance_criteria，避免静默丢失。
   - id: R-DELETE-005
     covered_by: [F014]
   - id: R-DELETE-006
@@ -859,6 +1664,15 @@ requirement_coverage:
     covered_by: [F013]
   - id: R-AUTH-003
     covered_by: [F013]
+  - id: R-AUTH-004
+    covered_by: [F013]
+    note: 口令长度至少 8 位（用户 2026-09-15 裁定）；除长度下限外 V1 无其他强度要求。
+  - id: R-AUTH-005
+    covered_by: [F013]
+    note: 用户名唯一性与登录匹配均区分大小写（用户 2026-09-15 裁定）。
+  - id: R-AUTH-006
+    covered_by: [F013]
+    note: 登录失败统一响应，不区分「用户名不存在」与「口令错误」（用户 2026-09-15 裁定）。
   - id: R-DEPLOY-001
     covered_by: [F015]
   - id: R-DEPLOY-002
@@ -901,15 +1715,17 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F012]
+  ready_features: []
   blocked_draft_features:
-    BLOCKED: [F001, F004, F005, F009, F010, F011, F013, F014, F015]
-    DRAFT: [F002, F006, F007, F008]
+    BLOCKED: []
+    DRAFT: []
   counts:
-    READY: 1
-    BLOCKED: 9
-    DRAFT: 4
-    DONE: 0
+    READY: 0
+    IN_PROGRESS: 0
+    BLOCKED: 0
+    DRAFT: 0
+    DONE: 13
+    CANCELLED: 1
   status_decision_rules:
     DRAFT: >
       存在未解决的产品问题，且该问题直接影响本 Feature 自身 scope 或 acceptance_criteria
@@ -922,33 +1738,476 @@ planning_status:
     note: >
       仅被其他 Feature 的产品决策间接影响、不改变本 Feature 交付边界时，仍按 BLOCKED 处理。
       判定依据见本文件顶部注释与 .pi/agents/project-manager.md §8。
-  ready_rationale:
+  done_rationale:
+    F010: "base 1baedc0 → head 9dff02b → merge 334b4ca（--no-ff 合入 develop；集成树与已审阅候选 9dff02b 逐字节一致，父提交为 1baedc0 与 9dff02b）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；25 文件 / +3699 行经完整差异 Review，评审在自建真实 PostgreSQL 上独立重跑并自写探针。 验收：后端 965 passed（0 skipped；协调器 / Tester / Reviewer 各自独立重跑）、前端 typecheck + 562 passed（连续 2 次）+ build、ruff 干净、无 migration（database: false）、0001–0008 与 app/deletion/service.py 逐字节未改（sha256 三方相等）。 **关键交付**：GET /api/bare-metals/{bare_metal_id}/related 单一只读聚合端点（五类关联：NIC / IP / VM / Container / Service）+ 前端 BareMetalDetailPage「关联资源」区。 **本 Feature 的正确性压在两条被显式写下的自我声明上，而两条都被独立证伪式验证**：① **「组合既有 per-resource 读取而非重实现」**——Tester 与 Reviewer **各自自造数据、各自直接调 canonical 端点**、与聚合逐类**集合深等比较**（含多载体 Service 去重与 210/205 项完整快照）；新模块 grep deleted_at **零匹配**。② **「只有主机检查会抛 not-found」**——「主机活跃但某类为空」「主机活跃但子资源已软删」**均 200**（这是最容易被写错、写错后最难发现的失败模式：处处复用带守卫的访问器会让空类变成主机不存在）。 **多态推导按用户裁定（BQ-1/BQ-2 = 含间接）**：Container 含「载体为 B 上活跃 VM」、Service 含「载体与 R(B) 有交集」，同一 Service 因多载体相关时**只出现一次**；已固化为 requirements.md R-QUERY-003 的产品规则，且**明确只适用于查询相关性、不改变删除拦截语义**（父删子拦仍以直接绑定为准）。 **深度固定 ≤3 跳、无递归 / 无深度参数 / 无关系类型参数**；guard G-010-7 断言主机下二段路径**恰为** related，被否决的五个子资源端点不可能逐个回来。 **404 判定主体唯一**：仅 bare_metals.service.get_bare_metal_by_id 抛 404；五类共用同一判定（AC-10/AC-12）。 **guard 演进**：Tester 9 组 + Reviewer 4 组对抗注入全部被检出并逐字节还原；EXPECTED_GET_ROUTES **追加 +1 行**（M6 删既有成员被试出）；无既有 guard 被删除。**BOUNDARY_TOKENS 已空、deny-list 恒真**——两方各自注入未批准路由，证明真正可独立失败的防线是 APPROVED_API_PREFIXES allow-list。 **过程与遗留**：契约示例曾把 technology_type/purpose 误写为大写 ETHERNET/BUSINESS（canonical 为大小写敏感的 Ethernet/Business），由 **Frontend Agent 在实现时发现并按 canonical 定义处理**（未照抄示例），已在评审前修正契约；一条 F009 源码 token guard 曾被我在 App.vue 新注释的措辞触发，Frontend Agent **改注释而未动 guard**（正确做法）。**未修复但已记录**：REV-2（G-010-5 只检出 deleted_at **写入**、不检出**读取**谓词——当前实现读谓词为零，属纵深缺口而非缺陷）、REV-3（架构声称「一致快照」但实际为默认 READ COMMITTED，各语句各自取快照，并发软删下可能静默少项；风险低且与既有视图同取向，留待 Architect）。"
+    F008: "base 68d8e11 → head f5ed0e4 → merge f773378（--no-ff 合入 develop；集成树与已审阅候选 f5ed0e4 逐字节一致，父提交为 68d8e11 与 f5ed0e4）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；53 文件 / +9562 行经完整差异 Review，评审**独立重跑**真实 PostgreSQL 与真实前端。 验收：真实 PostgreSQL 16.2 后端 935 passed（0 skipped；协调器与 Tester 各自独立重跑）、前端 typecheck + 546 passed（连续 2 次）+ build、ruff 干净、migration 可重复 / 可重建、0001–0007 与 app/deletion/service.py 逐字节未改。 **关键交付**：`services`（11 列，恰 1 约束 = PK、0 CHECK）+ `service_carriers`（5 列 N:M 多态绑定）+ migration 0008；5 端点；**模型里首个 N:M 关系**。 **绑定表是关系表而非资源表**：无 deleted_at、无任何时间戳；三列可空 FK + CHECK (num_nonnulls(...) = 1) + **每条载体列一条 partial unique（集合语义）** + 4 条 RESTRICT FK。 **核心不变式（协调器 / Tester / Reviewer 三方各自直连 DB 证实）**：因 CHECK 迫使另两列为 NULL、而唯一索引中 NULL 互不相等，三条索引互不干扰 → 同一 Service 可同时绑定 BareMetal / VM / Container 的**同数值 id**。 **「释放绑定」无需任何写入**（最易被误判的裁定）：绑定行不可变、不物理删除；某载体是否受保护取决于「是否仍有活跃 Service 绑定它」，删 Service 让该判断立即为假 → 释放是**派生效果**，故 app/deletion/service.py **零改动**、allow-list 恒为单一文件；评审以「软删后绑定行逐字段不变 + 载体不再被拦截 + 删除服务与 Cluster 检查点 sha256 与 base 相同」独立证实，并确认该裁定**未掩盖任何 AC**。 **刻意不做**：「零载体活跃 Service」的 DB 硬约束（跨行性质无法用 CHECK 表达）→ 由登记路径强制 ≥1 + AC-49 回归查询兑现（NQ-06）；**不引入解绑 / 替换端点**（NQ-01 用户 2026-09-16 确认：必须先删除，不做解绑）。 **三载体父删子拦**：BM / VM **追加**、CONTAINER_ACTIVE_CHILD_CHECKS 由显式 () 变非空（F007 预留位落地）；**CLUSTER_ACTIVE_CHILD_CHECKS 逐字节不变**（Service↔Cluster 是推导关系，非子资源，AC-45）。 **登记加锁**：按 (载体类型 rank, carrier_id) **确定性全序**对每个载体取 FOR SHARE，任一未命中在 INSERT 前 404 → 无主 Service / 部分绑定均不产生；相反请求顺序并发无死锁（AC-46/47 真实线程验证）。 **guard 演进**：11 组对抗注入全部被检出并逐字节还原，无既有 guard 被删除；**移除 service token 后 BOUNDARY_TOKENS 变空、其扫描恒真** —— 注入未批准路由证明真正可独立失败的防线是 **APPROVED_API_PREFIXES allow-list**（对 F006-T-01 / F004-T-02 同源风险的正面回答）。 **实现方自捕缺陷**：按载体反查 Service 的查询初版误写为**非相关子查询**（不报错、静默返回错误结果），由实现方自行发现并修复；评审另以对抗用例独立复验该语义。 **过程**：协调器按 F007-INC-1 之后确立的规矩，**不采信 Agent 测试数字**，在全新真实 PG 上独立重跑后才接受交接；reflog 无任何 Agent 造成的 Git 状态变化。M4（虚拟 / 容器 / 服务资源）随之 DONE。"
+    F007: "base 06b3c5b → head 2c383a9 → merge ff347be（--no-ff 合入 develop；集成树与已审阅候选 2c383a9 逐字节一致，父提交为 06b3c5b 与 2c383a9）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；50 文件 / +8560 行经完整差异 Review。 验收：真实 PostgreSQL 16.2 下后端 798 passed（0 skipped）、前端 typecheck + 460 passed（连续 2 次）+ build、ruff 干净、migration 可重复 / 可重建、0001–0006 逐字节未改。 **关键交付**：`containers`（11 列）+ migration 0007；5 端点；**模型里首个多态载体**。 **多态载体裁定**：两列可空 FK（bare_metal_id / virtual_machine_id）+ CHECK (num_nonnulls(...) = 1) + **每载体列一条** partial unique index；**保留两条真实 FK RESTRICT**——否决「判别列 + 无 FK」，因其把「载体必须存在」推给应用层，违反 AGENTS.md §6 与 ADR-0002；否决生成列，因功能等价却引入本项目从未用过的 schema 机制。 **唯一性边界 = 载体（非全局、非 Cluster）**：因 CHECK 保证另一列为 NULL、而唯一索引中 NULL 互不相等，两条索引互不干扰 → **BareMetal 与 VM 同数值 id 同名 Container 可共存**（AC-15，本设计的承重不变式；Tester 与 Reviewer 各自**绕过应用层直连 DB** 独立证实）；大小写敏感；软删释放。 **刻意不加 cluster_id**：F005 的 ip_addresses 需反规范化 cluster_id 是因**其唯一性边界是 Cluster**；Container 边界是载体且两列已在表内（文档明写不得照搬 F005 模式）。 **恰 1 个 CHECK**：name 与四可选字段的长度 / trim / 空串 / 格式未确认 → 不建任何约束，并显式声明「空串当前会被接受」但**不得解读为已确认合法**（NQ-4）。 **F014 双载体端到端**：VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS **首次由显式空元组变非空**（F006 REV-3 预留位落地，其 guard 断言同步演进），BARE_METAL_ACTIVE_CHILD_CHECKS **追加**而非替换（保留 VM + NIC），CONTAINER_ACTIVE_CHILD_CHECKS 留显式 () 作为 F008 追加点；并发孤立记录不变式 0 行（AC-36/37 真实并发）。 **guard 演化纪律**：BOUNDARY_TOKENS **仅移除 container、保留 service、全局 /api/* 扫描未收窄**（注入未批准 POST /api/services 证明仍可检出）；8 组对抗注入全部被检出并逐字节还原；无既有 guard 被删除。 **过程事件（已记录）**：F007-INC-1 Backend Agent 违规执行 git stash -u（并行期），协调器因此**不采信其报告**、在全新真实 PG 上独立重跑全部测试后才接受交接；F007-INC-2 协调器提交信息含反引号被 shell 吞掉，致一条**信息截断且重复**的提交 30592ec（内容为其后提交的严格子集，HEAD 正确），**未改写历史**，此后一律用 git commit -F。"
     F012: >
-      ENABLER，无 depends_on；产品范围明确（显式资源类型建模、通用校验与错误处理基座，requirements.md §4/§5/§21/§24/§25）；
-      AC 可定义；无未解决产品问题（Blocking Product Questions = 0）；架构/数据库/标识/API 契约决策
-      DEC-009 / DEC-010 / DEC-011 / DEC-014 均已 RESOLVED（ADR-0001 ~ ADR-0003 ACCEPTED），
-      Blocking Architecture Decision = 0；架构 Handoff = READY FOR IMPLEMENTATION，API 契约 = READY。
-      因此 F012 满足 READY 的全部条件，为项目第一个 READY Feature。
-  draft_rationale:
-    F002: "产品问题 OPEN-004（BareMetal 硬件字段必填/可选范围）直接决定本 Feature 字段范围；同时依赖 F001 未 DONE，取 DRAFT。"
-    F006: "Feature 级产品问题 OPEN-001（VM 字段与唯一性规则）与 DEC-004（VM 绑定强制性 / 生命周期，归属 F006 Product 阶段）直接决定本 Feature 字段与生命周期；同时依赖 F002 未 DONE，取 DRAFT。"
-    F007: "Feature 级产品问题 OPEN-002（Container 管理粒度）与 DEC-005（Container 绑定与生命周期，归属 F007 Product 阶段）直接决定本 Feature 粒度与绑定模型；同时依赖 F006 / F002 未 DONE，取 DRAFT。"
-    F008: "产品问题 OPEN-003（Service 字段范围）直接决定本 Feature 字段；关系模型已由 DEC-003（方案 C）解决并落为 R-SVC-005/006；同时依赖 F001 / F002 / F006 / F007 未 DONE，取 DRAFT。"
+      首个完成 Feature。base 2c2a753 → head 966d56a → merge 3b8646c（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；
+      77 文件 / +6999 行经完整差异 Review。验收：真实 PostgreSQL 16 下后端 38 passed、前端 32 passed 且构建成功、
+      ruff 与 alembic check 干净；两处最难回退的语义（大小写敏感唯一性、软删释放唯一性）由**绕过应用层**的
+      直接数据库断言固定。F001 / F013 / F014 因此解锁。
+    F001: >
+      base 7a99745 → head fe36e1a → merge 5a96ad0（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；45 文件经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 下后端 77 passed、前端 56 passed、构建成功、ruff 干净、alembic check 无 drift；
+      我另用 HTTP 逐条驱动 5 个端点核对契约（含大小写敏感、中文往返、409/400/404 语义、PATCH 释放旧名、
+      PATCH 改自身名返回 200、/_foundation/* 全 404）。
+      **关键否定性交付**：F001 内 deleted_at 写入路径数 = 0（无删除端点）；/_foundation/* 彻底移除，
+      同时消解 F012 Review 的 F-03（fail-open MEDIUM）。R-CLUSTER-004 未在 F001 强行构造任何结构。
+    F013: >
+      base 6e7338c → head 46c6d8a → merge 4d2e48c（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；53 文件 / +4431 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 下后端 133 passed、前端 83 passed 且构建成功、ruff 干净、alembic check 无 drift。
+      **关键否定性交付**：路由前 ASGI 中间件 fail-closed，豁免集合恰为一个 (method, path) 对，新挂载 /api 端点自动受保护；
+      登录失败三情形逐字节一致；口令不明文落库 / 日志 / 错误；绕应用层验证 username 大小写敏感；
+      Migration 0002 增量，基线 0001 未改。Tester / Reviewer 均以真实库独立重跑。
+    F014: >
+      base 897b325 → head d2805f5 → merge 184ee61（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；28 文件 / +2899 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 下后端 155 passed、前端 105 passed 且构建成功、ruff 干净、alembic check 无漂移、无新增 migration。
+      **关键交付**：`soft_delete()` 是系统内唯一写 `deleted_at` 的路径（allow-list guard 真实可失败）；
+      单事务先 `FOR UPDATE` 锁父行再跑资源声明的 active_children 检查，命中即 409 且无部分写入；
+      `DELETE /api/clusters/{id}` 204/404/409/401 与契约一致；F001 A15 / F013 G-E guard 演进而非削弱。
+      **显式交接**：R-DELETE-004 真实场景（Cluster+活跃 BareMetal）与 `ip_address.cluster_id` 推导归 F002 / F005，已写入相应 AC。
+    F015: >
+      base 5c9ca84 → head f536b06 → merge 06e655a（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；19 文件经完整差异 Review。
+      验收：192 backend passed、ruff 干净、两镜像构建成功；L2 等价环境 E2E 实测（三服务 healthy、迁移×2、登录、
+      未认证 401、docs 404、仅 nginx 端口、命名卷持久化、`C.UTF-8` 大小写敏感）。
+      **关键交付**：`CSM_ENVIRONMENT=prod` 硬编码 + 后端/ nginx 双层关闭框架文档面；传输层探针（不新增 /api 豁免）；
+      凭据必填变量外部注入；仅 nginx 对外；迁移幂等且禁止 downgrade。
+      **NOT TESTED**：真实独立内网 VM + 第二台机器（L3），以 L2 等价证据 + L3 复核清单承接。
+    F002: >
+      base c8e5d91 → head 03bae26 → merge ef39557（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；49 文件 / +7443 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 下后端 279 passed、前端 171 passed 且构建成功、ruff 干净、migration 可重复 / 可重建、base 未改。
+      **关键交付**：`bare_metals`（14 列，含 R-BM-007 七列）+ migration 0003；5 端点；创建侧 `FOR SHARE` 锁父行；
+      `CLUSTER_ACTIVE_CHILD_CHECKS` 由空元组演进为真实活跃 BareMetal 检查（F014 NOTE-01）。
+      **首个真实 F014 端到端**：Cluster 有活跃 BareMetal → 409 ACTIVE_CHILDREN_EXIST；并发孤立记录不变式 0 行。
+      guard 随增表演进（表集合 / 无 CASCADE / 唯一软删写入路径）而非删除。
+    F009: >
+      base c656554 → head ac693d7 → merge 6529b0d（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；14 文件 / +1986 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2（大小写敏感 collation）后端 311 passed、前端 176 passed 且构建成功、ruff 干净、migration 与 base 零差异。
+      **关键交付**：交付 ADR-0003 §2 已确认但一直无认领者的只读名称别名
+      `GET /api/clusters/by-name/{cluster_name}/bare-metals`；**无数据库变更、无前端实现**（`database:false` / `frontend:false`）。
+      **设计要点**：alias 只做名称解析，然后**委托** F002 的 `list_bare_metals`，从而继承同一父活跃检查与唯一 `deleted_at` 谓词；
+      `cluster_views` 模块内**无任何 `deleted_at` 表达式**，全局软删写入 allow-list 仍恰为 `{backend/app/deletion/service.py}`（ADR-0004）。
+      guard G-009-1~6 经对抗注入确认真实可失败：路由集合恰一条、全 OpenAPI 无 NIC/IP/VM/Container/Service token、
+      alias 与 canonical 的 200 schema 相等、既有 `EXPECTED_GET_ROUTES` 仅追加未削弱。
+      完成 M2（F001 + F002 + F009 均 DONE）。
+    F006: >
+      base f74e7dd → head 3bd2da2 → merge 01077be（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；46 文件 / +7553 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 后端 400 passed、前端 242 passed 且构建成功、ruff 干净、migration 可重复 / 可重建、base 未改。
+      **关键交付**：`virtual_machines`（12 列，含 R-VM-006 六列）+ migration 0004；5 端点；name **全局**活跃唯一（partial unique）跨宿主跨 Cluster、大小写敏感；
+      宿主 `bare_metal_id` 必选 + FK RESTRICT；创建对宿主行取 `FOR SHARE`；**无 status 列、无 cluster_id 列**（Q-002=B / R-VM-005）。
+      同时交付 `GET ?bare_metal_id=` 宿主限定读取（供 F010 复用）。
+      **第二个真实 F014 端到端**：宿主有活跃 VM → 409 ACTIVE_CHILDREN_EXIST；并发孤立记录不变式 0 行。
+      **过程缺陷并修复**：Tester 判 RETURN TO IMPLEMENTATION（F006-T-01 MEDIUM）——本 Feature 曾把 F009 / F002 的全 OpenAPI 边界扫描收窄到本模块，
+      导致非 GET 越界路由无 guard 防护（注入 `POST /api/containers` 时 68 项 guard 全过）；已修复为「保持全局扫描、仅移除已合法化的 vm/virtual token」（7844a17），
+      并经 Tester 与 Reviewer 双向独立注入复证。
+    F004: >
+      base cf03e01 → head 8958252 → merge 4a99fa0（--no-ff 合入 develop）。
+      Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；60 文件 / +8263 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 后端 551 passed、前端 307 passed 且构建成功、ruff 干净、migration 可重复 / 可重建、base 未改。
+      **关键交付**：`network_interfaces`（8 列）+ migration 0005；5 端点；technology_type（4 值）/ purpose（7 值）**封闭枚举**（应用层 400 + DB CHECK 最终权威，永不 500）；宿主必选 + FK RESTRICT；创建对宿主取 `FOR SHARE`；**无状态、无 IP/MAC/速率/MTU/载体列**。
+      **无任何名称唯一性**（无唯一索引、无预检、无 409 DUPLICATE）——NQ-2 未确认，契约明确「不强制唯一性 ≠ 已确认允许重复」。
+      **第三个真实 F014 端到端**：宿主有活跃 NIC → 409 ACTIVE_CHILDREN_EXIST；`BARE_METAL_ACTIVE_CHILD_CHECKS` **追加**为 (活跃 VM, 活跃 NIC)（保留 F006 检查）。建立 `NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS`（空，供 F005）。
+      **过程缺陷并修复**：Tester RETURN TO IMPLEMENTATION（F004-T-01 MEDIUM 前端测试非确定性 → 根因实为**宿主机时钟回跳**使点击被 Vue 去重丢弃；修复为测试进程内单调 `Date.now()` + 等待按钮启用；F004-T-02 LOW → `nit` 缩写 token 被误删，已恢复）。两缺陷均经 Tester 与 Reviewer 独立注入/对照复证。
+    F005: >
+      base 881ee23 → head 32ad8bb → merge 7beb6e7（--no-ff 合入 develop）。
+      Reviewer verdict = CHANGES REQUIRED（唯一 MEDIUM 为**计划元数据被本 Feature 误覆盖**，非代码缺陷）
+      → 协调器修复 REV-1 → 限定范围复审 APPROVED → merge。48 文件 / +8722 行经完整差异 Review。
+      验收：真实 PostgreSQL 16.2 后端 686 passed、前端 380 passed（连续 2 次全绿）且构建成功、ruff 干净、migration 可重复 / 可重建、0001–0005 未改。
+      **关键交付**：`ip_addresses`（7 列、**0 个 CHECK**——格式规则未确认故不落约束）+ migration 0006；5 端点；
+      同 Cluster 内**字面精确**唯一（`ux_ip_addresses_cluster_ip_active (cluster_id, ip_address) WHERE deleted_at IS NULL`，无 COLLATE / 无 lower()）；跨 Cluster 可重复；软删释放。
+      **`cluster_id` 受控推导**：恰一处推导函数（沿 NIC→BareMetal，对父 NIC 行 FOR SHARE）+ 恰一处写入点；请求侧永不接受、响应侧不暴露；可失败静态 guard 断言写入路径唯一。
+      **漂移检测三件套**：数据库**无法**保证存储 cluster_id 与推导一致（ADR-0002 排除触发器 / 复合外键），
+      故交付 T-34（正常路径漂移 0 行）+ T-35（绕过应用层直插漂移行必须被查出）+ T-36（漂移会让同 Cluster 重复 IP 静默穿过唯一索引）。三件套经 Tester 与 Reviewer 独立注入复证可失败。
+      **第四个真实 F014 端到端**：`NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS` **追加**为 `(has_active_ip_addresses,)`（保留 VM/NIC 链路）；
+      删除守卫链条 `Cluster → BareMetal → NIC → IP` 闭合。M3（网络资源）随之 DONE。
+  ready_rationale:
+    F010: "BQ-1 / BQ-2 已于 2026-09-18 由用户裁定为「含间接」并固化为 requirements.md R-QUERY-003 的产品规则；依赖 F001~F008 均已 DONE → READY。义务：AC-18 要求各清单成员集合与既有 canonical 过滤深等（复用 ?bare_metal_id= / ?network_interface_id= / carrier_type+carrier_id），F010 自行完成 ≤3 跳推导，不得另写过滤；且不得新增任何 cluster_id 类列或 Cluster 视角。"
+    F011: "依赖 F001 / F002 / F004 / F005 / F006 / F007 / F008 均已 DONE；OPEN-005 已关闭（All-or-Nothing，R-IMPORT-004）→ READY。义务：导入各资源行必须复用对应 Feature 的同一套领域校验（R-IMPORT-002）；Service 行的 N:M 载体在行式模板中的表达属本 Feature 待确认项（NQ-08）。"
+    F008: "依赖 F001 / F002 / F006 / F007 均已 DONE（F007 merge ff347be）；产品问题 OPEN-003 已于 2026-09-16 解决（R-SVC-007/008/009），scope/AC 可定稿；无未解决产品问题 → READY。F007 建立的 CONTAINER_ACTIVE_CHILD_CHECKS 声明点与 AST guard 已就位，F008 须在此追加「活跃 Service」检查并补端到端（NQ-9）。"
+    F014: >
+      依赖 F012 已 DONE；架构/数据库决策 DEC-012 / DEC-009 已 RESOLVED（ADR-0004 / ADR-0001 / ADR-0002 ACCEPTED），
+      软删持久化与唯一性释放机制已由 F012 基线证明可行；无未解决产品问题 → READY。
+    F015: >
+      依赖 F012 / F013 均已 DONE；架构决策 DEC-009 / DEC-010 / DEC-016 已 RESOLVED（ADR-0001 ACCEPTED，
+      部署打包 docker-compose、PostgreSQL、内网 Internal IP + HTTP）；无未解决产品问题 → READY。
+      原额外进入条件 F012 follow-up F-03（自检面 fail-open）已由 F001 彻底移除 /_foundation/* 而消解；
+      REV-01（框架默认 /docs、/redoc、/openapi.json 位于 /api 之外未认证可达）由 F015 记录并决定是否关闭。
+  draft_rationale: {}
   blocked_rationale:
-    F001: "DEC-007 / DEC-001 均已解决（`/` 规则已落为 R-CLUSTER-005），无未解决产品问题；阻塞为依赖 F012 未 DONE。"
+    F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
     F004: >
       DEC-006 已解决（V1 无状态）；保留的 R-NIC-003「VM 等资源是否拥有独立 NetworkInterface」不改变本 Feature
       的 V1 交付边界（核心对象为 BareMetal），按规则仍计为 BLOCKED。阻塞为依赖 F002 未 DONE。
     F005: "DEC-006 已解决（V1 无状态），无未解决产品问题；阻塞为依赖 F004 未 DONE。"
     F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
-    F010: "上游资源模型决策 DEC-001 / DEC-003 / DEC-006 均已解决，不改变本 Feature 的 AC 定稿；阻塞为依赖多个资源 Feature 未 DONE。"
-    F011: "OPEN-005 已关闭（All-or-Nothing，已固化为 R-IMPORT-004），无未解决产品问题；阻塞为依赖多个资源 Feature 未 DONE。"
-    F013: "阻塞为依赖 F012 未 DONE；架构决策 DEC-009 / DEC-013 均已 RESOLVED。"
-    F014: "阻塞为依赖 F012 未 DONE；架构/数据库决策 DEC-012 / DEC-009 均已 RESOLVED。"
-    F015: "阻塞为依赖 F012 / F013 未 DONE；架构决策 DEC-009 / DEC-010 与部署决策 DEC-016 均已 RESOLVED。"
   readiness_summary: >
-    架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），DEC-008 ~ DEC-016 全部 RESOLVED。
-    F012 无 depends_on 且无阻塞决策，为唯一 READY Feature（1）。
-    9 个 Feature（F001/F004/F005/F009/F010/F011/F013/F014/F015）scope/AC 可定稿，但依赖尚未 DONE（BLOCKED）。
-    4 个 Feature（F002/F006/F007/F008）仍存在影响自身 scope/AC 定稿的 Feature 级产品问题（DRAFT）。
-  decision: PROJECT PLAN ACCEPTED
+    架构已批准（ADR-0001 ~ ADR-0005 ACCEPTED，API 契约 READY），全部产品问题已关闭，无 DRAFT Feature。
+    DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005、F007（11 个）。
+    **M1 / M2 / M3 / M4 已 DONE**（M4 = F006 + F007 + F008：虚拟 / 容器 / 服务资源）。
+    DONE：F012、F001、F013、F014、F015、F002、F009、F006、F004、F005、F007、F008、F010（13 个）。
+    **F010（资源详情与关联查询）DONE**（merge 334b4ca）；**F011（Excel 模板与批量导入）已于 2026-09-18 由用户取消**（CANCELLED，不实现、不交付）。
+    0 个 Feature 处于 READY / BLOCKED / DRAFT / IN_PROGRESS。**CSM V1 的全部 14 个 Feature 已全部处置完毕（13 DONE + 1 CANCELLED），project.status = DONE。**
+    F011 取消后的范围记录已按用户选择 A 修正：requirements.md §18 的 R-IMPORT-001~004 **规则文本保留**并标注「V1 不交付（2026-09-18 用户取消）」，
+    同时 requirements.md 两处目标清单与 project goal 中的「批量数据导入」已标注 / 移除。
+  git_incidents:
+    F007-INC-1:
+      severity: PROCESS
+      discovered: "2026-09-18"
+      summary: >-
+        Backend 实现 Subagent 在**并行前端仍在写入**期间执行了 `git stash -u` 与 `git stash pop`
+        （AGENTS.md §9.2 明确禁止自动 stash）。该 Agent 已在报告中主动如实披露，声明与 `git reflog`
+        一致（reflog 可见一条 `reset: moving to HEAD`；`git stash list` 现为空）。
+        净效果核查：未 commit、未切分支、未 reset --hard、未 clean；40 个实现文件与 8 个前端新文件
+        全部存在且内容完整；`0001`–`0006` migration 未被触碰。**协调器因此未采信两个 Agent 的测试结论，
+        在全新真实 PostgreSQL 16.2 上独立重跑**：后端 798 passed / 0 skipped、前端 typecheck 干净 /
+        460 passed / build 成功、ruff 干净，与报告一致。
+      action: 已由协调器独立复现验证；实现交接内容接受，违规行为记录在案。
+    F007-INC-2:
+      severity: PROCESS
+      discovered: "2026-09-18"
+      summary: >-
+        协调器在上一轮提交 Architecture Handoff 时，提交信息含反引号对，被 shell 当作命令替换，
+        导致**信息被截断**并尝试执行名为 `carrier` 的命令（该命令不存在，执行失败，无副作用）。
+        该次提交实际成功，产生了与后一次提交**信息相同**的额外提交 30592ec；其内容为 85963ce 的严格子集
+        （仅 docs 与 plan 的较早版本），HEAD 内容正确。协调器当时误判该提交失败，未察觉，本轮经 reflog 发现。
+      action: 未改写历史（AGENTS.md 禁止以改写历史处理问题）；记录在案。后续提交一律使用 `git commit -F -`（stdin），避免反引号被 shell 解释。
+  follow_ups:
+    from_f010_review:
+      report: docs/reviews/f010-resource-detail.md
+      open:
+        - id: REV-2
+          severity: NOTE
+          owner: Tester / Architect
+          summary: "G-010-5 只检出 deleted_at 的写入形态；REQUIRED #2 声称「不得出现任何 deleted_at 表达式（含第二份活跃过滤谓词）」。评审注入只读 .deleted_at.is_(None) 谓词时 guard 不失败（12 passed），而注入写入形态即失败。当前 resource_views 读/写谓词均为零（grep 无匹配），故属纵深缺口而非实现缺陷。建议加「resource_views 源码不得含 deleted_at 字样」token guard，或把 REQUIRED #2 表述收窄为「不得写入」。"
+        - id: REV-3
+          severity: NOTE
+          owner: Architect
+          summary: "架构 REQUIRED #5 声称「单一 session 内保证跨类一致快照」，实际为 PostgreSQL 默认 READ COMMITTED，同一事务内各语句各自取快照；并发软删下 offset 取全循环可能静默跳过行（重复已被去重吸收）。不会产生错误 404/500，对本只读低写并发平台风险很低，且与 F009/F002 同取向。若要求严格一致快照，需 Architect 裁定是否用 REPEATABLE READ。"
+        - id: Framework OPEN#6（承）
+          severity: NOTE
+          owner: Architect / Product
+          summary: "聚合级分页 / 超大规模关联的性能——无已确认需求，留待后续。"
+      resolved:
+        - id: REV-1
+          summary: "F010.git.head_commit 曾记录为实现提交 6109d4c（与 test COMPLETE / REVIEW 自相矛盾）；已在本状态提交修正为已批准 SHA 9dff02b、merge 334b4ca。"
+      notes:
+        - "契约示例字面值修正：technology_type/purpose 由大写改为 canonical 的 Ethernet/Business（由 Frontend Agent 发现）。"
+        - "F009 源码 token guard 曾被我方注释措辞触发；Frontend Agent 改注释、未动 guard（正确），记录以便后续判断是否需收紧扫描范围（仅扫代码不扫注释）。"
+    from_f008_review:
+      report: docs/reviews/f008-service.md
+      open:
+        - id: REV-F008-2
+          severity: NOTE
+          owner: Backend / Coordinator
+          summary: "tests/test_bare_metals_api.py T-29 上方历史注释曾称「service 仍须被全局检出」，与 F008 后 forbidden_prefixes=(nic,) 矛盾；已标注为历史，并补上「真正防线是 APPROVED_API_PREFIXES allow-list」的结论。"
+        - id: REV-F008-3
+          severity: NOTE
+          owner: Tester / Coordinator
+          summary: "Tester 报告基线标注 ca75a1c 而候选 HEAD 为 f5ed0e4（差异仅 2 个 docs、代码零变更，测试证据仍有效）；建议未来报告标注更精确。"
+        - id: F004 REV-2（承）
+          severity: LOW
+          owner: Backend
+          summary: "BOUNDARY_TOKENS 清空后单数变体路由（如 /api/service）依赖 allow-list 而非 deny-list；本次 allow-list 经注入证实有效，属既有设计边界。"
+      resolved:
+        - id: REV-F008-1
+          summary: "F008.git.head_commit 曾记录为实现提交 6d09994；已在本状态提交修正为已批准 SHA f5ed0e4、merge f773378。"
+      notes:
+        - "NQ-09：F010 必须复用 app/services/repository.list_active_services_by_carrier（canonical 按载体过滤），不得另写过滤。"
+        - "NQ-10：F011 若导入 Service 行，必须复用同一套领域校验；行式模板的 N:M 载体表达属 F011 待确认项。"
+    from_f007_review:
+      report: docs/reviews/f007-container.md
+      open:
+        - id: REV-2
+          severity: LOW
+          owner: Database / Coordinator
+          summary: "docs/product/domain-model.md §6 仍把「Container → 载体」列在「尚未确认」段，与 §5.4 / R-CONTAINER-002 / domain-model.yaml（已 CONFIRMED）矛盾；建议移入「已确认」段或标注以 §5.4 为准。"
+        - id: REV-3
+          severity: NOTE
+          owner: Database
+          summary: "csm-v1-schema-design.md 第 442 行同格既写「恰好一个非空」又写「两列均 NULL 允许」，可被误读；建议改为「两列均可空（列级），由 CHECK 保证恰一列非空」。"
+        - id: F014 残余风险（承）
+          severity: NOTE
+          owner: Backend
+          summary: "静态 guard 对运行期动态 SQL / 动态路由构造无穷举覆盖。"
+      resolved:
+        - id: REV-1
+          summary: "F007.git.head_commit 曾记录为实现提交 0fb1419，与审阅基线不符；已在本状态提交修正为 head 2c383a9、merge ff347be。"
+        - id: REV-4
+          summary: "NQ-8 文档漂移同步已在实现与数据库设计阶段完成（domain-model.yaml relationship/OPEN-002/must_not_assume、schema-design、baseline migration）；domain-model.md §6 残留见 REV-2。"
+      notes:
+        - "NQ-9：F008 须向 CONTAINER_ACTIVE_CHILD_CHECKS 追加「活跃 Service」检查并补端到端（声明点与 AST guard 已就位）。"
+        - "NQ-10：F011 导入 Container 行须复用同一套领域校验。"
+    from_f005_review:
+      report: docs/reviews/f005-ip-address.md
+      open:
+        - id: REV-3
+          severity: LOW
+          owner: Backend
+          summary: >
+            G-9「cluster_id 单一写入路径」静态 guard 覆盖构造与赋值形态，但不覆盖 `update().values(cluster_id=…)`
+            或裸 SQL 形态（Reviewer 以注入证实可绕过）；建议后续加固为 AST / 语句级断言。
+      resolved:
+        - id: REV-1
+          summary: >
+            F004 的 plan 块被本 Feature 的脚本误覆盖（NQ-4/6/7 内容替换、重复 resolved_by、execution 块重复键）。
+            已修复（32ad8bb）：F004 块与 develop 逐字节一致、无重复键、其余 13 个 feature 块未变；经限定范围复审 APPROVED。
+        - id: REV-2 / F005-T-01
+          summary: "`delete_network_interface` docstring 仍称检查点为「显式空元组」；已更新为 F005 起的非空事实。"
+        - id: REV-4
+          summary: F005 head_commit 陈旧；已修正为 head 32ad8bb、merge 7beb6e7。
+        - id: REV-5 / F005-T-02
+          summary: "`docs/database/f012-baseline-migration.md` 的 `0005_f005_ip_addresses` 标题笔误（应为 0006，预存在）；已修正。"
+    from_f004_review:
+      report: docs/reviews/f004-network-interface.md
+      open:
+        - id: REV-2
+          severity: LOW
+          owner: Backend
+          summary: 前缀匹配的固有边界——移除 `network-interface` token 后，`/api/network-interface`（单数）等变体不再被两条边界 guard 检出；属 follow-up，非阻塞。
+      resolved:
+        - id: REV-1
+          summary: project-plan 的 F004 head_commit 陈旧（cf03e01）；已在本状态提交修正为 head 8958252、merge 4a99fa0。
+      notes:
+        - REV-3 / REV-4 / REV-5 为 NOTE（monotonic 补丁适用边界、超时回收、F005 检查点 guard 演进）。
+    from_f006_review:
+      report: docs/reviews/f006-virtual-machine.md
+      open:
+        - id: REV-3 / F007 预期演进点
+          severity: NOTE
+          owner: Backend (F007)
+          summary: VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS 当前显式空元组，F007 落地 Container 时须追加「活跃 Container」检查（R-CONTAINER-005）。
+      resolved:
+        - id: REV-1
+          summary: project-plan 的 F006 head_commit 陈旧（f74e7dd）；已在本状态提交修正为 head 3bd2da2、merge 01077be。
+        - id: REV-2
+          summary: domain-model.yaml 的 must_not_assume 中 VM→BareMetal 条目措辞自相矛盾；已删除该过时条目（绑定已由 R-VM-005 确认为必选）。
+    from_f009_review:
+      report: docs/reviews/f009-cluster-resource-view.md
+      open: []
+      resolved:
+        - id: REV-F009-1
+          summary: >
+            project-plan 的 F009 head_commit 陈旧（c656554）；已在本状态提交修正为 head ac693d7、merge 6529b0d。
+      notes:
+        - REV-F009-2 / -3 / -4 / -5 为 NOTE（无行动项）。
+    from_f002_review:
+      report: docs/reviews/f002-bare-metal.md
+      open:
+        - id: F002-T-01 / REV-2
+          severity: LOW
+          owner: Coordinator / Test Infra
+          summary: >
+            F013 既有 `frontend/tests/appAuth.spec.ts` 在并行全量运行时偶发 `vi.waitFor` 超时；
+            隔离与重跑均通过，与 F002 无因果。已加 `maxWorkers`/`fsModuleCache` 缓解。
+          建议时点: 后续前端测试基础设施整理。
+        - id: REV-3
+          severity: NOTE
+          owner: Product
+          summary: POST 可选 status（NQ-3 / PROPOSED-2 未裁定，可逆）。
+        - id: REV-5
+          severity: NOTE
+          owner: Backend
+          summary: 承 F012 F-02 的 FK 字段回退（应用路径因 FOR SHARE 预检不可达）。
+        - id: REV-6
+          severity: NOTE
+          owner: Coordinator
+          summary: DDL 排版对齐（非功能）。
+      resolved:
+        - id: REV-1
+          summary: >
+            project-plan 的 F002 head_commit 陈旧（d964263）；已在本状态提交修正为 head 03bae26、merge ef39557。
+        - id: REV-4
+          summary: "`useClusterDelete` → `useResourceDelete` 为使能型重构，行为无变化；已由既有 Cluster 测试保障。"
+    from_f015_review:
+      report: docs/reviews/f015-deployment.md
+      open:
+        - id: REV-01
+          severity: LOW
+          owner: Architect / Coordinator
+          summary: >
+            Architecture Handoff 文字写 nginx 构建 context=`./frontend`，但同一 Handoff 要求该 Dockerfile COPY
+            `deploy/nginx/default.conf`（在 frontend/ 之外）；实现取仓库根是唯一自洽解。已于本状态提交修正 Handoff 文字。
+        - id: NOTE-01
+          severity: NOTE
+          owner: Architect / Backend
+          summary: 部署文档用迂回措辞回避 `down -v` 字面（G-04 字面 guard 所致）；非阻塞。
+        - id: NOTE-02
+          severity: NOTE
+          owner: Tester
+          summary: pytest T-05 断言语义不变式而非字面 C.UTF-8；生产值由 G-01 + 文档 + L2 直连覆盖。
+        - id: NOTE-03
+          severity: NOTE
+          owner: Backend
+          summary: 应用镜像夹带 backend/Dockerfile；无功能影响。
+        - id: NOTE-04
+          severity: NOTE
+          owner: Backend
+          summary: nginx 仅精确匹配三个文档路径；属已知实现选择。
+        - id: NOTE-05
+          severity: NOTE
+          owner: Backend
+          summary: nginx 对相同 Cookie 的重复设置未显式去重；无观察到的功能影响。
+      resolved:
+        - id: REV-02
+          summary: >
+            project-plan 的 F015 head_commit 陈旧（056c054）；已在本状态提交修正为 head f536b06、merge 06e655a。
+    from_f014_review:
+      report: docs/reviews/f014-soft-delete.md
+      open:
+        - id: F014-T-01
+          severity: LOW
+          owner: Backend
+          summary: >
+            G-3 allow-list 扫描器未覆盖 mappings / dict 写入形态（`values({"deleted_at": ...})`、`values(**{...})`）。
+            当前代码无此形态，行为测试 T-01/T-07 为运行时兜底。
+          建议时点: F002 批次内扩展为 AST 扫描。
+        - id: NOTE-01
+          severity: NOTE
+          owner: Architect / Backend
+          summary: >
+            空 `CLUSTER_ACTIVE_CHILD_CHECKS` 为 fail-open 默认；F002 追加子资源检查前，删除不检查子资源。
+            已由 R-DELETE-004 的 F002 交接显式承接。
+        - id: NOTE-02
+          severity: NOTE
+          owner: Backend
+          summary: 继承 F012 F-01：未映射的 4xx（如 405）仍被标为 INTERNAL_ERROR。
+          继承自: F012
+      resolved:
+        - id: REV-01
+          summary: >
+            NQ-1 / NQ-2 归属未落盘：已将 R-DELETE-004 真实场景写入 F002 acceptance_criteria、
+            `ip_address.cluster_id` 受控写入与漂移测试写入 F005 acceptance_criteria，并更新 R-DELETE-004 的 requirement_coverage。
+        - id: REV-02
+          summary: >
+            project-plan 的 F014 head_commit 陈旧（592e96e）；已在本状态提交中修正为 head d2805f5、merge 184ee61。
+    from_f013_review:
+      report: docs/reviews/f013-auth.md
+      open:
+        - id: REV-01
+          severity: LOW
+          owner: Architect / F015 / Backend
+          summary: >
+            框架默认文档面 /docs、/redoc、/openapi.json 位于 /api 前缀之外，未认证可达（实测 200）。
+            契约 §2 将受保护范围限定 /api，故非契约违约；属内网信息面取舍。
+          建议时点: F015 生产部署时记录并决定是否关闭 / 限制。
+        - id: REV-03
+          severity: NOTE
+          owner: Backend
+          summary: >
+            口令日志 guard 仅逐行子串匹配，跨行构造 / logger 别名可能漏检；当前无口令日志路径。
+          建议时点: 后续 hardening。
+        - id: REV-04
+          severity: NOTE
+          owner: Architect
+          summary: >
+            大写 /API/clusters 返回 404 而非 401（与契约大小写敏感定义一致，无数据暴露）。
+          建议时点: 认知记录。
+        - id: F013-F-01
+          severity: LOW
+          owner: Backend
+          summary: >
+            未映射的 4xx（如 405）被标为 INTERNAL_ERROR；继承自 F012 F-01，非 F013 引入。
+          继承自: F012
+      resolved:
+        - id: REV-02
+          summary: >
+            project-plan 的 F013 head_commit 陈旧（01335ee）；已在本状态提交中修正为 head 46c6d8a、merge 4d2e48c。
+    from_f001_review:
+      report: docs/reviews/f001-cluster.md
+      open:
+        - id: REV-1
+          severity: LOW
+          owner: Backend
+          summary: >
+            结构 guard G1 只检查字段 metadata 与 config 的 strip/lower/upper，不检查 model_config 中的
+            str_max_length / str_min_length，可静默引入「长度」这一 undefined_constraint。
+          建议时点: 不晚于 F011（Excel 导入复用同一 schema）前。
+        - id: REV-2
+          severity: LOW
+          owner: Backend
+          summary: >
+            A15 静态 guard 只匹配 `.deleted_at =`，不覆盖 `values(deleted_at=...)` / dict 键 / setattr 形式。
+            当前实际赋值数为 0，无现行违约。
+          建议时点: F014 落地前（F014 本就要重写该 guard 以允许统一软删服务模块）。
+        - id: F-01
+          severity: LOW
+          owner: Backend
+          summary: >
+            未映射的 4xx（如 405）被标为 INTERNAL_ERROR，前端会误渲染为「服务器内部错误」。
+            架构 Handoff 明确 F001 不修改通用映射表（超出产品范围）。
+          继承自: F012
+      resolved:
+        - id: REV-3
+          summary: project-plan 的 head_commit / implementation 标注陈旧；已在本状态提交中修正为 head fe36e1a、merge 5a96ad0。
+        - id: F-03
+          summary: >
+            F012 Review 的 MEDIUM「自检面 fail-open」已由 F001 彻底移除 /_foundation/* 而**消解**
+            （模块、挂载、foundation_enabled 开关、dev proxy、前端自检页全部删除）。
+
+    from_f012_review:
+      report: docs/reviews/f012-project-foundation.md
+      open:
+        - id: F-03
+          severity: MEDIUM
+          owner: Architect / Backend / F015
+          must_resolve_before: F015
+          summary: >
+            自检面 fail-open：CSM_ENVIRONMENT 未设置时默认 dev，/_foundation/* 可达（含未认证写端点），
+            且该面位于 /api 之外，不受 F013 认证覆盖。属纵深防御缺口，非契约字面违约。
+        - id: F-01
+          severity: LOW
+          owner: Backend
+          summary: >
+            未映射的 4xx（如 405）被标为 INTERNAL_ERROR，前端会误渲染为「服务器内部错误」。
+        - id: F-02
+          severity: LOW
+          owner: Backend
+          summary: >
+            23503 的 details[].field 回退解析会截断多词列名（cluster_id -> cluster）。
+            F012 不可达，影响 F002 / F004 / F005。
+        - id: N-01
+          severity: NOTE
+          owner: Tester / Coordinator
+          summary: >
+            T11 的 lint 门禁仅文本 grep 源码；无 DSN 时真实数据库断言被 skip 而 meta-test 仍通过。
+            建议改为直接收集数据库用例。
+      resolved:
+        - id: F-04
+          summary: >
+            测试夹具的 DSN 回退 + DROP SCHEMA CASCADE 风险；已在 dbff989 修复
+            （去掉 DSN 回退 + 新增 assert_safe_to_reset 纵深防御）。
+        - id: D-01
+          summary: Test Report 的 F-04 状态陈旧；已标记 RESOLVED 并保留原文供追溯。
+        - id: D-02
+          summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
+        - id: D-03
+          summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
+  decision: "PROJECT DONE — 13 DONE + F011 CANCELLED by user (2026-09-18); scope records corrected per option A"
+
+execution:
+  current_feature: null
+  current_stage: null
+  started_on: "2026-09-16"
+  note: >-
+    F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
+    NQ-01 已由用户确认（2026-09-16）：**必须先删除，不做解绑功能**，已固化为 R-SVC-009。
+    Architecture 两项关键裁定：① N:M 多态绑定用**单张 service_carriers + 三列可空 FK + CHECK (num_nonnulls(...) = 1)
+    + 三条 partial unique（集合语义）**（否决三张绑定表：语义无增益却三倍 schema / guard 成本）；
+    ② 「释放绑定」**无需任何写入**——绑定行不可变、不物理删除、无 deleted_at，活跃性由 services.deleted_at 派生，
+    故 app/deletion/service.py **零改动**、allow-list 恒为 {backend/app/deletion/service.py}。
+    注意：移除 `service` token 后 BOUNDARY_TOKENS 变为空，**不得删除 test_g009_2**，且必须保留
+    APPROVED_API_PREFIXES allow-list 作为真正的越界防线（历史两次 MEDIUM 均因收窄扫描范围）。
+    Database Design 完成（0008_f008_services：2 表 / 16 列 / 1 CHECK / 4 FK RESTRICT / 8 索引），
+    Backend + Frontend 已并行完成（实现提交 6d09994）。协调器在全新真实 PostgreSQL 上**独立重跑**验证：
+    后端 935 passed（0 skipped）、前端 typecheck 干净 + 546 passed + build 成功、ruff 干净，
+    且 0001–0007 与 app/deletion/service.py 逐字节未改（已由协调器核对，未采信 Agent 报告）。
+    现处 Review（database_design / backend / frontend / test 均 COMPLETE，status = IN_REVIEW，head_commit = 6d09994）。Tester 结论 READY FOR REVIEW：54/54 AC 全 PASS、无缺陷；对抗注入 11/11 被检出并逐字节还原，并证明 BOUNDARY_TOKENS 清空后真正可独立失败的防线是 APPROVED_API_PREFIXES allow-list。下一步 Reviewer。
