@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
 import ElementPlus, { ElPagination, ElPopconfirm } from 'element-plus'
 import ClusterListPage from '../src/pages/ClusterListPage.vue'
+import ClusterFormDialog from '../src/components/ClusterFormDialog.vue'
 import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
@@ -539,5 +540,171 @@ describe('ClusterListPage 删除入口（F014，T-FE-01 / AC-10）', () => {
     await waitForUi(() => {
       expect(wrapper.findAll('.el-table__row')).toHaveLength(1)
     })
+  })
+})
+
+// ---- 登记入口（F016，POST /api/clusters，契约 §3.1） ----
+
+const NEW_CLUSTER = {
+  id: 9,
+  name: 'cluster-x',
+  created_at: '2026-09-18T10:00:00Z',
+  updated_at: '2026-09-18T10:00:00Z',
+}
+
+/** 契约 §5：message 不构成契约；使用与展示无关的文案。 */
+const CREATE_DUPLICATE_BODY = {
+  error: {
+    code: 'CONFLICT',
+    message: '与展示无关的重复文案',
+    details: [{ field: 'name', code: 'DUPLICATE', message: '与展示无关的字段文案' }],
+  },
+}
+
+/** 按方法分发的 fetch 桩：POST → create()；其余（GET 列表）→ list()。 */
+function stubCreateFetch(routes: {
+  list: () => Response
+  create?: () => Response | Promise<Response>
+}) {
+  const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === 'POST') return routes.create?.() ?? jsonResponse(201, NEW_CLUSTER)
+    return routes.list()
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+/** POST /api/clusters 的调用次数。 */
+function createCalls(fetchMock: ReturnType<typeof vi.fn>): number {
+  return fetchMock.mock.calls.filter(
+    (call) => (call[1] as RequestInit | undefined)?.method === 'POST',
+  ).length
+}
+
+/** 打开登记对话框并等待表单渲染就绪（el-dialog 内容首开才挂载）。 */
+async function openCreateClusterDialog(wrapper: VueWrapper): Promise<void> {
+  await wrapper.find('[data-testid="open-create-dialog"]').trigger('click')
+  await waitForUi(() => {
+    expect(wrapper.find('[data-testid="cluster-form-submit"]').exists()).toBe(true)
+  })
+}
+
+/** 等待提交按钮可用后点击（沿用既有 submitWhenEnabled 形态；本对话框禁用仅为提交中）。 */
+async function submitClusterForm(wrapper: VueWrapper): Promise<void> {
+  await waitForUi(() => {
+    expect(wrapper.find('[data-testid="cluster-form-submit"]').attributes('disabled')).toBeUndefined()
+  })
+  await wrapper.find('[data-testid="cluster-form-submit"]').trigger('click')
+}
+
+describe('ClusterListPage 登记入口（F016，AC-01 / AC-03 / AC-06 / AC-08 / AC-14 / AC-16 / AC-17）', () => {
+  it('头部存在「登记集群」入口；打开 create 模式 ClusterFormDialog，打开不发起任何请求（AC-01 / AC-03）', async () => {
+    const fetchMock = stubCreateFetch({ list: () => jsonResponse(200, LIST_BODY) })
+
+    const wrapper = await mountListWithRows()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    const button = wrapper.find('[data-testid="open-create-dialog"]')
+    expect(button.exists()).toBe(true)
+    expect(button.text()).toContain('登记集群')
+    // 登记与改名共用同一 ClusterFormDialog 组件（AC-03）：列表页挂载 create 模式。
+    expect(wrapper.findComponent(ClusterFormDialog).props('mode')).toBe('create')
+    expect(wrapper.find('[data-testid="cluster-form-submit"]').exists()).toBe(false)
+
+    await openCreateClusterDialog(wrapper)
+
+    expect(wrapper.findComponent(ClusterFormDialog).props('modelValue')).toBe(true)
+    // 打开不发起任何请求（无选项加载）：仍只有初始 GET。
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('登记成功（201）→ emit openDetail(新集群 id)，无需人工刷新即可观察新集群（AC-06）', async () => {
+    const fetchMock = stubCreateFetch({
+      list: () => jsonResponse(200, LIST_BODY),
+      create: () => jsonResponse(201, NEW_CLUSTER),
+    })
+
+    const wrapper = await mountListWithRows()
+    await openCreateClusterDialog(wrapper)
+
+    await wrapper.find('[data-testid="cluster-form-name"]').setValue('cluster-x')
+    await submitClusterForm(wrapper)
+
+    await waitForUi(() => {
+      expect(createCalls(fetchMock)).toBe(1)
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/clusters',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'cluster-x' }) }),
+    )
+    // 成功 → 跳转新集群详情（App 既有接线；201 返回的 id 保证新集群可观察）。
+    await waitForUi(() => {
+      expect(wrapper.emitted('openDetail')).toEqual([[9]])
+    })
+    expect(wrapper.findComponent(ClusterFormDialog).props('modelValue')).toBe(false)
+  })
+
+  it('登记失败（409）→ 不 emit openDetail、对话框保持打开、不误报成功（AC-08）', async () => {
+    const fetchMock = stubCreateFetch({
+      list: () => jsonResponse(200, LIST_BODY),
+      create: () => jsonResponse(409, CREATE_DUPLICATE_BODY),
+    })
+
+    const wrapper = await mountListWithRows()
+    await openCreateClusterDialog(wrapper)
+
+    await wrapper.find('[data-testid="cluster-form-name"]').setValue('cluster-a')
+    await submitClusterForm(wrapper)
+
+    await waitForUi(() => {
+      expect(wrapper.find('[data-error-code="CONFLICT"]').exists()).toBe(true)
+    })
+    expect(wrapper.emitted('openDetail')).toBeUndefined()
+    expect(wrapper.findComponent(ClusterFormDialog).props('modelValue')).toBe(true)
+    // 列表未刷新、未误报成功：仍只有初始 GET + 一次 POST。
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('取消 / 关闭对话框不发送任何写请求、不改变列表（AC-14）', async () => {
+    const fetchMock = stubCreateFetch({ list: () => jsonResponse(200, LIST_BODY) })
+
+    const wrapper = await mountListWithRows()
+    await openCreateClusterDialog(wrapper)
+
+    await wrapper.find('[data-testid="cluster-form-name"]').setValue('cluster-x')
+    const cancelButton = wrapper.findAll('button').find((b) => b.text() === '取消')
+    expect(cancelButton).toBeDefined()
+    await cancelButton!.trigger('click')
+
+    // 仅初始 GET，无任何写请求；列表两行不变。
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.findComponent(ClusterFormDialog).props('modelValue')).toBe(false)
+    expect(wrapper.findAll('.el-table__row')).toHaveLength(2)
+  })
+
+  it('对话框接线不改变三态与 Empty 语义：Empty 态照常渲染，登记入口仍可达（AC-16）', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, EMPTY_LIST_BODY)))
+
+    const wrapper = mountPage()
+    await waitForUi(() => {
+      expect(wrapper.find('[data-state]').attributes('data-state')).toBe('empty')
+    })
+    expect(wrapper.text()).toContain('暂无集群')
+    expect(wrapper.find('.el-table').exists()).toBe(false)
+    // 头部登记入口不依赖内容态，Empty 下仍可达（AC-01 / AC-16）。
+    expect(wrapper.find('[data-testid="open-create-dialog"]').exists()).toBe(true)
+  })
+
+  it('F014 删除入口不受登记接线影响（AC-17）', async () => {
+    stubListFetch({
+      list: () => jsonResponse(200, LIST_BODY),
+      remove: () => noContent(),
+    })
+
+    const wrapper = await mountListWithRows()
+
+    // 行内删除入口（ElPopconfirm 二次确认）保持原样，与登记入口共存。
+    expect(wrapper.findAllComponents(ElPopconfirm)).toHaveLength(2)
+    expect(wrapper.find('[data-testid="open-create-dialog"]').exists()).toBe(true)
   })
 })
