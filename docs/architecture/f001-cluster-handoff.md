@@ -135,6 +135,7 @@ Frontend Agent 完成：
 4. **三态基座改接产品端点**：删除 `frontend/src/pages/DevSelfCheckPage.vue` 与 `frontend/src/api/foundation.ts`；`ListStates.vue` / `ErrorState.vue` / `useAsyncQuery.ts` **保留**为可复用基座，由产品 Cluster 页与其测试使用。F012 架构判据 6 的验证力因此由 `GET /api/clusters` 承载（不再需要 `/_foundation/error`：Error 态改由 `GET /api/clusters?page=0` 的确定性 `400` 或桩件驱动）。
 5. **页面切换（PROPOSED）**：本次**不引入 `vue-router`**（避免为单资源页面引入新依赖，且受「不得引入新框架 / 中间件」约束）。`App.vue` 用极简视图状态在列表 / 详情间切换；前端路由方案作为 OPEN 非阻塞项，在 F009/F010 出现多资源导航前决策。详情页的 404 态由组件级 404 桩件测试覆盖。
 6. **登记 / 改名 UI（PROPOSED，不构成 AC）**：`POST` / `PATCH` 的表单可一并交付（复用同一套 API 与错误渲染）；F001 的 AC 只覆盖 AC-14 的三态与 Empty/Not Found 区分。
+   > **更正注记（2026-09-18，F016）**：本条与下方决策 §7 相互矛盾（此处「**可**一并交付」是可选，§7「随本次交付」却是确定交付），且两处都附加「不构成 AC」——结果该表单**既未被 AC 要求、也未被实现**，Review 无据可查，且从未被登记为遗留项；用户在已部署生产实例上实测「找不到登记集群的地方」才暴露该缺口。**已由 F016 补做**（`feature/F016-cluster-registration-ui`，见 `docs/product/handoffs/f016-cluster-registration-ui.md`）。教训：给一个交付物标注「不构成 AC」时，必须同时说明它是否仍属本次交付范围，否则它会在 Gate 中被静默丢弃。
 7. **不做**：登录页（F013）、任何业务校验的重复实现（§21：前端不重复实现业务规则）、BareMetal 相关内容。
 
 **文件所有权（并行安全）**：Frontend 拥有 `frontend/**`；Backend 拥有 `backend/**`、`tests/**`、`.env.example`、`README.md`。共享文档（`docs/**`）由协调器统一落盘。
@@ -215,6 +216,7 @@ Testing Agent 应验证的最小集合（映射 AC-01 ~ AC-14 与 Q8 的 guard�
 5. `GET /api/clusters/by-name/{cluster_name}/bare-metals` 归属 **F009**（Cluster 视角查询），实体归 F002。
 6. 前端不引入 `vue-router`，用极简视图状态切换列表 / 详情。
 7. 前端 `POST` / `PATCH` 表单随本次交付（不构成 AC）。
+   > **更正注记（2026-09-18，F016）**：本条与上方 Frontend Work §6（「**可**一并交付」）矛盾，且实际**未交付**——`createCluster` / `updateCluster` 被写入 API 客户端但零调用者。已由 F016 补做并纳入 AC 覆盖。详见 §6 的注记。
 8. 分页上限沿用 F012 的 `page_size` 默认 50 / 上限 200。
 
 ### OPEN

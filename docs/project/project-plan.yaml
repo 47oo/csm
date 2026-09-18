@@ -28,8 +28,15 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: DONE
+  status: IN_PROGRESS
   completed_on: "2026-09-18"
+  reopened_on: "2026-09-18"
+  reopened_reason: >
+    F016：用户在已部署的生产实例上反馈「找不到登记集群的地方」。经查证这是 F001 留下的
+    真实 UI 交付缺口——后端 POST/PATCH 可用且已被测试，前端无任何入口；createCluster /
+    updateCluster 有 0 个调用者；6 个 *FormDialog 中唯独缺 ClusterFormDialog。用户裁定
+    「补做」，范围纯前端（登记 + 改名共用同一对话框）。项目因该缺口重开，见 reopened 后的
+    F016 条目；13 DONE + 1 CANCELLED 的历史结论不变。
   completion_note: >
     全部 14 个 Feature 已处置完毕：13 个 DONE（F012 / F001 / F013 / F014 / F015 / F002 / F009 /
     F006 / F004 / F005 / F007 / F008 / F010），1 个 CANCELLED（F011，2026-09-18 用户决定取消，
@@ -1205,6 +1212,49 @@ features:
       - 导入失败时明确指出哪一行、哪一个字段、什么原因（R-IMPORT-003）。
       - 导入为 All-or-Nothing：任一行失败则整个导入不产生任何写入，且一次性报告全部失败行（R-IMPORT-004）。
     open_questions: []
+  # ---- F016：post-V1 缺口闭合：F001 遗留的 Cluster 登记 / 改名 UI ----
+  # 上游依据：用户 2026-09-18 在已部署生产实例上发现「找不到登记集群的地方」并裁定补做。
+  # 纯前端：后端 POST/PATCH 已可用且已测试，契约 f001-cluster.md 保持冻结。
+  - id: F016
+    name: Cluster 登记与改名 UI
+    epic: E01
+    priority: P1
+    status: IN_PROGRESS
+    depends_on: [F001, F013, F014]
+    blocking: []
+    git: {base_branch: develop, branch: feature/F016-cluster-registration-ui, start_commit: "67a498fab950f130330189e92756870623222a3d", head_commit: null, merge_commit: null}
+    current_stage: PRODUCT
+    last_result: >
+      F001 遗留缺口已确认为事实并经用户裁定补做：后端 POST /api/clusters 与
+      PATCH /api/clusters/{id} 可用且已测试，前端既无登记也无改名入口——
+      createCluster / updateCluster 零调用者，6 个 *FormDialog 中唯独缺 ClusterFormDialog。
+      Product Gate 通过（READY FOR ARCHITECT，无 Blocking 问题）。
+    next_action: >
+      Architect（确认纯前端、零后端改动；定 ClusterFormDialog 组件契约与入口接线、
+      错误按 error.code 渲染的统一路径、以及「前端不实现业务校验」的可失败保障）。
+    layers: {database: false, backend: false, frontend: true}
+    contract: {status: READY, doc: docs/api/f001-cluster.md}
+    implementation: {database_design: NOT_REQUIRED, backend: NOT_REQUIRED, frontend: PENDING, test: PENDING, review: PENDING}
+    product_document: docs/product/requirements.md
+    requirements:
+      - R-CLUSTER-001
+      - R-CLUSTER-002
+      - R-CLUSTER-003
+      - R-CLUSTER-005
+      - §21 Data Consistency
+      - §22 Case Sensitivity
+      - R-QUERY-004
+    acceptance_criteria:
+      - 集群列表页提供「登记集群」入口，提交合法名称后无需手工刷新即可看到新集群（AC-01 / AC-06）。
+      - 已存在集群提供「改名」入口，编辑模式预填当前 name，成功后界面呈现新名称与新的 updated_at（AC-02 / AC-09）。
+      - 登记与改名由同一个对话框组件承载，不存在第二套表单（AC-03）。
+      - 对话框输入项恰为 name 一项，无状态 / 上级 / 位置 / 关系 / 删除字段（AC-04）。
+      - 前端不实现任何业务校验或名称变换（不检测 `/`、不比对重名、不折叠大小写、不 trim、不做 NFC、不按空串拦截），name 原样提交（AC-05）。
+      - 失败按 error.code 渲染固定文案且不解析 message：400 字段级 / 409 活跃同名 / 404 不存在或已删 / 401 交既有全局会话失效（AC-07 / AC-10）。
+      - 提交中 Loading 且禁止重复提交；取消不产生写入；失败后表单不锁死（AC-13 / AC-14 / AC-15）。
+      - 不破坏既有三态与 Empty / Not Found 区分，不影响 F014 删除入口（AC-16 / AC-17）。
+      - 零后端改动：无新端点、无契约变更、无 migration；docs/api/f001-cluster.md 保持冻结。
+    open_questions: []
 
 # ---------------------------------------------------------------------------
 # Blocking Decisions
@@ -1495,6 +1545,19 @@ milestones:
       - 导入采用 All-or-Nothing：任一行失败即整体不写入，并一次性报告全部失败行（R-IMPORT-004）。
       - Reviewer 批准并成功 merge 到 develop。
 
+  - id: M6
+    name: 补 F001 遗留的 Cluster 登记 UI（post-V1 缺口闭合）
+    goal: 为已冻结的 Cluster 写入能力补上前端入口，使「登记集群 / 改名」不再只能靠直接调 API。
+    features: [F016]
+    entry_conditions:
+      - M1 / M2 完成（F001 的登记与改名端点、F013 认证、F014 删除入口均已 DONE）。
+      - 用户已裁定补做（2026-09-18，范围：登记 + 改名，共用同一对话框）。
+    completion_criteria:
+      - 集群列表页可发起登记、集群详情页可发起改名，两者共用同一对话框组件。
+      - 业务校验仍由后端裁决（`/` 禁令、活跃名称全局唯一、大小写敏感），前端不重复实现、不预判拦截。
+      - 后端与 API 契约零改动（docs/api/f001-cluster.md 保持冻结）；无 migration。
+      - Reviewer 批准并成功 merge 到 develop。
+
 # ---------------------------------------------------------------------------
 # Existing Work — Greenfield，无任何已实现能力
 # ---------------------------------------------------------------------------
@@ -1721,7 +1784,7 @@ planning_status:
     DRAFT: []
   counts:
     READY: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     BLOCKED: 0
     DRAFT: 0
     DONE: 13
@@ -2245,11 +2308,11 @@ planning_status:
           summary: README §8 仍提及已移除的 DSN 回退；已修正为必须显式设置测试库。
         - id: D-03
           summary: project-plan 的 head_commit 未更新；已填入 head 966d56a 与 merge 3b8646c。
-  decision: "PROJECT DONE — 13 DONE + F011 CANCELLED by user (2026-09-18); scope records corrected per option A"
+  decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F016
+  current_stage: PRODUCT
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。
