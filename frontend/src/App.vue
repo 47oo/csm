@@ -712,7 +712,7 @@ async function handleLogout(): Promise<void> {
     <template v-else>
       <div class="app-shell__layout">
         <aside class="app-shell__sidebar" data-testid="app-sidebar">
-          <div class="app-shell__brand">CSM</div>
+          <div class="app-shell__brand">CSM<span>资源管理平台</span></div>
           <nav class="app-shell__nav">
             <el-button
               data-testid="nav-clusters"
@@ -947,19 +947,35 @@ async function handleLogout(): Promise<void> {
 }
 
 .app-shell__sidebar {
-  flex: 0 0 200px;
-  width: 200px;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+  flex: 0 0 224px;
+  width: 224px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px;
+  gap: 24px;
+  padding: 28px 20px 20px;
   background: #fff;
-  border-right: 1px solid #e4e7ed;
+  border-right: 1px solid var(--el-border-color-lighter);
 }
 
 .app-shell__brand {
-  font-size: 18px;
-  font-weight: 600;
+  padding: 0 12px;
+  font-size: 25px;
+  font-weight: 750;
+  letter-spacing: -0.8px;
+  color: #1e293b;
+}
+
+.app-shell__brand span {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: #64748b;
 }
 
 .app-shell__nav {
@@ -970,7 +986,23 @@ async function handleLogout(): Promise<void> {
 
 .app-shell__nav .el-button {
   width: 100%;
+  height: 40px;
+  padding: 0 14px;
   justify-content: flex-start;
+  border-color: transparent;
+  background: transparent;
+  color: #475569;
+  border-radius: 8px;
+}
+
+.app-shell__nav .el-button:not(.app-shell__nav-item--active):hover {
+  background: #f1f5f9;
+  color: #1e40af;
+}
+
+.app-shell__nav .el-button:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
 }
 
 /* Element Plus 给相邻按钮默认加 margin-left: 12px，纵向堆叠时表现为缩进，复位为 0。 */
@@ -980,9 +1012,11 @@ async function handleLogout(): Promise<void> {
 
 /* 活跃态：当前资源区导航项（class 由 navSection 单一真相源派生，仅呈现）。 */
 .app-shell__nav .app-shell__nav-item--active {
-  color: #fff;
-  background-color: #409eff;
-  border-color: #409eff;
+  color: #1d4ed8;
+  background-color: #eff6ff;
+  border-color: transparent;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 #2563eb;
 }
 
 /* F018 外壳搜索区：nav 之后、会话区之前。 */
@@ -990,15 +1024,17 @@ async function handleLogout(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
-  padding: 8px 0;
-  border-top: 1px solid #e4e7ed;
-  border-bottom: 1px solid #e4e7ed;
+  gap: 10px;
+  padding: 16px 12px;
+  border: 1px solid #e8edf4;
+  border-radius: 10px;
+  background: #f8fafc;
 }
 
 .app-shell__search-label {
-  color: #909399;
+  color: #475569;
   font-size: 12px;
+  font-weight: 600;
 }
 
 .app-shell__search .el-select,
@@ -1017,6 +1053,12 @@ async function handleLogout(): Promise<void> {
 
 .app-shell__search .app-shell__search-button {
   width: 100%;
+  height: 32px;
+}
+
+.app-shell__search :deep(.el-input__wrapper),
+.app-shell__search :deep(.el-select__wrapper) {
+  min-height: 32px;
 }
 
 .app-shell__session {
@@ -1024,6 +1066,9 @@ async function handleLogout(): Promise<void> {
   display: flex;
   align-items: center;
   gap: 12px;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
 .app-shell__username {
@@ -1033,5 +1078,65 @@ async function handleLogout(): Promise<void> {
 .app-shell__content {
   flex: 1;
   min-width: 0;
+  padding: 12px 16px;
+}
+
+@media (max-width: 760px) {
+  .app-shell__layout {
+    flex-direction: column;
+  }
+
+  .app-shell__sidebar {
+    position: static;
+    flex: none;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    padding: 16px;
+    gap: 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .app-shell__brand {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 0;
+    font-size: 22px;
+  }
+
+  .app-shell__nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .app-shell__nav .el-button {
+    justify-content: center;
+    padding: 0 4px;
+    font-size: 13px;
+  }
+
+  .app-shell__search {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .app-shell__search-label,
+  .app-shell__search-hint,
+  .app-shell__search-button {
+    grid-column: 1 / -1;
+  }
+
+  .app-shell__session {
+    margin-top: 0;
+    padding-top: 0;
+    border: 0;
+  }
+
+  .app-shell__content {
+    padding: 0;
+  }
 }
 </style>

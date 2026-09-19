@@ -95,6 +95,7 @@ async function handleSubmit(): Promise<void> {
   <main class="login-page" :data-state="state">
     <section class="login-page__card">
       <h1 class="login-page__title">CSM 登录</h1>
+      <p class="login-page__subtitle">资源管理平台 · HPC / AI</p>
 
       <div
         v-if="failure !== null"
@@ -148,16 +149,27 @@ async function handleSubmit(): Promise<void> {
 .login-page__card {
   width: 100%;
   max-width: 380px;
-  padding: 32px 28px 36px;
+  padding: 40px 32px;
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e8edf4;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgb(15 23 42 / 5%);
 }
 
 .login-page__title {
-  margin: 0 0 20px;
-  font-size: 20px;
-  text-align: center;
+  margin: 0 0 8px;
+  font-size: 26px;
+  letter-spacing: -0.5px;
+}
+
+.login-page__subtitle {
+  margin: 0 0 32px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.login-page__card :deep(.el-input__wrapper) {
+  min-height: 40px;
 }
 
 .login-page__failure {
@@ -166,5 +178,7 @@ async function handleSubmit(): Promise<void> {
 
 .login-page__submit {
   width: 100%;
+  height: 40px;
+  margin-top: 8px;
 }
 </style>
