@@ -21,7 +21,123 @@ body {
     '微软雅黑',
     Arial,
     sans-serif;
-  background-color: #f5f7fa;
-  color: #303133;
+  background-color: #f6f8fb;
+  color: #1e293b;
   -webkit-font-smoothing: antialiased;
+}
+
+:root {
+  --el-color-primary: #2563eb;
+  --el-color-primary-light-3: #6692f1;
+  --el-color-primary-light-5: #92b1f5;
+  --el-color-primary-light-7: #bed0f9;
+  --el-color-primary-light-8: #d3e0fb;
+  --el-color-primary-light-9: #e9effd;
+  --el-color-primary-dark-2: #1e4fbc;
+  --el-text-color-primary: #1e293b;
+  --el-text-color-regular: #475569;
+  --el-text-color-secondary: #64748b;
+  --el-border-color: #dce3ed;
+  --el-border-color-light: #e8edf4;
+  --el-border-color-lighter: #edf1f6;
+  --el-border-radius-base: 6px;
+}
+
+/* Existing resource pages share the same main/header/section structure.
+   Keep these presentation rules inside the shell, away from login and dialogs. */
+.app-shell__content > main {
+  width: 100%;
+}
+
+.app-shell__content > main > header {
+  flex-wrap: wrap;
+  row-gap: 16px;
+  margin-bottom: 24px;
+}
+
+.app-shell .app-shell__content > main > header h1 {
+  font-size: 22px;
+  line-height: 1.4;
+  letter-spacing: -0.4px;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+
+.app-shell__content > main > header > div {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.app-shell__content > main > header .el-tag {
+  max-width: 100%;
+  height: auto;
+  min-height: 24px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.app-shell__content > main > section {
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e8edf4;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgb(15 23 42 / 2%);
+}
+
+.app-shell__content .el-table {
+  --el-table-header-bg-color: #f8fafc;
+  --el-table-header-text-color: #64748b;
+  --el-table-row-hover-bg-color: #f8faff;
+}
+
+.app-shell__content .el-table th.el-table__cell {
+  padding: 12px 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-shell__content .el-table td.el-table__cell {
+  padding: 14px 0;
+}
+
+.app-shell__content .el-pagination {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  white-space: normal;
+}
+
+/* Dialog widths are otherwise fixed by Element Plus inline props. */
+.el-dialog {
+  max-width: calc(100vw - 32px);
+}
+
+@media (max-width: 760px) {
+  .app-shell__content > main > header {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .app-shell .app-shell__content > main > header h1 {
+    font-size: 20px;
+  }
+
+  .app-shell__content > main > header > div {
+    flex-wrap: wrap;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .app-shell__content > main > section {
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .app-shell__content .el-pagination {
+    justify-content: flex-start;
+  }
 }

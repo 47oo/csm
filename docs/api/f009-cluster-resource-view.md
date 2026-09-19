@@ -178,7 +178,7 @@
 - Cluster 状态 / 状态汇总 / 计数（R-CLUSTER-003；NQ-1）。
 - DataCenter / 园区 / 机房 / 机柜 / U 位字段（§6、§13）。
 - 自动资产发现 / 外部状态源 / 实时状态（§23、R-BM-006）。
-- 分页之外的排序 / 关键字 / 状态筛选 / 导出（无已确认需求）。
+- 分页之外的排序 / 状态筛选 / 导出（无已确认需求）；**Cluster 内关键字搜索不属于本端点**——其权威正文为 `docs/api/f018-cluster-keyword-search.md`（F018 独立只读端点 `GET /api/clusters/{cluster_id}/search`），本契约不新增 `keyword` 参数。
 - API versioning / 游标分页（无需求）。
 
 ---

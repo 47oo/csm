@@ -126,7 +126,7 @@
 - 未提供 `network_interface_id`：返回系统中全部活跃 IPAddress。
 - 提供 `network_interface_id`：**按父 NIC 限定**返回该 NIC 的活跃 IPAddress（R-QUERY-004 的 F005 侧 canonical 能力；**供 F010 复用**，F010 不得另写一份过滤）。父 NIC **不存在或已逻辑删除** → `404 NOT_FOUND`；父 NIC **存在但无活跃 IPAddress** → `200` + `items == []`（**Empty**）。
 - 已逻辑删除的 IPAddress **不出现**在 `items`，也不计入 `total`。
-- **不存在** `cluster_id` / `vrf` / `status` / IP 前缀 / 排序 / 关键字等第二维度查询参数；本契约不定义此类参数，前端与调用方**不得构造**（Cluster 视角归 F009；未确认筛选不实现）。
+- **不存在** `cluster_id` / `vrf` / `status` / IP 前缀 / 排序等第二维度查询参数；本契约不定义此类参数，前端与调用方**不得构造**（Cluster 视角归 F009；**Cluster 内关键字搜索归 F018**，其权威正文为 `docs/api/f018-cluster-keyword-search.md`，由 F018 的独立只读端点提供，**不通过本端点提供**）。
 
 **Response 200**
 

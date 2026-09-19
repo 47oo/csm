@@ -327,7 +327,7 @@ describe('App 头部导航：全局 IP 地址列表（无过滤）', () => {
       expect(wrapper.text()).toContain('IP 地址列表')
     })
     const navIp = wrapper.find('[data-testid="nav-ip-addresses"]')
-    expect(navIp.classes()).toContain('el-button--primary')
+    expect(navIp.classes()).toContain('app-shell__nav-item--active')
 
     // 切回集群区域：高亮恢复。
     await findButton(wrapper, '集群').trigger('click')
@@ -335,8 +335,8 @@ describe('App 头部导航：全局 IP 地址列表（无过滤）', () => {
       expect(wrapper.text()).toContain('集群列表')
     })
     expect(wrapper.find('[data-testid="nav-ip-addresses"]').classes()).not.toContain(
-      'el-button--primary',
+      'app-shell__nav-item--active',
     )
-    expect(wrapper.find('[data-testid="nav-clusters"]').classes()).toContain('el-button--primary')
+    expect(wrapper.find('[data-testid="nav-clusters"]').classes()).toContain('app-shell__nav-item--active')
   })
 })

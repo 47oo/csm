@@ -1,155 +1,146 @@
 # CSM Backlog
 
-> Status: DRAFT（待用户确认）
+> Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> 本文件是人类可读视图，不构成机器状态的唯一来源。
-> Last updated: 2026-09-16（OPEN-004 已裁定并固化为 R-BM-007；F002 解除 DRAFT → READY；M1 完成）
+> Generated: 2026-09-18（**本文件为重建版**——此前正文自 M1 时期起严重漂移，经用户决定按计划重新生成）
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
 
-需求基线：`docs/product/requirements.md`（CONFIRMED BASELINE；2026-09-15 架构阶段产品裁定：OPEN-005 关闭，固化为 R-IMPORT-004 All-or-Nothing）。
-产品领域模型：`docs/product/domain-model.md` / `domain-model.yaml`（已于 2026-09-15 同步，OPEN-005 已关闭）。
-架构：`docs/architecture/csm-v1-foundation-architecture.md`（READY FOR IMPLEMENTATION），
-ADR-0001 ~ ADR-0005（全部 ACCEPTED），`docs/api/api-conventions.md`（READY）。
-已完成 **F012（项目基础框架与运行环境）**、**F001（Cluster 登记与管理）**、**F013（本地账号认证与会话）**、**F014（逻辑删除与数据一致性治理）** 与 **F015（内网部署与运行环境）**，均已合入 `develop`；M1「平台基础可运行」完成。
-不再是无实现项目：`backend/` 与 `frontend/` 已存在，`clusters` 表已由 F012 基线建立并冻结，
-认证基座已由 F013 建立，统一软删服务与 `DELETE /api/clusters/{id}` 已由 F014 建立，
-生产内网部署产物（`docker-compose.prod.yml` / nginx / 部署文档）已由 F015 建立。
-**当前无 READY Feature**：F002 受 OPEN-004 阻塞，其余均直接 / 间接依赖 F002。
+**重建说明**：本文件由 `project-plan.yaml` 重新生成，取代此前陈旧的正文（旧版仍写「Feature 总数 14 / DONE 10 / F007 READY / M4 进行中」等）。
+历史结论（F011 取消、M5 的实际结局、各 Feature 的 merge SHA、各条 follow-up）均按计划原样保留，未因重建而丢失。
 
-状态取值：`DRAFT` / `BLOCKED` / `READY` / `IN_PROGRESS` / `IN_REVIEW` / `DONE`。
-
-DRAFT / BLOCKED 判定规则（权威定义见 `project-plan.yaml` 顶部与 `planning_status.status_decision_rules`）：
-
-- `DRAFT`：存在未解决的产品问题，且该问题直接影响该 Feature 自身 scope 或 acceptance_criteria 的定稿（自身数据模型 / 字段 / 唯一性 / 生命周期 / 校验策略等产品语义尚未确认）。
-- `BLOCKED`：Feature 的 scope 与 acceptance_criteria 已可定稿，仅被 architecture / database decision、未 DONE 的 `depends_on` 或环境阻塞。
-- 两类原因同时存在时取 `DRAFT`，并在 `blocking` 中同时列出两类原因；仅被其他 Feature 的产品决策间接影响、不改变本 Feature 交付边界时仍按 `BLOCKED`。
-
-`READY` 需同时满足：产品范围明确、AC 可定义、无阻塞产品问题、无阻塞架构决策、所有 `depends_on` 已 DONE、项目基础能力支持进入 Feature Workflow。
-
-架构已批准、DEC-008 ~ DEC-016 全部裁定后，**F012 为项目第一个 READY Feature**。
-
----
+需求基线：`docs/product/requirements.md`（CONFIRMED BASELINE，**62 条规则**，含 2026-09-18 新增的 R-QUERY-005）。
+领域模型：`docs/product/domain-model.md` / `domain-model.yaml`。
+架构：`docs/architecture/`（ADR-0001 ~ ADR-0005 全部 ACCEPTED），`docs/api/api-conventions.md`。
 
 ## 汇总
 
 | 维度 | 值 |
 |---|---|
-| Feature 总数 | 14 |
-| P0 | 7（F001, F002, F009, F012, F013, F014, F015） |
-| P1 | 7（F004, F005, F006, F007, F008, F010, F011） |
-| P2 | 0 |
-| READY | 1（F007） |
-| BLOCKED | 3（F008, F010, F011） |
-| DRAFT | 0 |
-| DONE | 10（F012, F001, F013, F014, F015, F002, F009, F006, F004, F005） |
-| Blocking Decisions (OPEN) | **0**（DEC-008 ~ DEC-016 全部裁定；DEC-001 ~ DEC-014 无 OPEN 项） |
+| Feature 总数 | 17 |
+| P0 | 7（F012、F013、F014、F015、F001、F002、F009） |
+| P1 | 9（F004、F005、F006、F007、F008、F010、F011、F016、F018） |
+| P2 | 1（F017） |
+| DONE | 16 |
+| CANCELLED | 1（F011） |
+| BLOCKED | 0（F018） |
+| READY / IN_PROGRESS / DRAFT | 0 / 0 / 0 |
+| Decisions 总数 | 21（OPEN **0**） |
 
-产品冲突 DEC-001 ~ DEC-014 已全部裁定，DEC-015 / DEC-016 为新裁定的规模与部署决策，均不作为项目级阻塞（见下方状态表）。
+## 按 Epic
 
----
+### E01 基础资源管理
 
-## E01 基础资源管理
-
-| ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
+| ID | Feature | Priority | 状态 | 依赖 | Contract | Merge |
 |---|---|---|---|---|---|---|
-| F001 | Cluster 登记与管理 | P0 | **DONE** | F012 | — | requirements.md §7, §22 |
-| F002 | BareMetal 登记与管理 | P0 | **DONE** | F001 | — | requirements.md §8, §22 |
+| F001 | Cluster 登记与管理 | P0 | **DONE** | F012 | READY | 5a96ad0c |
+| F002 | BareMetal 登记与管理 | P0 | **DONE** | F001 | READY | ef39557f |
+| F016 | Cluster 登记与改名 UI | P1 | **DONE** | F001, F013, F014 | READY | 93729191 |
 
-## E02 网络资源管理
+### E02 网络资源管理
 
-| ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
+| ID | Feature | Priority | 状态 | 依赖 | Contract | Merge |
 |---|---|---|---|---|---|---|
-| F004 | NetworkInterface 管理 | P1 | **DONE** | F002 | — | requirements.md §11 |
-| F005 | IPAddress 管理 | P1 | **DONE** | F004 | — | requirements.md §12 |
+| F004 | NetworkInterface 管理 | P1 | **DONE** | F002 | READY | 4a99fa00 |
+| F005 | IPAddress 管理 | P1 | **DONE** | F004 | READY | 7beb6e72 |
 
-## E03 虚拟资源管理
+### E03 虚拟资源管理
 
-| ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
+| ID | Feature | Priority | 状态 | 依赖 | Contract | Merge |
 |---|---|---|---|---|---|---|
-| F006 | VirtualMachine 登记与管理 | P1 | **DONE** | F002 | — | requirements.md §9 |
-| F007 | Container 资源模型与登记 | P1 | READY | F006, F002 | — | requirements.md §10 |
+| F006 | VirtualMachine 登记与管理 | P1 | **DONE** | F002 | READY | 01077bed |
+| F007 | Container 资源模型与登记 | P1 | **DONE** | F006, F002 | READY | ff347be7 |
 
-## E04 服务资源管理
+### E04 服务资源管理
 
-| ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
+| ID | Feature | Priority | 状态 | 依赖 | Contract | Merge |
 |---|---|---|---|---|---|---|
-| F008 | Service 资源管理与 Cluster 共享关联 | P1 | BLOCKED | F001, F002, F006, F007 | 依赖 F002/F006/F007 未 DONE | requirements.md §14, §15 |
+| F008 | Service 资源管理与 Cluster 共享关联 | P1 | **DONE** | F001, F002, F006, F007 | READY | f7733783 |
 
-## E05 资源查询与视图
+### E05 资源查询与视图
 
-| ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
+| ID | Feature | Priority | 状态 | 依赖 | Contract | Merge |
 |---|---|---|---|---|---|---|
-| F009 | Cluster 视角资源查询 | P0 | **DONE** | F001, F002 | — | requirements.md §16 |
-| F010 | 资源详情与关联查询 | P1 | BLOCKED | F001, F002, F004, F005, F006, F007, F008 | 依赖多个资源 Feature 未 DONE | requirements.md §15, §16 |
+| F009 | Cluster 视角资源查询 | P0 | **DONE** | F001, F002 | READY | 6529b0dc |
+| F010 | 资源详情与关联查询 | P1 | **DONE** | F001, F002, F004, F005, F006, F007, F008 | READY | 334b4ca3 |
+| F018 | 集群内资源关键字搜索 | P1 | **DONE** | F001, F002, F004, F005, F006, F007, F008 | READY | f1ac71b1 |
 
-## E06 数据导入
+### E06 数据导入
 
-| ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
+| ID | Feature | Priority | 状态 | 依赖 | Contract | Merge |
 |---|---|---|---|---|---|---|
-| F011 | Excel 模板与批量导入 | P1 | BLOCKED | F001, F002, F004, F005, F006, F007, F008 | 依赖多个资源 Feature 未 DONE | requirements.md §18 |
+| F011 | Excel 模板与批量导入 | P1 | **CANCELLED** | F001, F002, F004, F005, F006, F007, F008 | — | — |
 
-## E07 平台基础能力（ENABLER）
+### E07 平台基础能力
 
-| ID | Feature | Priority | Status | Dependencies | Blocking | Product Document |
+| ID | Feature | Priority | 状态 | 依赖 | Contract | Merge |
 |---|---|---|---|---|---|---|
-| F012 | 项目基础框架与运行环境 | P0 | **DONE** | — | — | requirements.md §4, §5, §21, §24, §25 |
-| F013 | 本地账号认证与会话 | P0 | **DONE** | F012 | — | requirements.md §19 |
-| F014 | 逻辑删除与数据一致性治理 | P0 | **DONE** | F012 | — | requirements.md §17, §21 |
-| F015 | 内网部署与运行环境 | P0 | **DONE** | F012, F013 | — | requirements.md §20 |
+| F012 | 项目基础框架与运行环境 | P0 | **DONE** | — | READY | 3b8646c7 |
+| F013 | 本地账号认证与会话 | P0 | **DONE** | F012 | READY | 4d2e48c7 |
+| F014 | 逻辑删除与数据一致性治理 | P0 | **DONE** | F012 | READY | 184ee61f |
+| F015 | 内网部署与运行环境 | P0 | **DONE** | F012, F013 | NOT_REQUIRED | 06e655a2 |
+| F017 | 应用外壳侧边栏导航 | P2 | **DONE** | F012, F013, F001, F002, F004, F005, F006, F007, F008, F010 | NOT_REQUIRED | 8fc88324 |
 
-**F003（Rack 与 U 位位置管理）已于 2026-09-15 依用户决策删除，不再属于 V1 范围。**
+## Milestones
 
-**F012 为什么是 READY**：无 `depends_on`；产品范围明确（显式资源类型建模、通用校验与错误处理基座）；AC 可定义；
-无阻塞产品问题；架构/数据库/标识/API 契约决策 DEC-009 / DEC-010 / DEC-011 / DEC-014 均已 RESOLVED
-（ADR-0001 ~ ADR-0003 `ACCEPTED`），Blocking Architecture Decision = 0；
-架构 Handoff = `READY FOR IMPLEMENTATION`，API 契约 = `READY`。
-
----
-
-## Blocking Decisions（摘要）
-
-| ID | Type | 影响 Feature | 状态 | 说明 |
-|---|---|---|---|---|
-| DEC-001 | product | F001, F002, F009, F010, F011 | RESOLVED | V1 不含 DataCenter（requirements.md §6） |
-| DEC-002 | product | F011 | RESOLVED | Rack / U 位已从 V1 删除，F003 一并删除 |
-| DEC-003 | product | F008, F010, F011 | RESOLVED | 方案 C：Service 必选绑定运行载体（R-SVC-005/006） |
-| DEC-004 | product | F006, F007, F010, F011 | RESOLVED | VM→BareMetal 绑定必选；R-VM-005（2026-09-16 用户裁定） |
-| DEC-005 | product | F007, F010, F011 | RESOLVED | Container 粒度与绑定（R-CONTAINER-001~005，2026-09-16 用户裁定） |
-| DEC-006 | product | F004, F005, F006, F007, F008 | RESOLVED | 方案 B：仅 BareMetal 有状态 |
-| DEC-007 | product | F001 | RESOLVED | 已确认为 R-CLUSTER-005 |
-| DEC-008 | architecture | F006, F007, F008 | RESOLVED | ADR-0002：`bare_metal.status` 显式列 + CHECK，不设通用 status 表 |
-| DEC-009 | architecture | 全部 Feature | RESOLVED | ADR-0001 ACCEPTED：Python/FastAPI/SQLAlchemy + Vue 3 技术栈 |
-| DEC-010 | database | F004, F005, F006, F007, F008, F012, F015 | RESOLVED | ADR-0002 ACCEPTED：PostgreSQL + Alembic |
-| DEC-011 | architecture | 全部资源 Feature | RESOLVED | ADR-0003 ACCEPTED：BIGINT `id` + Cluster `by-name` 只读别名 |
-| DEC-012 | database | F014 及资源 Feature | RESOLVED | ADR-0004 ACCEPTED：`deleted_at` + partial unique index |
-| DEC-013 | architecture | F013, F015 | RESOLVED | ADR-0005 ACCEPTED：服务端会话 + HttpOnly Cookie + Argon2id |
-| DEC-014 | architecture | 全部 API 相关 Feature | RESOLVED | ADR-0003 ACCEPTED：Problem 风格错误信封 + 稳定 `code` |
-| DEC-015 | process | F012, F015 | RESOLVED | 规模：资源总量约 10⁵、并发约 50（用户裁定） |
-| DEC-016 | architecture | F015 | RESOLVED | 部署打包：docker-compose（用户裁定，ADR-0001） |
-
-**无 OPEN 项。** DEC-004 / DEC-005 已于 2026-09-16 由用户裁定并固化为 R-VM-005 / R-CONTAINER-001~005，不再是 Feature 级 `open_questions`；
-F001 / F002 / F006 / F007 的关键产品问题已全部关闭。
-
-完整 question 文本与 resolution 见 `docs/project/project-plan.yaml` 的 `decisions_required`。
-
----
-
-## Open Questions（未确认需求，不升级为 Feature / 验收条件）
-
-| OPEN | 关联 Feature | 内容 | 状态 |
+| ID | 名称 | Features | 状态 |
 |---|---|---|---|
-| OPEN-001 | F006 | VirtualMachine 字段范围及其标识与唯一性规则 | **已关闭（R-VM-004/005/006）** |
-| OPEN-002 | F007 | Container 管理粒度 | **已关闭（R-CONTAINER-001 ~ 005）** |
-| OPEN-003 | F008 | Service 字段 | **已关闭（R-SVC-007/008/009）** |
-| OPEN-004 | F002 | BareMetal 硬件字段 | **已关闭（R-BM-007）** |
-| OPEN-005 | F011 | Excel 部分成功导入策略 | **已关闭（All-or-Nothing，固化为 R-IMPORT-004）** |
-| OPEN-006 | — | 虚拟资源运行时集成 | **已关闭（已确认排除）** |
+| M1 | 平台基础可运行 | F012, F013, F014, F015 | **DONE** |
+| M2 | 基础资源可登记与查询 | F001, F002, F009 | **DONE** |
+| M3 | 网络资源管理 | F004, F005 | **DONE** |
+| M4 | 虚拟资源与共享服务 | F006, F007, F008 | **DONE** |
+| M5 | 统一资源视图与批量导入 | F010, F011 | **DONE** |
+| M6 | 补 F001 遗留的 Cluster 登记 UI（post-V1 缺口闭合） | F016 | **DONE** |
+| M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
+| M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 
-另有 2 项原项目级产品决策已转为 Feature 级 `open_questions`（不再计入项目级阻塞）：
+`M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 
-（DEC-004 / DEC-005 已关闭，见上。）
+## Blocking Decisions
 
----
+| ID | type | 状态 | 影响 Feature |
+|---|---|---|---|
+| DEC-001 | product | RESOLVED | F001, F002, F009, F010, F011 |
+| DEC-002 | product | RESOLVED | F011 |
+| DEC-003 | product | RESOLVED | F008, F010, F011 |
+| DEC-004 | product | RESOLVED | F006, F007, F010, F011 |
+| DEC-005 | product | RESOLVED | F007, F010, F011 |
+| DEC-006 | product | RESOLVED | F004, F005, F006, F007, F008 |
+| DEC-007 | product | RESOLVED | F001 |
+| DEC-008 | architecture | RESOLVED | F006, F007, F008 |
+| DEC-009 | architecture | RESOLVED | F001, F002, F004, F005, F006, F007, F008, F009, F010, F011, F012, F013, F014, F015 |
+| DEC-010 | database | RESOLVED | F004, F005, F006, F007, F008, F012, F015 |
+| DEC-011 | architecture | RESOLVED | F001, F002, F004, F005, F006, F007, F008, F009, F010, F011, F012 |
+| DEC-012 | database | RESOLVED | F014, F001, F002, F004, F005, F006, F007, F008 |
+| DEC-013 | architecture | RESOLVED | F013, F015 |
+| DEC-014 | architecture | RESOLVED | F001, F002, F004, F005, F006, F007, F008, F009, F010, F011, F012 |
+| DEC-015 | process | RESOLVED | F012, F015 |
+| DEC-017 | product | RESOLVED | — |
+| DEC-018 | product | RESOLVED | — |
+| DEC-019 | product | RESOLVED | — |
+| DEC-016 | architecture | RESOLVED | F015 |
+| DEC-020 | product | RESOLVED | F017 |
+| DEC-021 | product | RESOLVED | F018, F002, F005, F009, F010 |
 
-最后更新依据：用户对 DEC-009 ~ DEC-014（ADR-0001 ~ ADR-0005 ACCEPTED）、DEC-008（ADR-0002）、
-BQ-1 规模、BQ-3 导入语义（OPEN-005 → R-IMPORT-004）、BQ-4 部署打包的裁定，
-以及已批准的架构 Handoff（`READY FOR IMPLEMENTATION`）与 API 契约（`READY`）。
+`DEC-020`（侧边栏）与 `DEC-021`（关键字搜索）均已 RESOLVED。
+
+## Open Questions（阻塞项，权威见计划 `features[].open_questions`）
+
+
+## Follow-ups（聚合；权威见计划 `planning_status.follow_ups`）
+
+- **from_f016_review**：REV-1, REV-4, REV-5, REV-6, F016-T-01, REV-2 / REV-3
+- **from_f018_review**：F018-LOW-1, F018-NOTE-1, F018-NOTE-3, F018-NOTE-4, F018-NOTE-5
+- **from_f017_review**：F017-LOW-2, F017-NOTE-4
+- **from_f016_test**：F016-T-01
+- **from_f010_review**：REV-2, REV-3, Framework OPEN#6（承）
+- **from_f008_review**：REV-F008-2, REV-F008-3, F004 REV-2（承）
+- **from_f007_review**：REV-2, REV-3, F014 残余风险（承）
+- **from_f005_review**：REV-3
+- **from_f004_review**：REV-2
+- **from_f006_review**：REV-3 / F007 预期演进点
+- **from_f002_review**：F002-T-01 / REV-2, REV-3, REV-5, REV-6
+- **from_f015_review**：REV-01, NOTE-01, NOTE-02, NOTE-03, NOTE-04, NOTE-05
+- **from_f014_review**：F014-T-01, NOTE-01, NOTE-02
+- **from_f013_review**：REV-01, REV-03, REV-04, F013-F-01
+- **from_f001_review**：REV-1, REV-2, F-01
+- **from_f012_review**：F-03, F-01, F-02, N-01

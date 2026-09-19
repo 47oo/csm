@@ -274,7 +274,7 @@ describe('App 头部导航：全局网络接口列表（无过滤）', () => {
       expect(wrapper.text()).toContain('网络接口列表')
     })
     const navNic = wrapper.find('[data-testid="nav-network-interfaces"]')
-    expect(navNic.classes()).toContain('el-button--primary')
+    expect(navNic.classes()).toContain('app-shell__nav-item--active')
 
     // 切回集群区域：高亮恢复。
     await findButton(wrapper, '集群').trigger('click')
@@ -282,8 +282,8 @@ describe('App 头部导航：全局网络接口列表（无过滤）', () => {
       expect(wrapper.text()).toContain('集群列表')
     })
     expect(wrapper.find('[data-testid="nav-network-interfaces"]').classes()).not.toContain(
-      'el-button--primary',
+      'app-shell__nav-item--active',
     )
-    expect(wrapper.find('[data-testid="nav-clusters"]').classes()).toContain('el-button--primary')
+    expect(wrapper.find('[data-testid="nav-clusters"]').classes()).toContain('app-shell__nav-item--active')
   })
 })

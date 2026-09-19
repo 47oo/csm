@@ -169,7 +169,7 @@
 - 任何资源的 `cluster_id` 列或 Cluster 维度过滤参数；推导出的 Cluster 归属字段。
 - NIC / IP / VM / Container / Service 的状态字段或状态计数 / 汇总 / 健康检查。
 - Cluster 为主语的任何新增关联端点（除 F009 既有 `GET /api/clusters/by-name/{cluster_name}/bare-metals`）。
-- 聚合级分页 / 排序 / 关键字 / 导出（本轮为按 `id` 升序的完整快照，无已确认需求）。
+- 聚合级分页 / 排序 / 导出（本轮为按 `id` 升序的完整快照，无已确认需求）；**关键字搜索不属于本端点**——其权威正文为 `docs/api/f018-cluster-keyword-search.md`（F018 独立只读端点）；F018 复用本端点的 `get_related_resources` 推导，但**不修改本契约正文**。
 - API versioning。
 
 ## 8. 与既有契约的关系
