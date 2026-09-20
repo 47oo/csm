@@ -3,7 +3,7 @@
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Generated: 2026-09-20（用户裁定 DEC-022；F019 转 READY，`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
+> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
 
 **2026-09-18（五）增量**：新增 M9（搜索结果聚合视图，只含 F019）与 F019（DRAFT）、DEC-022（OPEN）；`project.status` 由 DONE 转 **DRAFT**（待批准）。
 **2026-09-20**：用户批准增量计划并就 DEC-022 裁定；F019 转 **READY**，M9 待启动。
@@ -27,7 +27,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M6 | 补 F001 遗留的 Cluster 登记 UI（post-V1 缺口闭合） | F016 | **DONE** |
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
-| M9 | 搜索结果聚合视图 | F019 | **READY** |
+| M9 | 搜索结果聚合视图 | F019 | **IN_PROGRESS** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -187,13 +187,13 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 
 ---
 
-## M9 — 搜索结果聚合视图 · 状态：READY
+## M9 — 搜索结果聚合视图 · 状态：IN_PROGRESS
 
 **目标**：在 F018 搜索能力之上，按用户裁定提供搜索结果聚合呈现（DEC-022 已 RESOLVED：单一扁平混合列表 + 按命中项关联链 + 关系扩展 + 方案 A + 不去重 + 标识字段优先排序 + 取代 F018 扁列表）。
 
 | ID | Feature | Priority | 状态 | Merge |
 |---|---|---|---|---|
-| F019 | 搜索结果聚合视图 | P1 | **READY** | — |
+| F019 | 搜索结果聚合视图 | P1 | **IN_PROGRESS** | — |
 
 **进入条件**
 - DEC-022 已由用户裁定（已满足，2026-09-20）。

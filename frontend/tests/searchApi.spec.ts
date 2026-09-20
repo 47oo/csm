@@ -3,28 +3,35 @@ import { searchClusterResources } from '../src/api/search'
 import { ApiError } from '../src/api/http'
 
 /**
- * 搜索 API 客户端测试（F018）：请求构造（路径 / 方法 / 查询参数）与契约
- * 错误语义透传。契约依据：docs/api/f018-cluster-keyword-search.md（READY，
- * 唯一权威）——恰一个只读端点 GET /api/clusters/{cluster_id}/search；
- * keyword 必填且原样提交（不 trim / 不归一化）；分页复用通用信封。
+ * 搜索 API 客户端测试（F019）：请求构造（路径 / 方法 / 查询参数）与契约
+ * 错误语义透传。契约依据：docs/api/f019-search-result-aggregation.md（READY，
+ * 唯一权威）——恰一个只读端点 GET /api/clusters/{cluster_id}/search
+ * （method / path / 参数与 F018 相同，响应形态为聚合行列表）；keyword 必填
+ * 且原样提交（不 trim / 不归一化）；分页按组织单元计数，复用通用信封。
  * fetch 全部桩替换，不触达真实后端。
  */
 
 const TS = '2026-09-18T10:00:00Z'
 
-/** 契约 §3 Response 200 示例结构（单一混合列表，含两类元素）。 */
+/**
+ * 契约 §4 Response 200 示例结构：一个组织单元（BareMetal 命中行 + 其 NIC /
+ * IP 关联行，含 derivation_path；同单元共享 group_key）。
+ */
 const SEARCH_BODY = {
   items: [
     {
       resource_type: 'BARE_METAL',
       id: 101,
-      matched_fields: ['hostname', 'vendor'],
+      role: 'HIT',
+      group_key: { resource_type: 'BARE_METAL', id: 101 },
+      matched_fields: ['hostname'],
+      derivation_path: null,
       resource: {
         id: 101,
         cluster_id: 3,
         hostname: 'cn001-gpu',
         status: 'IDLE',
-        vendor: 'NVIDIA',
+        vendor: null,
         model: null,
         serial_number: null,
         cpu: null,
@@ -36,9 +43,36 @@ const SEARCH_BODY = {
       },
     },
     {
+      resource_type: 'NETWORK_INTERFACE',
+      id: 12,
+      role: 'RELATED',
+      group_key: { resource_type: 'BARE_METAL', id: 101 },
+      matched_fields: [],
+      derivation_path: [
+        { resource_type: 'BARE_METAL', id: 101 },
+        { resource_type: 'NETWORK_INTERFACE', id: 12 },
+      ],
+      resource: {
+        id: 12,
+        bare_metal_id: 101,
+        name: 'eth0',
+        technology_type: 'Ethernet',
+        purpose: 'Management',
+        created_at: TS,
+        updated_at: TS,
+      },
+    },
+    {
       resource_type: 'IP_ADDRESS',
       id: 41,
-      matched_fields: ['ip_address'],
+      role: 'RELATED',
+      group_key: { resource_type: 'BARE_METAL', id: 101 },
+      matched_fields: [],
+      derivation_path: [
+        { resource_type: 'BARE_METAL', id: 101 },
+        { resource_type: 'NETWORK_INTERFACE', id: 12 },
+        { resource_type: 'IP_ADDRESS', id: 41 },
+      ],
       resource: {
         id: 41,
         network_interface_id: 12,
@@ -48,7 +82,7 @@ const SEARCH_BODY = {
       },
     },
   ],
-  total: 2,
+  total: 1,
   page: 1,
   page_size: 50,
 }
@@ -76,7 +110,7 @@ afterEach(() => {
 })
 
 describe('请求构造（契约 §3）', () => {
-  it('searchClusterResources → GET /api/clusters/{id}/search，keyword 原样拼接', async () => {
+  it('searchClusterResources → GET /api/clusters/{id}/search，keyword 原样拼接；聚合行列表原样透传', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(200, SEARCH_BODY))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -125,7 +159,7 @@ describe('请求构造（契约 §3）', () => {
   })
 })
 
-describe('错误语义透传（契约 §3 Error Semantics / §4）', () => {
+describe('错误语义透传（契约 §5 Error Semantics / §6）', () => {
   it('Cluster 不存在或已逻辑删除 → 404 NOT_FOUND（两者不区分）', async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse(404, { error: { code: 'NOT_FOUND', message: '资源不存在或已被逻辑删除', details: [] } }),

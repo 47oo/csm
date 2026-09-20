@@ -28,7 +28,7 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: ACCEPTED
+  status: IN_PROGRESS
   status_changed_on: "2026-09-20"
   status_note_append: >
     **2026-09-18（四）：用户批准本次计划**（「批准本次计划」），并确认「模糊」=**子串包含**（非容错/相似度）。
@@ -1593,7 +1593,7 @@ features:
     name: 搜索结果聚合视图
     epic: E05
     priority: P1
-    status: READY
+    status: IN_REVIEW
     depends_on: [F018]
     depends_on_note: >
       直接依赖 F018：复用其选定 Cluster 前置、只读搜索端点（GET /api/clusters/{cluster_id}/search）、
@@ -1604,11 +1604,20 @@ features:
     blocking: []
     git:
       base_branch: develop
-      branch: null
-      start_commit: null
-      head_commit: null
+      branch: feature/F019-search-result-aggregation
+      start_commit: "008ecb2780ddabc9d41b6c819e63c84b141249a7"
+      head_commit: "5c278ee5ce9db4b665ce3210a976e78c52db357e"
       merge_commit: null
-    current_stage: null
+    current_stage: REVIEW
+    last_result: >
+      Test Gate 通过（2026-09-20）：Tester 独立验收 **READY FOR REVIEW，无缺陷**。报告
+      `docs/test-reports/f019-search-result-aggregation.md`。独立复现：后端 **1021 passed / 0 skipped**（一次性 PG）、
+      F019 专项 35 + 19、前端 645 passed + build、ruff 干净；自写后端探针 100 checks / 0 failures；
+      真实前后端集成 3 passed（真实 uvicorn + 真实 PG，无响应桩）；5 组可失败证伪（复用 / 软删 / 排序 / 单请求 / 路由 allow-list）全部检出并逐字节还原。
+      AC-01~08 与 AC-A1~A8 全部有结果，无 FAIL / BLOCKED。
+    next_action: >
+      Reviewer（独立审查）：核对 Product/Arch/契约符合性、功能正确性与测试充分性；重点独立复核关联推导复用、
+      软删/只读边界、单元级分页与排序确定性，并判断 APPROVED / APPROVED WITH FOLLOW-UP / CHANGES REQUIRED。
     layers:
       database: false     # 初步判断：聚合基于 Python 侧已物化候选集，不预期新索引 / 新表；不确定，见 layers_note
       backend: true       # 结果组装 / 聚合结构（旧响应 → 聚合信封 的映射）；可能是新增端点或参数
@@ -1618,26 +1627,30 @@ features:
       在本 Feature 中是否继续成立**未经 Architecture 确认**。若 DEC-022 选择「关系扩展 / 以主机为中心展开」，
       候选集与排序方式可能改变，届时 database 可能由 false 变 true；由 Architecture / Database 在契约定稿时裁定。
     contract:
-      status: REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f019-search-result-aggregation.md
     contract_note: >
-      **搜索响应形态可能必须修订**：F018 现行契约为 `docs/api/f018-cluster-keyword-search.md`，其响应为
-      R-QUERY-005 定义的**单一混合列表**。本 Feature 的聚合信封（每个聚合组包含哪些资源）与既有响应契约
-      不兼容，需新增契约或修订 F018 契约，并同步**可能受影响的产品规则 R-QUERY-005**。
-      在 DEC-022 裁定与 Product 规则落定前，契约不得定稿（contract.status=REQUIRED，doc 暂为 null）。
+      **已定稿（2026-09-20）**：复用同一端点 `GET /api/clusters/{cluster_id}/search`，仅**取代其响应形态**
+      为聚合行列表（`SearchAggregationPage`，含 `role` / `group_key` / `derivation_path` / `matched_fields` /
+      `resource`）；不新增端点 / 参数。权威正文见 `docs/api/f019-search-result-aggregation.md`（Status = READY）。
+      `docs/api/f018-cluster-keyword-search.md` 的响应 / 结果顺序 / 排序排除项已改为指向本条契约，§2 匹配语义不变，
+      无「契约禁止、实现却有」的分裂。
     implementation:
       database_design: NOT_REQUIRED
-      backend: NOT_STARTED
-      frontend: NOT_STARTED
-      test: NOT_STARTED
+      backend: COMPLETE
+      frontend: COMPLETE
+      test: COMPLETE
       review: NOT_STARTED
     product_document: docs/product/requirements.md
-    requirements: []
+    requirements:
+      - R-QUERY-006
+      - R-QUERY-005
+      - R-QUERY-003
+      - R-QUERY-004
     requirements_note: >
-      现有 §16 中 **R-QUERY-005 明文规定结果为「单一混合列表（不按资源类型分组）」**，
-      因此本 Feature **无法挂任何既有 requirement ID**。须由 Product 先修订 R-QUERY-005 或**新增**一条聚合规则
-      （类比 F018 的 NQ-8），明确聚合语义与扁列表条款的取舍后，本 Feature 才能挂 requirement ID。
-      Project Manager 与协调器均**不得**自行发明该产品规则。
+      Product 已新增 **R-QUERY-006（搜索结果聚合视图 / 关联链展开）** 并**修订 R-QUERY-005**（2026-09-20），
+      本 Feature 现可挂 requirement ID = **R-QUERY-006**；R-QUERY-003 / 004 / 005 为被引用 / 继承的既有规则。
+      完整产品依据见 `docs/product/handoffs/f019-search-result-aggregation.md` 与 `requirements.md` §16。
     acceptance_criteria:
       # 仅列不受聚合语义歧义影响的通用 AC；聚合专属 AC 待 NQ-1 ~ NQ-8 裁定后由 Product 定稿。
       - AC-01 只读：本 Feature 不创建 / 修改 / 删除任何资源，不存在写端点或写副作用。
@@ -2372,13 +2385,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F019]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 0
     DRAFT: 0
     DONE: 16
@@ -3078,9 +3091,16 @@ planning_status:
   decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F019
+  current_stage: REVIEW
   note_append: >
+    2026-09-20：用户批准增量计划并就 DEC-022 裁定；F019 转 READY 并进入 Feature Workflow。
+    自 develop（008ecb2）创建 feature/F019-search-result-aggregation，project.status = IN_PROGRESS。
+    Product 完成：新增 R-QUERY-006、修订 R-QUERY-005，产出 Product Handoff。
+    Architecture + Contract 完成：Architecture Handoff 与 f019 契约均 READY（复用同一端点、取代响应形态、
+    单元级分页、database:false）；f018 契约响应段已改为指向新契约。
+    Implementation 完成（5c278ee，Backend + Frontend 并行）；协调器独立重跑后端 1021 passed、前端 645 passed + build。
+    Test 完成：Tester 独立验收 READY FOR REVIEW、无缺陷（含真实前后端集成 + 5 组可失败证伪）。现进入 REVIEW。
     2026-09-18：项目在原结论（14 DONE + 1 CANCELLED）之上收到「UI 导航栏是否可改为侧边栏」的
     可行性询问，已登记 F017 与 DEC-020；DEC-020 已由用户裁定「做」，F017 转 READY 并开始执行。
     2026-09-18（二）：收到新输入「添加搜索功能，允许选定集群后按任意关键字查询」，据此**新增**

@@ -6,6 +6,8 @@
 > Source: `docs/product/requirements.md` §16 R-QUERY-005（直接产品依据）、R-QUERY-003 / R-QUERY-004、§17 R-DELETE-002、§19、§22；`docs/api/api-conventions.md`（READY）；ADR-0003 / ADR-0004 / ADR-0005（ACCEPTED）；`docs/architecture/f010-resource-detail-handoff.md`、`docs/api/f010-resource-detail.md`、`docs/product/handoffs/f018-cluster-keyword-search.md`
 > 本文件是 F018 前后端与测试的**共同协议与单一权威**。
 
+> ⚠️ **响应形态已被取代（F019，2026-09-20）**：本契约的 **§3「Response 200」示例与「结果顺序」**、以及 **§7 中「排序参数（本契约不承诺排序）」** 已由 **`docs/api/f019-search-result-aggregation.md`**（Status = READY）**取代**。**§2「匹配字段」与「匹配语义」、§4/§5/§6 错误语义、认证边界、Empty / Not Found 语义**继续有效，且 §2 仍是匹配字段 / 匹配语义的**唯一权威**。
+
 ---
 
 ## 1. 范围与前提
@@ -69,7 +71,7 @@
 6. 已逻辑删除的任一资源**不出现**在 `items`，也不计入 `total`（R-DELETE-002）。
 7. 结果为非跨 Cluster：绝不返回其它 Cluster 的资源。
 
-**Response 200**（`Page[SearchResultItem]`）
+**Response 200** —— **已由 `docs/api/f019-search-result-aggregation.md` §4 取代**（原为 `Page[SearchResultItem]`）。F019 起该端点的响应为**聚合行列表**（`SearchAggregationPage`，含 `role` / `group_key` / `derivation_path` / `matched_fields` / `resource`），**不再是**下述扁列表示例。以下示例**保留仅作历史对照，不再具有权威性**：
 
 ```json
 {
@@ -119,7 +121,7 @@
 - `resource`：该类型的 canonical `*Read` 对象，字段集合**恰为**对应契约定义，逐字段复用；不存在 `deleted_at`，不新增字段。
 - `total`：全量命中数（不受本页限制）。
 - `page` / `page_size`：与请求回显一致。
-- **结果顺序**：实现按 `(resource_type, id)` 物化以保证分页稳定。**本契约不承诺任何排序语义**（不承诺默认排序、按类型 / 时间 / 相关性排序）；`(resource_type, id)` 仅为分页稳定性，不构成「分组」，调用方不得据此承诺顺序。
+- **结果顺序**：**已由 `docs/api/f019-search-result-aggregation.md` §3 取代**。F019 起该端点的结果顺序为「命中类别（标识字段优先于描述性字段）→ `resource_type` 固定序 → `id`」，并由 F019 契约定义其确定性语义。
 
 **Error Semantics**
 
@@ -208,7 +210,7 @@
 - 写 / 删除 / 恢复 / 批量端点或参数；`include_deleted` / 回收站 / 查看已删资源。
 - **跨 Cluster / 全局搜索**；「当前选定 Cluster」为**前置条件**。
 - **多关键字 / AND / OR 拆分 / 分词 / 拼写纠错 / 相似度 / 相关性排序**。
-- **排序参数**（本契约不承诺排序）；**状态筛选 / 结构化筛选**；**导出**（CSV / Excel）；除 `total` 外的统计 / 按类型计数 / 仪表盘。
+- **排序参数**（F019 起由 `docs/api/f019-search-result-aggregation.md` 定义确定性结果顺序，但**不接受**调用方指定排序字段）；**状态筛选 / 结构化筛选**；**导出**（CSV / Excel）；除 `total` 外的统计 / 按类型计数 / 仪表盘。
 - 在既有 per-resource 列表端点追加 `keyword` 参数（本 Feature 由**单一独立端点**提供；f005 / f009 / f010 / f002 的「关键字禁止」立场已按 `DEC-021` 同步修订并指向本契约）。
 - 在空关键字时返回「该 Cluster 全部资源」（明确禁止）。
 - 自动资产发现 / 外部平台同步 / 实时状态源（§23；R-VM-002 / R-BM-007 / §10）。

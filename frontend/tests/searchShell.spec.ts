@@ -20,9 +20,10 @@ import { setUnauthenticatedHandler } from '../src/api/http'
  *   （F018 新增返回分支）与容器详情（既有 returnView 分支 widening）；
  * - 搜索视图为跨资源区域，不高亮任何导航项。
  *
- * 响应体严格按 docs/api/f018-cluster-keyword-search.md §3 与各 canonical
- * Read 契约构造；fetch 桩替换，不触达真实后端；沿用
- * tests/setup/monotonic-date-now.ts。
+ * 搜索响应体严格按 docs/api/f019-search-result-aggregation.md §4 构造
+ * （F019 聚合形态：一个组织单元 = 裸金属命中行 + 容器关联行，含
+ * derivation_path；resource 逐字段复用各 canonical Read）；fetch 桩替换，
+ * 不触达真实后端；沿用 tests/setup/monotonic-date-now.ts。
  */
 
 const SESSION_USER = { id: 1, username: 'admin' }
@@ -36,13 +37,19 @@ const CLUSTER_LIST_BODY = { items: [CLUSTER_A], total: 1, page: 1, page_size: 50
 
 const TS = '2026-09-18T10:00:00Z'
 
-/** 搜索响应（契约 §3）：裸金属 + 容器各一条（混合列表）。 */
+/**
+ * 搜索响应（f019 契约 §4 聚合形态）：一个组织单元 = 裸金属命中行（keyword
+ * 「gpu」命中 hostname）+ 其容器关联行（携带推导路径）。
+ */
 const SEARCH_BODY = {
   items: [
     {
       resource_type: 'BARE_METAL',
       id: 101,
-      matched_fields: ['hostname', 'gpu'],
+      role: 'HIT',
+      group_key: { resource_type: 'BARE_METAL', id: 101 },
+      matched_fields: ['hostname'],
+      derivation_path: null,
       resource: {
         id: 101,
         cluster_id: 1,
@@ -62,7 +69,13 @@ const SEARCH_BODY = {
     {
       resource_type: 'CONTAINER',
       id: 41,
-      matched_fields: ['image'],
+      role: 'RELATED',
+      group_key: { resource_type: 'BARE_METAL', id: 101 },
+      matched_fields: [],
+      derivation_path: [
+        { resource_type: 'BARE_METAL', id: 101 },
+        { resource_type: 'CONTAINER', id: 41 },
+      ],
       resource: {
         id: 41,
         carrier_type: 'BARE_METAL',
@@ -77,7 +90,7 @@ const SEARCH_BODY = {
       },
     },
   ],
-  total: 2,
+  total: 1,
   page: 1,
   page_size: 50,
 }
@@ -264,7 +277,7 @@ describe('App 外壳搜索：发起、单请求与结果视图（T-FE-18-5 / AC-
     })
     await searchButton(wrapper).trigger('click')
 
-    // 搜索结果视图：混合列表渲染（裸金属 + 容器同表、不分组）。
+    // 搜索结果视图：聚合列表渲染（裸金属命中行 + 容器关联行同表、不分区）。
     await waitForUi(() => {
       expect(wrapper.text()).toContain('搜索结果')
     })
@@ -273,6 +286,10 @@ describe('App 外壳搜索：发起、单请求与结果视图（T-FE-18-5 / AC-
     })
     expect(wrapper.text()).toContain('cn001-gpu')
     expect(wrapper.text()).toContain('web')
+    // 命中 / 关联行徽标可区分（F019 聚合视图）。
+    expect(wrapper.text()).toContain('命中')
+    expect(wrapper.text()).toContain('关联')
+    expect(wrapper.text()).toContain('裸金属 cn001-gpu → 容器 web')
     // 搜索上下文（范围 Cluster 与关键字，原样值）。
     expect(wrapper.text()).toContain('集群 #1')
     expect(wrapper.text()).toContain('关键字「gpu」')

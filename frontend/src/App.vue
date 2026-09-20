@@ -103,8 +103,9 @@ interface SearchReturn {
  * - service-detail：服务详情；登记成功后可跳转到新服务的详情（openDetail）；
  *   F010 起从裸金属关联区进入的携带 returnView，返回时回裸金属详情，
  *   否则回服务列表；
- * - search：搜索结果（F018，R-QUERY-005）；单一混合列表（不分组），范围
- *   恒为触发搜索时选定的 Cluster，关键字原样保留；结果行进入六类详情时
+ * - search：搜索结果（F018 入口 / F019 聚合视图，R-QUERY-005 / R-QUERY-006）；
+ *   单一扁平聚合列表（命中行 + 缩进关联行，不按类型分区），范围恒为触发
+ *   搜索时选定的 Cluster，关键字原样保留；结果行进入六类详情时
  *   以 SearchReturn 携带本视图为返回目标。
  *
  * F010 起五个子资源详情视图均携带可选 returnView（从裸金属详情「关联资源」
@@ -906,8 +907,8 @@ async function handleLogout(): Promise<void> {
             @open-detail="openServiceDetail"
             @back="backToClusterList"
           />
-          <!-- F018 搜索结果：单一混合列表（不分组、不承诺排序）；再次触发搜索时
-               以序号 key 强制重新挂载（重新请求）。 -->
+          <!-- F018 搜索结果视图（F019 起为聚合列表：命中行 + 缩进关联行，
+               不按类型分区）；再次触发搜索时以序号 key 强制重新挂载（重新请求）。 -->
           <SearchResultsPage
             v-else-if="resourceView.kind === 'search'"
             :key="searchSequence"
