@@ -1,9 +1,13 @@
-"""F018 结构 / 静态 guard（G-018-1 ~ G-018-8）。
+"""F019 搜索结果聚合视图结构 / 静态 guard（继承 G-018-1 ~ G-018-8，新增 G-019-3）。
 
 把「交付面恰为一条只读搜索端点」「范围推导复用 F010 唯一入口」「无第二条软删
 过滤路径」「大小写折叠仅限 search 模块」「资源表示复用 canonical *Read」
-「既有 guard 只增不减」变成会失败的测试，而非口头约定
-（``docs/architecture/f018-cluster-keyword-search-handoff.md`` Test Work）。
+「聚合响应封闭（role / group_key / derivation_path）」「既有 guard 只增不减」
+变成会失败的测试，而非口头约定
+（``docs/architecture/f019-search-result-aggregation-handoff.md`` Test Work）。
+
+**只增不减**：``EXPECTED_GET_ROUTES`` 与 F010 ``F009_CLUSTER_PATHS`` 追加而不替换；
+越界 token（相似度 / 跨集群 / 软删 / 统计）禁止不被新增排序放开。
 """
 
 from __future__ import annotations
@@ -234,7 +238,15 @@ def test_g018_6_response_reuses_six_canonical_reads_and_closed_enum():
     assert set(page_schema["properties"]) == {"items", "total", "page", "page_size"}
     item_ref = page_schema["properties"]["items"]["items"]["$ref"]
     item_schema = components[_component_name(item_ref)]
-    assert set(item_schema["properties"]) == {"resource_type", "id", "matched_fields", "resource"}
+    assert set(item_schema["properties"]) == {
+        "resource_type",
+        "id",
+        "role",
+        "group_key",
+        "matched_fields",
+        "derivation_path",
+        "resource",
+    }
 
     resource = item_schema["properties"]["resource"]
     assert "anyOf" in resource, f"resource 必须是联合（anyOf）：{resource}"
@@ -246,11 +258,37 @@ def test_g018_6_response_reuses_six_canonical_reads_and_closed_enum():
     assert set(resource_type["enum"]) == RESOURCE_TYPE_VALUES
 
 
+def test_g019_3_role_and_group_key_are_closed():
+    """G-019-3：``role`` 恰两值；``group_key`` / ``derivation_path`` 元素恰 ResourceRef。"""
+    spec = _openapi()
+    components = spec["components"]["schemas"]
+
+    page_ref = spec["paths"][SEARCH_PATH]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]["$ref"]
+    page_schema = components[_component_name(page_ref)]
+    item_ref = page_schema["properties"]["items"]["items"]["$ref"]
+    item_schema = components[_component_name(item_ref)]
+
+    role = item_schema["properties"]["role"]
+    if "$ref" in role:
+        role = components[_component_name(role["$ref"])]
+    assert set(role["enum"]) == {"HIT", "RELATED"}
+
+    group_key = item_schema["properties"]["group_key"]
+    assert _component_name(group_key["$ref"]) == "ResourceRef"
+    assert set(components["ResourceRef"]["properties"]) == {"resource_type", "id"}
+
+    path = item_schema["properties"]["derivation_path"]
+    array_schema = next(option for option in path["anyOf"] if option.get("type") == "array")
+    assert _component_name(array_schema["items"]["$ref"]) == "ResourceRef"
+    assert any(option.get("type") == "null" for option in path["anyOf"]), "须为可空"
+
+
 def test_g018_6_response_carries_no_deleted_at():
     components = _openapi()["components"]["schemas"]
-    for name in ("SearchResultItem",):
-        keys = set(components[name]["properties"])
-        assert "deleted_at" not in keys
+    for name in ("SearchResultRow", "ResourceRef"):
+        assert "deleted_at" not in components[name]["properties"], name
     for read_name in CANONICAL_READS:
         assert "deleted_at" not in components[read_name]["properties"], read_name
 
