@@ -28,7 +28,7 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: IN_PROGRESS
+  status: DONE
   status_changed_on: "2026-09-20"
   status_note_append: >
     **2026-09-18（四）：用户批准本次计划**（「批准本次计划」），并确认「模糊」=**子串包含**（非容错/相似度）。
@@ -1593,7 +1593,7 @@ features:
     name: 搜索结果聚合视图
     epic: E05
     priority: P1
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F018]
     depends_on_note: >
       直接依赖 F018：复用其选定 Cluster 前置、只读搜索端点（GET /api/clusters/{cluster_id}/search）、
@@ -1606,9 +1606,9 @@ features:
       base_branch: develop
       branch: feature/F019-search-result-aggregation
       start_commit: "008ecb2780ddabc9d41b6c819e63c84b141249a7"
-      head_commit: "5c278ee5ce9db4b665ce3210a976e78c52db357e"
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: "4524d8e215f4245c354e0e11ea5d0dc2ed4a0dad"
+      merge_commit: "292345e81295fec2579f82a53de702b7a487682a"
+    current_stage: null
     last_result: >
       Test Gate 通过（2026-09-20）：Tester 独立验收 **READY FOR REVIEW，无缺陷**。报告
       `docs/test-reports/f019-search-result-aggregation.md`。独立复现：后端 **1021 passed / 0 skipped**（一次性 PG）、
@@ -1640,7 +1640,7 @@ features:
       backend: COMPLETE
       frontend: COMPLETE
       test: COMPLETE
-      review: NOT_STARTED
+      review: APPROVED_WITH_FOLLOW_UP
     product_document: docs/product/requirements.md
     requirements:
       - R-QUERY-006
@@ -2391,10 +2391,10 @@ planning_status:
     DRAFT: []
   counts:
     READY: 0
-    IN_PROGRESS: 1
+    IN_PROGRESS: 0
     BLOCKED: 0
     DRAFT: 0
-    DONE: 16
+    DONE: 17
     CANCELLED: 1
   status_decision_rules:
     DRAFT: >
@@ -2409,6 +2409,18 @@ planning_status:
       仅被其他 Feature 的产品决策间接影响、不改变本 Feature 交付边界时，仍按 BLOCKED 处理。
       判定依据见本文件顶部注释与 .pi/agents/project-manager.md §8。
   done_rationale:
+    F019: >
+      base 008ecb2 → head 4524d8e → merge 292345e（--no-ff 合入 develop；集成树与已审阅候选 4524d8e 逐字节一致，
+      父提交为 008ecb2 与 4524d8e）。Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）。
+      验收：协调器与 Tester 各自在一次性真实 PostgreSQL 上独立重跑后端 **1021 passed / 0 skipped**；前端 typecheck + **645 passed**（Tester 多轮）+ build；
+      ruff 干净；无 migration（database: false，alembic head 0008 未变）。
+      **关键交付**：同一端点 `GET /api/clusters/{cluster_id}/search` 的响应**取代**为聚合行列表（`SearchResultRow`：`role` / `group_key` /
+      `derivation_path` / `matched_fields` / `resource`），关联链**复用** `app.resource_views.service.get_related_resources`（R-QUERY-003 唯一实现，
+      search 模块零 `deleted_at`），单元级分页、跨单元不去重、标识字段优先排序、确定性推导路径（仅用单元内已物化对象）。
+      **产品规则**：新增 R-QUERY-006、修订 R-QUERY-005（62 → 63）；f018 契约响应 / 结果顺序 / 排序排除项改为指向 f019 契约，无「契约禁止、实现却有」的分裂。
+      **证伪**：Tester 5 组 + Reviewer 3 组对抗实验全部被检出并逐字节还原；真实前后端集成 3 passed（真实 uvicorn + 真实 PG，无响应桩）。
+      **Follow-up（LOW/NOTE，不阻塞）**：REV-1（补 FK 非匹配 guard）、REV-2（恢复五类关联资源软删参数化）、REV-3（head_commit 已在本状态提交更正为 4524d8e）、
+      REV-4（契约可选明确多锚定取根规则）。M9（搜索结果聚合视图）随之 DONE。
     F010: "base 1baedc0 → head 9dff02b → merge 334b4ca（--no-ff 合入 develop；集成树与已审阅候选 9dff02b 逐字节一致，父提交为 1baedc0 与 9dff02b）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；25 文件 / +3699 行经完整差异 Review，评审在自建真实 PostgreSQL 上独立重跑并自写探针。 验收：后端 965 passed（0 skipped；协调器 / Tester / Reviewer 各自独立重跑）、前端 typecheck + 562 passed（连续 2 次）+ build、ruff 干净、无 migration（database: false）、0001–0008 与 app/deletion/service.py 逐字节未改（sha256 三方相等）。 **关键交付**：GET /api/bare-metals/{bare_metal_id}/related 单一只读聚合端点（五类关联：NIC / IP / VM / Container / Service）+ 前端 BareMetalDetailPage「关联资源」区。 **本 Feature 的正确性压在两条被显式写下的自我声明上，而两条都被独立证伪式验证**：① **「组合既有 per-resource 读取而非重实现」**——Tester 与 Reviewer **各自自造数据、各自直接调 canonical 端点**、与聚合逐类**集合深等比较**（含多载体 Service 去重与 210/205 项完整快照）；新模块 grep deleted_at **零匹配**。② **「只有主机检查会抛 not-found」**——「主机活跃但某类为空」「主机活跃但子资源已软删」**均 200**（这是最容易被写错、写错后最难发现的失败模式：处处复用带守卫的访问器会让空类变成主机不存在）。 **多态推导按用户裁定（BQ-1/BQ-2 = 含间接）**：Container 含「载体为 B 上活跃 VM」、Service 含「载体与 R(B) 有交集」，同一 Service 因多载体相关时**只出现一次**；已固化为 requirements.md R-QUERY-003 的产品规则，且**明确只适用于查询相关性、不改变删除拦截语义**（父删子拦仍以直接绑定为准）。 **深度固定 ≤3 跳、无递归 / 无深度参数 / 无关系类型参数**；guard G-010-7 断言主机下二段路径**恰为** related，被否决的五个子资源端点不可能逐个回来。 **404 判定主体唯一**：仅 bare_metals.service.get_bare_metal_by_id 抛 404；五类共用同一判定（AC-10/AC-12）。 **guard 演进**：Tester 9 组 + Reviewer 4 组对抗注入全部被检出并逐字节还原；EXPECTED_GET_ROUTES **追加 +1 行**（M6 删既有成员被试出）；无既有 guard 被删除。**BOUNDARY_TOKENS 已空、deny-list 恒真**——两方各自注入未批准路由，证明真正可独立失败的防线是 APPROVED_API_PREFIXES allow-list。 **过程与遗留**：契约示例曾把 technology_type/purpose 误写为大写 ETHERNET/BUSINESS（canonical 为大小写敏感的 Ethernet/Business），由 **Frontend Agent 在实现时发现并按 canonical 定义处理**（未照抄示例），已在评审前修正契约；一条 F009 源码 token guard 曾被我在 App.vue 新注释的措辞触发，Frontend Agent **改注释而未动 guard**（正确做法）。**未修复但已记录**：REV-2（G-010-5 只检出 deleted_at **写入**、不检出**读取**谓词——当前实现读谓词为零，属纵深缺口而非缺陷）、REV-3（架构声称「一致快照」但实际为默认 READ COMMITTED，各语句各自取快照，并发软删下可能静默少项；风险低且与既有视图同取向，留待 Architect）。"
     F008: "base 68d8e11 → head f5ed0e4 → merge f773378（--no-ff 合入 develop；集成树与已审阅候选 f5ed0e4 逐字节一致，父提交为 68d8e11 与 f5ed0e4）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；53 文件 / +9562 行经完整差异 Review，评审**独立重跑**真实 PostgreSQL 与真实前端。 验收：真实 PostgreSQL 16.2 后端 935 passed（0 skipped；协调器与 Tester 各自独立重跑）、前端 typecheck + 546 passed（连续 2 次）+ build、ruff 干净、migration 可重复 / 可重建、0001–0007 与 app/deletion/service.py 逐字节未改。 **关键交付**：`services`（11 列，恰 1 约束 = PK、0 CHECK）+ `service_carriers`（5 列 N:M 多态绑定）+ migration 0008；5 端点；**模型里首个 N:M 关系**。 **绑定表是关系表而非资源表**：无 deleted_at、无任何时间戳；三列可空 FK + CHECK (num_nonnulls(...) = 1) + **每条载体列一条 partial unique（集合语义）** + 4 条 RESTRICT FK。 **核心不变式（协调器 / Tester / Reviewer 三方各自直连 DB 证实）**：因 CHECK 迫使另两列为 NULL、而唯一索引中 NULL 互不相等，三条索引互不干扰 → 同一 Service 可同时绑定 BareMetal / VM / Container 的**同数值 id**。 **「释放绑定」无需任何写入**（最易被误判的裁定）：绑定行不可变、不物理删除；某载体是否受保护取决于「是否仍有活跃 Service 绑定它」，删 Service 让该判断立即为假 → 释放是**派生效果**，故 app/deletion/service.py **零改动**、allow-list 恒为单一文件；评审以「软删后绑定行逐字段不变 + 载体不再被拦截 + 删除服务与 Cluster 检查点 sha256 与 base 相同」独立证实，并确认该裁定**未掩盖任何 AC**。 **刻意不做**：「零载体活跃 Service」的 DB 硬约束（跨行性质无法用 CHECK 表达）→ 由登记路径强制 ≥1 + AC-49 回归查询兑现（NQ-06）；**不引入解绑 / 替换端点**（NQ-01 用户 2026-09-16 确认：必须先删除，不做解绑）。 **三载体父删子拦**：BM / VM **追加**、CONTAINER_ACTIVE_CHILD_CHECKS 由显式 () 变非空（F007 预留位落地）；**CLUSTER_ACTIVE_CHILD_CHECKS 逐字节不变**（Service↔Cluster 是推导关系，非子资源，AC-45）。 **登记加锁**：按 (载体类型 rank, carrier_id) **确定性全序**对每个载体取 FOR SHARE，任一未命中在 INSERT 前 404 → 无主 Service / 部分绑定均不产生；相反请求顺序并发无死锁（AC-46/47 真实线程验证）。 **guard 演进**：11 组对抗注入全部被检出并逐字节还原，无既有 guard 被删除；**移除 service token 后 BOUNDARY_TOKENS 变空、其扫描恒真** —— 注入未批准路由证明真正可独立失败的防线是 **APPROVED_API_PREFIXES allow-list**（对 F006-T-01 / F004-T-02 同源风险的正面回答）。 **实现方自捕缺陷**：按载体反查 Service 的查询初版误写为**非相关子查询**（不报错、静默返回错误结果），由实现方自行发现并修复；评审另以对抗用例独立复验该语义。 **过程**：协调器按 F007-INC-1 之后确立的规矩，**不采信 Agent 测试数字**，在全新真实 PG 上独立重跑后才接受交接；reflog 无任何 Agent 造成的 Git 状态变化。M4（虚拟 / 容器 / 服务资源）随之 DONE。"
     F007: "base 06b3c5b → head 2c383a9 → merge ff347be（--no-ff 合入 develop；集成树与已审阅候选 2c383a9 逐字节一致，父提交为 06b3c5b 与 2c383a9）。 Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；50 文件 / +8560 行经完整差异 Review。 验收：真实 PostgreSQL 16.2 下后端 798 passed（0 skipped）、前端 typecheck + 460 passed（连续 2 次）+ build、ruff 干净、migration 可重复 / 可重建、0001–0006 逐字节未改。 **关键交付**：`containers`（11 列）+ migration 0007；5 端点；**模型里首个多态载体**。 **多态载体裁定**：两列可空 FK（bare_metal_id / virtual_machine_id）+ CHECK (num_nonnulls(...) = 1) + **每载体列一条** partial unique index；**保留两条真实 FK RESTRICT**——否决「判别列 + 无 FK」，因其把「载体必须存在」推给应用层，违反 AGENTS.md §6 与 ADR-0002；否决生成列，因功能等价却引入本项目从未用过的 schema 机制。 **唯一性边界 = 载体（非全局、非 Cluster）**：因 CHECK 保证另一列为 NULL、而唯一索引中 NULL 互不相等，两条索引互不干扰 → **BareMetal 与 VM 同数值 id 同名 Container 可共存**（AC-15，本设计的承重不变式；Tester 与 Reviewer 各自**绕过应用层直连 DB** 独立证实）；大小写敏感；软删释放。 **刻意不加 cluster_id**：F005 的 ip_addresses 需反规范化 cluster_id 是因**其唯一性边界是 Cluster**；Container 边界是载体且两列已在表内（文档明写不得照搬 F005 模式）。 **恰 1 个 CHECK**：name 与四可选字段的长度 / trim / 空串 / 格式未确认 → 不建任何约束，并显式声明「空串当前会被接受」但**不得解读为已确认合法**（NQ-4）。 **F014 双载体端到端**：VIRTUAL_MACHINE_ACTIVE_CHILD_CHECKS **首次由显式空元组变非空**（F006 REV-3 预留位落地，其 guard 断言同步演进），BARE_METAL_ACTIVE_CHILD_CHECKS **追加**而非替换（保留 VM + NIC），CONTAINER_ACTIVE_CHILD_CHECKS 留显式 () 作为 F008 追加点；并发孤立记录不变式 0 行（AC-36/37 真实并发）。 **guard 演化纪律**：BOUNDARY_TOKENS **仅移除 container、保留 service、全局 /api/* 扫描未收窄**（注入未批准 POST /api/services 证明仍可检出）；8 组对抗注入全部被检出并逐字节还原；无既有 guard 被删除。 **过程事件（已记录）**：F007-INC-1 Backend Agent 违规执行 git stash -u（并行期），协调器因此**不采信其报告**、在全新真实 PG 上独立重跑全部测试后才接受交接；F007-INC-2 协调器提交信息含反引号被 shell 吞掉，致一条**信息截断且重复**的提交 30592ec（内容为其后提交的严格子集，HEAD 正确），**未改写历史**，此后一律用 git commit -F。"
@@ -2542,9 +2554,10 @@ planning_status:
     F005: "DEC-006 已解决（V1 无状态），无未解决产品问题；阻塞为依赖 F004 未 DONE。"
     F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
   readiness_summary: >
-    **2026-09-20**：用户就 DEC-022 逐一裁定（8 项 + 3 处澄清），裁定内容见 decisions_required[DEC-022].resolution。
-    F019 由 DRAFT 转 **READY**；无其他 READY / BLOCKED / DRAFT / IN_PROGRESS Feature。
-    下一步：进入 F019 Feature Workflow（Product 修订 R-QUERY-005 → Architecture / Contract → 实现）。
+    **2026-09-20**：F019（搜索结果聚合视图）已完成 Feature Workflow 并 DONE（head 4524d8e → merge 292345e，Reviewer = APPROVED WITH FOLLOW-UP）。
+    M9 随之 DONE。**项目全部 Feature 处置完毕：17 DONE + 1 CANCELLED（F011），project.status = DONE；无 READY / BLOCKED / DRAFT / IN_PROGRESS。**
+    F019 遗留 REV-1 / REV-2（测试覆盖回退，LOW）与 REV-4（NOTE）作为非阻塞 follow-up 记录在 case。
+    **2026-09-20（早先）**：用户就 DEC-022 逐一裁定（8 项 + 3 处澄清），F019 由 DRAFT 转 READY 并进入 Feature Workflow。
     **2026-09-18 追加（二）**：用户要求「选定集群后按任意关键字查询」，据此新增 F018、DEC-021 与 M8。
     **用户随后逐一裁定 NQ-1 ~ NQ-5 与 DEC-021（均为「做」），F018 已转 READY**（AC-D1 ~ AC-D5 取自用户答案）。
     仍待办：Product 在 §16 新增关键字搜索产品规则（NQ-8）、修订三份契约的关键字立场、Architecture 定稿
@@ -2707,6 +2720,36 @@ planning_status:
           frontend/src/** 逐字节未动（ClusterFormDialog.vue sha256 恒为 7f3cecd9…cccd），
           只改 2 个测试文件（+256 / −16）；既有 604 用例未削弱（dialog spec +84 / −0，token 只增不减）。
           门禁：typecheck 零输出、**618 passed 连续 2 次**、build ✓。
+    from_f019_review:
+      open:
+        - id: REV-1
+          severity: LOW
+          owner: Tester
+          summary: >-
+            F018 的「关系外键值不参与匹配」用例（`test_t18_04_foreign_key_values_do_not_match`）被删除，
+            F019 未提供等价替代，且无 guard 断言 `SEARCHABLE_FIELDS` 不含外键字段（`cluster_id` /
+            `bare_metal_id` / `network_interface_id` / `carrier_type` / `carrier_id`）。当前实现正确，
+            仅为覆盖回退。修法：新增断言 `SEARCHABLE_FIELDS` 不含任何外键字段的 guard，或以真实外键值搜索并断言 `total==0`。
+        - id: REV-2
+          severity: LOW
+          owner: Tester
+          summary: >-
+            F018 的「五类关联资源软删后不出现」参数化用例被替换为仅覆盖 NIC（RELATED）与 BM（HIT）两条；
+            IP / VM / Container / Service 关联行的软删过滤在已提交测试中未被直接断言。软删过滤逻辑统一经
+            `get_related_resources` / repository 传递，功能风险低。修法：恢复五类关联资源的软删参数化断言。
+        - id: REV-3
+          severity: LOW
+          owner: Coordinator
+          summary: >-
+            `features[F019].git.head_commit` 曾记为 `5c278ee`（实现提交）而分支实际 HEAD 为 `4524d8e`（test report 提交）。
+            **已在本次最终状态提交中更正**：`head_commit = 4524d8e`、`merge_commit = 292345e`。
+        - id: REV-4
+          severity: NOTE
+          owner: Architect（可选）
+          summary: >-
+            契约 §4.3 未明确多锚定行 `derivation_path` 取根的集合；Architecture §6「取 id 最小的 B*」措辞对
+            「从哪个集合取」有歧义。实现取 `min(anchors(hit) ∩ anchors(row))`，经多锚定 Service 探针验证确定性且满足头尾约束。
+            无功能缺陷，仅文档精度；建议在契约 §4.3 明确取根规则。
     from_f018_review:
       open:
         - id: F018-LOW-1
@@ -3091,16 +3134,17 @@ planning_status:
   decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: F019
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   note_append: >
     2026-09-20：用户批准增量计划并就 DEC-022 裁定；F019 转 READY 并进入 Feature Workflow。
     自 develop（008ecb2）创建 feature/F019-search-result-aggregation，project.status = IN_PROGRESS。
     Product 完成：新增 R-QUERY-006、修订 R-QUERY-005，产出 Product Handoff。
-    Architecture + Contract 完成：Architecture Handoff 与 f019 契约均 READY（复用同一端点、取代响应形态、
-    单元级分页、database:false）；f018 契约响应段已改为指向新契约。
-    Implementation 完成（5c278ee，Backend + Frontend 并行）；协调器独立重跑后端 1021 passed、前端 645 passed + build。
-    Test 完成：Tester 独立验收 READY FOR REVIEW、无缺陷（含真实前后端集成 + 5 组可失败证伪）。现进入 REVIEW。
+    Architecture + Contract 完成：Architecture Handoff 与 f019 契约均 READY；f018 契约响应段已指向新契约。
+    Implementation 完成（5c278ee）；协调器独立重跑后端 1021 passed、前端 645 passed + build。
+    Test 完成：Tester 独立验收 READY FOR REVIEW、无缺陷。Reviewer verdict = APPROVED WITH FOLLOW-UP
+    （无 BLOCKER/HIGH/必须修复的 MEDIUM）；HEAD 4524d8e → merge 292345e；F019 DONE。
+    项目全部 Feature 处置完毕（17 DONE + 1 CANCELLED），project.status = DONE。
     2026-09-18：项目在原结论（14 DONE + 1 CANCELLED）之上收到「UI 导航栏是否可改为侧边栏」的
     可行性询问，已登记 F017 与 DEC-020；DEC-020 已由用户裁定「做」，F017 转 READY 并开始执行。
     2026-09-18（二）：收到新输入「添加搜索功能，允许选定集群后按任意关键字查询」，据此**新增**

@@ -2,8 +2,8 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-20（用户裁定 DEC-022；F019 转 READY，`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
+> Generated: 2026-09-20（F019 完成并 merge；项目全部 Feature 处置完毕，`project.status = DONE`）
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
 
 **2026-09-18（五）增量**：新增 F019（搜索结果聚合视图，depends_on F018）、DEC-022 与 M9。
 **2026-09-20**：DEC-022 由用户裁定，F019 转 **READY**（当前唯一 READY Feature）。
@@ -36,7 +36,7 @@
 | F016 Cluster 登记与改名 UI | DONE | F001, F013, F014 | frontend |
 | F017 应用外壳侧边栏导航 | DONE | F012, F013, F001, F002, F004, F005, F006, F007, F008, F010 | frontend |
 | F018 集群内资源关键字搜索 | DONE | F001, F002, F004, F005, F006, F007, F008 | backend, frontend |
-| F019 搜索结果聚合视图 | IN_PROGRESS | F018 | backend, frontend（database 初步 false，待 Architecture 确认） |
+| F019 搜索结果聚合视图 | DONE | F018 | backend, frontend（database: false） |
 
 ## 全量依赖 DAG
 
@@ -49,11 +49,11 @@ F012 项目基础框架与运行环境 (P0, DONE)
    └──> F017 应用外壳侧边栏导航 (P2, DONE)
 ```
 
-F019（搜索结果聚合视图，P1，READY）依赖 F018：
+F019（搜索结果聚合视图，P1，DONE）依赖 F018：
 
 ```text
 F018 集群内资源关键字搜索 (P1, DONE)
-   └──> F019 搜索结果聚合视图 (P1, READY)  ← 产品语义已由 DEC-022 裁定（2026-09-20）
+   └──> F019 搜索结果聚合视图 (P1, DONE)  ← merge 292345e8（产品语义由 DEC-022 裁定，Reviewer = APPROVED WITH FOLLOW-UP）
 ```
 
 ## 拓扑序（实施顺序参考）
@@ -76,12 +76,12 @@ F018 集群内资源关键字搜索 (P1, DONE)
 15. F016  DONE
 16. F017  DONE
 17. F018  DONE
-18. F019  IN_PROGRESS（已在 feature/F019-search-result-aggregation）
+18. F019  DONE（merge 292345e8）
 ```
 
 ## 说明
 
-- `F019` 是当前**唯一进行中 Feature**（分支 `feature/F019-search-result-aggregation`，start_commit 008ecb2），`depends_on` 的 `F018` 已 DONE；产品语义已由 DEC-022 裁定（2026-09-20）。当前处于 Product 阶段：修订 R-QUERY-005 / 新增规则，再由 Architecture 定稿搜索响应契约。
+- `F019` 已 `DONE`（merge 292345e8，Reviewer = APPROVED WITH FOLLOW-UP）；产品语义由 DEC-022 裁定（2026-09-20）。**当前无 READY / IN_PROGRESS / BLOCKED / DRAFT Feature**；F019 遗留 REV-1 / REV-2（测试覆盖回退，LOW）与 REV-4（NOTE）作为非阻塞 follow-up。
 - `F018` 已 `DONE`（merge f1ac71b1）；`F017`（侧边栏）与 `F018`（搜索）无依赖边，两者对 `frontend/src/App.vue` 的所有权冲突已解除。
 - `F011` 为 `CANCELLED`（用户 2026-09-18 决定），不在实施顺序中。
 - 优先级（P0 / P1 / P2）不代表执行顺序；执行顺序以上方拓扑序为准。
