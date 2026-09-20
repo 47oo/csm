@@ -28,8 +28,8 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: DONE
-  status_changed_on: "2026-09-18"
+  status: ACCEPTED
+  status_changed_on: "2026-09-20"
   status_note_append: >
     **2026-09-18（四）：用户批准本次计划**（「批准本次计划」），并确认「模糊」=**子串包含**（非容错/相似度）。
     计划由 DRAFT 转 IN_PROGRESS，恢复在途的 F017（侧边栏）继续执行；F018 待 F017 merge 后再启动
@@ -45,6 +45,22 @@ project:
     **须注意的后果（协调器指出）**：`/implement-project` 第 2 节把 `DRAFT` 视为硬停止条件
     （输出 `PROJECT PLAN APPROVAL REQUIRED`），因此**在用户批准本计划之前，F017 不会被自动继续**。
     这是有意的：新增输入改变了 Backlog 与契约立场，应由用户看过再决定 F017 是否继续。
+    ---
+    2026-09-18（五）本次增量：收到未获批准输入「将搜索的内容进行聚合，比如输入ip地址，显示裸金属 cn001,ip xxx,网卡eth0 等等」。
+    据此**新增** F019（DRAFT，搜索结果聚合视图）、DEC-022（OPEN）与 M9。本计划由 DONE 转 DRAFT
+    **仅表示新增输入待用户批准**，既不代表既有交付被推翻，也不表示 M1–M8 的结论改变。
+    **既有一律不变**：16 DONE + 1 CANCELLED、M1–M8、全部 merge commit / Tester / Review 证据
+    与各 Feature 的 git 元数据（base_branch / branch / start_commit / head_commit / merge_commit）均原样保留；
+    F018 已 DONE 的实现与结论不被推翻。DEC-022 与本 Feature 的完整歧义清单见
+    `decisions_required[DEC-022]` 与 `features[F019].open_questions`；**未确认前不得实现**。
+    ---
+    2026-09-20：**用户批准本次增量计划**（「批准本次增量计划」）。本计划由 DRAFT 转 **ACCEPTED**。
+    批准内容仅为**计划结构**（新增 F019 + DEC-022 + M9，E05 追加 F019），**不含产品语义裁定**：
+    F019 仍为 **DRAFT**，DEC-022 仍为 **OPEN**，其 NQ-1 ~ NQ-8 全部 blocking。
+    因此本计划虽为 ACCEPTED，但当前**无 READY Feature**；在 DEC-022 由用户裁定、Product 落地规则前，
+    F019 不得进入实现（`/implement-project` 在此停止并请求用户决策）。
+    **既有结论一律不变**：16 DONE + 1 CANCELLED、M1–M8、全部 merge commit / Tester / Review 证据
+    与各 Feature 的 git 元数据均原样保留。
   status_note: >
     **2026-09-18 重新规划并获批准**：V1 全部 Feature（14 DONE + 1 CANCELLED）处置完毕后，用户就
     「UI 导航栏是否可改为侧边栏」提出可行性询问。据此登记 F017 与 DEC-020。
@@ -163,8 +179,8 @@ epics:
     features: [F008]
   - id: E05
     name: 资源查询与视图
-    description: 从 Cluster 视角及资源详情视角查询资源与关系；F018 起含 Cluster 范围内的关键字搜索。
-    features: [F009, F010, F018]
+    description: 从 Cluster 视角及资源详情视角查询资源与关系；F018 起含 Cluster 范围内的关键字搜索；F019 起含搜索结果聚合视图（待批准）。
+    features: [F009, F010, F018, F019]
   - id: E06
     name: 数据导入
     description: Excel 模板与批量资源导入。
@@ -1566,6 +1582,123 @@ features:
         summary: >
           里程碑归属确认：M8 只含 F018；若用户希望并入既有里程碑则调整 M8，不改变 F018 的 scope。
 
+  # ---- F019：搜索结果聚合视图（**本次新增输入，产品语义未确认；DRAFT；不得在裁定前实现**）----
+  # 上游输入（原文）：用户新增「将搜索的内容进行聚合，比如输入ip地址，显示裸金属 cn001,ip xxx,网卡eth0 等等」。
+  # 关键事实：该输入描述的是**搜索结果的聚合呈现**（把与某 IP 相关的裸金属 / 网卡等作为一个资源组一起展示），
+  #           与已确认的 R-QUERY-005「单一混合列表（不按资源类型分组）」及「不提供聚合」**直接冲突**；
+  #           且输入本身表述不足——分组单位 / 是否关系扩展 / 信封形态 / 是否取代扁列表均未定义。
+  #           属**产品 / 契约立场变更**：须先由 Product 修订或新增规则，并可能重新定稿搜索响应契约。
+  #           Project Manager **不得**自行裁定产品语义。
+  - id: F019
+    name: 搜索结果聚合视图
+    epic: E05
+    priority: P1
+    status: DRAFT
+    depends_on: [F018]
+    depends_on_note: >
+      直接依赖 F018：复用其选定 Cluster 前置、只读搜索端点（GET /api/clusters/{cluster_id}/search）、
+      匹配语义与结果字段。F018 实现层已通过 `resource_views.service.get_related_resources` 复用 F010 的关联推导
+      （F018 自身 depends_on 未列 F010），故本 Feature 不再重复建立到 F010 的边，避免冗余。
+      **例外**：若 DEC-022 裁定 F019 需要 F018 当前未暴露的**额外关系推导**（如按资源组反向枚举），
+      则 F010 可能升为直接依赖，届时须补边并重新评估。
+    blocking:
+      - "product-decision: DEC-022（搜索结果聚合语义与 R-QUERY-005 扁列表条款的取舍）"
+    git:
+      base_branch: develop
+      branch: null
+      start_commit: null
+      head_commit: null
+      merge_commit: null
+    current_stage: null
+    layers:
+      database: false     # 初步判断：聚合基于 Python 侧已物化候选集，不预期新索引 / 新表；不确定，见 layers_note
+      backend: true       # 结果组装 / 聚合结构（旧响应 → 聚合信封 的映射）；可能是新增端点或参数
+      frontend: true      # 聚合视图渲染（每个资源组的呈现）；是否保留扁平列表待定
+    layers_note: >
+      **初步判断，非定稿**：F018 的 `database: false` 前提（范围推导在 Python 侧物化候选集、无新索引）
+      在本 Feature 中是否继续成立**未经 Architecture 确认**。若 DEC-022 选择「关系扩展 / 以主机为中心展开」，
+      候选集与排序方式可能改变，届时 database 可能由 false 变 true；由 Architecture / Database 在契约定稿时裁定。
+    contract:
+      status: REQUIRED
+      doc: null
+    contract_note: >
+      **搜索响应形态可能必须修订**：F018 现行契约为 `docs/api/f018-cluster-keyword-search.md`，其响应为
+      R-QUERY-005 定义的**单一混合列表**。本 Feature 的聚合信封（每个聚合组包含哪些资源）与既有响应契约
+      不兼容，需新增契约或修订 F018 契约，并同步**可能受影响的产品规则 R-QUERY-005**。
+      在 DEC-022 裁定与 Product 规则落定前，契约不得定稿（contract.status=REQUIRED，doc 暂为 null）。
+    implementation:
+      database_design: NOT_REQUIRED
+      backend: NOT_STARTED
+      frontend: NOT_STARTED
+      test: NOT_STARTED
+      review: NOT_STARTED
+    product_document: docs/product/requirements.md
+    requirements: []
+    requirements_note: >
+      现有 §16 中 **R-QUERY-005 明文规定结果为「单一混合列表（不按资源类型分组）」**，
+      因此本 Feature **无法挂任何既有 requirement ID**。须由 Product 先修订 R-QUERY-005 或**新增**一条聚合规则
+      （类比 F018 的 NQ-8），明确聚合语义与扁列表条款的取舍后，本 Feature 才能挂 requirement ID。
+      Project Manager 与协调器均**不得**自行发明该产品规则。
+    acceptance_criteria:
+      # 仅列不受聚合语义歧义影响的通用 AC；聚合专属 AC 待 NQ-1 ~ NQ-8 裁定后由 Product 定稿。
+      - AC-01 只读：本 Feature 不创建 / 修改 / 删除任何资源，不存在写端点或写副作用。
+      - AC-02 软删过滤：已逻辑删除的资源不出现在任何聚合结果中（R-DELETE-002；ADR-0004）。
+      - AC-03 认证：未认证访问本 Feature 相关端点 → 401 UNAUTHENTICATED 且不返回资源数据。
+      - AC-04 Not Found / Empty 区分（R-QUERY-004）：目标 Cluster 不存在或已软删 → 404 NOT_FOUND；Cluster 存在但无命中 → 200 + 空结果并渲染 Empty 态；二者界面互不相同且可独立断言。
+      - AC-05 不改既有语义：不新增任何资源唯一性约束，不修改 §22 大小写语义、`by-name` 大小写敏感、用户名查找禁止 lower()/ILIKE 等既有规则。
+      - AC-06 契约一致：本 Feature 的搜索响应契约已持久化且 contract.status=READY，且 R-QUERY-005（及任何被修订的相关条款）已按 DEC-022 裁定同步；不得存在「契约 / 产品规则禁止、实现却有」的分裂。
+      - AC-07 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
+      - AC-08 范围边界：不引入自动资产发现 / 外部平台同步 / 未确认的排序 / 导出 / 状态筛选能力。
+      - "AC-PLACEHOLDER（占位，**不得作为验收基准**）：聚合分组单位、是否关系扩展、聚合信封形态、未关联命中资源处置、跨组去重、排序与分页语义、是否保留 / 取代 F018 扁平列表——全部待 NQ-1 ~ NQ-8 由用户 / Product 裁定后，方可写出可判定的聚合专属 AC。裁定前本 Feature 保持 DRAFT，**不得进入实现**。"
+    open_questions:
+      - id: NQ-1
+        blocking: true
+        summary: >
+          聚合的**分组单位**是什么？（按关联的 BareMetal / 主机为中心分组？按搜索命中项的关联链分组？
+          还是仅对命中项补充展示其相关上下文、不真正分组？）未确认前不得实现。
+      - id: NQ-2
+        blocking: true
+        summary: >
+          是否要做**关系扩展**：把与命中项相关、但**自身字段并不匹配关键字**的资源（如上例中的裸金属 cn001、
+          网卡 eth0）也纳入结果？F018 现行语义只让「自身字段命中」的资源出现。该决定直接改变结果集合，
+          未确认前不得实现。
+      - id: NQ-3
+        blocking: true
+        summary: >
+          聚合结果的**信封 / 呈现形态**：每个聚合组包含哪些资源、以什么字段结构返回、UI 如何呈现？
+          完全未定义，未确认前不得实现。
+      - id: NQ-4
+        blocking: true
+        summary: >
+          **未关联到任何 BareMetal** 的命中资源如何处置？（单独成组 / 归入「其他」 / 不显示 / 仍按条目显示？）
+          未确认前不得实现。
+      - id: NQ-5
+        blocking: true
+        summary: >
+          **跨组重复资源如何去重**？（同一资源可能与多个主机相关；F010 / R-QUERY-003 已确立「同一资源只出现一次」
+          的取向，但聚合场景下是否沿用未确认。）未确认前不得实现。
+      - id: NQ-6
+        blocking: true
+        summary: >
+          **排序与分页语义**（组级排序 / 条目级分页 vs 组级分页）未定义；且 R-QUERY-005 明文**不承诺排序**。
+          聚合若隐含某种默认排序，属新增产品规则，须显式确认。未确认前不得实现。
+      - id: NQ-7
+        blocking: true
+        summary: >
+          **是否保留 F018 的扁平列表，或以其完全取代？** R-QUERY-005 明文「单一混合列表（不按资源类型分组）」，
+          与聚合视图直接冲突；两种形态是否并存、何种为默认，须由用户裁定。未确认前不得实现。
+      - id: NQ-8
+        blocking: true
+        summary: >
+          **产品规则落点**：需由 Product 在 requirements.md §16 **修订 R-QUERY-005** 或**新增**一条聚合规则
+          （编号由 Product 决定），明确聚合语义及与扁列表条款的取舍；本 Feature 才能挂 requirement ID。
+          属 Product 职责，PM / 协调器不得代劳。
+      - id: NQ-9
+        blocking: false
+        summary: >
+          入口与前置条件是否**沿用 F018**（应用外壳全局搜索 + 先选定单一 Cluster）？倾向沿用，属实现一致性选择，
+          但最终由 Architecture / Product 在契约定稿时确认，不改变上述 NQ 的裁定范围。
+
 # ---------------------------------------------------------------------------
 # Blocking Decisions
 # C-1 ~ C-8 来自 docs/project/_planning-findings.md。
@@ -1831,6 +1964,26 @@ decisions_required:
       四份契约保持冻结不变；若裁定为「做」，则必须先修订契约立场，再由 Product 新增 / 修订一条
       产品规则（NQ-8），随后 Architecture / Contract 定稿形态（NQ-7）与索引方案（NQ-6）。
 
+  - id: DEC-022
+    type: product
+    status: OPEN
+    topic: 搜索结果聚合语义与 R-QUERY-005 「单一混合列表 / 不提供聚合」条款的取舍
+    question: >
+      是否把 F018 的搜索结果从「逐条独立、扁平混合列表」改为「按关联资源组聚合呈现」
+      （如输入 IP 片段时，把其裸金属 cn001、该 IP、其所在网卡 eth0 作为一个相关联的资源组一起展示）？
+      若改为聚合：(a) 分组单位是什么；(b) 是否做关系扩展（纳入自身字段不匹配的相关资源）；
+      (c) 聚合信封 / 呈现形态；(d) 未关联到任何 BareMetal 的命中资源如何处置；(e) 跨组重复如何去重；
+      (f) 排序与分页语义；(g) 是否保留或取代 F018 的扁平列表。
+      上述取舍直接冲突于已确认的 **R-QUERY-005**（明文「结果为单一混合列表，不按资源类型分组」，
+      且「除结果总数外不提供统计（按类型计数、聚合、仪表盘）」），须由用户 / Product 裁定。
+    impact_features: [F019, F018]
+    note: >
+      本项为**产品 / 契约立场取舍**，Project Manager 与协调器均**不得自行裁定**（AGENTS.md §2.8）。
+      完整歧义清单见 `features[F019].open_questions`（NQ-1 ~ NQ-8 均为 blocking）。
+      裁定结果可能要求：修订 requirements.md §16 的 R-QUERY-005 或新增聚合规则、修订 / 新增搜索响应契约
+      （F018 契约 `docs/api/f018-cluster-keyword-search.md`）、并调整 F019 的 layers（database 可能由 false 变 true）。
+      **在裁定前，F019 保持 DRAFT 且不得实现；F018 已 DONE 的既有实现与结论不被本项推翻。**
+
 # 已关闭的 open question（不再是 open question）
 closed_open_questions:
   - id: OPEN-006
@@ -1949,6 +2102,21 @@ milestones:
     completion_criteria:
       - 交付范围与可判定 AC 经 Product 定稿。
       - 搜索契约 READY（新增或修订既有契约）；无「契约禁止、实现却有」的分裂。
+      - 未认证 → 401；软删资源不出现；Cluster 不存在 / 已删 → 404 与 Empty 可区分（R-QUERY-004）。
+      - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
+
+  - id: M9
+    name: 搜索结果聚合视图
+    goal: 在 F018 搜索能力之上，按用户裁定提供搜索结果聚合呈现（语义待 DEC-022 与 F019 NQ-1 ~ NQ-8 裁定）。
+    features: [F019]
+    entry_conditions:
+      - DEC-022 由用户裁定为明确结论（做 / 不做 / 以何语义做）。
+      - Product 修订 R-QUERY-005 或新增聚合产品规则，F019 scope / AC 可定稿。
+      - F018 已 DONE（已满足），其搜索能力与 F010 推导作为基础。
+      - 搜索响应契约按裁定修订 / 新增为 READY；F019 layers（尤其 database）经 Architecture 复核。
+    completion_criteria:
+      - 交付范围与可判定 AC 经 Product 定稿。
+      - 聚合响应契约 READY；无「契约 / 产品规则禁止、实现却有」的分裂。
       - 未认证 → 401；软删资源不出现；Cluster 不存在 / 已删 → 404 与 Empty 可区分（R-QUERY-004）。
       - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
@@ -2175,15 +2343,15 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F018]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: []
+    DRAFT: [F019]
   counts:
     READY: 0
     IN_PROGRESS: 0
     BLOCKED: 0
-    DRAFT: 0
+    DRAFT: 1
     DONE: 16
     CANCELLED: 1
   status_decision_rules:
@@ -2313,7 +2481,13 @@ planning_status:
       依赖全部 DONE、无架构 / 数据库 / 环境阻塞，故 READY。计划同时转 ACCEPTED 并开始执行。
       义务：AC-06 要求把 5 个既有导航测试中 15 处 el-button--primary 断言**改写**为侧边栏活跃态的
       等价断言（不得削弱或删除其验证的真实行为）；不得删除 f009ClusterResourceView 的源码 guard。
-  draft_rationale: {}
+  draft_rationale:
+    F019: >
+      存在直接影响本 Feature scope / acceptance_criteria 定稿的**未解决产品问题**：用户新增的「搜索结果聚合」
+      输入与已确认 R-QUERY-005（「单一混合列表，不按资源类型分组」+「除结果总数外不提供统计 / 聚合」）
+      **直接冲突**，且输入本身表述不足（NQ-1 ~ NQ-8 全部 blocking）。聚合语义未确认前无法写出可判定的
+      聚合专属 AC，故按状态规则取 **DRAFT**（产品问题与依赖阻塞并存时取 DRAFT；此处依赖 F018 已 DONE，
+      依赖不构成阻塞）。**未确认前不得实现；不得由 PM / 协调器代裁 DEC-022。**
 
   blocked_rationale:
     F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
@@ -2341,6 +2515,10 @@ planning_status:
     0 个 Feature 处于 READY / BLOCKED / DRAFT / IN_PROGRESS。**CSM V1 的全部 14 个 Feature 已全部处置完毕（13 DONE + 1 CANCELLED），project.status = DONE。**
     F011 取消后的范围记录已按用户选择 A 修正：requirements.md §18 的 R-IMPORT-001~004 **规则文本保留**并标注「V1 不交付（2026-09-18 用户取消）」，
     同时 requirements.md 两处目标清单与 project goal 中的「批量数据导入」已标注 / 移除。
+    2026-09-18（五）本次增量：新增未获批准输入「搜索结果聚合」，据此新增 F019（DRAFT）、DEC-022（OPEN）与 M9。
+    **既有结论不变**：16 DONE + 1 CANCELLED、M1–M8 全部 DONE；F018 已 DONE 且 merge f1ac71b。
+    F019 因产品语义未确认（NQ-1 ~ NQ-8 全部 blocking，且与 R-QUERY-005 直接冲突）为 DRAFT；
+    **未获用户批准与 DEC-022 裁定前不得实现**。
   git_incidents:
     F007-INC-1:
       severity: PROCESS
@@ -2878,6 +3056,13 @@ execution:
     `frontend/src/App.vue`**。协调器要求**串行**：**F017 先完成并 merge，再启动 F018**；否则须显式划清
     `App.vue` 所有权（git-workflow §3）。F018 在实现前还须先完成 Product（§16 产品规则）与
     Architecture / Contract（契约形态 + 索引方案）。
+    2026-09-18（五）：收到新输入「将搜索的内容进行聚合，比如输入ip地址，显示裸金属 cn001,ip xxx,网卡eth0 等等」。
+    协调器识别该输入描述的是**搜索结果的聚合呈现**，与已确认 R-QUERY-005「单一混合列表（不按资源类型分组）」
+    及「不提供聚合」直接冲突，且语义未确认。据此**新增** F019（DRAFT）、DEC-022（OPEN）与 M9，
+    并把 project.status / planning_status.status 转 DRAFT（待用户批准）。
+    **既有一律不变**：16 DONE + 1 CANCELLED、M1–M8、全部 merge commit / Tester / Review 证据与各 Feature
+    的 git 元数据均原样保留；F018 已 DONE 的实现与结论不被推翻。
+    **未获批准前不得启动 F019 实现**（/implement-project 第 2 节把 DRAFT 视为硬停止条件）。
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。

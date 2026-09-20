@@ -2,8 +2,11 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-18（**本文件为重建版**——此前正文自 M1 时期起严重漂移，经用户决定按计划重新生成）
-> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
+> Generated: 2026-09-20（增量更新：用户批准 F019 / DEC-022 / M9 增量计划，`project.status = ACCEPTED`）
+> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 1, 'DONE': 16, 'CANCELLED': 1}`
+
+**2026-09-18（五）增量**：新增 F019（搜索结果聚合视图，DRAFT，depends_on F018）、DEC-022（OPEN）与 M9；`project.status` 由 DONE 转 **DRAFT**（待批准）。
+**既有依赖与结论一律不变**：M1–M8、各 Feature 的 `depends_on`、merge SHA 与状态均原样保留。
 
 **重建说明**：本文件由 `project-plan.yaml` 重新生成，取代此前陈旧的正文（旧版仍写「Feature 总数 14 / DONE 10 / F007 READY / M4 进行中」等）。
 历史结论（F011 取消、M5 的实际结局、各 Feature 的 merge SHA、各条 follow-up）均按计划原样保留，未因重建而丢失。
@@ -32,6 +35,7 @@
 | F016 Cluster 登记与改名 UI | DONE | F001, F013, F014 | frontend |
 | F017 应用外壳侧边栏导航 | DONE | F012, F013, F001, F002, F004, F005, F006, F007, F008, F010 | frontend |
 | F018 集群内资源关键字搜索 | DONE | F001, F002, F004, F005, F006, F007, F008 | backend, frontend |
+| F019 搜索结果聚合视图 | DRAFT | F018 | backend, frontend（database 初步 false，待 Architecture 确认） |
 
 ## 全量依赖 DAG
 
@@ -42,6 +46,13 @@ F012 项目基础框架与运行环境 (P0, DONE)
    └──> F015 内网部署与运行环境 (P0, DONE)
    └──> F001 Cluster 登记与管理 (P0, DONE)
    └──> F017 应用外壳侧边栏导航 (P2, DONE)
+```
+
+F019（搜索结果聚合视图，P1，DRAFT）依赖 F018：
+
+```text
+F018 集群内资源关键字搜索 (P1, DONE)
+   └──> F019 搜索结果聚合视图 (P1, DRAFT)  ← 产品语义未确认（DEC-022 / NQ-1 ~ NQ-8）
 ```
 
 ## 拓扑序（实施顺序参考）
@@ -64,11 +75,12 @@ F012 项目基础框架与运行环境 (P0, DONE)
 15. F016  DONE
 16. F017  DONE
 17. F018  DONE
+18. F019  DRAFT（依赖 F018；产品语义未确认，未获批准前不得启动）
 ```
 
 ## 说明
 
-- `F018` 是当前唯一未处置 Feature，状态 `BLOCKED`——**产品行为未决**（NQ-A 与 PROPOSED-1），**不是**依赖、架构或环境阻塞；其 `depends_on` 的 F001 / F002 / F004–F008 全部已 DONE。
-- `F017`（侧边栏）与 `F018`（搜索）**无依赖边**；两者都要改 `frontend/src/App.vue`，故需**串行**——`F017` 已完成并 merge，该文件所有权冲突已解除。
+- `F019` 是当前**唯一未处置 Feature**，状态 `DRAFT`——**产品语义未决**（与 R-QUERY-005「单一混合列表 / 不提供聚合」直接冲突；NQ-1 ~ NQ-8 全部 blocking），**不是**依赖、架构或环境阻塞；其 `depends_on` 的 `F018` 已 DONE。未获用户批准与 `DEC-022` 裁定前不得实现。
+- `F018` 已 `DONE`（merge f1ac71b1）；`F017`（侧边栏）与 `F018`（搜索）无依赖边，两者对 `frontend/src/App.vue` 的所有权冲突已解除。
 - `F011` 为 `CANCELLED`（用户 2026-09-18 决定），不在实施顺序中。
 - 优先级（P0 / P1 / P2）不代表执行顺序；执行顺序以上方拓扑序为准。
