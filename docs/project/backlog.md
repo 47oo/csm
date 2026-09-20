@@ -2,8 +2,15 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-18（**本文件为重建版**——此前正文自 M1 时期起严重漂移，经用户决定按计划重新生成）
-> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
+> Generated: 2026-09-20（F019 完成并 merge；项目全部 Feature 处置完毕，`project.status = DONE`）
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
+
+**2026-09-18（五）增量**：收到未获批准输入「将搜索的内容进行聚合，比如输入ip地址，显示裸金属 cn001,ip xxx,网卡eth0 等等」。
+据此**新增** F019（搜索结果聚合视图，DRAFT）、DEC-022（OPEN）与 M9，`project.status` 由 DONE 转 **DRAFT**（待用户批准）。
+该输入与已确认的 R-QUERY-005「单一混合列表（不按资源类型分组）」「除结果总数外不提供统计 / 聚合」直接冲突，语义未确认。
+**既有一律不变**：16 DONE + 1 CANCELLED、M1–M8、全部 merge SHA / Tester / Review 证据与各 Feature 的 git 元数据均原样保留。
+
+**2026-09-20**：用户批准增量计划后，就 **DEC-022** 逐一裁定（8 项 + 3 处澄清，见 DEC-022 RESOLVED）。F019 由 **DRAFT 转 READY**，进入 Feature Workflow；当前无阻塞 open question。
 
 **重建说明**：本文件由 `project-plan.yaml` 重新生成，取代此前陈旧的正文（旧版仍写「Feature 总数 14 / DONE 10 / F007 READY / M4 进行中」等）。
 历史结论（F011 取消、M5 的实际结局、各 Feature 的 merge SHA、各条 follow-up）均按计划原样保留，未因重建而丢失。
@@ -16,15 +23,15 @@
 
 | 维度 | 值 |
 |---|---|
-| Feature 总数 | 17 |
+| Feature 总数 | 18 |
 | P0 | 7（F012、F013、F014、F015、F001、F002、F009） |
-| P1 | 9（F004、F005、F006、F007、F008、F010、F011、F016、F018） |
+| P1 | 10（F004、F005、F006、F007、F008、F010、F011、F016、F018、F019） |
 | P2 | 1（F017） |
 | DONE | 16 |
 | CANCELLED | 1（F011） |
-| BLOCKED | 0（F018） |
+| BLOCKED | 0 |
 | READY / IN_PROGRESS / DRAFT | 0 / 0 / 0 |
-| Decisions 总数 | 21（OPEN **0**） |
+| Decisions 总数 | 22（OPEN **0**） |
 
 ## 按 Epic
 
@@ -63,6 +70,7 @@
 | F009 | Cluster 视角资源查询 | P0 | **DONE** | F001, F002 | READY | 6529b0dc |
 | F010 | 资源详情与关联查询 | P1 | **DONE** | F001, F002, F004, F005, F006, F007, F008 | READY | 334b4ca3 |
 | F018 | 集群内资源关键字搜索 | P1 | **DONE** | F001, F002, F004, F005, F006, F007, F008 | READY | f1ac71b1 |
+| F019 | 搜索结果聚合视图 | P1 | **DONE** | F018 | READY | 292345e8 |
 
 ### E06 数据导入
 
@@ -92,6 +100,7 @@
 | M6 | 补 F001 遗留的 Cluster 登记 UI（post-V1 缺口闭合） | F016 | **DONE** |
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
+| M9 | 搜索结果聚合视图 | F019 | **DONE** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 
@@ -120,11 +129,26 @@
 | DEC-016 | architecture | RESOLVED | F015 |
 | DEC-020 | product | RESOLVED | F017 |
 | DEC-021 | product | RESOLVED | F018, F002, F005, F009, F010 |
+| DEC-022 | product | **OPEN** | F019, F018 |
 
-`DEC-020`（侧边栏）与 `DEC-021`（关键字搜索）均已 RESOLVED。
+`DEC-020`（侧边栏）、`DEC-021`（关键字搜索）与 `DEC-022`（搜索结果聚合）均已 RESOLVED。
+`DEC-022` 已于 2026-09-20 由用户裁定：结果为单一扁平混合列表、按命中项关联链聚合、做关系扩展、采用方案 A（命中行 + 缩进关联行）、仅显示搜索涉及的资源、不去重、标识字段优先于描述性字段排序、取代 F018 扁列表。
 
 ## Open Questions（阻塞项，权威见计划 `features[].open_questions`）
 
+无阻塞 open question。F019 的 NQ-1 ~ NQ-8 已于 2026-09-20 由用户全部裁定（见 DEC-022 RESOLVED）；NQ-9 非阻塞并沿用 F018。
+
+| 编号 | 一句话 | 裁定 |
+|---|---|---|
+| NQ-1 | 聚合的**分组单位** | 按命中项关联链 |
+| NQ-2 | 是否做**关系扩展** | 是 |
+| NQ-3 | 聚合结果的**呈现形态** | 方案 A（命中行 + 缩进关联行） |
+| NQ-4 | **未关联到任何 BareMetal** 的命中资源如何处置 | 仅显示搜索涉及的资源（命中项 + 关联链） |
+| NQ-5 | **跨组重复资源如何去重** | 不去重（可重复出现） |
+| NQ-6 | **排序与分页语义** | 标识字段优先于描述性字段；分页沿用 F018 |
+| NQ-7 | **是否保留 F018 的扁平列表** | 取代 |
+| NQ-8 | **产品规则落点** | Product 修订 R-QUERY-005 或新增规则 |
+| NQ-9 | 入口与前置条件是否沿用 F018 | 是（非阻塞） |
 
 ## Follow-ups（聚合；权威见计划 `planning_status.follow_ups`）
 
