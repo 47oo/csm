@@ -1608,14 +1608,17 @@ features:
       start_commit: "008ecb2780ddabc9d41b6c819e63c84b141249a7"
       head_commit: null
       merge_commit: null
-    current_stage: ARCHITECTURE
+    current_stage: IMPLEMENTATION
     last_result: >
-      Product Gate 通过（2026-09-20）：新增 R-QUERY-006 并修订 R-QUERY-005，落盘 Product Handoff
-      docs/product/handoffs/f019-search-result-aggregation.md；无 blocking open question。
-      DEC-022 决议已逐字固化为 8 项 Confirmed Requirements + AC-A1~A8。
+      Architecture + Contract Gate 通过（2026-09-20）：落盘 Architecture Handoff
+      `docs/architecture/f019-search-result-aggregation-handoff.md`（READY FOR IMPLEMENTATION）与契约
+      `docs/api/f019-search-result-aggregation.md`（READY）；f018 契约的响应 / 结果顺序 / 排序排除项已改为指向新契约。
+      裁定：复用同一端点、取代响应形态；关联链映射复用 `get_related_resources`（锚定组）；tie-break = 命中类别 → 类型固定序 → id；
+      分页为单元级；`layers.database = false`。
     next_action: >
-      Architecture：定稿搜索响应契约（F018 契约需修订 / 新增以表达「命中项 + 关联链」扁平聚合形态）、
-      确定同优先级 tie-break 与分页形态、复核 layers.database、并把 R-QUERY-003（含间接）映射为关联链展开。
+      Implementation：Frontend 与 Backend 依 f019 契约**并行**（文件所有权互不重叠：backend/app/search/** +
+      tests/test_search_*.py vs frontend/src/api/search.ts + SearchResultsPage.vue + App.vue + frontend/tests/search*.spec.ts）；
+      无 Database 分支。
     layers:
       database: false     # 初步判断：聚合基于 Python 侧已物化候选集，不预期新索引 / 新表；不确定，见 layers_note
       backend: true       # 结果组装 / 聚合结构（旧响应 → 聚合信封 的映射）；可能是新增端点或参数
@@ -1625,13 +1628,14 @@ features:
       在本 Feature 中是否继续成立**未经 Architecture 确认**。若 DEC-022 选择「关系扩展 / 以主机为中心展开」，
       候选集与排序方式可能改变，届时 database 可能由 false 变 true；由 Architecture / Database 在契约定稿时裁定。
     contract:
-      status: REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f019-search-result-aggregation.md
     contract_note: >
-      **搜索响应形态可能必须修订**：F018 现行契约为 `docs/api/f018-cluster-keyword-search.md`，其响应为
-      R-QUERY-005 定义的**单一混合列表**。本 Feature 的聚合信封（每个聚合组包含哪些资源）与既有响应契约
-      不兼容，需新增契约或修订 F018 契约，并同步**可能受影响的产品规则 R-QUERY-005**。
-      在 DEC-022 裁定与 Product 规则落定前，契约不得定稿（contract.status=REQUIRED，doc 暂为 null）。
+      **已定稿（2026-09-20）**：复用同一端点 `GET /api/clusters/{cluster_id}/search`，仅**取代其响应形态**
+      为聚合行列表（`SearchAggregationPage`，含 `role` / `group_key` / `derivation_path` / `matched_fields` /
+      `resource`）；不新增端点 / 参数。权威正文见 `docs/api/f019-search-result-aggregation.md`（Status = READY）。
+      `docs/api/f018-cluster-keyword-search.md` 的响应 / 结果顺序 / 排序排除项已改为指向本条契约，§2 匹配语义不变，
+      无「契约禁止、实现却有」的分裂。
     implementation:
       database_design: NOT_REQUIRED
       backend: NOT_STARTED
@@ -3089,11 +3093,13 @@ planning_status:
 
 execution:
   current_feature: F019
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   note_append: >
     2026-09-20：用户批准增量计划并就 DEC-022 裁定；F019 转 READY 并进入 Feature Workflow。
     自 develop（008ecb2）创建 feature/F019-search-result-aggregation，project.status = IN_PROGRESS。
-    Product 完成：新增 R-QUERY-006、修订 R-QUERY-005，产出 Product Handoff；现进入 Architecture。
+    Product 完成：新增 R-QUERY-006、修订 R-QUERY-005，产出 Product Handoff。
+    Architecture + Contract 完成：Architecture Handoff 与 f019 契约均 READY（复用同一端点、取代响应形态、
+    单元级分页、database:false）；f018 契约响应段已改为指向新契约。现进入 Implementation（Frontend 与 Backend 并行）。
     2026-09-18：项目在原结论（14 DONE + 1 CANCELLED）之上收到「UI 导航栏是否可改为侧边栏」的
     可行性询问，已登记 F017 与 DEC-020；DEC-020 已由用户裁定「做」，F017 转 READY 并开始执行。
     2026-09-18（二）：收到新输入「添加搜索功能，允许选定集群后按任意关键字查询」，据此**新增**
