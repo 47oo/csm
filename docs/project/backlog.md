@@ -3,7 +3,7 @@
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
 > Generated: 2026-09-20（用户裁定 DEC-022；F019 转 READY，`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
+> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
 
 **2026-09-18（五）增量**：收到未获批准输入「将搜索的内容进行聚合，比如输入ip地址，显示裸金属 cn001,ip xxx,网卡eth0 等等」。
 据此**新增** F019（搜索结果聚合视图，DRAFT）、DEC-022（OPEN）与 M9，`project.status` 由 DONE 转 **DRAFT**（待用户批准）。
@@ -30,7 +30,7 @@
 | DONE | 16 |
 | CANCELLED | 1（F011） |
 | BLOCKED | 0 |
-| READY / IN_PROGRESS / DRAFT | 1 / 0 / 0（READY: F019） |
+| READY / IN_PROGRESS / DRAFT | 0 / 1 / 0（IN_PROGRESS: F019） |
 | Decisions 总数 | 22（OPEN **0**） |
 
 ## 按 Epic
@@ -70,7 +70,7 @@
 | F009 | Cluster 视角资源查询 | P0 | **DONE** | F001, F002 | READY | 6529b0dc |
 | F010 | 资源详情与关联查询 | P1 | **DONE** | F001, F002, F004, F005, F006, F007, F008 | READY | 334b4ca3 |
 | F018 | 集群内资源关键字搜索 | P1 | **DONE** | F001, F002, F004, F005, F006, F007, F008 | READY | f1ac71b1 |
-| F019 | 搜索结果聚合视图 | P1 | **READY** | F018 | REQUIRED | — |
+| F019 | 搜索结果聚合视图 | P1 | **IN_PROGRESS** | F018 | REQUIRED | — |
 
 ### E06 数据导入
 
@@ -100,7 +100,7 @@
 | M6 | 补 F001 遗留的 Cluster 登记 UI（post-V1 缺口闭合） | F016 | **DONE** |
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
-| M9 | 搜索结果聚合视图 | F019 | **READY** |
+| M9 | 搜索结果聚合视图 | F019 | **IN_PROGRESS** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 
