@@ -2,10 +2,11 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-20（增量更新：用户批准 F019 / DEC-022 / M9 增量计划，`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 1, 'DONE': 16, 'CANCELLED': 1}`
+> Generated: 2026-09-20（用户裁定 DEC-022；F019 转 READY，`project.status = ACCEPTED`）
+> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 16, 'CANCELLED': 1}`
 
 **2026-09-18（五）增量**：新增 M9（搜索结果聚合视图，只含 F019）与 F019（DRAFT）、DEC-022（OPEN）；`project.status` 由 DONE 转 **DRAFT**（待批准）。
+**2026-09-20**：用户批准增量计划并就 DEC-022 裁定；F019 转 **READY**，M9 待启动。
 **既有里程碑 M1–M8 及其结论一律不变**（含各 Feature 的 merge SHA）。
 
 **重建说明**：本文件由 `project-plan.yaml` 重新生成，取代此前陈旧的正文（旧版仍写「Feature 总数 14 / DONE 10 / F007 READY / M4 进行中」等）。
@@ -26,7 +27,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M6 | 补 F001 遗留的 Cluster 登记 UI（post-V1 缺口闭合） | F016 | **DONE** |
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
-| M9 | 搜索结果聚合视图 | F019 | **DRAFT（待批准）** |
+| M9 | 搜索结果聚合视图 | F019 | **READY** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -186,17 +187,17 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 
 ---
 
-## M9 — 搜索结果聚合视图 · 状态：DRAFT（待批准）
+## M9 — 搜索结果聚合视图 · 状态：READY
 
-**目标**：在 F018 搜索能力之上，按用户裁定提供搜索结果聚合呈现（语义待 DEC-022 与 F019 NQ-1 ~ NQ-8 裁定）。
+**目标**：在 F018 搜索能力之上，按用户裁定提供搜索结果聚合呈现（DEC-022 已 RESOLVED：单一扁平混合列表 + 按命中项关联链 + 关系扩展 + 方案 A + 不去重 + 标识字段优先排序 + 取代 F018 扁列表）。
 
 | ID | Feature | Priority | 状态 | Merge |
 |---|---|---|---|---|
-| F019 | 搜索结果聚合视图 | P1 | **DRAFT** | — |
+| F019 | 搜索结果聚合视图 | P1 | **READY** | — |
 
 **进入条件**
-- DEC-022 由用户裁定为明确结论（做 / 不做 / 以何语义做）。
-- Product 修订 R-QUERY-005 或新增聚合产品规则，F019 scope / AC 可定稿。
+- DEC-022 已由用户裁定（已满足，2026-09-20）。
+- Product 修订 R-QUERY-005 或新增聚合产品规则，F019 scope / AC 可定稿（进行中）。
 - F018 已 DONE（已满足），其搜索能力与 F010 推导作为基础。
 - 搜索响应契约按裁定修订 / 新增为 READY；F019 layers（尤其 database）经 Architecture 复核。
 
@@ -206,7 +207,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 - 未认证 → 401；软删资源不出现；Cluster 不存在 / 已删 → 404 与 Empty 可区分（R-QUERY-004）。
 - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
-**未确认前不得实现**：F019 因原有输入与已确认 R-QUERY-005「单一混合列表 / 不提供聚合」直接冲突，且 NQ-1 ~ NQ-8 均为 blocking，本里程碑不得启动。
+**实施前仍待完成**：Product 修订 R-QUERY-005（现明文禁止聚合 / 分组 / 排序）或新增规则，且 Architecture 定稿搜索响应契约。产品语义已由 DEC-022 裁定，不再是阻塞。
 
 ---
 

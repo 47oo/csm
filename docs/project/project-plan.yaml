@@ -1593,7 +1593,7 @@ features:
     name: 搜索结果聚合视图
     epic: E05
     priority: P1
-    status: DRAFT
+    status: READY
     depends_on: [F018]
     depends_on_note: >
       直接依赖 F018：复用其选定 Cluster 前置、只读搜索端点（GET /api/clusters/{cluster_id}/search）、
@@ -1601,8 +1601,7 @@ features:
       （F018 自身 depends_on 未列 F010），故本 Feature 不再重复建立到 F010 的边，避免冗余。
       **例外**：若 DEC-022 裁定 F019 需要 F018 当前未暴露的**额外关系推导**（如按资源组反向枚举），
       则 F010 可能升为直接依赖，届时须补边并重新评估。
-    blocking:
-      - "product-decision: DEC-022（搜索结果聚合语义与 R-QUERY-005 扁列表条款的取舍）"
+    blocking: []
     git:
       base_branch: develop
       branch: null
@@ -1698,6 +1697,14 @@ features:
         summary: >
           入口与前置条件是否**沿用 F018**（应用外壳全局搜索 + 先选定单一 Cluster）？倾向沿用，属实现一致性选择，
           但最终由 Architecture / Product 在契约定稿时确认，不改变上述 NQ 的裁定范围。
+    open_questions_resolution: >
+      **NQ-1 ~ NQ-8 已于 2026-09-20 由用户裁定**（详见 decisions_required[DEC-022].resolution 与
+      ready_rationale.F019）；上述各 NQ 的原文保留作为历史，其 blocking 状态一律解除，禁止再按 blocking 处理。
+      裁定：① 结果形态 = 单一扁平混合列表；② 聚合单元 = 命中项关联链；③ 关系扩展 = 做；
+      ④ 呈现 = 方案 A（命中行 + 缩进关联行，每行为一个资源，命中行标「命中」、关联行标「关联」及推导路径）；
+      ⑤ 未关联命中资源 = 仅显示搜索涉及的资源（命中项 + 其关联链，取解读 (a)）；⑥ 去重 = 不去重（可重复出现）；
+      ⑦ 排序 = 标识字段优先于描述性字段；⑧ 取代 F018 的扁平列表。
+      **NQ-9** 非阻塞，沿用 F018 入口与「先选定单一 Cluster」前置。
 
 # ---------------------------------------------------------------------------
 # Blocking Decisions
@@ -1966,7 +1973,9 @@ decisions_required:
 
   - id: DEC-022
     type: product
-    status: OPEN
+    status: RESOLVED
+    resolved_on: "2026-09-20"
+    resolved_by: user
     topic: 搜索结果聚合语义与 R-QUERY-005 「单一混合列表 / 不提供聚合」条款的取舍
     question: >
       是否把 F018 的搜索结果从「逐条独立、扁平混合列表」改为「按关联资源组聚合呈现」
@@ -1983,6 +1992,26 @@ decisions_required:
       裁定结果可能要求：修订 requirements.md §16 的 R-QUERY-005 或新增聚合规则、修订 / 新增搜索响应契约
       （F018 契约 `docs/api/f018-cluster-keyword-search.md`）、并调整 F019 的 layers（database 可能由 false 变 true）。
       **在裁定前，F019 保持 DRAFT 且不得实现；F018 已 DONE 的既有实现与结论不被本项推翻。**
+    resolution: >
+      **RESOLVED（2026-09-20，用户裁定）**：用户就本项的 8 个问题逐一给出决定，并回答了三处澄清：
+      ① （结果形态）**扁平混合列表**——仍是一张单一列表，不按资源类型分区；
+      ② （聚合 / 分组单位）**按命中项关联链**——以每个命中项为单位展开其关联链（顶层仍是扁平列表，
+      组织顺序以「命中项 + 其关联链」为单元）；
+      ③ （关系扩展）**是**——命中项的关联链资源也纳入结果，即使其自身字段未命中关键字；
+      ④ （呈现 / 信封）**方案 A**——「命中行 + 缩进关联行」：每行是一个资源，命中行标「命中」、
+      关联行标「关联」及其推导路径；
+      ⑤ （未关联命中资源）**仅显示查到的资源**，采纳解读 **(a)**：即「查到的资源」= 命中项 **+**
+      其关联链资源（与 ③ 的扩展一致），不做全量倾销；
+      ⑥ （去重）**不去重**——同一资源因命中多条链时**重复出现**；
+      ⑦ （排序）按**关键字最靠近**，具体采纳 **(a) 字段优先级**：**标识字段（hostname / name /
+      ip_address）优先于描述性字段**；
+      ⑧ （是否取代）**取代** F018 的扁平列表行为。
+      澄清结论：① 的解读成立（顶层扁平、按命中链组织）；② 选 (a)；其余按上述。
+      **未由用户指定**：同优先级各结果之间的**兜底顺序**（确定性 tie-break）——属可实现性选择，
+      由 Architecture 在契约中定稿，不得扩张为新的产品规则。
+      本裁定与已确认 **R-QUERY-005** 的「单一混合列表，不按资源类型分组」「不提供聚合 / 排序」条款冲突，
+      因此**必须由 Product 修订 R-QUERY-005 或新增聚合规则**（NQ-8）方可使 F019 挂 requirement ID；
+      并可能要求修订 / 新增搜索响应契约。裁定后 F019 由 DRAFT 转 READY，进入 Feature Workflow。
 
 # 已关闭的 open question（不再是 open question）
 closed_open_questions:
@@ -2343,15 +2372,15 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: []
+  ready_features: [F019]
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: [F019]
+    DRAFT: []
   counts:
-    READY: 0
+    READY: 1
     IN_PROGRESS: 0
     BLOCKED: 0
-    DRAFT: 1
+    DRAFT: 0
     DONE: 16
     CANCELLED: 1
   status_decision_rules:
@@ -2481,13 +2510,16 @@ planning_status:
       依赖全部 DONE、无架构 / 数据库 / 环境阻塞，故 READY。计划同时转 ACCEPTED 并开始执行。
       义务：AC-06 要求把 5 个既有导航测试中 15 处 el-button--primary 断言**改写**为侧边栏活跃态的
       等价断言（不得削弱或删除其验证的真实行为）；不得删除 f009ClusterResourceView 的源码 guard。
-  draft_rationale:
     F019: >
-      存在直接影响本 Feature scope / acceptance_criteria 定稿的**未解决产品问题**：用户新增的「搜索结果聚合」
-      输入与已确认 R-QUERY-005（「单一混合列表，不按资源类型分组」+「除结果总数外不提供统计 / 聚合」）
-      **直接冲突**，且输入本身表述不足（NQ-1 ~ NQ-8 全部 blocking）。聚合语义未确认前无法写出可判定的
-      聚合专属 AC，故按状态规则取 **DRAFT**（产品问题与依赖阻塞并存时取 DRAFT；此处依赖 F018 已 DONE，
-      依赖不构成阻塞）。**未确认前不得实现；不得由 PM / 协调器代裁 DEC-022。**
+      DEC-022 已由用户裁定（2026-09-20，见 decisions_required[DEC-022].resolution）：结果为**单一扁平
+      混合列表**、以**命中项关联链**为聚合单元、**做关系扩展**、呈现采用**方案 A（命中行 + 缩进关联行）**、
+      **仅显示搜索涉及的资源**、**不去重**、按**标识字段优先于描述性字段**排序、并**取代** F018 的扁列表。
+      F019 的产品范围与 AC 因此可定稿（NQ-1 ~ NQ-8 全部解除 blocking），depends_on F018 已 DONE，无阻塞
+      架构决策 → READY。
+      义务：Product 须在 requirements.md §16 **修订 R-QUERY-005**（现明文禁止聚合 / 分组 / 排序）或新增规则
+      （NQ-8）；Architecture 须定稿搜索响应契约（F018 契约为扁平列表，需修订 / 新增）并复核 layers.database；
+      排序的**同优先级兜底顺序**未由用户指定，须由 Architecture 作为可实现性选择定稿（不得扩张为产品规则）。
+  draft_rationale: {}
 
   blocked_rationale:
     F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
@@ -2497,6 +2529,9 @@ planning_status:
     F005: "DEC-006 已解决（V1 无状态），无未解决产品问题；阻塞为依赖 F004 未 DONE。"
     F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
   readiness_summary: >
+    **2026-09-20**：用户就 DEC-022 逐一裁定（8 项 + 3 处澄清），裁定内容见 decisions_required[DEC-022].resolution。
+    F019 由 DRAFT 转 **READY**；无其他 READY / BLOCKED / DRAFT / IN_PROGRESS Feature。
+    下一步：进入 F019 Feature Workflow（Product 修订 R-QUERY-005 → Architecture / Contract → 实现）。
     **2026-09-18 追加（二）**：用户要求「选定集群后按任意关键字查询」，据此新增 F018、DEC-021 与 M8。
     **用户随后逐一裁定 NQ-1 ~ NQ-5 与 DEC-021（均为「做」），F018 已转 READY**（AC-D1 ~ AC-D5 取自用户答案）。
     仍待办：Product 在 §16 新增关键字搜索产品规则（NQ-8）、修订三份契约的关键字立场、Architecture 定稿
