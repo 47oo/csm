@@ -1593,7 +1593,7 @@ features:
     name: 搜索结果聚合视图
     epic: E05
     priority: P1
-    status: IN_PROGRESS
+    status: IN_REVIEW
     depends_on: [F018]
     depends_on_note: >
       直接依赖 F018：复用其选定 Cluster 前置、只读搜索端点（GET /api/clusters/{cluster_id}/search）、
@@ -1606,19 +1606,17 @@ features:
       base_branch: develop
       branch: feature/F019-search-result-aggregation
       start_commit: "008ecb2780ddabc9d41b6c819e63c84b141249a7"
-      head_commit: null
+      head_commit: "5c278ee5ce9db4b665ce3210a976e78c52db357e"
       merge_commit: null
-    current_stage: IMPLEMENTATION
+    current_stage: TEST
     last_result: >
-      Architecture + Contract Gate 通过（2026-09-20）：落盘 Architecture Handoff
-      `docs/architecture/f019-search-result-aggregation-handoff.md`（READY FOR IMPLEMENTATION）与契约
-      `docs/api/f019-search-result-aggregation.md`（READY）；f018 契约的响应 / 结果顺序 / 排序排除项已改为指向新契约。
-      裁定：复用同一端点、取代响应形态；关联链映射复用 `get_related_resources`（锚定组）；tie-break = 命中类别 → 类型固定序 → id；
-      分页为单元级；`layers.database = false`。
+      Implementation Gate 通过（2026-09-20）：Backend 与 Frontend 并行完成（Backend COMPLETE / Frontend COMPLETE），
+      实现提交 5c278ee。协调器独立复核：真实 PostgreSQL 后端 **1021 passed**；前端 typecheck 干净 + **645 passed** + build；
+      ruff 干净。无 migration（database: false），`backend/app/search/**` 无 `deleted_at`，关联推导仍复用 `get_related_resources`。
     next_action: >
-      Implementation：Frontend 与 Backend 依 f019 契约**并行**（文件所有权互不重叠：backend/app/search/** +
-      tests/test_search_*.py vs frontend/src/api/search.ts + SearchResultsPage.vue + App.vue + frontend/tests/search*.spec.ts）；
-      无 Database 分支。
+      Tester（独立验收 + 自写证伪）：重点①确认聚合为**复用**而非重写（变异派生后关联行消失）；②软删/只读；
+      ③用户示例（IP → NIC → BM）；④标识字段优先排序；⑤跨单元不去重；⑥单元级分页不拆散；⑦三态与 401/400/404；
+      ⑧既有 guard 只增不减。
     layers:
       database: false     # 初步判断：聚合基于 Python 侧已物化候选集，不预期新索引 / 新表；不确定，见 layers_note
       backend: true       # 结果组装 / 聚合结构（旧响应 → 聚合信封 的映射）；可能是新增端点或参数
@@ -1638,8 +1636,8 @@ features:
       无「契约禁止、实现却有」的分裂。
     implementation:
       database_design: NOT_REQUIRED
-      backend: NOT_STARTED
-      frontend: NOT_STARTED
+      backend: COMPLETE
+      frontend: COMPLETE
       test: NOT_STARTED
       review: NOT_STARTED
     product_document: docs/product/requirements.md
@@ -3093,13 +3091,15 @@ planning_status:
 
 execution:
   current_feature: F019
-  current_stage: IMPLEMENTATION
+  current_stage: TEST
   note_append: >
     2026-09-20：用户批准增量计划并就 DEC-022 裁定；F019 转 READY 并进入 Feature Workflow。
     自 develop（008ecb2）创建 feature/F019-search-result-aggregation，project.status = IN_PROGRESS。
     Product 完成：新增 R-QUERY-006、修订 R-QUERY-005，产出 Product Handoff。
     Architecture + Contract 完成：Architecture Handoff 与 f019 契约均 READY（复用同一端点、取代响应形态、
-    单元级分页、database:false）；f018 契约响应段已改为指向新契约。现进入 Implementation（Frontend 与 Backend 并行）。
+    单元级分页、database:false）；f018 契约响应段已改为指向新契约。
+    Implementation 完成（5c278ee，Backend + Frontend 并行）；协调器在全新真实 PostgreSQL 上独立重跑：
+    后端 1021 passed、前端 645 passed + build、ruff 干净。现进入 TEST。
     2026-09-18：项目在原结论（14 DONE + 1 CANCELLED）之上收到「UI 导航栏是否可改为侧边栏」的
     可行性询问，已登记 F017 与 DEC-020；DEC-020 已由用户裁定「做」，F017 转 READY 并开始执行。
     2026-09-18（二）：收到新输入「添加搜索功能，允许选定集群后按任意关键字查询」，据此**新增**
