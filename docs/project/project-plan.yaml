@@ -1876,7 +1876,7 @@ features:
     name: IP 地址自动 / 手动分配
     epic: E02
     priority: P1
-    status: IN_PROGRESS
+    status: BLOCKED
     depends_on: [F020, F005, F004, F002]
     depends_on_note: >
       F020 提供被分配的地址范围段（前置，已 DONE）；F005 提供 IPAddress 的登记 / 唯一性 / 受控 cluster_id
@@ -1891,12 +1891,14 @@ features:
       merge_commit: null
     current_stage: PRODUCT
     last_result: >
-      F020 已 DONE（merge e4291a1），F021 唯一阻塞解除并转 READY（2026-09-21）。启动 Feature Workflow，
-      自 develop（1942ec4）创建分支 feature/F021-ip-address-allocation。当前进入 Product。
+      Product 完成初稿（2026-09-21）：产出 F021 Product Handoff，拟新增 R-IP-005 ~ R-IP-010，覆盖 DEC-023 第 7~13 项；
+      依赖全部 DONE，无 Blocking Open Question。但 Product 同时标记了一个**会改变业务行为的 PROPOSED（PR-01）**：
+      手动分配输入非规范 IPv4（如 `010.0.0.5`）时是否规范化后写入 `ip_address`。按 `feature.md` Product Gate
+      「会改变业务行为的 PROPOSED 未确认时也视为阻塞」，停在 Product；**未将未确认规则落盘**（requirements/handoff 待裁定后持久化）。
     next_action: >
-      Product：在 requirements.md §12 新增 IP 自动 / 手动分配产品规则（编号由 Product 决定）并产出 Product Handoff；
-      依据 DEC-023 裁定（产物为绑定活跃 NIC 的 IPAddress、Cluster 由 NIC 推导、自动取并集内最小未占用 IPv4、
-      占用以活跃 IPAddress 字面相等判定、软删释放、手动须在范围内、无隐式保留地址、耗尽返回非 500、不新增超出 R-IP-001 的唯一性）。
+      User Decision：请就 PR-01 裁定——（A）手动分配也规范化写入 `ip_address`（与自动分配一致）；
+      （B）手动分配按调用方字面原样写入（与 F005 自由文本 / R-IP-001 字面唯一一致）。
+      裁定后立即持久化 Product Handoff 与 §12 规则（R-IP-005 ~ R-IP-010）并进入 Architecture。
     layers:
       database: true      # 初步判断：取决于分配产物（新增 ip_addresses 行 vs 新分配实体）；由 Architecture 复核
       backend: true       # 自动 / 手动分配逻辑、占用判定与错误语义
@@ -2722,12 +2724,12 @@ planning_status:
   status: ACCEPTED
   ready_features: []
   blocked_draft_features:
-    BLOCKED: []
+    BLOCKED: [F021]
     DRAFT: []
   counts:
     READY: 0
-    IN_PROGRESS: 1
-    BLOCKED: 0
+    IN_PROGRESS: 0
+    BLOCKED: 1
     DRAFT: 0
     DONE: 18
     CANCELLED: 1
@@ -3542,6 +3544,8 @@ execution:
   current_feature: F021
   current_stage: PRODUCT
   note_append: >
+    2026-09-21：F021 Product 初稿完成，但存在未确认的行为性 PROPOSED（PR-01：手动分配写入是否规范化），
+    按 Product Gate 停在 Product；F021 记 BLOCKED，等待用户裁定。未将未确认规则落盘。
     2026-09-21：启动 F021（IP 地址自动 / 手动分配）。F020 DONE 后唯一阻塞解除；自 develop（1942ec4）
     创建分支 feature/F021-ip-address-allocation；project.status 保持 IN_PROGRESS。当前进入 Product。
     2026-09-21：F020 完成（Reviewer APPROVED WITH FOLLOW-UP，HEAD ca9ae73→84d5c17，merge e4291a1），feature.status = DONE，

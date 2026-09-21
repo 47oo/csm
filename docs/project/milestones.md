@@ -2,10 +2,10 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（F021 进入 Feature Workflow；`project.status = IN_PROGRESS`）
-> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 18, 'CANCELLED': 1}`
+> Generated: 2026-09-21（F021 Product 阻塞于 PR-01；`project.status = IN_PROGRESS`）
+> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 18, 'CANCELLED': 1}`
 
-**2026-09-21（续）**：F021 转 IN_PROGRESS（自 develop 1942ec4 创建分支 `feature/F021-ip-address-allocation`）；M10 进度为 F020 DONE / F021 IN_PROGRESS。
+**2026-09-21（续二）**：F021 Product 阻塞于未确认的行为性 PROPOSED（PR-01）；M10 进度为 F020 DONE / F021 BLOCKED。
 
 **2026-09-21**：F020 完成（merge e4291a1，Reviewer = APPROVED WITH FOLLOW-UP）；M10 进度为 **F020 DONE / F021 READY**，F021 转入执行。
 
@@ -37,7 +37,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
-| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **执行中（F020 DONE / F021 IN_PROGRESS）** |
+| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **执行中（F020 DONE / F021 BLOCKED：Product PR-01）** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -221,14 +221,14 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 
 ---
 
-## M10 — IP 地址范围段与自动 / 手动分配 · 状态：执行中（F020 DONE / F021 IN_PROGRESS）
+## M10 — IP 地址范围段与自动 / 手动分配 · 状态：执行中（F020 DONE / F021 BLOCKED）
 
 **目标**：按用户裁定为每个 Cluster 提供多个 IP 地址范围段（地址池），并在其上支持自动 / 手动 IP 分配（DEC-023 已 RESOLVED：start–end IPv4、同 Cluster 不重叠、范围内有活跃 IP 时禁止删除；分配沿用 IPAddress 且必选绑定活跃 NIC，自动取并集内最小未占用 IPv4）。
 
 | ID | Feature | Priority | 状态 | Merge |
 |---|---|---|---|---|
 | F020 | IP 地址范围段（地址池）管理 | P1 | **DONE** | e4291a1e |
-| F021 | IP 地址自动 / 手动分配 | P1 | **IN_PROGRESS** | — |
+| F021 | IP 地址自动 / 手动分配 | P1 | **BLOCKED**（Product PR-01） | 74cf263（启动） |
 
 **进入条件**
 - DEC-023 由用户裁定为明确结论（含范围表示 / 重叠 / 分配产物 / 最小地址选取 / 保留地址 / 耗尽行为等）。
@@ -242,7 +242,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 - 未认证 → 401；软删资源不出现；既有 R-IP-001 ~ R-IP-003 不被静默修改。
 - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
-**裁定前不得实现**：DEC-023 已 RESOLVED（2026-09-20）；计划已批准（`project.status = ACCEPTED`/`IN_PROGRESS`）。F020 已于 2026-09-21 DONE；F021 进入 Feature Workflow（IN_PROGRESS）。
+**裁定前不得实现**：DEC-023 已 RESOLVED（2026-09-20）；计划已批准。F020 已于 2026-09-21 DONE；F021 停在 Product（未确认的行为性 PROPOSED PR-01），记 BLOCKED，等待用户裁定。
 
 ---
 
