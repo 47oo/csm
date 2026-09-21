@@ -8,6 +8,7 @@
 | 23514    | CHECK 违反      | 400  | VALIDATION_ERROR |
 | 23505    | 唯一索引违反    | 409  | CONFLICT         |
 | 23503    | 外键违反        | 409  | CONFLICT         |
+| 23P01    | 排它约束违反    | 409  | CONFLICT         |
 
 资源级的产品冲突语义（应用层预检、友好文案）由后续 Feature 在此之上叠加，
 **不得另立第二套信封或映射**。
@@ -39,6 +40,8 @@ SQLSTATE_MAP: dict[str, SqlStateMapping] = {
     "23514": SqlStateMapping(400, "VALIDATION_ERROR", "CHECK_VIOLATION", "字段值不满足约束"),
     "23505": SqlStateMapping(409, "CONFLICT", "DUPLICATE", "唯一性冲突"),
     "23503": SqlStateMapping(409, "CONFLICT", "REFERENCE", "引用的资源不存在或被引用"),
+    # F020：范围段排它约束（EXCLUDE）违反 → 同 Cluster 活跃范围段重叠。
+    "23P01": SqlStateMapping(409, "CONFLICT", "OVERLAP", "范围段重叠"),
 }
 
 

@@ -14,6 +14,8 @@ import NetworkInterfaceListPage from './pages/NetworkInterfaceListPage.vue'
 import NetworkInterfaceDetailPage from './pages/NetworkInterfaceDetailPage.vue'
 import IpAddressListPage from './pages/IpAddressListPage.vue'
 import IpAddressDetailPage from './pages/IpAddressDetailPage.vue'
+import IpAddressRangeListPage from './pages/IpAddressRangeListPage.vue'
+import IpAddressRangeDetailPage from './pages/IpAddressRangeDetailPage.vue'
 import ContainerListPage from './pages/ContainerListPage.vue'
 import ContainerDetailPage from './pages/ContainerDetailPage.vue'
 import ServiceListPage from './pages/ServiceListPage.vue'
@@ -33,7 +35,9 @@ import { ApiError } from './api/http'
  * Container 视图，f007-container-handoff.md Frontend Work；F008 起再增加
  * Service 视图，f008-service-handoff.md Frontend Work；F018 起侧边栏新增
  * 搜索区与 search 视图（f018-cluster-keyword-search-handoff.md Frontend
- * Work #2，R-QUERY-005 / AC-D5）
+ * Work #2，R-QUERY-005 / AC-D5）；F020 起增加 IPAddressRange 视图
+ *（f020-ip-address-range-handoff.md Frontend Work：全局范围段列表 + 详情，
+ * Cluster 上下文筛选为列表页内能力，不改其它资源页面）
  * （导航形式不构成产品规则）。
  *
  * 视图状态：bootstrap（启动会话探测中）→ login（未认证 / 会话失效）↔ app（已认证）。
@@ -93,6 +97,10 @@ interface SearchReturn {
  *   列表过滤上下文，返回该详情时恢复该上下文；
  * - ip-address-detail：IP 地址详情；networkInterfaceId / returnBareMetalId /
  *   returnClusterId 随视图链保留，返回时恢复；
+ * - ip-address-range-list：IP 地址范围段列表（F020）；无 App 级过滤上下文
+ *   （Cluster 筛选为列表页内能力，仿 Container / Service 列表），返回时回
+ *   集群列表；
+ * - ip-address-range-detail：范围段详情（F020）；返回时回范围段列表；
  * - container-list：容器列表（F007）；无 App 级过滤上下文（载体筛选为列表页
  *   内能力，carrier_type + carrier_id 成对），返回时回集群列表；
  * - container-detail：容器详情；登记成功后可跳转到新容器的详情（openDetail）；
@@ -159,6 +167,8 @@ type ResourceView =
       /** F010：从裸金属关联区进入时的直接返回目标；F018 起亦可为搜索视图。 */
       returnView?: BareMetalDetailReturn | SearchReturn
     }
+  | { kind: 'ip-address-range-list' }
+  | { kind: 'ip-address-range-detail'; ipAddressRangeId: number }
   | { kind: 'container-list' }
   | {
       kind: 'container-detail'
@@ -533,6 +543,23 @@ function backFromIpAddressDetail(): void {
   }
 }
 
+// ---- 资源视图导航（IPAddressRange，F020） ----
+
+/** 侧边栏导航进入全局 IP 地址范围段列表（无过滤；Cluster 筛选为列表页内能力）。 */
+function openIpAddressRangeList(): void {
+  resourceView.value = { kind: 'ip-address-range-list' }
+}
+
+/** 进入 IP 地址范围段详情（列表行入口）。 */
+function openIpAddressRangeDetail(ipAddressRangeId: number): void {
+  resourceView.value = { kind: 'ip-address-range-detail', ipAddressRangeId }
+}
+
+/** 范围段详情返回：回到 IP 地址范围段列表。 */
+function backFromIpAddressRangeDetail(): void {
+  resourceView.value = { kind: 'ip-address-range-list' }
+}
+
 // ---- 资源视图导航（Container，F007） ----
 
 /** 侧边栏导航进入全局容器列表（无过滤；载体筛选为列表页内能力）。 */
@@ -648,14 +675,16 @@ function openBareMetalRelatedService(serviceId: number): void {
 }
 
 /** 侧边栏导航高亮：当前资源区域（cluster-* / bare-metal-* / virtual-machine-* /
- * network-interface-* / ip-address-* / container-* / service-*）；搜索视图为
- * 跨资源区域，不高亮任何导航项（F018；f018 handoff OPEN-5 的默认策略）。 */
+ * network-interface-* / ip-address-* / ip-address-range-* / container-* /
+ * service-*）；搜索视图为跨资源区域，不高亮任何导航项（F018；f018 handoff
+ * OPEN-5 的默认策略）。 */
 const navSection = computed<
   | 'cluster'
   | 'bare-metal'
   | 'virtual-machine'
   | 'network-interface'
   | 'ip-address'
+  | 'ip-address-range'
   | 'container'
   | 'service'
   | null
@@ -666,6 +695,7 @@ const navSection = computed<
   if (kind.startsWith('bare-metal')) return 'bare-metal'
   if (kind.startsWith('virtual-machine')) return 'virtual-machine'
   if (kind.startsWith('network-interface')) return 'network-interface'
+  if (kind.startsWith('ip-address-range')) return 'ip-address-range'
   if (kind.startsWith('container')) return 'container'
   if (kind.startsWith('service')) return 'service'
   return 'ip-address'
@@ -754,6 +784,14 @@ async function handleLogout(): Promise<void> {
               @click="openIpAddressList"
             >
               IP 地址
+            </el-button>
+            <el-button
+              data-testid="nav-ip-address-ranges"
+              :class="{ 'app-shell__nav-item--active': navSection === 'ip-address-range' }"
+              :aria-current="navSection === 'ip-address-range' ? 'true' : undefined"
+              @click="openIpAddressRangeList"
+            >
+              IP 地址范围段
             </el-button>
             <el-button
               data-testid="nav-containers"
@@ -890,6 +928,18 @@ async function handleLogout(): Promise<void> {
             v-else-if="resourceView.kind === 'ip-address-detail'"
             :ip-address-id="resourceView.ipAddressId"
             @back="backFromIpAddressDetail"
+          />
+          <!-- F020：IP 地址范围段列表（全局入口；Cluster 筛选为列表页内能力）
+               与详情。 -->
+          <IpAddressRangeListPage
+            v-else-if="resourceView.kind === 'ip-address-range-list'"
+            @open-detail="openIpAddressRangeDetail"
+            @back="backToClusterList"
+          />
+          <IpAddressRangeDetailPage
+            v-else-if="resourceView.kind === 'ip-address-range-detail'"
+            :ip-address-range-id="resourceView.ipAddressRangeId"
+            @back="backFromIpAddressRangeDetail"
           />
           <ContainerListPage
             v-else-if="resourceView.kind === 'container-list'"

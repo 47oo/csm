@@ -53,7 +53,7 @@
 - **不存在 `cluster_id`**（Architecture 裁定 NQ-4：Cluster 归属是**内部一致性关键的反规范化推导值**，不是登记事实；其正确性由「唯一受控写入路径 + 漂移检测 0 行」保证，不通过 API 表示，也不由调用方提供）；
 - 不存在 `status`、状态枚举或任何状态字段（Q-002=B）；
 - 不存在 `vrf` / `vrf_id` / `tenant` / `namespace` / `netns` 等第二维度字段（R-IP-003）；
-- 不存在 IP 池 / 网段 / 子网 / 网关 / VLAN / DHCP / DNS / 自动发现 / 外部平台 id / 凭据字段；
+- 不存在 IP 池 / 网段 / 子网 / 网关 / VLAN / DHCP / DNS / 自动发现 / 外部平台 id / 凭据字段（**IPAddress 资源自身**不含这些字段；**范围段是独立资源**，权威正文 `docs/api/f020-ip-address-range.md`，其引入不改变本字段封闭集合）；
 - 不存在 `bare_metal_id` / `virtual_machine_id` / `container_id` / `service_id` / `carrier_type` / `owner_type`（多态父载体）；
 - 不存在用途 / 备注 / 负责人 / 分配对象 / 回收状态 / 分配时间等未确认字段。
 
@@ -434,8 +434,8 @@ IPAddress 删除委托系统内**唯一**软删写入路径；不级联、不物
 - **VRF / 网络命名空间 / 租户维度**（R-IP-003）。
 - **`ip_address` 的格式校验与归一化**（NQ-1；§7）：不实现、不承诺。若确认，属新增产品规则 + 迁移策略。
 - **`cluster_id` 的任何读写入口**：请求侧永不接受；响应侧不暴露（NQ-4 裁定）；其写入只经单一领域服务推导（内部实现，不是 API 能力）。
-- IP 池 / 网段 / 子网 / 网关 / 使用率统计 / 冲突扫描 / 分配与回收工作流（无任何已确认需求）。
-- DHCP / DNS / 自动资产发现 / 外部平台同步 / 自动生成 IP（§23）。
+- **IP 地址范围段（地址池）的管理**已由独立的 F020 特征交付，权威正文为 `docs/api/f020-ip-address-range.md`；范围段是**独立资源**（独立表、独立端点），**不是** IPAddress 的字段。因此本契约**不定义、也不排除**范围段能力。本契约仍**不包含**：CIDR / 子网 / 网关 / 使用率统计 / 冲突扫描。**受 Cluster 活跃范围约束的 IP 自动 / 手动分配**已由独立的 F021 特征交付，权威正文为 `docs/api/f021-ip-address-allocation.md`；分配**不新建**分配 / 预留实体，其唯一产物是一条由本契约资源表示描述的 IPAddress，且**不替换、不改版**本契约的 `POST /api/ip-addresses`。**IP 的回收没有独立工作流**：释放唯一途径是对本契约的 IPAddress 执行 `DELETE /api/ip-addresses/{ip_address_id}`（R-DELETE-006）。`ip_address` 的**自由文本登记立场不变**：范围段与分配能力的引入**不新增**对 `ip_address` 的格式校验 / 归一化 / trim。
+- DHCP / DNS / 自动资产发现 / 外部平台同步 / **不受 Cluster 活跃范围约束**的自动生成 IP（§23）；受范围约束的自动分配见上一条（F021，权威正文 `docs/api/f021-ip-address-allocation.md`）。
 - **多态父载体**：不接受以 BareMetal / VM / Container / Cluster / Service 为父；不提供载体类型选择器；不存在无主 IP。
 - 除 `ip_address` 与父标识外的未确认字段（用途 / 备注 / 负责人 / 分配对象 / 回收状态 / 分配时间）。
 - `by-name` 别名（`ip_address` 非全局唯一；PROPOSED-F005-1）。

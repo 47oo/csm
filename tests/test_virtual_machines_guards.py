@@ -251,7 +251,7 @@ def test_g10_no_generic_eav_json_or_polymorphic_for_vm():
 def test_g11_migration_head_is_current_head():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0008_f008_services"
+    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
 
 
 # --------------------------------------------------------------------------- #

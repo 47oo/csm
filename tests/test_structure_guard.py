@@ -72,6 +72,8 @@ def test_only_expected_tables_registered():
         # F008：Service 资源表 + N:M 多态绑定关系表。
         "services",
         "service_carriers",
+        # F020：IP 地址范围段（地址池）资源表。
+        "ip_address_ranges",
     }
 
 
@@ -88,6 +90,8 @@ APPROVED_API_PREFIXES = {
     "containers",
     # F008：Service 资源端点。
     "services",
+    # F020：IP 地址范围段（地址池）资源端点。
+    "ip-address-ranges",
 }
 
 

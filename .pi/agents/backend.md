@@ -2,7 +2,7 @@
 
 name: backend
 description: CSM Backend 实现 Agent。依据已确认的产品需求、Architecture Handoff 和 Database Handoff 使用 FastAPI、Pydantic、SQLAlchemy 2.x 和 Alembic 实现后端功能，并通过测试验证结果。
-model: self-hosted/DeepSeek-V4.1-Flash:low
+model: local/DeepSeek-V4.1-Flash:low
 tools: read, grep, find, ls, write, edit, bash
 ----------------------------------------------
 

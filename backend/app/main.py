@@ -22,7 +22,9 @@ from app.common.error_handlers import register_error_handlers
 from app.config import Settings, get_settings
 from app.containers.router import router as containers_router
 from app.db.session import create_db_engine, create_session_factory
+from app.ip_address_ranges.router import router as ip_address_ranges_router
 from app.ip_addresses.router import router as ip_addresses_router
+from app.ip_allocations.router import router as ip_allocations_router
 from app.network_interfaces.router import router as network_interfaces_router
 from app.resource_views.router import router as resource_views_router
 from app.search.router import router as search_router
@@ -64,8 +66,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # 产品 API 面：health + clusters + F009 cluster-views + bare-metals +
     # F010 resource-views（BareMetal 五类关联聚合）+ F006 virtual-machines +
-    # F004 network-interfaces + F005 ip-addresses + F007 containers +
-    # F008 services + F018 search + auth。全部位于 /api 前缀下。
+    # F004 network-interfaces + F005 ip-addresses + F020 ip-address-ranges +
+    # F007 containers + F008 services + F018 search + auth。全部位于 /api 前缀下。
     app.include_router(health_api.router, prefix="/api")
     app.include_router(clusters_router, prefix="/api")
     app.include_router(cluster_views_router, prefix="/api")
@@ -74,6 +76,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(virtual_machines_router, prefix="/api")
     app.include_router(network_interfaces_router, prefix="/api")
     app.include_router(ip_addresses_router, prefix="/api")
+    app.include_router(ip_allocations_router, prefix="/api")
+    app.include_router(ip_address_ranges_router, prefix="/api")
     app.include_router(containers_router, prefix="/api")
     app.include_router(services_router, prefix="/api")
     app.include_router(search_router, prefix="/api")
