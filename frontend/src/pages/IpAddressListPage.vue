@@ -5,6 +5,7 @@ import { useAsyncQuery } from '../composables/useAsyncQuery'
 import { useIpAddressDelete } from '../composables/useIpAddressDelete'
 import ListStates from '../components/ListStates.vue'
 import IpAddressFormDialog from '../components/IpAddressFormDialog.vue'
+import IpAddressAllocateDialog from '../components/IpAddressAllocateDialog.vue'
 
 /**
  * IP 地址列表页（F005 产品页）。
@@ -24,6 +25,14 @@ import IpAddressFormDialog from '../components/IpAddressFormDialog.vue'
  * - 登记表单入口（IpAddressFormDialog，POST）：父 NIC 存在性 / 活跃性（404）、
  *   字段合法性（400）、同 Cluster 唯一性（409 DUPLICATE）均由服务端裁决，
  *   前端不预判、不做唯一性预检；
+ * - 分配入口（F021，IpAddressAllocateDialog）：自动分配（POST
+ *   /api/ip-addresses/allocate）与手动分配（POST
+ *   /api/ip-addresses/allocate-manual）两个动作；NIC 上下文预选目标 NIC
+ *  （对话框只读展示），全局入口在对话框内先选择目标 NIC；手动输入仅做
+ *   基础必填（空串 = 表单未完成），不做 IPv4 格式 / 修剪 / 范围 / 占用
+ *   预判（§21，业务裁决全在服务端）；错误按 error.code（结合
+ *   details[].code）分支；成功 → 刷新列表并在对话框结果区展示新
+ *   ip_address 与 id；401 交由全局会话失效处理；
  * - 时间字段按不透明字符串原样展示（契约 §2）；ip_address 字面值原样展示
  *   （契约 §7）；本页无状态列 / 状态筛选（Q-002=B，IP 不设状态）、无
  *   Cluster 列（Cluster 归属不暴露，NQ-4；聚合呈现归 F010）；
@@ -139,6 +148,22 @@ function handleCreated(): void {
   // 登记成功 → 刷新列表（新记录按 id 升序可能位于其他页，刷新当前页即可）。
   void run()
 }
+
+// ---- 分配入口（F021，POST /api/ip-addresses/allocate[-manual]） ----
+
+const allocateDialogVisible = ref(false)
+const allocateMode = ref<'auto' | 'manual'>('auto')
+
+/** 打开分配对话框；目标 NIC 由 networkInterfaceId 预设（null = 对话框内先选择）。 */
+function openAllocate(mode: 'auto' | 'manual'): void {
+  allocateMode.value = mode
+  allocateDialogVisible.value = true
+}
+
+function handleAllocated(): void {
+  // 分配成功 → 刷新列表（新记录按 id 升序可能位于其他页，刷新当前页即可）。
+  void run()
+}
 </script>
 
 <template>
@@ -155,6 +180,25 @@ function handleCreated(): void {
       </div>
       <div class="ip-address-list__actions">
         <el-button :loading="loading" @click="refresh">刷新</el-button>
+        <!-- F021 分配入口：NIC 上下文与全局入口均提供自动 / 手动两个动作；
+             地址池耗尽 / 范围 / 占用等业务裁决全在服务端（§21），
+             不预判、不禁用入口。 -->
+        <el-button
+          type="primary"
+          plain
+          data-testid="open-allocate-auto"
+          @click="openAllocate('auto')"
+        >
+          自动分配 IP
+        </el-button>
+        <el-button
+          type="primary"
+          plain
+          data-testid="open-allocate-manual"
+          @click="openAllocate('manual')"
+        >
+          手动分配 IP
+        </el-button>
         <el-button type="primary" data-testid="open-create-dialog" @click="createDialogVisible = true">
           登记 IP 地址
         </el-button>
@@ -241,6 +285,16 @@ function handleCreated(): void {
       mode="create"
       :preset-network-interface-id="networkInterfaceId"
       @success="handleCreated"
+    />
+
+    <!-- F021 分配对话框（自动 / 手动）：成功 → 刷新列表并在对话框结果区展示
+         新 ip_address 与 id；错误按 error.code（结合 details[].code）分支，
+         见组件头注。 -->
+    <IpAddressAllocateDialog
+      v-model="allocateDialogVisible"
+      :mode="allocateMode"
+      :preset-network-interface-id="networkInterfaceId"
+      @success="handleAllocated"
     />
   </main>
 </template>

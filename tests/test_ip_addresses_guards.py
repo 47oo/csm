@@ -472,8 +472,13 @@ def test_g9_cluster_chain_read_is_unique():
 
 
 def test_g9_derive_cluster_id_call_is_unique():
+    # F021 演进：新增两个只读推导调用点（`allocate_ip_auto` / `allocate_ip_manual`）；
+    # `cluster_id` **写入**路径仍唯一（见 test_g9_cluster_id_write_path_is_unique）。
+    # 断言按完整新集合精确演进，不得放宽为子集 / 包含式。
     assert _derive_cluster_id_call_locations() == {
-        ("backend/app/ip_addresses/service.py", "create_ip_address")
+        ("backend/app/ip_addresses/service.py", "create_ip_address"),
+        ("backend/app/ip_allocations/service.py", "allocate_ip_auto"),
+        ("backend/app/ip_allocations/service.py", "allocate_ip_manual"),
     }
 
 

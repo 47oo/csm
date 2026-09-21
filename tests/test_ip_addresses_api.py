@@ -959,7 +959,12 @@ def test_t38_no_cluster_view_aggregation_or_import(auth_client_and_raw):
     client, _ = auth_client_and_raw
     paths = client.app.openapi()["paths"]
     ip_paths = [path for path in paths if path.startswith("/api/ip-addresses")]
-    assert ip_paths == ["/api/ip-addresses", "/api/ip-addresses/{ip_address_id}"]
+    assert ip_paths == [
+        "/api/ip-addresses",
+        "/api/ip-addresses/{ip_address_id}",
+        "/api/ip-addresses/allocate",
+        "/api/ip-addresses/allocate-manual",
+    ]
 
     for path in ip_paths:
         assert not any(
