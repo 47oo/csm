@@ -1764,12 +1764,13 @@ features:
       start_commit: "0fe65f4707676da1d049cef6cde111349a066f5d"
       head_commit: null
       merge_commit: null
-    current_stage: PRODUCT
+    current_stage: ARCHITECTURE
     last_result: >
-      用户批准增量计划（2026-09-20，develop 0fe65f4）；F020 转 READY 并启动 Feature Workflow，
-      自 develop（0fe65f4）创建分支 feature/F020-ip-address-range。当前进入 Product。
+      Product Gate 通过（2026-09-20）：新增 R-IP-004（IP 地址范围段）并落盘 Product Handoff
+      docs/product/handoffs/f020-ip-address-range.md；无 blocking open question。R-IP-001 ~ R-IP-003 未修改（规则 63 → 64）。
     next_action: >
-      Product：在 requirements.md §12 新增 IP 地址范围段产品规则（R-IP-004 类）并产出 Product Handoff。
+      Architecture：定稿范围段契约（复用 / 新增端点、字段、分页、按 cluster_id 限定读取）、同 Cluster 不重叠的强制方式、
+      删除守卫集成、database 层判定与错误码；产出 Architecture Handoff。
     layers:
       database: true      # 初步判断：很可能需新表 / 新列或 migration 承载范围段；由 Architecture / Database 复核
       backend: true       # 范围段 CRUD 与校验
@@ -1792,13 +1793,12 @@ features:
       test: NOT_STARTED
       review: NOT_STARTED
     product_document: docs/product/requirements.md
-    requirements: []
+    requirements:
+      - R-IP-004
     requirements_note: >
-      §12 IPAddress 现有 R-IP-001（同 Cluster 唯一）/ R-IP-002（跨 Cluster 可重复）/ R-IP-003（不考虑 VRF），
-      **均不涉及地址范围段 / 地址池**；F005 契约更明确把「IP 池 / 网段」列为「无任何已确认需求」。
-      本 Feature 是本次新提出的产品能力，**必须先由 Product 在 §12 新增或修订产品规则**（类比 F018/F019 的
-      NQ-8），本 Feature 才能挂 requirement ID。R-IP-001 ~ R-IP-003 保持不变。Project Manager 与协调器
-      **不得**自行发明该产品规则。
+      Product 已新增 **R-IP-004（IP 地址范围段）**（2026-09-20），本 Feature 现可挂 requirement ID = **R-IP-004**；
+      R-IP-001 / R-IP-002 / R-IP-003 为被继承的既有规则且保持不变。完整产品依据见
+      `docs/product/handoffs/f020-ip-address-range.md` 与 `requirements.md` §12。
     acceptance_criteria:
       # 仅列不受范围段 / 分配语义歧义影响的通用 AC；范围段专属 AC 待 DEC-023 与 NQ-1 ~ NQ-7 裁定后由 Product 定稿。
       - AC-01 认证：未认证访问本 Feature 相关端点 → 401 UNAUTHENTICATED 且不返回任何资源数据。
@@ -3468,11 +3468,11 @@ planning_status:
 
 execution:
   current_feature: F020
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   note_append: >
     2026-09-20：用户批准增量计划并就 DEC-023 裁定；F020 转 READY 并进入 Feature Workflow。
     自 develop（0fe65f4）创建 feature/F020-ip-address-range，project.status = IN_PROGRESS。
-    Product 阶段：requirements.md §12 新增 IP 地址范围段产品规则。
+    Product 完成：新增 R-IP-004，产出 Product Handoff；现进入 Architecture。
     2026-09-20：用户批准增量计划并就 DEC-022 裁定；F019 转 READY 并进入 Feature Workflow。
     自 develop（008ecb2）创建 feature/F019-search-result-aggregation，project.status = IN_PROGRESS。
     Product 完成：新增 R-QUERY-006、修订 R-QUERY-005，产出 Product Handoff。
