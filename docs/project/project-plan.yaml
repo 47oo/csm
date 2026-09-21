@@ -28,7 +28,7 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: ACCEPTED
+  status: IN_PROGRESS
   status_changed_on: "2026-09-20"
   status_note_append: >
     **2026-09-18（四）：用户批准本次计划**（「批准本次计划」），并确认「模糊」=**子串包含**（非容错/相似度）。
@@ -1750,7 +1750,7 @@ features:
     name: IP 地址范围段（地址池）管理
     epic: E02
     priority: P1
-    status: READY
+    status: IN_PROGRESS
     depends_on: [F001, F005]
     depends_on_note: >
       范围段按用户输入「对每个集群」设定，故真实前置为 F001（Cluster 是范围段的归属对象）；
@@ -1758,6 +1758,18 @@ features:
       「已占用」「字面地址」如何交互属本 Feature 的未确认语义（NQ-4 / NQ-6），但其实现必然建立在
       F005 的既有模型之上，故列为直接依赖。二者均已 DONE，依赖本身不构成阻塞。
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F020-ip-address-range
+      start_commit: "0fe65f4707676da1d049cef6cde111349a066f5d"
+      head_commit: null
+      merge_commit: null
+    current_stage: PRODUCT
+    last_result: >
+      用户批准增量计划（2026-09-20，develop 0fe65f4）；F020 转 READY 并启动 Feature Workflow，
+      自 develop（0fe65f4）创建分支 feature/F020-ip-address-range。当前进入 Product。
+    next_action: >
+      Product：在 requirements.md §12 新增 IP 地址范围段产品规则（R-IP-004 类）并产出 Product Handoff。
     layers:
       database: true      # 初步判断：很可能需新表 / 新列或 migration 承载范围段；由 Architecture / Database 复核
       backend: true       # 范围段 CRUD 与校验
@@ -1773,6 +1785,12 @@ features:
       本 Feature **必须**新增或修订 API 契约：现有 F005 契约 §非目标明确排除「IP 池 / 网段 / 子网 /
       分配与回收工作流」，且 F005 契约明文「不存在范围 / 关键字等第二维度查询参数」。范围段的
       CRUD 端点与字段须由 Architecture 在 DEC-023 裁定后定稿为 READY；**不得出现「契约禁止、实现却有」的分裂**。
+    implementation:
+      database_design: NOT_STARTED
+      backend: NOT_STARTED
+      frontend: NOT_STARTED
+      test: NOT_STARTED
+      review: NOT_STARTED
     product_document: docs/product/requirements.md
     requirements: []
     requirements_note: >
@@ -2680,13 +2698,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F020]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F021]
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 1
     DRAFT: 0
     DONE: 17
@@ -3449,9 +3467,12 @@ planning_status:
   decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F020
+  current_stage: PRODUCT
   note_append: >
+    2026-09-20：用户批准增量计划并就 DEC-023 裁定；F020 转 READY 并进入 Feature Workflow。
+    自 develop（0fe65f4）创建 feature/F020-ip-address-range，project.status = IN_PROGRESS。
+    Product 阶段：requirements.md §12 新增 IP 地址范围段产品规则。
     2026-09-20：用户批准增量计划并就 DEC-022 裁定；F019 转 READY 并进入 Feature Workflow。
     自 develop（008ecb2）创建 feature/F019-search-result-aggregation，project.status = IN_PROGRESS。
     Product 完成：新增 R-QUERY-006、修订 R-QUERY-005，产出 Product Handoff。

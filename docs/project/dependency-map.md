@@ -2,8 +2,8 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-20（用户批准增量计划；DEC-023 RESOLVED；F020 READY / F021 BLOCKED；`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
+> Generated: 2026-09-20（F020 进入 Feature Workflow；`project.status = IN_PROGRESS`）
+> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
 
 **2026-09-20（二）增量**：新增 F020（IP 地址范围段管理，depends_on F001、F005）、F021（IP 自动 / 手动分配，depends_on F020、F005、F004、F002）、DEC-023 与 M10。
 **2026-09-20（续）**：DEC-023 已由用户 RESOLVED；F020 转 **READY**，F021 转 **BLOCKED**（仅因依赖 F020 未 DONE）。
@@ -40,7 +40,7 @@
 | F017 应用外壳侧边栏导航 | DONE | F012, F013, F001, F002, F004, F005, F006, F007, F008, F010 | frontend |
 | F018 集群内资源关键字搜索 | DONE | F001, F002, F004, F005, F006, F007, F008 | backend, frontend |
 | F019 搜索结果聚合视图 | DONE | F018 | backend, frontend（database: false） |
-| F020 IP 地址范围段（地址池）管理 | READY | F001, F005 | database（待 Architecture 定稿）, backend, frontend |
+| F020 IP 地址范围段（地址池）管理 | IN_PROGRESS | F001, F005 | database（待 Architecture 定稿）, backend, frontend |
 | F021 IP 地址自动 / 手动分配 | BLOCKED | F020, F005, F004, F002 | database（待 Architecture 定稿）, backend, frontend |
 
 ## 全量依赖 DAG
@@ -64,7 +64,7 @@ F018 集群内资源关键字搜索 (P1, DONE)
 F020 / F021（本次新增）依赖既有网络资源链：
 
 ```text
-F001 Cluster 登记与管理 (P0, DONE) ──┬──> F020 IP 地址范围段（地址池）管理 (P1, READY)
+F001 Cluster 登记与管理 (P0, DONE) ──┬──> F020 IP 地址范围段（地址池）管理 (P1, IN_PROGRESS)
 F005 IPAddress 管理 (P1, DONE) ──────┘        └──> F021 IP 地址自动 / 手动分配 (P1, BLOCKED)
 F004 NetworkInterface 管理 (P1, DONE) ─────────┘
 F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
@@ -93,7 +93,7 @@ F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
 16. F017  DONE
 17. F018  DONE
 18. F019  DONE（merge 292345e8）
-19. F020  READY（DEC-023 已裁定；待 Product 落 §12 规则后进入 Feature Workflow）
+19. F020  IN_PROGRESS（已在 feature/F020-ip-address-range）
 20. F021  BLOCKED（依赖 F020 未 DONE；产品语义已由 DEC-023 裁定）
 ```
 

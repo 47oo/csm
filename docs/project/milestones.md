@@ -2,8 +2,8 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-20（用户批准增量计划；DEC-023 RESOLVED；F020 READY / F021 BLOCKED；`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
+> Generated: 2026-09-20（F020 进入 Feature Workflow；`project.status = IN_PROGRESS`）
+> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
 
 **2026-09-20（二）增量**：新增 M10（IP 地址范围段与自动 / 手动分配，只含 F020 / F021）与 F020、F021、DEC-023；`project.status` 由 DONE 转 **DRAFT**（待批准）。
 **2026-09-20（续）**：DEC-023 已由用户 RESOLVED；F020 转 **READY**，F021 转 **BLOCKED**（依赖 F020 未 DONE）。
@@ -33,7 +33,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
-| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **待批准（F020 READY / F021 BLOCKED）** |
+| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **执行中（F020 IN_PROGRESS / F021 BLOCKED）** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -223,7 +223,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 
 | ID | Feature | Priority | 状态 | Merge |
 |---|---|---|---|---|
-| F020 | IP 地址范围段（地址池）管理 | P1 | **READY** | — |
+| F020 | IP 地址范围段（地址池）管理 | P1 | **IN_PROGRESS** | — |
 | F021 | IP 地址自动 / 手动分配 | P1 | **BLOCKED**（依赖 F020） | — |
 
 **进入条件**
