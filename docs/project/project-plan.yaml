@@ -1750,7 +1750,7 @@ features:
     name: IP 地址范围段（地址池）管理
     epic: E02
     priority: P1
-    status: IN_PROGRESS
+    status: IN_REVIEW
     depends_on: [F001, F005]
     depends_on_note: >
       范围段按用户输入「对每个集群」设定，故真实前置为 F001（Cluster 是范围段的归属对象）；
@@ -1762,16 +1762,17 @@ features:
       base_branch: develop
       branch: feature/F020-ip-address-range
       start_commit: "0fe65f4707676da1d049cef6cde111349a066f5d"
-      head_commit: null
+      head_commit: "ca9ae7325416cfffb7b259bf97622372cd7e1fe9"
       merge_commit: null
-    current_stage: IMPLEMENTATION
+    current_stage: TEST
     last_result: >
-      Database Design 完成（2026-09-20）：`docs/database/f020-ip-address-range-migration.md` = READY FOR DATABASE IMPLEMENTATION。
-      数据库 agent 复核并定稿 Architecture 草案（3 处落地修正：CHECK 裸名 bounds、EXCLUDE 原生 DDL、保留 btree cluster_id 索引；
-      downgrade 不 DROP EXTENSION）；无阻塞 OQ。现进入 Implementation：Frontend 与 Backend 并行（Backend 实现 migration 0009）。
+      Implementation Gate 通过（2026-09-20）：Backend（含 migration 0009）与 Frontend 并行完成（均 COMPLETE），
+      实现提交 ca9ae73。协调器独立复核：真实 PostgreSQL 后端 **1134 passed**；前端 typecheck 干净 + **729 passed** + build；
+      ruff 干净。migration 0009 幂等 / 可重建；`EXCLUDE` 不重叠为 DB 最终权威；删除守卫经 `soft_delete`；无第二条 `deleted_at` 写入路径。
     next_action: >
-      Implementation：Backend（`backend/app/ip_address_ranges/**` + migration 0009 + sqlstate 23P01 + clusters/deletion 追加）
-      与 Frontend（`frontend/src/api/ipAddressRanges.ts` + 范围段页面）并行；文件所有权互不重叠。
+      Tester（独立验收 + 自写证伪）：重点①直连 DB 证实 EXCLUDE 为真正权威（应用层旁路仍 23P01）；②跨 Cluster 同范围可共存；
+      ③范围内有活跃 IP 时删除 → 409 且无部分写入；④IPv4 规范化与非法拒绝；⑤响应字段封闭（无 status/name）；
+      ⑥只读/认证/Empty vs Not Found；⑦迁移幂等可重建；⑧既有 guard 只增不减、ip_address 自由文本未变。
     layers:
       database: true      # 初步判断：很可能需新表 / 新列或 migration 承载范围段；由 Architecture / Database 复核
       backend: true       # 范围段 CRUD 与校验
@@ -1789,8 +1790,8 @@ features:
       CRUD 端点与字段须由 Architecture 在 DEC-023 裁定后定稿为 READY；**不得出现「契约禁止、实现却有」的分裂**。
     implementation:
       database_design: COMPLETE
-      backend: NOT_STARTED
-      frontend: NOT_STARTED
+      backend: COMPLETE
+      frontend: COMPLETE
       test: NOT_STARTED
       review: NOT_STARTED
     product_document: docs/product/requirements.md
@@ -3469,14 +3470,16 @@ planning_status:
 
 execution:
   current_feature: F020
-  current_stage: IMPLEMENTATION
+  current_stage: TEST
   note_append: >
     2026-09-20：用户批准增量计划并就 DEC-023 裁定；F020 转 READY 并进入 Feature Workflow。
     自 develop（0fe65f4）创建 feature/F020-ip-address-range，project.status = IN_PROGRESS。
     Product 完成：新增 R-IP-004，产出 Product Handoff。
     Architecture + Contract 完成：Architecture Handoff 与 f020 契约均 READY；f005 / f012 契约立场已修订；
     `layers.database = true`（新表 ip_address_ranges + EXCLUDE/btree_gist + migration 0009）。
-    Database Design 完成：READY FOR DATABASE IMPLEMENTATION。现进入 Implementation（Frontend + Backend 并行）。
+    Database Design 完成：READY FOR DATABASE IMPLEMENTATION。
+    Implementation 完成（ca9ae73，Backend + Frontend 并行）；协调器在全新真实 PostgreSQL 上独立重跑：
+    后端 1134 passed、前端 729 passed + build、ruff 干净。现进入 TEST。
     2026-09-20：用户批准增量计划并就 DEC-022 裁定；F019 转 READY 并进入 Feature Workflow。
     自 develop（008ecb2）创建 feature/F019-search-result-aggregation，project.status = IN_PROGRESS。
     Product 完成：新增 R-QUERY-006、修订 R-QUERY-005，产出 Product Handoff。
