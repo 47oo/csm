@@ -1876,46 +1876,71 @@ features:
     name: IP 地址自动 / 手动分配
     epic: E02
     priority: P1
-    status: READY
+    status: IN_REVIEW
     depends_on: [F020, F005, F004, F002]
     depends_on_note: >
-      F020 提供被分配的地址范围段（前置，未 DONE）；F005 提供 IPAddress 的登记 / 唯一性 / 受控 cluster_id
-      推导模型；若分配的产物是沿用 F005 的 IPAddress，则必须选定目标 NetworkInterface（F004）而 NIC 绑定
-      BareMetal（F002），故 F002 / F004 为潜在真实前置。**若 DEC-023 裁定分配产物为独立于 IPAddress 的
-      新实体**（NQ-1），则 F004 / F002 的依赖可能收窄，须在裁定后复核。
-    blocking:
-      - "dependency: F020（IP 地址范围段管理）尚未 DONE"
+      F020 提供被分配的地址范围段（前置，已 DONE）；F005 提供 IPAddress 的登记 / 唯一性 / 受控 cluster_id
+      推导模型；分配产物为绑定 NetworkInterface 的 IPAddress（DEC-023 已裁定），故 NIC（F004）与其宿主
+      BareMetal（F002）为真实前置。四项依赖均已 DONE。
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F021-ip-address-allocation
+      start_commit: "1942ec4d544675ec47df5b924ec52a35bae7c2e2"
+      head_commit: null
+      merge_commit: null
+    current_stage: REVIEW
+    last_result: >
+      Test 完成（2026-09-21）：Tester 独立验收 **READY FOR REVIEW**，AC-01 ~ AC-33 全部 PASS，无缺陷。
+      测试报告 `docs/test-reports/f021-ip-address-allocation.md`。协调器独立复跑：后端全量 **1204 passed / 0 failed**；
+      F021 专项 **70 passed**；前端 typecheck + 769 passed + build；ruff 干净。真实前后端集成与真实线程并发均通过；
+      直连 DB 证伪 13/13（23505 / 字面 vs 数值 / 结构不变 / 漂移 0 / head 0009）；对抗注入均被检出且逐字节还原。
+    next_action: >
+      Reviewer：对候选 HEAD `ae10140` 与 develop...HEAD 全量差异做完整 Review，核对 AC / 契约 / 数据库不变 / guard / 测试证据
+      与「契约禁止、实现却有」分裂；重点确认不新增唯一性 / 锁 / SQLSTATE / migration，R-IP-001 partial unique 为最终权威。Review 通过后进入 Merge Gate。
     layers:
-      database: true      # 初步判断：取决于分配产物（新增 ip_addresses 行 vs 新分配实体）；由 Architecture 复核
-      backend: true       # 自动 / 手动分配逻辑、占用判定与错误语义
-      frontend: true      # 分配入口与结果呈现
+      database: false     # Architecture 定稿：产物复用既有 ip_addresses / ip_address_ranges，无新列 / 索引 / migration
+      backend: true       # app/ip_allocations/** + main.py 挂载；复用 F005 写入路径与 F020 ipv4 纯函数
+      frontend: true      # 分配入口（自动 / 手动）+ 结果呈现 + error.code / details[].code 分支
     layers_note: >
-      **初步判断，非定稿**：若分配产物为新的分配 / 预留实体，则 database 很可能为 true；若仅为「创建 IPAddress」，
-      可能复用现有表但仍可能需列 / 约束变更。由 Architecture / Database 在 DEC-023 裁定后复核。
+      **Architecture 定稿（2026-09-21）**：`database = false` —— 分配产物为既有 IPAddress，候选范围读既有 ip_address_ranges；
+      唯一性复用既有 R-IP-001 partial unique；现有索引足够；不新增表 / 列 / 索引 / 约束 / 触发器 / migration（head 仍 0009）。
     contract:
-      status: REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f021-ip-address-allocation.md
     contract_note: >
-      本 Feature **必须**新增或修订 API 契约：F005 契约 §非目标明确排除「分配与回收工作流」与「自动生成 IP」。
-      分配端点 / 请求响应（含自动分配的「最小 IP」结果与耗尽错误）须由 Architecture 在 DEC-023 裁定后定稿为
-      READY；**不得出现「契约禁止、实现却有」的分裂**。
+      契约已落盘（Status = READY），共 2 端点；稳定判别值 `NO_AVAILABLE_IP` / `OUT_OF_RANGE` / `DUPLICATE` / `NOT_FOUND` / `VALIDATION_ERROR`。
+      `docs/api/f005-ip-address.md` §10 两处非目标立场已精确修订，无「契约禁止、实现却有」分裂。
+    implementation:
+      database_design: NOT_REQUIRED   # database=false；无迁移，数据库交付仅为测试断言
+      backend: COMPLETE             # f480ecc；1204 passed
+      frontend: COMPLETE            # f480ecc；769 passed + build
+      test: COMPLETE
+      review: NOT_STARTED
     product_document: docs/product/requirements.md
-    requirements: []
+    requirements:
+      - R-IP-005
+      - R-IP-006
+      - R-IP-007
+      - R-IP-008
+      - R-IP-009
+      - R-IP-010
     requirements_note: >
-      §12 现有 R-IP-001 ~ R-IP-003 均不涉及 IP 分配工作流；F005 契约明确排除「分配与回收工作流 / 自动生成 IP」。
-      本 Feature 是本次新提出的产品能力，**必须先由 Product 在 §12 新增或修订产品规则**（类比 F018/F019 的
-      NQ-8），本 Feature 才能挂 requirement ID。R-IP-001 ~ R-IP-003 保持不变。PM / 协调器不得自行发明规则。
+      Product 已于 2026-09-21 在 §12 新增 **R-IP-005 ~ R-IP-010（IP 自动 / 手动分配）**；本 Feature 挂这 6 条。
+      R-IP-001 ~ R-IP-004 为被继承的既有规则且保持不变。完整产品依据见
+      `docs/product/handoffs/f021-ip-address-allocation.md` 与 `requirements.md` §12。
+      PR-01 已由用户 2026-09-21 裁定（采纳 A：手动分配规范化写入；非法格式不允许输入）。
     acceptance_criteria:
-      # 仅列不受分配语义歧义影响的通用 AC；分配专属 AC 待 DEC-023 与 NQ-1 ~ NQ-9 裁定后由 Product 定稿。
-      - AC-01 认证：未认证访问本 Feature 相关端点 → 401 UNAUTHENTICATED 且不返回任何资源数据。
-      - AC-02 软删一致性：如分配产物涉及软删（待 NQ-1 裁定），已逻辑删除的资源不出现在常规查询，且遵循 R-DELETE-001/002/003/005/006 与 ADR-0004；不得物理删除（R-DELETE-001）。
-      - AC-03 不改既有语义：不修改 R-IP-001 ~ R-IP-003（同 Cluster 唯一 / 跨 Cluster 可重复 / 不考虑 VRF）、§22 大小写语义及 F005 的 cluster_id 受控推导模型（除非 DEC-023 明确裁定）。
-      - AC-04 契约一致：本 Feature 的契约已持久化且 contract.status=READY；不得存在「契约禁止、实现却有」的分裂。
-      - AC-05 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
-      - AC-06 范围边界：不引入自动资产发现 / 外部平台同步 / DHCP / DNS 集成等未确认能力。
-      - "AC-PLACEHOLDER（占位，**不得作为验收基准**）：分配产物（IPAddress vs 新实体）、目标 NIC 选择、自动分配「第一个最小 IP」语义、已占用判定、手动分配边界、CIDR 保留地址、范围段耗尽 / 无可用 IP 的错误语义、新增唯一性约束——全部待 DEC-023 与 NQ-1 ~ NQ-9 由用户 / Product 裁定后方可写出可判定 AC。裁定前本 Feature 保持 DRAFT，**不得进入实现**。"
+      # AC-01 ~ AC-33 已由 Product 于 2026-09-21 定稿；权威文本见 docs/product/handoffs/f021-ip-address-allocation.md。
+      - AC-01 ~ AC-07 认证 / 响应字段封闭（F005 IPAddress 表示，无 cluster_id）/ 请求字段封闭 / NIC 必选且活跃 / 宿主活跃 / Cluster 受控推导 / 漂移查询为 0。
+      - AC-08 ~ AC-11 自动分配：Cluster 全部活跃范围段并集内取数值最小未占用 IPv4；跳过已占用；写入规范化 dotted-quad；无隐式保留地址（不跳过网络/广播/网关）。
+      - AC-12 ~ AC-16 已占用判定：同 Cluster 活跃且字面相同 ⇒ 占用；软删释放；字面不同不占用（范围归属按数值、占用按字面）；跨 Cluster 可重复。
+      - AC-17 ~ AC-21 手动分配：范围内且未占用 → 201；非规范输入规范化写入；范围外 / 已占用被拒（非 5xx）；非法 IPv4 不允许输入（400）；F005 登记路径不受影响。
+      - AC-22 ~ AC-26 耗尽非 500 且无写入；不新增超出 R-IP-001 的唯一性；并发至多一条成功；最终权威为 R-IP-001 partial unique。
+      - AC-27 ~ AC-33 R-IP-001 ~ R-IP-004 与 ip_address 自由文本立场不变；不引入分配实体 / CIDR / IPv6 / 保留地址开关 / DHCP·DNS·外部同步；前端三态与 error.code 分支。
     acceptance_criteria_note: >
-      AC-01 ~ AC-06 与分配语义无关，独立成立。分配专属 AC 须在 DEC-023 裁定、Product 落规则后补入。
+      DEC-023 与 PR-01 均已由用户裁定，全部 AC 已由 Product 定稿；细节以
+      `docs/product/handoffs/f021-ip-address-allocation.md` 为唯一权威来源，本处不再重复。
     open_questions:
       - id: NQ-1
         blocking: true
@@ -2702,13 +2727,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F021]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 0
     DRAFT: 0
     DONE: 18
@@ -3521,9 +3546,21 @@ planning_status:
   decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F021
+  current_stage: REVIEW
   note_append: >
+    2026-09-21：F021 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-33 全 PASS，无缺陷）；
+    协调器独立复跑后端全量 1204 passed / 前端 769 passed + build。feature.current_stage = REVIEW；进入 Reviewer。
+    2026-09-21：F021 Implementation 完成（Backend + Frontend 并行，提交 f480ecc），Implementation Gate 通过；
+    协调器独立复核后端 1204 passed / 前端 769 passed + build / ruff 干净。现进入 TEST。
+    2026-09-21：F021 Architecture 完成，契约 READY，`layers.database = false`（无 migration）。
+    进入 Implementation；Backend 与 Frontend 并行。
+    2026-09-21：用户就 PR-01 裁定采纳 A（手动分配规范化写入；非法格式不允许输入）。F021 Product 完成，
+    新增 R-IP-005 ~ R-IP-010，产出 Product Handoff；feature.current_stage = ARCHITECTURE。
+    2026-09-21：F021 Product 初稿完成，但存在未确认的行为性 PROPOSED（PR-01：手动分配写入是否规范化），
+    按 Product Gate 停在 Product；F021 记 BLOCKED，等待用户裁定。未将未确认规则落盘。
+    2026-09-21：启动 F021（IP 地址自动 / 手动分配）。F020 DONE 后唯一阻塞解除；自 develop（1942ec4）
+    创建分支 feature/F021-ip-address-allocation；project.status 保持 IN_PROGRESS。当前进入 Product。
     2026-09-21：F020 完成（Reviewer APPROVED WITH FOLLOW-UP，HEAD ca9ae73→84d5c17，merge e4291a1），feature.status = DONE，
     current_feature 清空。F021 由 BLOCKED 转 READY（唯一阻塞 F020 已解除），无其他 READY。下一轮从 F021 继续。
     2026-09-21：F020 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-29 全 PASS，无 F020 缺陷）；

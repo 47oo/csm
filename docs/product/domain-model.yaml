@@ -558,6 +558,8 @@ resources:
           note: >
             同一 Cluster 中 IP 地址唯一；不同 Cluster 之间允许存在相同 IP。
             当前不考虑 VRF 等网络命名空间造成的同 Cluster IP 重复。
+            范围归属（是否落在某个范围段内）按 IPv4 数值比较；唯一性 / 占用按
+            ip_address 字面比较（R-IP-004 / R-IP-007 / R-IP-010）。
     binding_to_parent:
       target: NetworkInterface
       mandatory: true
@@ -565,6 +567,13 @@ resources:
       cardinality: N:1
     domain_rules:
       - R-IP-001
+      - R-IP-004
+      - R-IP-005
+      - R-IP-006
+      - R-IP-007
+      - R-IP-008
+      - R-IP-009
+      - R-IP-010
       - R-IP-002
       - R-IP-003
 
@@ -731,6 +740,12 @@ uniqueness_rules:
     case_sensitive: true
     cross_scope_allowed: 不同 Cluster 之间允许相同 IP
     note: 当前不考虑 VRF
+  - id: R-IP-004
+    attribute: IPAddressRange.[start_ip, end_ip]
+    scope: per_cluster
+    applies_to: 同一 Cluster 内的活跃 IP 地址范围段
+    statement: 同一 Cluster 内的活跃范围段不得重叠；跨 Cluster 可重复；IP 分配不新增超出 R-IP-001 的唯一性
+    rule_ids: [R-IP-004, R-IP-010]
   - id: R-CLUSTER-005
     attribute: Cluster.name
     type: character_constraint

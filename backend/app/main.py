@@ -24,6 +24,7 @@ from app.containers.router import router as containers_router
 from app.db.session import create_db_engine, create_session_factory
 from app.ip_address_ranges.router import router as ip_address_ranges_router
 from app.ip_addresses.router import router as ip_addresses_router
+from app.ip_allocations.router import router as ip_allocations_router
 from app.network_interfaces.router import router as network_interfaces_router
 from app.resource_views.router import router as resource_views_router
 from app.search.router import router as search_router
@@ -75,6 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(virtual_machines_router, prefix="/api")
     app.include_router(network_interfaces_router, prefix="/api")
     app.include_router(ip_addresses_router, prefix="/api")
+    app.include_router(ip_allocations_router, prefix="/api")
     app.include_router(ip_address_ranges_router, prefix="/api")
     app.include_router(containers_router, prefix="/api")
     app.include_router(services_router, prefix="/api")

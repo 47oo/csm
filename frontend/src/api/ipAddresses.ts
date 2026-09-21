@@ -1,7 +1,9 @@
 /**
  * IPAddress 产品 API 客户端。
  *
- * 契约依据：docs/api/f005-ip-address.md（READY，唯一权威）。
+ * 契约依据：docs/api/f005-ip-address.md（READY，唯一权威）；文末 F021 节的
+ * 两个分配端点依据 docs/api/f021-ip-address-allocation.md（READY，唯一
+ * 权威），不改变上方 F005 端点的任何语义。
  *
  * - 字段集合封闭（契约 §2）：恰为 5 字段；不存在 deleted_at（不对外暴露）、
  *   Cluster 归属字段（NQ-4 裁定：Cluster 归属是受控推导的反规范化内部值，
@@ -145,4 +147,81 @@ export function updateIpAddress(
  */
 export function deleteIpAddress(ipAddressId: number): Promise<void> {
   return apiRequest<void>(`/api/ip-addresses/${ipAddressId}`, { method: 'DELETE' })
+}
+
+// ---------------------------------------------------------------------------
+// F021：IP 地址自动 / 手动分配（契约 docs/api/f021-ip-address-allocation.md，
+// READY）。分配不是独立领域对象：唯一产物是创建一条 IPAddress（复用上方
+// F005 的 IpAddressRead 表示）；每次分配恰指定一个活跃 NetworkInterface，
+// Cluster 归属由 NIC 经既有推导链受控推导（请求与响应均不含该内部值）。
+// ---------------------------------------------------------------------------
+
+/**
+ * 自动分配请求体（F021 契约 §3.1）。恰为 1 字段；请求 schema 封闭
+ * （extra="forbid"），不接受 Cluster 归属、状态、模式、保留地址等任何
+ * 未识别字段（→ 400 VALIDATION_ERROR）。
+ */
+export interface IpAddressAutoAllocateBody {
+  /** 目标 NIC 的 id；必须存在且活跃且其宿主 BareMetal 活跃（由服务端
+   * 裁决，不命中 → 404 NOT_FOUND）。 */
+  network_interface_id: number
+}
+
+/**
+ * 手动分配请求体（F021 契约 §3.2）。恰为 2 字段；请求 schema 封闭
+ * （extra="forbid"），不接受任何未识别字段（→ 400 VALIDATION_ERROR）。
+ */
+export interface IpAddressManualAllocateBody {
+  /** 目标 NIC 的 id；语义同自动分配（存在性 / 活跃性由服务端裁决）。 */
+  network_interface_id: number
+  /** 手动指定的 IP 地址字面值。本客户端**不做**任何格式校验 / 修剪 /
+   * 归一化（§21，业务裁决全在服务端）：非法 IPv4 → 400 VALIDATION_ERROR
+   * （details[].field === 'ip_address'）；范围外 / 已占用 → 409 CONFLICT
+   * （details[].code === 'OUT_OF_RANGE' / 'DUPLICATE'）。 */
+  ip_address: string
+}
+
+/**
+ * 自动分配 IP 地址（F021 契约 §3.1）。`POST /api/ip-addresses/allocate`。
+ *
+ * - 服务端在目标 Cluster 全部活跃范围段的并集内取数值最小的未占用 IPv4
+ *  （跨范围段全局最小，无隐式保留地址），写入规范化 dotted-quad；
+ * - 成功 → 201 + IpAddressRead（复用 F005 表示，恰 5 字段）；
+ * - 404 NOT_FOUND：目标 NIC 不存在 / 已逻辑删除 / 宿主 BareMetal 不活跃
+ *  （三者不区分）；
+ * - 409 CONFLICT + details[].code === 'NO_AVAILABLE_IP'：并集耗尽（含该
+ *  Cluster 无任何活跃范围段），不创建任何记录；
+ * - 409 CONFLICT + details[].code === 'DUPLICATE'：并发选中同一地址的
+ *  落败方（服务端不自动重试，可由用户重试）；
+ * - 前端不预判地址池状态、不禁用入口（§21）。
+ */
+export function allocateIpAddress(body: IpAddressAutoAllocateBody): Promise<IpAddressRead> {
+  return apiRequest<IpAddressRead>('/api/ip-addresses/allocate', { method: 'POST', body })
+}
+
+/**
+ * 手动分配 IP 地址（F021 契约 §3.2）。
+ * `POST /api/ip-addresses/allocate-manual`。
+ *
+ * - 成功 → 201 + IpAddressRead；ip_address 为服务端规范化后的 canonical
+ *  dotted-quad（如 010.0.0.5 → 10.0.0.5），前端按响应值原样展示，
+ *  不自行变换；
+ * - 400 VALIDATION_ERROR：ip_address 非法 IPv4（10.0.0.256、10.0.0、abc、
+ *  1.2.3.4/24、IPv6、空串、含空白等）等字段形状问题
+ *  （details[].field === 'ip_address'）；
+ * - 404 NOT_FOUND：目标 NIC 不存在 / 已删 / 宿主不活跃；
+ * - 409 CONFLICT + details[].code === 'OUT_OF_RANGE'：合法 IPv4 但其数值
+ *  不落在目标 Cluster 任何活跃范围段内；
+ * - 409 CONFLICT + details[].code === 'DUPLICATE'：范围内但已被占用，
+ *  或并发写入同一地址的落败方；
+ * - 范围外字面值不经本端点：如需登记范围外任意字面 IP，仍走上方 F005
+ *  既有 createIpAddress（不受本契约拦截）。
+ */
+export function allocateIpAddressManual(
+  body: IpAddressManualAllocateBody,
+): Promise<IpAddressRead> {
+  return apiRequest<IpAddressRead>('/api/ip-addresses/allocate-manual', {
+    method: 'POST',
+    body,
+  })
 }

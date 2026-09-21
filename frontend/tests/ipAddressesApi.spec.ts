@@ -57,8 +57,10 @@ describe('结构性约束（G-17 / AC-07 / AC-42）', () => {
     expect(source).not.toContain('cluster_id')
   })
 
-  it('运行时导出面恰为 5 个端点函数：无格式校验 / 归一化 / 唯一性预检辅助（契约 §7 / §21）', () => {
+  it('运行时导出面恰为 7 个端点函数（F005 五个 + F021 分配两个）：无格式校验 / 归一化 / 唯一性预检辅助（契约 §7 / §21；F021 见 ipAddressAllocationApi.spec.ts）', () => {
     expect(Object.keys(ipAddressesApi).sort()).toEqual([
+      'allocateIpAddress',
+      'allocateIpAddressManual',
       'createIpAddress',
       'deleteIpAddress',
       'getIpAddress',
