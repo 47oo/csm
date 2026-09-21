@@ -2,10 +2,11 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（F021 Product 完成，进入 Architecture；`project.status = IN_PROGRESS`）
-> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 18, 'CANCELLED': 1}`
+> Generated: 2026-09-21（全部 V1 Feature 处置完毕；`project.status = DONE`）
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 19, 'CANCELLED': 1}`
 
-**2026-09-21（续三）**：用户就 PR-01 裁定采纳 A（手动分配规范化写入；非法格式不允许输入）。F021 新增 R-IP-005 ~ R-IP-010，Product 完成，进入 Architecture。
+**2026-09-21（终）**：F021 完成（merge 011d05d，Reviewer = APPROVED WITH FOLLOW-UP），**F021 DONE**；M10 DONE。
+全部 V1 Feature 处置完毕：**19 DONE + 1 CANCELLED（F011）**；`project.status = DONE`。
 
 **2026-09-21**：F020 完成 Feature Workflow（head ca9ae73→84d5c17，merge e4291a1；Reviewer = APPROVED WITH FOLLOW-UP），**F020 DONE**；F021 由 **BLOCKED 转 READY**（唯一阻塞 F020 已解除）。M10 进度为 F020 DONE / F021 READY。
 
@@ -37,10 +38,10 @@
 | P0 | 7（F012、F013、F014、F015、F001、F002、F009） |
 | P1 | 12（F004、F005、F006、F007、F008、F010、F011、F016、F018、F019、F020、F021） |
 | P2 | 1（F017） |
-| DONE | 18 |
+| DONE | 19 |
 | CANCELLED | 1（F011） |
 | DRAFT | 0 |
-| READY / IN_PROGRESS / BLOCKED | 0 / 1 / 0（IN_PROGRESS: F021） |
+| READY / IN_PROGRESS / BLOCKED | 0 / 0 / 0 |
 | Decisions 总数 | 23（OPEN **0**） |
 
 ## 按 Epic
@@ -60,7 +61,7 @@
 | F004 | NetworkInterface 管理 | P1 | **DONE** | F002 | READY | 4a99fa00 |
 | F005 | IPAddress 管理 | P1 | **DONE** | F004 | READY | 7beb6e72 |
 | F020 | IP 地址范围段（地址池）管理 | P1 | **DONE** | F001, F005 | READY | e4291a1e |
-| F021 | IP 地址自动 / 手动分配 | P1 | **IN_PROGRESS** | F020, F005, F004, F002 | REQUIRED | — |
+| F021 | IP 地址自动 / 手动分配 | P1 | **DONE** | F020, F005, F004, F002 | READY | 011d05df |
 
 ### E03 虚拟资源管理
 
@@ -113,7 +114,7 @@
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
-| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **执行中（F020 DONE / F021 IN_PROGRESS）** |
+| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **DONE** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 
@@ -159,6 +160,7 @@ F019 的 NQ-1 ~ NQ-8 已于 2026-09-20 由用户裁定（DEC-022 RESOLVED），�
 
 ## Follow-ups（聚合；权威见计划 `planning_status.follow_ups`）
 
+- **from_f021_review**：REV-1（已修）, REV-2, REV-3（均 NOTE）
 - **from_f020_review**：REV-1, REV-2（已修）, REV-3 / DEF-02, NOTE-1, DEF-01（Test Infra）
 - **from_f019_review**：REV-1, REV-2, REV-3, REV-4
 - **from_f018_review**：F018-LOW-1, F018-NOTE-1, F018-NOTE-3, F018-NOTE-4, F018-NOTE-5

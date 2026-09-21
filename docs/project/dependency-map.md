@@ -2,10 +2,10 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（F021 Product 完成，进入 Architecture；`project.status = IN_PROGRESS`）
-> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 18, 'CANCELLED': 1}`
+> Generated: 2026-09-21（全部 V1 Feature 处置完毕；`project.status = DONE`）
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 19, 'CANCELLED': 1}`
 
-**2026-09-21（续三）**：PR-01 裁定采纳 A；F021 新增 R-IP-005 ~ R-IP-010，Product 完成，进入 Architecture。
+**2026-09-21（终）**：F021 完成（merge 011d05d，Reviewer = APPROVED WITH FOLLOW-UP），F021 DONE；M10 DONE。全部 V1 Feature 处置完毕（19 DONE + 1 CANCELLED）。
 
 **2026-09-21（续）**：F021 转 IN_PROGRESS，自 develop（1942ec4）创建分支 `feature/F021-ip-address-allocation`。
 
@@ -47,7 +47,7 @@
 | F018 集群内资源关键字搜索 | DONE | F001, F002, F004, F005, F006, F007, F008 | backend, frontend |
 | F019 搜索结果聚合视图 | DONE | F018 | backend, frontend（database: false） |
 | F020 IP 地址范围段（地址池）管理 | DONE | F001, F005 | database, backend, frontend |
-| F021 IP 地址自动 / 手动分配 | IN_PROGRESS | F020, F005, F004, F002 | database, backend, frontend |
+| F021 IP 地址自动 / 手动分配 | DONE | F020, F005, F004, F002 | backend, frontend（database: false） |
 
 ## 全量依赖 DAG
 
@@ -71,7 +71,7 @@ F020 / F021（本次新增）依赖既有网络资源链：
 
 ```text
 F001 Cluster 登记与管理 (P0, DONE) ──┬──> F020 IP 地址范围段（地址池）管理 (P1, DONE)  ← merge e4291a1
-F005 IPAddress 管理 (P1, DONE) ──────┘        └──> F021 IP 地址自动 / 手动分配 (P1, IN_PROGRESS)
+F005 IPAddress 管理 (P1, DONE) ──────┘        └──> F021 IP 地址自动 / 手动分配 (P1, DONE)  ← merge 011d05d
 F004 NetworkInterface 管理 (P1, DONE) ─────────┘
 F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
 ```
@@ -100,12 +100,12 @@ F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
 17. F018  DONE
 18. F019  DONE（merge 292345e8）
 19. F020  DONE（merge e4291a1）
-20. F021  IN_PROGRESS（依赖 F020 已 DONE；Product 完成，进入 Architecture）
+20. F021  DONE（merge 011d05d；数据库零变更）
 ```
 
 ## 可并行执行的 Feature
 
-- 当前 **IN_PROGRESS：F021**（Product 完成，进入 Architecture）。
+- 当前 **无 READY / IN_PROGRESS / BLOCKED**；全部 V1 Feature 已 DONE（或 CANCELLED）。
 - F020 与 F021 之间有真实依赖（F021 → F020），**不可并行**；F020 DONE 后 F021 方可启动。
 - 若后续一个 Milestone 内出现多个相互无依赖的 Feature，可并行；但必须划清文件所有权（`docs/project/git-workflow.md` §3）。
 
@@ -113,6 +113,6 @@ F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
 
 - `F019` 已 `DONE`（merge 292345e8，Reviewer = APPROVED WITH FOLLOW-UP）；产品语义由 DEC-022 裁定（2026-09-20）。F019 遗留 REV-1 / REV-2（测试覆盖回退，LOW）与 REV-4（NOTE）作为非阻塞 follow-up。
 - `F018` 已 `DONE`（merge f1ac71b1）；`F017`（侧边栏）与 `F018`（搜索）无依赖边，两者对 `frontend/src/App.vue` 的所有权冲突已解除。
-- `F020` / `F021` 为本次新增输入的 Feature：DEC-023 已 RESOLVED（2026-09-20）。F020 已于 2026-09-21 DONE（merge e4291a1）；F021 Product 已完成（PR-01 裁定为 A，新增 R-IP-005 ~ R-IP-010），当前 **IN_PROGRESS**（Architecture）。
+- `F020` / `F021` 已完成：F020 DONE（merge e4291a1）、F021 DONE（merge 011d05d）。全部 V1 Feature 处置完毕（19 DONE + 1 CANCELLED）。
 - `F011` 为 `CANCELLED`（用户 2026-09-18 决定），不在实施顺序中。
 - 优先级（P0 / P1 / P2）不代表执行顺序；执行顺序以上方拓扑序为准。
