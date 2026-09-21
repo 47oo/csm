@@ -1876,15 +1876,27 @@ features:
     name: IP 地址自动 / 手动分配
     epic: E02
     priority: P1
-    status: READY
+    status: IN_PROGRESS
     depends_on: [F020, F005, F004, F002]
     depends_on_note: >
-      F020 提供被分配的地址范围段（前置，未 DONE）；F005 提供 IPAddress 的登记 / 唯一性 / 受控 cluster_id
-      推导模型；若分配的产物是沿用 F005 的 IPAddress，则必须选定目标 NetworkInterface（F004）而 NIC 绑定
-      BareMetal（F002），故 F002 / F004 为潜在真实前置。**若 DEC-023 裁定分配产物为独立于 IPAddress 的
-      新实体**（NQ-1），则 F004 / F002 的依赖可能收窄，须在裁定后复核。
-    blocking:
-      - "dependency: F020（IP 地址范围段管理）尚未 DONE"
+      F020 提供被分配的地址范围段（前置，已 DONE）；F005 提供 IPAddress 的登记 / 唯一性 / 受控 cluster_id
+      推导模型；分配产物为绑定 NetworkInterface 的 IPAddress（DEC-023 已裁定），故 NIC（F004）与其宿主
+      BareMetal（F002）为真实前置。四项依赖均已 DONE。
+    blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F021-ip-address-allocation
+      start_commit: "1942ec4d544675ec47df5b924ec52a35bae7c2e2"
+      head_commit: null
+      merge_commit: null
+    current_stage: PRODUCT
+    last_result: >
+      F020 已 DONE（merge e4291a1），F021 唯一阻塞解除并转 READY（2026-09-21）。启动 Feature Workflow，
+      自 develop（1942ec4）创建分支 feature/F021-ip-address-allocation。当前进入 Product。
+    next_action: >
+      Product：在 requirements.md §12 新增 IP 自动 / 手动分配产品规则（编号由 Product 决定）并产出 Product Handoff；
+      依据 DEC-023 裁定（产物为绑定活跃 NIC 的 IPAddress、Cluster 由 NIC 推导、自动取并集内最小未占用 IPv4、
+      占用以活跃 IPAddress 字面相等判定、软删释放、手动须在范围内、无隐式保留地址、耗尽返回非 500、不新增超出 R-IP-001 的唯一性）。
     layers:
       database: true      # 初步判断：取决于分配产物（新增 ip_addresses 行 vs 新分配实体）；由 Architecture 复核
       backend: true       # 自动 / 手动分配逻辑、占用判定与错误语义
@@ -1899,6 +1911,12 @@ features:
       本 Feature **必须**新增或修订 API 契约：F005 契约 §非目标明确排除「分配与回收工作流」与「自动生成 IP」。
       分配端点 / 请求响应（含自动分配的「最小 IP」结果与耗尽错误）须由 Architecture 在 DEC-023 裁定后定稿为
       READY；**不得出现「契约禁止、实现却有」的分裂**。
+    implementation:
+      database_design: NOT_STARTED
+      backend: NOT_STARTED
+      frontend: NOT_STARTED
+      test: NOT_STARTED
+      review: NOT_STARTED
     product_document: docs/product/requirements.md
     requirements: []
     requirements_note: >
@@ -2702,13 +2720,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F021]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 0
     DRAFT: 0
     DONE: 18
@@ -3521,9 +3539,11 @@ planning_status:
   decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F021
+  current_stage: PRODUCT
   note_append: >
+    2026-09-21：启动 F021（IP 地址自动 / 手动分配）。F020 DONE 后唯一阻塞解除；自 develop（1942ec4）
+    创建分支 feature/F021-ip-address-allocation；project.status 保持 IN_PROGRESS。当前进入 Product。
     2026-09-21：F020 完成（Reviewer APPROVED WITH FOLLOW-UP，HEAD ca9ae73→84d5c17，merge e4291a1），feature.status = DONE，
     current_feature 清空。F021 由 BLOCKED 转 READY（唯一阻塞 F020 已解除），无其他 READY。下一轮从 F021 继续。
     2026-09-21：F020 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-29 全 PASS，无 F020 缺陷）；
