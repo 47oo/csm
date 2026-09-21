@@ -21,6 +21,8 @@ EXPECTED_TABLES = {
     # F008：Service 资源表 + N:M 多态绑定关系表。
     "services",
     "service_carriers",
+    # F020：IP 地址范围段（地址池）资源表。
+    "ip_address_ranges",
 }
 
 

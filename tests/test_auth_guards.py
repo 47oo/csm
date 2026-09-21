@@ -128,6 +128,9 @@ EXPECTED_GET_ROUTES = {
     "/api/services/{service_id}",
     # F018：Cluster 内关键字搜索只读 GET 路由（仅新增，不得删除既有成员）。
     "/api/clusters/{cluster_id}/search",
+    # F020：IP 地址范围段只读 GET 路由（仅新增，不得删除既有成员）。
+    "/api/ip-address-ranges",
+    "/api/ip-address-ranges/{ip_address_range_id}",
     "/api/auth/session",
 }
 

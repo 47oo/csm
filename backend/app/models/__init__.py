@@ -11,6 +11,7 @@ from app.models.bare_metal import BareMetal
 from app.models.cluster import Cluster
 from app.models.container import Container
 from app.models.ip_address import IpAddress
+from app.models.ip_address_range import IpAddressRange
 from app.models.network_interface import NetworkInterface
 from app.models.service import Service
 from app.models.service_carrier import ServiceCarrier
@@ -23,6 +24,7 @@ __all__ = [
     "Cluster",
     "Container",
     "IpAddress",
+    "IpAddressRange",
     "NetworkInterface",
     "Service",
     "ServiceCarrier",

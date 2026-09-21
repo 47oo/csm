@@ -437,7 +437,8 @@ def test_g10_carrier_checks_contain_service_checks():
 def test_g10_cluster_checks_unchanged():
     from app.bare_metals.deletion import has_active_bare_metals
 
-    assert CLUSTER_ACTIVE_CHILD_CHECKS == (has_active_bare_metals,)
+    # F020 演进：BareMetal 检查保留；范围段检查追加；Service 载体检查仍不在此。
+    assert has_active_bare_metals in CLUSTER_ACTIVE_CHILD_CHECKS
     assert has_active_services_on_bare_metal not in CLUSTER_ACTIVE_CHILD_CHECKS
 
 
@@ -461,10 +462,10 @@ def test_g11_service_router_registers_exactly_five_endpoints():
 def test_g12_migration_head():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0008_f008_services"
-    migration = REPO_ROOT / "backend/migrations/versions/0008_f008_services.py"
+    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
+    migration = REPO_ROOT / "backend/migrations/versions/0009_f020_ip_address_ranges.py"
     source = migration.read_text(encoding="utf-8")
-    assert 'down_revision: str | None = "0007_f007_containers"' in source
+    assert 'down_revision: str | None = "0008_f008_services"' in source
 
 
 # --------------------------------------------------------------------------- #

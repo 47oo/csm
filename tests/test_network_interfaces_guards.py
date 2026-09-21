@@ -238,10 +238,10 @@ def test_g5_table_whitelist_includes_nic():
 
 
 def test_g5_migration_head_is_current():
-    # F008 演进：head 从 0007 → 0008（不得删除本 guard，只更新当前 head）。
+    # F020 演进：head 从 0008 → 0009（不得删除本 guard，只更新当前 head）。
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0008_f008_services"
+    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
 
 
 # --------------------------------------------------------------------------- #
