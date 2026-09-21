@@ -1876,7 +1876,7 @@ features:
     name: IP 地址自动 / 手动分配
     epic: E02
     priority: P1
-    status: IN_PROGRESS
+    status: IN_REVIEW
     depends_on: [F020, F005, F004, F002]
     depends_on_note: >
       F020 提供被分配的地址范围段（前置，已 DONE）；F005 提供 IPAddress 的登记 / 唯一性 / 受控 cluster_id
@@ -1889,18 +1889,17 @@ features:
       start_commit: "1942ec4d544675ec47df5b924ec52a35bae7c2e2"
       head_commit: null
       merge_commit: null
-    current_stage: IMPLEMENTATION
+    current_stage: TEST
     last_result: >
-      Architecture 完成（2026-09-21）：Architecture Handoff（`READY FOR IMPLEMENTATION`）与 API 契约
-      `docs/api/f021-ip-address-allocation.md`（**READY**）已落盘。定稿：两个端点（`POST /api/ip-addresses/allocate` /
-      `/allocate-manual`）；错误码 `NO_AVAILABLE_IP` / `OUT_OF_RANGE` / 复用 `DUPLICATE` / `404 NOT_FOUND`；
-      并发不新增锁与唯一性（R-IP-001 partial unique 最终权威）；新模块 `app/ip_allocations/**` 复用 F005 受控 `cluster_id`
-      写入路径与 F020 `ipv4` 纯函数；**`layers.database = false`（无 migration，head 仍 0009）**；F005 契约 §10 两处非目标已精确修订。
-      Contract Gate 通过。
+      Implementation Gate 通过（2026-09-21）：database = NOT_REQUIRED；Backend 与 Frontend 并行完成（均 COMPLETE），实现提交 `f480ecc`。
+      协调器独立复核（真实 PostgreSQL 16.15）：后端全量 **1204 passed / 0 failed**；前端 typecheck 干净 + **769 passed** + build；ruff 干净。
+      新增 `app/ip_allocations/**`（2 端点）+ 前端分配对话框与入口；无 migration（head 仍 0009）；`cluster_id` 写入路径仍唯一；`SQLSTATE_MAP` 键集合不变；既有 guard 精确演进（只增不弱）。
     next_action: >
-      Implementation：Backend 与 Frontend **并行**（database=false，无需 Database Design）。
-      Backend：`app/ip_allocations/**` + `app/main.py` 挂载 + F021 guard + 精确演进 `derive_cluster_id` 调用点 guard；
-      Frontend：`api/ipAddresses.ts` 分配客户端 + 分配入口 / 对话框 / 三态 / `error.code` 分支。
+      Tester（独立验收 + 自写证伪）：重点①直连 DB 证实 R-IP-001 partial unique 为真正权威（应用层旁路仍 23505）；
+      ②数值相同字面不同可共存（R-IP-007）；③自动取并集内数值最小未占用且不跳过网络/广播/网关；
+      ④手动合法非规范规范化写入、非法格式 400、范围外 409 OUT_OF_RANGE、已占用 409 DUPLICATE；
+      ⑤耗尽 409 NO_AVAILABLE_IP 且无部分写入；⑥并发真实线程至多一条 201 且无 5xx；⑦漂移查询 0；
+      ⑧响应字段封闭（无 cluster_id/status/deleted_at）；⑨迁移 head 仍 0009且无新表/列/索引/触发器；⑩既有 guard 不减弱。
     layers:
       database: false     # Architecture 定稿：产物复用既有 ip_addresses / ip_address_ranges，无新列 / 索引 / migration
       backend: true       # app/ip_allocations/** + main.py 挂载；复用 F005 写入路径与 F020 ipv4 纯函数
@@ -1916,8 +1915,8 @@ features:
       `docs/api/f005-ip-address.md` §10 两处非目标立场已精确修订，无「契约禁止、实现却有」分裂。
     implementation:
       database_design: NOT_REQUIRED   # database=false；无迁移，数据库交付仅为测试断言
-      backend: NOT_STARTED
-      frontend: NOT_STARTED
+      backend: COMPLETE             # f480ecc；1204 passed
+      frontend: COMPLETE            # f480ecc；769 passed + build
       test: NOT_STARTED
       review: NOT_STARTED
     product_document: docs/product/requirements.md
@@ -3550,8 +3549,10 @@ planning_status:
 
 execution:
   current_feature: F021
-  current_stage: IMPLEMENTATION
+  current_stage: TEST
   note_append: >
+    2026-09-21：F021 Implementation 完成（Backend + Frontend 并行，提交 f480ecc），Implementation Gate 通过；
+    协调器独立复核后端 1204 passed / 前端 769 passed + build / ruff 干净。现进入 TEST。
     2026-09-21：F021 Architecture 完成，契约 READY，`layers.database = false`（无 migration）。
     进入 Implementation；Backend 与 Frontend 并行。
     2026-09-21：用户就 PR-01 裁定采纳 A（手动分配规范化写入；非法格式不允许输入）。F021 Product 完成，
