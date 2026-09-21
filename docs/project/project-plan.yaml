@@ -1889,17 +1889,15 @@ features:
       start_commit: "1942ec4d544675ec47df5b924ec52a35bae7c2e2"
       head_commit: null
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     last_result: >
-      Implementation Gate 通过（2026-09-21）：database = NOT_REQUIRED；Backend 与 Frontend 并行完成（均 COMPLETE），实现提交 `f480ecc`。
-      协调器独立复核（真实 PostgreSQL 16.15）：后端全量 **1204 passed / 0 failed**；前端 typecheck 干净 + **769 passed** + build；ruff 干净。
-      新增 `app/ip_allocations/**`（2 端点）+ 前端分配对话框与入口；无 migration（head 仍 0009）；`cluster_id` 写入路径仍唯一；`SQLSTATE_MAP` 键集合不变；既有 guard 精确演进（只增不弱）。
+      Test 完成（2026-09-21）：Tester 独立验收 **READY FOR REVIEW**，AC-01 ~ AC-33 全部 PASS，无缺陷。
+      测试报告 `docs/test-reports/f021-ip-address-allocation.md`。协调器独立复跑：后端全量 **1204 passed / 0 failed**；
+      F021 专项 **70 passed**；前端 typecheck + 769 passed + build；ruff 干净。真实前后端集成与真实线程并发均通过；
+      直连 DB 证伪 13/13（23505 / 字面 vs 数值 / 结构不变 / 漂移 0 / head 0009）；对抗注入均被检出且逐字节还原。
     next_action: >
-      Tester（独立验收 + 自写证伪）：重点①直连 DB 证实 R-IP-001 partial unique 为真正权威（应用层旁路仍 23505）；
-      ②数值相同字面不同可共存（R-IP-007）；③自动取并集内数值最小未占用且不跳过网络/广播/网关；
-      ④手动合法非规范规范化写入、非法格式 400、范围外 409 OUT_OF_RANGE、已占用 409 DUPLICATE；
-      ⑤耗尽 409 NO_AVAILABLE_IP 且无部分写入；⑥并发真实线程至多一条 201 且无 5xx；⑦漂移查询 0；
-      ⑧响应字段封闭（无 cluster_id/status/deleted_at）；⑨迁移 head 仍 0009且无新表/列/索引/触发器；⑩既有 guard 不减弱。
+      Reviewer：对候选 HEAD `ae10140` 与 develop...HEAD 全量差异做完整 Review，核对 AC / 契约 / 数据库不变 / guard / 测试证据
+      与「契约禁止、实现却有」分裂；重点确认不新增唯一性 / 锁 / SQLSTATE / migration，R-IP-001 partial unique 为最终权威。Review 通过后进入 Merge Gate。
     layers:
       database: false     # Architecture 定稿：产物复用既有 ip_addresses / ip_address_ranges，无新列 / 索引 / migration
       backend: true       # app/ip_allocations/** + main.py 挂载；复用 F005 写入路径与 F020 ipv4 纯函数
@@ -1917,7 +1915,7 @@ features:
       database_design: NOT_REQUIRED   # database=false；无迁移，数据库交付仅为测试断言
       backend: COMPLETE             # f480ecc；1204 passed
       frontend: COMPLETE            # f480ecc；769 passed + build
-      test: NOT_STARTED
+      test: COMPLETE
       review: NOT_STARTED
     product_document: docs/product/requirements.md
     requirements:
@@ -3549,8 +3547,10 @@ planning_status:
 
 execution:
   current_feature: F021
-  current_stage: TEST
+  current_stage: REVIEW
   note_append: >
+    2026-09-21：F021 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-33 全 PASS，无缺陷）；
+    协调器独立复跑后端全量 1204 passed / 前端 769 passed + build。feature.current_stage = REVIEW；进入 Reviewer。
     2026-09-21：F021 Implementation 完成（Backend + Frontend 并行，提交 f480ecc），Implementation Gate 通过；
     协调器独立复核后端 1204 passed / 前端 769 passed + build / ruff 干净。现进入 TEST。
     2026-09-21：F021 Architecture 完成，契约 READY，`layers.database = false`（无 migration）。
