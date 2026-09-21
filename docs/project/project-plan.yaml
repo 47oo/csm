@@ -1889,31 +1889,33 @@ features:
       start_commit: "1942ec4d544675ec47df5b924ec52a35bae7c2e2"
       head_commit: null
       merge_commit: null
-    current_stage: ARCHITECTURE
+    current_stage: IMPLEMENTATION
     last_result: >
-      Product 完成（2026-09-21）：新增 **R-IP-005 ~ R-IP-010**（§12），产出 Product Handoff（`READY FOR ARCHITECT`），
-      无 Blocking Open Question。用户就 PR-01 裁定采纳 **A**：手动分配对合法但非规范的 IPv4 先规范化再写入，
-      **地址格式不合法则不允许输入**。未确认规则已固化，不再是 PROPOSED。现进入 Architecture。
+      Architecture 完成（2026-09-21）：Architecture Handoff（`READY FOR IMPLEMENTATION`）与 API 契约
+      `docs/api/f021-ip-address-allocation.md`（**READY**）已落盘。定稿：两个端点（`POST /api/ip-addresses/allocate` /
+      `/allocate-manual`）；错误码 `NO_AVAILABLE_IP` / `OUT_OF_RANGE` / 复用 `DUPLICATE` / `404 NOT_FOUND`；
+      并发不新增锁与唯一性（R-IP-001 partial unique 最终权威）；新模块 `app/ip_allocations/**` 复用 F005 受控 `cluster_id`
+      写入路径与 F020 `ipv4` 纯函数；**`layers.database = false`（无 migration，head 仍 0009）**；F005 契约 §10 两处非目标已精确修订。
+      Contract Gate 通过。
     next_action: >
-      Architecture：定稿分配契约（`docs/api/f021-ip-address-allocation.md`，Status READY）与 Architecture Handoff；
-      协商确定错误码取值（耗尽 `NO_AVAILABLE_IP` / 手动范围外 / 已删 NIC）、并发与原子性（不得新增超出 R-IP-001 的唯一性）、
-      复核 `layers.database`、复用 F005 受控 `cluster_id` 推导与 F020 `ipv4` 纯函数，并精确修订 F005 契约非目标。
+      Implementation：Backend 与 Frontend **并行**（database=false，无需 Database Design）。
+      Backend：`app/ip_allocations/**` + `app/main.py` 挂载 + F021 guard + 精确演进 `derive_cluster_id` 调用点 guard；
+      Frontend：`api/ipAddresses.ts` 分配客户端 + 分配入口 / 对话框 / 三态 / `error.code` 分支。
     layers:
-      database: true      # 初步判断：取决于分配产物（新增 ip_addresses 行 vs 新分配实体）；由 Architecture 复核
-      backend: true       # 自动 / 手动分配逻辑、占用判定与错误语义
-      frontend: true      # 分配入口与结果呈现
+      database: false     # Architecture 定稿：产物复用既有 ip_addresses / ip_address_ranges，无新列 / 索引 / migration
+      backend: true       # app/ip_allocations/** + main.py 挂载；复用 F005 写入路径与 F020 ipv4 纯函数
+      frontend: true      # 分配入口（自动 / 手动）+ 结果呈现 + error.code / details[].code 分支
     layers_note: >
-      **初步判断，非定稿**：若分配产物为新的分配 / 预留实体，则 database 很可能为 true；若仅为「创建 IPAddress」，
-      可能复用现有表但仍可能需列 / 约束变更。由 Architecture / Database 在 DEC-023 裁定后复核。
+      **Architecture 定稿（2026-09-21）**：`database = false` —— 分配产物为既有 IPAddress，候选范围读既有 ip_address_ranges；
+      唯一性复用既有 R-IP-001 partial unique；现有索引足够；不新增表 / 列 / 索引 / 约束 / 触发器 / migration（head 仍 0009）。
     contract:
-      status: REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f021-ip-address-allocation.md
     contract_note: >
-      本 Feature **必须**新增或修订 API 契约：F005 契约 §非目标明确排除「分配与回收工作流」与「自动生成 IP」。
-      分配端点 / 请求响应（含自动分配的「最小 IP」结果与耗尽错误）须由 Architecture 在 DEC-023 裁定后定稿为
-      READY；**不得出现「契约禁止、实现却有」的分裂**。
+      契约已落盘（Status = READY），共 2 端点；稳定判别值 `NO_AVAILABLE_IP` / `OUT_OF_RANGE` / `DUPLICATE` / `NOT_FOUND` / `VALIDATION_ERROR`。
+      `docs/api/f005-ip-address.md` §10 两处非目标立场已精确修订，无「契约禁止、实现却有」分裂。
     implementation:
-      database_design: NOT_STARTED
+      database_design: NOT_REQUIRED   # database=false；无迁移，数据库交付仅为测试断言
       backend: NOT_STARTED
       frontend: NOT_STARTED
       test: NOT_STARTED
@@ -3548,8 +3550,10 @@ planning_status:
 
 execution:
   current_feature: F021
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   note_append: >
+    2026-09-21：F021 Architecture 完成，契约 READY，`layers.database = false`（无 migration）。
+    进入 Implementation；Backend 与 Frontend 并行。
     2026-09-21：用户就 PR-01 裁定采纳 A（手动分配规范化写入；非法格式不允许输入）。F021 Product 完成，
     新增 R-IP-005 ~ R-IP-010，产出 Product Handoff；feature.current_stage = ARCHITECTURE。
     2026-09-21：F021 Product 初稿完成，但存在未确认的行为性 PROPOSED（PR-01：手动分配写入是否规范化），
