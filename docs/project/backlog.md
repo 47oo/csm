@@ -2,10 +2,10 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（F021 Product 阻塞于 PR-01；`project.status = IN_PROGRESS`）
-> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 18, 'CANCELLED': 1}`
+> Generated: 2026-09-21（F021 Product 完成，进入 Architecture；`project.status = IN_PROGRESS`）
+> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 18, 'CANCELLED': 1}`
 
-**2026-09-21（续二）**：F021 Product 完成初稿，但存在未确认的行为性 PROPOSED（PR-01：手动分配写入是否规范化），按 Product Gate 停在 Product，F021 记 **BLOCKED**，等待用户裁定。
+**2026-09-21（续三）**：用户就 PR-01 裁定采纳 A（手动分配规范化写入；非法格式不允许输入）。F021 新增 R-IP-005 ~ R-IP-010，Product 完成，进入 Architecture。
 
 **2026-09-21**：F020 完成 Feature Workflow（head ca9ae73→84d5c17，merge e4291a1；Reviewer = APPROVED WITH FOLLOW-UP），**F020 DONE**；F021 由 **BLOCKED 转 READY**（唯一阻塞 F020 已解除）。M10 进度为 F020 DONE / F021 READY。
 
@@ -40,7 +40,7 @@
 | DONE | 18 |
 | CANCELLED | 1（F011） |
 | DRAFT | 0 |
-| READY / IN_PROGRESS / BLOCKED | 0 / 0 / 1（BLOCKED: F021，Product PR-01） |
+| READY / IN_PROGRESS / BLOCKED | 0 / 1 / 0（IN_PROGRESS: F021） |
 | Decisions 总数 | 23（OPEN **0**） |
 
 ## 按 Epic
@@ -60,7 +60,7 @@
 | F004 | NetworkInterface 管理 | P1 | **DONE** | F002 | READY | 4a99fa00 |
 | F005 | IPAddress 管理 | P1 | **DONE** | F004 | READY | 7beb6e72 |
 | F020 | IP 地址范围段（地址池）管理 | P1 | **DONE** | F001, F005 | READY | e4291a1e |
-| F021 | IP 地址自动 / 手动分配 | P1 | **BLOCKED**（Product PR-01） | F020, F005, F004, F002 | REQUIRED | — |
+| F021 | IP 地址自动 / 手动分配 | P1 | **IN_PROGRESS** | F020, F005, F004, F002 | REQUIRED | — |
 
 ### E03 虚拟资源管理
 
@@ -113,7 +113,7 @@
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
-| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **执行中（F020 DONE / F021 BLOCKED：Product PR-01）** |
+| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **执行中（F020 DONE / F021 IN_PROGRESS）** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 
