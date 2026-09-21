@@ -2,20 +2,26 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-20（F019 完成并 merge；项目全部 Feature 处置完毕，`project.status = DONE`）
-> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
+> Generated: 2026-09-20（用户批准增量计划；DEC-023 RESOLVED；F020 READY / F021 BLOCKED；`project.status = ACCEPTED`）
+> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
+
+**2026-09-20（二）增量**：收到未获批准输入「对每个集群允许设定多个IP地址范围段，在分配IP的时候支持自动或者手动分配IP地址，自动分配IP的时候，默认选择当前第一个最小的IP地址」。
+据此**新增** F020（IP 地址范围段管理）、F021（IP 自动 / 手动分配）、DEC-023（后已 RESOLVED）与 M10，`project.status` 由 DONE 转 **DRAFT**（待用户批准）。
+**2026-09-20（续）**：用户就 DEC-023 采纳推荐方案并明确「范围内仍有活跃 IP 时禁止删除范围段」；DEC-023 RESOLVED，F020 转 READY、F021 转 BLOCKED。计划仍待批准。
+该输入提出**两项此前被 F005 显式排除**的新产品能力，且严重欠定义，属新产品规则；**既有 R-IP-001 ~ R-IP-003 保持不变**，F005 已 DONE 的实现与结论不被推翻。
+**既有一律不变**：17 DONE + 1 CANCELLED、M1–M9、全部 merge SHA / Tester / Review 证据与各 Feature 的 git 元数据均原样保留。
 
 **2026-09-18（五）增量**：收到未获批准输入「将搜索的内容进行聚合，比如输入ip地址，显示裸金属 cn001,ip xxx,网卡eth0 等等」。
 据此**新增** F019（搜索结果聚合视图，DRAFT）、DEC-022（OPEN）与 M9，`project.status` 由 DONE 转 **DRAFT**（待用户批准）。
 该输入与已确认的 R-QUERY-005「单一混合列表（不按资源类型分组）」「除结果总数外不提供统计 / 聚合」直接冲突，语义未确认。
-**既有一律不变**：16 DONE + 1 CANCELLED、M1–M8、全部 merge SHA / Tester / Review 证据与各 Feature 的 git 元数据均原样保留。
+**既有结论不变**：16 DONE + 1 CANCELLED、M1–M8、全部 merge SHA / Tester / Review 证据与各 Feature 的 git 元数据均原样保留。
 
-**2026-09-20**：用户批准增量计划后，就 **DEC-022** 逐一裁定（8 项 + 3 处澄清，见 DEC-022 RESOLVED）。F019 由 **DRAFT 转 READY**，进入 Feature Workflow；当前无阻塞 open question。
+**2026-09-20**：用户批准增量计划后，就 **DEC-022** 逐一裁定（8 项 + 3 处澄清，见 DEC-022 RESOLVED）。F019 由 **DRAFT 转 READY** 并已完成 Feature Workflow（merge 292345e8），M9 DONE。
 
 **重建说明**：本文件由 `project-plan.yaml` 重新生成，取代此前陈旧的正文（旧版仍写「Feature 总数 14 / DONE 10 / F007 READY / M4 进行中」等）。
 历史结论（F011 取消、M5 的实际结局、各 Feature 的 merge SHA、各条 follow-up）均按计划原样保留，未因重建而丢失。
 
-需求基线：`docs/product/requirements.md`（CONFIRMED BASELINE，**62 条规则**，含 2026-09-18 新增的 R-QUERY-005）。
+需求基线：`docs/product/requirements.md`（CONFIRMED BASELINE，**63 条规则**，含 2026-09-18 新增的 R-QUERY-005 与 2026-09-20 新增的 R-QUERY-006）。
 领域模型：`docs/product/domain-model.md` / `domain-model.yaml`。
 架构：`docs/architecture/`（ADR-0001 ~ ADR-0005 全部 ACCEPTED），`docs/api/api-conventions.md`。
 
@@ -23,15 +29,15 @@
 
 | 维度 | 值 |
 |---|---|
-| Feature 总数 | 18 |
+| Feature 总数 | 20 |
 | P0 | 7（F012、F013、F014、F015、F001、F002、F009） |
-| P1 | 10（F004、F005、F006、F007、F008、F010、F011、F016、F018、F019） |
+| P1 | 12（F004、F005、F006、F007、F008、F010、F011、F016、F018、F019、F020、F021） |
 | P2 | 1（F017） |
-| DONE | 16 |
+| DONE | 17 |
 | CANCELLED | 1（F011） |
-| BLOCKED | 0 |
-| READY / IN_PROGRESS / DRAFT | 0 / 0 / 0 |
-| Decisions 总数 | 22（OPEN **0**） |
+| DRAFT | 0 |
+| READY / IN_PROGRESS / BLOCKED | 1 / 0 / 1（READY: F020；BLOCKED: F021） |
+| Decisions 总数 | 23（OPEN **0**） |
 
 ## 按 Epic
 
@@ -49,6 +55,8 @@
 |---|---|---|---|---|---|---|
 | F004 | NetworkInterface 管理 | P1 | **DONE** | F002 | READY | 4a99fa00 |
 | F005 | IPAddress 管理 | P1 | **DONE** | F004 | READY | 7beb6e72 |
+| F020 | IP 地址范围段（地址池）管理 | P1 | **READY** | F001, F005 | REQUIRED | — |
+| F021 | IP 地址自动 / 手动分配 | P1 | **BLOCKED**（依赖 F020） | F020, F005, F004, F002 | REQUIRED | — |
 
 ### E03 虚拟资源管理
 
@@ -101,8 +109,11 @@
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
+| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **待批准（F020 READY / F021 BLOCKED）** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
+
+`M10` 为本次新增输入的待批里程碑；进入条件至少含：DEC-023 由用户裁定、Product 在 §12 新增 / 修订产品规则、F005 已 DONE。详见 `milestones.md`。
 
 ## Blocking Decisions
 
@@ -129,32 +140,25 @@
 | DEC-016 | architecture | RESOLVED | F015 |
 | DEC-020 | product | RESOLVED | F017 |
 | DEC-021 | product | RESOLVED | F018, F002, F005, F009, F010 |
-| DEC-022 | product | **OPEN** | F019, F018 |
+| DEC-022 | product | RESOLVED | F019, F018 |
+| DEC-023 | product | RESOLVED | F020, F021, F005 |
 
 `DEC-020`（侧边栏）、`DEC-021`（关键字搜索）与 `DEC-022`（搜索结果聚合）均已 RESOLVED。
 `DEC-022` 已于 2026-09-20 由用户裁定：结果为单一扁平混合列表、按命中项关联链聚合、做关系扩展、采用方案 A（命中行 + 缩进关联行）、仅显示搜索涉及的资源、不去重、标识字段优先于描述性字段排序、取代 F018 扁列表。
 
+`DEC-023`（IP 地址范围段 / 地址池与自动 / 手动分配）已于 2026-09-20 由用户裁定为 **RESOLVED**：范围段用 start–end（IPv4）、恰属一个 Cluster、同 Cluster 不重叠、跨 Cluster 可重复、无状态、软删，且**范围内有活跃 IP 时禁止删除**；分配沿用 IPAddress、必选绑定活跃 NIC，自动取并集内最小未占用 IPv4，占用以活跃 IPAddress 字面相等判定、软删释放，无隐式保留地址，耗尽返回非 500 错误，不新增超出 R-IP-001 的唯一性。
+
 ## Open Questions（阻塞项，权威见计划 `features[].open_questions`）
 
-无阻塞 open question。F019 的 NQ-1 ~ NQ-8 已于 2026-09-20 由用户全部裁定（见 DEC-022 RESOLVED）；NQ-9 非阻塞并沿用 F018。
-
-| 编号 | 一句话 | 裁定 |
-|---|---|---|
-| NQ-1 | 聚合的**分组单位** | 按命中项关联链 |
-| NQ-2 | 是否做**关系扩展** | 是 |
-| NQ-3 | 聚合结果的**呈现形态** | 方案 A（命中行 + 缩进关联行） |
-| NQ-4 | **未关联到任何 BareMetal** 的命中资源如何处置 | 仅显示搜索涉及的资源（命中项 + 关联链） |
-| NQ-5 | **跨组重复资源如何去重** | 不去重（可重复出现） |
-| NQ-6 | **排序与分页语义** | 标识字段优先于描述性字段；分页沿用 F018 |
-| NQ-7 | **是否保留 F018 的扁平列表** | 取代 |
-| NQ-8 | **产品规则落点** | Product 修订 R-QUERY-005 或新增规则 |
-| NQ-9 | 入口与前置条件是否沿用 F018 | 是（非阻塞） |
+无阻塞 open question。F020 / F021 的 NQ 已于 2026-09-20 由用户随 **DEC-023 RESOLVED** 全部裁定（摘要见上）。
+F019 的 NQ-1 ~ NQ-8 已于 2026-09-20 由用户裁定（DEC-022 RESOLVED），不再阻塞。
 
 ## Follow-ups（聚合；权威见计划 `planning_status.follow_ups`）
 
-- **from_f016_review**：REV-1, REV-4, REV-5, REV-6, F016-T-01, REV-2 / REV-3
+- **from_f019_review**：REV-1, REV-2, REV-3, REV-4
 - **from_f018_review**：F018-LOW-1, F018-NOTE-1, F018-NOTE-3, F018-NOTE-4, F018-NOTE-5
 - **from_f017_review**：F017-LOW-2, F017-NOTE-4
+- **from_f016_review**：REV-1, REV-4, REV-5, REV-6, F016-T-01, REV-2 / REV-3
 - **from_f016_test**：F016-T-01
 - **from_f010_review**：REV-2, REV-3, Framework OPEN#6（承）
 - **from_f008_review**：REV-F008-2, REV-F008-3, F004 REV-2（承）
@@ -168,3 +172,4 @@
 - **from_f013_review**：REV-01, REV-03, REV-04, F013-F-01
 - **from_f001_review**：REV-1, REV-2, F-01
 - **from_f012_review**：F-03, F-01, F-02, N-01
+- **post_v1_maintenance**：merged 288dd42；F005 REV-3 / F010 REV-2 / F004 REV-2 / F010 REV-3 / F002-T-01（另见 still_open）

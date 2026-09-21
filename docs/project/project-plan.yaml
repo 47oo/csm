@@ -28,7 +28,7 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: DONE
+  status: ACCEPTED
   status_changed_on: "2026-09-20"
   status_note_append: >
     **2026-09-18（四）：用户批准本次计划**（「批准本次计划」），并确认「模糊」=**子串包含**（非容错/相似度）。
@@ -60,6 +60,24 @@ project:
     因此本计划虽为 ACCEPTED，但当前**无 READY Feature**；在 DEC-022 由用户裁定、Product 落地规则前，
     F019 不得进入实现（`/implement-project` 在此停止并请求用户决策）。
     **既有结论一律不变**：16 DONE + 1 CANCELLED、M1–M8、全部 merge commit / Tester / Review 证据
+    与各 Feature 的 git 元数据均原样保留。
+    ---
+    2026-09-20（二）本次增量：收到未获批准输入「对每个集群允许设定多个IP地址范围段，在分配IP的时候支持自动或者手动分配IP地址，
+    自动分配IP的时候，默认选择当前第一个最小的IP地址」。该输入提出**两项此前被 F005 显式排除**的新产品能力
+    （IP 地址范围段 / 地址池、IP 自动 / 手动分配），且严重欠定义，属新产品规则。据此**新增** F020
+    （IP 地址范围段管理，DRAFT）、F021（IP 自动 / 手动分配，DRAFT）、DEC-023（OPEN）与 M10。
+    本计划由 DONE 转 **DRAFT** 仅表示新增输入待用户批准，既不代表既有交付被推翻，也不表示 M1–M9 的结论改变。
+    **既有一律不变**：17 DONE + 1 CANCELLED、M1–M9、全部 merge commit / Tester / Review 证据
+    与各 Feature 的 git 元数据（base_branch / branch / start_commit / head_commit / merge_commit）均原样保留。
+    R-IP-001 ~ R-IP-003 保持不变；F005 已 DONE 的实现与结论不被推翻。DEC-023 与两个 Feature 的完整歧义清单见
+    `decisions_required[DEC-023]`、`features[F020].open_questions` 与 `features[F021].open_questions`；
+    **未确认前不得实现**。
+    ---
+    2026-09-20（三）：**用户批准本次增量计划**（「批准本次增量计划」），本计划由 DRAFT 转 **ACCEPTED**。
+    此前用户已就 DEC-023 采纳推荐方案并明确「范围内仍有活跃 IP 时禁止删除范围段」，故 DEC-023 **RESOLVED**。
+    批准后的就绪状态：**F020 READY**（可进入 Feature Workflow）、**F021 BLOCKED**（仅因依赖 F020 未 DONE）。
+    Product 阶段须在 requirements.md §12 新增范围段与分配产品规则后，Feature 方可挂 requirement ID 并进入实现。
+    **既有结论一律不变**：17 DONE + 1 CANCELLED、M1–M9、全部 merge commit / Tester / Review 证据
     与各 Feature 的 git 元数据均原样保留。
   status_note: >
     **2026-09-18 重新规划并获批准**：V1 全部 Feature（14 DONE + 1 CANCELLED）处置完毕后，用户就
@@ -167,8 +185,8 @@ epics:
     features: [F001, F002, F016]
   - id: E02
     name: 网络资源管理
-    description: NetworkInterface 与 IPAddress 的登记、唯一性与关联。
-    features: [F004, F005]
+    description: NetworkInterface 与 IPAddress 的登记、唯一性与关联；F020/F021 起含 IP 地址范围段（地址池）与自动 / 手动分配（待批准）。
+    features: [F004, F005, F020, F021]
   - id: E03
     name: 虚拟资源管理
     description: VirtualMachine 与 Container 的资源模型与人工登记。
@@ -1719,6 +1737,219 @@ features:
       ⑦ 排序 = 标识字段优先于描述性字段；⑧ 取代 F018 的扁平列表。
       **NQ-9** 非阻塞，沿用 F018 入口与「先选定单一 Cluster」前置。
 
+  # ---- E02 网络资源管理：IP 地址范围段 + 自动 / 手动分配（本次新增输入，产品语义未确认；DRAFT；不得在裁定前实现）----
+  # 上游输入（原文）：「对每个集群允许设定多个IP地址范围段，在分配IP的时候支持自动或者手动分配IP地址，
+  #   自动分配IP的时候，默认选择当前第一个最小的IP地址」。
+  # 关键事实：该输入提出**两项此前被 F005 显式排除**的新产品能力——IP 地址范围段（地址池）管理与
+  #   IP 自动 / 手动分配（见 docs/product/handoffs/f005-ip-address.md §Scope「IP 池 / 网段 / 子网 /
+  #   分配与回收工作流 / 使用率统计 / 冲突扫描：无任何已确认需求」；docs/api/f005-ip-address.md §非目标）。
+  #   requirements.md §12 现有 R-IP-001 / R-IP-002 / R-IP-003 保持不变；ip_addresses 表无状态、无格式校验、
+  #   无池概念，IPAddress 必选绑定 NetworkInterface。该输入**严重欠定义**，属**新产品规则**：
+  #   必须先由 Product 在 §12 新增 / 修订规则，Project Manager **不得**自行裁定产品语义。
+  - id: F020
+    name: IP 地址范围段（地址池）管理
+    epic: E02
+    priority: P1
+    status: READY
+    depends_on: [F001, F005]
+    depends_on_note: >
+      范围段按用户输入「对每个集群」设定，故真实前置为 F001（Cluster 是范围段的归属对象）；
+      F005 提供既有 IPAddress 登记 / 唯一性（R-IP-001 ~ R-IP-003）与「字面精确比较」立场，范围段与
+      「已占用」「字面地址」如何交互属本 Feature 的未确认语义（NQ-4 / NQ-6），但其实现必然建立在
+      F005 的既有模型之上，故列为直接依赖。二者均已 DONE，依赖本身不构成阻塞。
+    blocking: []
+    layers:
+      database: true      # 初步判断：很可能需新表 / 新列或 migration 承载范围段；由 Architecture / Database 复核
+      backend: true       # 范围段 CRUD 与校验
+      frontend: true      # 范围段管理界面
+    layers_note: >
+      **初步判断，非定稿**：范围段是新的领域对象，通常需要新表或新列 + 唯一性 / 约束设计，故 database
+      很可能为 true；但若 Architecture 裁定将其表达为现有结构上的派生 / 配置，亦可能为 false。
+      由 Architecture / Database 在 DEC-023 裁定、Product 落规则后复核。
+    contract:
+      status: REQUIRED
+      doc: null
+    contract_note: >
+      本 Feature **必须**新增或修订 API 契约：现有 F005 契约 §非目标明确排除「IP 池 / 网段 / 子网 /
+      分配与回收工作流」，且 F005 契约明文「不存在范围 / 关键字等第二维度查询参数」。范围段的
+      CRUD 端点与字段须由 Architecture 在 DEC-023 裁定后定稿为 READY；**不得出现「契约禁止、实现却有」的分裂**。
+    product_document: docs/product/requirements.md
+    requirements: []
+    requirements_note: >
+      §12 IPAddress 现有 R-IP-001（同 Cluster 唯一）/ R-IP-002（跨 Cluster 可重复）/ R-IP-003（不考虑 VRF），
+      **均不涉及地址范围段 / 地址池**；F005 契约更明确把「IP 池 / 网段」列为「无任何已确认需求」。
+      本 Feature 是本次新提出的产品能力，**必须先由 Product 在 §12 新增或修订产品规则**（类比 F018/F019 的
+      NQ-8），本 Feature 才能挂 requirement ID。R-IP-001 ~ R-IP-003 保持不变。Project Manager 与协调器
+      **不得**自行发明该产品规则。
+    acceptance_criteria:
+      # 仅列不受范围段 / 分配语义歧义影响的通用 AC；范围段专属 AC 待 DEC-023 与 NQ-1 ~ NQ-7 裁定后由 Product 定稿。
+      - AC-01 认证：未认证访问本 Feature 相关端点 → 401 UNAUTHENTICATED 且不返回任何资源数据。
+      - AC-02 软删一致性：如范围段采用软删（NQ-5 待裁定），已逻辑删除的范围段不出现在常规查询，且遵循 R-DELETE-001/002/003/005/006 与 ADR-0004；不得物理删除（R-DELETE-001）。
+      - AC-03 不改既有语义：不修改 R-IP-001 ~ R-IP-003、§22 大小写语义、`by-name` 大小写敏感，以及 F005 既有的 IP 字面精确比较立场（除非 DEC-023 明确裁定引入格式解析 / 归一化）。
+      - AC-04 契约一致：本 Feature 的契约已持久化且 contract.status=READY；不得存在「契约禁止、实现却有」的分裂。
+      - AC-05 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
+      - AC-06 范围边界：不引入自动资产发现 / 外部平台同步 / 未确认的使用率统计 / 冲突扫描 / 导出能力。
+      - "AC-PLACEHOLDER（占位，**不得作为验收基准**）：范围段的表示（起止 / CIDR）、字段、多个范围段的重叠规则、跨 Cluster 是否可重复、生命周期（修改 / 删除 / 软删）、与 R-IP-001 的一致性约束——全部待 DEC-023 与 NQ-1 ~ NQ-7 由用户 / Product 裁定后方可写出可判定 AC。裁定前本 Feature 保持 DRAFT，**不得进入实现**。"
+    acceptance_criteria_note: >
+      AC-01 ~ AC-06 与范围段语义无关，独立成立。范围段专属 AC 须在 DEC-023 裁定、Product 落规则后补入，
+      不得由 PM / 协调器发明。
+    open_questions:
+      - id: NQ-1
+        blocking: true
+        summary: >
+          范围段的**表示与字段**：用起止地址（start–end）还是 CIDR 表示？包含哪些字段（名称 / 描述 / 用途等）？
+          是否有必填 / 可选之分？未确认前不得实现。
+      - id: NQ-2
+        blocking: true
+        summary: >
+          **重叠与跨 Cluster 重复**：同一 Cluster 内多个范围段之间是否允许重叠？跨 Cluster 是否允许相同范围？
+          是否需要在保存前阻止？（直接决定唯一性约定。）未确认前不得实现。
+      - id: NQ-3
+        blocking: true
+        summary: >
+          **归属与 cluster_id**：范围段是否必选挂在恰好一个 Cluster 上（用户输入作「对每个集群」的强烈指示，
+          但尚非已确认产品规则）？其 cluster_id 是显式字段、受控推导还是其它？是否允许跨 Cluster 共享？
+          未确认前不得实现。
+      - id: NQ-4
+        blocking: true
+        summary: >
+          **与既有「IP 无格式校验、字面精确比较」的关系**：是否引入 IP 格式解析 / 归一化（如补零、大小写、
+          IPv6）？范围段的边界与「已占用」判定按字面还是按解析后的数值比较？未确认前不得实现。
+      - id: NQ-5
+        blocking: true
+        summary: >
+          **生命周期与软删**：范围段能否修改 / 删除？已有分配（或已登记 IP）时删除范围段的约束是什么？
+          范围段是否软删？已删范围段是否释放其地址？未确认前不得实现。
+      - id: NQ-6
+        blocking: true
+        summary: >
+          **与 R-IP-001 的一致性**：范围段是否需要在「同 Cluster 内 IP 唯一」之外新增约束（如范围内已有活跃
+          IPAddress 时不允许缩小 / 删除，或范围必须包含所有已登记 IP）？范围段与活跃 IPAddress 的一致性如何治理？
+          未确认前不得实现。
+      - id: NQ-7
+        blocking: false
+        summary: >
+          范围段是否设状态（沿用 Q-002=B「V1 不设状态」的既有边界）？倾向沿用既有立场，属实现一致性选择，
+          但最终由 Product / Architecture 在裁定后确认。
+      - id: NQ-8
+        blocking: true
+        summary: >
+          **产品规则落点**：需由 Product 在 requirements.md §12 新增 / 修订产品规则（编号由 Product 决定），
+          明确范围段语义；本 Feature 才能挂 requirement ID。属 Product 职责，PM / 协调器不得代劳。
+      - id: NQ-9
+        blocking: false
+        summary: >
+          认证 / 只读 / 错误信封 / 前端三态等既有边界是否沿用现有约定？倾向沿用，属实现一致性选择，
+          不改变上述 NQ 的裁定范围。
+    open_questions_resolution: >
+      **NQ-1 ~ NQ-8 已于 2026-09-20 由用户裁定**（详见 decisions_required[DEC-023].resolution 与 ready_rationale.F020）；
+      各 NQ 原文保留为历史，blocking 状态解除。要点：start–end（IPv4）/ 恰属一个 Cluster / 同 Cluster 不重叠、跨 Cluster 可重复 /
+      无状态 / 软删 / **范围内有活跃 IP 时禁止删除** / 范围字段规范化而现有 ip_address 自由文本不变 / Product 在 §12 落规则。
+      NQ-7（无状态）与 NQ-9（既有边界）非阻塞，按既有立场沿用。
+
+  # ---- E02 网络资源管理：IP 自动 / 手动分配（本次新增输入，产品语义未确认；DRAFT；不得在裁定前实现）----
+  # 与 F020 同源输入；两者按 §5「Feature 代表可独立交付 / 验收的产品能力」拆分：范围段管理（F020）可独立
+  #   CRUD / 验收，分配（F021）依赖范围段存在。若裁定认为「必须一起才能形成可验收能力」，可在批准时合并。
+  - id: F021
+    name: IP 地址自动 / 手动分配
+    epic: E02
+    priority: P1
+    status: BLOCKED
+    depends_on: [F020, F005, F004, F002]
+    depends_on_note: >
+      F020 提供被分配的地址范围段（前置，未 DONE）；F005 提供 IPAddress 的登记 / 唯一性 / 受控 cluster_id
+      推导模型；若分配的产物是沿用 F005 的 IPAddress，则必须选定目标 NetworkInterface（F004）而 NIC 绑定
+      BareMetal（F002），故 F002 / F004 为潜在真实前置。**若 DEC-023 裁定分配产物为独立于 IPAddress 的
+      新实体**（NQ-1），则 F004 / F002 的依赖可能收窄，须在裁定后复核。
+    blocking:
+      - "dependency: F020（IP 地址范围段管理）尚未 DONE"
+    layers:
+      database: true      # 初步判断：取决于分配产物（新增 ip_addresses 行 vs 新分配实体）；由 Architecture 复核
+      backend: true       # 自动 / 手动分配逻辑、占用判定与错误语义
+      frontend: true      # 分配入口与结果呈现
+    layers_note: >
+      **初步判断，非定稿**：若分配产物为新的分配 / 预留实体，则 database 很可能为 true；若仅为「创建 IPAddress」，
+      可能复用现有表但仍可能需列 / 约束变更。由 Architecture / Database 在 DEC-023 裁定后复核。
+    contract:
+      status: REQUIRED
+      doc: null
+    contract_note: >
+      本 Feature **必须**新增或修订 API 契约：F005 契约 §非目标明确排除「分配与回收工作流」与「自动生成 IP」。
+      分配端点 / 请求响应（含自动分配的「最小 IP」结果与耗尽错误）须由 Architecture 在 DEC-023 裁定后定稿为
+      READY；**不得出现「契约禁止、实现却有」的分裂**。
+    product_document: docs/product/requirements.md
+    requirements: []
+    requirements_note: >
+      §12 现有 R-IP-001 ~ R-IP-003 均不涉及 IP 分配工作流；F005 契约明确排除「分配与回收工作流 / 自动生成 IP」。
+      本 Feature 是本次新提出的产品能力，**必须先由 Product 在 §12 新增或修订产品规则**（类比 F018/F019 的
+      NQ-8），本 Feature 才能挂 requirement ID。R-IP-001 ~ R-IP-003 保持不变。PM / 协调器不得自行发明规则。
+    acceptance_criteria:
+      # 仅列不受分配语义歧义影响的通用 AC；分配专属 AC 待 DEC-023 与 NQ-1 ~ NQ-9 裁定后由 Product 定稿。
+      - AC-01 认证：未认证访问本 Feature 相关端点 → 401 UNAUTHENTICATED 且不返回任何资源数据。
+      - AC-02 软删一致性：如分配产物涉及软删（待 NQ-1 裁定），已逻辑删除的资源不出现在常规查询，且遵循 R-DELETE-001/002/003/005/006 与 ADR-0004；不得物理删除（R-DELETE-001）。
+      - AC-03 不改既有语义：不修改 R-IP-001 ~ R-IP-003（同 Cluster 唯一 / 跨 Cluster 可重复 / 不考虑 VRF）、§22 大小写语义及 F005 的 cluster_id 受控推导模型（除非 DEC-023 明确裁定）。
+      - AC-04 契约一致：本 Feature 的契约已持久化且 contract.status=READY；不得存在「契约禁止、实现却有」的分裂。
+      - AC-05 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
+      - AC-06 范围边界：不引入自动资产发现 / 外部平台同步 / DHCP / DNS 集成等未确认能力。
+      - "AC-PLACEHOLDER（占位，**不得作为验收基准**）：分配产物（IPAddress vs 新实体）、目标 NIC 选择、自动分配「第一个最小 IP」语义、已占用判定、手动分配边界、CIDR 保留地址、范围段耗尽 / 无可用 IP 的错误语义、新增唯一性约束——全部待 DEC-023 与 NQ-1 ~ NQ-9 由用户 / Product 裁定后方可写出可判定 AC。裁定前本 Feature 保持 DRAFT，**不得进入实现**。"
+    acceptance_criteria_note: >
+      AC-01 ~ AC-06 与分配语义无关，独立成立。分配专属 AC 须在 DEC-023 裁定、Product 落规则后补入。
+    open_questions:
+      - id: NQ-1
+        blocking: true
+        summary: >
+          **分配产物**：分配的结果是创建一条 IPAddress（沿用 F005，必然要选定一个 NetworkInterface），
+          还是一个全新的「分配 / 预留」实体？该决定改变全部后续语义。未确认前不得实现。
+      - id: NQ-2
+        blocking: true
+        summary: >
+          **目标 NIC 选择**：若产物是 IPAddress，自动 / 手动分配时如何选定目标 NetworkInterface（必选？
+          由调用方指定？默认？）？是否允许无 NIC 的分配？未确认前不得实现。
+      - id: NQ-3
+        blocking: true
+        summary: >
+          **自动分配「第一个最小的 IP」**：范围为单个 Cluster 的多个范围段时，是跨全部范围段取**全局最小** IP，
+          还是按范围段顺序取**第一个范围内的最小** IP？未确认前不得实现。
+      - id: NQ-4
+        blocking: true
+        summary: >
+          **「已占用」判定**：以活跃 IPAddress 判定？软删是否释放？是否包含范围段外按 F005 另行登记的字面 IP？
+          未确认前不得实现。
+      - id: NQ-5
+        blocking: true
+        summary: >
+          **手动分配边界**：手动指定的 IP 是否必须落在某个已定义范围段内？落在范围段外的任意字面 IP 是否
+          仍按 F005 现状可登记（即手动分配与 F005 直接登记的关系与去重）？未确认前不得实现。
+      - id: NQ-6
+        blocking: true
+        summary: >
+          **CIDR / 保留地址**：若范围段以 CIDR 表示，是否跳过网络地址 / 广播地址 / 网关等保留地址？
+          用户「第一个最小的 IP」字面含义可能包含网络地址，须显式确认。未确认前不得实现。
+      - id: NQ-7
+        blocking: true
+        summary: >
+          **耗尽 / 无可用 IP 的行为与错误语义**：范围段全部耗尽或无可用 IP 时，自动分配返回什么状态码与
+          稳定 error.code？是否阻断？未确认前不得实现。
+      - id: NQ-8
+        blocking: true
+        summary: >
+          **新增唯一性 / 并发约束**：分配是否需要在「同 Cluster 内 IP 唯一」（R-IP-001）之外新增约束？
+          并发自动分配如何避免分配同一 IP？与 R-IP-001 的交互如何定义？未确认前不得实现。
+      - id: NQ-9
+        blocking: true
+        summary: >
+          **产品规则落点**：需由 Product 在 requirements.md §12 新增 / 修订产品规则（编号由 Product 决定），
+          明确分配语义；本 Feature 才能挂 requirement ID。属 Product 职责，PM / 协调器不得代劳。
+      - id: NQ-10
+        blocking: false
+        summary: >
+          认证 / 只读 / 软删 / 错误信封 / 前端三态等既有边界是否沿用现有约定？倾向沿用，属实现一致性选择。
+    open_questions_resolution: >
+      **NQ-1 ~ NQ-9 已于 2026-09-20 由用户裁定**（详见 decisions_required[DEC-023].resolution 与 blocked_rationale.F021）；
+      各 NQ 原文保留为历史，blocking 状态解除。要点：产物为 IPAddress、必选绑定活跃 NIC、Cluster 由 NIC 推导 /
+      自动取并集内最小未占用 IPv4 / 占用以活跃 IPAddress 字面相等、软删释放 / 手动须在范围内 / 无隐式保留地址 /
+      耗尽返回非 500 错误 / 不新增超出 R-IP-001 的唯一性 / Product 在 §12 落规则。NQ-10 非阻塞，沿用既有边界。
+
 # ---------------------------------------------------------------------------
 # Blocking Decisions
 # C-1 ~ C-8 来自 docs/project/_planning-findings.md。
@@ -2026,6 +2257,55 @@ decisions_required:
       因此**必须由 Product 修订 R-QUERY-005 或新增聚合规则**（NQ-8）方可使 F019 挂 requirement ID；
       并可能要求修订 / 新增搜索响应契约。裁定后 F019 由 DRAFT 转 READY，进入 Feature Workflow。
 
+  - id: DEC-023
+    type: product
+    status: RESOLVED
+    resolved_on: "2026-09-20"
+    resolved_by: user
+    topic: IP 地址范围段（地址池）与自动 / 手动分配的产品语义
+    question: >
+      「对每个集群允许设定多个 IP 地址范围段，在分配 IP 时支持自动或手动分配，自动分配默认选择当前
+      第一个最小的 IP」这一新能力的完整产品语义：范围段如何表示（起止 start–end / CIDR）、包含哪些字段、
+      是否允许重叠、跨 Cluster 是否可重复；「分配」的产物是创建一条 IPAddress（沿用 F005、必选绑定
+      NetworkInterface）还是新的分配 / 预留实体；自动分配的「第一个最小的 IP」是跨全部范围段取全局最小
+      还是按范围段顺序取第一个范围内最小，「已占用」如何判定（活跃 IPAddress / 软删释放）；手动分配是否
+      必须落在已定义范围段内、范围段外字面 IP 是否仍可按 F005 登记；CIDR 下是否跳过网络 / 广播 / 网关等
+      保留地址；范围段耗尽 / 无可用 IP 时的行为与错误语义；范围段能否修改 / 删除、有分配时的删除约束与
+      软删语义；是否引入 IP 格式解析 / 归一化；分配是否引入 R-IP-001 之外的新唯一性约束。
+    impact_features: [F020, F021, F005]
+    note: >
+      本项为**产品语义取舍**，Project Manager 与协调器均**不得自行裁定**（AGENTS.md §2.8）。
+      完整歧义清单见 `features[F020].open_questions` 与 `features[F021].open_questions`（全部 blocking）。
+      既有已确认规则 R-IP-001（同 Cluster 内 IP 唯一）、R-IP-002（跨 Cluster 可重复）、R-IP-003（不考虑 VRF）
+      **保持不变**；F005 已 DONE 的实现与结论不被本项推翻，但 F005 契约排除的「IP 池 / 分配工作流」立场
+      可能需按裁定修订。裁定结果可能要求：Product 在 requirements.md §12 新增 / 修订产品规则、新增或修订
+      API 契约、并复核 F020 / F021 的 layers（database 很可能为 true）。
+      **在裁定前，F020 / F021 保持 DRAFT 且不得实现。**
+    resolution: >
+      **RESOLVED（2026-09-20，用户裁定）**：用户采纳协调器的推荐方案，并将第 4 项明确为「**范围内仍有活跃 IP 时禁止删除**」。
+      **F020 范围段（地址池）**：
+      1) **表示与字段**：用 **start–end（含两端，IPv4 dotted-quad）** 表示，字段至少 `id / cluster_id /
+      start_ip / end_ip / created_at / updated_at`；`start_ip <= end_ip`；**V1 仅 IPv4**。范围字段要求合法 IPv4 并规范化；
+      **现有 `ip_addresses.ip_address` 的自由文本登记保持不变**。
+      2) **重叠**：同一 Cluster 内活跃范围段**不得重叠**；跨 Cluster 允许相同范围（与 R-IP-002 一致）。
+      3) **归属**：恰属于一个 Cluster（`cluster_id` 必选），不跨 Cluster 共享。
+      4) **生命周期 / 删除**：支持修改 start/end；**软删**（不物理删除）；**当范围内仍有活跃 IP（同 Cluster、活跃、字面落在该范围内）时，禁止删除该范围段**；删除范围**不级联**删除已分配 IP。
+      5) **无状态**：不设状态；活跃性仅由软删表达（沿用 Q-002=B）。
+      6) **一致性**：不新增 DB 层「范围必须覆盖已分配 IP」硬约束；建议交付漂移检测查询。
+      **F021 分配**：
+      7) **分配产物**：创建一条现有 **IPAddress**（沿用 F005），不新建分配 / 预留实体。
+      8) **目标 NIC**：**必选**指定一个活跃 NetworkInterface；Cluster 由 NIC→BareMetal 推导（复用 F005 受控推导）。
+      9) **自动分配**：在该 Cluster 全部活跃范围段**并集**中取**数值最小的未占用 IPv4**（跨范围段全局最小）。
+      10) **已占用判定**：同 Cluster 内存在**活跃（未软删）**且字面相同的 IPAddress ⇒ 占用；**软删释放**（R-DELETE-006）；
+      **无隐式保留地址**（范围边界由用户给定，不自动跳过网络 / 广播 / 网关）。
+      11) **手动分配**：必须落在某个活跃范围内且未占用；**范围外字面 IP 仍走现有 F005 登记端点**（向后兼容）。
+      12) **耗尽**：无可用 IP → 明确的**非 500** 错误（建议 `409 CONFLICT` / `details[].code = NO_AVAILABLE_IP`，具体取值由 Architecture 定稿），不创建任何 IP。
+      13) **唯一性 / 并发**：不新增超出 R-IP-001 的唯一性；以 R-IP-001 的 partial unique 索引为最终权威，并发冲突处理由 Architecture 定稿。
+      **产品规则落点**：Product 须在 requirements.md §12 新增范围段与分配规则（编号由 Product 决定）；
+      **R-IP-001 ~ R-IP-003 保持不变**。
+      **未由产品裁定、留 Architecture**：不重叠的强制方式（应用层校验 + 漂移查询 vs Postgres 排它约束）、
+      范围 / 分配契约形态、并发实现、错误码具体取值。
+
 # 已关闭的 open question（不再是 open question）
 closed_open_questions:
   - id: OPEN-006
@@ -2160,6 +2440,21 @@ milestones:
       - 交付范围与可判定 AC 经 Product 定稿。
       - 聚合响应契约 READY；无「契约 / 产品规则禁止、实现却有」的分裂。
       - 未认证 → 401；软删资源不出现；Cluster 不存在 / 已删 → 404 与 Empty 可区分（R-QUERY-004）。
+      - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
+
+  - id: M10
+    name: IP 地址范围段与自动 / 手动分配
+    goal: 按用户裁定为每个 Cluster 提供多个 IP 地址范围段（地址池），并在其上支持自动 / 手动 IP 分配（语义待 DEC-023 与 F020/F021 NQ 裁定）。
+    features: [F020, F021]
+    entry_conditions:
+      - DEC-023 由用户裁定为明确结论（含范围表示 / 重叠 / 分配产物 / 最小地址选取 / 保留地址 / 耗尽行为等）。
+      - Product 在 requirements.md §12 新增 / 修订产品规则，F020 / F021 的 scope 与 AC 可定稿。
+      - F005 已 DONE（已满足）；F001 / F002 / F004 已 DONE（已满足）。
+      - 契约按裁定新增 / 修改为 READY；F020 / F021 的 layers（尤其 database）经 Architecture 复核。
+    completion_criteria:
+      - 交付范围与可判定 AC 经 Product 定稿。
+      - 范围段 / 分配契约 READY；无「契约 / 产品规则禁止、实现却有」的分裂。
+      - 未认证 → 401；软删资源不出现；既有 R-IP-001 ~ R-IP-003 不被静默修改。
       - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
 # ---------------------------------------------------------------------------
@@ -2385,14 +2680,14 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: []
+  ready_features: [F020]
   blocked_draft_features:
-    BLOCKED: []
+    BLOCKED: [F021]
     DRAFT: []
   counts:
-    READY: 0
+    READY: 1
     IN_PROGRESS: 0
-    BLOCKED: 0
+    BLOCKED: 1
     DRAFT: 0
     DONE: 17
     CANCELLED: 1
@@ -2544,9 +2839,20 @@ planning_status:
       义务：Product 须在 requirements.md §16 **修订 R-QUERY-005**（现明文禁止聚合 / 分组 / 排序）或新增规则
       （NQ-8）；Architecture 须定稿搜索响应契约（F018 契约为扁平列表，需修订 / 新增）并复核 layers.database；
       排序的**同优先级兜底顺序**未由用户指定，须由 Architecture 作为可实现性选择定稿（不得扩张为产品规则）。
+    F020: >
+      DEC-023 已由用户裁定（2026-09-20，见 decisions_required[DEC-023].resolution）：范围段用 start–end（IPv4）
+      表示、恰属一个 Cluster、同 Cluster 内不重叠、跨 Cluster 可重复、无状态、软删；**范围内仍有活跃 IP 时禁止删除**；
+      与既有「无格式校验 / 字面比较」的关系见裁定。F020 的产品范围与 AC 因此可定稿（NQ-1 ~ NQ-8 全部解除
+      blocking），depends_on F001 / F005 均已 DONE，无阻塞架构决策 → READY。
+      义务：Product 须在 requirements.md §12 新增范围段规则（NQ-8）；Architecture 须定稿范围段契约并复核
+      layers.database（很可能 true）与「同 Cluster 不重叠」的强制方式。
   draft_rationale: {}
 
   blocked_rationale:
+    F021: >
+      DEC-023 已由用户裁定（2026-09-20），NQ-1 ~ NQ-9 全部解除 blocking，F021 自身 scope / AC 可定稿；
+      其唯一阻塞为依赖 F020（IP 地址范围段管理）尚未 DONE，故按规则取 BLOCKED。F021 的产品规则义务见
+      requirements_note（Product 新增 §12 分配规则）。
     F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
     F004: >
       DEC-006 已解决（V1 无状态）；保留的 R-NIC-003「VM 等资源是否拥有独立 NetworkInterface」不改变本 Feature
@@ -2554,6 +2860,15 @@ planning_status:
     F005: "DEC-006 已解决（V1 无状态），无未解决产品问题；阻塞为依赖 F004 未 DONE。"
     F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
   readiness_summary: >
+    **2026-09-20（增量二·续）**：用户就 DEC-023 采纳推荐方案，并明确「范围内仍有活跃 IP 时禁止删除范围段」；
+    故 DEC-023 RESOLVED。F020 转 **READY**；F021 因依赖 F020 未 DONE 转 **BLOCKED**。
+    计划已获用户批准（2026-09-20），project.status = ACCEPTED；F020 可进入 Feature Workflow，F021 待 F020 DONE。
+    **2026-09-20（增量二）**：收到未获批准输入「为每个集群设定多个 IP 地址范围段并支持自动 / 手动分配 IP」。
+    据此新增 F020（IP 地址范围段管理，DRAFT）、F021（IP 自动 / 手动分配，DRAFT）、DEC-023（OPEN）与 M10；
+    project.status / planning_status.status 转 DRAFT（待用户批准）。
+    **既有结论不变**：17 DONE + 1 CANCELLED、M1–M9、全部 merge commit / Tester / Review 证据与各 Feature 的
+    git 元数据均原样保留。R-IP-001 ~ R-IP-003 未修改；F005 已 DONE 的实现与结论不被否定。
+    在 DEC-023 由用户裁定、Product 落地 §12 规则前，F020 / F021 不得进入实现。
     **2026-09-20**：F019（搜索结果聚合视图）已完成 Feature Workflow 并 DONE（head 4524d8e → merge 292345e，Reviewer = APPROVED WITH FOLLOW-UP）。
     M9 随之 DONE。**项目全部 Feature 处置完毕：17 DONE + 1 CANCELLED（F011），project.status = DONE；无 READY / BLOCKED / DRAFT / IN_PROGRESS。**
     F019 遗留 REV-1 / REV-2（测试覆盖回退，LOW）与 REV-4（NOTE）作为非阻塞 follow-up 记录在 case。
@@ -3162,6 +3477,14 @@ execution:
     **既有一律不变**：16 DONE + 1 CANCELLED、M1–M8、全部 merge commit / Tester / Review 证据与各 Feature
     的 git 元数据均原样保留；F018 已 DONE 的实现与结论不被推翻。
     **未获批准前不得启动 F019 实现**（/implement-project 第 2 节把 DRAFT 视为硬停止条件）。
+    2026-09-20（二）：收到未获批准输入「对每个集群允许设定多个IP地址范围段，在分配IP的时候支持自动或者手动分配IP地址，
+    自动分配IP的时候，默认选择当前第一个最小的IP地址」。协调器识别该输入提出**两项此前被 F005 显式排除**的新产品能力
+    （IP 地址范围段 / 地址池、IP 自动 / 手动分配），且严重欠定义，属新产品规则。据此**新增** F020（DRAFT）、
+    F021（DRAFT）、DEC-023（OPEN）与 M10，并把 project.status / planning_status.status 转 DRAFT（待用户批准）。
+    **既有一律不变**：17 DONE + 1 CANCELLED、M1–M9、全部 merge commit / Tester / Review 证据与各 Feature 的
+    git 元数据均原样保留；R-IP-001 ~ R-IP-003 未修改，F005 已 DONE 的实现与结论不被推翻。
+    **未获批准且 DEC-023 未经用户裁定前不得启动 F020 / F021 实现**（/implement-project 第 2 节把 DRAFT 视为硬停止条件）。
+    execution.current_feature / current_stage 保持 null。
   started_on: "2026-09-16"
   note: >-
     F008 现处 Database Design：Product 与 Architecture 完成，契约 READY（docs/api/f008-service.md）。

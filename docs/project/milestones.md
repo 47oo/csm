@@ -2,11 +2,16 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-20（F019 完成并 merge；项目全部 Feature 处置完毕，`project.status = DONE`）
-> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
+> Generated: 2026-09-20（用户批准增量计划；DEC-023 RESOLVED；F020 READY / F021 BLOCKED；`project.status = ACCEPTED`）
+> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
+
+**2026-09-20（二）增量**：新增 M10（IP 地址范围段与自动 / 手动分配，只含 F020 / F021）与 F020、F021、DEC-023；`project.status` 由 DONE 转 **DRAFT**（待批准）。
+**2026-09-20（续）**：DEC-023 已由用户 RESOLVED；F020 转 **READY**，F021 转 **BLOCKED**（依赖 F020 未 DONE）。
+该输入提出**两项此前被 F005 显式排除**的新产品能力，且严重欠定义；R-IP-001 ~ R-IP-003 保持不变。
+**既有里程碑 M1–M9 及其结论一律不变**（含各 Feature 的 merge SHA）。
 
 **2026-09-18（五）增量**：新增 M9（搜索结果聚合视图，只含 F019）与 F019（DRAFT）、DEC-022（OPEN）；`project.status` 由 DONE 转 **DRAFT**（待批准）。
-**2026-09-20**：用户批准增量计划并就 DEC-022 裁定；F019 转 **READY**，M9 待启动。
+**2026-09-20**：用户批准增量计划并就 DEC-022 裁定；F019 转 **READY**，M9 已完成（merge 292345e8）。
 **既有里程碑 M1–M8 及其结论一律不变**（含各 Feature 的 merge SHA）。
 
 **重建说明**：本文件由 `project-plan.yaml` 重新生成，取代此前陈旧的正文（旧版仍写「Feature 总数 14 / DONE 10 / F007 READY / M4 进行中」等）。
@@ -28,6 +33,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
+| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **待批准（F020 READY / F021 BLOCKED）** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -207,7 +213,32 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 - 未认证 → 401；软删资源不出现；Cluster 不存在 / 已删 → 404 与 Empty 可区分（R-QUERY-004）。
 - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
-**实施前仍待完成**：Product 修订 R-QUERY-005（现明文禁止聚合 / 分组 / 排序）或新增规则，且 Architecture 定稿搜索响应契约。产品语义已由 DEC-022 裁定，不再是阻塞。
+**实施结果**：M9 已完成——F019 DONE（head 4524d8e → merge 292345e8，Reviewer = APPROVED WITH FOLLOW-UP）；Product 已新增 R-QUERY-006 并修订 R-QUERY-005，Architecture / 契约已定稿为 READY。产品语义由 DEC-022 裁定，不再是阻塞。
+
+---
+
+## M10 — IP 地址范围段与自动 / 手动分配 · 状态：待批准（F020 READY / F021 BLOCKED）
+
+**目标**：按用户裁定为每个 Cluster 提供多个 IP 地址范围段（地址池），并在其上支持自动 / 手动 IP 分配（DEC-023 已 RESOLVED：start–end IPv4、同 Cluster 不重叠、范围内有活跃 IP 时禁止删除；分配沿用 IPAddress 且必选绑定活跃 NIC，自动取并集内最小未占用 IPv4）。
+
+| ID | Feature | Priority | 状态 | Merge |
+|---|---|---|---|---|
+| F020 | IP 地址范围段（地址池）管理 | P1 | **READY** | — |
+| F021 | IP 地址自动 / 手动分配 | P1 | **BLOCKED**（依赖 F020） | — |
+
+**进入条件**
+- DEC-023 由用户裁定为明确结论（含范围表示 / 重叠 / 分配产物 / 最小地址选取 / 保留地址 / 耗尽行为等）。
+- Product 在 requirements.md §12 新增 / 修订产品规则，F020 / F021 的 scope 与 AC 可定稿。
+- F005 已 DONE（已满足）；F001 / F002 / F004 已 DONE（已满足）。
+- 契约按裁定新增 / 修改为 READY；F020 / F021 的 layers（尤其 database）经 Architecture 复核。
+
+**完成判据**
+- 交付范围与可判定 AC 经 Product 定稿。
+- 范围段 / 分配契约 READY；无「契约 / 产品规则禁止、实现却有」的分裂。
+- 未认证 → 401；软删资源不出现；既有 R-IP-001 ~ R-IP-003 不被静默修改。
+- Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
+
+**裁定前不得实现**：DEC-023 已 RESOLVED（2026-09-20）；F020 READY、F021 BLOCKED。待用户批准本增量计划（`project.status = ACCEPTED`）后方可进入 F020 的 Feature Workflow。
 
 ---
 
