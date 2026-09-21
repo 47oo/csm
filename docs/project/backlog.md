@@ -2,8 +2,10 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-20（F020 进入 Feature Workflow；`project.status = IN_PROGRESS`）
-> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
+> Generated: 2026-09-21（F020 DONE；`project.status = IN_PROGRESS`）
+> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 18, 'CANCELLED': 1}`
+
+**2026-09-21**：F020 完成 Feature Workflow（head ca9ae73→84d5c17，merge e4291a1；Reviewer = APPROVED WITH FOLLOW-UP），**F020 DONE**；F021 由 **BLOCKED 转 READY**（唯一阻塞 F020 已解除）。M10 进度为 F020 DONE / F021 READY。
 
 **2026-09-20（二）增量**：收到未获批准输入「对每个集群允许设定多个IP地址范围段，在分配IP的时候支持自动或者手动分配IP地址，自动分配IP的时候，默认选择当前第一个最小的IP地址」。
 据此**新增** F020（IP 地址范围段管理）、F021（IP 自动 / 手动分配）、DEC-023（后已 RESOLVED）与 M10，`project.status` 由 DONE 转 **DRAFT**（待用户批准）。
@@ -33,10 +35,10 @@
 | P0 | 7（F012、F013、F014、F015、F001、F002、F009） |
 | P1 | 12（F004、F005、F006、F007、F008、F010、F011、F016、F018、F019、F020、F021） |
 | P2 | 1（F017） |
-| DONE | 17 |
+| DONE | 18 |
 | CANCELLED | 1（F011） |
 | DRAFT | 0 |
-| READY / IN_PROGRESS / BLOCKED | 0 / 1 / 1（IN_PROGRESS: F020；BLOCKED: F021） |
+| READY / IN_PROGRESS / BLOCKED | 1 / 0 / 0（READY: F021） |
 | Decisions 总数 | 23（OPEN **0**） |
 
 ## 按 Epic
@@ -55,8 +57,8 @@
 |---|---|---|---|---|---|---|
 | F004 | NetworkInterface 管理 | P1 | **DONE** | F002 | READY | 4a99fa00 |
 | F005 | IPAddress 管理 | P1 | **DONE** | F004 | READY | 7beb6e72 |
-| F020 | IP 地址范围段（地址池）管理 | P1 | **IN_PROGRESS** | F001, F005 | REQUIRED | — |
-| F021 | IP 地址自动 / 手动分配 | P1 | **BLOCKED**（依赖 F020） | F020, F005, F004, F002 | REQUIRED | — |
+| F020 | IP 地址范围段（地址池）管理 | P1 | **DONE** | F001, F005 | READY | e4291a1e |
+| F021 | IP 地址自动 / 手动分配 | P1 | **READY** | F020, F005, F004, F002 | REQUIRED | — |
 
 ### E03 虚拟资源管理
 
@@ -109,7 +111,7 @@
 | M7 | 应用外壳侧边栏导航（post-V1，呈现层） | F017 | **DONE** |
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
-| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **待批准（F020 READY / F021 BLOCKED）** |
+| M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **执行中（F020 DONE / F021 READY）** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 
@@ -155,6 +157,7 @@ F019 的 NQ-1 ~ NQ-8 已于 2026-09-20 由用户裁定（DEC-022 RESOLVED），�
 
 ## Follow-ups（聚合；权威见计划 `planning_status.follow_ups`）
 
+- **from_f020_review**：REV-1, REV-2（已修）, REV-3 / DEF-02, NOTE-1, DEF-01（Test Infra）
 - **from_f019_review**：REV-1, REV-2, REV-3, REV-4
 - **from_f018_review**：F018-LOW-1, F018-NOTE-1, F018-NOTE-3, F018-NOTE-4, F018-NOTE-5
 - **from_f017_review**：F017-LOW-2, F017-NOTE-4

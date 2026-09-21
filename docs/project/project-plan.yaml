@@ -1750,7 +1750,7 @@ features:
     name: IP 地址范围段（地址池）管理
     epic: E02
     priority: P1
-    status: IN_REVIEW
+    status: DONE
     depends_on: [F001, F005]
     depends_on_note: >
       范围段按用户输入「对每个集群」设定，故真实前置为 F001（Cluster 是范围段的归属对象）；
@@ -1762,19 +1762,18 @@ features:
       base_branch: develop
       branch: feature/F020-ip-address-range
       start_commit: "0fe65f4707676da1d049cef6cde111349a066f5d"
-      head_commit: "ca9ae7325416cfffb7b259bf97622372cd7e1fe9"
-      merge_commit: null
-    current_stage: REVIEW
+      head_commit: "84d5c17b39ccd74830ce483acce5b522993344ec"
+      merge_commit: "e4291a1e44d6adf7a5fb86c3b1a8859ffb7c1c61"
+    current_stage: null
     last_result: >
-      Test 完成（2026-09-21）：Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-29 全部有结果且无 FAIL / BLOCKED / NOT TESTED；
-      无 BLOCKER / HIGH，无任何 F020 生产实现 / 契约 / 数据库缺陷；真实前后端集成已验证。测试报告
-      `docs/test-reports/f020-ip-address-range.md`；测试提交见 `test(F020)`。
-      协调器独立复跑（真实 PostgreSQL 16.15）：F020 后端专项 112 passed；全量后端 1123 passed / 11 failed，11 个失败
-      **全部**为其它 Feature 的 concurrency 测试，根因是第二条 libpq 连接缺少 `PGPASSWORD`（设置后 30 passed），
-      与 F020 无关、且 F020 实现未触碰这些文件；前端 typecheck + 729 passed + build；ruff 干净；migration 幂等可重建。
+      Feature Complete（2026-09-21）：Reviewer 裁定 **APPROVED WITH FOLLOW-UP**（无 BLOCKER / HIGH / 必须修复的 MEDIUM），
+      批准候选 HEAD `84d5c17`、Base `0fe65f4`；`git merge --no-ff` 合入 develop，merge commit `e4291a1`
+      （父提交 `0fe65f4` 与 `84d5c17`；集成树与已审阅候选逐字节一致）。F020 全部 AC 通过；
+      协调器独立复跑：F020 后端专项 112 passed、前端 typecheck + 729 passed + build、ruff 干净。
+      Follow-up（LOW/NOTE，不阻塞）：REV-1（`.pi/agents` provider chore 混入分支，用户 A2 确认）、REV-2（生成视图与计划计数对齐，本状态提交已修）、
+      REV-3 / DEF-02（测试 docstring 交叉引用失效）、NOTE-1（V-18 断言偏 vacuous）、DEF-01（其它 Feature concurrency 测试缺 PGPASSWORD，Test Infra）。
     next_action: >
-      Reviewer（独立审查）：对候选 HEAD 与 develop...HEAD 全量差异做完整 Review，核对 AC / 契约 / 数据库 / guard / 测试证据
-      与「契约禁止、实现却有」分裂；关注 DEF-01（测试基础设施 / PGPASSWORD，非 F020 缺陷）。Review 通过后进入 Merge Gate。
+      重新计算 READY：F020 DONE 使 F021（IP 地址自动 / 手动分配）解除唯一阻塞 → READY。按串行规则启动下一 Feature F021。
     layers:
       database: true      # 初步判断：很可能需新表 / 新列或 migration 承载范围段；由 Architecture / Database 复核
       backend: true       # 范围段 CRUD 与校验
@@ -1795,7 +1794,7 @@ features:
       backend: COMPLETE
       frontend: COMPLETE
       test: COMPLETE
-      review: NOT_STARTED
+      review: APPROVED_WITH_FOLLOW_UP
     product_document: docs/product/requirements.md
     requirements:
       - R-IP-004
@@ -1877,7 +1876,7 @@ features:
     name: IP 地址自动 / 手动分配
     epic: E02
     priority: P1
-    status: BLOCKED
+    status: READY
     depends_on: [F020, F005, F004, F002]
     depends_on_note: >
       F020 提供被分配的地址范围段（前置，未 DONE）；F005 提供 IPAddress 的登记 / 唯一性 / 受控 cluster_id
@@ -2703,16 +2702,16 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: []
+  ready_features: [F021]
   blocked_draft_features:
-    BLOCKED: [F021]
+    BLOCKED: []
     DRAFT: []
   counts:
-    READY: 0
-    IN_PROGRESS: 1
-    BLOCKED: 1
+    READY: 1
+    IN_PROGRESS: 0
+    BLOCKED: 0
     DRAFT: 0
-    DONE: 17
+    DONE: 18
     CANCELLED: 1
   status_decision_rules:
     DRAFT: >
@@ -2727,6 +2726,18 @@ planning_status:
       仅被其他 Feature 的产品决策间接影响、不改变本 Feature 交付边界时，仍按 BLOCKED 处理。
       判定依据见本文件顶部注释与 .pi/agents/project-manager.md §8。
   done_rationale:
+    F020: >
+      base 0fe65f4 → head ca9ae73（实现）→ 84d5c17（测试）→ merge e4291a1（--no-ff 合入 develop；集成树与已审阅候选 84d5c17 逐字节一致，
+      父提交为 0fe65f4 与 84d5c17）。Reviewer verdict = **APPROVED WITH FOLLOW-UP**（无 BLOCKER / HIGH / 必须修复的 MEDIUM）。
+      验收：协调器与 Tester 各自在真实 PostgreSQL 16.15 上独立重跑；F020 后端专项 112 passed、前端 typecheck + 729 passed + build、ruff 干净。
+      **关键交付**：`ip_address_ranges`（7 列：id/cluster_id/start_ip/end_ip/created_at/updated_at/deleted_at，BIGINT IPv4 上下界）+ migration 0009；
+      5 端点；同 Cluster 活跃不重叠由 `EXCLUDE USING gist (cluster_id WITH =, int8range(...) WITH &&) WHERE deleted_at IS NULL`（btree_gist）作最终权威，
+      应用层重叠预检仅用于友好 `409 OVERLAP`；严格 IPv4 解析 / 规范化（允许前导零、拒绝 CIDR/IPv6/空白）；
+      删除守卫复用 `soft_delete` 唯一写路径，范围内有活跃 IP → `409 ACTIVE_CHILDREN_EXIST` 且无部分写入；`CLUSTER_ACTIVE_CHILD_CHECKS` 追加范围段检查；`23P01` 单点映射 → 409。
+      **证伪**：绕应用层直连 DB 证实 `EXCLUDE` 权威、CHECK 23514、FK 23503、软删 predicate；对抗注入（DROP EXCLUDE / 清空删除守卫元组）→ 目标测试真实 FAIL 并逐字节还原。
+      **产品**：新增 R-IP-004；R-IP-001~003 与 `ip_addresses.ip_address` 自由文本立场逐条不变。
+      **过程**：`.pi/agents` provider chore（abea25d）经用户选择 A2 合入本分支，Reviewer 记 REV-1（LOW，不阻塞）。
+      **Follow-up（LOW/NOTE）**：REV-2（视图对齐，本状态提交已处理）、REV-3/DEF-02（docstring 引用）、NOTE-1（V-18 vacuous）、DEF-01（其它 Feature concurrency 测试 PGPASSWORD，Test Infra）。
     F019: >
       base 008ecb2 → head 4524d8e → merge 292345e（--no-ff 合入 develop；集成树与已审阅候选 4524d8e 逐字节一致，
       父提交为 008ecb2 与 4524d8e）。Reviewer verdict = APPROVED WITH FOLLOW-UP（无 BLOCKER / HIGH / 必须修复的 MEDIUM）。
@@ -2830,6 +2841,12 @@ planning_status:
       **第四个真实 F014 端到端**：`NETWORK_INTERFACE_ACTIVE_CHILD_CHECKS` **追加**为 `(has_active_ip_addresses,)`（保留 VM/NIC 链路）；
       删除守卫链条 `Cluster → BareMetal → NIC → IP` 闭合。M3（网络资源）随之 DONE。
   ready_rationale:
+    F021: >
+      DEC-023 已由用户裁定（2026-09-20），NQ-1 ~ NQ-9 全部解除 blocking，F021 自身 scope / AC 可定稿；
+      其唯一阻塞 F020（IP 地址范围段管理）已于 2026-09-21 DONE（merge e4291a1），depends_on（F020 / F005 / F004 / F002）全部 DONE，
+      无阻塞架构决策 → READY。义务：Product 须在 requirements.md §12 落地分配规则（自动取并集内最小未占用 IPv4；
+      分配产物为绑定活跃 NIC 的 IPAddress；占用以活跃 IPAddress 字面相等判定、软删释放；无隐式保留地址；耗尽返回非 500）；
+      Architecture 须定稿分配契约并复核 layers。
     F010: "BQ-1 / BQ-2 已于 2026-09-18 由用户裁定为「含间接」并固化为 requirements.md R-QUERY-003 的产品规则；依赖 F001~F008 均已 DONE → READY。义务：AC-18 要求各清单成员集合与既有 canonical 过滤深等（复用 ?bare_metal_id= / ?network_interface_id= / carrier_type+carrier_id），F010 自行完成 ≤3 跳推导，不得另写过滤；且不得新增任何 cluster_id 类列或 Cluster 视角。"
     F011: "依赖 F001 / F002 / F004 / F005 / F006 / F007 / F008 均已 DONE；OPEN-005 已关闭（All-or-Nothing，R-IMPORT-004）→ READY。义务：导入各资源行必须复用对应 Feature 的同一套领域校验（R-IMPORT-002）；Service 行的 N:M 载体在行式模板中的表达属本 Feature 待确认项（NQ-08）。"
     F008: "依赖 F001 / F002 / F006 / F007 均已 DONE（F007 merge ff347be）；产品问题 OPEN-003 已于 2026-09-16 解决（R-SVC-007/008/009），scope/AC 可定稿；无未解决产品问题 → READY。F007 建立的 CONTAINER_ACTIVE_CHILD_CHECKS 声明点与 AST guard 已就位，F008 须在此追加「活跃 Service」检查并补端到端（NQ-9）。"
@@ -2873,9 +2890,8 @@ planning_status:
 
   blocked_rationale:
     F021: >
-      DEC-023 已由用户裁定（2026-09-20），NQ-1 ~ NQ-9 全部解除 blocking，F021 自身 scope / AC 可定稿；
-      其唯一阻塞为依赖 F020（IP 地址范围段管理）尚未 DONE，故按规则取 BLOCKED。F021 的产品规则义务见
-      requirements_note（Product 新增 §12 分配规则）。
+      **已解除（2026-09-21）**：F020 DONE（merge e4291a1）后 F021 转为 READY（见 ready_rationale.F021）。
+      原阻塞仅为依赖 F020（IP 地址范围段管理）尚未 DONE。
     F006: "产品问题 OPEN-001 / DEC-004 已于 2026-09-16 解决（R-VM-004/005/006），scope/AC 可定稿；阻塞仅为依赖 F002 未 DONE。"
     F004: >
       DEC-006 已解决（V1 无状态）；保留的 R-NIC-003「VM 等资源是否拥有独立 NetworkInterface」不改变本 Feature
@@ -2941,6 +2957,39 @@ planning_status:
         （仅 docs 与 plan 的较早版本），HEAD 内容正确。协调器当时误判该提交失败，未察觉，本轮经 reflog 发现。
       action: 未改写历史（AGENTS.md 禁止以改写历史处理问题）；记录在案。后续提交一律使用 `git commit -F -`（stdin），避免反引号被 shell 解释。
   follow_ups:
+    from_f020_review:
+      open:
+        - id: REV-1
+          severity: LOW
+          owner: 主协调器
+          summary: >
+            `.pi/agents` provider chore（abea25d）混入 F020 分支。用户已明确选择 A2 合入本分支，属有意为之；
+            仅影响 diff 可审计性，不改变 F020 行为。
+        - id: REV-3 / DEF-02
+          severity: LOW
+          owner: Backend（测试注释）
+          summary: >
+            `tests/test_ip_address_ranges_api.py` docstring 引用不存在的 `test_ip_address_ranges_constraints.py`，
+            实际为 `tests/database/test_ip_address_ranges_schema_guard.py`。
+        - id: NOTE-1
+          severity: NOTE
+          owner: Tester
+          summary: >
+            `test_ip_address_ranges_schema_guard.py::test_v18` 直插的是「已软删范围挂已软删 Cluster」，
+            ORPHAN_QUERY 断言偏 vacuous；真实保护由并发测试 V-21 与 raw probe 证明，非缺陷。
+        - id: DEF-01
+          severity: MEDIUM
+          owner: 主协调器（Test Infra）
+          summary: >
+            其它 Feature 的 6 个 concurrency 测试用 `psycopg.connect(conn.info.dsn)` 建第二连接，丢失口令；
+            在带口令 TCP DSN 下 11 failed，设置 `PGPASSWORD` 后全通过。非 F020 缺陷，另立 Test-Infra 修复项。
+      resolved:
+        - id: REV-2
+          summary: >
+            生成视图 backlog / dependency-map / milestones 与 project-plan.yaml 的 F020 状态、计数已在本「mark feature complete」提交中对齐。
+      verification: >-
+        F020 专项后端 112 passed、前端 729 passed + build、ruff 干净、真实 PostgreSQL 16.15；
+        merge 集成树与已审阅候选 84d5c17 逐字节一致。
     # ----------------------------------------------------------------------- #
     # Post-V1 维护：已记入各 Feature 评审的 LOW / NOTE 跟进项处置结果。
     # 各条原始 finding 文本保留在各 from_fXXX_review.open 中作为历史，
@@ -3472,9 +3521,11 @@ planning_status:
   decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: F020
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   note_append: >
+    2026-09-21：F020 完成（Reviewer APPROVED WITH FOLLOW-UP，HEAD ca9ae73→84d5c17，merge e4291a1），feature.status = DONE，
+    current_feature 清空。F021 由 BLOCKED 转 READY（唯一阻塞 F020 已解除），无其他 READY。下一轮从 F021 继续。
     2026-09-21：F020 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-29 全 PASS，无 F020 缺陷）；
     协调器独立复跑确认。DEF-01（其它 Feature concurrency 测试缺 PGPASSWORD，MEDIUM / Test Infra，Owner 主协调器）
     为非 F020 测试基础设施问题，记录待后续处置。feature.current_stage = REVIEW；进入 Reviewer。
