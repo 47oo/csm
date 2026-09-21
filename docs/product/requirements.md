@@ -75,6 +75,15 @@
 >   - **未由用户指定**：同优先级结果之间的确定性 **tie-break** 属可实现性选择，留给 Architecture，不写入产品规则。
 >   - 决策来源：用户 2026-09-20 对 `DEC-022`（`NQ-1 ~ NQ-8`）的裁定。
 >   - 规则总数：**62 → 63**。
+>
+> - **2026-09-20 — IP 地址范围段阶段产品裁定（新增 1 条规则）**
+>   - **DEC-023 关闭（RESOLVED）**：为每个 Cluster 引入多个 **IP 地址范围段（地址池）**；新增 **R-IP-004**（§12）。
+>   - 固化 DEC-023 中属 F020 的结论：以 **start–end（含两端，IPv4 dotted-quad）** 表示，**V1 仅 IPv4**；字段**至少** `id / cluster_id / start_ip / end_ip / created_at / updated_at`；`start_ip <= end_ip`；恰属一个**活跃** Cluster（`cluster_id` 必选）；**同 Cluster 活跃范围段不重叠、跨 Cluster 可重复**；**逻辑删除**；**范围内有活跃 IP 时禁止删除**；删除**不级联**；**不设状态**；范围字段须为**合法 IPv4 并规范化**。
+>   - 显式边界：**不改变**既有 `ip_addresses.ip_address` 的**自由文本登记语义**；**R-IP-001 ~ R-IP-003 保持不变**。
+>   - **IP 自动 / 手动分配不属本阶段**：属 F021（DEC-023 第 7~13 项），当前 BLOCKED，待 F020 DONE 后另行落产品规则。
+>   - 未由产品裁定、留 Architecture：同 Cluster「不重叠」的强制方式（应用层校验 + 漂移查询 vs Postgres 排它约束）、契约形态、错误码具体取值、`database` 层判定、并发实现。
+>   - 决策来源：用户 2026-09-20 对 `DEC-023` 的裁定（`docs/project/project-plan.yaml` `decisions_required[DEC-023].resolution`）。
+>   - 规则总数：**63 → 64**。
 
 ---
 
@@ -669,6 +678,49 @@ cluster + ip_address
 理解唯一性。
 
 如果以后需要 VRF，应重新扩展模型。
+
+---
+
+## R-IP-004
+
+CSM V1 允许为**每个 Cluster** 设定多个 **IP 地址范围段（地址池）**。
+
+范围段规则（来源：用户 2026-09-20 对 `DEC-023` 的裁定）：
+
+### 表示与字段
+
+* 范围段用**起止地址 `start_ip` – `end_ip`（含两端）** 表示，均为 **IPv4 dotted-quad**；
+  **V1 仅支持 IPv4**，不支持 IPv6，也不使用 CIDR 等其它表示。
+* 范围段**至少**具有字段：`id`、`cluster_id`、`start_ip`、`end_ip`、`created_at`、`updated_at`。
+* 除上述字段外**没有其它已确认字段**；不得自行新增 name / description / 用途等字段。
+* 必须满足 `start_ip <= end_ip`。
+* `start_ip` / `end_ip` 必须是**合法 IPv4**，并在存储时**规范化**。
+
+### 归属
+
+* 每个范围段**恰属于一个 Cluster**（`cluster_id` 必选），**不跨 Cluster 共享**。
+* 范围段所属 Cluster 必须是**活跃** Cluster。
+
+### 重叠
+
+* **同一 Cluster 内的活跃范围段不得重叠。**
+* **跨 Cluster 允许相同范围**（与 R-IP-002 一致）。
+
+### 生命周期与删除
+
+* 范围段支持修改 `start_ip` / `end_ip`。
+* 范围段采用**逻辑删除**，**不得物理删除**。
+* **当范围内仍有活跃 IP（同 Cluster、活跃、字面落在该范围内）时，禁止删除该范围段。**
+* 删除范围段**不级联**删除已分配 / 已登记的 IP。
+
+### 无状态
+
+* 范围段**不设状态**；其活跃 / 失效状态仅由逻辑删除表达（沿用 Q-002=B）。
+
+### 与既有 IP 登记语义的关系
+
+* 范围段的引入**不改变**既有 `ip_addresses.ip_address` 的**自由文本登记语义**。
+* R-IP-001、R-IP-002、R-IP-003 **保持不变**。
 
 ---
 

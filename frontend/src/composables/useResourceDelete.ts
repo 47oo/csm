@@ -22,6 +22,13 @@ export interface UseResourceDeleteOptions {
   onRemoved: () => void | Promise<void>
   /** 错误文案中的资源名（如「集群」「裸金属」），仅用于展示。 */
   resourceName: string
+  /**
+   * 409 CONFLICT + details[].code === 'ACTIVE_CHILDREN_EXIST' 时的描述文案
+   * 覆盖（可选）。默认「该{resourceName}仍存在活跃子资源，无法删除。」；
+   * 当活跃子资源的语义需要更精确表达时（如 F020 范围段的「该范围内仍有
+   * 活跃 IP」）由资源专属包装提供。仅影响展示文案，不影响任何分支逻辑。
+   */
+  activeChildrenDescription?: string
 }
 
 export interface UseResourceDeleteReturn {
@@ -68,7 +75,8 @@ export function useResourceDelete(options: UseResourceDeleteOptions): UseResourc
         code: error.code,
         title: `无法删除${options.resourceName}`,
         description: hasActiveChildren
-          ? `该${options.resourceName}仍存在活跃子资源，无法删除。`
+          ? options.activeChildrenDescription ??
+            `该${options.resourceName}仍存在活跃子资源，无法删除。`
           : '删除操作与现有数据冲突，请稍后重试。',
       }
     }

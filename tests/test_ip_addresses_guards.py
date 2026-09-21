@@ -326,11 +326,11 @@ def test_g5_table_whitelist_includes_ip_addresses():
     assert "ip_addresses" in EXPECTED_TABLES
 
 
-def test_g5_migration_head_is_0008():
-    # F008 演进：head 从 0007 → 0008（不得删除本 guard，只更新当前 head）。
+def test_g5_migration_head_is_current():
+    # F020 演进：head 从 0008 → 0009（不得删除本 guard，只更新当前 head）。
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0008_f008_services"
+    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
 
 
 # --------------------------------------------------------------------------- #
@@ -390,10 +390,12 @@ def test_g8_nic_checks_evolved_and_real():
     assert has_active_virtual_machines in BARE_METAL_ACTIVE_CHILD_CHECKS
     assert has_active_network_interfaces in BARE_METAL_ACTIVE_CHILD_CHECKS
 
-    # Cluster 检查未被改动。
+    # Cluster 检查未被削弱：F002 的 BareMetal 检查保留，F020 追加范围段检查。
     from app.bare_metals.deletion import has_active_bare_metals
+    from app.ip_address_ranges.deletion import has_active_ip_address_ranges
 
-    assert CLUSTER_ACTIVE_CHILD_CHECKS == (has_active_bare_metals,)
+    assert has_active_bare_metals in CLUSTER_ACTIVE_CHILD_CHECKS
+    assert has_active_ip_address_ranges in CLUSTER_ACTIVE_CHILD_CHECKS
 
 
 def test_g8_ip_address_checks_explicitly_empty_and_consumed():
@@ -607,6 +609,8 @@ def test_g13_no_generic_eav_json_or_polymorphic():
         # F008：Service 资源表 + N:M 多态绑定关系表。
         "services",
         "service_carriers",
+        # F020：IP 地址范围段（地址池）资源表。
+        "ip_address_ranges",
     }
 
 
@@ -671,11 +675,11 @@ def test_g15_ip_module_does_not_import_network_interfaces_module():
 def test_g16_migration_revision_chain():
     from tests.database.helpers import MIGRATION_HEAD
 
-    # F008 演进：head 为 0008，其 down_revision 指向 0007。
-    assert MIGRATION_HEAD == "0008_f008_services"
-    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0008_f008_services.py"
+    # F020 演进：head 为 0009，其 down_revision 指向 0008。
+    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
+    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0009_f020_ip_address_ranges.py"
     source = migration.read_text(encoding="utf-8")
-    assert 'down_revision: str | None = "0007_f007_containers"' in source
+    assert 'down_revision: str | None = "0008_f008_services"' in source
 
 
 # --------------------------------------------------------------------------- #

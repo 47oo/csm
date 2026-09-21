@@ -2,8 +2,8 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-20（用户批准增量计划；DEC-023 RESOLVED；F020 READY / F021 BLOCKED；`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
+> Generated: 2026-09-20（F020 进入 Feature Workflow；`project.status = IN_PROGRESS`）
+> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 1, 'DRAFT': 0, 'DONE': 17, 'CANCELLED': 1}`
 
 **2026-09-20（二）增量**：收到未获批准输入「对每个集群允许设定多个IP地址范围段，在分配IP的时候支持自动或者手动分配IP地址，自动分配IP的时候，默认选择当前第一个最小的IP地址」。
 据此**新增** F020（IP 地址范围段管理）、F021（IP 自动 / 手动分配）、DEC-023（后已 RESOLVED）与 M10，`project.status` 由 DONE 转 **DRAFT**（待用户批准）。
@@ -36,7 +36,7 @@
 | DONE | 17 |
 | CANCELLED | 1（F011） |
 | DRAFT | 0 |
-| READY / IN_PROGRESS / BLOCKED | 1 / 0 / 1（READY: F020；BLOCKED: F021） |
+| READY / IN_PROGRESS / BLOCKED | 0 / 1 / 1（IN_PROGRESS: F020；BLOCKED: F021） |
 | Decisions 总数 | 23（OPEN **0**） |
 
 ## 按 Epic
@@ -55,7 +55,7 @@
 |---|---|---|---|---|---|---|
 | F004 | NetworkInterface 管理 | P1 | **DONE** | F002 | READY | 4a99fa00 |
 | F005 | IPAddress 管理 | P1 | **DONE** | F004 | READY | 7beb6e72 |
-| F020 | IP 地址范围段（地址池）管理 | P1 | **READY** | F001, F005 | REQUIRED | — |
+| F020 | IP 地址范围段（地址池）管理 | P1 | **IN_PROGRESS** | F001, F005 | REQUIRED | — |
 | F021 | IP 地址自动 / 手动分配 | P1 | **BLOCKED**（依赖 F020） | F020, F005, F004, F002 | REQUIRED | — |
 
 ### E03 虚拟资源管理

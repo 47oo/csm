@@ -28,7 +28,7 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: ACCEPTED
+  status: IN_PROGRESS
   status_changed_on: "2026-09-20"
   status_note_append: >
     **2026-09-18（四）：用户批准本次计划**（「批准本次计划」），并确认「模糊」=**子串包含**（非容错/相似度）。
@@ -1750,7 +1750,7 @@ features:
     name: IP 地址范围段（地址池）管理
     epic: E02
     priority: P1
-    status: READY
+    status: IN_REVIEW
     depends_on: [F001, F005]
     depends_on_note: >
       范围段按用户输入「对每个集群」设定，故真实前置为 F001（Cluster 是范围段的归属对象）；
@@ -1758,6 +1758,23 @@ features:
       「已占用」「字面地址」如何交互属本 Feature 的未确认语义（NQ-4 / NQ-6），但其实现必然建立在
       F005 的既有模型之上，故列为直接依赖。二者均已 DONE，依赖本身不构成阻塞。
     blocking: []
+    git:
+      base_branch: develop
+      branch: feature/F020-ip-address-range
+      start_commit: "0fe65f4707676da1d049cef6cde111349a066f5d"
+      head_commit: "ca9ae7325416cfffb7b259bf97622372cd7e1fe9"
+      merge_commit: null
+    current_stage: REVIEW
+    last_result: >
+      Test 完成（2026-09-21）：Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-29 全部有结果且无 FAIL / BLOCKED / NOT TESTED；
+      无 BLOCKER / HIGH，无任何 F020 生产实现 / 契约 / 数据库缺陷；真实前后端集成已验证。测试报告
+      `docs/test-reports/f020-ip-address-range.md`；测试提交见 `test(F020)`。
+      协调器独立复跑（真实 PostgreSQL 16.15）：F020 后端专项 112 passed；全量后端 1123 passed / 11 failed，11 个失败
+      **全部**为其它 Feature 的 concurrency 测试，根因是第二条 libpq 连接缺少 `PGPASSWORD`（设置后 30 passed），
+      与 F020 无关、且 F020 实现未触碰这些文件；前端 typecheck + 729 passed + build；ruff 干净；migration 幂等可重建。
+    next_action: >
+      Reviewer（独立审查）：对候选 HEAD 与 develop...HEAD 全量差异做完整 Review，核对 AC / 契约 / 数据库 / guard / 测试证据
+      与「契约禁止、实现却有」分裂；关注 DEF-01（测试基础设施 / PGPASSWORD，非 F020 缺陷）。Review 通过后进入 Merge Gate。
     layers:
       database: true      # 初步判断：很可能需新表 / 新列或 migration 承载范围段；由 Architecture / Database 复核
       backend: true       # 范围段 CRUD 与校验
@@ -1767,32 +1784,38 @@ features:
       很可能为 true；但若 Architecture 裁定将其表达为现有结构上的派生 / 配置，亦可能为 false。
       由 Architecture / Database 在 DEC-023 裁定、Product 落规则后复核。
     contract:
-      status: REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f020-ip-address-range.md
     contract_note: >
       本 Feature **必须**新增或修订 API 契约：现有 F005 契约 §非目标明确排除「IP 池 / 网段 / 子网 /
       分配与回收工作流」，且 F005 契约明文「不存在范围 / 关键字等第二维度查询参数」。范围段的
       CRUD 端点与字段须由 Architecture 在 DEC-023 裁定后定稿为 READY；**不得出现「契约禁止、实现却有」的分裂**。
+    implementation:
+      database_design: COMPLETE
+      backend: COMPLETE
+      frontend: COMPLETE
+      test: COMPLETE
+      review: NOT_STARTED
     product_document: docs/product/requirements.md
-    requirements: []
+    requirements:
+      - R-IP-004
     requirements_note: >
-      §12 IPAddress 现有 R-IP-001（同 Cluster 唯一）/ R-IP-002（跨 Cluster 可重复）/ R-IP-003（不考虑 VRF），
-      **均不涉及地址范围段 / 地址池**；F005 契约更明确把「IP 池 / 网段」列为「无任何已确认需求」。
-      本 Feature 是本次新提出的产品能力，**必须先由 Product 在 §12 新增或修订产品规则**（类比 F018/F019 的
-      NQ-8），本 Feature 才能挂 requirement ID。R-IP-001 ~ R-IP-003 保持不变。Project Manager 与协调器
-      **不得**自行发明该产品规则。
+      Product 已新增 **R-IP-004（IP 地址范围段）**（2026-09-20），本 Feature 现可挂 requirement ID = **R-IP-004**；
+      R-IP-001 / R-IP-002 / R-IP-003 为被继承的既有规则且保持不变。完整产品依据见
+      `docs/product/handoffs/f020-ip-address-range.md` 与 `requirements.md` §12。
     acceptance_criteria:
-      # 仅列不受范围段 / 分配语义歧义影响的通用 AC；范围段专属 AC 待 DEC-023 与 NQ-1 ~ NQ-7 裁定后由 Product 定稿。
+      # AC-01 ~ AC-29 已在 DEC-023 裁定并由 Product 定稿；权威文本见 docs/product/handoffs/f020-ip-address-range.md。
       - AC-01 认证：未认证访问本 Feature 相关端点 → 401 UNAUTHENTICATED 且不返回任何资源数据。
       - AC-02 软删一致性：如范围段采用软删（NQ-5 待裁定），已逻辑删除的范围段不出现在常规查询，且遵循 R-DELETE-001/002/003/005/006 与 ADR-0004；不得物理删除（R-DELETE-001）。
       - AC-03 不改既有语义：不修改 R-IP-001 ~ R-IP-003、§22 大小写语义、`by-name` 大小写敏感，以及 F005 既有的 IP 字面精确比较立场（除非 DEC-023 明确裁定引入格式解析 / 归一化）。
       - AC-04 契约一致：本 Feature 的契约已持久化且 contract.status=READY；不得存在「契约禁止、实现却有」的分裂。
       - AC-05 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
       - AC-06 范围边界：不引入自动资产发现 / 外部平台同步 / 未确认的使用率统计 / 冲突扫描 / 导出能力。
-      - "AC-PLACEHOLDER（占位，**不得作为验收基准**）：范围段的表示（起止 / CIDR）、字段、多个范围段的重叠规则、跨 Cluster 是否可重复、生命周期（修改 / 删除 / 软删）、与 R-IP-001 的一致性约束——全部待 DEC-023 与 NQ-1 ~ NQ-7 由用户 / Product 裁定后方可写出可判定 AC。裁定前本 Feature 保持 DRAFT，**不得进入实现**。"
+      - AC-07 ~ AC-29 范围段专属 AC（IPv4 合法性 / 规范化 / 同 Cluster 重叠 / 跨 Cluster 可重复 / PATCH 重校验 / 软删释放 /
+        删除守卫 / 无状态 / Empty vs Not Found / 不引入分配·CIDR·IPv6 / 既有语义不变）：权威文本见 Product Handoff。
     acceptance_criteria_note: >
-      AC-01 ~ AC-06 与范围段语义无关，独立成立。范围段专属 AC 须在 DEC-023 裁定、Product 落规则后补入，
-      不得由 PM / 协调器发明。
+      DEC-023 已由用户裁定，全部 AC 已由 Product 定稿；细节以
+      `docs/product/handoffs/f020-ip-address-range.md` 为唯一权威来源，本处不再重复。
     open_questions:
       - id: NQ-1
         blocking: true
@@ -2680,13 +2703,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F020]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F021]
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 1
     DRAFT: 0
     DONE: 17
@@ -3449,9 +3472,20 @@ planning_status:
   decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F020
+  current_stage: REVIEW
   note_append: >
+    2026-09-21：F020 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-29 全 PASS，无 F020 缺陷）；
+    协调器独立复跑确认。DEF-01（其它 Feature concurrency 测试缺 PGPASSWORD，MEDIUM / Test Infra，Owner 主协调器）
+    为非 F020 测试基础设施问题，记录待后续处置。feature.current_stage = REVIEW；进入 Reviewer。
+    2026-09-20：用户批准增量计划并就 DEC-023 裁定；F020 转 READY 并进入 Feature Workflow。
+    自 develop（0fe65f4）创建 feature/F020-ip-address-range，project.status = IN_PROGRESS。
+    Product 完成：新增 R-IP-004，产出 Product Handoff。
+    Architecture + Contract 完成：Architecture Handoff 与 f020 契约均 READY；f005 / f012 契约立场已修订；
+    `layers.database = true`（新表 ip_address_ranges + EXCLUDE/btree_gist + migration 0009）。
+    Database Design 完成：READY FOR DATABASE IMPLEMENTATION。
+    Implementation 完成（ca9ae73，Backend + Frontend 并行）；协调器在全新真实 PostgreSQL 上独立重跑：
+    后端 1134 passed、前端 729 passed + build、ruff 干净。现进入 TEST。
     2026-09-20：用户批准增量计划并就 DEC-022 裁定；F019 转 READY 并进入 Feature Workflow。
     自 develop（008ecb2）创建 feature/F019-search-result-aggregation，project.status = IN_PROGRESS。
     Product 完成：新增 R-QUERY-006、修订 R-QUERY-005，产出 Product Handoff。

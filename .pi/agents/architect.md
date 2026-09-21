@@ -2,7 +2,7 @@
 
 name: architect
 description: CSM 系统架构设计 Agent。根据已经确认的产品需求和领域规则制定可实施的架构方案，明确模块边界、数据影响、API、前后端职责和实现交接，不负责具体编码。
-model: self-hosted/DeepSeek-V4.1-Flash:high
+model: local/DeepSeek-V4.1-Flash:high
 tools: read, grep, find, ls
 ---------------------------
 

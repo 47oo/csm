@@ -423,13 +423,13 @@ def test_g11_no_out_of_scope_container_routes_or_params():
 # --------------------------------------------------------------------------- #
 # G-12：migration head / revision chain（F008 演进：head 从 0007 → 0008）
 # --------------------------------------------------------------------------- #
-def test_g12_migration_head_is_0008():
+def test_g12_migration_head_is_current():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0008_f008_services"
-    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0008_f008_services.py"
+    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
+    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0009_f020_ip_address_ranges.py"
     source = migration.read_text(encoding="utf-8")
-    assert 'down_revision: str | None = "0007_f007_containers"' in source
+    assert 'down_revision: str | None = "0008_f008_services"' in source
 
 
 # --------------------------------------------------------------------------- #
