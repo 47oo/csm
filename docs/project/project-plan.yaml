@@ -1764,15 +1764,17 @@ features:
       start_commit: "0fe65f4707676da1d049cef6cde111349a066f5d"
       head_commit: "ca9ae7325416cfffb7b259bf97622372cd7e1fe9"
       merge_commit: null
-    current_stage: TEST
+    current_stage: REVIEW
     last_result: >
-      Implementation Gate 通过（2026-09-20）：Backend（含 migration 0009）与 Frontend 并行完成（均 COMPLETE），
-      实现提交 ca9ae73。协调器独立复核：真实 PostgreSQL 后端 **1134 passed**；前端 typecheck 干净 + **729 passed** + build；
-      ruff 干净。migration 0009 幂等 / 可重建；`EXCLUDE` 不重叠为 DB 最终权威；删除守卫经 `soft_delete`；无第二条 `deleted_at` 写入路径。
+      Test 完成（2026-09-21）：Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-29 全部有结果且无 FAIL / BLOCKED / NOT TESTED；
+      无 BLOCKER / HIGH，无任何 F020 生产实现 / 契约 / 数据库缺陷；真实前后端集成已验证。测试报告
+      `docs/test-reports/f020-ip-address-range.md`；测试提交见 `test(F020)`。
+      协调器独立复跑（真实 PostgreSQL 16.15）：F020 后端专项 112 passed；全量后端 1123 passed / 11 failed，11 个失败
+      **全部**为其它 Feature 的 concurrency 测试，根因是第二条 libpq 连接缺少 `PGPASSWORD`（设置后 30 passed），
+      与 F020 无关、且 F020 实现未触碰这些文件；前端 typecheck + 729 passed + build；ruff 干净；migration 幂等可重建。
     next_action: >
-      Tester（独立验收 + 自写证伪）：重点①直连 DB 证实 EXCLUDE 为真正权威（应用层旁路仍 23P01）；②跨 Cluster 同范围可共存；
-      ③范围内有活跃 IP 时删除 → 409 且无部分写入；④IPv4 规范化与非法拒绝；⑤响应字段封闭（无 status/name）；
-      ⑥只读/认证/Empty vs Not Found；⑦迁移幂等可重建；⑧既有 guard 只增不减、ip_address 自由文本未变。
+      Reviewer（独立审查）：对候选 HEAD 与 develop...HEAD 全量差异做完整 Review，核对 AC / 契约 / 数据库 / guard / 测试证据
+      与「契约禁止、实现却有」分裂；关注 DEF-01（测试基础设施 / PGPASSWORD，非 F020 缺陷）。Review 通过后进入 Merge Gate。
     layers:
       database: true      # 初步判断：很可能需新表 / 新列或 migration 承载范围段；由 Architecture / Database 复核
       backend: true       # 范围段 CRUD 与校验
@@ -1792,7 +1794,7 @@ features:
       database_design: COMPLETE
       backend: COMPLETE
       frontend: COMPLETE
-      test: NOT_STARTED
+      test: COMPLETE
       review: NOT_STARTED
     product_document: docs/product/requirements.md
     requirements:
@@ -1802,17 +1804,18 @@ features:
       R-IP-001 / R-IP-002 / R-IP-003 为被继承的既有规则且保持不变。完整产品依据见
       `docs/product/handoffs/f020-ip-address-range.md` 与 `requirements.md` §12。
     acceptance_criteria:
-      # 仅列不受范围段 / 分配语义歧义影响的通用 AC；范围段专属 AC 待 DEC-023 与 NQ-1 ~ NQ-7 裁定后由 Product 定稿。
+      # AC-01 ~ AC-29 已在 DEC-023 裁定并由 Product 定稿；权威文本见 docs/product/handoffs/f020-ip-address-range.md。
       - AC-01 认证：未认证访问本 Feature 相关端点 → 401 UNAUTHENTICATED 且不返回任何资源数据。
       - AC-02 软删一致性：如范围段采用软删（NQ-5 待裁定），已逻辑删除的范围段不出现在常规查询，且遵循 R-DELETE-001/002/003/005/006 与 ADR-0004；不得物理删除（R-DELETE-001）。
       - AC-03 不改既有语义：不修改 R-IP-001 ~ R-IP-003、§22 大小写语义、`by-name` 大小写敏感，以及 F005 既有的 IP 字面精确比较立场（除非 DEC-023 明确裁定引入格式解析 / 归一化）。
       - AC-04 契约一致：本 Feature 的契约已持久化且 contract.status=READY；不得存在「契约禁止、实现却有」的分裂。
       - AC-05 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
       - AC-06 范围边界：不引入自动资产发现 / 外部平台同步 / 未确认的使用率统计 / 冲突扫描 / 导出能力。
-      - "AC-PLACEHOLDER（占位，**不得作为验收基准**）：范围段的表示（起止 / CIDR）、字段、多个范围段的重叠规则、跨 Cluster 是否可重复、生命周期（修改 / 删除 / 软删）、与 R-IP-001 的一致性约束——全部待 DEC-023 与 NQ-1 ~ NQ-7 由用户 / Product 裁定后方可写出可判定 AC。裁定前本 Feature 保持 DRAFT，**不得进入实现**。"
+      - AC-07 ~ AC-29 范围段专属 AC（IPv4 合法性 / 规范化 / 同 Cluster 重叠 / 跨 Cluster 可重复 / PATCH 重校验 / 软删释放 /
+        删除守卫 / 无状态 / Empty vs Not Found / 不引入分配·CIDR·IPv6 / 既有语义不变）：权威文本见 Product Handoff。
     acceptance_criteria_note: >
-      AC-01 ~ AC-06 与范围段语义无关，独立成立。范围段专属 AC 须在 DEC-023 裁定、Product 落规则后补入，
-      不得由 PM / 协调器发明。
+      DEC-023 已由用户裁定，全部 AC 已由 Product 定稿；细节以
+      `docs/product/handoffs/f020-ip-address-range.md` 为唯一权威来源，本处不再重复。
     open_questions:
       - id: NQ-1
         blocking: true
@@ -3470,8 +3473,11 @@ planning_status:
 
 execution:
   current_feature: F020
-  current_stage: TEST
+  current_stage: REVIEW
   note_append: >
+    2026-09-21：F020 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-29 全 PASS，无 F020 缺陷）；
+    协调器独立复跑确认。DEF-01（其它 Feature concurrency 测试缺 PGPASSWORD，MEDIUM / Test Infra，Owner 主协调器）
+    为非 F020 测试基础设施问题，记录待后续处置。feature.current_stage = REVIEW；进入 Reviewer。
     2026-09-20：用户批准增量计划并就 DEC-023 裁定；F020 转 READY 并进入 Feature Workflow。
     自 develop（0fe65f4）创建 feature/F020-ip-address-range，project.status = IN_PROGRESS。
     Product 完成：新增 R-IP-004，产出 Product Handoff。
