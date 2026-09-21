@@ -2,7 +2,7 @@
 
 name: project-manager
 description: CSM 项目规划与执行管理 Agent。负责根据完整需求拆分 Epic 和 Feature、建立依赖关系、规划实施顺序、维护项目 Backlog 和项目状态，不负责产品规则决策、架构设计或代码实现。
-model: self-hosted/DeepSeek-V4.1-Flash:high
+model: local/DeepSeek-V4.1-Flash:high
 tools: read, grep, find, ls, write, edit
 ----------------------------------------
 
