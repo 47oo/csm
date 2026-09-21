@@ -28,9 +28,24 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: DONE
+  status: DRAFT
   status_changed_on: "2026-09-21"
   status_note_append: >
+    ---
+    2026-09-21（增量三）本次增量：收到**未获批准**输入「一个集群可以有多个网段，允许为每个自定义网段进行自定义名称定义，
+    比如业务网 10.1.1.1 到 10.1.2.10 子网掩码 255.255.255.0，为网段添加子网掩码及 vlan」。
+    该输入要求为网段（IP 地址范围段）增加**自定义名称**、**子网掩码**与 **VLAN** 三个元数据，直接冲突于
+    F020 已确认规则 **R-IP-004** 的字段封闭立场（「除 id/cluster_id/start_ip/end_ip/created_at/updated_at
+    外没有其它已确认字段；不得自行新增 name/description/用途」），属**对已确认规则的修订诉求**，且严重欠定义。
+    据此**新增** F022（网段自定义名称 / 子网掩码 / VLAN 标注，DRAFT）、DEC-024（OPEN）与 M11，
+    并更新 E02 的 features 追加 F022。
+    本计划由 DONE 转 **DRAFT 仅表示新增输入待用户批准**，既不代表既有交付被推翻，也不表示 F020 / F021 的结论改变。
+    **既有一律不变**：19 DONE + 1 CANCELLED、M1–M10、全部 merge commit / Tester / Review 证据与各 Feature 的
+    git 元数据（base_branch / branch / start_commit / head_commit / merge_commit）均原样保留；
+    R-IP-001 ~ R-IP-010 原样保持不变；F020（merge e4291a1）/ F021（merge 011d05d）已 DONE 的实现与结论
+    **默认不被推翻**（是否推翻见 DEC-024 / NQ-7，须用户显式声明）。
+    DEC-024 与 F022 的完整歧义清单见 `decisions_required[DEC-024]` 与 `features[F022].open_questions`；
+    **未确认前不得实现**。
     **2026-09-18（四）：用户批准本次计划**（「批准本次计划」），并确认「模糊」=**子串包含**（非容错/相似度）。
     计划由 DRAFT 转 IN_PROGRESS，恢复在途的 F017（侧边栏）继续执行；F018 待 F017 merge 后再启动
     （两者都要改 `frontend/src/App.vue`，必须串行）。
@@ -107,6 +122,8 @@ project:
     无 READY / BLOCKED / DRAFT / IN_PROGRESS 的 Feature；M1–M10 全部 DONE。
     各 Feature 均有 merge commit 与独立 Tester / Reviewer 证据（见各 done_rationale 与 docs/test-reports / docs/reviews）。
     2026-09-21：F020（IP 地址范围段）与 F021（IP 自动 / 手动分配）完成，M10 DONE，project.status = DONE。
+    2026-09-21（增量三）：新增未获批准输入，登记 F022（DRAFT）、DEC-024（OPEN）与 M11；
+    Feature 总数 20 → 21，现为 19 DONE + 1 CANCELLED + 1 DRAFT；F022 未经 DEC-024 裁定前不得实现。
   approved_by: user
   approved_on: "2026-09-15"
   approval_note: >
@@ -114,7 +131,7 @@ project:
     批准时的依据：ADR-0001 ~ ADR-0005 全部 ACCEPTED；API 契约 READY；
     docs/database/ 完成（READY FOR DATABASE IMPLEMENTATION）；DEC-008 ~ DEC-016 全部 RESOLVED；
     数据库阶段两项产品消歧（IPAddress→NetworkInterface 必选、NIC 枚举封闭集合）已裁定并同步产品文档。
-  last_updated: "2026-09-18"
+  last_updated: "2026-09-21"
   architecture:
     foundation: docs/architecture/csm-v1-foundation-architecture.md   # READY FOR IMPLEMENTATION
     adrs: docs/architecture/adr/                                      # ADR-0001 ~ ADR-0005 全部 ACCEPTED
@@ -187,8 +204,10 @@ epics:
     features: [F001, F002, F016]
   - id: E02
     name: 网络资源管理
-    description: NetworkInterface 与 IPAddress 的登记、唯一性与关联；F020/F021 起含 IP 地址范围段（地址池）与自动 / 手动分配（待批准）。
-    features: [F004, F005, F020, F021]
+    description: >
+      NetworkInterface 与 IPAddress 的登记、唯一性与关联；F020/F021 起含 IP 地址范围段（地址池）与自动 / 手动分配；
+      F022 起含网段自定义名称 / 子网掩码 / VLAN 元数据（待批准）。
+    features: [F004, F005, F020, F021, F022]
   - id: E03
     name: 虚拟资源管理
     description: VirtualMachine 与 Container 的资源模型与人工登记。
@@ -1999,6 +2018,113 @@ features:
       自动取并集内最小未占用 IPv4 / 占用以活跃 IPAddress 字面相等、软删释放 / 手动须在范围内 / 无隐式保留地址 /
       耗尽返回非 500 错误 / 不新增超出 R-IP-001 的唯一性 / Product 在 §12 落规则。NQ-10 非阻塞，沿用既有边界。
 
+  # ---- E02 网络资源管理：网段自定义名称 / 子网掩码 / VLAN（未获批准输入，产品语义未确认；DRAFT；不得在 DEC-024 裁定前实现）----
+  # 与 F020 同源：F022 是对 F020 已交付的 IP 地址范围段（ip_address_ranges：start–end IPv4）的**元数据扩展诉求**。
+  # 与 F020 的边界：F020 交付「范围段本体 + 重叠 + 软删 + 删除守卫」；F022 交付「自定义名称 / 掩码 / VLAN 三个新元数据」，
+  #   两者可分别验收（若裁定认为必须合并为一个能力，可在批准时并入 F020 —— 但 F020 已 DONE，默认不重开）。
+  - id: F022
+    name: 网段自定义名称 / 子网掩码 / VLAN 标注
+    epic: E02
+    priority: P1
+    status: DRAFT
+    depends_on: [F020]
+    depends_on_note: >
+      F022 的承载对象是 F020 已交付的 IP 地址范围段（ip_address_ranges：start–end IPv4 / 恰属一个 Cluster /
+      同 Cluster 不重叠、跨 Cluster 可重复 / 软删 / 范围内有活跃 IP 时禁止删除）。新诉求是在该实体上增加
+      自定义名称、子网掩码与 VLAN，故 F020 为**真实前置**；F020 已 DONE（merge e4291a1），依赖本身不构成阻塞。
+      **F021 不是本 Feature 的前置**：F021（分配）与本 Feature 的方向是「分配行为若需按掩码 / VLAN 过滤，
+      则受影响方是 F021 的实现」，即前向影响，而非 F022 依赖 F021。该交互属 NQ-7 待裁定事项；
+      若裁定要求分配按掩码 / VLAN 过滤，应在裁定后评估是否新增对 F021 的修订工作或新 Feature，
+      **现在不得虚构依赖，也不得把 F021 列入本 Feature 的 depends_on**（同模块不构成依赖）。
+    blocking:
+      - DEC-024（OPEN，type=product）：R-IP-004 的字段封闭立场与新字段诉求直接冲突，须由用户 / Product 裁定。
+      - 产品规则落点（product）：R-IP-004 明文「除 id/cluster_id/start_ip/end_ip/created_at/updated_at
+        外没有其它已确认字段；不得自行新增 name/description/用途」。新增 name/subnet_mask/vlan 属已确认规则的
+        **修订诉求**，必须由 Product 修订 R-IP-004 或新增 §12 规则后，本 Feature 才能挂 requirement ID（NQ-1 / NQ-8）。
+      - Architecture / Database 决策（待 Product 裁定后）：扩展既有 ip_address_ranges（加列）还是新独立实体、
+        f020 契约修订形态、migration 形态（当前 head 0009；若加列编号可能为 0010）——**本阶段仅登记，不裁定**。
+    current_stage: null
+    layers:
+      database: true      # 初步判断：很可能需为 ip_address_ranges 加列（name/subnet_mask/vlan）或新实体 + 约束；待 Architecture / Database 复核
+      backend: true       # 新字段的 CRUD、校验与唯一性（若裁定）
+      frontend: true      # 网段自定义名称 / 掩码 / VLAN 的录入与展示
+    layers_note: >
+      **初步判断，非定稿**：字段扩展通常需要 schema 变更，故 database 很可能为 true；但若 Architecture 裁定以
+      派生 / 外部配置表达，亦可能为 false。由 Architecture / Database 在 DEC-024 裁定、Product 落规则后复核。
+    contract:
+      status: REQUIRED
+      doc: null
+    contract_note: >
+      本 Feature **必须**新增或修订 API 契约：F020 契约（docs/api/f020-ip-address-range.md）当前 READY，
+      其范围段字段按 R-IP-004 封闭；新增字段须由 Architecture 在 DEC-024 与 Product 落规则后定稿为 READY。
+      **不得出现「契约禁止、实现却有」的分裂**；在裁定前 f020 契约保持原样（不冻结、不提前修订）。
+    product_document: docs/product/requirements.md
+    requirements: []
+    requirements_note: >
+      **暂无可挂 requirement ID**：新增字段属对已确认 R-IP-004 的修订诉求，须由 Product 修订 R-IP-004 或新增规则
+      （编号由 Product 决定）后方可挂载；PM / 协调器不得代劳。**裁定前 R-IP-001 ~ R-IP-010 原样保持不变。**
+    acceptance_criteria:
+      # 专属 AC 待 DEC-024 裁定与 Product 定稿；以下仅列与产品语义无关的通用 AC，其余为占位，不得据未确认语义实现。
+      - AC-01 认证：未认证访问本 Feature 相关端点 → 401 UNAUTHENTICATED 且不返回任何资源数据。
+      - AC-02 软删一致性：新增字段不改变范围段既有的逻辑删除语义与 R-DELETE-001/002/003/005/006 及 ADR-0004。
+      - AC-03 不改既有语义：不修改 R-IP-001 ~ R-IP-010 与 §22 大小写语义，除非 DEC-024 明确裁定修订。
+      - AC-04 契约一致：本 Feature 契约已持久化且 contract.status=READY；不得存在「契约禁止、实现却有」的分裂。
+      - AC-05 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
+      - AC-06 范围边界：不引入自动资产发现 / 外部平台同步 / 自动拓扑 / 未确认的网段扫描或导出能力。
+      - AC-07 待定（占位）：自定义名称的语义与唯一性（NQ-2）。
+      - AC-08 待定（占位）：子网掩码的表示与范围一致性约束（NQ-3 / NQ-4）。
+      - AC-09 待定（占位）：VLAN 的表示、取值域与唯一性（NQ-5）。
+      - AC-10 待定（占位）：与 F020 重叠规则 / F021 分配行为的交互（NQ-6 / NQ-7）。
+      - AC-11 待定（占位）：既有数据的兼容与迁移（NQ-8，Architecture / Database）。
+    acceptance_criteria_note: >
+      仅 AC-01 ~ AC-06 为与产品语义无关的通用 AC（沿用既有边界）；AC-07 ~ AC-11 为占位，
+      在 DEC-024 由用户裁定、Product 修订 / 新增 §12 规则前**不得定稿**。
+    open_questions:
+      - id: NQ-1
+        blocking: true
+        summary: >
+          **与 R-IP-004 字段封闭的根本冲突**：R-IP-004 明文「除 id/cluster_id/start_ip/end_ip/created_at/updated_at
+          外没有其它已确认字段；不得自行新增 name/description/用途」；新输入要求增加 name/subnet_mask/vlan，
+          属对已确认规则的**修订诉求**，须由用户 / Product 裁定是否修订 R-IP-004（或新增规则）。未裁定前不得实现。
+      - id: NQ-2
+        blocking: true
+        summary: >
+          自定义名称的唯一性 / 必填性：是否每个 Cluster 内唯一、全局唯一，还是非唯一？是否必填？
+          比较是否大小写敏感（§22）？软删是否释放唯一性（R-DELETE-006）？未确认前不得实现。
+      - id: NQ-3
+        blocking: true
+        summary: >
+          子网掩码的表示：dotted-quad（255.255.255.0）还是 CIDR 前缀长度（/24）？V1 是否仅 IPv4（沿用 R-IP-004
+          的 V1 仅 IPv4 / 不用 CIDR）？掩码是否必填、默认值如何？未确认前不得实现。
+      - id: NQ-4
+        blocking: true
+        summary: >
+          掩码与 start–end 的一致性：用户示例「10.1.1.1 到 10.1.2.10 子网掩码 255.255.255.0」跨越 /24 边界，
+          与掩码自相矛盾。掩码是否必须与范围自洽（start 与 end 落在同一子网）？若必须，用户示例本身不合法，
+          须用户明确；若允许不自洽，掩码与范围是什么关系（仅标注 / 展示）？未确认前不得实现。
+      - id: NQ-5
+        blocking: true
+        summary: >
+          VLAN 的表示与唯一性：整数（如 1–4094）？是否允许 0 / 保留值？同一 Cluster 内唯一、全局唯一，
+          还是非唯一？是否可为空？与既有「同 Cluster 范围段不重叠」规则的关系？未确认前不得实现。
+      - id: NQ-6
+        blocking: true
+        summary: >
+          新增唯一性 / 约束：是否要求「同 Cluster 内网段名称唯一」「同 Cluster 内 VLAN 唯一」？
+          这属于超出 R-IP-001（同 Cluster IP 唯一）的**新唯一性**，须显式裁定，不得静默引入。未确认前不得实现。
+      - id: NQ-7
+        blocking: true
+        summary: >
+          对 F020 / F021 的影响：是**扩展既有 ip_address_ranges（加列）**还是**新独立实体**？F020 已 READY 的契约
+          是否需修订？F021 分配是否需要按掩码 / VLAN 过滤？既有已 DONE 的 F020 / F021 结论是否被推翻
+          （**默认不推翻，须由用户显式声明**）？未确认前不得实现。
+      - id: NQ-8
+        blocking: true
+        summary: >
+          迁移与历史数据（Architecture / Database 阶段判断，本阶段仅登记）：若扩展既有表，既有行的兼容与默认值；
+          migration 编号（可能为 `0010`，`down_revision="0009_f020_ip_address_ranges"`）。须在 Product 裁定后由
+          Architecture / Database 定稿，PM 不裁定。
+
 # ---------------------------------------------------------------------------
 # Blocking Decisions
 # C-1 ~ C-8 来自 docs/project/_planning-findings.md。
@@ -2355,6 +2481,31 @@ decisions_required:
       **未由产品裁定、留 Architecture**：不重叠的强制方式（应用层校验 + 漂移查询 vs Postgres 排它约束）、
       范围 / 分配契约形态、并发实现、错误码具体取值。
 
+  - id: DEC-024
+    type: product
+    status: OPEN
+    topic: IP 地址范围段（网段）的自定义名称 / 子网掩码 / VLAN 元数据扩展与 R-IP-004 字段封闭的取舍
+    question: >
+      是否为每个自定义网段（IP 地址范围段）增加**自定义名称**、**子网掩码**与 **VLAN** 三个元数据？若增加：
+      (a) 网段名称的唯一性 / 必填性 / 大小写语义（§22）/ 软删释放如何定义；
+      (b) 子网掩码用 dotted-quad 还是 CIDR 前缀长度，V1 是否仅 IPv4，是否必填；
+      (c) 掩码是否必须与 start–end 自洽（用户示例「10.1.1.1 到 10.1.2.10 掩码 255.255.255.0」跨 /24 边界，
+          示例本身不自洽），若必须自洽则示例不合法；
+      (d) VLAN 的整数取值域 / 保留值 / 是否唯一 / 是否可为空、与既有「同 Cluster 范围段不重叠」规则的关系；
+      (e) 是否引入「同 Cluster 名称唯一」「同 Cluster VLAN 唯一」等超出 R-IP-001 的新唯一性；
+      (f) 是扩展既有 `ip_address_ranges` 还是新独立实体，f020 契约是否修订，F021 分配是否按掩码 / VLAN 过滤。
+      本诉求**直接冲突于已确认 R-IP-004**（明文「除 id/cluster_id/start_ip/end_ip/created_at/updated_at 外
+      没有其它已确认字段；不得自行新增 name/description/用途」），必须由用户 / Product 裁定。
+    impact_features: [F022, F020, F021, F005]
+    note: >
+      本项为**产品语义 / 已确认规则修订取舍**，Project Manager 与协调器均**不得自行裁定**（AGENTS.md §2.8）。
+      完整歧义清单见 `features[F022].open_questions`（NQ-1 ~ NQ-8，全部 blocking）。
+      **既有结论一律不变**：R-IP-001 ~ R-IP-010 保持不变；F020 / F021 已 DONE 的实现与结论默认**不被本项推翻**
+      （是否推翻须由用户显式声明，见 NQ-7）；F005 的 `ip_address` 自由文本立场不变。
+      裁定结果可能要求：Product 修订 R-IP-004 或新增 §12 规则；Architecture 定稿契约（修订 f020 契约或新增）
+      并复核 F022 的 layers（database 很可能由新增判断为 true）与 migration 形态；可能新增对 F021 的修订工作。
+      **在裁定前，F022 保持 DRAFT 且不得实现**（`/implement-project` 第 2 节把 DRAFT 视为硬停止条件）。
+
 # 已关闭的 open question（不再是 open question）
 closed_open_questions:
   - id: OPEN-006
@@ -2504,6 +2655,23 @@ milestones:
       - 交付范围与可判定 AC 经 Product 定稿。
       - 范围段 / 分配契约 READY；无「契约 / 产品规则禁止、实现却有」的分裂。
       - 未认证 → 401；软删资源不出现；既有 R-IP-001 ~ R-IP-003 不被静默修改。
+      - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
+
+  - id: M11
+    name: 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展）
+    goal: >
+      按用户裁定，为每个自定义网段（IP 地址范围段）补充可维护的元数据（自定义名称 / 子网掩码 / VLAN），
+      使网段具备业务可读标识与网络参数，同时不破坏 F020 / F021 既有语义（语义待 DEC-024 与 F022 NQ 裁定）。
+    features: [F022]
+    entry_conditions:
+      - DEC-024 由用户裁定为明确结论（含字段 / 唯一性 / 掩码表示与一致性 / VLAN 取值域 / 扩展或新实体）。
+      - Product 修订 R-IP-004 或新增 requirements.md §12 规则，F022 的 scope 与 AC 可定稿并可挂 requirement ID。
+      - F020 已 DONE（已满足）；若裁定涉及分配行为变更，F021 已 DONE（已满足）并按裁定评估修订。
+      - 契约按裁定修订 / 新增为 READY；F022 的 layers（尤其 database）与 migration 形态经 Architecture / Database 复核。
+    completion_criteria:
+      - 交付范围与可判定 AC 经 Product 定稿。
+      - 网段元数据契约 READY；无「契约 / 产品规则禁止、实现却有」的分裂。
+      - 未认证 → 401；软删资源不出现；R-IP-001 ~ R-IP-010 及 F020 / F021 既有语义不被静默修改。
       - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
 # ---------------------------------------------------------------------------
@@ -2728,16 +2896,16 @@ requirement_coverage_sections:
 # ---------------------------------------------------------------------------
 planning_status:
   plan_completeness: complete
-  status: ACCEPTED
+  status: DRAFT
   ready_features: []
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: []
+    DRAFT: [F022]
   counts:
     READY: 0
     IN_PROGRESS: 0
     BLOCKED: 0
-    DRAFT: 0
+    DRAFT: 1
     DONE: 19
     CANCELLED: 1
   status_decision_rules:
@@ -2926,7 +3094,14 @@ planning_status:
       blocking），depends_on F001 / F005 均已 DONE，无阻塞架构决策 → READY。
       义务：Product 须在 requirements.md §12 新增范围段规则（NQ-8）；Architecture 须定稿范围段契约并复核
       layers.database（很可能 true）与「同 Cluster 不重叠」的强制方式。
-  draft_rationale: {}
+  draft_rationale:
+    F022: >
+      **DRAFT 原因（产品语义未确认，直接影响自身 scope / acceptance_criteria 定稿）**：
+      新输入要求为网段增加自定义名称 / 子网掩码 / VLAN，直接冲突于 R-IP-004 的字段封闭立场，属已确认规则的
+      修订诉求，须由用户 / Product 裁定（DEC-024，OPEN）。其字段 / 唯一性 / 掩码表示与一致性 / VLAN 取值域 /
+      扩展既有表或新实体 / 对 F020 / F021 的影响全部未定（NQ-1 ~ NQ-8 均 blocking），故保持 DRAFT。
+      **两类阻塞并存（产品 + 架构/数据库）**，按状态规则取 DRAFT，并已在该 Feature 的 `blocking` 中两类同时列出。
+      在 DEC-024 由用户裁定、Product 修订 / 新增 §12 规则前，F022 **不得进入实现**。
 
   blocked_rationale:
     F021: >
@@ -2939,6 +3114,15 @@ planning_status:
     F005: "DEC-006 已解决（V1 无状态），无未解决产品问题；阻塞为依赖 F004 未 DONE。"
     F009: "无未解决产品问题；阻塞为依赖 F001 / F002 未 DONE。"
   readiness_summary: >
+    **2026-09-21（增量三）**：收到未获批准输入「为每个自定义网段增加自定义名称 / 子网掩码 / VLAN」。
+    据此新增 F022（网段自定义名称 / 子网掩码 / VLAN 标注，DRAFT）、DEC-024（OPEN）与 M11，E02 追加 F022。
+    该诉求直接冲突于已确认 R-IP-004 的字段封闭立场，属对已确认规则的修订诉求，须由用户 / Product 裁定，
+    属产品语义 + 架构 / 数据库双重阻塞，故 F022 为 **DRAFT**、DEC-024 为 **OPEN**、无 READY Feature。
+    `project.status` / `planning_status.status` 转 DRAFT（待用户批准）。
+    **既有结论一律不变**：19 DONE + 1 CANCELLED、M1–M10、全部 merge commit / Tester / Review 证据与各 Feature
+    的 git 元数据均原样保留；R-IP-001 ~ R-IP-010 未修改；F020（merge e4291a1）/ F021（merge 011d05d）已 DONE 的
+    实现与结论不被本项推翻（是否推翻见 DEC-024 / NQ-7）。
+    **在 DEC-024 由用户裁定、Product 落地 §12 规则前，F022 不得进入实现。**
     **2026-09-21**：F021（IP 地址自动 / 手动分配）完成（base 1942ec4 → head d996158 → merge 011d05d，Reviewer = APPROVED WITH FOLLOW-UP）。
     新增 R-IP-005 ~ R-IP-010；零数据库变更（复用 R-IP-001 partial unique）；M10 DONE。
     **全部 V1 Feature 处置完毕：19 DONE + 1 CANCELLED（F011），project.status = DONE；无 READY / BLOCKED / DRAFT / IN_PROGRESS。**
