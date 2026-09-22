@@ -2,10 +2,10 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（新增输入待批准；`project.status = DRAFT`）
-> 生成依据：`project.status = DRAFT`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 1, 'DONE': 19, 'CANCELLED': 1}`
+> Generated: 2026-09-21（增量三已批准；`project.status = ACCEPTED`）
+> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 19, 'CANCELLED': 1}`
 
-**2026-09-21（增量三）**：新增未获批准输入「为每个自定义网段增加自定义名称 / 子网掩码 / VLAN」，新增 **M11（DRAFT）**、F022（DRAFT）与 DEC-024（OPEN）；M1–M10 结论不变。
+**2026-09-21（增量三·续）**：用户采纳 DEC-024 推荐方案，DEC-024 RESOLVED；M11 进入条件已满足，F022 转 **READY**（待实现）。M1–M10 结论不变。
 
 **2026-09-21（终）**：F021 完成（merge 011d05d）；M10 **DONE**；M1–M10 全部 DONE，全部 V1 Feature 处置完毕（19 DONE + 1 CANCELLED）。
 
@@ -40,7 +40,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
 | M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **DONE** |
-| M11 | 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） | F022 | **DRAFT** |
+| M11 | 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） | F022 | **READY（F022 待实现）** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -247,13 +247,13 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 
 **完成情况**：DEC-023 已 RESOLVED（2026-09-20），PR-01 已由用户 2026-09-21 裁定（采纳 A）；F020 已于 2026-09-21 DONE（merge e4291a1）；F021 已于 2026-09-21 DONE（merge 011d05d）。M10 DONE。
 
-## M11 — 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） · 状态：DRAFT
+## M11 — 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） · 状态：READY（F022 待实现）
 
 **目标**：按用户裁定，为每个自定义网段（IP 地址范围段）补充可维护的元数据（自定义名称 / 子网掩码 / VLAN），使网段具备业务可读标识与网络参数，同时不破坏 F020 / F021 既有语义（语义待 DEC-024 与 F022 NQ 裁定）。
 
 | ID | Feature | Priority | 状态 | Merge |
 |---|---|---|---|---|
-| F022 | 网段自定义名称 / 子网掩码 / VLAN 标注 | P1 | **DRAFT** | — |
+| F022 | 网段自定义名称 / 子网掩码 / VLAN 标注 | P1 | **READY** | — |
 
 **进入条件**
 - DEC-024 由用户裁定为明确结论（含字段 / 唯一性 / 掩码表示与一致性 / VLAN 取值域 / 扩展或新实体）。
@@ -267,7 +267,9 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 - 未认证 → 401；软删资源不出现；R-IP-001 ~ R-IP-010 及 F020 / F021 既有语义不被静默修改。
 - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
-**待裁定（DEC-024 OPEN）**：F022 与已确认 R-IP-004 字段封闭立场冲突；在 DEC-024 由用户裁定、Product 落 §12 规则前 **不得实现**。
+**已裁定（DEC-024 RESOLVED，2026-09-21）**：为范围段新增 3 个可选字段 `name` / `subnet_mask` / `vlan` 并修订 R-IP-004；
+扩展既有 `ip_address_ranges` 加 3 个可空列 + name partial unique（migration 0010）；不推翻 F020 / F021。F022 已 **READY**，
+Product 落 §12 规则、Architecture 定稿 f020 契约修订与 migration 后即可实现。
 
 ---
 
