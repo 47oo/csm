@@ -2185,7 +2185,7 @@ features:
     blocking_note: >
       DEC-025 已于 2026-09-22 由用户裁定为 RESOLVED（见 decisions_required[DEC-025].resolution）；
       本 Feature 无未决产品问题，依赖 F020 / F021 均已 DONE → **READY**。
-    current_stage: ARCHITECTURE
+    current_stage: BACKEND
     git:
       base_branch: develop
       branch: feature/F023-ip-range-selection
@@ -2206,17 +2206,19 @@ features:
     layers_note: >
       **无数据库变更**：不新增 / 不修改任何表、列、约束或索引；仅读取既有 `ip_address_ranges`（active）与
       `ip_addresses`；唯一性仍以 R-IP-001 的 `ux_ip_addresses_cluster_ip_active` 为最终权威（R-IP-010 不变）。
-      Architecture 复核后在契约中确认 `layers.database = false`。
+      Architecture 已于 2026-09-22 复核确认 `layers.database = false`（无 migration，head 仍 0010_f022_ip_range_metadata）。
     contract:
-      status: REQUIRED
+      status: READY
       doc: docs/api/f021-ip-address-allocation.md
     contract_note: >
-      Architecture 阶段须**修订** f021 契约：`POST /api/ip-addresses/allocate` 请求体由恰 `{network_interface_id}`
-      改为恰 `{network_interface_id, ip_address_range_id}`（**两者均必填**）；自动分配语义由「全部活跃范围段并集取全局最小」
-      改为「在所选单个活跃范围段内取数值最小未占用 IPv4」；新增范围段引用校验（不存在 / 已删 / 跨 Cluster）的错误语义；
-      耗尽 `NO_AVAILABLE_IP` 限定为所选范围段；`/allocate-manual` 与 F005 登记端点不变。
+      Architecture 已于 2026-09-22 **修订** f021 契约（Status 维持 **READY**）：`POST /api/ip-addresses/allocate`
+      请求体由恰 `{network_interface_id}` 改为恰 `{network_interface_id, ip_address_range_id}`（**两者均必填**）；
+      自动分配语义由「全部活跃范围段并集取全局最小」改为「在所选单个活跃范围段内取数值最小未占用 IPv4」；
+      范围段不存在 / 已删 → `404 NOT_FOUND`，活跃但跨 Cluster → `409 CONFLICT`，两者 `details[].code =
+      "IP_ADDRESS_RANGE_UNAVAILABLE"`；耗尽限定所选范围段 → `409 CONFLICT + NO_AVAILABLE_IP`（不回退）；
+      `/allocate-manual` 与 F005 登记端点不变。无「契约禁止、实现却有」分裂。
     implementation:
-      database_design: NOT_STARTED
+      database_design: NOT_REQUIRED   # layers.database = false；无 migration
       backend: NOT_STARTED
       frontend: NOT_STARTED
       test: NOT_STARTED
@@ -4001,8 +4003,11 @@ planning_status:
 
 execution:
   current_feature: F023
-  current_stage: ARCHITECTURE
+  current_stage: BACKEND
   note_append: >
+    2026-09-22：F023 Architecture + Contract 完成：修订 f021 契约（新增必填 `ip_address_range_id`；范围段问题统一判别值
+    `IP_ADDRESS_RANGE_UNAVAILABLE`；耗尽限定所选范围段），Status READY；Architecture Handoff = READY FOR IMPLEMENTATION；
+    `layers.database = false`（implementation.database_design = NOT_REQUIRED）。feature.current_stage = BACKEND（跳过 DATABASE）。
     2026-09-22：F023 Product 完成：修订 **R-IP-006 / R-IP-009**（§12），产出 Product Handoff（READY FOR ARCHITECT）；
     F023.requirements = [R-IP-006, R-IP-009]；feature.current_stage = ARCHITECTURE。
     2026-09-22：启动 F023（自动分配时指定 IP 地址范围段）。DEC-025 已 RESOLVED，自 develop（dd159f3）
