@@ -2048,7 +2048,7 @@ features:
       DEC-024 已于 2026-09-21 由用户裁定为 RESOLVED（见 decisions_required[DEC-024].resolution）；
       本 Feature 无未决产品问题，依赖 F020（已 DONE）→ **READY**。Product 落 §12 规则与 Architecture
       定稿契约 / migration 0010 在 Feature Workflow 内完成。
-    current_stage: ARCHITECTURE
+    current_stage: DATABASE
     git:
       base_branch: develop
       branch: feature/F022-network-segment-metadata
@@ -2056,28 +2056,28 @@ features:
       head_commit: null
       merge_commit: null
     last_result: >
-      Product 完成（2026-09-21）：修订 **R-IP-004**（§12）新增 3 个可选字段 `name` / `subnet_mask` / `vlan` 及语义，
-      产出 Product Handoff `docs/product/handoffs/f022-network-segment-metadata.md`（**READY FOR ARCHITECT**），
-      无 Blocking Open Question；domain-model 已同步。现进入 Architecture。
+      Architecture + Contract 完成（2026-09-21）：Architecture Handoff（READY FOR IMPLEMENTATION）与
+      f020 契约**纯增量修订**（`docs/api/f020-ip-address-range.md` Status 维持 **READY**）已落盘；
+      定稿 name partial unique + vlan CHECK + migration 0010 形态、错误判别值（DUPLICATE / VALIDATION_ERROR）
+      与 PATCH 三字段可修正·null 清空。Contract Gate 通过。
     next_action: >
-      Architecture：在 `docs/api/f020-ip-address-range.md` 上**纯增量**追加三字段（Status 维 READY）与错误语义，
-      定稿错误码（name 重复 / mask·vlan 非法）、`PATCH` 可变语义，并复核 `layers.database=true` 与 migration
-      `0010_f022_ip_address_range_metadata` 形态；不改变 F021 分配行为。
+      Database Design：产出 `docs/database/f022-ip-address-range-metadata-migration.md`（migration 0010：3 个可空列
+      + name partial unique + vlan CHECK；无回填），然后 Backend 与 Frontend 并行实现。
     layers:
       database: true      # DEC-024 已裁定：扩展 ip_address_ranges 加 3 个可空列 + name partial unique + migration 0010
       backend: true       # 新字段的 CRUD、校验与唯一性
       frontend: true      # 网段自定义名称 / 掩码 / VLAN 的录入与展示
     layers_note: >
-      **DEC-024 已裁定（2026-09-21）**：`database = true` —— 扩展既有 `ip_address_ranges` 表，新增 3 个可空列
-      `name` / `subnet_mask` / `vlan` 与 name 的 partial unique；migration `0010_f022_ip_address_range_metadata`。
-      具体 schema / 约束 / 迁移形态由 Architecture / Database 在 Feature Workflow 内定稿。
+      **Architecture 定稿（2026-09-21）**：`database = true` —— 扩展既有 `ip_address_ranges` 表，新增 3 个可空列
+      `name` / `subnet_mask` / `vlan`、`name` partial unique index（`WHERE deleted_at IS NULL AND name IS NOT NULL`，大小写敏感）
+      与 `vlan` CHECK（`1–4094`）；migration `0010_f022_ip_address_range_metadata`（`down_revision="0009_f020_ip_address_ranges"`），无回填。
     contract:
-      status: REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f020-ip-address-range.md
     contract_note: >
-      本 Feature **必须**修订 API 契约：在 `docs/api/f020-ip-address-range.md`（现 READY）上**纯增量**追加
-      `name` / `subnet_mask` / `vlan` 三字段（请求 / 响应），由 Architecture 在 Feature Workflow 内定稿为 READY。
-      **不得出现「契约禁止、实现却有」的分裂**。
+      f020 契约已**纯增量修订**（Status 维持 **READY**）：资源表示扩为 9 字段；POST 增 3 个可选字段；PATCH 可变集合
+      扩为 `{start_ip, end_ip, name, subnet_mask, vlan}`（`null` 清空）；新增 `409 CONFLICT + DUPLICATE`（name 重复）与
+      `400 VALIDATION_ERROR`（mask/vlan 非法）。无「契约禁止、实现却有」分裂。
     implementation:
       database_design: NOT_STARTED
       backend: NOT_STARTED
@@ -3821,8 +3821,9 @@ planning_status:
 
 execution:
   current_feature: F022
-  current_stage: ARCHITECTURE
+  current_stage: DATABASE
   note_append: >
+    2026-09-21：F022 Architecture + Contract 完成（f020 契约纯增量修订，Status READY）；feature.current_stage = DATABASE。
     2026-09-21：F022 Product 完成：修订 **R-IP-004**（§12）新增 3 个可选字段，产出 Product Handoff（READY FOR ARCHITECT）；
     F022.requirements = [R-IP-004]；feature.current_stage = ARCHITECTURE。
     2026-09-21：启动 F022（网段自定义名称 / 子网掩码 / VLAN 标注）。DEC-024 RESOLVED 后自 develop（dae7fe9）
