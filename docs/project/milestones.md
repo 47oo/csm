@@ -2,8 +2,8 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-22（增量四登记 F023；`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
+> Generated: 2026-09-22（F023 进入 Feature Workflow；`project.status = IN_PROGRESS`）
+> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
 
 **2026-09-22（增量四）**：新增 M12（自动分配指定 IP 地址范围段，F023）；DEC-025 RESOLVED；M12 待执行（F023 READY）。
 
@@ -45,7 +45,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
 | M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **DONE** |
 | M11 | 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） | F022 | **DONE** |
-| M12 | 自动分配指定 IP 地址范围段 | F023 | **待执行（F023 READY）** |
+| M12 | 自动分配指定 IP 地址范围段 | F023 | **执行中（F023 IN_PROGRESS）** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -276,7 +276,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 
 ---
 
-## M12 — 自动分配指定 IP 地址范围段 · 状态：待执行（F023 READY）
+## M12 — 自动分配指定 IP 地址范围段 · 状态：执行中（F023 IN_PROGRESS）
 
 **目标**：按用户裁定（DEC-025），使自动分配 IP 地址时能够且必须选择所用 IP 地址范围段，修复“多套范围段时无法选择”的规则缺口，
 同时不破坏占用判定 / 唯一性 / 手动分配等既有语义。

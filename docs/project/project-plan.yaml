@@ -28,10 +28,12 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: ACCEPTED
+  status: IN_PROGRESS
   status_changed_on: "2026-09-22"
   status_note_append: >
     ---
+    2026-09-22（增量四·启动）：F023 自 develop（dd159f3）创建分支 `feature/F023-ip-range-selection`，进入 Product；
+    project.status 由 ACCEPTED 转 **IN_PROGRESS**。
     2026-09-22（增量四）：收到输入「当配置多套 IP 地址范围的时候，网卡无法选择使用哪套来自动分配 IP 地址」。
     经协调器诊断，这不是实现缺陷，而是 F021 已确认规则的限制：f021 契约 §1.6 / R-IP-006 规定自动分配在
     「全部活跃范围段的并集」取全局最小，`IpAddressAutoAllocateRequest` 字段恰为 `{network_interface_id}`，
@@ -2173,7 +2175,7 @@ features:
     name: 自动分配时指定 IP 地址范围段
     epic: E02
     priority: P1
-    status: READY
+    status: IN_PROGRESS
     depends_on: [F020, F021]
     depends_on_note: >
       本 Feature 修订 F021 已交付的自动分配行为（`POST /api/ip-addresses/allocate`），运行依赖 F021 已交付的
@@ -2183,11 +2185,11 @@ features:
     blocking_note: >
       DEC-025 已于 2026-09-22 由用户裁定为 RESOLVED（见 decisions_required[DEC-025].resolution）；
       本 Feature 无未决产品问题，依赖 F020 / F021 均已 DONE → **READY**。
-    current_stage: null
+    current_stage: PRODUCT
     git:
       base_branch: develop
       branch: feature/F023-ip-range-selection
-      start_commit: null
+      start_commit: "dd159f3c43f97969b1f4b91106cb3c5b83d3f0d5"
       head_commit: null
       merge_commit: null
     last_result: >
@@ -3072,13 +3074,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F023]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 0
     DRAFT: 0
     DONE: 20
@@ -3996,9 +3998,11 @@ planning_status:
   decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F023
+  current_stage: PRODUCT
   note_append: >
+    2026-09-22：启动 F023（自动分配时指定 IP 地址范围段）。DEC-025 已 RESOLVED，自 develop（dd159f3）
+    创建分支 feature/F023-ip-range-selection；project.status = IN_PROGRESS。当前进入 Product。
     2026-09-21：F022 完成（Reviewer APPROVED WITH FOLLOW-UP，HEAD fbfc968，merge b467e89），feature.status = DONE，
     current_feature / current_stage 清空。M11 DONE；全部 V1 Feature 处置完毕（20 DONE + 1 CANCELLED）；project.status = DONE。
     2026-09-21：F022 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-30 全 PASS，无缺陷）；

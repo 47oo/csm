@@ -2,8 +2,8 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-22（增量四登记 F023；`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
+> Generated: 2026-09-22（F023 进入 Feature Workflow；`project.status = IN_PROGRESS`）
+> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
 
 **2026-09-22（增量四）**：新增 F023（自动分配时指定 IP 地址范围段），depends_on F020、F021（均已 DONE）→ **READY**；DEC-025 RESOLVED，M12 登记。
 诊断：多套范围段时无法指定自动分配所用范围（f021 §1.6 / R-IP-006 的并集行为），属规则限制而非实现缺陷。`project.status` 转 **ACCEPTED**。
@@ -56,7 +56,7 @@
 | F020 IP 地址范围段（地址池）管理 | DONE | F001, F005 | database, backend, frontend |
 | F021 IP 地址自动 / 手动分配 | DONE | F020, F005, F004, F002 | backend, frontend（database: false） |
 | F022 网段自定义名称 / 子网掩码 / VLAN 标注 | DONE | F020 | database, backend, frontend |
-| F023 自动分配时指定 IP 地址范围段 | READY | F020, F021 | backend, frontend（database: false） |
+| F023 自动分配时指定 IP 地址范围段 | IN_PROGRESS | F020, F021 | backend, frontend（database: false） |
 
 ## 全量依赖 DAG
 
@@ -125,7 +125,7 @@ F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
 19. F020  DONE（merge e4291a1）
 20. F021  DONE（merge 011d05d；数据库零变更）
 21. F022  DONE（merge b467e89；ip_address_ranges + migration 0010）
-22. F023  READY（depends_on F020 / F021 均 DONE；无数据库变更）
+22. F023  IN_PROGRESS（depends_on F020 / F021 均 DONE；无数据库变更）
 ```
 
 ## 可并行执行的 Feature
