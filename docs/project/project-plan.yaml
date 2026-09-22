@@ -2033,7 +2033,7 @@ features:
     name: 网段自定义名称 / 子网掩码 / VLAN 标注
     epic: E02
     priority: P1
-    status: IN_PROGRESS
+    status: IN_REVIEW
     depends_on: [F020]
     depends_on_note: >
       F022 的承载对象是 F020 已交付的 IP 地址范围段（ip_address_ranges：start–end IPv4 / 恰属一个 Cluster /
@@ -2048,7 +2048,7 @@ features:
       DEC-024 已于 2026-09-21 由用户裁定为 RESOLVED（见 decisions_required[DEC-024].resolution）；
       本 Feature 无未决产品问题，依赖 F020（已 DONE）→ **READY**。Product 落 §12 规则与 Architecture
       定稿契约 / migration 0010 在 Feature Workflow 内完成。
-    current_stage: BACKEND
+    current_stage: TEST
     git:
       base_branch: develop
       branch: feature/F022-network-segment-metadata
@@ -2056,13 +2056,15 @@ features:
       head_commit: null
       merge_commit: null
     last_result: >
-      Database Design 完成（2026-09-21）：`docs/database/f022-ip-address-range-metadata-migration.md`
-      （`READY FOR DATABASE IMPLEMENTATION`）；migration `0010_f022_ip_address_range_metadata`：3 个可空列 +
-      name partial unique（`WHERE deleted_at IS NULL AND name IS NOT NULL`，大小写敏感）+ vlan CHECK（1–4094），无回填。
-      Frontend 并行完成（FRONTEND COMPLETE）：三字段 API / 列表 / 详情 / 表单接线；协调器待后端完成后一并提交。
+      Implementation Gate 通过（2026-09-21）：database_design / backend / frontend 均 COMPLETE。
+      Backend：migration `0010_f022_ip_range_metadata`（3 可空列 + name partial unique + vlan CHECK，无回填）；
+      `app/ip_address_ranges/**` 增量（`parse_subnet_mask` 纯函数、schemas/service/repository），无新端点；未改 `alembic_version` 列宽。
+      协调器独立复跑：后端全量 **1228 passed / 0 failed**；前端 typecheck + **784 passed** + build；ruff 干净；
+      alembic head = `0010_f022_ip_range_metadata`；列集合 10 / CHECK 2 / unique 索引 1。
     next_action: >
-      Backend：落地 migration 0010 + `app/ip_address_ranges/**` 增量（schemas / service / repository / ipv4 掩码纯函数）；
-      然后协调器校验后提交实现。
+      Tester（独立验收 + 自写证伪）：重点直连 DB 证实 name partial unique 为真正权威（同 Cluster 活跃同名 23505）、
+      大小写不同共存、软删释放、vlan 越界 23514、列/约束/索引形态、非法掩码·VLAN 与同名错误语义、PATCH null 清空、
+      migration 幂等 / downgrade- upgrade 可重建、既有重叠·删除守卫·R-IP-001·F021 不变、guard 只增不弱。
     layers:
       database: true      # DEC-024 已裁定：扩展 ip_address_ranges 加 3 个可空列 + name partial unique + migration 0010
       backend: true       # 新字段的 CRUD、校验与唯一性
@@ -2070,7 +2072,7 @@ features:
     layers_note: >
       **Architecture 定稿（2026-09-21）**：`database = true` —— 扩展既有 `ip_address_ranges` 表，新增 3 个可空列
       `name` / `subnet_mask` / `vlan`、`name` partial unique index（`WHERE deleted_at IS NULL AND name IS NOT NULL`，大小写敏感）
-      与 `vlan` CHECK（`1–4094`）；migration `0010_f022_ip_address_range_metadata`（`down_revision="0009_f020_ip_address_ranges"`），无回填。
+      与 `vlan` CHECK（`1–4094`）；migration `0010_f022_ip_range_metadata`（`down_revision="0009_f020_ip_address_ranges"`），无回填。
     contract:
       status: READY
       doc: docs/api/f020-ip-address-range.md
@@ -2080,8 +2082,8 @@ features:
       `400 VALIDATION_ERROR`（mask/vlan 非法）。无「契约禁止、实现却有」分裂。
     implementation:
       database_design: COMPLETE   # docs/database/f022-ip-address-range-metadata-migration.md
-      backend: NOT_STARTED
-      frontend: COMPLETE          # b4ddf33 后前端增量；784 passed + build
+      backend: COMPLETE           # migration 0010 + app/ip_address_ranges/**；1228 passed
+      frontend: COMPLETE          # 784 passed + typecheck + build
       test: NOT_STARTED
       review: NOT_STARTED
     product_document: docs/product/requirements.md
@@ -2541,7 +2543,7 @@ decisions_required:
       6) **NQ-6 新增唯一性**：仅新增「**name 同 Cluster 活跃唯一**」；**不新增 VLAN 唯一**；其余仍以 R-IP-001 为唯一性边界。
       7) **NQ-7 承载方式 / 既有影响**：**扩展既有 `ip_address_ranges` 表加 3 个可空列**；**精确修订 f020 契约（纯增量）**；
          **不推翻** F020 / F021 既有结论；**V1 分配不按掩码 / VLAN 过滤**（F021 语义不变）。
-      8) **NQ-8 迁移**：migration `0010_f022_ip_address_range_metadata`（`down_revision="0009_f020_ip_address_ranges"`），
+      8) **NQ-8 迁移**：migration `0010_f022_ip_range_metadata`（`down_revision="0009_f020_ip_address_ranges"`），
          3 个可空列 + name 的 partial unique（`WHERE deleted_at IS NULL AND name IS NOT NULL`）；**无数据回填**（既有行取 NULL）。
       **产品规则落点**：Product 须在 requirements.md §12 **修订 R-IP-004**（新增字段与语义）；R-IP-001 ~ R-IP-010 其余部分保持不变。
       具体契约 / 迁移实现由 Architecture 在 Feature Workflow 内定稿。
@@ -3821,8 +3823,10 @@ planning_status:
 
 execution:
   current_feature: F022
-  current_stage: BACKEND
+  current_stage: TEST
   note_append: >
+    2026-09-21：F022 Implementation 完成（Database 设计 + Backend + Frontend），Implementation Gate 通过；
+    协调器独立复跑后端 1228 passed / 前端 784 passed + build / ruff 干净；migration head = 0010_f022_ip_range_metadata（alembic_version 列宽未变）。现进入 TEST。
     2026-09-21：F022 Database Design 完成（migration 0010 设计）与 Frontend 完成；feature.current_stage = BACKEND。
     2026-09-21：F022 Architecture + Contract 完成（f020 契约纯增量修订，Status READY）；feature.current_stage = DATABASE。
     2026-09-21：F022 Product 完成：修订 **R-IP-004**（§12）新增 3 个可选字段，产出 Product Handoff（READY FOR ARCHITECT）；
