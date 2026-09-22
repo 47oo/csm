@@ -6,11 +6,16 @@ the unchanged F020 semantics, error branches, Empty vs Not Found, no-write
 side-effects and read-only guarantees. Does not import app code.
 
 Usage:
+    CSM_TEST_ADMIN_PASSWORD=<一次性测试口令> \
     .venv/bin/python docs/test-reports/assets/f022/integration_http.py \
         http://127.0.0.1:8799 "postgresql://csm:csm@localhost:55432/csm_f022_integration"
+
+管理员口令从环境变量 `CSM_TEST_ADMIN_PASSWORD` 读取（一次性测试库的一次性账号），
+不写入本文件；用户名可用 `CSM_TEST_ADMIN_USER` 覆盖（默认 `tester`）。
 """
 from __future__ import annotations
 
+import os
 import sys
 
 import httpx
@@ -22,7 +27,14 @@ DB = (
     if len(sys.argv) > 2
     else "postgresql://csm:csm@localhost:55432/csm_f022_integration"
 )
-PASSWORD = "tester-password-123"
+ADMIN_USER = os.environ.get("CSM_TEST_ADMIN_USER", "tester")
+PASSWORD = os.environ.get("CSM_TEST_ADMIN_PASSWORD")
+if not PASSWORD:
+    print(
+        "环境变量 CSM_TEST_ADMIN_PASSWORD 未设置：请提供一次性测试管理员口令（不落盘）。",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 passed = 0
 failed: list[str] = []
@@ -53,7 +65,7 @@ admin = httpx.Client(base_url=BASE, timeout=20.0)
 anon = httpx.Client(base_url=BASE, timeout=20.0)
 db = psycopg.connect(DB, autocommit=True)
 
-r = admin.post("/api/auth/login", json={"username": "tester", "password": PASSWORD})
+r = admin.post("/api/auth/login", json={"username": ADMIN_USER, "password": PASSWORD})
 check("login 200", r.status_code == 200, r.text)
 
 

@@ -3254,28 +3254,30 @@ planning_status:
       action: 未改写历史（AGENTS.md 禁止以改写历史处理问题）；记录在案。后续提交一律使用 `git commit -F -`（stdin），避免反引号被 shell 解释。
   follow_ups:
     from_f022_review:
-      open:
+      open: []
+      resolved:
         - id: REV-1
           severity: LOW
           owner: Tester
           summary: >
-            `docs/test-reports/assets/f022/integration_http.py` 硬编码一次性测试账号口令（`PASSWORD = ...`）；
-            非生产密钥，但违反「不得提交凭据」的卫生要求。改为从环境变量 / argv 读取。
+            `docs/test-reports/assets/f022/integration_http.py` 硬编码一次性测试账号口令。
+            **已修复**：改为从环境变量 `CSM_TEST_ADMIN_PASSWORD` 读取（缺失则退出 2），用户名可用 `CSM_TEST_ADMIN_USER` 覆盖；
+            全库复查无其它硬编码凭据。
         - id: REV-2
           severity: LOW
           owner: Tester
           summary: >
-            `tests/test_f022_metadata_extra.py` / `tests/test_ip_address_range_metadata_guards.py` 文件末尾缺换行；
-            无功能影响，补末尾换行。
+            `tests/test_f022_metadata_extra.py` / `tests/test_ip_address_range_metadata_guards.py` 文件末尾缺换行。
+            **已修复**：两文件均已补末尾换行。
         - id: REV-3
           severity: NOTE
           owner: Product Manager
           summary: >
-            空串 `name = ""` 满足 `name IS NOT NULL`，参与同 Cluster 活跃唯一性（两个活跃 "" 会 409）；
-            与契约「字面等值唯一」自洽，非缺陷；若未来需「空串等同未命名」属新 Feature。
+            空串 `name = ""` 按字面参与同 Cluster 活跃唯一性。**已处理**：契约 §7.3 已补一句明确该边界
+            （同 Cluster 两个活跃 `""` 会 `409 DUPLICATE`；前端空输入映射为 `null`）。属已确认语义的澄清，非规则变更。
       verification: >-
         F022 专项后端 101 passed、后端全量 1228 passed / 0 failed、前端 784 passed + build、ruff 干净、真实 PostgreSQL 16.15；
-        merge 集成树与已审阅候选 fbfc968 逐字节一致。
+        merge 集成树与已审阅候选 fbfc968 逐字节一致。后续修复仅动测试资产 / 测试与契约澄清，未改变生产实现。
     from_f021_review:
       open:
         - id: REV-1
