@@ -2,10 +2,11 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（F022 进入 Feature Workflow；`project.status = IN_PROGRESS`）
-> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 19, 'CANCELLED': 1}`
+> Generated: 2026-09-21（全部 V1 Feature 处置完毕；`project.status = DONE`）
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
 
-**2026-09-21（增量三·续二）**：F022 转 **IN_PROGRESS**，自 develop（dae7fe9）创建分支 `feature/F022-network-segment-metadata`，进入 Product。
+**2026-09-21（增量三·终）**：F022 完成（merge b467e89，Reviewer = APPROVED WITH FOLLOW-UP），**F022 DONE**；M11 DONE。
+全部 V1 Feature 处置完毕：**20 DONE + 1 CANCELLED（F011）**；`project.status = DONE`。
 
 **2026-09-21（增量三·续）**：用户**采纳 DEC-024 推荐方案**，本次增量计划获批准（`project.status` 转 **ACCEPTED**）。
 裁定：为网段新增 3 个**可选**字段 `name` / `subnet_mask` / `vlan` 并修订 **R-IP-004**；name 同 Cluster 活跃唯一（大小写敏感、软删释放）；
@@ -51,10 +52,10 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | P0 | 7（F012、F013、F014、F015、F001、F002、F009） |
 | P1 | 13（F004、F005、F006、F007、F008、F010、F011、F016、F018、F019、F020、F021、F022） |
 | P2 | 1（F017） |
-| DONE | 19 |
+| DONE | 20 |
 | CANCELLED | 1（F011） |
 | DRAFT | 0 |
-| READY / IN_PROGRESS / BLOCKED | 0 / 1 / 0（IN_PROGRESS: F022） |
+| READY / IN_PROGRESS / BLOCKED | 0 / 0 / 0 |
 | Decisions 总数 | 24（OPEN **0**） |
 
 ## 按 Epic
@@ -75,7 +76,7 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | F005 | IPAddress 管理 | P1 | **DONE** | F004 | READY | 7beb6e72 |
 | F020 | IP 地址范围段（地址池）管理 | P1 | **DONE** | F001, F005 | READY | e4291a1e |
 | F021 | IP 地址自动 / 手动分配 | P1 | **DONE** | F020, F005, F004, F002 | READY | 011d05df |
-| F022 | 网段自定义名称 / 子网掩码 / VLAN 标注 | P1 | **IN_PROGRESS** | F020 | REQUIRED | — |
+| F022 | 网段自定义名称 / 子网掩码 / VLAN 标注 | P1 | **DONE** | F020 | READY | b467e891 |
 
 ### E03 虚拟资源管理
 
@@ -129,7 +130,7 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
 | M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **DONE** |
-| M11 | 网段自定义名称 / 子网掩码 / VLAN | F022 | **执行中（F022 IN_PROGRESS）** |
+| M11 | 网段自定义名称 / 子网掩码 / VLAN | F022 | **DONE** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 
@@ -181,6 +182,7 @@ F019 的 NQ-1 ~ NQ-8 已于 2026-09-20 由用户裁定（DEC-022 RESOLVED），�
 
 ## Follow-ups（聚合；权威见计划 `planning_status.follow_ups`）
 
+- **from_f022_review**：REV-1, REV-2, REV-3（均 LOW/NOTE）
 - **from_f021_review**：REV-1（已修）, REV-2, REV-3（均 NOTE）
 - **from_f020_review**：REV-1, REV-2（已修）, REV-3 / DEF-02, NOTE-1, DEF-01（Test Infra）
 - **from_f019_review**：REV-1, REV-2, REV-3, REV-4

@@ -2,10 +2,10 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（F022 进入 Feature Workflow；`project.status = IN_PROGRESS`）
-> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 19, 'CANCELLED': 1}`
+> Generated: 2026-09-21（全部 V1 Feature 处置完毕；`project.status = DONE`）
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
 
-**2026-09-21（增量三·续二）**：F022 转 IN_PROGRESS（自 develop dae7fe9 创建分支 `feature/F022-network-segment-metadata`）；M11 执行中。
+**2026-09-21（增量三·终）**：F022 完成（merge b467e89）；M11 **DONE**；M1–M11 全部 DONE，全部 V1 Feature 处置完毕（20 DONE + 1 CANCELLED）。
 
 **2026-09-21（增量三·续）**：用户采纳 DEC-024 推荐方案，DEC-024 RESOLVED；M11 进入条件已满足，F022 转 **READY**（待实现）。M1–M10 结论不变。
 
@@ -42,7 +42,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M8 | 集群内资源关键字搜索 | F018 | **DONE** |
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
 | M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **DONE** |
-| M11 | 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） | F022 | **执行中（F022 IN_PROGRESS）** |
+| M11 | 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） | F022 | **DONE** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -249,13 +249,13 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 
 **完成情况**：DEC-023 已 RESOLVED（2026-09-20），PR-01 已由用户 2026-09-21 裁定（采纳 A）；F020 已于 2026-09-21 DONE（merge e4291a1）；F021 已于 2026-09-21 DONE（merge 011d05d）。M10 DONE。
 
-## M11 — 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） · 状态：执行中（F022 IN_PROGRESS）
+## M11 — 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） · 状态：DONE
 
 **目标**：按用户裁定，为每个自定义网段（IP 地址范围段）补充可维护的元数据（自定义名称 / 子网掩码 / VLAN），使网段具备业务可读标识与网络参数，同时不破坏 F020 / F021 既有语义（语义待 DEC-024 与 F022 NQ 裁定）。
 
 | ID | Feature | Priority | 状态 | Merge |
 |---|---|---|---|---|
-| F022 | 网段自定义名称 / 子网掩码 / VLAN 标注 | P1 | **IN_PROGRESS** | — |
+| F022 | 网段自定义名称 / 子网掩码 / VLAN 标注 | P1 | **DONE** | b467e891 |
 
 **进入条件**
 - DEC-024 由用户裁定为明确结论（含字段 / 唯一性 / 掩码表示与一致性 / VLAN 取值域 / 扩展或新实体）。
@@ -269,9 +269,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 - 未认证 → 401；软删资源不出现；R-IP-001 ~ R-IP-010 及 F020 / F021 既有语义不被静默修改。
 - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
-**已裁定（DEC-024 RESOLVED，2026-09-21）**：为范围段新增 3 个可选字段 `name` / `subnet_mask` / `vlan` 并修订 R-IP-004；
-扩展既有 `ip_address_ranges` 加 3 个可空列 + name partial unique（migration 0010）；不推翻 F020 / F021。F022 已 **READY**，
-Product 落 §12 规则、Architecture 定稿 f020 契约修订与 migration 后即可实现。
+**完成情况**：DEC-024 已 RESOLVED，F022 已于 2026-09-21 DONE（merge b467e89；`ip_address_ranges` 加 3 个可空列 + migration 0010）。M11 DONE。
 
 ---
 
