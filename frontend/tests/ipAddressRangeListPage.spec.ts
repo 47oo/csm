@@ -1,41 +1,51 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
-import ElementPlus, { ElPagination, ElPopconfirm, ElSelect } from 'element-plus'
+import ElementPlus, { ElInputNumber, ElPagination, ElPopconfirm, ElSelect } from 'element-plus'
 import IpAddressRangeListPage from '../src/pages/IpAddressRangeListPage.vue'
 import IpAddressRangeFormDialog from '../src/components/IpAddressRangeFormDialog.vue'
+import type { IpAddressRangeRead } from '../src/api/ipAddressRanges'
 import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
- * IP 地址范围段列表页测试（F020）。
+ * IP 地址范围段列表页测试（F020 + F022）。
  *
  * 覆盖：三态互不相同、Empty（200 + items == []）与 Not Found（所筛选 Cluster
  * 404）可区分（R-QUERY-004）、挂载单请求（集群选项懒加载）、错误按 error.code
- * 分支（不解析 message）、按集群筛选（?cluster_id=）、字段封闭（无状态列 /
- * 无 name 列，Q-002=B / 契约 §2）、行级详情 / 删除入口（二次确认 / 204 刷新 /
- * 409 ACTIVE_CHILDREN_EXIST / 409 OVERLAP / 404 / 401 / 防重复）、登记表单
- * 入口（POST body 构造 / 404 / 400 / 409 OVERLAP / 401 / 防重复 / §21 不
- * 预判：非法 IPv4 / start>end / 与既有行重叠取值仍提交）。
+ * 分支（不解析 message）、按集群筛选（?cluster_id=）、字段封闭（无状态列，
+ * Q-002=B；F022 三列名称 / 子网掩码 / VLAN 契约原样展示，null → 「—」；三
+ * 字段不是筛选 / 排序参数，无对应入口）、行级详情 / 删除入口（二次确认 /
+ * 204 刷新 / 409 ACTIVE_CHILDREN_EXIST / 409 OVERLAP / 404 / 401 / 防重复）、
+ * 登记表单入口（POST body 构造 / F022 三可选字段空 → null、原样提交 / 404 /
+ * 400 / 409 OVERLAP / 409 DUPLICATE / 401 / 防重复 / §21 不预判：非法 IPv4 /
+ * start>end / 与既有行重叠 / 非法掩码 / 越界 VLAN 取值仍提交）。
  *
- * 响应体严格按 docs/api/f020-ip-address-range.md 构造（§2 资源表示 / §3.2
- * 列表 / §3.1 登记 / §3.5 删除 / §4 错误信封 / §9 Empty 与 Not Found）；
- * 集群选项响应按 docs/api/f001-cluster.md §3.2 构造。
+ * 响应体严格按 docs/api/f020-ip-address-range.md（含 F022 纯增量修订）构造
+ * （§2 资源表示 / §3.2 列表 / §3.1 登记 / §3.5 删除 / §4 错误信封 / §9
+ * Empty 与 Not Found）；集群选项响应按 docs/api/f001-cluster.md §3.2 构造。
  */
 
-const IP_ADDRESS_RANGE_A = {
+const IP_ADDRESS_RANGE_A: IpAddressRangeRead = {
   id: 7,
   cluster_id: 3,
   start_ip: '10.0.0.1',
   end_ip: '10.0.0.255',
+  name: '业务网',
+  subnet_mask: '255.255.255.0',
+  vlan: 100,
   created_at: '2026-09-20T10:00:00Z',
   updated_at: '2026-09-20T10:00:00Z',
 }
-const IP_ADDRESS_RANGE_B = {
+const IP_ADDRESS_RANGE_B: IpAddressRangeRead = {
   ...IP_ADDRESS_RANGE_A,
   id: 8,
   cluster_id: 4,
   start_ip: '192.168.1.1',
   end_ip: '192.168.1.254',
+  // F022 三字段未登记（null）→ 列表展示「—」占位（契约 §2 可空语义）。
+  name: null,
+  subnet_mask: null,
+  vlan: null,
   updated_at: '2026-09-20T11:30:00Z',
 }
 
@@ -347,25 +357,70 @@ describe('IpAddressRangeListPage 集群筛选（页内能力，契约 §3.2 ?clu
 })
 
 describe('IpAddressRangeListPage 内容 / 字段封闭与分页', () => {
-  it('成功 → 表格展示 id / 所属集群 ID / start_ip – end_ip / 更新时间（契约原样值）；无状态列 / 无 name 列（Q-002=B / 契约 §2）', async () => {
+  it('成功 → 表格展示 id / 所属集群 ID / start_ip – end_ip / 名称 / 子网掩码 / VLAN / 更新时间（契约原样值）；F022 三字段 null → 「—」；无状态列（Q-002=B / 契约 §2）', async () => {
     stubFetch({})
 
     const wrapper = await mountListWithRows()
 
-    const rows = wrapper.findAll('.el-table__row')
-    expect(rows[0].text()).toContain('10.0.0.1 – 10.0.0.255')
-    expect(rows[0].text()).toContain('3')
-    expect(rows[0].text()).toContain('2026-09-20T10:00:00Z')
-    expect(rows[1].text()).toContain('192.168.1.1 – 192.168.1.254')
-    expect(rows[1].text()).toContain('4')
+    // 表头含 F022 三列（契约 §2，9 字段集合）。
+    const header = wrapper.find('.el-table__header').text()
+    expect(header).toContain('名称')
+    expect(header).toContain('子网掩码')
+    expect(header).toContain('VLAN')
+
+    // 行 A（三字段已登记）：契约原样值。列顺序：ID / 所属集群 ID / 地址范围 /
+    // 名称 / 子网掩码 / VLAN / 更新时间 / 操作。
+    const rowsA = wrapper.findAll('.el-table__row')[0]!.findAll('td')
+    expect(rowsA[0].text()).toContain('7')
+    expect(rowsA[2].text()).toContain('10.0.0.1 – 10.0.0.255')
+    expect(rowsA[3].text()).toBe('业务网')
+    expect(rowsA[4].text()).toBe('255.255.255.0')
+    expect(rowsA[5].text()).toBe('100')
+    expect(rowsA[6].text()).toContain('2026-09-20T10:00:00Z')
+
+    // 行 B（三字段未登记，null）→ 「—」占位（与 F007 Container 先例同款；
+    // 契约 §2 可空语义，不为 null 编造值）。
+    const rowsB = wrapper.findAll('.el-table__row')[1]!.findAll('td')
+    expect(rowsB[2].text()).toContain('192.168.1.1 – 192.168.1.254')
+    expect(rowsB[3].text()).toBe('—')
+    expect(rowsB[4].text()).toBe('—')
+    expect(rowsB[5].text()).toBe('—')
+
     // 无状态（Q-002=B）：不渲染状态标签 / 状态列。
     expect(wrapper.find('[data-status]').exists()).toBe(false)
     expect(wrapper.find('.el-table__header').text()).not.toContain('状态')
-    // 无 name / description 列（契约 §2 字段封闭）。
-    expect(wrapper.find('.el-table__header').text()).not.toContain('名称')
-    expect(wrapper.find('.el-table__header').text()).not.toContain('name')
+    // 无 description / 用途列（契约 §2 字段封闭；name / subnet_mask / vlan
+    // 已为 F022 契约字段）。
+    expect(wrapper.find('.el-table__header').text()).not.toContain('描述')
+    expect(wrapper.find('.el-table__header').text()).not.toContain('用途')
     // 不暴露 deleted_at（契约 §2：字段集合封闭）。
     expect(wrapper.find('.el-table__header').text()).not.toContain('deleted_at')
+  })
+
+  it('F022 三字段不是筛选 / 排序参数（契约 §10）：无按名称 / 掩码 / VLAN 的筛选或排序入口', async () => {
+    const fetchMock = stubFetch({})
+
+    const wrapper = await mountListWithRows()
+
+    // 筛选区仅有集群下拉 + 筛选 / 重置按钮，无 F022 三字段的输入。
+    const filterBar = wrapper.find('.range-list__filter-bar')
+    expect(filterBar.text()).not.toContain('名称')
+    expect(filterBar.text()).not.toContain('子网掩码')
+    expect(filterBar.text()).not.toContain('VLAN')
+    // 列表请求永不携带三字段（挂载 + 筛选 + 重置全流程）。
+    const filterSelect = findFilterSelect(wrapper)
+    filterSelect.vm.$emit('visible-change', true)
+    await filterSelect.vm.$emit('update:modelValue', 3)
+    await wrapper.find('[data-testid="range-filter-apply"]').trigger('click')
+    await waitForUi(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        '/api/ip-address-ranges?page=1&page_size=50&cluster_id=3',
+        expect.anything(),
+      )
+    })
+    for (const call of fetchMock.mock.calls) {
+      expect(String(call[0])).not.toMatch(/(name|subnet_mask|vlan)=/)
+    }
   })
 
   it('分页器绑定契约信封值；翻页 → 以新 page 重新请求 /api/ip-address-ranges', async () => {
@@ -685,6 +740,16 @@ const CREATE_OVERLAP_BODY = {
     details: [{ row: null, field: null, code: 'OVERLAP', message: '与展示无关的重叠提示' }],
   },
 }
+/** 契约 §4.2（F022）：稳定判别值为 details[].code === 'DUPLICATE'；DB 兜底
+ * 路径 details[].field 为 best-effort（不构成契约）→ 本桩使用 field: null，
+ * 证明前端只按 code 分支、不依赖 field。message 与展示无关。 */
+const CREATE_DUPLICATE_BODY = {
+  error: {
+    code: 'CONFLICT',
+    message: '与展示无关的冲突文案',
+    details: [{ row: null, field: null, code: 'DUPLICATE', message: '与展示无关的同名提示' }],
+  },
+}
 
 /** 打开登记对话框并等待表单渲染就绪（el-dialog 内容首开才挂载）。 */
 async function openCreateDialog(wrapper: VueWrapper): Promise<void> {
@@ -706,6 +771,15 @@ function findFormClusterSelect(wrapper: VueWrapper) {
     .find((s) => s.classes().includes('ip-address-range-form__cluster-select'))
   expect(select, '期望找到归属集群下拉').toBeDefined()
   return select!
+}
+
+/** 登记对话框内的 VLAN 数字输入（el-input-number，按 class 精确定位）。 */
+function findFormVlanInput(wrapper: VueWrapper) {
+  const input = wrapper
+    .findAllComponents(ElInputNumber)
+    .find((c) => c.classes().includes('ip-address-range-form__vlan'))
+  expect(input, '期望找到 VLAN 数字输入').toBeDefined()
+  return input!
 }
 
 /** 选择归属集群（el-select 以 update:modelValue 驱动表单状态）。 */
@@ -751,7 +825,7 @@ describe('IpAddressRangeListPage 登记入口（契约 §3.1，§21 不预判）
     })
   })
 
-  it('表单字段仅 cluster_id（下拉）/ start_ip / end_ip：无状态、name / description 输入（契约 §2 封闭）', async () => {
+  it('表单字段为 cluster_id（下拉）/ start_ip / end_ip / 名称 / 子网掩码 / VLAN（F022 可选输入）：无状态、无 description / 用途输入（契约 §2 封闭）', async () => {
     stubFetch({})
 
     const wrapper = await mountListWithRows()
@@ -760,13 +834,16 @@ describe('IpAddressRangeListPage 登记入口（契约 §3.1，§21 不预判）
     expect(wrapper.find('[data-testid="range-form-cluster"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="range-form-start-ip"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="range-form-end-ip"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="range-form-name"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="range-form-subnet-mask"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="range-form-vlan"]').exists()).toBe(true)
     const dialogText = wrapper.find('.el-dialog').text()
     expect(dialogText).not.toContain('状态')
-    expect(dialogText).not.toContain('名称')
+    expect(dialogText).not.toContain('描述')
     expect(dialogText).not.toContain('用途')
   })
 
-  it('归属集群未选择（表单未完成）→ 提交按钮禁用；start_ip / end_ip 为空不禁用（合法性由服务端裁决）', async () => {
+  it('归属集群未选择（表单未完成）→ 提交按钮禁用；start_ip / end_ip / 三个可选字段为空不禁用（合法性由服务端裁决）', async () => {
     stubFetch({})
 
     const wrapper = await mountListWithRows()
@@ -775,13 +852,14 @@ describe('IpAddressRangeListPage 登记入口（契约 §3.1，§21 不预判）
     // 初始：归属集群未选择。
     expect(wrapper.find('[data-testid="range-form-submit"]').attributes('disabled')).toBeDefined()
 
-    // 选择归属集群后即可提交：start_ip / end_ip 留空不禁用（是否拒绝空串 /
-    // 非法 IPv4 由服务端裁决，前端不基于未定义项编写业务分支）。
+    // 选择归属集群后即可提交：start_ip / end_ip 留空不禁用，三个可选字段
+    // 留空也不禁用（是否拒绝空串 / 非法 IPv4 / 非法掩码 / 越界 VLAN 由服务端
+    // 裁决，前端不基于未定义项编写业务分支）。
     await selectFormCluster(wrapper, 3)
     expect(wrapper.find('[data-testid="range-form-submit"]').attributes('disabled')).toBeUndefined()
   })
 
-  it('填表提交 → POST /api/ip-address-ranges；请求体恰为三字段（契约 §3.1 schema 封闭）', async () => {
+  it('填表提交 → POST /api/ip-address-ranges；请求体恰为 6 字段（必填 3 + F022 可选 3，空输入 → null 未登记，契约 §3.1）', async () => {
     const fetchMock = stubFetch({})
 
     const wrapper = await mountListWithRows()
@@ -799,12 +877,54 @@ describe('IpAddressRangeListPage 登记入口（契约 §3.1，§21 不预判）
       '/api/ip-address-ranges',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ cluster_id: 3, start_ip: '10.0.0.1', end_ip: '10.0.0.255' }),
+        body: JSON.stringify({
+          cluster_id: 3,
+          start_ip: '10.0.0.1',
+          end_ip: '10.0.0.255',
+          name: null,
+          subnet_mask: null,
+          vlan: null,
+        }),
       }),
     )
   })
 
-  it('§21 不预判：start > end、非法 IPv4、与既有行重叠的取值均原样提交（服务端裁决）', async () => {
+  it('填写 F022 三字段提交 → POST body 原样携带三字段（不 trim / 不校验掩码 / 不限 VLAN 范围，§21）', async () => {
+    const fetchMock = stubFetch({})
+
+    const wrapper = await mountListWithRows()
+    await openCreateDialog(wrapper)
+
+    await selectFormCluster(wrapper, 3)
+    await wrapper.find('[data-testid="range-form-start-ip"]').setValue('10.0.0.1')
+    await wrapper.find('[data-testid="range-form-end-ip"]').setValue('10.0.0.255')
+    // 首尾空白（契约 §7.3 未定义约束）、非连续掩码、越界 VLAN：均原样提交，
+    // 由服务端裁决（400），前端不预判（§21）。
+    await wrapper.find('[data-testid="range-form-name"]').setValue('  业务网  ')
+    await wrapper.find('[data-testid="range-form-subnet-mask"]').setValue('255.0.255.0')
+    await findFormVlanInput(wrapper).vm.$emit('update:modelValue', 4095)
+    await submitWhenEnabled(wrapper)
+
+    await waitForUi(() => {
+      expect(createCalls(fetchMock)).toBe(1)
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/ip-address-ranges',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          cluster_id: 3,
+          start_ip: '10.0.0.1',
+          end_ip: '10.0.0.255',
+          name: '  业务网  ',
+          subnet_mask: '255.0.255.0',
+          vlan: 4095,
+        }),
+      }),
+    )
+  })
+
+  it('§21 不预判：start > end、非法 IPv4、与既有行重叠的取值均原样提交（服务端裁决；F022 三字段缺省提交 null）', async () => {
     const fetchMock = stubFetch({
       create: () => jsonResponse(400, CREATE_VALIDATION_BODY),
     })
@@ -845,9 +965,9 @@ describe('IpAddressRangeListPage 登记入口（契约 §3.1，§21 不预判）
       .filter((call) => (call[1] as RequestInit | undefined)?.method === 'POST')
       .map((call) => JSON.parse((call[1] as RequestInit).body as string))
     expect(bodies).toEqual([
-      { cluster_id: 3, start_ip: '10.0.1.9', end_ip: '10.0.1.1' },
-      { cluster_id: 3, start_ip: '10.0.0.0/24', end_ip: 'abc' },
-      { cluster_id: 3, start_ip: '10.0.0.1', end_ip: '10.0.0.255' },
+      { cluster_id: 3, start_ip: '10.0.1.9', end_ip: '10.0.1.1', name: null, subnet_mask: null, vlan: null },
+      { cluster_id: 3, start_ip: '10.0.0.0/24', end_ip: 'abc', name: null, subnet_mask: null, vlan: null },
+      { cluster_id: 3, start_ip: '10.0.0.1', end_ip: '10.0.0.255', name: null, subnet_mask: null, vlan: null },
     ])
   })
 
@@ -970,6 +1090,32 @@ describe('IpAddressRangeListPage 登记入口（契约 §3.1，§21 不预判）
     const alert = wrapper.find('[data-error-code="CONFLICT"]')
     expect(alert.text()).toContain('与该 Cluster 已有范围段重叠')
     expect(wrapper.text()).not.toContain('与展示无关的冲突文案')
+    // 对话框保持打开（失败不关闭，用户可修改后重试）。
+    expect(createDialogOpen(wrapper)).toBe(true)
+  })
+
+  it('409 CONFLICT + details[].code === DUPLICATE（F022，同 Cluster 活跃同名，契约 §4.2；field 为 best-effort 不参与分支）→ 「该集群已存在同名网段」（不解析 message）', async () => {
+    stubFetch({
+      create: () => jsonResponse(409, CREATE_DUPLICATE_BODY),
+    })
+
+    const wrapper = await mountListWithRows()
+    await openCreateDialog(wrapper)
+
+    await selectFormCluster(wrapper, 3)
+    await wrapper.find('[data-testid="range-form-start-ip"]').setValue('10.0.1.1')
+    await wrapper.find('[data-testid="range-form-end-ip"]').setValue('10.0.1.254')
+    await wrapper.find('[data-testid="range-form-name"]').setValue('业务网')
+    await submitWhenEnabled(wrapper)
+
+    await waitForUi(() => {
+      expect(wrapper.find('[data-error-code="CONFLICT"]').exists()).toBe(true)
+    })
+    const alert = wrapper.find('[data-error-code="CONFLICT"]')
+    expect(alert.text()).toContain('该集群已存在同名网段')
+    expect(alert.text()).toContain('区分大小写')
+    expect(wrapper.text()).not.toContain('与展示无关的冲突文案')
+    expect(wrapper.text()).not.toContain('与展示无关的同名提示')
     // 对话框保持打开（失败不关闭，用户可修改后重试）。
     expect(createDialogOpen(wrapper)).toBe(true)
   })

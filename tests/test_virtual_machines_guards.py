@@ -246,12 +246,12 @@ def test_g10_no_generic_eav_json_or_polymorphic_for_vm():
 
 
 # --------------------------------------------------------------------------- #
-# G-11：MIGRATION_HEAD 与当前 head 一致（F008 演进：head 从 0007 → 0008）
+# G-11：MIGRATION_HEAD 与当前 head 一致（F022 演进：head 从 0009 → 0010）
 # --------------------------------------------------------------------------- #
 def test_g11_migration_head_is_current_head():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
+    assert MIGRATION_HEAD == "0010_f022_ip_range_metadata"
 
 
 # --------------------------------------------------------------------------- #

@@ -9,22 +9,27 @@ import {
   listIpAddressRanges,
   updateIpAddressRange,
 } from '../src/api/ipAddressRanges'
-import type { IpAddressRangeRead } from '../src/api/ipAddressRanges'
+import type { IpAddressRangeListParams, IpAddressRangeRead } from '../src/api/ipAddressRanges'
 import { ApiError } from '../src/api/http'
 
 /**
  * IPAddressRange API 客户端测试：请求构造（路径 / 方法 / 查询 / 请求体）、
- * 契约错误语义透传与结构性约束（字段封闭、无状态 / 无 name / 无 deleted_at、
- * 无 IPv4 校验 / 归一化 / start<=end 预判 / 重叠预检辅助）。契约依据：
- * docs/api/f020-ip-address-range.md（READY）。fetch 全部桩替换，不触达真实后端。
+ * 契约错误语义透传与结构性约束（字段封闭、无状态 / 无 deleted_at、三可选
+ * 元数据字段不是查询参数、无 IPv4 / 掩码 / VLAN 校验 / 归一化 /
+ * start<=end 预判 / 重叠 / 重名预检辅助）。契约依据：
+ * docs/api/f020-ip-address-range.md（READY，含 F022 纯增量修订）。
+ * fetch 全部桩替换，不触达真实后端。
  */
 
-/** 契约 §2 示例资源：恰 6 字段。 */
+/** 契约 §2 示例资源（F022 修订后）：恰 9 字段，含 3 个可选元数据字段。 */
 const IP_ADDRESS_RANGE_A = {
   id: 7,
   cluster_id: 3,
   start_ip: '10.0.0.1',
   end_ip: '10.0.0.255',
+  name: '业务网',
+  subnet_mask: '255.255.255.0',
+  vlan: 100,
   created_at: '2026-09-20T10:00:00Z',
   updated_at: '2026-09-20T10:00:00Z',
 }
@@ -70,29 +75,48 @@ describe('结构性约束（字段封闭 / §21 不重复实现业务守卫）',
     }
   })
 
-  it('IpAddressRangeRead 字段集合封闭（契约 §2）：恰为 6 字段（编译期穷举断言）', () => {
+  it('IpAddressRangeRead 字段集合封闭（契约 §2，含 F022 修订）：恰为 9 字段（编译期穷举断言）', () => {
     // 若 IpAddressRangeRead 增删字段，该字面量的多余 / 缺失属性均导致 typecheck 失败。
-    // 不存在 status / deleted_at / name / description（契约 §2 / §10）。
+    // 不存在 status / deleted_at / description（契约 §2 / §10）；F022 三字段
+    // name / subnet_mask / vlan 为可空（未登记为 null）。
     const exhaustive: Record<keyof IpAddressRangeRead, true> = {
       id: true,
       cluster_id: true,
       start_ip: true,
       end_ip: true,
+      name: true,
+      subnet_mask: true,
+      vlan: true,
       created_at: true,
       updated_at: true,
     }
     expect(exhaustive).toBeDefined()
   })
 
-  it('契约 §2 示例资源恰为 6 字段（运行时字段集合与类型声明一致）', () => {
+  it('契约 §2 示例资源恰为 9 字段（运行时字段集合与类型声明一致）', () => {
     expect(Object.keys(IP_ADDRESS_RANGE_A).sort()).toEqual([
       'cluster_id',
       'created_at',
       'end_ip',
       'id',
+      'name',
       'start_ip',
+      'subnet_mask',
       'updated_at',
+      'vlan',
     ])
+  })
+
+  it('name / subnet_mask / vlan 不是查询参数（契约 §10）：listIpAddressRanges 参数类型不含三字段（编译期断言）', () => {
+    // 契约 §10：三字段不是查询 / 筛选 / 排序参数 → 类型层面即不可构造；
+    // 若未来有人在参数类型中新增，@ts-expect-error 将因未命中错误而失败。
+    // @ts-expect-error name 不是 IpAddressRangeListParams 的合法属性
+    const invalidName: IpAddressRangeListParams = { name: '业务网' }
+    // @ts-expect-error subnet_mask 不是 IpAddressRangeListParams 的合法属性
+    const invalidMask: IpAddressRangeListParams = { subnet_mask: '255.255.255.0' }
+    // @ts-expect-error vlan 不是 IpAddressRangeListParams 的合法属性
+    const invalidVlan: IpAddressRangeListParams = { vlan: 100 }
+    expect([invalidName, invalidMask, invalidVlan]).toBeDefined()
   })
 })
 
@@ -153,7 +177,7 @@ describe('请求构造（契约 §3）', () => {
     )
   })
 
-  it('createIpAddressRange → POST /api/ip-address-ranges，JSON 请求体恰为三字段（契约 §3.1 schema 封闭）', async () => {
+  it('createIpAddressRange → POST /api/ip-address-ranges，JSON 请求体恰为必填三字段（可选三字段缺省不注入，契约 §3.1 schema 封闭）', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(201, IP_ADDRESS_RANGE_A))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -193,7 +217,72 @@ describe('请求构造（契约 §3）', () => {
     ])
   })
 
-  it('updateIpAddressRange → PATCH /api/ip-address-ranges/{id}（可变字段恰为 start_ip / end_ip，契约 §3.4）', async () => {
+  it('createIpAddressRange 携带 F022 三字段 → POST body 原样携带（含 null / 首尾空白 / 非法掩码 / 越界 VLAN，契约 §3.1 / §7.3 / §21 不做任何变换与预判）', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(201, IP_ADDRESS_RANGE_A),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    // 合法三字段：原样携带。
+    await createIpAddressRange({
+      cluster_id: 3,
+      start_ip: '10.0.0.1',
+      end_ip: '10.0.0.255',
+      name: '业务网',
+      subnet_mask: '255.255.255.0',
+      vlan: 100,
+    })
+    // 未定义约束 / 非法 / 越界取值：不 trim、不校验掩码格式、不限 VLAN 范围，
+    // 原样提交，由服务端裁决（400）。
+    await createIpAddressRange({
+      cluster_id: 3,
+      start_ip: '10.0.0.1',
+      end_ip: '10.0.0.255',
+      name: '  Web  ',
+      subnet_mask: '255.0.255.0',
+      vlan: 4095,
+    })
+    // 显式 null：均视为未登记（契约 §3.1）。
+    await createIpAddressRange({
+      cluster_id: 3,
+      start_ip: '10.0.0.1',
+      end_ip: '10.0.0.255',
+      name: null,
+      subnet_mask: null,
+      vlan: null,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const bodies = fetchMock.mock.calls.map(
+      (call) => JSON.parse((call[1] as RequestInit).body as string) as Record<string, unknown>,
+    )
+    expect(bodies[0]).toEqual({
+      cluster_id: 3,
+      start_ip: '10.0.0.1',
+      end_ip: '10.0.0.255',
+      name: '业务网',
+      subnet_mask: '255.255.255.0',
+      vlan: 100,
+    })
+    expect(bodies[1]).toEqual({
+      cluster_id: 3,
+      start_ip: '10.0.0.1',
+      end_ip: '10.0.0.255',
+      name: '  Web  ',
+      subnet_mask: '255.0.255.0',
+      vlan: 4095,
+    })
+    expect(bodies[2]).toEqual({
+      cluster_id: 3,
+      start_ip: '10.0.0.1',
+      end_ip: '10.0.0.255',
+      name: null,
+      subnet_mask: null,
+      vlan: null,
+    })
+  })
+
+  it('updateIpAddressRange → PATCH /api/ip-address-ranges/{id}（可变字段集含 F022 修订；此处提交 start_ip / end_ip，契约 §3.4）', async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse(200, { ...IP_ADDRESS_RANGE_A, end_ip: '10.0.1.255' }),
     )
@@ -221,6 +310,48 @@ describe('请求构造（契约 §3）', () => {
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ end_ip: '10.0.0.254' }),
+      }),
+    )
+  })
+
+  it('updateIpAddressRange 快照式提交 5 个可变字段（契约 §3.4，含 F022 修订；可变集恰为 {start_ip, end_ip, name, subnet_mask, vlan}）', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(200, IP_ADDRESS_RANGE_A))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await updateIpAddressRange(7, {
+      start_ip: '10.0.0.1',
+      end_ip: '10.0.1.255',
+      name: '业务网',
+      subnet_mask: '255.255.255.0',
+      vlan: 100,
+    })
+
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+      '/api/ip-address-ranges/7',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          start_ip: '10.0.0.1',
+          end_ip: '10.0.1.255',
+          name: '业务网',
+          subnet_mask: '255.255.255.0',
+          vlan: 100,
+        }),
+      }),
+    )
+  })
+
+  it('updateIpAddressRange null 清空 F022 三字段（契约 §3.4：提供 null → 清空为未登记，不触发唯一性冲突）', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(200, IP_ADDRESS_RANGE_A))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await updateIpAddressRange(7, { name: null, subnet_mask: null, vlan: null })
+
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+      '/api/ip-address-ranges/7',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ name: null, subnet_mask: null, vlan: null }),
       }),
     )
   })
@@ -375,6 +506,91 @@ describe('错误语义透传（契约 §4 / §8；api-conventions.md §5 / §6�
     expect(err.status).toBe(409)
     expect(err.code).toBe('CONFLICT')
     expect(err.details[0]?.code).toBe('OVERLAP')
+  })
+
+  it('createIpAddressRange 409 CONFLICT + details[].code === DUPLICATE（同 Cluster 活跃同名，契约 §3.1 / §4.2）→ 保留判别值（不解析 message）', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(409, {
+          error: {
+            code: 'CONFLICT',
+            message: '与展示无关的冲突文案',
+            // DB 兜底路径 details[].field 为 best-effort（契约 §4.2）→ 消费方
+            // 只能按 details[].code 分支，不依赖 field。
+            details: [{ row: null, field: null, code: 'DUPLICATE', message: '与展示无关的同名文案' }],
+          },
+        }),
+      ),
+    )
+
+    const err = await expectApiError(
+      createIpAddressRange({
+        cluster_id: 3,
+        start_ip: '10.0.1.1',
+        end_ip: '10.0.1.254',
+        name: '业务网',
+      }),
+    )
+
+    expect(err.status).toBe(409)
+    expect(err.code).toBe('CONFLICT')
+    expect(err.details[0]?.code).toBe('DUPLICATE')
+  })
+
+  it('createIpAddressRange 400 VALIDATION_ERROR（非法 subnet_mask / 越界 vlan，契约 §3.1）→ 保留 details[].field / code', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(400, {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: '与展示无关的校验文案',
+            details: [
+              { field: 'subnet_mask', code: 'INVALID', message: '与展示无关的掩码提示' },
+              { field: 'vlan', code: 'INVALID', message: '与展示无关的 VLAN 提示' },
+            ],
+          },
+        }),
+      ),
+    )
+
+    const err = await expectApiError(
+      createIpAddressRange({
+        cluster_id: 3,
+        start_ip: '10.0.0.1',
+        end_ip: '10.0.0.255',
+        subnet_mask: '255.0.255.0',
+        vlan: 4095,
+      }),
+    )
+
+    expect(err.status).toBe(400)
+    expect(err.code).toBe('VALIDATION_ERROR')
+    expect(err.details.map((detail) => detail.field)).toEqual(['subnet_mask', 'vlan'])
+    expect(err.details.every((detail) => detail.code === 'INVALID')).toBe(true)
+  })
+
+  it('updateIpAddressRange 409 CONFLICT + details[].code === DUPLICATE（修正为同 Cluster 已用名，契约 §3.4 / §4.2）→ 保留判别值', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(409, {
+          error: {
+            code: 'CONFLICT',
+            message: '与展示无关的冲突文案',
+            details: [{ field: 'name', code: 'DUPLICATE', message: '与展示无关的同名文案' }],
+          },
+        }),
+      ),
+    )
+
+    const err = await expectApiError(updateIpAddressRange(7, { name: '存储网' }))
+
+    expect(err.status).toBe(409)
+    expect(err.code).toBe('CONFLICT')
+    expect(err.details[0]?.code).toBe('DUPLICATE')
+    expect(err.details[0]?.field).toBe('name')
   })
 
   it('updateIpAddressRange 404 NOT_FOUND（目标不存在或已删，契约 §3.4）→ 保留 code', async () => {

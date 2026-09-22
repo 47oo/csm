@@ -28,7 +28,7 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: ACCEPTED
+  status: IN_PROGRESS
   status_changed_on: "2026-09-21"
   status_note_append: >
     ---
@@ -2033,7 +2033,7 @@ features:
     name: 网段自定义名称 / 子网掩码 / VLAN 标注
     epic: E02
     priority: P1
-    status: READY
+    status: IN_REVIEW
     depends_on: [F020]
     depends_on_note: >
       F022 的承载对象是 F020 已交付的 IP 地址范围段（ip_address_ranges：start–end IPv4 / 恰属一个 Cluster /
@@ -2048,45 +2048,62 @@ features:
       DEC-024 已于 2026-09-21 由用户裁定为 RESOLVED（见 decisions_required[DEC-024].resolution）；
       本 Feature 无未决产品问题，依赖 F020（已 DONE）→ **READY**。Product 落 §12 规则与 Architecture
       定稿契约 / migration 0010 在 Feature Workflow 内完成。
-    current_stage: null
+    current_stage: REVIEW
+    git:
+      base_branch: develop
+      branch: feature/F022-network-segment-metadata
+      start_commit: "dae7fe9b92b991a51a348a00b40037e4957b79fa"
+      head_commit: null
+      merge_commit: null
+    last_result: >
+      Test 完成（2026-09-21）：Tester 独立验收 **READY FOR REVIEW**，AC-01 ~ AC-30 全 PASS，无缺陷。
+      测试报告 `docs/test-reports/f022-network-segment-metadata.md`。协调器独立复跑：后端全量 **1228 passed / 0 failed**；
+      F022 专项 **101 passed**；前端 typecheck + 784 passed + build；ruff 干净。真实前后端集成、真实并发同名登记、
+      直连 DB 证伪 32/32、对抗注入均通过且逐字节还原。
+    next_action: >
+      Reviewer：对候选 HEAD `38e8792` 与 develop...HEAD 全量差异做完整 Review，核对 AC / 契约 / 数据库增量 / guard / 测试证据
+      与「契约禁止、实现却有」分裂；重点确认 name partial unique 为最终权威、大小写敏感无 COLLATE/lower、
+      既有重叠·删除守卫·R-IP-001·F021 不变、alembic_version 列宽未变。Review 通过后进入 Merge Gate。
     layers:
       database: true      # DEC-024 已裁定：扩展 ip_address_ranges 加 3 个可空列 + name partial unique + migration 0010
       backend: true       # 新字段的 CRUD、校验与唯一性
       frontend: true      # 网段自定义名称 / 掩码 / VLAN 的录入与展示
     layers_note: >
-      **DEC-024 已裁定（2026-09-21）**：`database = true` —— 扩展既有 `ip_address_ranges` 表，新增 3 个可空列
-      `name` / `subnet_mask` / `vlan` 与 name 的 partial unique；migration `0010_f022_ip_address_range_metadata`。
-      具体 schema / 约束 / 迁移形态由 Architecture / Database 在 Feature Workflow 内定稿。
+      **Architecture 定稿（2026-09-21）**：`database = true` —— 扩展既有 `ip_address_ranges` 表，新增 3 个可空列
+      `name` / `subnet_mask` / `vlan`、`name` partial unique index（`WHERE deleted_at IS NULL AND name IS NOT NULL`，大小写敏感）
+      与 `vlan` CHECK（`1–4094`）；migration `0010_f022_ip_range_metadata`（`down_revision="0009_f020_ip_address_ranges"`），无回填。
     contract:
-      status: REQUIRED
-      doc: null
+      status: READY
+      doc: docs/api/f020-ip-address-range.md
     contract_note: >
-      本 Feature **必须**修订 API 契约：在 `docs/api/f020-ip-address-range.md`（现 READY）上**纯增量**追加
-      `name` / `subnet_mask` / `vlan` 三字段（请求 / 响应），由 Architecture 在 Feature Workflow 内定稿为 READY。
-      **不得出现「契约禁止、实现却有」的分裂**。
+      f020 契约已**纯增量修订**（Status 维持 **READY**）：资源表示扩为 9 字段；POST 增 3 个可选字段；PATCH 可变集合
+      扩为 `{start_ip, end_ip, name, subnet_mask, vlan}`（`null` 清空）；新增 `409 CONFLICT + DUPLICATE`（name 重复）与
+      `400 VALIDATION_ERROR`（mask/vlan 非法）。无「契约禁止、实现却有」分裂。
+    implementation:
+      database_design: COMPLETE   # docs/database/f022-ip-address-range-metadata-migration.md
+      backend: COMPLETE           # migration 0010 + app/ip_address_ranges/**；1228 passed
+      frontend: COMPLETE          # 784 passed + typecheck + build
+      test: COMPLETE
+      review: NOT_STARTED
     product_document: docs/product/requirements.md
-    requirements: []
+    requirements:
+      - R-IP-004
     requirements_note: >
-      **DEC-024 已 RESOLVED（2026-09-21）**：Product 须在 requirements.md §12 **修订 R-IP-004**（新增可选字段
-      `name` / `subnet_mask` / `vlan` 及其语义）后，本 Feature 方可挂 requirement ID。PM / 协调器不代劳。
-      R-IP-001 ~ R-IP-010 其余部分保持不变。权威裁定见 `decisions_required[DEC-024].resolution`。
+      Product 已于 2026-09-21 **修订 R-IP-004**（新增 3 个可选字段 `name` / `subnet_mask` / `vlan` 及语义），
+      本 Feature 挂 **R-IP-004**；R-IP-001~003 与 R-IP-005~010 保持不变。完整产品依据见
+      `docs/product/handoffs/f022-network-segment-metadata.md` 与 `requirements.md` §12；权威裁定见 `decisions_required[DEC-024].resolution`。
     acceptance_criteria:
-      # 专属 AC 待 DEC-024 裁定与 Product 定稿；以下仅列与产品语义无关的通用 AC，其余为占位，不得据未确认语义实现。
-      - AC-01 认证：未认证访问本 Feature 相关端点 → 401 UNAUTHENTICATED 且不返回任何资源数据。
-      - AC-02 软删一致性：新增字段不改变范围段既有的逻辑删除语义与 R-DELETE-001/002/003/005/006 及 ADR-0004。
-      - AC-03 不改既有语义：不修改 R-IP-001 ~ R-IP-010 与 §22 大小写语义，除非 DEC-024 明确裁定修订。
-      - AC-04 契约一致：本 Feature 契约已持久化且 contract.status=READY；不得存在「契约禁止、实现却有」的分裂。
-      - AC-05 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
-      - AC-06 范围边界：不引入自动资产发现 / 外部平台同步 / 自动拓扑 / 未确认的网段扫描或导出能力。
-      - AC-07 名称（已裁定 DEC-024/NQ-2）：新增字段 `name` 可选；同一 Cluster 内活跃网段唯一；区分大小写（§22）；软删释放（R-DELETE-006）；跨 Cluster 可重复。
-      - AC-08 掩码（已裁定 DEC-024/NQ-3/NQ-4）：`subnet_mask` 可选，dotted-quad IPv4 合法掩码；不强制与 start–end 自洽；V1 仅 IPv4。
-      - AC-09 VLAN（已裁定 DEC-024/NQ-5）：`vlan` 可选整数 1–4094，不唯一。
-      - AC-10 既有语义（已裁定 DEC-024/NQ-6/NQ-7）：不新增 VLAN 唯一性；扩展既有 `ip_address_ranges`（加列）；精确修订 f020 契约；F020 / F021 结论不推翻；F021 分配不按掩码 / VLAN 过滤。
-      - AC-11 迁移（已裁定 DEC-024/NQ-8）：migration 0010，三列可空 + name partial unique，无回填。
+      # AC-01 ~ AC-30 已由 Product 于 2026-09-21 定稿；权威文本见 docs/product/handoffs/f022-network-segment-metadata.md。
+      - AC-01 ~ AC-05 认证 / 响应字段集合恰为 9 字段（含 3 个可选字段）/ 请求字段封闭 / 三字段可选缺失返回 null / 三字段往返一致。
+      - AC-06 ~ AC-10 `name`：同 Cluster 活跃唯一（保存前阻止）/ 跨 Cluster 可重复 / 区分大小写 / 软删释放 / 未定义约束（长度·trim·空串·字符集）不实现不承诺。
+      - AC-11 ~ AC-14 `subnet_mask`：合法 dotted-quad 掩码接受 / 非法（非连续 / CIDR / IPv6 / 空串）拒绝 400 / 不强制与 start–end 自洽 / V1 仅 IPv4。
+      - AC-15 ~ AC-17 `vlan`：1 与 4094 接受 / 0·4095·越界·非整数拒绝 400 / 不唯一。
+      - AC-18 仅新增 name 唯一性；无 VLAN 唯一 / 复合唯一。
+      - AC-19 ~ AC-26 既有语义不变：重叠 / 软删释放 / 删除守卫 / 无状态 / IPv4 规范化 / R-IP-001~003 与 R-IP-005~010 / 分配不按掩码·VLAN 过滤 / F005 ip_address 立场。
+      - AC-27 ~ AC-30 不引入 CIDR·IPv6·网关·DHCP·DNS·使用率等；前端三态与 error.code 分支；契约一致；migration 0010（三列可空 + name partial unique，无回填）。
     acceptance_criteria_note: >
-      AC-01 ~ AC-06 为与产品语义无关的通用 AC；AC-07 ~ AC-11 为已裁定语义的要点摘要，最终可判定 AC 由 Product
-      在 Feature Workflow 的 Product 阶段定稿并补入（含字段类型 / 错误语义 / Empty-Not Found / 唯一性 409 等）。
-      权威细节见 `decisions_required[DEC-024].resolution`。
+      全部 AC 已由 Product 定稿（2026-09-21）；细节以 `docs/product/handoffs/f022-network-segment-metadata.md`
+      为唯一权威来源，本处不再重复。
     open_questions:
       - id: NQ-1
         blocking: true
@@ -2525,7 +2542,7 @@ decisions_required:
       6) **NQ-6 新增唯一性**：仅新增「**name 同 Cluster 活跃唯一**」；**不新增 VLAN 唯一**；其余仍以 R-IP-001 为唯一性边界。
       7) **NQ-7 承载方式 / 既有影响**：**扩展既有 `ip_address_ranges` 表加 3 个可空列**；**精确修订 f020 契约（纯增量）**；
          **不推翻** F020 / F021 既有结论；**V1 分配不按掩码 / VLAN 过滤**（F021 语义不变）。
-      8) **NQ-8 迁移**：migration `0010_f022_ip_address_range_metadata`（`down_revision="0009_f020_ip_address_ranges"`），
+      8) **NQ-8 迁移**：migration `0010_f022_ip_range_metadata`（`down_revision="0009_f020_ip_address_ranges"`），
          3 个可空列 + name 的 partial unique（`WHERE deleted_at IS NULL AND name IS NOT NULL`）；**无数据回填**（既有行取 NULL）。
       **产品规则落点**：Product 须在 requirements.md §12 **修订 R-IP-004**（新增字段与语义）；R-IP-001 ~ R-IP-010 其余部分保持不变。
       具体契约 / 迁移实现由 Architecture 在 Feature Workflow 内定稿。
@@ -2926,13 +2943,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F022]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 0
     DRAFT: 0
     DONE: 19
@@ -3804,9 +3821,19 @@ planning_status:
   decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F022
+  current_stage: REVIEW
   note_append: >
+    2026-09-21：F022 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-30 全 PASS，无缺陷）；
+    协调器独立复跑后端全量 1228 passed / 前端 784 passed + build。feature.current_stage = REVIEW；进入 Reviewer。
+    2026-09-21：F022 Implementation 完成（Database 设计 + Backend + Frontend），Implementation Gate 通过；
+    协调器独立复跑后端 1228 passed / 前端 784 passed + build / ruff 干净；migration head = 0010_f022_ip_range_metadata（alembic_version 列宽未变）。现进入 TEST。
+    2026-09-21：F022 Database Design 完成（migration 0010 设计）与 Frontend 完成；feature.current_stage = BACKEND。
+    2026-09-21：F022 Architecture + Contract 完成（f020 契约纯增量修订，Status READY）；feature.current_stage = DATABASE。
+    2026-09-21：F022 Product 完成：修订 **R-IP-004**（§12）新增 3 个可选字段，产出 Product Handoff（READY FOR ARCHITECT）；
+    F022.requirements = [R-IP-004]；feature.current_stage = ARCHITECTURE。
+    2026-09-21：启动 F022（网段自定义名称 / 子网掩码 / VLAN 标注）。DEC-024 RESOLVED 后自 develop（dae7fe9）
+    创建分支 feature/F022-network-segment-metadata；project.status = IN_PROGRESS。当前进入 Product。
     2026-09-21：F021 完成（Reviewer APPROVED WITH FOLLOW-UP，HEAD f480ecc→d996158，merge 011d05d），feature.status = DONE，
     current_feature / current_stage 清空。全部 V1 Feature 处置完毕（19 DONE + 1 CANCELLED）；M10 DONE；project.status = DONE。
     2026-09-21：F021 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-33 全 PASS，无缺陷）；

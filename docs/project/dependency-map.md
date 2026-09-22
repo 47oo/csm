@@ -2,8 +2,10 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（增量三已批准；`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 19, 'CANCELLED': 1}`
+> Generated: 2026-09-21（F022 进入 Feature Workflow；`project.status = IN_PROGRESS`）
+> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 19, 'CANCELLED': 1}`
+
+**2026-09-21（增量三·续二）**：F022 转 **IN_PROGRESS**，自 develop（dae7fe9）创建分支 `feature/F022-network-segment-metadata`。
 
 **2026-09-21（增量三·续）**：用户采纳 DEC-024 推荐方案，DEC-024 **RESOLVED**，F022 由 DRAFT 转 **READY**（依赖 F020 已 DONE）。
 
@@ -50,7 +52,7 @@
 | F019 搜索结果聚合视图 | DONE | F018 | backend, frontend（database: false） |
 | F020 IP 地址范围段（地址池）管理 | DONE | F001, F005 | database, backend, frontend |
 | F021 IP 地址自动 / 手动分配 | DONE | F020, F005, F004, F002 | backend, frontend（database: false） |
-| F022 网段自定义名称 / 子网掩码 / VLAN 标注 | READY | F020 | database, backend, frontend |
+| F022 网段自定义名称 / 子网掩码 / VLAN 标注 | IN_PROGRESS | F020 | database, backend, frontend |
 
 ## 全量依赖 DAG
 
@@ -112,12 +114,12 @@ F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
 18. F019  DONE（merge 292345e8）
 19. F020  DONE（merge e4291a1）
 20. F021  DONE（merge 011d05d；数据库零变更）
-21. F022  READY（依赖 F020 已 DONE；DEC-024 RESOLVED，拟扩展 ip_address_ranges + migration 0010）
+21. F022  IN_PROGRESS（依赖 F020 已 DONE；DEC-024 RESOLVED，拟扩展 ip_address_ranges + migration 0010）
 ```
 
 ## 可并行执行的 Feature
 
-- 当前 **READY：F022**（依赖 F020 已 DONE；DEC-024 已 RESOLVED，可进入 Feature Workflow）。
+- 当前 **IN_PROGRESS：F022**（依赖 F020 已 DONE；DEC-024 已 RESOLVED）。
 - F020 与 F021 之间有真实依赖（F021 → F020），**不可并行**；F020 DONE 后 F021 方可启动。
 - 若后续一个 Milestone 内出现多个相互无依赖的 Feature，可并行；但必须划清文件所有权（`docs/project/git-workflow.md` §3）。
 
@@ -126,6 +128,6 @@ F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
 - `F019` 已 `DONE`（merge 292345e8，Reviewer = APPROVED WITH FOLLOW-UP）；产品语义由 DEC-022 裁定（2026-09-20）。F019 遗留 REV-1 / REV-2（测试覆盖回退，LOW）与 REV-4（NOTE）作为非阻塞 follow-up。
 - `F018` 已 `DONE`（merge f1ac71b1）；`F017`（侧边栏）与 `F018`（搜索）无依赖边，两者对 `frontend/src/App.vue` 的所有权冲突已解除。
 - `F020` / `F021` 已完成：F020 DONE（merge e4291a1）、F021 DONE（merge 011d05d）。
-- `F022` 为本次增量新增的 Feature（READY）：DEC-024 已 RESOLVED（2026-09-21），拟扩展 `ip_address_ranges` 加 3 个可空列（name / subnet_mask / vlan）+ migration 0010；依赖 F020（已 DONE）。全部既有 V1 交付（19 DONE + 1 CANCELLED）未被推翻。
+- `F022` 为本次增量新增的 Feature（IN_PROGRESS）：DEC-024 已 RESOLVED（2026-09-21），拟扩展 `ip_address_ranges` 加 3 个可空列（name / subnet_mask / vlan）+ migration 0010；依赖 F020（已 DONE）。全部既有 V1 交付（19 DONE + 1 CANCELLED）未被推翻。
 - `F011` 为 `CANCELLED`（用户 2026-09-18 决定），不在实施顺序中。
 - 优先级（P0 / P1 / P2）不代表执行顺序；执行顺序以上方拓扑序为准。
