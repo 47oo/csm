@@ -2048,7 +2048,7 @@ features:
       DEC-024 已于 2026-09-21 由用户裁定为 RESOLVED（见 decisions_required[DEC-024].resolution）；
       本 Feature 无未决产品问题，依赖 F020（已 DONE）→ **READY**。Product 落 §12 规则与 Architecture
       定稿契约 / migration 0010 在 Feature Workflow 内完成。
-    current_stage: DATABASE
+    current_stage: BACKEND
     git:
       base_branch: develop
       branch: feature/F022-network-segment-metadata
@@ -2056,13 +2056,13 @@ features:
       head_commit: null
       merge_commit: null
     last_result: >
-      Architecture + Contract 完成（2026-09-21）：Architecture Handoff（READY FOR IMPLEMENTATION）与
-      f020 契约**纯增量修订**（`docs/api/f020-ip-address-range.md` Status 维持 **READY**）已落盘；
-      定稿 name partial unique + vlan CHECK + migration 0010 形态、错误判别值（DUPLICATE / VALIDATION_ERROR）
-      与 PATCH 三字段可修正·null 清空。Contract Gate 通过。
+      Database Design 完成（2026-09-21）：`docs/database/f022-ip-address-range-metadata-migration.md`
+      （`READY FOR DATABASE IMPLEMENTATION`）；migration `0010_f022_ip_address_range_metadata`：3 个可空列 +
+      name partial unique（`WHERE deleted_at IS NULL AND name IS NOT NULL`，大小写敏感）+ vlan CHECK（1–4094），无回填。
+      Frontend 并行完成（FRONTEND COMPLETE）：三字段 API / 列表 / 详情 / 表单接线；协调器待后端完成后一并提交。
     next_action: >
-      Database Design：产出 `docs/database/f022-ip-address-range-metadata-migration.md`（migration 0010：3 个可空列
-      + name partial unique + vlan CHECK；无回填），然后 Backend 与 Frontend 并行实现。
+      Backend：落地 migration 0010 + `app/ip_address_ranges/**` 增量（schemas / service / repository / ipv4 掩码纯函数）；
+      然后协调器校验后提交实现。
     layers:
       database: true      # DEC-024 已裁定：扩展 ip_address_ranges 加 3 个可空列 + name partial unique + migration 0010
       backend: true       # 新字段的 CRUD、校验与唯一性
@@ -2079,9 +2079,9 @@ features:
       扩为 `{start_ip, end_ip, name, subnet_mask, vlan}`（`null` 清空）；新增 `409 CONFLICT + DUPLICATE`（name 重复）与
       `400 VALIDATION_ERROR`（mask/vlan 非法）。无「契约禁止、实现却有」分裂。
     implementation:
-      database_design: NOT_STARTED
+      database_design: COMPLETE   # docs/database/f022-ip-address-range-metadata-migration.md
       backend: NOT_STARTED
-      frontend: NOT_STARTED
+      frontend: COMPLETE          # b4ddf33 后前端增量；784 passed + build
       test: NOT_STARTED
       review: NOT_STARTED
     product_document: docs/product/requirements.md
@@ -3821,8 +3821,9 @@ planning_status:
 
 execution:
   current_feature: F022
-  current_stage: DATABASE
+  current_stage: BACKEND
   note_append: >
+    2026-09-21：F022 Database Design 完成（migration 0010 设计）与 Frontend 完成；feature.current_stage = BACKEND。
     2026-09-21：F022 Architecture + Contract 完成（f020 契约纯增量修订，Status READY）；feature.current_stage = DATABASE。
     2026-09-21：F022 Product 完成：修订 **R-IP-004**（§12）新增 3 个可选字段，产出 Product Handoff（READY FOR ARCHITECT）；
     F022.requirements = [R-IP-004]；feature.current_stage = ARCHITECTURE。
