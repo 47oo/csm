@@ -2048,7 +2048,7 @@ features:
       DEC-024 已于 2026-09-21 由用户裁定为 RESOLVED（见 decisions_required[DEC-024].resolution）；
       本 Feature 无未决产品问题，依赖 F020（已 DONE）→ **READY**。Product 落 §12 规则与 Architecture
       定稿契约 / migration 0010 在 Feature Workflow 内完成。
-    current_stage: TEST
+    current_stage: REVIEW
     git:
       base_branch: develop
       branch: feature/F022-network-segment-metadata
@@ -2056,15 +2056,14 @@ features:
       head_commit: null
       merge_commit: null
     last_result: >
-      Implementation Gate 通过（2026-09-21）：database_design / backend / frontend 均 COMPLETE。
-      Backend：migration `0010_f022_ip_range_metadata`（3 可空列 + name partial unique + vlan CHECK，无回填）；
-      `app/ip_address_ranges/**` 增量（`parse_subnet_mask` 纯函数、schemas/service/repository），无新端点；未改 `alembic_version` 列宽。
-      协调器独立复跑：后端全量 **1228 passed / 0 failed**；前端 typecheck + **784 passed** + build；ruff 干净；
-      alembic head = `0010_f022_ip_range_metadata`；列集合 10 / CHECK 2 / unique 索引 1。
+      Test 完成（2026-09-21）：Tester 独立验收 **READY FOR REVIEW**，AC-01 ~ AC-30 全 PASS，无缺陷。
+      测试报告 `docs/test-reports/f022-network-segment-metadata.md`。协调器独立复跑：后端全量 **1228 passed / 0 failed**；
+      F022 专项 **101 passed**；前端 typecheck + 784 passed + build；ruff 干净。真实前后端集成、真实并发同名登记、
+      直连 DB 证伪 32/32、对抗注入均通过且逐字节还原。
     next_action: >
-      Tester（独立验收 + 自写证伪）：重点直连 DB 证实 name partial unique 为真正权威（同 Cluster 活跃同名 23505）、
-      大小写不同共存、软删释放、vlan 越界 23514、列/约束/索引形态、非法掩码·VLAN 与同名错误语义、PATCH null 清空、
-      migration 幂等 / downgrade- upgrade 可重建、既有重叠·删除守卫·R-IP-001·F021 不变、guard 只增不弱。
+      Reviewer：对候选 HEAD `38e8792` 与 develop...HEAD 全量差异做完整 Review，核对 AC / 契约 / 数据库增量 / guard / 测试证据
+      与「契约禁止、实现却有」分裂；重点确认 name partial unique 为最终权威、大小写敏感无 COLLATE/lower、
+      既有重叠·删除守卫·R-IP-001·F021 不变、alembic_version 列宽未变。Review 通过后进入 Merge Gate。
     layers:
       database: true      # DEC-024 已裁定：扩展 ip_address_ranges 加 3 个可空列 + name partial unique + migration 0010
       backend: true       # 新字段的 CRUD、校验与唯一性
@@ -2084,7 +2083,7 @@ features:
       database_design: COMPLETE   # docs/database/f022-ip-address-range-metadata-migration.md
       backend: COMPLETE           # migration 0010 + app/ip_address_ranges/**；1228 passed
       frontend: COMPLETE          # 784 passed + typecheck + build
-      test: NOT_STARTED
+      test: COMPLETE
       review: NOT_STARTED
     product_document: docs/product/requirements.md
     requirements:
@@ -3823,8 +3822,10 @@ planning_status:
 
 execution:
   current_feature: F022
-  current_stage: TEST
+  current_stage: REVIEW
   note_append: >
+    2026-09-21：F022 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-30 全 PASS，无缺陷）；
+    协调器独立复跑后端全量 1228 passed / 前端 784 passed + build。feature.current_stage = REVIEW；进入 Reviewer。
     2026-09-21：F022 Implementation 完成（Database 设计 + Backend + Frontend），Implementation Gate 通过；
     协调器独立复跑后端 1228 passed / 前端 784 passed + build / ruff 干净；migration head = 0010_f022_ip_range_metadata（alembic_version 列宽未变）。现进入 TEST。
     2026-09-21：F022 Database Design 完成（migration 0010 设计）与 Frontend 完成；feature.current_stage = BACKEND。
