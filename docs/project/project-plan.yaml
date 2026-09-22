@@ -2185,7 +2185,7 @@ features:
     blocking_note: >
       DEC-025 已于 2026-09-22 由用户裁定为 RESOLVED（见 decisions_required[DEC-025].resolution）；
       本 Feature 无未决产品问题，依赖 F020 / F021 均已 DONE → **READY**。
-    current_stage: PRODUCT
+    current_stage: ARCHITECTURE
     git:
       base_branch: develop
       branch: feature/F023-ip-range-selection
@@ -2222,7 +2222,9 @@ features:
       test: NOT_STARTED
       review: NOT_STARTED
     product_document: docs/product/requirements.md
-    requirements: []
+    requirements:
+      - R-IP-006
+      - R-IP-009
     requirements_note: >
       Product 于 2026-09-22 修订 R-IP-006 / R-IP-009 后，本 Feature 挂 R-IP-006 与 R-IP-009；
       R-IP-001 ~ R-IP-005、R-IP-007、R-IP-008、R-IP-010 保持不变。
@@ -3999,8 +4001,10 @@ planning_status:
 
 execution:
   current_feature: F023
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   note_append: >
+    2026-09-22：F023 Product 完成：修订 **R-IP-006 / R-IP-009**（§12），产出 Product Handoff（READY FOR ARCHITECT）；
+    F023.requirements = [R-IP-006, R-IP-009]；feature.current_stage = ARCHITECTURE。
     2026-09-22：启动 F023（自动分配时指定 IP 地址范围段）。DEC-025 已 RESOLVED，自 develop（dd159f3）
     创建分支 feature/F023-ip-range-selection；project.status = IN_PROGRESS。当前进入 Product。
     2026-09-21：F022 完成（Reviewer APPROVED WITH FOLLOW-UP，HEAD fbfc968，merge b467e89），feature.status = DONE，
