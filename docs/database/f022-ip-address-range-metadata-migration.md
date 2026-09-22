@@ -9,7 +9,7 @@
 
 ## 1. 范围
 
-覆盖**一次纯增量 migration** `0010_f022_ip_address_range_metadata`：
+覆盖**一次纯增量 migration** `0010_f022_ip_range_metadata`：
 
 - `ALTER TABLE ip_address_ranges ADD COLUMN` 3 个可空列：`name TEXT NULL` / `subnet_mask TEXT NULL` / `vlan INTEGER NULL`；既有行取 `NULL`，**无回填、无数据迁移**。
 - 新增 `name` 的**部分唯一索引**（partial unique index）`ux_ip_address_ranges_cluster_name_active`。
@@ -59,7 +59,7 @@
 
 | 项 | 值 |
 |---|---|
-| revision | `0010_f022_ip_address_range_metadata` |
+| revision | `0010_f022_ip_range_metadata` |
 | down_revision | `0009_f020_ip_address_ranges`（当前 head；维持单一线性 head） |
 | upgrade | `ALTER TABLE ip_address_ranges ADD COLUMN name TEXT NULL` → `ADD COLUMN subnet_mask TEXT NULL` → `ADD COLUMN vlan INTEGER NULL` → `CREATE UNIQUE INDEX ux_ip_address_ranges_cluster_name_active ON ip_address_ranges (cluster_id, name) WHERE deleted_at IS NULL AND name IS NOT NULL` → `ALTER TABLE ip_address_ranges ADD CONSTRAINT ck_ip_address_ranges_vlan_range CHECK (vlan IS NULL OR (vlan BETWEEN 1 AND 4094))` |
 | downgrade（严格逆序） | `DROP INDEX ux_ip_address_ranges_cluster_name_active` → `ALTER TABLE ip_address_ranges DROP CONSTRAINT ck_ip_address_ranges_vlan_range` → `DROP COLUMN vlan` → `DROP COLUMN subnet_mask` → `DROP COLUMN name` |
@@ -229,7 +229,7 @@ WHERE vlan IS NOT NULL AND (vlan < 1 OR vlan > 4094);
 
 ## 9. Alembic 落地要点与可重复性
 
-**迁移文件**：`backend/migrations/versions/0010_f022_ip_address_range_metadata.py`，`revision = "0010_f022_ip_address_range_metadata"`，`down_revision = "0009_f020_ip_address_ranges"`。
+**迁移文件**：`backend/migrations/versions/0010_f022_ip_range_metadata.py`，`revision = "0010_f022_ip_range_metadata"`，`down_revision = "0009_f020_ip_address_ranges"`。
 
 落地要点：
 
@@ -327,7 +327,7 @@ unique 索引  恰 1：ux_ip_address_ranges_cluster_name_active
 
 | # | 验证 |
 |---|---|
-| V-27 | `alembic upgrade head` 幂等（二次 no-op）；`alembic current` = `0010_f022_ip_address_range_metadata` |
+| V-27 | `alembic upgrade head` 幂等（二次 no-op）；`alembic current` = `0010_f022_ip_range_metadata` |
 | V-28 | `alembic downgrade 0009_f020_ip_address_ranges` 后三列 / 索引 / CHECK 被删、既有对象与其它表完好；再 `upgrade head` 一致重建 |
 | V-29 | `alembic check` 无漂移 |
 | V-30 | `0001`–`0009` 内容逐字节未改；既有表结构不变 |
@@ -399,7 +399,7 @@ updated_at 准确性（应用层维护；不得作为审计依据）
 
 Backend / Tester 必须同步（**不得删除既有断言**）：
 
-1. `tests/database/helpers.py`：`MIGRATION_HEAD` 由 `"0009_f020_ip_address_ranges"` 演进为 `"0010_f022_ip_address_range_metadata"`。
+1. `tests/database/helpers.py`：`MIGRATION_HEAD` 由 `"0009_f020_ip_address_ranges"` 演进为 `"0010_f022_ip_range_metadata"`。
 2. 其它 head 断言同步为 `0010…`（`tests/database/test_migrations.py`、`tests/database/test_schema.py`、各 `tests/test_*_guards.py` 中的 head 断言）。
 3. `tests/database/test_ip_address_ranges_schema_guard.py`：`EXPECTED_COLUMNS` +3；`FORBIDDEN_TOKENS` 仅移除本 Feature 已确认合法的 `name` / `vlan`（保留 `status` / `description` / `cidr` / `gateway` / `dhcp` / `dns` / 容量等）；CHECK 集合断言扩为 2；unique 索引断言改为恰为 `{ux_ip_address_ranges_cluster_name_active}`。
 4. `tests/test_ip_address_ranges_guards.py`：`READ_FIELDS` / `TABLE_COLUMNS` +3；`FORBIDDEN_FIELD_TOKENS` 仅移除 `name` / `vlan`；`MUTABLE_FIELDS` 扩为 5 元组；约束 / 索引集合断言更新。
@@ -426,4 +426,4 @@ Backend / Tester 必须同步（**不得删除既有断言**）：
 READY FOR DATABASE IMPLEMENTATION
 ```
 
-无 Blocking Open Question；Schema、约束、索引、删除行为与 migration 编号均已定稿，可交 Backend 落地 `0010_f022_ip_address_range_metadata`。
+无 Blocking Open Question；Schema、约束、索引、删除行为与 migration 编号均已定稿，可交 Backend 落地 `0010_f022_ip_range_metadata`。

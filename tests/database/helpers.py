@@ -15,7 +15,7 @@ from sqlalchemy import Engine, create_engine, text
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-MIGRATION_HEAD = "0009_f020_ip_address_ranges"
+MIGRATION_HEAD = "0010_f022_ip_range_metadata"
 
 SKIP_REASON = "未配置 PostgreSQL 测试库：设置 CSM_TEST_DATABASE_URL 后重跑。"
 

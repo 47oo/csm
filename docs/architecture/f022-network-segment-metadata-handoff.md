@@ -55,7 +55,7 @@
 
 ## Data Layer Impact
 
-一次**纯增量 migration** `0010_f022_ip_address_range_metadata`（完整规格见 `docs/database/f022-ip-address-range-metadata-migration.md`）：
+一次**纯增量 migration** `0010_f022_ip_range_metadata`（完整规格见 `docs/database/f022-ip-address-range-metadata-migration.md`）：
 
 - `ALTER TABLE ip_address_ranges ADD COLUMN` 3 个可空列：`name TEXT NULL` / `subnet_mask TEXT NULL` / `vlan INTEGER NULL`；既有行取 `NULL`，无回填。
 - `CREATE UNIQUE INDEX ux_ip_address_ranges_cluster_name_active ON ip_address_ranges (cluster_id, name) WHERE deleted_at IS NULL AND name IS NOT NULL`（大小写敏感，不声明 `COLLATE`、不用 `lower()`）——「同 Cluster 活跃 name 唯一」的**最终权威**（ADR-0002 / ADR-0004）。
@@ -165,7 +165,7 @@ Testing Agent 必须验证（至少）：
 - **R-05**：写 `deleted_at` 路径仍唯一（`app/deletion/service.py`）。
 - **R-06**：IPv4 / 掩码解析**只有一份实现**（`app/ip_address_ranges/ipv4.py`）。
 - **R-07**：三字段修改经既有 `PATCH` 并重跑校验；无部分写入。
-- **R-08**：migration `0010_f022_ip_address_range_metadata`，`down_revision = "0009_f020_ip_address_ranges"`。
+- **R-08**：migration `0010_f022_ip_range_metadata`，`down_revision = "0009_f020_ip_address_ranges"`。
 - **R-09**：既有 guard 受控演进而非删除。
 - **R-10**：`ip_addresses.ip_address` 无新增格式校验 / 归一化。
 

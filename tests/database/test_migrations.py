@@ -32,11 +32,11 @@ def test_migration_applies_repeats_and_rebuilds(database_url):
         # F020：IP 地址范围段资源表。
         "ip_address_ranges",
     } <= table_names(engine)
-    assert alembic_current(database_url) == "0009_f020_ip_address_ranges"
+    assert alembic_current(database_url) == "0010_f022_ip_range_metadata"
 
     # 重复应用 → no-op，无错误
     assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
-    assert alembic_current(database_url) == "0009_f020_ip_address_ranges"
+    assert alembic_current(database_url) == "0010_f022_ip_range_metadata"
 
     # 可从空库重建（downgrade base → upgrade head）
     assert run_alembic("downgrade", "base", dsn=database_url).returncode == 0
@@ -82,7 +82,7 @@ def test_f005_downgrade_to_0005_drops_ip_addresses_and_preserves_existing(databa
 
         assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
         assert "ip_addresses" in table_names(engine)
-        assert alembic_current(database_url) == "0009_f020_ip_address_ranges"
+        assert alembic_current(database_url) == "0010_f022_ip_range_metadata"
     finally:
         engine.dispose()
 
@@ -109,7 +109,7 @@ def test_f007_downgrade_to_0006_drops_containers_and_preserves_existing(database
 
         assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
         assert "containers" in table_names(engine)
-        assert alembic_current(database_url) == "0009_f020_ip_address_ranges"
+        assert alembic_current(database_url) == "0010_f022_ip_range_metadata"
     finally:
         engine.dispose()
 
@@ -140,7 +140,7 @@ def test_f008_downgrade_to_0007_drops_services_and_preserves_existing(database_u
 
         assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
         assert {"services", "service_carriers"} <= table_names(engine)
-        assert alembic_current(database_url) == "0009_f020_ip_address_ranges"
+        assert alembic_current(database_url) == "0010_f022_ip_range_metadata"
     finally:
         engine.dispose()
 
@@ -167,7 +167,7 @@ def test_f004_downgrade_to_0004_drops_nic_and_preserves_existing(database_url):
 
         assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
         assert "network_interfaces" in table_names(engine)
-        assert alembic_current(database_url) == "0009_f020_ip_address_ranges"
+        assert alembic_current(database_url) == "0010_f022_ip_range_metadata"
     finally:
         engine.dispose()
 
@@ -186,7 +186,7 @@ def test_f006_downgrade_to_0003_drops_vm_and_preserves_existing(database_url):
 
         assert run_alembic("upgrade", "head", dsn=database_url).returncode == 0
         assert "virtual_machines" in table_names(engine)
-        assert alembic_current(database_url) == "0009_f020_ip_address_ranges"
+        assert alembic_current(database_url) == "0010_f022_ip_range_metadata"
     finally:
         engine.dispose()
 
@@ -228,7 +228,7 @@ def test_f020_downgrade_to_0008_drops_ip_address_ranges_and_preserves_existing(d
                 )
             ).scalar()
         assert exclusion == "ex_ip_address_ranges_active_no_overlap"
-        assert alembic_current(database_url) == "0009_f020_ip_address_ranges"
+        assert alembic_current(database_url) == "0010_f022_ip_range_metadata"
     finally:
         engine.dispose()
 

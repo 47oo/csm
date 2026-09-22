@@ -6,6 +6,8 @@
   ``ipaddress.IPv4Address`` 会拒绝前导零（Fix 3.9.5+），与 R-IP-004 的规范化承诺
   冲突，故本模块**不依赖**标准库 ``ipaddress``。
 - :func:`format_ipv4`：把无符号 32 位整数渲染为 canonical dotted-quad。
+- :func:`parse_subnet_mask`：严格解析 dotted-quad IPv4 **掩码**（连续 1 后连续 0）；
+  复用 :func:`parse_ipv4`，不复制第二份解析。
 - :func:`extract_ipv4_for_guard`：删除守卫专用只读解析——取字面值中**第一个 ``/``
   之前**的部分严格解析为 IPv4；解析失败返回 ``None``（跳过，不阻断、不 500）。
   该函数**不构成**对 ``ip_addresses.ip_address`` 的写入约束（R-IP-004 显式边界）。
@@ -44,6 +46,19 @@ def format_ipv4(value: int) -> str:
     if not 0 <= value <= _IPV4_MAX:
         raise ValueError("IPv4 数值必须处于 0..4294967295")
     return ".".join(str((value >> shift) & 0xFF) for shift in (24, 16, 8, 0))
+
+
+def parse_subnet_mask(value: str) -> int:
+    """严格解析 dotted-quad IPv4 **掩码**为整数；非法 → ``ValueError``。
+
+    复用 :func:`parse_ipv4` 做 dotted-quad 解析，再校验 32 位二进制为**连续 1 后连续 0**
+    （允许 ``0.0.0.0`` / ``255.255.255.255``）；拒绝非连续（如 ``255.0.255.0``）、
+    CIDR 前缀（``/24``）、IPv6、空白、空串等。**不**强制与范围起止自洽。
+    """
+    mask = parse_ipv4(value)
+    if mask != 0 and ((mask | (mask - 1)) & 0xFFFFFFFF) != 0xFFFFFFFF:
+        raise ValueError("子网掩码必须为连续 1 后连续 0")
+    return mask
 
 
 def extract_ipv4_for_guard(literal: str) -> int | None:

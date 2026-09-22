@@ -457,15 +457,15 @@ def test_g11_service_router_registers_exactly_five_endpoints():
 
 
 # --------------------------------------------------------------------------- #
-# G-12：migration head / down_revision
+# G-12：migration head / down_revision（F022 演进：head 从 0009 → 0010）
 # --------------------------------------------------------------------------- #
 def test_g12_migration_head():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
-    migration = REPO_ROOT / "backend/migrations/versions/0009_f020_ip_address_ranges.py"
+    assert MIGRATION_HEAD == "0010_f022_ip_range_metadata"
+    migration = REPO_ROOT / "backend/migrations/versions/0010_f022_ip_range_metadata.py"
     source = migration.read_text(encoding="utf-8")
-    assert 'down_revision: str | None = "0008_f008_services"' in source
+    assert 'down_revision: str | None = "0009_f020_ip_address_ranges"' in source
 
 
 # --------------------------------------------------------------------------- #

@@ -9,28 +9,38 @@ import type { IpAddressRangeRead } from '../api/ipAddressRanges'
 
 /**
  * IP 地址范围段登记 / 编辑对话框（契约 docs/api/f020-ip-address-range.md
- * §3.1 / §3.4）。
+ * §3.1 / §3.4，含 F022 修订）。
  *
  * - create 模式：所属集群（下拉，选项来自既有 GET /api/clusters，f001 契约
- *   §3.2）+ start_ip / end_ip 文本输入 → POST /api/ip-address-ranges；若从
- *   已按集群筛选的列表进入则预选该集群（可改选）；
- * - edit 模式：仅 start_ip / end_ip 文本输入 → PATCH
- *   /api/ip-address-ranges/{id}；cluster_id / id / created_at 不在 PATCH
- *   可变集内（契约 §3.4），表单不提供其输入；
- * - 表单字段仅 cluster_id（create）/ start_ip / end_ip：不出现状态字段
- *   （Q-002=B，范围段无状态）、name / description / 用途 / CIDR / 前缀长度
- *   等未确认字段（契约 §2 / §10）；
+ *   §3.2）+ start_ip / end_ip 文本输入 + 三个可选元数据输入（F022：名称
+ *   文本 / 子网掩码文本 / VLAN 数字）→ POST /api/ip-address-ranges；若从
+ *   已按集群筛选的列表进入则预选该集群（可改选）；三个可选输入缺省即空，
+ *   提交时输入为空 → null（缺省 / null 均视为未登记，契约 §3.1）；
+ * - edit 模式：start_ip / end_ip 文本输入 + 三个可选元数据输入 → PATCH
+ *   /api/ip-address-ranges/{id}；预填当前值（null → 空），清空输入即提交
+ *   null（清空，契约 §3.4）；快照式提交 5 个可变字段 {start_ip, end_ip,
+ *   name, subnet_mask, vlan}；cluster_id / id / created_at 不在 PATCH 可
+ *   变集内（契约 §3.4），表单不提供其输入；
+ * - 表单字段仅 cluster_id（create）/ start_ip / end_ip / name /
+ *   subnet_mask / vlan：不出现状态字段（Q-002=B，范围段无状态）、
+ *   description / 用途 / CIDR / 前缀长度等未确认字段（契约 §2 / §10）；
  * - 前端不重复实现业务守卫（§21）：start_ip / end_ip 不做任何 IPv4 格式
  *   校验 / 解析 / 归一化 / 去除空白，不做 start<=end 预判，也不做同 Cluster
- *   重叠预检（契约 §7 / AC-07 / AC-08 / AC-10 均由服务端裁决）；本表单不
- *   预判、不拦截、不禁用提交；
+ *   重叠预检（契约 §7 / AC-07 / AC-08 / AC-10 均由服务端裁决）；name 不做
+ *   唯一 / 长度 / 空串 / 字符集校验（契约 §7.3），subnet_mask 不做格式校验，
+ *   VLAN 不设取值范围约束（不设 min / max，1–4094 由服务端裁决）—— 本表
+ *   单不预判、不拦截、不禁用提交；
  * - 集群未选择（表单未完成）时提交按钮禁用 —— 这不是父存在性预判：任何
  *   已选择的值都直接提交，由服务端裁决；
  * - 失败按 error.code（必要时结合 details[].code / details[].field）分支
- *   渲染固定文案（不解析 message）：VALIDATION_ERROR → 字段级提示；
- *   NOT_FOUND → create：「请检查所选集群」；CONFLICT +
- *   details[].code === 'OVERLAP' → 「与该 Cluster 已有范围段重叠」；
- *   401 交由既有全局会话失效处理；提交中 Loading 且禁止重复提交。
+ *   渲染固定文案（不解析 message）：VALIDATION_ERROR → 字段级提示（
+ *   details[].field，如 name / subnet_mask / vlan / start_ip / end_ip /
+ *   cluster_id / 未识别字段名）；NOT_FOUND → create：「请检查所选集群」；
+ *   CONFLICT + details[].code === 'OVERLAP' → 「与该 Cluster 已有范围段
+ *   重叠」；CONFLICT + details[].code === 'DUPLICATE'（F022，同 Cluster
+ *   活跃同名，DB 兜底路径 details[].field 为 best-effort，只按 code 分支）
+ *   → 「该集群已存在同名网段」；401 交由既有全局会话失效处理；提交中
+ *   Loading 且禁止重复提交。
  */
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -51,12 +61,20 @@ interface IpAddressRangeFormState {
   clusterId: number | null
   startIp: string
   endIp: string
+  /** F022 可选元数据：文本输入，空串表示未登记 / 清空。 */
+  name: string
+  subnetMask: string
+  /** F022 可选元数据：数字输入，null 表示未登记 / 清空。 */
+  vlan: number | null
 }
 
 const form = reactive<IpAddressRangeFormState>({
   clusterId: null,
   startIp: '',
   endIp: '',
+  name: '',
+  subnetMask: '',
+  vlan: null,
 })
 
 const dialogTitle = computed(() =>
@@ -99,10 +117,17 @@ watch(
       form.clusterId = props.ipAddressRange.cluster_id
       form.startIp = props.ipAddressRange.start_ip
       form.endIp = props.ipAddressRange.end_ip
+      // F022：预填当前值（null → 空，清空输入即提交 null，契约 §3.4）。
+      form.name = props.ipAddressRange.name ?? ''
+      form.subnetMask = props.ipAddressRange.subnet_mask ?? ''
+      form.vlan = props.ipAddressRange.vlan
     } else {
       form.clusterId = props.presetClusterId ?? null
       form.startIp = ''
       form.endIp = ''
+      form.name = ''
+      form.subnetMask = ''
+      form.vlan = null
     }
     if (props.mode === 'create') {
       void loadClusterOptions()
@@ -173,6 +198,21 @@ const failureView = computed<FailureView | null>(() => {
           details: error.details,
         }
       }
+      // 契约 §4.2（F022）：稳定判别值为 details[].code === 'DUPLICATE'（同
+      // Cluster 活跃同名 name；应用层路径 details[].field === 'name'，DB 兜底
+      // 路径为 best-effort，不构成契约 → 只按 code 分支）。
+      const isDuplicateName = error.details.some((detail) => detail.code === 'DUPLICATE')
+      if (isDuplicateName) {
+        return {
+          code: error.code,
+          title: '该集群已存在同名网段',
+          description:
+            '同一集群内已存在同名的活跃范围段（名称在集群内唯一、区分大小写），请修改名称后重试。',
+          // 与 F007 Container 同名分支同款：固定文案已表达冲突语义，不再罗列
+          // details（其中 message 不构成契约）。
+          details: [],
+        }
+      }
       // 契约内不存在其他 409 语义；按通用冲突渲染。
       return {
         code: error.code,
@@ -201,6 +241,23 @@ const failureView = computed<FailureView | null>(() => {
   }
 })
 
+/**
+ * 组装 F022 三个可选元数据字段请求体：文本输入为空 → null（清空 / 保持
+ * 未登记，契约 §3.1 / §3.4）；VLAN 数字输入为 null（清空）即提交 null。
+ * 不做任何 trim / 归一化 / 取值范围预判（§21）。
+ */
+function metadataBody(): {
+  name: string | null
+  subnet_mask: string | null
+  vlan: number | null
+} {
+  return {
+    name: form.name === '' ? null : form.name,
+    subnet_mask: form.subnetMask === '' ? null : form.subnetMask,
+    vlan: form.vlan,
+  }
+}
+
 async function handleSubmit(): Promise<void> {
   if (submitting.value || submitDisabled.value) return
   submitting.value = true
@@ -212,19 +269,23 @@ async function handleSubmit(): Promise<void> {
       const clusterId = form.clusterId
       if (clusterId === null) return
       // start_ip / end_ip 原样提交：不校验、不变换（契约 §7）；非法 IPv4 /
-      // start > end / 重叠均由服务端裁决，前端不编写业务分支（§21）。
+      // start > end / 重叠 / 重名 / 非法掩码 / 越界 VLAN 均由服务端裁决，
+      // 前端不编写业务分支（§21）。可选字段输入为空 → null（未登记）。
       saved = await createIpAddressRange({
         cluster_id: clusterId,
         start_ip: form.startIp,
         end_ip: form.endIp,
+        ...metadataBody(),
       })
     } else {
       const target = props.ipAddressRange
       if (target === null || target === undefined) return
-      // PATCH 可变字段封闭为 {start_ip, end_ip}（契约 §3.4）；快照式提交两字段。
+      // PATCH 可变字段封闭为 {start_ip, end_ip, name, subnet_mask, vlan}
+      // （契约 §3.4，含 F022 修订）；快照式提交 5 字段，清空的可选字段 → null。
       saved = await updateIpAddressRange(target.id, {
         start_ip: form.startIp,
         end_ip: form.endIp,
+        ...metadataBody(),
       })
     }
     emit('success', saved)
@@ -318,6 +379,34 @@ async function handleSubmit(): Promise<void> {
           v-model="form.endIp"
           placeholder="如 10.0.0.255"
           data-testid="range-form-end-ip"
+        />
+      </el-form-item>
+
+      <!-- F022 三个可选元数据输入：不做任何业务校验（§21）——name 不做唯一 /
+           长度 / 空串 / 字符集校验（契约 §7.3）；subnet_mask 不做格式校验；
+           VLAN 不设取值范围约束（不设 min / max，1–4094 由服务端裁决）。
+           输入为空 → 提交 null（未登记 / 清空）。 -->
+      <el-form-item label="名称">
+        <el-input
+          v-model="form.name"
+          placeholder="可选，如 业务网"
+          data-testid="range-form-name"
+        />
+      </el-form-item>
+      <el-form-item label="子网掩码">
+        <el-input
+          v-model="form.subnetMask"
+          placeholder="可选，如 255.255.255.0"
+          data-testid="range-form-subnet-mask"
+        />
+      </el-form-item>
+      <el-form-item label="VLAN">
+        <el-input-number
+          v-model="form.vlan"
+          class="ip-address-range-form__vlan"
+          placeholder="可选，如 100"
+          :controls="false"
+          data-testid="range-form-vlan"
         />
       </el-form-item>
     </el-form>

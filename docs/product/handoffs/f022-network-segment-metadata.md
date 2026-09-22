@@ -35,7 +35,7 @@ F020 交付后，每个 Cluster 可以有多个地址范围段，但范围段只
 5. **`vlan`（NQ-5）**：**整数 `1`–`4094`**（`0` / `4095` 保留，不接受），可选；**不唯一**（同 Cluster 多网段可共用同一 VLAN）。
 6. **唯一性边界（NQ-6）**：**仅**新增「`name` 同 Cluster 活跃唯一」一条；**不新增 VLAN 唯一性**；其余仍以 **R-IP-001** 为唯一性边界。
 7. **承载方式与既有影响（NQ-7）**：**扩展既有 `ip_address_ranges` 表**（加 3 个可空列）；**精确修订 f020 契约（纯增量）**；**不推翻** F020 / F021 既有结论；**V1 分配不按掩码 / VLAN 过滤**（F021 语义不变）。
-8. **迁移（NQ-8）**：migration `0010_f022_ip_address_range_metadata`（`down_revision = "0009_f020_ip_address_ranges"`），**3 个可空列 + `name` 的 partial unique**（`WHERE deleted_at IS NULL AND name IS NOT NULL`）；**无数据回填**（既有行取 `NULL`）。
+8. **迁移（NQ-8）**：migration `0010_f022_ip_range_metadata`（`down_revision = "0009_f020_ip_address_ranges"`），**3 个可空列 + `name` 的 partial unique**（`WHERE deleted_at IS NULL AND name IS NOT NULL`）；**无数据回填**（既有行取 `NULL`）。
 9. **字段集合封闭**：`id` / `cluster_id` / `start_ip` / `end_ip` / `created_at` / `updated_at` + 3 个可选字段 `name` / `subnet_mask` / `vlan`。**不接受** `description` / 用途 / `status` / `deleted_at`（客户端）/ CIDR / IPv6 / 网关 / DHCP / DNS / 使用率 等任何未确认字段。
 10. **既有语义逐条不变**：重叠判定、软删释放、删除守卫、无状态、IPv4 合法性与规范化、R-IP-001~003、F021 分配行为。
 
@@ -125,7 +125,7 @@ F020 交付后，每个 Cluster 可以有多个地址范围段，但范围段只
 - **AC-27（不引入 CIDR / IPv6 / 网关 / DHCP / DNS / 使用率 / 自动发现 / 外部同步）**。
 - **AC-28（前端三态与错误分支）**：三态互异；Empty 与 Not Found 可区分；错误按 `error.code`（结合 `details[].code`）渲染，不解析 `message`，不重复实现业务校验。
 - **AC-29（契约一致性）**：F022 修订后的契约已持久化且 `contract.status = READY`；无「契约禁止、实现却有」分裂。
-- **AC-30（迁移形态）**：migration `0010_f022_ip_address_range_metadata`（`down_revision = "0009_f020_ip_address_ranges"`）新增 3 个可空列 + `name` partial unique（`WHERE deleted_at IS NULL AND name IS NOT NULL`）；**无回填**；不改其它表 / 列 / 约束。
+- **AC-30（迁移形态）**：migration `0010_f022_ip_range_metadata`（`down_revision = "0009_f020_ip_address_ranges"`）新增 3 个可空列 + `name` partial unique（`WHERE deleted_at IS NULL AND name IS NOT NULL`）；**无回填**；不改其它表 / 列 / 约束。
 
 ## Assumptions
 
@@ -168,7 +168,7 @@ F020 交付后，每个 Cluster 可以有多个地址范围段，但范围段只
 须由 Architecture 解决：
 
 1. **契约修订（纯增量）**：在 `docs/api/f020-ip-address-range.md` 追加 `name` / `subnet_mask` / `vlan`（§2 资源表示扩为 9 字段；§3.1 POST request 增加 3 个可选字段；§3.4 PATCH 可变字段集合扩展；错误语义新增 name 重复 `409`、mask/vlan 非法 `400`）；`contract.status` 维持 READY。
-2. **migration `0010_f022_ip_address_range_metadata`**：`down_revision = "0009_f020_ip_address_ranges"`；`ALTER TABLE ip_address_ranges ADD COLUMN` 3 个可空列 + `name` partial unique（`WHERE deleted_at IS NULL AND name IS NOT NULL`，大小写敏感）；无回填；`downgrade` 逆序；不改 `0001`–`0009` 与其它表。
+2. **migration `0010_f022_ip_range_metadata`**：`down_revision = "0009_f020_ip_address_ranges"`；`ALTER TABLE ip_address_ranges ADD COLUMN` 3 个可空列 + `name` partial unique（`WHERE deleted_at IS NULL AND name IS NOT NULL`，大小写敏感）；无回填；`downgrade` 逆序；不改 `0001`–`0009` 与其它表。
 3. **`name` 唯一性落地与最终权威**：应用层 `409` + partial unique index（`23505` 经既有 `sqlstate.py` → `409`，永不 500）。
 4. **掩码 / VLAN 校验实现**：掩码合法性（连续 1 后连续 0）与 dotted-quad 解析、`vlan` 整数范围；复用 / 扩展 `app/ip_address_ranges/ipv4.py`，不复制第二份解析。
 5. **`PATCH` 语义定稿**。

@@ -24,13 +24,24 @@ from tests.deletion_guard_helpers import (
     scan_deleted_at_writes,
 )
 
-READ_FIELDS = {"id", "cluster_id", "start_ip", "end_ip", "created_at", "updated_at"}
+READ_FIELDS = {
+    "id",
+    "cluster_id",
+    "start_ip",
+    "end_ip",
+    # F022 元数据字段：已由纯增量契约确认合法。
+    "name",
+    "subnet_mask",
+    "vlan",
+    "created_at",
+    "updated_at",
+}
 TABLE_COLUMNS = {*READ_FIELDS, "deleted_at"}
 
+# F022：本 Feature 已确认合法的 name / vlan 从禁令牌移除；其余保持不变（只增不弱）。
 FORBIDDEN_FIELD_TOKENS = (
     "status",
     "state",
-    "name",
     "description",
     "purpose",
     "cidr",
@@ -38,7 +49,6 @@ FORBIDDEN_FIELD_TOKENS = (
     "network_address",
     "broadcast_address",
     "gateway",
-    "vlan",
     "dhcp",
     "dns",
     "capacity",
@@ -87,11 +97,16 @@ def test_g_f020_1_constraints_and_indexes_exact():
 
     table = Base.metadata.tables["ip_address_ranges"]
     assert table.primary_key.name == "pk_ip_address_ranges"
-    checks = [c.name for c in table.constraints if isinstance(c, CheckConstraint)]
-    assert checks == ["ck_ip_address_ranges_bounds"]
+    checks = {c.name for c in table.constraints if isinstance(c, CheckConstraint)}
+    # F022：+ ck_ip_address_ranges_vlan_range。
+    assert checks == {"ck_ip_address_ranges_bounds", "ck_ip_address_ranges_vlan_range"}
     excludes = [c.name for c in table.constraints if isinstance(c, ExcludeConstraint)]
     assert excludes == ["ex_ip_address_ranges_active_no_overlap"]
-    assert {index.name for index in table.indexes} == {"ix_ip_address_ranges_cluster_id"}
+    # F022：+ ux_ip_address_ranges_cluster_name_active（partial unique）。
+    assert {index.name for index in table.indexes} == {
+        "ix_ip_address_ranges_cluster_id",
+        "ux_ip_address_ranges_cluster_name_active",
+    }
 
     fks = list(table.foreign_keys)
     assert len(fks) == 1
@@ -119,9 +134,22 @@ def test_g_f020_2_schemas_are_closed():
         IpAddressRangeUpdate,
     )
 
-    assert MUTABLE_FIELDS == ("start_ip", "end_ip")
-    assert set(IpAddressRangeCreate.model_fields) == {"cluster_id", "start_ip", "end_ip"}
-    assert set(IpAddressRangeUpdate.model_fields) == {"start_ip", "end_ip"}
+    assert MUTABLE_FIELDS == ("start_ip", "end_ip", "name", "subnet_mask", "vlan")
+    assert set(IpAddressRangeCreate.model_fields) == {
+        "cluster_id",
+        "start_ip",
+        "end_ip",
+        "name",
+        "subnet_mask",
+        "vlan",
+    }
+    assert set(IpAddressRangeUpdate.model_fields) == {
+        "start_ip",
+        "end_ip",
+        "name",
+        "subnet_mask",
+        "vlan",
+    }
     assert set(IpAddressRangeRead.model_fields) == READ_FIELDS
     for model in (IpAddressRangeCreate, IpAddressRangeUpdate, IpAddressRangeRead):
         assert model.model_config.get("extra") == "forbid" or model is IpAddressRangeRead
@@ -245,6 +273,31 @@ def test_g_f020_7_ipv4_pure_functions():
     assert extract_ipv4_for_guard("abc") is None
     assert extract_ipv4_for_guard("") is None
     assert extract_ipv4_for_guard(" 10.0.1.1") is None
+
+
+def test_g_f020_7_subnet_mask_pure_function():
+    from app.ip_address_ranges.ipv4 import parse_subnet_mask
+
+    # 合法掩码（连续 1 后连续 0），含 0.0.0.0 / 255.255.255.255。
+    for good in ("0.0.0.0", "255.255.255.255", "255.255.255.0", "255.0.0.0"):
+        assert isinstance(parse_subnet_mask(good), int), good
+    # 非法掩码 / CIDR / IPv6 / 空白 / 空串。
+    for bad in (
+        "255.0.255.0",
+        "255.255.255.1",
+        "255.255.255.256",
+        "10.0.0.1",
+        "abc",
+        "/24",
+        "2001:db8::1",
+        "",
+        " 255.255.255.0",
+    ):
+        try:
+            parse_subnet_mask(bad)
+        except ValueError:
+            continue
+        raise AssertionError(f"parse_subnet_mask 必须拒绝 {bad!r}")
 
 
 # --------------------------------------------------------------------------- #

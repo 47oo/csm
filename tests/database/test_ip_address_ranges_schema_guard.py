@@ -1,8 +1,9 @@
-"""F020 IPAddressRange 数据库结构 guard + 约束证伪（V-1 ~ V-20，绕过应用层）。
+"""F020 / F022 IPAddressRange 数据库结构 guard + 约束证伪（V-1 ~ V-20，绕过应用层）。
 
-直接对迁移后的 PostgreSQL 断言：列集合恰 7、无状态 / CIDR / 分配类列；PK / FK /
-CHECK / EXCLUDE / extension / 索引精确；无触发器；无 CASCADE；约束由数据库真实保证
-（排它约束 23P01、CHECK 23514、FK 23503、软删 predicate 释放重叠）。
+直接对迁移后的 PostgreSQL 断言：列集合恰 10（F022 +3）、无状态 / CIDR / 分配类列；
+PK / FK / CHECK / EXCLUDE / partial unique / extension / 索引精确；无触发器；无 CASCADE；
+无 COLLATE；约束由数据库真实保证（排它约束 23P01、CHECK 23514、partial unique 23505、
+FK 23503、软删 predicate 释放重叠与 name）。
 """
 
 from __future__ import annotations
@@ -18,12 +19,16 @@ EXPECTED_COLUMNS = {
     "created_at",
     "updated_at",
     "deleted_at",
+    # F022 元数据字段。
+    "name",
+    "subnet_mask",
+    "vlan",
 }
 
+# F022：本 Feature 已确认合法的 name / vlan 从禁令牌移除；其余保持不变（只增不弱）。
 FORBIDDEN_TOKENS = (
     "status",
     "state",
-    "name",
     "description",
     "purpose",
     "cidr",
@@ -31,7 +36,6 @@ FORBIDDEN_TOKENS = (
     "network_address",
     "broadcast_address",
     "gateway",
-    "vlan",
     "dhcp",
     "dns",
     "capacity",
@@ -40,6 +44,10 @@ FORBIDDEN_TOKENS = (
     "reclaimed_at",
     "assigned_to",
 )
+
+#: F022 新增约束 / 索引。
+NAME_UNIQUE_INDEX = "ux_ip_address_ranges_cluster_name_active"
+VLAN_CHECK = "ck_ip_address_ranges_vlan_range"
 
 OVERLAP_QUERY = """
 SELECT a.id AS a_id, b.id AS b_id
@@ -54,6 +62,23 @@ ORPHAN_QUERY = """
 SELECT count(*) FROM ip_address_ranges r
 JOIN clusters c ON c.id = r.cluster_id
 WHERE r.deleted_at IS NULL AND c.deleted_at IS NOT NULL
+"""
+
+# R-4（F022）：同 Cluster 活跃同名重复——期望 0 行（由 partial unique 保证）。
+NAME_DUPLICATE_QUERY = """
+SELECT a.id AS a_id, b.id AS b_id, a.name
+FROM ip_address_ranges a
+JOIN ip_address_ranges b
+  ON a.cluster_id = b.cluster_id AND a.id < b.id
+ AND a.deleted_at IS NULL AND b.deleted_at IS NULL
+ AND a.name IS NOT NULL AND b.name IS NOT NULL
+ AND a.name = b.name
+"""
+
+# R-5（F022）：vlan 越界——期望 0 行（由 CHECK 保证）。
+VLAN_OUT_OF_RANGE_QUERY = """
+SELECT id FROM ip_address_ranges
+WHERE vlan IS NOT NULL AND (vlan < 1 OR vlan > 4094)
 """
 
 F005_DRIFT_QUERY = """
@@ -74,17 +99,27 @@ def _new_cluster(conn, name: str, *, deleted: bool = False) -> int:
     ]
 
 
-def _new_range(conn, cluster_id: int, start_ip: int, end_ip: int, *, deleted: bool = False) -> int:
+def _new_range(
+    conn,
+    cluster_id: int,
+    start_ip: int,
+    end_ip: int,
+    *,
+    deleted: bool = False,
+    name: str | None = None,
+    subnet_mask: str | None = None,
+    vlan: int | None = None,
+) -> int:
+    columns = "cluster_id, start_ip, end_ip, name, subnet_mask, vlan"
+    values: list[object] = [cluster_id, start_ip, end_ip, name, subnet_mask, vlan]
     if deleted:
-        return conn.execute(
-            "INSERT INTO ip_address_ranges (cluster_id, start_ip, end_ip, deleted_at) "
-            "VALUES (%s, %s, %s, now()) RETURNING id",
-            (cluster_id, start_ip, end_ip),
-        ).fetchone()[0]
+        columns = f"{columns}, deleted_at"
+    placeholders = ", ".join(["%s"] * len(values))
+    if deleted:
+        placeholders = f"{placeholders}, now()"
     return conn.execute(
-        "INSERT INTO ip_address_ranges (cluster_id, start_ip, end_ip) "
-        "VALUES (%s, %s, %s) RETURNING id",
-        (cluster_id, start_ip, end_ip),
+        f"INSERT INTO ip_address_ranges ({columns}) VALUES ({placeholders}) RETURNING id",
+        tuple(values),
     ).fetchone()[0]
 
 
@@ -105,7 +140,7 @@ def _chain(conn, name: str) -> tuple[int, int]:
 # --------------------------------------------------------------------------- #
 # 结构断言 V-1 ~ V-10
 # --------------------------------------------------------------------------- #
-def test_v1_column_set_is_exactly_seven(raw_conn):
+def test_v1_column_set_is_exactly_ten(raw_conn):
     columns = {
         row[0]
         for row in raw_conn.execute(
@@ -135,7 +170,7 @@ def test_v3_foreign_key_is_restrict(raw_conn):
     assert rows[0][1:] == ("r", "r")
 
 
-def test_v4_check_constraint(raw_conn):
+def test_v4_check_constraints(raw_conn):
     rows = {
         row[0]: row[1]
         for row in raw_conn.execute(
@@ -143,10 +178,13 @@ def test_v4_check_constraint(raw_conn):
             "WHERE conrelid='ip_address_ranges'::regclass AND contype='c'"
         ).fetchall()
     }
-    assert set(rows) == {"ck_ip_address_ranges_bounds"}
+    assert set(rows) == {"ck_ip_address_ranges_bounds", VLAN_CHECK}
     definition = rows["ck_ip_address_ranges_bounds"]
     assert "start_ip" in definition and "end_ip" in definition
     assert "4294967295" in definition
+    vlan_definition = rows[VLAN_CHECK]
+    assert "vlan" in vlan_definition and "4094" in vlan_definition
+    assert "IS NULL" in vlan_definition
 
 
 def test_v5_exclusion_constraint(raw_conn):
@@ -168,15 +206,31 @@ def test_v6_btree_gist_extension(raw_conn):
     ).fetchone() == ("btree_gist",)
 
 
-def test_v7_plain_index_exists_and_no_unique_index(raw_conn):
+def test_v7_partial_unique_index_and_plain_index(raw_conn):
     indexes = {
         row[0]
         for row in raw_conn.execute(
             "SELECT indexname FROM pg_indexes WHERE tablename='ip_address_ranges'"
         ).fetchall()
     }
-    assert "ix_ip_address_ranges_cluster_id" in indexes
-    assert not any(name.startswith("ux_") for name in indexes)
+    assert indexes == {
+        "pk_ip_address_ranges",
+        "ix_ip_address_ranges_cluster_id",
+        NAME_UNIQUE_INDEX,
+        "ex_ip_address_ranges_active_no_overlap",
+    }, indexes
+    definition = raw_conn.execute(
+        "SELECT indexdef FROM pg_indexes "
+        "WHERE schemaname='public' AND indexname=%s",
+        (NAME_UNIQUE_INDEX,),
+    ).fetchone()[0]
+    assert "UNIQUE" in definition
+    assert "(cluster_id, name)" in definition
+    assert "deleted_at IS NULL" in definition
+    assert "name IS NOT NULL" in definition
+    # 大小写敏感：不得 COLLATE / lower()（R-02 / §22）。
+    assert "COLLATE" not in definition
+    assert "lower(" not in definition
 
 
 def test_v8_no_cascade_foreign_keys(raw_conn):
@@ -301,3 +355,72 @@ def test_v19_f005_drift_query_still_zero(raw_conn):
         (nic_id, cluster_id),
     )
     assert raw_conn.execute(F005_DRIFT_QUERY).fetchall() == []
+
+
+# --------------------------------------------------------------------------- #
+# F022 约束证伪 V-F022-1 ~ V-F022-6（绕过应用层）
+# --------------------------------------------------------------------------- #
+def test_v_f022_1_active_duplicate_name_is_23505(raw_conn):
+    cluster_id = _new_cluster(raw_conn, "cluster-a")
+    _new_range(raw_conn, cluster_id, 10, 20, name="web")
+    with pytest.raises(psycopg.errors.UniqueViolation) as excinfo:
+        _new_range(raw_conn, cluster_id, 21, 30, name="web")
+    assert excinfo.value.sqlstate == "23505"
+
+
+def test_v_f022_2_name_case_sensitive(raw_conn):
+    cluster_id = _new_cluster(raw_conn, "cluster-a")
+    _new_range(raw_conn, cluster_id, 10, 20, name="web")
+    _new_range(raw_conn, cluster_id, 21, 30, name="Web")
+    assert raw_conn.execute("SELECT count(*) FROM ip_address_ranges").fetchone()[0] == 2
+
+
+def test_v_f022_3_soft_delete_and_null_name_release(raw_conn):
+    cluster_id = _new_cluster(raw_conn, "cluster-a")
+    _new_range(raw_conn, cluster_id, 10, 20, name="web", deleted=True)
+    _new_range(raw_conn, cluster_id, 21, 30, name="web")
+    # name IS NULL 的行不参与唯一性：两条未命名活跃行共存。
+    _new_range(raw_conn, cluster_id, 31, 40)
+    _new_range(raw_conn, cluster_id, 41, 50)
+    assert raw_conn.execute("SELECT count(*) FROM ip_address_ranges").fetchone()[0] == 4
+
+
+def test_v_f022_4_cross_cluster_same_name_succeeds(raw_conn):
+    cluster_a = _new_cluster(raw_conn, "cluster-a")
+    cluster_b = _new_cluster(raw_conn, "cluster-b")
+    _new_range(raw_conn, cluster_a, 10, 20, name="web")
+    _new_range(raw_conn, cluster_b, 10, 20, name="web")
+    assert raw_conn.execute("SELECT count(*) FROM ip_address_ranges").fetchone()[0] == 2
+
+
+@pytest.mark.parametrize("vlan", [0, 4095, 5000, -1])
+def test_v_f022_5_vlan_out_of_range_is_23514(raw_conn, vlan):
+    cluster_id = _new_cluster(raw_conn, f"cluster-vlan-{vlan}")
+    with pytest.raises(psycopg.errors.CheckViolation) as excinfo:
+        _new_range(raw_conn, cluster_id, 10, 20, vlan=vlan)
+    assert excinfo.value.sqlstate == "23514"
+
+
+@pytest.mark.parametrize("vlan", [1, 4094, None])
+def test_v_f022_6_vlan_boundaries_and_null_succeed(raw_conn, vlan):
+    cluster_id = _new_cluster(raw_conn, f"cluster-vlan-ok-{vlan}")
+    _new_range(raw_conn, cluster_id, 10, 20, vlan=vlan)
+    assert raw_conn.execute("SELECT count(*) FROM ip_address_ranges").fetchone()[0] == 1
+
+
+def test_v_f022_7_no_backfill_metadata_null(raw_conn):
+    cluster_id = _new_cluster(raw_conn, "cluster-a")
+    _new_range(raw_conn, cluster_id, 10, 20)
+    row = raw_conn.execute(
+        "SELECT name, subnet_mask, vlan FROM ip_address_ranges"
+    ).fetchone()
+    assert row == (None, None, None)
+
+
+def test_v_f022_8_no_active_duplicate_name_drift(raw_conn):
+    cluster_id = _new_cluster(raw_conn, "cluster-a")
+    _new_range(raw_conn, cluster_id, 10, 20, name="a")
+    _new_range(raw_conn, cluster_id, 21, 30, name="b")
+    _new_range(raw_conn, cluster_id, 31, 40, name="a", deleted=True)
+    assert raw_conn.execute(NAME_DUPLICATE_QUERY).fetchall() == []
+    assert raw_conn.execute(VLAN_OUT_OF_RANGE_QUERY).fetchall() == []

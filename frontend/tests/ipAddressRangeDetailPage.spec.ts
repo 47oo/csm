@@ -1,31 +1,46 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import type { VueWrapper } from '@vue/test-utils'
-import ElementPlus, { ElPopconfirm } from 'element-plus'
+import ElementPlus, { ElInputNumber, ElPopconfirm } from 'element-plus'
 import IpAddressRangeDetailPage from '../src/pages/IpAddressRangeDetailPage.vue'
+import type { IpAddressRangeRead } from '../src/api/ipAddressRanges'
 import { setUnauthenticatedHandler } from '../src/api/http'
 
 /**
- * IP 地址范围段详情页测试（F020）。
+ * IP 地址范围段详情页测试（F020 + F022）。
  *
- * 覆盖：404 独立 Not Found 态（与列表 Empty 可区分）、6 字段展示（时间不
- * 透明字符串；start_ip / end_ip 服务端规范化值原样展示）、无状态展示
- * （Q-002=B）、无 name / description（契约 §2 封闭）、start_ip / end_ip
- * 修正入口（PATCH：仅此两字段可编辑；cluster_id 不可编辑）、修改失败按
- * error.code 分支（400 / 404 / 409 OVERLAP / 401 / 防重复）、删除入口
- * （204 → Not Found 态 / 409 ACTIVE_CHILDREN_EXIST / 404 / 提交中防重复）。
+ * 覆盖：404 独立 Not Found 态（与列表 Empty 可区分）、9 字段展示（时间不
+ * 透明字符串；start_ip / end_ip 服务端规范化值原样展示；F022 三字段契约
+ * 原样展示，null → 「—」占位）、无状态展示（Q-002=B）、无 description
+ * （契约 §2 封闭）、start_ip / end_ip / F022 三字段修正入口（PATCH：可变
+ * 字段恰为 5 个；cluster_id 不可编辑；edit 预填当前值；清空 → null）、
+ * 修改失败按 error.code 分支（400 含 F022 字段 / 404 / 409 OVERLAP /
+ * 409 DUPLICATE / 401 / 防重复）、删除入口（204 → Not Found 态 / 409
+ * ACTIVE_CHILDREN_EXIST / 404 / 提交中防重复）。
  *
- * 响应体严格按 docs/api/f020-ip-address-range.md 构造（§2 资源表示 / §3.3
- * 读取 / §3.4 更新 / §3.5 删除 / §4 错误信封 / §9 Empty 与 Not Found）。
+ * 响应体严格按 docs/api/f020-ip-address-range.md（含 F022 纯增量修订）构造
+ * （§2 资源表示 / §3.3 读取 / §3.4 更新 / §3.5 删除 / §4 错误信封 / §9
+ * Empty 与 Not Found）。
  */
 
-const IP_ADDRESS_RANGE_A = {
+const IP_ADDRESS_RANGE_A: IpAddressRangeRead = {
   id: 7,
   cluster_id: 3,
   start_ip: '10.0.0.1',
   end_ip: '10.0.0.255',
+  name: '业务网',
+  subnet_mask: '255.255.255.0',
+  vlan: 100,
   created_at: '2026-09-20T10:00:00Z',
   updated_at: '2026-09-20T10:00:00Z',
+}
+/** F022 三字段未登记（null）→ 详情展示「—」占位（契约 §2 可空语义）。 */
+const IP_ADDRESS_RANGE_NULL_METADATA: IpAddressRangeRead = {
+  ...IP_ADDRESS_RANGE_A,
+  id: 8,
+  name: null,
+  subnet_mask: null,
+  vlan: null,
 }
 
 const NOT_FOUND_BODY = { error: { code: 'NOT_FOUND', message: '资源不存在' } }
@@ -98,6 +113,20 @@ function patchCalls(fetchMock: ReturnType<typeof vi.fn>): number {
   ).length
 }
 
+/** 编辑对话框内的 VLAN 数字输入（el-input-number，按 class 精确定位）。 */
+function findFormVlanInput(wrapper: VueWrapper) {
+  const input = wrapper
+    .findAllComponents(ElInputNumber)
+    .find((c) => c.classes().includes('ip-address-range-form__vlan'))
+  expect(input, '期望找到 VLAN 数字输入').toBeDefined()
+  return input!
+}
+
+/** 详情描述项内容单元格文本（顺序即 detailItems 展示顺序）。 */
+function descriptionContents(wrapper: VueWrapper): string[] {
+  return wrapper.findAll('.el-descriptions__content').map((cell) => cell.text())
+}
+
 describe('IpAddressRangeDetailPage 状态渲染', () => {
   it('请求进行中 → Loading 态（骨架屏）', async () => {
     let resolveDetail!: (body: unknown) => void
@@ -120,7 +149,7 @@ describe('IpAddressRangeDetailPage 状态渲染', () => {
     })
   })
 
-  it('成功 → 展示全部 6 字段（契约原样值，时间不透明字符串）；无状态字段 / 无 name（Q-002=B / 契约 §2 封闭）', async () => {
+  it('成功 → 展示全部 9 字段（契约原样值，时间不透明字符串；F022 三字段契约原样值）；无状态字段（Q-002=B / 契约 §2 封闭）', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, IP_ADDRESS_RANGE_A)))
 
     const wrapper = mountDetailPage()
@@ -131,7 +160,7 @@ describe('IpAddressRangeDetailPage 状态渲染', () => {
 
     const text = wrapper.text()
     expect(text).toContain('IP 地址范围段详情')
-    // 全部 6 字段：契约原样值，不做任何变换。
+    // 既有 6 字段：契约原样值，不做任何变换。
     expect(text).toContain('ID')
     expect(text).toContain('所属集群 ID')
     expect(text).toContain('3')
@@ -142,13 +171,42 @@ describe('IpAddressRangeDetailPage 状态渲染', () => {
     expect(text).toContain('登记时间')
     expect(text).toContain('2026-09-20T10:00:00Z')
     expect(text).toContain('更新时间')
+    // F022 三字段：契约原样值（顺序：id / cluster_id / start_ip / end_ip /
+    // name / subnet_mask / vlan / created_at / updated_at）。
+    const contents = descriptionContents(wrapper)
+    expect(contents).toHaveLength(9)
+    expect(contents[4]).toBe('业务网')
+    expect(contents[5]).toBe('255.255.255.0')
+    expect(contents[6]).toBe('100')
     // 范围段无状态（Q-002=B）：不渲染状态标签 / 状态行。
     expect(wrapper.find('[data-status]').exists()).toBe(false)
-    // 无 name / description / 用途（契约 §2 字段封闭）。
-    expect(text).not.toContain('名称')
+    // 无 description / 用途（契约 §2 字段封闭；name 为 F022 契约字段）。
+    expect(text).not.toContain('描述')
     expect(text).not.toContain('用途')
     // 不暴露 deleted_at（契约 §2：字段集合封闭）。
     expect(text).not.toContain('deleted_at')
+  })
+
+  it('F022 三字段未登记（null）→ 详情展示「—」占位（契约 §2 可空语义，与 Container 先例同款）', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(200, IP_ADDRESS_RANGE_NULL_METADATA)),
+    )
+
+    const wrapper = mountDetailPage()
+
+    await waitForUi(() => {
+      expect(wrapper.attributes('data-state')).toBe('content')
+    })
+
+    const contents = descriptionContents(wrapper)
+    expect(contents).toHaveLength(9)
+    expect(contents[4]).toBe('—')
+    expect(contents[5]).toBe('—')
+    expect(contents[6]).toBe('—')
+    // 既有字段不受影响。
+    expect(contents[2]).toBe('10.0.0.1')
+    expect(contents[3]).toBe('10.0.0.255')
   })
 
   it('404 NOT_FOUND（不存在或已逻辑删除，两者不区分）→ 独立 Not Found 态，不渲染 Empty / 内容 / 操作入口', async () => {
@@ -200,8 +258,8 @@ describe('IpAddressRangeDetailPage 状态渲染', () => {
   })
 })
 
-describe('IpAddressRangeDetailPage 编辑入口（PATCH，契约 §3.4）', () => {
-  it('内容态存在「编辑」入口；表单仅 start_ip / end_ip 输入，不含归属集群选择（不可变，契约 §3.4）', async () => {
+describe('IpAddressRangeDetailPage 编辑入口（PATCH，契约 §3.4，含 F022）', () => {
+  it('内容态存在「编辑」入口；表单不含归属集群选择（不可变，契约 §3.4）；预填当前值（F022 三字段 null → 空 / null）', async () => {
     stubDetailFetch({ detail: () => jsonResponse(200, IP_ADDRESS_RANGE_A) })
 
     const wrapper = await mountDetailContent()
@@ -218,9 +276,32 @@ describe('IpAddressRangeDetailPage 编辑入口（PATCH，契约 §3.4）', () =
     expect(
       (wrapper.find('[data-testid="range-form-end-ip"]').element as HTMLInputElement).value,
     ).toBe('10.0.0.255')
+    // F022 三字段预填当前值。
+    expect(
+      (wrapper.find('[data-testid="range-form-name"]').element as HTMLInputElement).value,
+    ).toBe('业务网')
+    expect(
+      (wrapper.find('[data-testid="range-form-subnet-mask"]').element as HTMLInputElement).value,
+    ).toBe('255.255.255.0')
+    expect(findFormVlanInput(wrapper).props('modelValue')).toBe(100)
   })
 
-  it('修改范围 → PATCH /api/ip-address-ranges/{id}：body 恰为 {start_ip, end_ip}（可变字段封闭，契约 §3.4）', async () => {
+  it('F022 三字段未登记（null）→ edit 表单预填为空（文本空串 / VLAN null）', async () => {
+    stubDetailFetch({ detail: () => jsonResponse(200, IP_ADDRESS_RANGE_NULL_METADATA) })
+
+    const wrapper = await mountDetailContent()
+    await openEditDialog(wrapper)
+
+    expect(
+      (wrapper.find('[data-testid="range-form-name"]').element as HTMLInputElement).value,
+    ).toBe('')
+    expect(
+      (wrapper.find('[data-testid="range-form-subnet-mask"]').element as HTMLInputElement).value,
+    ).toBe('')
+    expect(findFormVlanInput(wrapper).props('modelValue')).toBeNull()
+  })
+
+  it('修改范围 → PATCH /api/ip-address-ranges/{id}：body 恰为 5 个可变字段快照（可变字段封闭，契约 §3.4，含 F022）', async () => {
     const fetchMock = stubDetailFetch({
       detail: () => jsonResponse(200, IP_ADDRESS_RANGE_A),
       patch: () => jsonResponse(200, { ...IP_ADDRESS_RANGE_A, end_ip: '10.0.1.255' }),
@@ -239,12 +320,50 @@ describe('IpAddressRangeDetailPage 编辑入口（PATCH，契约 §3.4）', () =
       '/api/ip-address-ranges/7',
       expect.objectContaining({
         method: 'PATCH',
-        body: JSON.stringify({ start_ip: '10.0.0.1', end_ip: '10.0.1.255' }),
+        body: JSON.stringify({
+          start_ip: '10.0.0.1',
+          end_ip: '10.0.1.255',
+          name: '业务网',
+          subnet_mask: '255.255.255.0',
+          vlan: 100,
+        }),
       }),
     )
   })
 
-  it('§21 不预判：start > end、非法 IPv4、与同 Cluster 其它范围重叠的取值均原样提交（服务端裁决）', async () => {
+  it('清空 F022 三字段 → PATCH 提交 name / subnet_mask / vlan 为 null（清空为未登记，契约 §3.4）', async () => {
+    const fetchMock = stubDetailFetch({
+      detail: () => jsonResponse(200, IP_ADDRESS_RANGE_A),
+      patch: () => jsonResponse(200, IP_ADDRESS_RANGE_NULL_METADATA),
+    })
+
+    const wrapper = await mountDetailContent()
+    await openEditDialog(wrapper)
+
+    await wrapper.find('[data-testid="range-form-name"]').setValue('')
+    await wrapper.find('[data-testid="range-form-subnet-mask"]').setValue('')
+    await findFormVlanInput(wrapper).vm.$emit('update:modelValue', null)
+    await wrapper.find('[data-testid="range-form-submit"]').trigger('click')
+
+    await waitForUi(() => {
+      expect(patchCalls(fetchMock)).toBe(1)
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/ip-address-ranges/7',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          start_ip: '10.0.0.1',
+          end_ip: '10.0.0.255',
+          name: null,
+          subnet_mask: null,
+          vlan: null,
+        }),
+      }),
+    )
+  })
+
+  it('§21 不预判：start > end、非法 IPv4、与同 Cluster 其它范围重叠、非法掩码 / 越界 VLAN / 重名取值均原样提交（服务端裁决）', async () => {
     const fetchMock = stubDetailFetch({
       detail: () => jsonResponse(200, IP_ADDRESS_RANGE_A),
       patch: () => jsonResponse(400, {
@@ -275,12 +394,23 @@ describe('IpAddressRangeDetailPage 编辑入口（PATCH，契约 §3.4）', () =
       expect(patchCalls(fetchMock)).toBe(2)
     })
 
+    // F022：非法掩码 / 越界 VLAN / 重名取值不做客户端校验，原样提交（§21：
+    // 400 / 409 由服务端裁决）。
+    await wrapper.find('[data-testid="range-form-name"]').setValue('存储网')
+    await wrapper.find('[data-testid="range-form-subnet-mask"]').setValue('255.0.255.0')
+    await findFormVlanInput(wrapper).vm.$emit('update:modelValue', 0)
+    await wrapper.find('[data-testid="range-form-submit"]').trigger('click')
+    await waitForUi(() => {
+      expect(patchCalls(fetchMock)).toBe(3)
+    })
+
     const bodies = fetchMock.mock.calls
       .filter((call) => (call[1] as RequestInit | undefined)?.method === 'PATCH')
       .map((call) => JSON.parse((call[1] as RequestInit).body as string))
     expect(bodies).toEqual([
-      { start_ip: '10.0.1.9', end_ip: '10.0.1.1' },
-      { start_ip: 'abc', end_ip: '10.0.0.256' },
+      { start_ip: '10.0.1.9', end_ip: '10.0.1.1', name: '业务网', subnet_mask: '255.255.255.0', vlan: 100 },
+      { start_ip: 'abc', end_ip: '10.0.0.256', name: '业务网', subnet_mask: '255.255.255.0', vlan: 100 },
+      { start_ip: 'abc', end_ip: '10.0.0.256', name: '存储网', subnet_mask: '255.0.255.0', vlan: 0 },
     ])
   })
 
@@ -346,6 +476,73 @@ describe('IpAddressRangeDetailPage 编辑入口（PATCH，契约 §3.4）', () =
     expect(alert.text()).toContain('请求校验失败')
     expect(alert.text()).toContain('end_ip')
     // 详情内容保留，用户可修改后重试。
+    expect(wrapper.attributes('data-state')).toBe('content')
+  })
+
+  it('400 VALIDATION_ERROR（F022 非法掩码 / 越界 VLAN，契约 §3.4）→ 对话框内按 details[].field 渲染字段级提示', async () => {
+    stubDetailFetch({
+      detail: () => jsonResponse(200, IP_ADDRESS_RANGE_A),
+      patch: () =>
+        jsonResponse(400, {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: '与展示无关的校验文案',
+            details: [
+              { field: 'subnet_mask', code: 'INVALID', message: '与展示无关的掩码提示' },
+              { field: 'vlan', code: 'INVALID', message: '与展示无关的 VLAN 提示' },
+            ],
+          },
+        }),
+    })
+
+    const wrapper = await mountDetailContent()
+    await openEditDialog(wrapper)
+
+    await wrapper.find('[data-testid="range-form-subnet-mask"]').setValue('255.0.255.0')
+    await findFormVlanInput(wrapper).vm.$emit('update:modelValue', 4095)
+    await wrapper.find('[data-testid="range-form-submit"]').trigger('click')
+
+    await waitForUi(() => {
+      expect(wrapper.find('[data-error-code="VALIDATION_ERROR"]').exists()).toBe(true)
+    })
+    const alert = wrapper.find('[data-error-code="VALIDATION_ERROR"]')
+    expect(alert.text()).toContain('请求校验失败')
+    expect(alert.text()).toContain('subnet_mask')
+    expect(alert.text()).toContain('vlan')
+    expect(wrapper.text()).not.toContain('与展示无关的校验文案')
+    // 详情内容保留，用户可修改后重试。
+    expect(wrapper.attributes('data-state')).toBe('content')
+  })
+
+  it('409 CONFLICT + details[].code === DUPLICATE（F022，修改为同 Cluster 已用名，契约 §3.4 / §4.2；field 为 best-effort 不参与分支）→ 「该集群已存在同名网段」（不解析 message）', async () => {
+    stubDetailFetch({
+      detail: () => jsonResponse(200, IP_ADDRESS_RANGE_A),
+      patch: () =>
+        jsonResponse(409, {
+          error: {
+            code: 'CONFLICT',
+            message: '与展示无关的冲突文案',
+            details: [{ row: null, field: null, code: 'DUPLICATE', message: '与展示无关的同名提示' }],
+          },
+        }),
+    })
+
+    const wrapper = await mountDetailContent()
+    await openEditDialog(wrapper)
+
+    await wrapper.find('[data-testid="range-form-name"]').setValue('存储网')
+    await wrapper.find('[data-testid="range-form-submit"]').trigger('click')
+
+    await waitForUi(() => {
+      expect(wrapper.find('[data-error-code="CONFLICT"]').exists()).toBe(true)
+    })
+    const alert = wrapper.find('[data-error-code="CONFLICT"]')
+    expect(alert.text()).toContain('该集群已存在同名网段')
+    expect(alert.text()).toContain('区分大小写')
+    expect(wrapper.text()).not.toContain('与展示无关的冲突文案')
+    expect(wrapper.text()).not.toContain('与展示无关的同名提示')
+    // 对话框保持打开（失败不关闭，用户可修改后重试）；无部分写入，详情保留。
+    expect(wrapper.find('[data-testid="range-form-submit"]').exists()).toBe(true)
     expect(wrapper.attributes('data-state')).toBe('content')
   })
 

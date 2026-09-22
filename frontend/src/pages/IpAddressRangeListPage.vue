@@ -21,17 +21,22 @@ import IpAddressRangeFormDialog from '../components/IpAddressRangeFormDialog.vue
  * - Empty 与 Not Found 可区分（R-QUERY-004）：所筛选的 Cluster 存在但无活跃
  *   范围段 → 200 + items == []（Empty 态）；Cluster 不存在或已逻辑删除 →
  *   404 NOT_FOUND（Error 态渲染「未找到资源」）；
- * - 列展示 start_ip – end_ip（含两端）、cluster_id、更新时间（不透明字符串）；
- *   无状态列 / 状态筛选（Q-002=B）、无 name / description 列（契约 §2 封闭）；
+ * - 列展示 start_ip – end_ip（含两端）、cluster_id、名称 / 子网掩码 / VLAN
+ *   （F022，R-IP-004：三个可选元数据字段，null 显示占位「—」，与契约
+ *   §2 可空语义一致）、更新时间（不透明字符串）；无状态列 / 状态筛选
+ *   （Q-002=B）、无 description 列（契约 §2 封闭）；name / subnet_mask /
+ *   vlan 不是查询 / 筛选 / 排序参数（契约 §10）：本页不提供按名称 / 掩码 /
+ *   VLAN 的筛选或排序入口；
  * - 每行提供详情 / 删除入口；删除二次确认（ElPopconfirm）→ DELETE
  *   /api/ip-address-ranges/{id}（契约 §3.5）。204 / 404 同构刷新；409
  *   CONFLICT + details[].code === 'ACTIVE_CHILDREN_EXIST'（范围内仍有活跃
  *   IP）按 error.code 渲染；401 交由全局会话失效处理；提交中 Loading 且禁
  *   重复提交。删除守卫由后端裁决（§21），前端不预判、不禁用、不隐藏入口；
  * - 登记表单入口（IpAddressRangeFormDialog，POST）：父 Cluster 存在性 /
- *   活跃性（404）、字段合法性（400）、同 Cluster 重叠（409 OVERLAP）均由
- *   服务端裁决，前端不预判、不做重叠预检；从已筛选集群打开时预选该集群
- *   （可改选）；
+ *   活跃性（404）、字段合法性（400，含非法掩码 / 越界 VLAN）、同 Cluster
+ *   重叠（409 OVERLAP）、同 Cluster 活跃同名（409 DUPLICATE，F022）均由
+ *   服务端裁决，前端不预判、不做重叠 / 重名预检；从已筛选集群打开时预选
+ *   该集群（可改选）；
  * - 集群筛选选项懒加载：首次展开下拉时 GET /api/clusters（失败可重试），
  *   挂载时只发起一次列表请求；筛选值直接提交，Cluster 存在性由服务端裁决
  *   （非预判）；
@@ -269,8 +274,10 @@ function handleCreated(): void {
           />
         </div>
 
-        <!-- 列集合封闭：id / cluster_id / start_ip – end_ip / updated_at；
-             无状态列（Q-002=B）、无 name / description 列（契约 §2）。 -->
+        <!-- 列集合封闭：id / cluster_id / start_ip – end_ip / name /
+             subnet_mask / vlan（F022，null → 「—」占位）/ updated_at；无状态列
+             （Q-002=B）、无 description 列（契约 §2）。三字段不是筛选 / 排序
+             参数（契约 §10），不提供对应入口。 -->
         <el-table :data="ranges" class="range-list__table">
           <el-table-column prop="id" label="ID" width="80" />
           <el-table-column prop="cluster_id" label="所属集群 ID" width="140" />
@@ -278,6 +285,17 @@ function handleCreated(): void {
                （契约 §2 / §7）。 -->
           <el-table-column label="地址范围（start – end，含两端）" min-width="240">
             <template #default="{ row }">{{ row.start_ip }} – {{ row.end_ip }}</template>
+          </el-table-column>
+          <!-- F022 三个可选元数据字段：契约原样值，null → 「—」占位（未登记），
+               不做任何变换 / 推导。 -->
+          <el-table-column label="名称" min-width="120">
+            <template #default="{ row }">{{ row.name ?? '—' }}</template>
+          </el-table-column>
+          <el-table-column label="子网掩码" min-width="140">
+            <template #default="{ row }">{{ row.subnet_mask ?? '—' }}</template>
+          </el-table-column>
+          <el-table-column label="VLAN" width="90">
+            <template #default="{ row }">{{ row.vlan ?? '—' }}</template>
           </el-table-column>
           <el-table-column prop="updated_at" label="更新时间" min-width="200" />
           <el-table-column label="操作" width="150">

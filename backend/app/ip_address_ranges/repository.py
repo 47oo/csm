@@ -69,20 +69,52 @@ class IpAddressRangeRepository:
             stmt = stmt.where(IpAddressRange.id != exclude_id)
         return self.session.scalars(stmt.limit(1)).first() is not None
 
-    def create(self, *, cluster_id: int, start_ip: int, end_ip: int) -> IpAddressRange:
+    def active_name_exists(
+        self, cluster_id: int, name: str, *, exclude_id: int | None = None
+    ) -> bool:
+        """同 Cluster 活跃范围内是否已存在**字面相同**的 ``name``。
+
+        仅用于返回友好 ``409 DUPLICATE``；
+        ``ux_ip_address_ranges_cluster_name_active`` partial unique index 才是最终权威
+        （区分大小写、软删 / 未命名行释放）。
+        """
+        stmt = select(IpAddressRange.id).where(
+            active_filter(IpAddressRange),
+            IpAddressRange.cluster_id == cluster_id,
+            IpAddressRange.name == name,
+        )
+        if exclude_id is not None:
+            stmt = stmt.where(IpAddressRange.id != exclude_id)
+        return self.session.scalars(stmt.limit(1)).first() is not None
+
+    def create(
+        self,
+        *,
+        cluster_id: int,
+        start_ip: int,
+        end_ip: int,
+        name: str | None = None,
+        subnet_mask: str | None = None,
+        vlan: int | None = None,
+    ) -> IpAddressRange:
         ip_address_range = IpAddressRange(
             cluster_id=cluster_id,
             start_ip=start_ip,
             end_ip=end_ip,
+            name=name,
+            subnet_mask=subnet_mask,
+            vlan=vlan,
         )
         self.session.add(ip_address_range)
-        # flush 让数据库约束（FK / CHECK / EXCLUDE）在请求内抛出，
+        # flush 让数据库约束（FK / CHECK / EXCLUDE / partial unique）在请求内抛出，
         # 从而经通用 SQLSTATE 映射返回契约错误（数据库为最终权威）。
         self.session.flush()
         self.session.refresh(ip_address_range)
         return ip_address_range
 
-    def update(self, ip_address_range: IpAddressRange, fields: dict[str, int]) -> IpAddressRange:
+    def update(
+        self, ip_address_range: IpAddressRange, fields: dict[str, int | str | None]
+    ) -> IpAddressRange:
         for name, value in fields.items():
             setattr(ip_address_range, name, value)
         self.session.flush()

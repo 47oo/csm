@@ -108,7 +108,7 @@
 >     R-IP-001 ~ R-IP-003 与 R-IP-005 ~ R-IP-010 **原样保留保持不变**。
 >   - 未由产品裁定、留 Architecture：`name` 的长度 / trim / 空串 / 字符集（**不实现、不承诺**）、
 >     掩码存储表示、`PATCH` 可变语义、错误码 `details[]` 具体取值、
->     migration `0010_f022_ip_address_range_metadata` 形态。
+>     migration `0010_f022_ip_range_metadata` 形态。
 >   - 决策来源：用户 2026-09-21 对 `DEC-024` 的裁定（`docs/project/project-plan.yaml`
 >     `decisions_required[DEC-024].resolution`）。
 >   - 规则总数：**70 → 70**（**修订既有 R-IP-004，不新增规则编号**）。
