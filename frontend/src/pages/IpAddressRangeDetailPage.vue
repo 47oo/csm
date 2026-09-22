@@ -11,17 +11,21 @@ import IpAddressRangeFormDialog from '../components/IpAddressRangeFormDialog.vue
  * IP 地址范围段详情页（F020 产品页）。
  *
  * - 调用 GET /api/ip-address-ranges/{id}（契约 §3.3，规范路径），展示全部
- *   6 字段（契约 §2 封闭集合）：id / cluster_id / start_ip / end_ip /
- *   created_at / updated_at；时间为不透明字符串原样展示；start_ip / end_ip
- *   为服务端规范化值原样展示；无状态字段展示 / 编辑（Q-002=B，范围段无
- *   状态）；无 name / description 展示（契约 §2 封闭）；
+ *   9 字段（契约 §2 封闭集合，含 F022 修订）：id / cluster_id / start_ip /
+ *   end_ip / name / subnet_mask / vlan / created_at / updated_at；时间为不
+ *   透明字符串原样展示；start_ip / end_ip 为服务端规范化值原样展示；三个
+ *   可选元数据字段（F022，R-IP-004）null 渲染为「—」（与契约 §2 可空语义
+ *   一致，与 Container 先例同款占位）；无状态字段展示 / 编辑（Q-002=B，
+ *   范围段无状态）；无 description 展示（契约 §2 封闭）；
  * - 404 NOT_FOUND（不存在或已被逻辑删除，两者不区分，契约 §9）→ 独立的
  *   「资源不存在或已被删除」态，与列表页 Empty（200 + items 为空）是不同
  *   状态（R-QUERY-004）；
- * - start_ip / end_ip 修正入口（IpAddressRangeFormDialog，PATCH 契约 §3.4）：
- *   **仅此两个字段可编辑**；cluster_id 登记后不可变（契约 §3.4），只读展示，
+ * - start_ip / end_ip / 三个可选元数据字段修正入口（IpAddressRangeFormDialog，
+ *   PATCH 契约 §3.4，含 F022 修订）：**可变字段恰为 {start_ip, end_ip,
+ *   name, subnet_mask, vlan}**；cluster_id 登记后不可变（契约 §3.4），只读展示，
  *   不提供编辑输入；修正后由服务端重新执行 IPv4 解析 / start<=end / 重叠
- *   校验（409 OVERLAP / 400 / 404 按 error.code 渲染，不解析 message），
+ *   校验（409 OVERLAP / 400 / 404 按 error.code 渲染，不解析 message）、
+ *   name 同 Cluster 活跃唯一校验（409 DUPLICATE）与掩码 / VLAN 校验（400），
  *   前端不重复实现业务守卫（§21）；
  * - 删除入口（ElPopconfirm）→ DELETE /api/ip-address-ranges/{id}（契约
  *   §3.5）。删除成功（204）或目标已不存在（404，两者不区分）→ 重新读取 →
@@ -65,6 +69,11 @@ const detailItems = computed<DetailItem[]>(() => {
     { key: 'cluster_id', label: '所属集群 ID', value: String(range.cluster_id) },
     { key: 'start_ip', label: '起始 IP', value: range.start_ip },
     { key: 'end_ip', label: '结束 IP', value: range.end_ip },
+    // F022 三个可选元数据字段：契约原样值，null → 「—」（未登记），
+    // 不做任何变换 / 推导（vlan 为 number，展示为字符串）。
+    { key: 'name', label: '名称', value: range.name ?? '—' },
+    { key: 'subnet_mask', label: '子网掩码', value: range.subnet_mask ?? '—' },
+    { key: 'vlan', label: 'VLAN', value: range.vlan === null ? '—' : String(range.vlan) },
     { key: 'created_at', label: '登记时间', value: range.created_at },
     { key: 'updated_at', label: '更新时间', value: range.updated_at },
   ]
@@ -110,9 +119,9 @@ function handleUpdated(): void {
         <el-button @click="backToList">返回列表</el-button>
         <h1 class="range-detail__title">IP 地址范围段详情</h1>
       </div>
-      <!-- start_ip / end_ip 修正入口与删除入口：仅内容态出现；cluster_id
-           不可变（契约 §3.4），只读展示、不提供编辑；删除守卫由后端 409
-           裁决（§21），前端不预判。 -->
+      <!-- 修正入口与删除入口：仅内容态出现；可编辑字段恰为 5 个可变字段
+           （契约 §3.4，含 F022）；cluster_id 不可变，只读展示、不提供编辑；
+           删除守卫由后端 409 裁决（§21），前端不预判。 -->
       <div v-if="state === 'content'" class="range-detail__actions">
         <el-button type="primary" plain data-testid="open-edit-dialog" @click="editDialogVisible = true">
           编辑
@@ -166,8 +175,9 @@ function handleUpdated(): void {
       </template>
     </section>
 
-    <!-- 编辑表单（PATCH）：仅 start_ip / end_ip；cluster_id / id / created_at
-         不在其中（不可变，契约 §3.4）。 -->
+    <!-- 编辑表单（PATCH）：可变字段恰为 {start_ip, end_ip, name,
+         subnet_mask, vlan}（F022 修订）；cluster_id / id / created_at 不在
+         其中（不可变，契约 §3.4）。 -->
     <IpAddressRangeFormDialog
       v-model="editDialogVisible"
       mode="edit"

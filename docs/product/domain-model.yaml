@@ -746,6 +746,13 @@ uniqueness_rules:
     applies_to: 同一 Cluster 内的活跃 IP 地址范围段
     statement: 同一 Cluster 内的活跃范围段不得重叠；跨 Cluster 可重复；IP 分配不新增超出 R-IP-001 的唯一性
     rule_ids: [R-IP-004, R-IP-010]
+  - id: R-IP-004 (name)
+    attribute: IPAddressRange.name
+    scope: per_cluster
+    applies_to: 同一 Cluster 内的活跃 IP 地址范围段
+    case_sensitive: true
+    statement: 范围段 name 在同一 Cluster 内活跃唯一；区分大小写；软删释放；跨 Cluster 可重复
+    rule_ids: [R-IP-004]
   - id: R-CLUSTER-005
     attribute: Cluster.name
     type: character_constraint

@@ -169,12 +169,12 @@ def test_g_f021_5_sqlstate_map_keys_unchanged():
 
 
 # --------------------------------------------------------------------------- #
-# G-F021-6：无新增 migration；head 仍 0009
+# G-F021-6：无新增分配 migration；head 已由 F022 推进到 0010（不得弱化）
 # --------------------------------------------------------------------------- #
 def test_g_f021_6_migration_head_still_0009():
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
+    assert MIGRATION_HEAD == "0010_f022_ip_range_metadata"
 
 
 # --------------------------------------------------------------------------- #

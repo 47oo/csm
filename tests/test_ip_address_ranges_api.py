@@ -15,15 +15,19 @@ READ_FIELDS = {
     "cluster_id",
     "start_ip",
     "end_ip",
+    # F022 纯增量：3 个可选元数据字段。
+    "name",
+    "subnet_mask",
+    "vlan",
     "created_at",
     "updated_at",
 }
 
+# F022：name / vlan 已成为合法字段，从禁令牌移除；其余保持不变。
 FORBIDDEN_READ_FIELDS = {
     "deleted_at",
     "status",
     "state",
-    "name",
     "description",
     "purpose",
     "cidr",
@@ -31,7 +35,6 @@ FORBIDDEN_READ_FIELDS = {
     "network_address",
     "broadcast_address",
     "gateway",
-    "vlan",
     "dhcp",
     "dns",
     "capacity",
@@ -189,7 +192,6 @@ def test_ac09_leading_zeros_are_normalized_on_store_and_read(auth_client_and_raw
 @pytest.mark.parametrize(
     "extra",
     [
-        {"name": "pool"},
         {"description": "x"},
         {"status": "ACTIVE"},
         {"deleted_at": None},
@@ -405,7 +407,6 @@ def test_ac13_patch_updates_bounds_and_is_read_back(auth_client_and_raw):
         {"cluster_id": 1},
         {"id": 1},
         {"status": "ACTIVE"},
-        {"name": "pool"},
         {"deleted_at": None},
     ],
 )

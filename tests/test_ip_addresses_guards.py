@@ -327,10 +327,10 @@ def test_g5_table_whitelist_includes_ip_addresses():
 
 
 def test_g5_migration_head_is_current():
-    # F020 演进：head 从 0008 → 0009（不得删除本 guard，只更新当前 head）。
+    # F022 演进：head 从 0009 → 0010（不得删除本 guard，只更新当前 head）。
     from tests.database.helpers import MIGRATION_HEAD
 
-    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
+    assert MIGRATION_HEAD == "0010_f022_ip_range_metadata"
 
 
 # --------------------------------------------------------------------------- #
@@ -680,11 +680,17 @@ def test_g15_ip_module_does_not_import_network_interfaces_module():
 def test_g16_migration_revision_chain():
     from tests.database.helpers import MIGRATION_HEAD
 
-    # F020 演进：head 为 0009，其 down_revision 指向 0008。
-    assert MIGRATION_HEAD == "0009_f020_ip_address_ranges"
-    migration = REPO_ROOT / "backend" / "migrations" / "versions" / "0009_f020_ip_address_ranges.py"
+    # F022 演进：head 为 0010，其 down_revision 指向 0009。
+    assert MIGRATION_HEAD == "0010_f022_ip_range_metadata"
+    migration = (
+        REPO_ROOT
+        / "backend"
+        / "migrations"
+        / "versions"
+        / "0010_f022_ip_range_metadata.py"
+    )
     source = migration.read_text(encoding="utf-8")
-    assert 'down_revision: str | None = "0008_f008_services"' in source
+    assert 'down_revision: str | None = "0009_f020_ip_address_ranges"' in source
 
 
 # --------------------------------------------------------------------------- #

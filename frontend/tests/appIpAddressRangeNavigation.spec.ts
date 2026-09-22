@@ -11,8 +11,8 @@ import { setUnauthenticatedHandler } from '../src/api/http'
  * 保留），全局范围段列表（无过滤）→ 页内集群筛选（?cluster_id=）→ 范围段
  * 详情 → 返回列表；导航高亮随 ip-address-range 区域切换。仍不引入 vue-router。
  *
- * 响应体严格按 docs/api/f020-ip-address-range.md 与 f001-cluster.md /
- * f013-auth.md 构造；fetch 桩替换，不触达真实后端。
+ * 响应体严格按 docs/api/f020-ip-address-range.md（含 F022 纯增量修订，9
+ * 字段）与 f001-cluster.md / f013-auth.md 构造；fetch 桩替换，不触达真实后端。
  */
 
 const SESSION_USER = { id: 1, username: 'admin' }
@@ -28,6 +28,9 @@ const IP_ADDRESS_RANGE_A = {
   cluster_id: 1,
   start_ip: '10.0.0.1',
   end_ip: '10.0.0.255',
+  name: '业务网',
+  subnet_mask: '255.255.255.0',
+  vlan: 100,
   created_at: '2026-09-20T10:00:00Z',
   updated_at: '2026-09-20T10:00:00Z',
 }
@@ -36,13 +39,15 @@ const IP_ADDRESS_RANGE_LIST_BODY = {
   total: 1,
   page: 1,
   page_size: 50,
-}
-/** 筛选后（cluster_id=1）的可区分响应：不同范围值，便于确定性等待重渲染。 */
+}/** 筛选后（cluster_id=1）的可区分响应：不同范围值，便于确定性等待重渲染。 */
 const IP_ADDRESS_RANGE_B = {
   id: 8,
   cluster_id: 1,
   start_ip: '192.168.10.0',
   end_ip: '192.168.10.255',
+  name: null,
+  subnet_mask: null,
+  vlan: null,
   created_at: '2026-09-20T10:00:00Z',
   updated_at: '2026-09-20T10:00:00Z',
 }
