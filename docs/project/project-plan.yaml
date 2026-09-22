@@ -2048,7 +2048,7 @@ features:
       DEC-024 已于 2026-09-21 由用户裁定为 RESOLVED（见 decisions_required[DEC-024].resolution）；
       本 Feature 无未决产品问题，依赖 F020（已 DONE）→ **READY**。Product 落 §12 规则与 Architecture
       定稿契约 / migration 0010 在 Feature Workflow 内完成。
-    current_stage: PRODUCT
+    current_stage: ARCHITECTURE
     git:
       base_branch: develop
       branch: feature/F022-network-segment-metadata
@@ -2056,11 +2056,13 @@ features:
       head_commit: null
       merge_commit: null
     last_result: >
-      DEC-024 已 RESOLVED（2026-09-21），本次增量计划获批准（project.status = ACCEPTED）。启动 Feature Workflow，
-      自 develop（dae7fe9）创建分支 feature/F022-network-segment-metadata。当前进入 Product。
+      Product 完成（2026-09-21）：修订 **R-IP-004**（§12）新增 3 个可选字段 `name` / `subnet_mask` / `vlan` 及语义，
+      产出 Product Handoff `docs/product/handoffs/f022-network-segment-metadata.md`（**READY FOR ARCHITECT**），
+      无 Blocking Open Question；domain-model 已同步。现进入 Architecture。
     next_action: >
-      Product：在 requirements.md §12 锤定对 **R-IP-004** 的修订（新增可选 `name` / `subnet_mask` / `vlan` 及语义），
-      并产出 Product Handoff。依据 `decisions_required[DEC-024].resolution`。
+      Architecture：在 `docs/api/f020-ip-address-range.md` 上**纯增量**追加三字段（Status 维 READY）与错误语义，
+      定稿错误码（name 重复 / mask·vlan 非法）、`PATCH` 可变语义，并复核 `layers.database=true` 与 migration
+      `0010_f022_ip_address_range_metadata` 形态；不改变 F021 分配行为。
     layers:
       database: true      # DEC-024 已裁定：扩展 ip_address_ranges 加 3 个可空列 + name partial unique + migration 0010
       backend: true       # 新字段的 CRUD、校验与唯一性
@@ -2083,28 +2085,24 @@ features:
       test: NOT_STARTED
       review: NOT_STARTED
     product_document: docs/product/requirements.md
-    requirements: []
+    requirements:
+      - R-IP-004
     requirements_note: >
-      **DEC-024 已 RESOLVED（2026-09-21）**：Product 须在 requirements.md §12 **修订 R-IP-004**（新增可选字段
-      `name` / `subnet_mask` / `vlan` 及其语义）后，本 Feature 方可挂 requirement ID。PM / 协调器不代劳。
-      R-IP-001 ~ R-IP-010 其余部分保持不变。权威裁定见 `decisions_required[DEC-024].resolution`。
+      Product 已于 2026-09-21 **修订 R-IP-004**（新增 3 个可选字段 `name` / `subnet_mask` / `vlan` 及语义），
+      本 Feature 挂 **R-IP-004**；R-IP-001~003 与 R-IP-005~010 保持不变。完整产品依据见
+      `docs/product/handoffs/f022-network-segment-metadata.md` 与 `requirements.md` §12；权威裁定见 `decisions_required[DEC-024].resolution`。
     acceptance_criteria:
-      # 专属 AC 待 DEC-024 裁定与 Product 定稿；以下仅列与产品语义无关的通用 AC，其余为占位，不得据未确认语义实现。
-      - AC-01 认证：未认证访问本 Feature 相关端点 → 401 UNAUTHENTICATED 且不返回任何资源数据。
-      - AC-02 软删一致性：新增字段不改变范围段既有的逻辑删除语义与 R-DELETE-001/002/003/005/006 及 ADR-0004。
-      - AC-03 不改既有语义：不修改 R-IP-001 ~ R-IP-010 与 §22 大小写语义，除非 DEC-024 明确裁定修订。
-      - AC-04 契约一致：本 Feature 契约已持久化且 contract.status=READY；不得存在「契约禁止、实现却有」的分裂。
-      - AC-05 前端三态：Loading / Empty / Error 互不相同；错误按 error.code 渲染、不解析 message、不重复实现业务校验。
-      - AC-06 范围边界：不引入自动资产发现 / 外部平台同步 / 自动拓扑 / 未确认的网段扫描或导出能力。
-      - AC-07 名称（已裁定 DEC-024/NQ-2）：新增字段 `name` 可选；同一 Cluster 内活跃网段唯一；区分大小写（§22）；软删释放（R-DELETE-006）；跨 Cluster 可重复。
-      - AC-08 掩码（已裁定 DEC-024/NQ-3/NQ-4）：`subnet_mask` 可选，dotted-quad IPv4 合法掩码；不强制与 start–end 自洽；V1 仅 IPv4。
-      - AC-09 VLAN（已裁定 DEC-024/NQ-5）：`vlan` 可选整数 1–4094，不唯一。
-      - AC-10 既有语义（已裁定 DEC-024/NQ-6/NQ-7）：不新增 VLAN 唯一性；扩展既有 `ip_address_ranges`（加列）；精确修订 f020 契约；F020 / F021 结论不推翻；F021 分配不按掩码 / VLAN 过滤。
-      - AC-11 迁移（已裁定 DEC-024/NQ-8）：migration 0010，三列可空 + name partial unique，无回填。
+      # AC-01 ~ AC-30 已由 Product 于 2026-09-21 定稿；权威文本见 docs/product/handoffs/f022-network-segment-metadata.md。
+      - AC-01 ~ AC-05 认证 / 响应字段集合恰为 9 字段（含 3 个可选字段）/ 请求字段封闭 / 三字段可选缺失返回 null / 三字段往返一致。
+      - AC-06 ~ AC-10 `name`：同 Cluster 活跃唯一（保存前阻止）/ 跨 Cluster 可重复 / 区分大小写 / 软删释放 / 未定义约束（长度·trim·空串·字符集）不实现不承诺。
+      - AC-11 ~ AC-14 `subnet_mask`：合法 dotted-quad 掩码接受 / 非法（非连续 / CIDR / IPv6 / 空串）拒绝 400 / 不强制与 start–end 自洽 / V1 仅 IPv4。
+      - AC-15 ~ AC-17 `vlan`：1 与 4094 接受 / 0·4095·越界·非整数拒绝 400 / 不唯一。
+      - AC-18 仅新增 name 唯一性；无 VLAN 唯一 / 复合唯一。
+      - AC-19 ~ AC-26 既有语义不变：重叠 / 软删释放 / 删除守卫 / 无状态 / IPv4 规范化 / R-IP-001~003 与 R-IP-005~010 / 分配不按掩码·VLAN 过滤 / F005 ip_address 立场。
+      - AC-27 ~ AC-30 不引入 CIDR·IPv6·网关·DHCP·DNS·使用率等；前端三态与 error.code 分支；契约一致；migration 0010（三列可空 + name partial unique，无回填）。
     acceptance_criteria_note: >
-      AC-01 ~ AC-06 为与产品语义无关的通用 AC；AC-07 ~ AC-11 为已裁定语义的要点摘要，最终可判定 AC 由 Product
-      在 Feature Workflow 的 Product 阶段定稿并补入（含字段类型 / 错误语义 / Empty-Not Found / 唯一性 409 等）。
-      权威细节见 `decisions_required[DEC-024].resolution`。
+      全部 AC 已由 Product 定稿（2026-09-21）；细节以 `docs/product/handoffs/f022-network-segment-metadata.md`
+      为唯一权威来源，本处不再重复。
     open_questions:
       - id: NQ-1
         blocking: true
@@ -3823,8 +3821,10 @@ planning_status:
 
 execution:
   current_feature: F022
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   note_append: >
+    2026-09-21：F022 Product 完成：修订 **R-IP-004**（§12）新增 3 个可选字段，产出 Product Handoff（READY FOR ARCHITECT）；
+    F022.requirements = [R-IP-004]；feature.current_stage = ARCHITECTURE。
     2026-09-21：启动 F022（网段自定义名称 / 子网掩码 / VLAN 标注）。DEC-024 RESOLVED 后自 develop（dae7fe9）
     创建分支 feature/F022-network-segment-metadata；project.status = IN_PROGRESS。当前进入 Product。
     2026-09-21：F021 完成（Reviewer APPROVED WITH FOLLOW-UP，HEAD f480ecc→d996158，merge 011d05d），feature.status = DONE，
