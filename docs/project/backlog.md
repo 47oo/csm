@@ -2,8 +2,16 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（全部 V1 Feature 处置完毕；`project.status = DONE`）
-> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
+> Generated: 2026-09-22（增量四登记 F023；`project.status = ACCEPTED`）
+> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
+
+**2026-09-22（增量四）**：收到输入「当配置多套 IP 地址范围的时候，网卡无法选择使用哪套来自动分配 IP 地址」。
+诊断结论：这是 F021 已确认规则的限制（f021 §1.6 / R-IP-006：自动分配在全部活跃范围**并集**取全局最小），
+不是实现缺陷。用户就 **DEC-025** 裁定：① 自动分配**必须显式指定**一个活跃范围段（必填 `ip_address_range_id`）；
+② 所选范围段耗尽 → `409 NO_AVAILABLE_IP` 且**不回退**；③ **手动分配不变**；④ 按 Feature Workflow 执行。
+据此新增 **F023（自动分配时指定 IP 地址范围段，READY）**、**DEC-025（RESOLVED）** 与 **M12**；E02 追加 F023。
+`project.status` 由 DONE 转 **ACCEPTED**；**既有一律不变**：20 DONE + 1 CANCELLED、M1–M11、全部 merge commit /
+Tester / Review 证据与各 Feature 的 git 元数据均原样保留。**仅**按 DEC-025 修订 R-IP-006 / R-IP-009。
 
 **2026-09-21（增量三·终）**：F022 完成（merge b467e89，Reviewer = APPROVED WITH FOLLOW-UP），**F022 DONE**；M11 DONE。
 全部 V1 Feature 处置完毕：**20 DONE + 1 CANCELLED（F011）**；`project.status = DONE`。
@@ -48,15 +56,15 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 
 | 维度 | 值 |
 |---|---|
-| Feature 总数 | 21 |
+| Feature 总数 | 22 |
 | P0 | 7（F012、F013、F014、F015、F001、F002、F009） |
-| P1 | 13（F004、F005、F006、F007、F008、F010、F011、F016、F018、F019、F020、F021、F022） |
+| P1 | 14（F004、F005、F006、F007、F008、F010、F011、F016、F018、F019、F020、F021、F022、F023） |
 | P2 | 1（F017） |
 | DONE | 20 |
 | CANCELLED | 1（F011） |
 | DRAFT | 0 |
-| READY / IN_PROGRESS / BLOCKED | 0 / 0 / 0 |
-| Decisions 总数 | 24（OPEN **0**） |
+| READY / IN_PROGRESS / BLOCKED | 1 / 0 / 0（READY: F023） |
+| Decisions 总数 | 25（OPEN **0**） |
 
 ## 按 Epic
 
@@ -77,6 +85,7 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | F020 | IP 地址范围段（地址池）管理 | P1 | **DONE** | F001, F005 | READY | e4291a1e |
 | F021 | IP 地址自动 / 手动分配 | P1 | **DONE** | F020, F005, F004, F002 | READY | 011d05df |
 | F022 | 网段自定义名称 / 子网掩码 / VLAN 标注 | P1 | **DONE** | F020 | READY | b467e891 |
+| F023 | 自动分配时指定 IP 地址范围段 | P1 | **READY** | F020, F021 | REQUIRED | — |
 
 ### E03 虚拟资源管理
 
@@ -131,6 +140,7 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
 | M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **DONE** |
 | M11 | 网段自定义名称 / 子网掩码 / VLAN | F022 | **DONE** |
+| M12 | 自动分配指定 IP 地址范围段 | F023 | **待执行（F023 READY）** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 
@@ -164,6 +174,7 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | DEC-022 | product | RESOLVED | F019, F018 |
 | DEC-023 | product | RESOLVED | F020, F021, F005 |
 | DEC-024 | product | RESOLVED | F022, F020, F021, F005 |
+| DEC-025 | product | RESOLVED | F023, F021, F020 |
 
 `DEC-020`（侧边栏）、`DEC-021`（关键字搜索）与 `DEC-022`（搜索结果聚合）均已 RESOLVED。
 `DEC-022` 已于 2026-09-20 由用户裁定：结果为单一扁平混合列表、按命中项关联链聚合、做关系扩展、采用方案 A（命中行 + 缩进关联行）、仅显示搜索涉及的资源、不去重、标识字段优先于描述性字段排序、取代 F018 扁列表。
