@@ -2185,12 +2185,12 @@ features:
     blocking_note: >
       DEC-025 已于 2026-09-22 由用户裁定为 RESOLVED（见 decisions_required[DEC-025].resolution）；
       本 Feature 无未决产品问题，依赖 F020 / F021 均已 DONE → **READY**。
-    current_stage: TEST
+    current_stage: REVIEW
     git:
       base_branch: develop
       branch: feature/F023-ip-range-selection
       start_commit: "dd159f3c43f97969b1f4b91106cb3c5b83d3f0d5"
-      head_commit: "baea9eca9b13767f7950af12b97059bf78eb67de"
+      head_commit: "dfe2af735388f83413854e01c0dcb1d140193c7d"
       merge_commit: null
     last_result: >
       增量四登记（2026-09-22）：用户裁定 DEC-025 后新增；F023 READY（depends_on F020 / F021 均已 DONE）。
@@ -2221,7 +2221,7 @@ features:
       database_design: NOT_REQUIRED   # layers.database = false；无 migration
       backend: COMPLETE               # app/ip_allocations/** + errors.py；92 专项 passed
       frontend: COMPLETE              # 自动分配范围段选择器；typecheck + 802 passed + build
-      test: NOT_STARTED
+      test: COMPLETE                  # Tester READY FOR REVIEW，AC-01 ~ AC-20 全 PASS，无缺陷
       review: NOT_STARTED
     product_document: docs/product/requirements.md
     requirements:
@@ -4003,8 +4003,11 @@ planning_status:
 
 execution:
   current_feature: F023
-  current_stage: TEST
+  current_stage: REVIEW
   note_append: >
+    2026-09-22：F023 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-20 全 PASS，无缺陷；
+    后端全量 1239 passed、F023 专项 + 探针 108 passed、前端 809 passed + typecheck + build、ruff 干净；
+    真实前后端集成 1/1。仅新增测试代码）。feature.current_stage = REVIEW；进入 Reviewer。
     2026-09-22：F023 Implementation 完成（Backend + Frontend 并行，提交 baea9ec），Implementation Gate 通过；
     协调器独立复跑：后端 F023 专项 92 passed（含新增 tests/test_f023_ip_range_selection.py）、ruff 干净；
     前端 typecheck + 802 passed + build；无新 migration（head 仍 0010_f022_ip_range_metadata）。现进入 TEST。
