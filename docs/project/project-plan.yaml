@@ -2185,12 +2185,12 @@ features:
     blocking_note: >
       DEC-025 已于 2026-09-22 由用户裁定为 RESOLVED（见 decisions_required[DEC-025].resolution）；
       本 Feature 无未决产品问题，依赖 F020 / F021 均已 DONE → **READY**。
-    current_stage: BACKEND
+    current_stage: TEST
     git:
       base_branch: develop
       branch: feature/F023-ip-range-selection
       start_commit: "dd159f3c43f97969b1f4b91106cb3c5b83d3f0d5"
-      head_commit: null
+      head_commit: "baea9eca9b13767f7950af12b97059bf78eb67de"
       merge_commit: null
     last_result: >
       增量四登记（2026-09-22）：用户裁定 DEC-025 后新增；F023 READY（depends_on F020 / F021 均已 DONE）。
@@ -2219,8 +2219,8 @@ features:
       `/allocate-manual` 与 F005 登记端点不变。无「契约禁止、实现却有」分裂。
     implementation:
       database_design: NOT_REQUIRED   # layers.database = false；无 migration
-      backend: NOT_STARTED
-      frontend: NOT_STARTED
+      backend: COMPLETE               # app/ip_allocations/** + errors.py；92 专项 passed
+      frontend: COMPLETE              # 自动分配范围段选择器；typecheck + 802 passed + build
       test: NOT_STARTED
       review: NOT_STARTED
     product_document: docs/product/requirements.md
@@ -4003,8 +4003,11 @@ planning_status:
 
 execution:
   current_feature: F023
-  current_stage: BACKEND
+  current_stage: TEST
   note_append: >
+    2026-09-22：F023 Implementation 完成（Backend + Frontend 并行，提交 baea9ec），Implementation Gate 通过；
+    协调器独立复跑：后端 F023 专项 92 passed（含新增 tests/test_f023_ip_range_selection.py）、ruff 干净；
+    前端 typecheck + 802 passed + build；无新 migration（head 仍 0010_f022_ip_range_metadata）。现进入 TEST。
     2026-09-22：F023 Architecture + Contract 完成：修订 f021 契约（新增必填 `ip_address_range_id`；范围段问题统一判别值
     `IP_ADDRESS_RANGE_UNAVAILABLE`；耗尽限定所选范围段），Status READY；Architecture Handoff = READY FOR IMPLEMENTATION；
     `layers.database = false`（implementation.database_design = NOT_REQUIRED）。feature.current_stage = BACKEND（跳过 DATABASE）。
