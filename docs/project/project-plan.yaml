@@ -2222,7 +2222,7 @@ features:
       backend: COMPLETE               # app/ip_allocations/** + errors.py；92 专项 passed
       frontend: COMPLETE              # 自动分配范围段选择器；typecheck + 802 passed + build
       test: COMPLETE                  # Tester READY FOR REVIEW，AC-01 ~ AC-20 全 PASS，无缺陷
-      review: NOT_STARTED
+      review: APPROVED_WITH_FOLLOW_UP  # 无 BLOCKER/HIGH/MEDIUM；REV-1(LOW,pre-existing) + NOTE
     product_document: docs/product/requirements.md
     requirements:
       - R-IP-006
@@ -4005,6 +4005,9 @@ execution:
   current_feature: F023
   current_stage: REVIEW
   note_append: >
+    2026-09-22：F023 Reviewer 裁定 **APPROVED WITH FOLLOW-UP**（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；
+    批准绑定候选 HEAD dfe2af7、Base dd159f3。Follow-up：REV-1（LOW，lax int，跨端点 pre-existing）、REV-2~5（NOTE）。
+    下一步 Merge Gate。
     2026-09-22：F023 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-20 全 PASS，无缺陷；
     后端全量 1239 passed、F023 专项 + 探针 108 passed、前端 809 passed + typecheck + build、ruff 干净；
     真实前后端集成 1/1。仅新增测试代码）。feature.current_stage = REVIEW；进入 Reviewer。
