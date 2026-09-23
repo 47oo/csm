@@ -74,7 +74,12 @@ def test_g_f021_1_global_surface_has_allocation_paths():
 # G-F021-2：请求 schema 封闭；响应复用 F005 的 IpAddressRead，无 cluster_id
 # --------------------------------------------------------------------------- #
 def test_g_f021_2_request_schemas_are_closed():
-    assert set(IpAddressAutoAllocateRequest.model_fields) == {"network_interface_id"}
+    # F023 演进：自动分配请求字段集合精确演进为
+    # ``{network_interface_id, ip_address_range_id}``（两字段均必填）。
+    assert set(IpAddressAutoAllocateRequest.model_fields) == {
+        "network_interface_id",
+        "ip_address_range_id",
+    }
     assert set(IpAddressManualAllocateRequest.model_fields) == {
         "network_interface_id",
         "ip_address",

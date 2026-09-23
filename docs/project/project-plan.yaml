@@ -28,10 +28,12 @@ project:
     CSM V1 不是完整 CMDB。
     （原列入的目标「批量数据导入」已于 2026-09-18 由用户取消，不在 V1 交付范围内；
     requirements.md §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付。）
-  status: ACCEPTED
+  status: IN_PROGRESS
   status_changed_on: "2026-09-22"
   status_note_append: >
     ---
+    2026-09-22（增量四·启动）：F023 自 develop（dd159f3）创建分支 `feature/F023-ip-range-selection`，进入 Product；
+    project.status 由 ACCEPTED 转 **IN_PROGRESS**。
     2026-09-22（增量四）：收到输入「当配置多套 IP 地址范围的时候，网卡无法选择使用哪套来自动分配 IP 地址」。
     经协调器诊断，这不是实现缺陷，而是 F021 已确认规则的限制：f021 契约 §1.6 / R-IP-006 规定自动分配在
     「全部活跃范围段的并集」取全局最小，`IpAddressAutoAllocateRequest` 字段恰为 `{network_interface_id}`，
@@ -2173,7 +2175,7 @@ features:
     name: 自动分配时指定 IP 地址范围段
     epic: E02
     priority: P1
-    status: READY
+    status: IN_PROGRESS
     depends_on: [F020, F021]
     depends_on_note: >
       本 Feature 修订 F021 已交付的自动分配行为（`POST /api/ip-addresses/allocate`），运行依赖 F021 已交付的
@@ -2183,12 +2185,12 @@ features:
     blocking_note: >
       DEC-025 已于 2026-09-22 由用户裁定为 RESOLVED（见 decisions_required[DEC-025].resolution）；
       本 Feature 无未决产品问题，依赖 F020 / F021 均已 DONE → **READY**。
-    current_stage: null
+    current_stage: REVIEW
     git:
       base_branch: develop
       branch: feature/F023-ip-range-selection
-      start_commit: null
-      head_commit: null
+      start_commit: "dd159f3c43f97969b1f4b91106cb3c5b83d3f0d5"
+      head_commit: "dfe2af735388f83413854e01c0dcb1d140193c7d"
       merge_commit: null
     last_result: >
       增量四登记（2026-09-22）：用户裁定 DEC-025 后新增；F023 READY（depends_on F020 / F021 均已 DONE）。
@@ -2204,23 +2206,27 @@ features:
     layers_note: >
       **无数据库变更**：不新增 / 不修改任何表、列、约束或索引；仅读取既有 `ip_address_ranges`（active）与
       `ip_addresses`；唯一性仍以 R-IP-001 的 `ux_ip_addresses_cluster_ip_active` 为最终权威（R-IP-010 不变）。
-      Architecture 复核后在契约中确认 `layers.database = false`。
+      Architecture 已于 2026-09-22 复核确认 `layers.database = false`（无 migration，head 仍 0010_f022_ip_range_metadata）。
     contract:
-      status: REQUIRED
+      status: READY
       doc: docs/api/f021-ip-address-allocation.md
     contract_note: >
-      Architecture 阶段须**修订** f021 契约：`POST /api/ip-addresses/allocate` 请求体由恰 `{network_interface_id}`
-      改为恰 `{network_interface_id, ip_address_range_id}`（**两者均必填**）；自动分配语义由「全部活跃范围段并集取全局最小」
-      改为「在所选单个活跃范围段内取数值最小未占用 IPv4」；新增范围段引用校验（不存在 / 已删 / 跨 Cluster）的错误语义；
-      耗尽 `NO_AVAILABLE_IP` 限定为所选范围段；`/allocate-manual` 与 F005 登记端点不变。
+      Architecture 已于 2026-09-22 **修订** f021 契约（Status 维持 **READY**）：`POST /api/ip-addresses/allocate`
+      请求体由恰 `{network_interface_id}` 改为恰 `{network_interface_id, ip_address_range_id}`（**两者均必填**）；
+      自动分配语义由「全部活跃范围段并集取全局最小」改为「在所选单个活跃范围段内取数值最小未占用 IPv4」；
+      范围段不存在 / 已删 → `404 NOT_FOUND`，活跃但跨 Cluster → `409 CONFLICT`，两者 `details[].code =
+      "IP_ADDRESS_RANGE_UNAVAILABLE"`；耗尽限定所选范围段 → `409 CONFLICT + NO_AVAILABLE_IP`（不回退）；
+      `/allocate-manual` 与 F005 登记端点不变。无「契约禁止、实现却有」分裂。
     implementation:
-      database_design: NOT_STARTED
-      backend: NOT_STARTED
-      frontend: NOT_STARTED
-      test: NOT_STARTED
-      review: NOT_STARTED
+      database_design: NOT_REQUIRED   # layers.database = false；无 migration
+      backend: COMPLETE               # app/ip_allocations/** + errors.py；92 专项 passed
+      frontend: COMPLETE              # 自动分配范围段选择器；typecheck + 802 passed + build
+      test: COMPLETE                  # Tester READY FOR REVIEW，AC-01 ~ AC-20 全 PASS，无缺陷
+      review: APPROVED_WITH_FOLLOW_UP  # 无 BLOCKER/HIGH/MEDIUM；REV-1(LOW,pre-existing) + NOTE
     product_document: docs/product/requirements.md
-    requirements: []
+    requirements:
+      - R-IP-006
+      - R-IP-009
     requirements_note: >
       Product 于 2026-09-22 修订 R-IP-006 / R-IP-009 后，本 Feature 挂 R-IP-006 与 R-IP-009；
       R-IP-001 ~ R-IP-005、R-IP-007、R-IP-008、R-IP-010 保持不变。
@@ -3072,13 +3078,13 @@ requirement_coverage_sections:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: [F023]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 0
     DRAFT: 0
     DONE: 20
@@ -3996,9 +4002,25 @@ planning_status:
   decision: "PROJECT REOPENED for F016 (2026-09-18) — user reported no Cluster registration entry in the deployed UI; verified as a real F001 gap (backend POST/PATCH usable and tested, zero frontend entry points). Scope: frontend-only, registration + rename sharing one dialog. Prior conclusion unchanged: 13 DONE + F011 CANCELLED."
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F023
+  current_stage: REVIEW
   note_append: >
+    2026-09-22：F023 Reviewer 裁定 **APPROVED WITH FOLLOW-UP**（无 BLOCKER / HIGH / 必须修复的 MEDIUM）；
+    批准绑定候选 HEAD dfe2af7、Base dd159f3。Follow-up：REV-1（LOW，lax int，跨端点 pre-existing）、REV-2~5（NOTE）。
+    下一步 Merge Gate。
+    2026-09-22：F023 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-20 全 PASS，无缺陷；
+    后端全量 1239 passed、F023 专项 + 探针 108 passed、前端 809 passed + typecheck + build、ruff 干净；
+    真实前后端集成 1/1。仅新增测试代码）。feature.current_stage = REVIEW；进入 Reviewer。
+    2026-09-22：F023 Implementation 完成（Backend + Frontend 并行，提交 baea9ec），Implementation Gate 通过；
+    协调器独立复跑：后端 F023 专项 92 passed（含新增 tests/test_f023_ip_range_selection.py）、ruff 干净；
+    前端 typecheck + 802 passed + build；无新 migration（head 仍 0010_f022_ip_range_metadata）。现进入 TEST。
+    2026-09-22：F023 Architecture + Contract 完成：修订 f021 契约（新增必填 `ip_address_range_id`；范围段问题统一判别值
+    `IP_ADDRESS_RANGE_UNAVAILABLE`；耗尽限定所选范围段），Status READY；Architecture Handoff = READY FOR IMPLEMENTATION；
+    `layers.database = false`（implementation.database_design = NOT_REQUIRED）。feature.current_stage = BACKEND（跳过 DATABASE）。
+    2026-09-22：F023 Product 完成：修订 **R-IP-006 / R-IP-009**（§12），产出 Product Handoff（READY FOR ARCHITECT）；
+    F023.requirements = [R-IP-006, R-IP-009]；feature.current_stage = ARCHITECTURE。
+    2026-09-22：启动 F023（自动分配时指定 IP 地址范围段）。DEC-025 已 RESOLVED，自 develop（dd159f3）
+    创建分支 feature/F023-ip-range-selection；project.status = IN_PROGRESS。当前进入 Product。
     2026-09-21：F022 完成（Reviewer APPROVED WITH FOLLOW-UP，HEAD fbfc968，merge b467e89），feature.status = DONE，
     current_feature / current_stage 清空。M11 DONE；全部 V1 Feature 处置完毕（20 DONE + 1 CANCELLED）；project.status = DONE。
     2026-09-21：F022 Test 完成（Tester 独立验收 READY FOR REVIEW，AC-01 ~ AC-30 全 PASS，无缺陷）；

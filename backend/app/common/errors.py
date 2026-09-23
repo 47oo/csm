@@ -68,8 +68,12 @@ def error_envelope(
 
 
 class NotFoundError(ApiError):
-    def __init__(self, message: str = "资源不存在或已被逻辑删除") -> None:
-        super().__init__(404, "NOT_FOUND", message)
+    def __init__(
+        self,
+        message: str = "资源不存在或已被逻辑删除",
+        details: list[dict[str, Any]] | None = None,
+    ) -> None:
+        super().__init__(404, "NOT_FOUND", message, details)
 
 
 class UnauthenticatedError(ApiError):

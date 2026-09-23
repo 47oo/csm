@@ -79,8 +79,14 @@ def _create_ip(client, network_interface_id: int, ip_address: str) -> int:
     return response.json()["id"]
 
 
-def _auto(client, network_interface_id: int):
-    return client.post(AUTO, json={"network_interface_id": network_interface_id})
+def _auto(client, network_interface_id: int, ip_address_range_id: int):
+    return client.post(
+        AUTO,
+        json={
+            "network_interface_id": network_interface_id,
+            "ip_address_range_id": ip_address_range_id,
+        },
+    )
 
 
 def _manual(client, network_interface_id: int, ip_address: str):
@@ -199,9 +205,9 @@ def test_ac02_auto_allocation_returns_closed_field_set(auth_client_and_raw):
     cluster_id = _create_cluster(client, "cluster-a")
     bm_id = _create_bm(client, cluster_id)
     nic_id = _create_nic(client, bm_id)
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
 
-    response = _auto(client, nic_id)
+    response = _auto(client, nic_id, range_id)
 
     assert response.status_code == 201, response.text
     body = response.json()
@@ -230,7 +236,15 @@ def test_ac03_auto_rejects_unknown_fields(auth_client_and_raw, extra):
     cluster_id = _create_cluster(client, "cluster-a")
     bm_id = _create_bm(client, cluster_id)
     nic_id = _create_nic(client, bm_id)
-    response = client.post(AUTO, json={"network_interface_id": nic_id, **extra})
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
+    response = client.post(
+        AUTO,
+        json={
+            "network_interface_id": nic_id,
+            "ip_address_range_id": range_id,
+            **extra,
+        },
+    )
     assert response.status_code == 400, response.text
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     assert _total_ip_count(conn) == 0
@@ -263,7 +277,15 @@ def test_ac03_auto_rejects_ip_address_field(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id = _create_cluster(client, "cluster-a")
     nic_id = _create_nic(client, _create_bm(client, cluster_id))
-    response = client.post(AUTO, json={"network_interface_id": nic_id, "ip_address": "10.0.0.1"})
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
+    response = client.post(
+        AUTO,
+        json={
+            "network_interface_id": nic_id,
+            "ip_address_range_id": range_id,
+            "ip_address": "10.0.0.1",
+        },
+    )
     assert response.status_code == 400, response.text
     assert _total_ip_count(conn) == 0
 
@@ -292,10 +314,12 @@ def test_ac04_missing_or_invalid_nic(auth_client_and_raw, path, value):
 def test_ac05_nonexistent_nic_is_404(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id = _create_cluster(client, "cluster-a")
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
     for path in (AUTO, MANUAL):
         payload = {"network_interface_id": 999999999}
-        if path == MANUAL:
+        if path == AUTO:
+            payload["ip_address_range_id"] = range_id
+        elif path == MANUAL:
             payload["ip_address"] = "10.0.0.1"
         response = client.post(path, json=payload)
         assert response.status_code == 404, response.text
@@ -307,8 +331,8 @@ def test_ac05_deleted_nic_is_404(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id, _, bm_id = _raw_chain(conn, "cluster-a")
     deleted_nic = _raw_nic(conn, bm_id, deleted=True)
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
-    assert _auto(client, deleted_nic).status_code == 404
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
+    assert _auto(client, deleted_nic, range_id).status_code == 404
     assert _manual(client, deleted_nic, "10.0.0.1").status_code == 404
     assert _total_ip_count(conn) == 0
 
@@ -318,8 +342,8 @@ def test_ac05_inactive_host_bare_metal_is_404(auth_client_and_raw):
     cluster_id = _raw_cluster(conn, "cluster-a")
     bm_id = _raw_bm(conn, cluster_id, "n1", deleted=True)
     nic_id = _raw_nic(conn, bm_id)
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
-    assert _auto(client, nic_id).status_code == 404
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
+    assert _auto(client, nic_id, range_id).status_code == 404
     assert _manual(client, nic_id, "10.0.0.1").status_code == 404
     assert _total_ip_count(conn) == 0
 
@@ -332,9 +356,9 @@ def test_ac06_ac07_cluster_id_derived_and_no_drift(auth_client_and_raw):
     cluster_id = _create_cluster(client, "cluster-a")
     bm_id = _create_bm(client, cluster_id)
     nic_id = _create_nic(client, bm_id)
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.255")
 
-    body = _auto(client, nic_id).json()
+    body = _auto(client, nic_id, range_id).json()
     assert "cluster_id" not in body
 
     stored = conn.execute(
@@ -350,26 +374,33 @@ def test_ac06_ac07_cluster_id_derived_and_no_drift(auth_client_and_raw):
 # --------------------------------------------------------------------------- #
 # AC-08 ~ AC-11：自动分配语义
 # --------------------------------------------------------------------------- #
-def test_ac08_auto_picks_global_min_across_ranges(auth_client_and_raw):
+def test_ac08_auto_picks_min_within_selected_range_only(auth_client_and_raw):
+    # F023 新语义：自动分配仅在**所选单个**活跃范围段内取数值最小未占用；
+    # **不**在未选段里取更小的值。
     client, conn = auth_client_and_raw
     cluster_id = _create_cluster(client, "cluster-a")
     nic_id = _create_nic(client, _create_bm(client, cluster_id))
-    _create_range(client, cluster_id, "10.0.0.10", "10.0.0.12")
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.3")
+    high_range = _create_range(client, cluster_id, "10.0.0.10", "10.0.0.12")
+    low_range = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.3")
 
-    response = _auto(client, nic_id)
-    assert response.status_code == 201, response.text
-    assert response.json()["ip_address"] == "10.0.0.1"
+    selected_high = _auto(client, nic_id, high_range)
+    assert selected_high.status_code == 201, selected_high.text
+    # 尽管另一段存在更小值 10.0.0.1，仍取所选段内最小的 10.0.0.10。
+    assert selected_high.json()["ip_address"] == "10.0.0.10"
+
+    selected_low = _auto(client, nic_id, low_range)
+    assert selected_low.status_code == 201, selected_low.text
+    assert selected_low.json()["ip_address"] == "10.0.0.1"
 
 
 def test_ac09_auto_skips_occupied_literal(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id = _create_cluster(client, "cluster-a")
     nic_id = _create_nic(client, _create_bm(client, cluster_id))
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.3")
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.3")
     _create_ip(client, nic_id, "10.0.0.1")
 
-    response = _auto(client, nic_id)
+    response = _auto(client, nic_id, range_id)
     assert response.status_code == 201, response.text
     assert response.json()["ip_address"] == "10.0.0.2"
 
@@ -378,9 +409,9 @@ def test_ac10_auto_writes_canonical_dotted_quad(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id = _create_cluster(client, "cluster-a")
     nic_id = _create_nic(client, _create_bm(client, cluster_id))
-    _create_range(client, cluster_id, "010.000.000.001", "010.000.000.003")
+    range_id = _create_range(client, cluster_id, "010.000.000.001", "010.000.000.003")
 
-    body = _auto(client, nic_id).json()
+    body = _auto(client, nic_id, range_id).json()
     assert body["ip_address"] == "10.0.0.1"
     detail = client.get(f"/api/ip-addresses/{body['id']}").json()
     assert detail["ip_address"] == "10.0.0.1"
@@ -390,9 +421,9 @@ def test_ac11_no_implicit_reserved_address_skipped(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id = _create_cluster(client, "cluster-a")
     nic_id = _create_nic(client, _create_bm(client, cluster_id))
-    _create_range(client, cluster_id, "10.0.0.0", "10.0.0.255")
+    range_id = _create_range(client, cluster_id, "10.0.0.0", "10.0.0.255")
 
-    response = _auto(client, nic_id)
+    response = _auto(client, nic_id, range_id)
     assert response.status_code == 201, response.text
     assert response.json()["ip_address"] == "10.0.0.0"
 
@@ -403,19 +434,19 @@ def test_ac11_no_implicit_reserved_address_skipped(auth_client_and_raw):
 def test_ac12_active_same_literal_is_occupied(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id, _, nic_id = _raw_chain(conn, "cluster-a")
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.2")
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.2")
     _raw_ip(conn, nic_id, cluster_id, "10.0.0.1")
 
-    assert _auto(client, nic_id).json()["ip_address"] == "10.0.0.2"
+    assert _auto(client, nic_id, range_id).json()["ip_address"] == "10.0.0.2"
 
 
 def test_ac13_different_literal_is_not_occupied(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id, _, nic_id = _raw_chain(conn, "cluster-a")
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.2")
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.2")
     _raw_ip(conn, nic_id, cluster_id, "010.0.0.1")
 
-    response = _auto(client, nic_id)
+    response = _auto(client, nic_id, range_id)
     assert response.status_code == 201, response.text
     assert response.json()["ip_address"] == "10.0.0.1"
 
@@ -423,10 +454,10 @@ def test_ac13_different_literal_is_not_occupied(auth_client_and_raw):
 def test_ac14_soft_deleted_releases_literal(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id, _, nic_id = _raw_chain(conn, "cluster-a")
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.2")
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.2")
     _raw_ip(conn, nic_id, cluster_id, "10.0.0.1", deleted=True)
 
-    response = _auto(client, nic_id)
+    response = _auto(client, nic_id, range_id)
     assert response.status_code == 201, response.text
     assert response.json()["ip_address"] == "10.0.0.1"
 
@@ -434,10 +465,10 @@ def test_ac14_soft_deleted_releases_literal(auth_client_and_raw):
 def test_ac15_literal_with_prefix_does_not_occupy(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id, _, nic_id = _raw_chain(conn, "cluster-a")
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.2")
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.2")
     _raw_ip(conn, nic_id, cluster_id, "10.0.0.1/16")
 
-    response = _auto(client, nic_id)
+    response = _auto(client, nic_id, range_id)
     assert response.status_code == 201, response.text
     assert response.json()["ip_address"] == "10.0.0.1"
 
@@ -447,10 +478,10 @@ def test_ac16_cross_cluster_same_literal_is_allowed(auth_client_and_raw):
     cluster_a, _, nic_a = _raw_chain(conn, "cluster-a")
     cluster_b, _, nic_b = _raw_chain(conn, "cluster-b")
     _create_range(client, cluster_a, "10.0.0.1", "10.0.0.2")
-    _create_range(client, cluster_b, "10.0.0.1", "10.0.0.2")
+    range_b = _create_range(client, cluster_b, "10.0.0.1", "10.0.0.2")
     _raw_ip(conn, nic_a, cluster_a, "10.0.0.1")
 
-    response = _auto(client, nic_b)
+    response = _auto(client, nic_b, range_b)
     assert response.status_code == 201, response.text
     assert response.json()["ip_address"] == "10.0.0.1"
 
@@ -588,12 +619,12 @@ def test_ac22_exhausted_pool_is_409_without_write(auth_client_and_raw):
     client, conn = auth_client_and_raw
     cluster_id = _create_cluster(client, "cluster-a")
     nic_id = _create_nic(client, _create_bm(client, cluster_id))
-    _create_range(client, cluster_id, "10.0.0.1", "10.0.0.2")
+    range_id = _create_range(client, cluster_id, "10.0.0.1", "10.0.0.2")
     _create_ip(client, nic_id, "10.0.0.1")
     _create_ip(client, nic_id, "10.0.0.2")
     before = _total_ip_count(conn)
 
-    response = _auto(client, nic_id)
+    response = _auto(client, nic_id, range_id)
     assert response.status_code == 409, response.text
     body = response.json()
     assert body["error"]["code"] == "CONFLICT"
@@ -602,14 +633,28 @@ def test_ac22_exhausted_pool_is_409_without_write(auth_client_and_raw):
     assert _total_ip_count(conn) == before
 
 
-def test_ac23_no_active_range_is_exhausted(auth_client_and_raw):
+def test_ac23_no_active_range_is_not_exhausted(auth_client_and_raw):
+    # F023 新语义：目标 Cluster 无任何活跃范围段时，自动分配不再是 409 耗尽，
+    # 而是「无法提供有效 ip_address_range_id」：请求缺失 → 400；引用不存在 → 404。
     client, conn = auth_client_and_raw
     cluster_id = _create_cluster(client, "cluster-a")
     nic_id = _create_nic(client, _create_bm(client, cluster_id))
 
-    response = _auto(client, nic_id)
-    assert response.status_code == 409, response.text
-    assert response.json()["error"]["details"][0]["code"] == "NO_AVAILABLE_IP"
+    missing = client.post(AUTO, json={"network_interface_id": nic_id})
+    assert missing.status_code == 400, missing.text
+    assert missing.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert any(
+        detail["field"] == "ip_address_range_id"
+        for detail in missing.json()["error"]["details"]
+    )
+
+    nonexistent = _auto(client, nic_id, 999999999)
+    assert nonexistent.status_code == 404, nonexistent.text
+    assert nonexistent.json()["error"]["code"] == "NOT_FOUND"
+    assert (
+        nonexistent.json()["error"]["details"][0]["code"]
+        == "IP_ADDRESS_RANGE_UNAVAILABLE"
+    )
     assert _total_ip_count(conn) == 0
 
 
@@ -641,12 +686,18 @@ def test_ac25_concurrent_auto_allocation_at_most_one_succeeds(database_url):
     with _isolated_clients(database_url) as (first, second):
         cluster_id = _create_cluster(first, "cluster-a")
         nic_id = _create_nic(first, _create_bm(first, cluster_id))
-        _create_range(first, cluster_id, "10.0.0.1", "10.0.0.10")
+        range_id = _create_range(first, cluster_id, "10.0.0.1", "10.0.0.10")
 
         results: dict[str, object] = {}
 
         def worker(key: str, client: TestClient) -> None:
-            response = client.post(AUTO, json={"network_interface_id": nic_id})
+            response = client.post(
+                AUTO,
+                json={
+                    "network_interface_id": nic_id,
+                    "ip_address_range_id": range_id,
+                },
+            )
             results[key] = (response.status_code, response.json())
 
         threads = [
@@ -678,12 +729,18 @@ def test_ac25_concurrent_auto_and_manual_same_address_at_most_one_succeeds(datab
     with _isolated_clients(database_url) as (first, second):
         cluster_id = _create_cluster(first, "cluster-a")
         nic_id = _create_nic(first, _create_bm(first, cluster_id))
-        _create_range(first, cluster_id, "10.0.0.1", "10.0.0.10")
+        range_id = _create_range(first, cluster_id, "10.0.0.1", "10.0.0.10")
 
         results: dict[str, object] = {}
 
         def do_auto(client: TestClient) -> None:
-            response = client.post(AUTO, json={"network_interface_id": nic_id})
+            response = client.post(
+                AUTO,
+                json={
+                    "network_interface_id": nic_id,
+                    "ip_address_range_id": range_id,
+                },
+            )
             results["auto"] = (response.status_code, response.json())
 
         def do_manual(client: TestClient) -> None:

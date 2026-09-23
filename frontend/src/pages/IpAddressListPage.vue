@@ -25,8 +25,10 @@ import IpAddressAllocateDialog from '../components/IpAddressAllocateDialog.vue'
  * - 登记表单入口（IpAddressFormDialog，POST）：父 NIC 存在性 / 活跃性（404）、
  *   字段合法性（400）、同 Cluster 唯一性（409 DUPLICATE）均由服务端裁决，
  *   前端不预判、不做唯一性预检；
- * - 分配入口（F021，IpAddressAllocateDialog）：自动分配（POST
- *   /api/ip-addresses/allocate）与手动分配（POST
+ * - 分配入口（F021 / F023，IpAddressAllocateDialog）：自动分配（POST
+ *   /api/ip-addresses/allocate，请求体恰为
+ *   { network_interface_id, ip_address_range_id }，F023 起必选目标地址范围
+ *   且仅在所选范围段内取最小）与手动分配（POST
  *   /api/ip-addresses/allocate-manual）两个动作；NIC 上下文预选目标 NIC
  *  （对话框只读展示），全局入口在对话框内先选择目标 NIC；手动输入仅做
  *   基础必填（空串 = 表单未完成），不做 IPv4 格式 / 修剪 / 范围 / 占用

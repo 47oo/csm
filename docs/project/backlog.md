@@ -2,8 +2,8 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-22（增量四登记 F023；`project.status = ACCEPTED`）
-> 生成依据：`project.status = ACCEPTED`；计数 `{'READY': 1, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
+> Generated: 2026-09-22（F023 进入 Feature Workflow；`project.status = IN_PROGRESS`）
+> 生成依据：`project.status = IN_PROGRESS`；计数 `{'READY': 0, 'IN_PROGRESS': 1, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
 
 **2026-09-22（增量四）**：收到输入「当配置多套 IP 地址范围的时候，网卡无法选择使用哪套来自动分配 IP 地址」。
 诊断结论：这是 F021 已确认规则的限制（f021 §1.6 / R-IP-006：自动分配在全部活跃范围**并集**取全局最小），
@@ -63,7 +63,7 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | DONE | 20 |
 | CANCELLED | 1（F011） |
 | DRAFT | 0 |
-| READY / IN_PROGRESS / BLOCKED | 1 / 0 / 0（READY: F023） |
+| READY / IN_PROGRESS / BLOCKED | 0 / 1 / 0（IN_PROGRESS: F023） |
 | Decisions 总数 | 25（OPEN **0**） |
 
 ## 按 Epic
@@ -85,7 +85,7 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | F020 | IP 地址范围段（地址池）管理 | P1 | **DONE** | F001, F005 | READY | e4291a1e |
 | F021 | IP 地址自动 / 手动分配 | P1 | **DONE** | F020, F005, F004, F002 | READY | 011d05df |
 | F022 | 网段自定义名称 / 子网掩码 / VLAN 标注 | P1 | **DONE** | F020 | READY | b467e891 |
-| F023 | 自动分配时指定 IP 地址范围段 | P1 | **READY** | F020, F021 | REQUIRED | — |
+| F023 | 自动分配时指定 IP 地址范围段 | P1 | **IN_PROGRESS** | F020, F021 | REQUIRED | — |
 
 ### E03 虚拟资源管理
 
@@ -140,7 +140,7 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
 | M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **DONE** |
 | M11 | 网段自定义名称 / 子网掩码 / VLAN | F022 | **DONE** |
-| M12 | 自动分配指定 IP 地址范围段 | F023 | **待执行（F023 READY）** |
+| M12 | 自动分配指定 IP 地址范围段 | F023 | **执行中（F023 IN_PROGRESS）** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 

@@ -8,10 +8,13 @@
 - **范围归属 / 合法性**按 IPv4 **数值**（复用 :mod:`app.ip_address_ranges.ipv4`）；
 - **占用 / 唯一性**按 ``ip_address`` **字面**（不 trim / 不归一化 / 不折叠）。
 
-自动分配（契约 §6.1）：``derive_cluster_id``（父 NIC 行 ``FOR SHARE``）→ 读活跃范围段
-（``start_ip`` 升序）与活跃占用字面 → 取并集内数值最小未占用 IPv4（**不跳过**网络 /
-广播 / 网关 / 端点）→ 经 ``create_ip_address`` 写入。无候选则**先于任何写入**抛
-``409 CONFLICT + details[].code = "NO_AVAILABLE_IP"``。
+自动分配（契约 F023 §6.1）：``derive_cluster_id``（父 NIC 行 ``FOR SHARE``）→ 读取所选
+``ip_address_range_id`` 指向的**活跃**范围段并校验其 ``cluster_id`` 恰为目标 Cluster →
+读取活跃占用字面 → **仅在该所选单个范围段**内取数值最小未占用 IPv4（**不跳过**网络 /
+广播 / 网关 / 端点）→ 经 ``create_ip_address`` 写入。范围段不存在 / 已逻辑删除（``404``）
+或跨 Cluster（``409``）→ ``details[].code = "IP_ADDRESS_RANGE_UNAVAILABLE"``；所选范围段
+耗尽 → **先于任何写入**抛 ``409 CONFLICT + details[].code = "NO_AVAILABLE_IP"``，**不回退**
+到其它范围段、不跨 Cluster 取址。
 
 手动分配（契约 §6.2）：``parse_ipv4``（非法 → ``400``）→ ``derive_cluster_id``（未命中
 → ``404``）→ 数值范围归属（否则 ``409 OUT_OF_RANGE``）→ 规范化后字面占用判定（否则
@@ -25,8 +28,9 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.common.errors import ConflictError, ValidationError
+from app.common.errors import ConflictError, NotFoundError, ValidationError
 from app.ip_address_ranges.ipv4 import format_ipv4, parse_ipv4
+from app.ip_address_ranges.repository import IpAddressRangeRepository
 from app.ip_addresses.derivation import derive_cluster_id
 from app.ip_addresses.schemas import IpAddressCreate
 from app.ip_addresses.service import create_ip_address
@@ -37,12 +41,20 @@ from app.ip_allocations.schemas import (
 )
 from app.models.ip_address import IpAddress
 
-#: 契约 §4.1：地址池耗尽（自动分配）的稳定判别值。
+#: 契约 §4.1：所选范围段耗尽的稳定判别值（F023：仅限所选单个范围段，不回退）。
 _NO_AVAILABLE_IP_DETAIL = {
     "row": None,
     "field": None,
     "code": "NO_AVAILABLE_IP",
-    "message": "目标 Cluster 的全部活跃范围段内已无未被占用的 IPv4",
+    "message": "所选活跃 IP 地址范围段内已无未被占用的 IPv4",
+}
+
+#: 契约 §4.6：所选范围段不可用（不存在 / 已逻辑删除 / 跨 Cluster）的稳定判别值。
+_RANGE_UNAVAILABLE_DETAIL = {
+    "row": None,
+    "field": "ip_address_range_id",
+    "code": "IP_ADDRESS_RANGE_UNAVAILABLE",
+    "message": "所选范围段不存在、已逻辑删除，或不属于目标 Cluster",
 }
 
 #: 契约 §4.2：手动分配范围外的稳定判别值。
@@ -65,11 +77,11 @@ _DUPLICATE_DETAIL = {
 def select_first_free(
     ranges: list[tuple[int, int]], occupied: set[str]
 ) -> int | None:
-    """在已按 ``start_ip`` 升序的范围段取并集内数值最小、字面未占用的 IPv4。
+    """在给定范围段内取数值最小、字面未占用的 IPv4。
 
-    纯函数（不依赖 DB / HTTP）。``ranges`` 由 ``ex_ip_address_ranges_active_no_overlap``
-    保证同 Cluster 活跃范围段不重叠，顺序扫描首个可用值即为跨范围段全局最小。
-    **不跳过**网络 / 广播 / 网关 / 范围端点。全部占用 → ``None``。
+    纯函数（不依赖 DB / HTTP）。F023 自动分配**仅传入所选单个范围段**（以
+    ``[(range.start_ip, range.end_ip)]`` 调用），故扫描首个可用值即所选范围段内
+    数值最小未占用地址。**不跳过**网络 / 广播 / 网关 / 范围端点。全部占用 → ``None``。
     """
     for start, end in ranges:
         for value in range(start, end + 1):
@@ -82,17 +94,35 @@ def allocate_ip_auto(session: Session, payload: IpAddressAutoAllocateRequest) ->
     # 1) 推导（同时对父 NIC 行取 FOR SHARE 并确认父 NIC / 宿主活跃）；未命中 → 404。
     cluster_id = derive_cluster_id(session, payload.network_interface_id)
 
+    # 2) 读取所选范围段（活跃）；不存在 / 已逻辑删除 → 404，跨 Cluster → 409。
+    #    复用既有 IpAddressRangeRepository.get_active（活跃谓词单一实现，不自造第二份）。
+    ip_address_range = IpAddressRangeRepository(session).get_active(
+        payload.ip_address_range_id
+    )
+    if ip_address_range is None:
+        raise NotFoundError(
+            "所选地址范围段不可用", details=[dict(_RANGE_UNAVAILABLE_DETAIL)]
+        )
+    if ip_address_range.cluster_id != cluster_id:
+        raise ConflictError(
+            "所选地址范围段不可用于该集群",
+            details=[dict(_RANGE_UNAVAILABLE_DETAIL)],
+        )
+
     repository = IpAllocationRepository(session)
-    # 2) 读活跃范围段（升序）与活跃占用字面（无锁快照）。
-    ranges = repository.list_active_ranges(cluster_id)
+    # 3) 读目标 Cluster 活跃占用字面（无锁快照）。
     occupied = repository.active_ip_literals(cluster_id)
 
-    # 3) 取并集内数值最小未占用 IPv4；耗尽 → 409，**在任何写入之前**。
-    candidate = select_first_free(ranges, occupied)
+    # 4) 仅在所选该单个范围段内取数值最小未占用 IPv4；耗尽 → 409，**在任何写入之前**。
+    candidate = select_first_free(
+        [(ip_address_range.start_ip, ip_address_range.end_ip)], occupied
+    )
     if candidate is None:
-        raise ConflictError("地址池已无可用 IP", details=[dict(_NO_AVAILABLE_IP_DETAIL)])
+        raise ConflictError(
+            "所选地址范围段已无可用 IP", details=[dict(_NO_AVAILABLE_IP_DETAIL)]
+        )
 
-    # 4) 经 F005 单一受控写入路径落库（partial unique 为最终权威）。
+    # 5) 经 F005 单一受控写入路径落库（partial unique 为最终权威）。
     return create_ip_address(
         session,
         IpAddressCreate(
