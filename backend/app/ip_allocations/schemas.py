@@ -1,8 +1,9 @@
 """F021 分配请求 schema（``docs/api/f021-ip-address-allocation.md`` §3）。
 
-- ``IpAddressAutoAllocateRequest``：字段集合**恰为** ``{network_interface_id}``；
-  ``extra="forbid"``（``cluster_id`` / ``status`` / ``ip_address`` / ``mode`` /
-  ``reserved_addresses`` 或任何未识别字段 → ``400``）。
+- ``IpAddressAutoAllocateRequest``：字段集合**恰为**
+  ``{network_interface_id, ip_address_range_id}``（**均必填**，F023 起自动分配必须
+  显式指定一个活跃范围段）；``extra="forbid"``（``cluster_id`` / ``status`` /
+  ``ip_address`` / ``mode`` / ``reserved_addresses`` 或任何未识别字段 → ``400``）。
 - ``IpAddressManualAllocateRequest``：字段集合**恰为**
   ``{network_interface_id, ip_address}``；``extra="forbid"``。
 
@@ -25,6 +26,7 @@ class IpAddressAutoAllocateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     network_interface_id: int
+    ip_address_range_id: int
 
 
 class IpAddressManualAllocateRequest(BaseModel):

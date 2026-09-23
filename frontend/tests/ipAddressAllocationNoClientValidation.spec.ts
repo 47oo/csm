@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /**
- * F021 静态 guard：IP 分配写入路径前端零业务校验 / 零 IP 变换
+ * F021 / F023 静态 guard：IP 分配写入路径前端零业务校验 / 零 IP 变换
  * （§21 / AC-33；f021-ip-address-allocation-handoff.md Frontend Work
  * 「不做」清单：不做 IPv4 格式 / trim / 范围 / 占用预判）。
  *
@@ -24,11 +24,25 @@ import { describe, expect, it } from 'vitest'
  * 边界声明（必须先读）：本文件断言的是「前端未实现任何 IPv4 格式 / 范围 /
  * 占用 / 归一化业务裁决」，**不是**「这些取值在业务上合法」——非法 IPv4
  * （400 VALIDATION_ERROR）、范围外（409 OUT_OF_RANGE）、已占用
- * （409 DUPLICATE）、耗尽（409 NO_AVAILABLE_IP）的唯一裁决方是服务端
- * （§21，f021 契约 §3 / §4）。允许且仅允许两项非业务守卫：目标 NIC 与
- * ip_address 的基础必填（空值 = 表单未完成，f021 handoff「基础必填 / 类型
- * 提示」），其行为级断言见组件探针。若未来产品确认把更多检查前移到
- * 客户端，必须由产品决策同步修改本 guard 与组件，不得由实现方静默补校验。
+ * （409 DUPLICATE）、耗尽（409 NO_AVAILABLE_IP）、范围段不可用
+ * （404 / 409 + IP_ADDRESS_RANGE_UNAVAILABLE）的唯一裁决方是服务端
+ * （§21，f021 契约 §3 / §4）。
+ *
+ * 允许且仅允许三项非业务守卫：目标 NIC 与 ip_address 的基础必填（空值 =
+ * 表单未完成，f021 handoff「基础必填 / 类型提示」）与 auto 模式
+ * ip_address_range_id 的基础必选（空值 = 表单未完成，**F023 / AC-18
+ * 产品裁定**：未选范围段不得提交；Empty 态禁用自动提交），其行为级断言见
+ * 组件探针。若未来产品确认把更多检查前移到客户端，必须由产品决策同步
+ * 修改本 guard 与组件，不得由实现方静默补校验。
+ *
+ * F023 制定的只读链（f023-ip-range-selection-handoff.md Frontend Work
+ * 方案 1）为合法读取面：分配对话框允许 import getNetworkInterface /
+ * getBareMetal / listIpAddressRanges，仅用于「选定 NIC → 解析宿主
+ * BareMetal → 加载该 Cluster 活跃范围段」渲染下拉选项；它们不是分配
+ * 预检（存在性 / 归属 / 余量仍由服务端在提交时独立裁决），其用途由
+ * 下方位序精确的 import 名称集合断言钉死。占用预检（listIpAddresses /
+ * getIpAddress）、按 id 预检所选范围段（getIpAddressRange）与直接
+ * fetch 仍禁止。
  *
  * 本 guard 是静态最佳努力：token 无法穷尽未知语法（新方法名、helper 模块
  * 内部逻辑），行为级兜底是组件探针（非法格式 / 首尾空白 / 前导零 / 仅空白
@@ -44,9 +58,13 @@ const PAGE_FILE = 'src/pages/IpAddressListPage.vue'
  * 分配对话框允许 import 的模块来源集合（显式白名单）。任何新增模块
  * （如 utils/validateIpAddress 之类的校验 helper）都会使下方位序比对失败。
  * 合法新增依赖须连同本白名单一起、经有意识的变更（并重跑组件探针）才能进入。
+ * F023 增量：新增 bareMetals / ipAddressRanges 两个只读客户端（方案 1
+ * 只读链的组成成员，用途由下方 import 名称集合断言钉死）。
  */
 const DIALOG_IMPORT_MODULE_WHITELIST = [
+  '../api/bareMetals',
   '../api/http',
+  '../api/ipAddressRanges',
   '../api/ipAddresses',
   '../api/networkInterfaces',
   '../types/api',
@@ -136,13 +154,15 @@ describe('F021 形式 A：IP 分配写入路径前端零业务校验 / 零 IP �
     expect(offenders).toEqual([])
   })
 
-  it('分配对话框不引用任何读 / 预检 API，也不直接 fetch（分配地址的唯一来源是两个分配端点）', () => {
+  it('分配对话框不引用任何占用预检 / 范围段预检 / 无关读取 API，也不直接 fetch（分配地址的唯一来源是两个分配端点）', () => {
     const stripped = readStripped(DIALOG_FILE)
     const offenders: string[] = []
-    // 读 / 预检 API：按 id 读取目标 NIC（存在性预检）、IP 列表（占用预检）、
-    // 范围段列表（范围预检）。listNetworkInterfaces 仅用于下拉选项渲染，
-    // 不在禁止之列（白名单另行精确断言其 import）。
-    for (const token of ['getNetworkInterface', 'listIpAddresses', 'getIpAddress', 'fetch(']) {
+    // 占用 / 无关预检 API：IP 列表与按 id 读取 IP（占用预检）、按 id 读取
+    // 范围段（对所选范围段的存在性 / 归属预检——选项渲染必须来自 F020
+    // 列表端点，逐 id 预检属业务裁决前移）。F023 方案 1 只读链成员
+    // （getNetworkInterface / getBareMetal / listIpAddressRanges，仅选项
+    // 渲染用途）不在禁止之列，其用途由下方 import 名称集合断言钉死。
+    for (const token of ['listIpAddresses', 'getIpAddress', 'getIpAddressRange', 'fetch(']) {
       if (stripped.includes(token)) offenders.push(token)
     }
     expect(offenders).toEqual([])
@@ -164,6 +184,52 @@ describe('F021 形式 A：IP 分配写入路径前端零业务校验 / 零 IP �
       'allocateIpAddress',
       'allocateIpAddressManual',
     ])
+  })
+
+  it("分配对话框从 '../api/networkInterfaces' 的 import 名称集合恰为 {NetworkInterfaceRead, getNetworkInterface, listNetworkInterfaces}（F023 方案 1 只读链：选项渲染 + 解析宿主裸金属）", () => {
+    const stripped = readStripped(DIALOG_FILE)
+    const names = new Set<string>()
+    for (const match of stripped.matchAll(
+      /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]\.\.\/api\/networkInterfaces['"]/g,
+    )) {
+      for (const name of match[1]!.split(',')) {
+        const identifier = name.trim()
+        if (identifier !== '') names.add(identifier)
+      }
+    }
+    expect([...names].sort()).toEqual([
+      'NetworkInterfaceRead',
+      'getNetworkInterface',
+      'listNetworkInterfaces',
+    ])
+  })
+
+  it("分配对话框从 '../api/bareMetals' 的 import 名称集合恰为 {getBareMetal}（仅方案 1 只读链：宿主裸金属 → Cluster）", () => {
+    const stripped = readStripped(DIALOG_FILE)
+    const names = new Set<string>()
+    for (const match of stripped.matchAll(
+      /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]\.\.\/api\/bareMetals['"]/g,
+    )) {
+      for (const name of match[1]!.split(',')) {
+        const identifier = name.trim()
+        if (identifier !== '') names.add(identifier)
+      }
+    }
+    expect([...names].sort()).toEqual(['getBareMetal'])
+  })
+
+  it("分配对话框从 '../api/ipAddressRanges' 的 import 名称集合恰为 {IpAddressRangeRead, listIpAddressRanges}（仅方案 1 只读链：目标地址范围下拉选项；禁止 getIpAddressRange 预检）", () => {
+    const stripped = readStripped(DIALOG_FILE)
+    const names = new Set<string>()
+    for (const match of stripped.matchAll(
+      /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]\.\.\/api\/ipAddressRanges['"]/g,
+    )) {
+      for (const name of match[1]!.split(',')) {
+        const identifier = name.trim()
+        if (identifier !== '') names.add(identifier)
+      }
+    }
+    expect([...names].sort()).toEqual(['IpAddressRangeRead', 'listIpAddressRanges'])
   })
 
   it('分配对话框的 import 模块来源集合恰为显式白名单，且无动态 import / require（封堵 helper 绕过）', () => {
@@ -192,16 +258,23 @@ describe('F021 形式 A：IP 分配写入路径前端零业务校验 / 零 IP �
     expect(offenders).toEqual([])
   })
 
-  it('提交按钮的 disabled 绑定仅依赖基础必填（目标 NIC / 空串 ip_address），不做任何取值内容判断（行为级兜底见组件探针）', () => {
+  it('提交按钮的 disabled 绑定仅依赖基础必填（目标 NIC / 空串 ip_address / auto 模式未选 ip_address_range_id），不做任何取值内容判断（行为级兜底见组件探针）', () => {
     const stripped = readStripped(DIALOG_FILE)
-    // 基础必填的合法形态：networkInterfaceId === null 与 ipAddress === ''。
-    // 任何基于取值内容的条件（长度 / 格式 / 字符存在性）在此处或组件探针
-    // 中失败。
-    expect(stripped).toContain("form.networkInterfaceId === null")
+    // 基础必填的合法形态：networkInterfaceId === null、ipAddress === '' 与
+    // （F023 / AC-18）ipAddressRangeId === null。任何基于取值内容的条件
+    // （长度 / 格式 / 字符存在性）在此处或组件探针中失败。
+    expect(stripped).toContain('form.networkInterfaceId === null')
     expect(stripped).toContain("form.ipAddress === ''")
-    // 禁用绑定中不出现对 ipAddress 的其它比较。
+    expect(stripped).toContain('form.ipAddressRangeId === null')
+    // 禁用绑定中不出现对 ipAddress / ipAddressRangeId 的其它比较。
     const disabledBindings = stripped.match(/:disabled="[^"]*"/g) ?? []
     for (const binding of disabledBindings) {
+      if (binding.includes('form.ipAddressRangeId')) {
+        if (!binding.includes('form.ipAddressRangeId === null')) {
+          throw new Error(`提交禁用绑定包含基础必填之外的 ip_address_range_id 判断：${binding}`)
+        }
+        continue
+      }
       if (binding.includes('form.ipAddress') && !binding.includes("form.ipAddress === ''")) {
         throw new Error(`提交禁用绑定包含基础必填之外的 ip_address 判断：${binding}`)
       }

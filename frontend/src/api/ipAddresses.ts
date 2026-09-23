@@ -151,25 +151,36 @@ export function deleteIpAddress(ipAddressId: number): Promise<void> {
 
 // ---------------------------------------------------------------------------
 // F021：IP 地址自动 / 手动分配（契约 docs/api/f021-ip-address-allocation.md，
-// READY）。分配不是独立领域对象：唯一产物是创建一条 IPAddress（复用上方
-// F005 的 IpAddressRead 表示）；每次分配恰指定一个活跃 NetworkInterface，
-// Cluster 归属由 NIC 经既有推导链受控推导（请求与响应均不含该内部值）。
+// READY；**F023 增量修订（2026-09-22）**：自动分配请求新增必填
+// ip_address_range_id，服务端仅在所选单个活跃范围段内取数值最小未占用
+// IPv4、耗尽不回退；手动分配端点与语义不变）。分配不是独立领域对象：
+// 唯一产物是创建一条 IPAddress（复用上方 F005 的 IpAddressRead 表示）；
+// 每次分配恰指定一个活跃 NetworkInterface，Cluster 归属由 NIC 经既有推导
+// 链受控推导（请求与响应均不含该内部值）。
 // ---------------------------------------------------------------------------
 
 /**
- * 自动分配请求体（F021 契约 §3.1）。恰为 1 字段；请求 schema 封闭
- * （extra="forbid"），不接受 Cluster 归属、状态、模式、保留地址等任何
- * 未识别字段（→ 400 VALIDATION_ERROR）。
+ * 自动分配请求体（F021 契约 §3.1，F023 修订）。恰为 2 字段，均必填；请求
+ * schema 封闭（extra="forbid"），不接受 Cluster 归属、状态、模式、保留地址
+ * 等任何未识别字段（→ 400 VALIDATION_ERROR）。
  */
 export interface IpAddressAutoAllocateBody {
   /** 目标 NIC 的 id；必须存在且活跃且其宿主 BareMetal 活跃（由服务端
-   * 裁决，不命中 → 404 NOT_FOUND）。 */
+   * 裁决，不命中 → 404 NOT_FOUND，details == []）。 */
   network_interface_id: number
+  /** 所选 IP 地址范围段的 id（F020 资源；F023 起必填）。必须存在、活跃
+   * （未逻辑删除）且恰属于目标 NIC 推导出的 Cluster——三者均由服务端
+   * 裁决：不存在 / 已逻辑删除 → 404 NOT_FOUND（details[].code ===
+   * 'IP_ADDRESS_RANGE_UNAVAILABLE'）；活跃但属于其它 Cluster → 409
+   * CONFLICT（details[].code === 'IP_ADDRESS_RANGE_UNAVAILABLE'）；
+   * 均不产生任何写入。 */
+  ip_address_range_id: number
 }
 
 /**
- * 手动分配请求体（F021 契约 §3.2）。恰为 2 字段；请求 schema 封闭
- * （extra="forbid"），不接受任何未识别字段（→ 400 VALIDATION_ERROR）。
+ * 手动分配请求体（F021 契约 §3.2；F023 修订不影响本端点）。恰为 2 字段；
+ * 请求 schema 封闭（extra="forbid"），不接受任何未识别字段（→ 400
+ * VALIDATION_ERROR）；不受 ip_address_range_id 影响、不走范围段选择。
  */
 export interface IpAddressManualAllocateBody {
   /** 目标 NIC 的 id；语义同自动分配（存在性 / 活跃性由服务端裁决）。 */
@@ -182,18 +193,29 @@ export interface IpAddressManualAllocateBody {
 }
 
 /**
- * 自动分配 IP 地址（F021 契约 §3.1）。`POST /api/ip-addresses/allocate`。
+ * 自动分配 IP 地址（F021 契约 §3.1，F023 修订）。
+ * `POST /api/ip-addresses/allocate`。
  *
- * - 服务端在目标 Cluster 全部活跃范围段的并集内取数值最小的未占用 IPv4
- *  （跨范围段全局最小，无隐式保留地址），写入规范化 dotted-quad；
- * - 成功 → 201 + IpAddressRead（复用 F005 表示，恰 5 字段）；
- * - 404 NOT_FOUND：目标 NIC 不存在 / 已逻辑删除 / 宿主 BareMetal 不活跃
- *  （三者不区分）；
- * - 409 CONFLICT + details[].code === 'NO_AVAILABLE_IP'：并集耗尽（含该
- *  Cluster 无任何活跃范围段），不创建任何记录；
+ * - 必须显式指定一个活跃范围段（ip_address_range_id，必填）：服务端仅在
+ *  **所选该单个范围段**内取**数值最小**的未占用 IPv4（不跨范围段、不跨
+ *  Cluster、无隐式保留地址），写入规范化 dotted-quad；所选范围段耗尽则
+ *  硬失败、不回退、不创建任何记录；
+ * - 成功 → 201 + IpAddressRead（复用 F005 表示，恰 5 字段；不回显
+ *  ip_address_range_id）；
+ * - 400 VALIDATION_ERROR：缺 / 非整数 / null 的 ip_address_range_id 等
+ *  字段形状问题（details[].field === 'ip_address_range_id'）；
+ * - 404 NOT_FOUND（details == []）：目标 NIC 不存在 / 已逻辑删除 / 宿主
+ *  BareMetal 不活跃（三者不区分）；
+ * - 404 NOT_FOUND + details[].code === 'IP_ADDRESS_RANGE_UNAVAILABLE'：
+ *  所选范围段不存在或已逻辑删除（两者不区分）；
+ * - 409 CONFLICT + details[].code === 'IP_ADDRESS_RANGE_UNAVAILABLE'：
+ *  所选范围段活跃但属于其它 Cluster；
+ * - 409 CONFLICT + details[].code === 'NO_AVAILABLE_IP'：所选范围段耗尽
+ *  （仅限所选段，不回退）；
  * - 409 CONFLICT + details[].code === 'DUPLICATE'：并发选中同一地址的
  *  落败方（服务端不自动重试，可由用户重试）；
- * - 前端不预判地址池状态、不禁用入口（§21）。
+ * - 前端不预判范围段归属 / 活跃性 / 地址池余量（§21）；不发送 Cluster
+ *  归属字段（由服务端从 NIC 受控推导）。
  */
 export function allocateIpAddress(body: IpAddressAutoAllocateBody): Promise<IpAddressRead> {
   return apiRequest<IpAddressRead>('/api/ip-addresses/allocate', { method: 'POST', body })

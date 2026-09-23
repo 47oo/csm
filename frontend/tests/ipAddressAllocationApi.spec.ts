@@ -50,25 +50,26 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('请求构造（契约 §3）', () => {
-  it('allocateIpAddress → POST /api/ip-addresses/allocate，请求体恰为 {network_interface_id}（§3.1 schema 封闭）', async () => {
+describe('请求构造（契约 §3，含 F023 修订）', () => {
+  it('allocateIpAddress → POST /api/ip-addresses/allocate，请求体恰为 {network_interface_id, ip_address_range_id}（§3.1 schema 封闭，F023 必填）', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(201, ALLOCATED))
     vi.stubGlobal('fetch', fetchMock)
 
-    const data = await allocateIpAddress({ network_interface_id: 12 })
+    const data = await allocateIpAddress({ network_interface_id: 12, ip_address_range_id: 7 })
 
     expect(data).toEqual(ALLOCATED)
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
       '/api/ip-addresses/allocate',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ network_interface_id: 12 }),
+        body: JSON.stringify({ network_interface_id: 12, ip_address_range_id: 7 }),
         headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
       }),
     )
     // 字段集合封闭：不携带任何未识别字段（cluster 归属 / 状态 / 模式等均属 400）。
     expect(postedBody(fetchMock, '/api/ip-addresses/allocate')).toEqual({
       network_interface_id: 12,
+      ip_address_range_id: 7,
     })
   })
 
@@ -120,7 +121,7 @@ describe('请求构造（契约 §3）', () => {
       ),
     )
 
-    const auto = await allocateIpAddress({ network_interface_id: 12 })
+    const auto = await allocateIpAddress({ network_interface_id: 12, ip_address_range_id: 7 })
     const manual = await allocateIpAddressManual({ network_interface_id: 12, ip_address: '10.0.0.6' })
 
     // 若 IpAddressRead 增删字段，该字面量的多余 / 缺失属性均导致 typecheck 失败。
@@ -154,10 +155,38 @@ const VALIDATION_BODY = {
   error: {
     code: 'VALIDATION_ERROR',
     message: '与展示无关的校验文案',
-    details: [{ field: 'ip_address', code: 'INVALID', message: '与展示无关的字段提示' }],
+    details: [{ field: 'ip_address_range_id', code: 'INVALID', message: '与展示无关的字段提示' }],
   },
 }
 const NOT_FOUND_BODY = { error: { code: 'NOT_FOUND', message: '与展示无关的未找到文案' } }
+const RANGE_UNAVAILABLE_NOT_FOUND_BODY = {
+  error: {
+    code: 'NOT_FOUND',
+    message: '与展示无关的范围段未找到文案',
+    details: [
+      {
+        row: null,
+        field: 'ip_address_range_id',
+        code: 'IP_ADDRESS_RANGE_UNAVAILABLE',
+        message: '与展示无关的范围段未找到详情',
+      },
+    ],
+  },
+}
+const RANGE_UNAVAILABLE_CONFLICT_BODY = {
+  error: {
+    code: 'CONFLICT',
+    message: '与展示无关的范围段冲突文案',
+    details: [
+      {
+        row: null,
+        field: 'ip_address_range_id',
+        code: 'IP_ADDRESS_RANGE_UNAVAILABLE',
+        message: '与展示无关的范围段冲突详情',
+      },
+    ],
+  },
+}
 const NO_AVAILABLE_IP_BODY = {
   error: {
     code: 'CONFLICT',
@@ -188,26 +217,28 @@ const DUPLICATE_BODY = {
 const UNAUTHENTICATED_BODY = { error: { code: 'UNAUTHENTICATED', message: '与展示无关的未认证文案' } }
 
 describe('错误语义透传（契约 §4 / §8；api-conventions.md §5 / §6）', () => {
-  it('400 VALIDATION_ERROR（ip_address 非法 IPv4，契约 §3.2）→ 保留 details[].field / details[].code', async () => {
+  it('400 VALIDATION_ERROR（字段形状问题，如缺 / 非整数 / null ip_address_range_id，契约 §3.1 / §4.4）→ 保留 details[].field / details[].code', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(400, VALIDATION_BODY)))
 
     const err = await expectApiError(
-      allocateIpAddressManual({ network_interface_id: 12, ip_address: '10.0.0.256' }),
+      allocateIpAddress({ network_interface_id: 12, ip_address_range_id: 7 }),
     )
 
     expect(err.status).toBe(400)
     expect(err.code).toBe('VALIDATION_ERROR')
-    expect(err.details[0]?.field).toBe('ip_address')
+    expect(err.details[0]?.field).toBe('ip_address_range_id')
     expect(err.details[0]?.code).toBe('INVALID')
   })
 
-  it('404 NOT_FOUND（目标 NIC 不存在 / 已删 / 宿主 BareMetal 不活跃，契约 §3.1 / §3.2）→ 保留 code 与空 details', async () => {
+  it('404 NOT_FOUND（目标 NIC 不存在 / 已删 / 宿主 BareMetal 不活跃，契约 §3.1 / §3.2 / §4.5）→ 保留 code 与空 details', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => jsonResponse(404, { error: { code: 'NOT_FOUND', message: '资源不存在', details: [] } })),
     )
 
-    const autoErr = await expectApiError(allocateIpAddress({ network_interface_id: 999 }))
+    const autoErr = await expectApiError(
+      allocateIpAddress({ network_interface_id: 999, ip_address_range_id: 7 }),
+    )
     const manualErr = await expectApiError(
       allocateIpAddressManual({ network_interface_id: 999, ip_address: '10.0.0.5' }),
     )
@@ -219,10 +250,38 @@ describe('错误语义透传（契约 §4 / §8；api-conventions.md §5 / §6�
     expect(manualErr.details).toEqual([])
   })
 
-  it('409 CONFLICT + NO_AVAILABLE_IP（自动分配：并集耗尽 / 无活跃范围段，契约 §4.1）→ 保留稳定判别值', async () => {
+  it('404 NOT_FOUND + IP_ADDRESS_RANGE_UNAVAILABLE（所选范围段不存在 / 已逻辑删除，契约 §4.6）→ 保留稳定判别值，与 NIC 404（details == []）可区分', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(404, RANGE_UNAVAILABLE_NOT_FOUND_BODY)))
+
+    const err = await expectApiError(
+      allocateIpAddress({ network_interface_id: 12, ip_address_range_id: 999 }),
+    )
+
+    expect(err.status).toBe(404)
+    expect(err.code).toBe('NOT_FOUND')
+    expect(err.details[0]?.field).toBe('ip_address_range_id')
+    expect(err.details[0]?.code).toBe('IP_ADDRESS_RANGE_UNAVAILABLE')
+  })
+
+  it('409 CONFLICT + IP_ADDRESS_RANGE_UNAVAILABLE（所选范围段属于其它 Cluster，契约 §4.6）→ 保留稳定判别值', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(409, RANGE_UNAVAILABLE_CONFLICT_BODY)))
+
+    const err = await expectApiError(
+      allocateIpAddress({ network_interface_id: 12, ip_address_range_id: 7 }),
+    )
+
+    expect(err.status).toBe(409)
+    expect(err.code).toBe('CONFLICT')
+    expect(err.details[0]?.field).toBe('ip_address_range_id')
+    expect(err.details[0]?.code).toBe('IP_ADDRESS_RANGE_UNAVAILABLE')
+  })
+
+  it('409 CONFLICT + NO_AVAILABLE_IP（自动分配：所选范围段耗尽，不回退，契约 §4.1 / F023）→ 保留稳定判别值', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(409, NO_AVAILABLE_IP_BODY)))
 
-    const err = await expectApiError(allocateIpAddress({ network_interface_id: 12 }))
+    const err = await expectApiError(
+      allocateIpAddress({ network_interface_id: 12, ip_address_range_id: 7 }),
+    )
 
     expect(err.status).toBe(409)
     expect(err.code).toBe('CONFLICT')
@@ -259,7 +318,9 @@ describe('错误语义透传（契约 §4 / §8；api-conventions.md §5 / §6�
   it('401 UNAUTHENTICATED（未认证，不改变任何数据，契约 §5）→ 保留 code', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(401, UNAUTHENTICATED_BODY)))
 
-    const err = await expectApiError(allocateIpAddress({ network_interface_id: 12 }))
+    const err = await expectApiError(
+      allocateIpAddress({ network_interface_id: 12, ip_address_range_id: 7 }),
+    )
 
     expect(err.status).toBe(401)
     expect(err.code).toBe('UNAUTHENTICATED')

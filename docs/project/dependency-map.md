@@ -2,8 +2,10 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（全部 V1 Feature 处置完毕；`project.status = DONE`）
-> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
+> Generated: 2026-09-22（全部 V1 Feature 处置完毕；`project.status = DONE`）
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 21, 'CANCELLED': 1}`
+
+**2026-09-22（增量四·终）**：F023 完成（merge e234908，Reviewer = APPROVED WITH FOLLOW-UP），F023 DONE（无数据库变更）。全部 V1 Feature 处置完毕（21 DONE + 1 CANCELLED）。
 
 **2026-09-21（增量三·终）**：F022 完成（merge b467e89，Reviewer = APPROVED WITH FOLLOW-UP），F022 DONE（数据库增量：ip_address_ranges + migration 0010）。全部 V1 Feature 处置完毕（20 DONE + 1 CANCELLED）。
 
@@ -53,6 +55,7 @@
 | F020 IP 地址范围段（地址池）管理 | DONE | F001, F005 | database, backend, frontend |
 | F021 IP 地址自动 / 手动分配 | DONE | F020, F005, F004, F002 | backend, frontend（database: false） |
 | F022 网段自定义名称 / 子网掩码 / VLAN 标注 | DONE | F020 | database, backend, frontend |
+| F023 自动分配时指定 IP 地址范围段 | DONE | F020, F021 | backend, frontend（database: false） |
 
 ## 全量依赖 DAG
 
@@ -82,6 +85,12 @@ F022（网段元数据扩展，本次新增）依赖已交付的 F020：
 
 ```text
 F020 IP 地址范围段（地址池）管理 (P1, DONE) ──> F022 网段自定义名称 / 子网掩码 / VLAN 标注 (P1, DONE)  ← merge b467e89
+
+F023（自动分配指定范围段，本次新增）修订 F021 已交付的自动分配，真实前置为 F021（分配模块）与 F020（范围段）：
+
+F020 IP 地址范围段 (P1, DONE) ─┐
+                               ├──> F023 自动分配时指定 IP 地址范围段 (P1, READY)
+F021 IP 自动 / 手动分配 (P1, DONE) ─┘   ← 修订 R-IP-006 / f021 契约；无数据库变更
 ```
 
 > F021 **不是** F022 的前置；若裁定要求分配按掩码 / VLAN 过滤，属对 F021 的**前向影响**，待 DEC-024 裁定后评估，不画反向依赖边。
@@ -115,6 +124,7 @@ F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
 19. F020  DONE（merge e4291a1）
 20. F021  DONE（merge 011d05d；数据库零变更）
 21. F022  DONE（merge b467e89；ip_address_ranges + migration 0010）
+22. F023  DONE（merge e234908；无数据库变更）
 ```
 
 ## 可并行执行的 Feature
@@ -129,5 +139,6 @@ F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
 - `F018` 已 `DONE`（merge f1ac71b1）；`F017`（侧边栏）与 `F018`（搜索）无依赖边，两者对 `frontend/src/App.vue` 的所有权冲突已解除。
 - `F020` / `F021` 已完成：F020 DONE（merge e4291a1）、F021 DONE（merge 011d05d）。
 - `F022` 已完成：DEC-024 已 RESOLVED，扩展 `ip_address_ranges` 加 3 个可空列（name / subnet_mask / vlan）+ migration 0010（merge b467e89）。全部 V1 交付（20 DONE + 1 CANCELLED）。
+- `F023` 已完成：DEC-025 已 RESOLVED，修订 R-IP-006 / R-IP-009 与 f021 契约（自动分配必须指定活跃范围段，耗尽不回退，merge e234908）；**无数据库变更**。全部 V1 交付（21 DONE + 1 CANCELLED）。
 - `F011` 为 `CANCELLED`（用户 2026-09-18 决定），不在实施顺序中。
 - 优先级（P0 / P1 / P2）不代表执行顺序；执行顺序以上方拓扑序为准。

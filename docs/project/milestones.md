@@ -2,8 +2,10 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-21（全部 V1 Feature 处置完毕；`project.status = DONE`）
-> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 20, 'CANCELLED': 1}`
+> Generated: 2026-09-22（全部 V1 Feature 处置完毕；`project.status = DONE`）
+> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 21, 'CANCELLED': 1}`
+
+**2026-09-22（增量四·终）**：F023 完成（merge e234908）；M12 **DONE**；M1–M12 全部 DONE，全部 V1 Feature 处置完毕（21 DONE + 1 CANCELLED）。
 
 **2026-09-21（增量三·终）**：F022 完成（merge b467e89）；M11 **DONE**；M1–M11 全部 DONE，全部 V1 Feature 处置完毕（20 DONE + 1 CANCELLED）。
 
@@ -43,6 +45,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M9 | 搜索结果聚合视图 | F019 | **DONE** |
 | M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **DONE** |
 | M11 | 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） | F022 | **DONE** |
+| M12 | 自动分配指定 IP 地址范围段 | F023 | **DONE** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -270,6 +273,30 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
 **完成情况**：DEC-024 已 RESOLVED，F022 已于 2026-09-21 DONE（merge b467e89；`ip_address_ranges` 加 3 个可空列 + migration 0010）。M11 DONE。
+
+---
+
+## M12 — 自动分配指定 IP 地址范围段 · 状态：DONE
+
+**目标**：按用户裁定（DEC-025），使自动分配 IP 地址时能够且必须选择所用 IP 地址范围段，修复“多套范围段时无法选择”的规则缺口，
+同时不破坏占用判定 / 唯一性 / 手动分配等既有语义。
+
+| Feature | 名称 | 优先级 | 状态 | Merge |
+|---|---|---|---|---|
+| F023 | 自动分配时指定 IP 地址范围段 | P1 | **DONE** | e2349081 |
+
+**进入条件**：
+- DEC-025 已由用户裁定（必填 / 归属约束 / 耗尽不回退 / 手动不变）—— 已满足（RESOLVED，2026-09-22）。
+- F020 与 F021 已 DONE（已满足）。
+- Product 修订 R-IP-006 / R-IP-009；f021 契约修订为 READY。
+
+**完成标准**：
+- 自动分配请求必须携带 `ip_address_range_id`，且范围段活跃且属于目标 Cluster。
+- 在所选单个范围段内取最小未占用 IPv4；耗尽 → `409 NO_AVAILABLE_IP` 且不回退、无写入。
+- 手动分配、占用判定、唯一性、数据库 Schema 均不变；无「契约禁止、实现却有」分裂。
+- Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
+
+**完成情况**：DEC-025 已 RESOLVED，F023 已于 2026-09-22 DONE（merge e234908；Reviewer = APPROVED WITH FOLLOW-UP，无 BLOCKER/HIGH/MEDIUM）；AC-01 ~ AC-20 全 PASS；无数据库变更。M12 DONE。
 
 ---
 
