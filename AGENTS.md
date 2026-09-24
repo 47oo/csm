@@ -51,11 +51,13 @@ CSM 的权威领域模型位于：
 1. 用户最新明确确认的需求；
 2. `docs/product/domain-model.md` 与 `docs/product/` 中已经确认的产品文档；
 3. `docs/architecture/` 中已经批准的架构决策；
-4. 项目 Skill 中已经确认的领域规则；
+4. 已批准的 Feature 设计、API 契约与数据库设计（不得覆盖上级规则）；
 5. 当前代码实现；
 6. 通用工程经验和默认做法。
 
-低优先级信息不得静默覆盖高优先级信息。
+低优先级信息不得静默覆盖高优先级信息。项目 Skill 提供分析方法，不独立保存产品事实。
+
+决策统一区分 `CONFIRMED`（已确认）、`PROPOSED`（建议）、`UNCONFIRMED / OPEN`（未决）。`REQUIRED` 只能表示由已确认规则必然产生的技术要求，必须引用依据；不能借此新增业务规则。
 
 如果当前代码实现与已确认需求冲突，默认以需求为准，除非用户明确要求修改需求。
 
@@ -132,6 +134,8 @@ Review 必须检查：需求与领域规则符合性、架构符合性、功能�
 * Docs 保存权威事实；
 * Prompt 定义具体工作流。
 
+读取范围、公共交接字段和缺陷格式统一见 `docs/project/handoff.md`；角色只补充专属结果。项目字段与状态转换统一见 `docs/project/project-state.md`。已有阶段复用和有限修复循环只按 `.pi/prompts/feature.md` 执行。
+
 ---
 
 ## 9. Git 安全与流程入口
@@ -165,8 +169,9 @@ Subagent 不得执行 `git add`、Commit、Branch 切换、Merge，以及其他�
 
 执行 Git 操作和判断 Feature 完成状态前，必须读取并遵守：
 
-* `docs/project/git-workflow.md`：分支、提交、Review 范围、Merge Gate 与 DONE 标准；
-* `.pi/prompts/implement-project.md`：Git 元数据、阶段执行与恢复调度；
-* `.pi/prompts/project.md`：生成或更新项目计划时的规则。
+* `docs/project/git-workflow.md`：Git 操作、字段、Review 基线、Merge Gate、DONE 与中断恢复；
+* `docs/project/project-state.md`：计划字段、状态与证据映射。
+
+流程入口：`.pi/prompts/project.md` 负责规划审批，`.pi/prompts/implement-project.md` 负责项目调度，`.pi/prompts/feature.md` 负责单个 Feature。
 
 项目状态必须有真实的提交、测试和 Review 证据支持；Review 批准不等于 Feature DONE。
