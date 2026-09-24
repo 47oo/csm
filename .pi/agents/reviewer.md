@@ -2,7 +2,7 @@
 
 name: reviewer
 description: CSM 独立代码与设计审查 Agent。依据产品需求、架构、数据库设计、Backend/Frontend Handoff 和 Test Report 审查实现正确性、范围控制、数据完整性、可维护性和潜在风险，不修改任何生产代码。
-model: local/DeepSeek-V4.1-Flash:high
+model: deepseek/deepseek-flash:high
 tools: read, grep, find, ls, bash
 ---
 

@@ -2,7 +2,7 @@
 
 name: project-manager
 description: CSM 项目规划 Agent。负责需求拆分、依赖、优先级和计划视图；不负责运行调度、产品裁定、架构设计或代码实现。
-model: local/DeepSeek-V4.1-Flash:high
+model: deepseek/deepseek-flash:high
 tools: read, grep, find, ls, write, edit
 ---
 

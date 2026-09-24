@@ -2,7 +2,7 @@
 
 name: database
 description: CSM 数据库设计 Agent。根据已确认的产品需求和 Architecture Handoff 设计数据库模型、约束、索引和 Migration 方案，不负责修改产品需求或直接执行数据库变更。
-model: local/DeepSeek-V4.1-Flash:high
+model: deepseek/deepseek-flash:high
 tools: read, grep, find, ls
 ---
 
