@@ -1,6 +1,6 @@
 # CSM Releases
 
-> 本文件记录 CSM 的版本边界与冻结状态。详细产品规则见 `docs/product/`；分支与提交流程见 `docs/project/git-workflow.md`；当前（v2）项目状态见 `docs/project/project-plan.yaml`，V1 计划见 `docs/project/v1/`。
+> 本文件记录 CSM 的版本边界与冻结状态。详细产品规则见 `docs/product/`；分支与提交流程见 `docs/project/git-workflow.md`；当前（v2）项目状态见 `docs/project/project-plan.yaml`；V1 计划见 `release/v1` 分支。
 
 ## v1.0.0-demo — CSM V1 Demo
 
@@ -25,8 +25,8 @@
 
 ## v2 重构
 
-V2 是对 V1 的大跨度重构（**领域与范围都变**，且无需迁移 V1 生产数据）。V1 已归档到 `docs/project/v1/`，
-其 tag 与 `release/v1` 分支保留为对照与回滚点；V2 的 Feature 计划重新立项（见 `.pi/prompts/project.md`），
+V2 是对 V1 的大跨度重构（**领域与范围都变**，且无需迁移 V1 生产数据）。V1 已冻结，
+完整保留在 `release/v1` 分支与 tag `v1.0.0-demo`，作为对照与回滚点；V2 的 Feature 计划重新立项（见 `.pi/prompts/project.md`），
 不与 V1 的 `project-plan.yaml` 混用。
 
 V2 需求见 `docs/product/requirements-v2.md`（Status: **DRAFT — AWAITING CONTENT**）；

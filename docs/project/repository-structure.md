@@ -65,7 +65,6 @@ V1 的 ADR 与 Handoff 已移除（见 `release/v1`）。
 
 子目录：
 
-* `v1/`：CSM V1 的冻结计划快照（对应 tag `v1.0.0-demo`），不再维护。
 * `v2/`：CSM V2 的规划入口与前提（`planning-intake.md`）。
 
 ## 应用代码目录 — V2 待建立

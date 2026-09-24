@@ -17,7 +17,7 @@ CSM V1 已冻结为演示版本 `v1.0.0-demo`（tag → `563eda3`，冻结分支
 
 目前：
 
-* V1 计划已冻结并归档到 `docs/project/v1/`（对应 tag `v1.0.0-demo`）。
+* V1 计划已冻结，完整保留在 `release/v1` 分支与 tag `v1.0.0-demo`；`v2` 分支内不保留副本。
 * `docs/product/requirements-v2.md` 已新建，但 Status 为 **DRAFT — AWAITING CONTENT**（尚无 v2 需求正文）。
 * `docs/project/project-plan.yaml` 现为 **v2 骨架**（`plan_completeness: incomplete`，`features: []`），**尚未生成任何 v2 Epic / Feature / Milestone**。
 
@@ -35,17 +35,14 @@ CSM V1 已冻结为演示版本 `v1.0.0-demo`（tag → `563eda3`，冻结分支
 5. **技术栈**：是否继续采用 ADR-0001 的 Python / FastAPI / PostgreSQL / Vue 栈，还是更换？
 6. **部署形态**：是否仍为内网 Internal IP + HTTP，还是有新要求（域名 / HTTPS / 多环境）？
 
-## 4. 归档状态（已执行）
+## 4. 归档状态
 
-用户已同意「把 V1 计划归档、v2 单独立项」。归档已在本分支完成：
+V1 计划已冻结，**不保留在 v2 分支内**，完整保存在 `release/v1` 分支与 tag `v1.0.0-demo`
+（可用 `git show release/v1:docs/project/project-plan.yaml` 查看）。
 
-1. ✅ 已将 V1 计划文件 `git mv` 到 `docs/project/v1/`：
-   `project-plan.yaml`、`backlog.md`、`dependency-map.md`、`milestones.md`、`_planning-findings.md`。
-2. ✅ 已新增 `docs/project/v1/README.md`，说明这是 `v1.0.0-demo` 的冻结快照，不再维护。
-3. ✅ 已将 V1 历史文档中对 `docs/project/project-plan.yaml` 的引用更新为 `docs/project/v1/project-plan.yaml`（仅路径，内容未改）。
-4. ⏳ 待 v2 需求确认后，依据需求运行 `/project`，生成 v2 的 Epic / Feature / Milestone 并写入顶层 `docs/project/project-plan.yaml`。
-
-> 归档只涉及路径移动与引用修正，历史内容（含 Review / Test 证据）未改写。
+1. ✅ 2026-09-24 曾将 V1 计划文件 `git mv` 到 `docs/project/v1/` 并新增其 `README.md`。
+2. ✅ 同日按用户要求删除 `docs/project/v1/`；V1 计划统一保留在 `release/v1`。
+3. ⏳ 待 v2 需求确认后，依据需求运行 `/project`，生成 v2 的 Epic / Feature / Milestone 并写入顶层 `docs/project/project-plan.yaml`。
 
 ## 5. 备注：M13 的归属
 
@@ -82,7 +79,7 @@ docker-compose.dev.yml  docker-compose.prod.yml
 * `docs/product/requirements.md`、`domain-model.md`、`domain-model.yaml`、`domain-conflict-handoff.md`、`handoffs/`；
 * `docs/architecture/`（含 `adr/`）、`docs/database/`、`docs/api/`、`docs/deployment/`、`docs/reviews/`、`docs/test-reports/`。
 
-**保留**：`docs/product/requirements-v2.md`（V2 需求）、`docs/project/`（流程 + `v1/` 计划归档 + 本目录）。
+**保留**：`docs/product/requirements-v2.md`（V2 需求）、`docs/project/`（流程 + 本目录）。
 
 **理由**：防止 V2 需求分析与架构重新引入 V1 既有规则（`AGENTS.md` §2 不得自行创造/沿用未确认规则，§3 需求优先）。
 
@@ -95,3 +92,10 @@ docker-compose.dev.yml  docker-compose.prod.yml
 * `.pi/agents/*.md` 与 `.pi/prompts/*.md` 大量引用 `docs/product/`、`docs/architecture/`、`docs/database/`、`docs/api/`。
 
 建议在启动 V2 规划前单独评估：保留 / 改写 / 归档这些引用与 V1 领域知识。
+
+## 9. V1 计划副本删除（已执行）
+
+2026-09-24，用户要求「将 project 的 v1 也删除」。据此删除 `docs/project/v1/`（V1 计划快照）：
+`project-plan.yaml`、`backlog.md`、`dependency-map.md`、`milestones.md`、`_planning-findings.md`、`README.md`。
+
+V1 计划完整保留在 `release/v1` 分支与 tag `v1.0.0-demo`；`v2` 分支内不再保留任何 V1 文档副本。

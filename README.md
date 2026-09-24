@@ -13,7 +13,6 @@
 |---|---|
 | `docs/product/requirements-v2.md` | V2 产品需求（Status: DRAFT — AWAITING CONTENT，待填写）。 |
 | `docs/project/project-plan.yaml` | V2 项目计划（当前为 incomplete / DRAFT 骨架）。 |
-| `docs/project/v1/` | V1 冻结计划快照。 |
 | `docs/project/v2/planning-intake.md` | V2 规划前提、待澄清输入与重置记录。 |
 | `docs/project/git-workflow.md` | 分支与提交流程。 |
 | `.pi/` | Agent 定义、Skill、工作流 Prompt。 |
