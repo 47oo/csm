@@ -346,7 +346,7 @@ Testing Agent 必须验证（真实 PostgreSQL）：
 | `tests/test_search_guards.py`（G-018-6/7） | **更新**：schema 断言改为新行结构；越界 token 列表保留「相似度 / 跨集群 / 软删 / 统计」禁止项，**不**因新增排序放开对它们的禁止 |
 | `tests/test_search_api.py`（响应形态用例） | **更新**：断言新聚合形态；保留边界用例 |
 | `frontend/src/api/search.ts`、`SearchResultsPage.vue`、`App.vue`、`frontend/tests/search*.spec.ts` | **更新 / 新增**（Frontend 分支） |
-| `docs/project/project-plan.yaml` `features[F019]` | 由协调器 / PM 更新（`contract.doc`、`layers.database=false`、`implementation.database_design=NOT_REQUIRED`）；**本阶段不修改** |
+| `docs/project/v1/project-plan.yaml` `features[F019]` | 由协调器 / PM 更新（`contract.doc`、`layers.database=false`、`implementation.database_design=NOT_REQUIRED`）；**本阶段不修改** |
 
 ## Implementation Layers
 

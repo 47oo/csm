@@ -98,7 +98,7 @@ Suggested Owner: 主协调器
 ```text
 Severity: LOW
 Layer: Project docs consistency
-Location: docs/project/project-plan.yaml 与 docs/project/{backlog,dependency-map,milestones}.md
+Location: docs/project/v1/project-plan.yaml 与 docs/project/{backlog,dependency-map,milestones}.md
 Problem: 生成视图仍显示 F020 为 IN_PROGRESS，未随状态再生。
 Evidence: git diff develop...HEAD -- docs/project/…
 Impact: 仅项目状态可读性/一致性问题。

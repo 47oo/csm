@@ -23,7 +23,7 @@
 - `docs/architecture/csm-v1-foundation-architecture.md`、`docs/architecture/f012-project-foundation-handoff.md`（Q1 / Q2 / Q3 / Q5）、`docs/architecture/f001-cluster-handoff.md`（问题 1 / 问题 2 / 问题 8 / Open #4）
 - `docs/database/csm-v1-schema-design.md`（决策 5 / 6 / 8；`clusters` 冻结）、`docs/database/f012-baseline-migration.md`
 - `docs/api/api-conventions.md`（§2 / §5 / §6 / §7）、`docs/api/f001-cluster.md`（§2 / §10）
-- `docs/project/project-plan.yaml`（F014 条目）
+- `docs/project/v1/project-plan.yaml`（F014 条目）
 
 ---
 

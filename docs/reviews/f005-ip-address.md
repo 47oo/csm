@@ -27,12 +27,12 @@ DHCP / DNS / 自动发现、无格式校验与归一化、无多态父载体、`
 产品、架构、数据库、后端、前端与测试六个维度**均通过独立核验**（AC-01 ~ AC-42 全部
 满足；`cluster_id` 单一写入点与漂移三件套经独立注入证明真实可失败；guard 演进为
 「加强 / 仅移除已合法化 token」而非收窄），**但**发现一项由本 Feature 分支引入、
-**超出 F005 范围**的破坏性文档编辑：`docs/project/project-plan.yaml` 中 **F004 的
+**超出 F005 范围**的破坏性文档编辑：`docs/project/v1/project-plan.yaml` 中 **F004 的
 open_questions（NQ-4 / NQ-6 / NQ-7）被 F005 内容覆盖**，并导致重复 YAML 键
 （见 REV-1，MEDIUM）。该问题必须在 Merge 前由协调器修正。除此之外无 BLOCKER / HIGH，
 其余为 LOW / NOTE。
 
-**RETURN TO**：协调器（`docs/project/project-plan.yaml` 归属方）；REV-1 修正后可进入
+**RETURN TO**：协调器（`docs/project/v1/project-plan.yaml` 归属方）；REV-1 修正后可进入
 Merge Gate，代码侧无需返工。
 
 ## Scope Reviewed
@@ -247,7 +247,7 @@ Layer:
 Docs / Project Plan（协调器元数据）
 
 Location:
-`docs/project/project-plan.yaml` L526-541（F004 `open_questions` 的 NQ-4 / NQ-6 / NQ-7）；
+`docs/project/v1/project-plan.yaml` L526-541（F004 `open_questions` 的 NQ-4 / NQ-6 / NQ-7）；
 重复键位于 L535-536（NQ-6 中出现两次 `resolved_by: architecture`）。
 
 Problem:
@@ -259,18 +259,18 @@ NQ-7（「PATCH 可变字段集合固定为 `technology_type` + `purpose`」）�
 产生**重复的 `resolved_by` YAML 键**。这是对无关 Feature 已确认记录的破坏性编辑。
 
 Evidence:
-`git diff develop...HEAD -- docs/project/project-plan.yaml` 的被删行恰为：
+`git diff develop...HEAD -- docs/project/v1/project-plan.yaml` 的被删行恰为：
 ```text
 -        summary: Other 是否需伴随自由文本 / 中文映射；R-NIC-001/002 已确认封闭集合且无伴随字段；默认不实现（PROPOSED-2）。
 -        summary: 裁定为 F004 提供 GET /api/network-interfaces?bare_metal_id=（与 F002/F006 对称，不新增端点），F010 必须复用。
 -        summary: PATCH 可变字段集合固定为 technology_type + purpose。
 ```
-`git blame -L 526,541 docs/project/project-plan.yaml` 显示上述被改行来自 `ff057842`（F005 分支），
-而非 base（`966c44ec`）。`git show develop:docs/project/project-plan.yaml` 的 F004 段确认原始文本。
+`git blame -L 526,541 docs/project/v1/project-plan.yaml` 显示上述被改行来自 `ff057842`（F005 分支），
+而非 base（`966c44ec`）。`git show develop:docs/project/v1/project-plan.yaml` 的 F004 段确认原始文本。
 现文件 L535-536 连续两行 `resolved_by: architecture`（重复键）。
 
 Impact:
-`docs/project/project-plan.yaml` 是项目当前执行状态的权威来源（`AGENTS.md` §4）。F004 已确认的
+`docs/project/v1/project-plan.yaml` 是项目当前执行状态的权威来源（`AGENTS.md` §4）。F004 已确认的
 open-question 结论被静默替换为 F005 的内容，会误导后续 Agent（尤其 F010 / F011 等依赖
 NetworkInterface 路由与 PATCH 字段集合上下文者）；重复 YAML 键为标准违规（宽松解析器取后者，
 严格解析器可能报错）。属本 Feature 分支引入、超出 F005 范围的回归。
@@ -281,7 +281,7 @@ Expected:
 解析且无重复键。
 
 Suggested Owner:
-协调器（`docs/project/project-plan.yaml` 归属方）
+协调器（`docs/project/v1/project-plan.yaml` 归属方）
 
 ### REV-2
 
@@ -359,7 +359,7 @@ Layer:
 Docs / Project Plan（协调器元数据）
 
 Location:
-`docs/project/project-plan.yaml` L561 `head_commit: 881ee230851c1234c705ac7e3367938f243e31ef`
+`docs/project/v1/project-plan.yaml` L561 `head_commit: 881ee230851c1234c705ac7e3367938f243e31ef`
 （== `start_commit`）、`status: IN_REVIEW`、`implementation.test: COMPLETE`。
 
 Problem:
@@ -368,7 +368,7 @@ F005 的 `git.head_commit` 仍等于 base / start_commit，未随实现与测试
 但 `head_commit` 陈旧。
 
 Evidence:
-`grep -n head_commit docs/project/project-plan.yaml` → F005 L561 为 `881ee23…`；
+`grep -n head_commit docs/project/v1/project-plan.yaml` → F005 L561 为 `881ee23…`；
 `git rev-parse HEAD` → `01d91500…`。Tester「Unverified #5」已记录。
 
 Impact:

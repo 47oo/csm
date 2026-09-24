@@ -379,6 +379,6 @@ READY FOR IMPLEMENTATION
 ## 附录 C — 需同步的产品 / 计划文档
 
 - `docs/product/domain-model.md` / `docs/product/domain-model.yaml`：Product 已同步。
-- `docs/project/project-plan.yaml`：`features[F021].layers.database` 由初步 `true` 定稿为 **`false`**，并登记本次架构结论（由协调器执行）。
+- `docs/project/v1/project-plan.yaml`：`features[F021].layers.database` 由初步 `true` 定稿为 **`false`**，并登记本次架构结论（由协调器执行）。
 - 新增文档：`docs/api/f021-ip-address-allocation.md`、`docs/architecture/f021-ip-address-allocation-handoff.md`。
 - 修订文档：`docs/api/f005-ip-address.md` §10（附录 B 两处）。

@@ -268,7 +268,7 @@ F001~F007 完成后，集群、裸金属、网络接口 / IP、虚拟机、容�
   1. `domain-model.yaml > open_questions[OPEN-003]` 仍 `status: OPEN` → 应标记 `CLOSED_RESOLVED`（R-SVC-007/008/009，2026-09-16）。
   2. `domain-model.md` **§8 Uniqueness Rules 未收录「Service `name` 全局唯一」** → 应补录（R-SVC-008）。
   3. `docs/database/csm-v1-schema-design.md` 第 439 / 440 / 697 / 894 行仍记载「Service → Host/Container **本次不设计**」/「`0008+` 字段待 Product 阶段确认」→ 应同步（`services` 表 + N:M 绑定表设计）。
-  4. `docs/project/project-plan.yaml > F008` 的 `open_questions`（当前 `[]`）/ `contract.status` / `layers` 待按本 Handoff 落盘；同时关闭 F007 NQ-9（F008 追加 `CONTAINER_ACTIVE_CHILD_CHECKS`）。
+  4. `docs/project/v1/project-plan.yaml > F008` 的 `open_questions`（当前 `[]`）/ `contract.status` / `layers` 待按本 Handoff 落盘；同时关闭 F007 NQ-9（F008 追加 `CONTAINER_ACTIVE_CHILD_CHECKS`）。
 
 ---
 
@@ -313,7 +313,7 @@ F001~F007 完成后，集群、裸金属、网络接口 / IP、虚拟机、容�
 11. **未定义约束的「不实现」保障**：确认 schema / ORM / 契约层不隐式引入 `name` 与 6 个可选字段的长度 / trim / 空串 / 字符 / `/` / URL 格式 / 端口数字校验（AC-15），并以可失败 guard 固定。
 12. **读取路径活跃过滤**：复用 `app/db/active.py`，不新写谓词。
 13. **前端接线**：列表 / 详情 / 登记（三种载体类型选择，**至少一项**）/ 可选字段修改 / 删除入口；错误按 `error.code`；不重复实现业务守卫。
-14. **交付层判定**：确认 `database: true` 与 backend / frontend 层；新增 `services` 表（及绑定结构）→ 表集合 guard 增表演进；同步 `docs/project/project-plan.yaml > F008`（含 NQ-10 漂移）与 `docs/api/f008-service.md`。
+14. **交付层判定**：确认 `database: true` 与 backend / frontend 层；新增 `services` 表（及绑定结构）→ 表集合 guard 增表演进；同步 `docs/project/v1/project-plan.yaml > F008`（含 NQ-10 漂移）与 `docs/api/f008-service.md`。
 
 ---
 
@@ -330,7 +330,7 @@ F001~F007 完成后，集群、裸金属、网络接口 / IP、虚拟机、容�
 5. 新增 `services` 表与 N:M 绑定结构 → 表集合 guard、无 CASCADE guard、唯一软删写入路径 guard 应**增表演进**；新增一处 `services.name` 全局 partial unique index。
 6. 新增「绑定关系的写入路径恰为两条（登记建立 + Service 软删释放）」这一可失败 guard（AC-48）。
 
-文档漂移需同步（详见 NQ-10）：`domain-model.yaml > open_questions[OPEN-003]`、`domain-model.md` §8、`docs/database/csm-v1-schema-design.md` 第 439/440/697/894 行、`docs/project/project-plan.yaml > F008`（含 F007 NQ-9 关闭）、新增 `docs/api/f008-service.md`。
+文档漂移需同步（详见 NQ-10）：`domain-model.yaml > open_questions[OPEN-003]`、`domain-model.md` §8、`docs/database/csm-v1-schema-design.md` 第 439/440/697/894 行、`docs/project/v1/project-plan.yaml > F008`（含 F007 NQ-9 关闭）、新增 `docs/api/f008-service.md`。
 
 ---
 

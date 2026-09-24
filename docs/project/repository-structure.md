@@ -49,11 +49,16 @@
 
 用于保存：
 
-* 项目计划；
+* 项目计划（Source of Truth：`project-plan.yaml`）；
 * Backlog；
 * 依赖关系；
 * Milestone；
 * 项目流程说明。
+
+子目录：
+
+* `v1/`：CSM V1 的冻结计划快照（对应 tag `v1.0.0-demo`），不再维护。
+* `v2/`：CSM V2 的规划入口与前提（`planning-intake.md`）。
 
 ## `backend/`
 

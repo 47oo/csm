@@ -17,7 +17,7 @@ F016「Cluster 登记与改名 UI」— 为已冻结的 `POST /api/clusters` / `
 - `docs/architecture/adr/adr-0001`（技术栈）、`adr-0003`（资源标识与错误信封；R-CLUSTER-005 关系）
 - `docs/database/csm-v1-schema-design.md`（只读；本 Feature 不改 schema）
 - 既有前端：`frontend/src/api/clusters.ts`、`api/http.ts`、6 个 `*FormDialog.vue`、`pages/ClusterListPage.vue`、`pages/ClusterDetailPage.vue`、`App.vue`、`composables/useAsyncQuery.ts`、`useClusterDelete.ts`、`components/ListStates.vue` / `ErrorState.vue`、`frontend/tests/*`
-- `docs/project/project-plan.yaml`（F016 条目已存在，`depends_on: [F001, F013, F014]` 均 DONE）
+- `docs/project/v1/project-plan.yaml`（F016 条目已存在，`depends_on: [F001, F013, F014]` 均 DONE）
 
 ## Architecture Summary
 

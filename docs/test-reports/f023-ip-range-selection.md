@@ -23,7 +23,7 @@
 | 产品需求 | `docs/product/requirements.md` §12 R-IP-006 / R-IP-009（修订）、R-IP-001 ~ R-IP-005 / R-IP-007 / R-IP-008 / R-IP-010（保持不变） |
 | API 契约 | `docs/api/f021-ip-address-allocation.md`（Status **READY**，2026-09-22 F023 修订；§1 / §3.1 / §4.1 / 新增 §4.6 / §6.1 / §6.5 / §8 / §9） |
 | 架构 | `docs/architecture/f023-ip-range-selection-handoff.md`（Verification Strategy §1~§11） |
-| 项目计划 | `docs/project/project-plan.yaml` `features[F023].layers.database = false`；`decisions_required[DEC-025]`（RESOLVED） |
+| 项目计划 | `docs/project/v1/project-plan.yaml` `features[F023].layers.database = false`；`decisions_required[DEC-025]`（RESOLVED） |
 | 领域 Skill | `.pi/skills/resource-domain/SKILL.md` |
 
 ---

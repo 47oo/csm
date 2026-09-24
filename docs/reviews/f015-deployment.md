@@ -130,7 +130,7 @@ Layer:
 Project Metadata
 
 Location:
-`docs/project/project-plan.yaml` > `F015.git.head_commit`
+`docs/project/v1/project-plan.yaml` > `F015.git.head_commit`
 
 Problem:
 `head_commit` 记为 `056c0547…`（实现提交），而本次已审查候选 HEAD 为 `f536b064…`（测试 / 报告提交，且该提交自身更新了 `project-plan` 的 `current_stage` / `test` 字段）。计划元数据与已审查 HEAD 不一致。

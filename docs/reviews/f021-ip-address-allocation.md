@@ -59,7 +59,7 @@ Tester 新增测试真实覆盖 AC-01~AC-33；直连 DB 证伪绕过应用层（
 ```text
 Severity: NOTE
 Layer: Docs / Project State
-Location: docs/project/project-plan.yaml (F021.next_action / last_result)；docs/test-reports/f021-ip-address-allocation.md
+Location: docs/project/v1/project-plan.yaml (F021.next_action / last_result)；docs/test-reports/f021-ip-address-allocation.md
 Problem: 计划与 Test Report 曾引用旧候选 HEAD `ae10140`；实际被审查候选 HEAD 为 `d996158`。
 Impact: 仅协调元数据陈旧；不改变批准绑定对象（仍仅对 d996158 有效）。
 Expected: Merge Gate 前将 Feature HEAD / next_action 更新为 d996158。

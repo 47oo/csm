@@ -3,7 +3,7 @@
 > Status: `READY FOR ARCHITECT`
 > Author Role: product-manager
 > Feature: F009（E05，P0，`depends_on: [F001, F002]`，二者均已 DONE）
-> 依据基线：`docs/product/requirements.md`（CONFIRMED BASELINE）、`docs/product/domain-model.md`（CONFIRMED）、`docs/product/domain-model.yaml`、`docs/api/api-conventions.md`（READY）、ADR-0003 / ADR-0004（ACCEPTED）、`docs/product/handoffs/f002-bare-metal.md`、`docs/api/f001-cluster.md`、`docs/api/f002-bare-metal.md`、`docs/api/f014-soft-delete.md`、`docs/project/project-plan.yaml`
+> 依据基线：`docs/product/requirements.md`（CONFIRMED BASELINE）、`docs/product/domain-model.md`（CONFIRMED）、`docs/product/domain-model.yaml`、`docs/api/api-conventions.md`（READY）、ADR-0003 / ADR-0004（ACCEPTED）、`docs/product/handoffs/f002-bare-metal.md`、`docs/api/f001-cluster.md`、`docs/api/f002-bare-metal.md`、`docs/api/f014-soft-delete.md`、`docs/project/v1/project-plan.yaml`
 
 ---
 

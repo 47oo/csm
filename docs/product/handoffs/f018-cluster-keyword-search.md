@@ -4,7 +4,7 @@
 > Author Role: product-manager
 > Date: 2026-09-18
 > Feature: **F018 — 集群内资源关键字搜索**（Cluster-scoped Keyword Search）
-> 上游决策：用户 2026-09-18 对 `DEC-021` 裁定「做」，并逐条裁定 `NQ-1 ~ NQ-5`（详见 `docs/project/project-plan.yaml` `features[F018].open_questions` 各条 `resolved_to`）。
+> 上游决策：用户 2026-09-18 对 `DEC-021` 裁定「做」，并逐条裁定 `NQ-1 ~ NQ-5`（详见 `docs/project/v1/project-plan.yaml` `features[F018].open_questions` 各条 `resolved_to`）。
 
 ## Feature
 

@@ -4,7 +4,7 @@
 > Author Role: product-manager
 > Date: 2026-09-22
 > Feature: **F023 — 自动分配时指定 IP 地址范围段**（E02，P1，`depends_on: [F020, F021]`，均已 DONE）
-> Product Source: `requirements.md` §12（**修订 R-IP-006 / R-IP-009，R-IP-001 ~ R-IP-005 / R-IP-007 / R-IP-008 / R-IP-010 保持不变**）；§15、§21、§22、§23；`domain-model.md` §IP 分配 / §6 / §7.2 / §8；`domain-model.yaml`；`docs/api/f021-ip-address-allocation.md`（现有契约，待 Architecture 修订）；`docs/product/handoffs/f021-ip-address-allocation.md`；`docs/api/f005-ip-address.md`；ADR-0002 / ADR-0003 / ADR-0004 / ADR-0005；`docs/project/project-plan.yaml` `decisions_required[DEC-025].resolution`（用户 2026-09-22 裁定，RESOLVED）
+> Product Source: `requirements.md` §12（**修订 R-IP-006 / R-IP-009，R-IP-001 ~ R-IP-005 / R-IP-007 / R-IP-008 / R-IP-010 保持不变**）；§15、§21、§22、§23；`domain-model.md` §IP 分配 / §6 / §7.2 / §8；`domain-model.yaml`；`docs/api/f021-ip-address-allocation.md`（现有契约，待 Architecture 修订）；`docs/product/handoffs/f021-ip-address-allocation.md`；`docs/api/f005-ip-address.md`；ADR-0002 / ADR-0003 / ADR-0004 / ADR-0005；`docs/project/v1/project-plan.yaml` `decisions_required[DEC-025].resolution`（用户 2026-09-22 裁定，RESOLVED）
 
 ## Feature
 

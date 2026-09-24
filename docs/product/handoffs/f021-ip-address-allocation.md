@@ -4,7 +4,7 @@
 > Author Role: product-manager（协调器持久化）
 > Date: 2026-09-21
 > Feature: **F021 — IP 地址自动 / 手动分配**（E02，P1，`depends_on: [F020, F005, F004, F002]`，均已 DONE）
-> Product Source: `requirements.md` §12（**R-IP-001~004 保持不变，新增 R-IP-005 ~ R-IP-010**）；§9、§15、§17、§21、§22、§23、§25、§29；`domain-model.md` §5.7 / §8 / §9 及 `domain-model.yaml`；`docs/product/handoffs/f020-ip-address-range.md`；`docs/architecture/f020-ip-address-range-handoff.md`；`docs/api/f005-ip-address.md`；`docs/api/f020-ip-address-range.md`；ADR-0002 / ADR-0003 / ADR-0004 / ADR-0005；`docs/project/project-plan.yaml` `decisions_required[DEC-023].resolution`（第 7~13 项，用户 2026-09-20 裁定，RESOLVED）；用户 2026-09-21 对 **PR-01** 的补充裁定（采纳 A：手动分配规范化写入；非法格式不允许输入）
+> Product Source: `requirements.md` §12（**R-IP-001~004 保持不变，新增 R-IP-005 ~ R-IP-010**）；§9、§15、§17、§21、§22、§23、§25、§29；`domain-model.md` §5.7 / §8 / §9 及 `domain-model.yaml`；`docs/product/handoffs/f020-ip-address-range.md`；`docs/architecture/f020-ip-address-range-handoff.md`；`docs/api/f005-ip-address.md`；`docs/api/f020-ip-address-range.md`；ADR-0002 / ADR-0003 / ADR-0004 / ADR-0005；`docs/project/v1/project-plan.yaml` `decisions_required[DEC-023].resolution`（第 7~13 项，用户 2026-09-20 裁定，RESOLVED）；用户 2026-09-21 对 **PR-01** 的补充裁定（采纳 A：手动分配规范化写入；非法格式不允许输入）
 
 ---
 

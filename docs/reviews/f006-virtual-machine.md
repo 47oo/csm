@@ -162,7 +162,7 @@ Layer:
 Project metadata / Coordinator
 
 Location:
-`docs/project/project-plan.yaml`（F006 块 `git.head_commit`）
+`docs/project/v1/project-plan.yaml`（F006 块 `git.head_commit`）
 
 Problem:
 `git.head_commit` 仍为 base commit `f74e7ddbf369910e6f83b99758b672019b4fe4c9`，
@@ -170,7 +170,7 @@ Problem:
 同块 `implementation.test: COMPLETE` / `backend: COMPLETE` 已就绪，HEAD 字段与之不匹配。
 
 Evidence:
-`git diff develop...HEAD -- docs/project/project-plan.yaml` 中 `head_commit: f74e7dd...`；
+`git diff develop...HEAD -- docs/project/v1/project-plan.yaml` 中 `head_commit: f74e7dd...`；
 `git rev-parse HEAD` → `3bd2da22...`。
 
 Impact:

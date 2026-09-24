@@ -35,7 +35,7 @@ APPROVED WITH FOLLOW-UP
 | 范围 | `e59cfd9...HEAD`（完整分支差异） |
 | 工作树 | **clean**（`git status --short` 空；无 staged；无 untracked） |
 
-**注意（元数据一致性）**：Test Report 记录的候选 HEAD 为 `6aa7c215...`，而当前协调器给定的候选 HEAD 为 `c79f5061...`（比前者**多一个提交** `test(F018): record acceptance test report`，即测试报告自身落盘提交）。二者为同一 Feature 分支、同一 start_commit，`c79f5061` 是 `6aa7c215` 的后继；本 Report 的批准**仅对 `c79f5061` 的代码状态有效**。该差异为「测试报告落盘」的后继提交，不含代码变更（见逐文件核查）。`6aa7c21..c79f506` 的差异仅 `docs/test-reports/f018-cluster-keyword-search.md` 与 `docs/project/project-plan.yaml`。
+**注意（元数据一致性）**：Test Report 记录的候选 HEAD 为 `6aa7c215...`，而当前协调器给定的候选 HEAD 为 `c79f5061...`（比前者**多一个提交** `test(F018): record acceptance test report`，即测试报告自身落盘提交）。二者为同一 Feature 分支、同一 start_commit，`c79f5061` 是 `6aa7c215` 的后继；本 Report 的批准**仅对 `c79f5061` 的代码状态有效**。该差异为「测试报告落盘」的后继提交，不含代码变更（见逐文件核查）。`6aa7c21..c79f506` 的差异仅 `docs/test-reports/f018-cluster-keyword-search.md` 与 `docs/project/v1/project-plan.yaml`。
 
 **完整差异逐文件结论（`e59cfd9...HEAD`，29 文件）**
 
@@ -56,8 +56,8 @@ APPROVED WITH FOLLOW-UP
 | `docs/architecture/f018-cluster-keyword-search-handoff.md` | 架构 Handoff。OK |
 | `docs/product/handoffs/f018-cluster-keyword-search.md` | 产品 Handoff。OK |
 | `docs/product/requirements.md` | 新增 R-QUERY-005，未改既有规则（61→62）。OK |
-| `docs/project/backlog.md` / `milestones.md` / `dependency-map.md` | 三份**派生视图**由 `project-plan.yaml` 重建（含重建说明）。见 NOTE-1 |
-| `docs/project/project-plan.yaml` | F018 元数据 + 派生计数。OK |
+| `docs/project/v1/backlog.md` / `milestones.md` / `dependency-map.md` | 三份**派生视图**由 `project-plan.yaml` 重建（含重建说明）。见 NOTE-1 |
+| `docs/project/v1/project-plan.yaml` | F018 元数据 + 派生计数。OK |
 | `docs/test-reports/f018-cluster-keyword-search.md` | Test Report（READY FOR REVIEW）。OK |
 | `frontend/src/api/search.ts` | 单端点客户端；类型逐字段复用 canonical Read；keyword 原样。OK |
 | `frontend/src/pages/SearchResultsPage.vue` | 单请求、三态、命中字段标签、详情导航。OK |
@@ -251,7 +251,7 @@ API 层（router）仅做参数封闭与空关键字校验；Service 层承担�
 
 **Layer:** Project Docs
 
-**Location:** `docs/project/backlog.md` / `milestones.md` / `dependency-map.md`
+**Location:** `docs/project/v1/backlog.md` / `milestones.md` / `dependency-map.md`
 
 **Problem:** 本分支同时携带三份**派生视图重建**（数百行）与 `project-plan.yaml` 更新，超出「F018 实现」的直觉范围。
 
@@ -377,7 +377,7 @@ GIT: git diff e59cfd9...HEAD -- backend/migrations/
 GIT: git diff e59cfd9...HEAD -- tests/test_auth_guards.py tests/test_resource_views_guards.py backend/app/main.py
 GIT: git diff e59cfd9...HEAD -- docs/api/f002-bare-metal.md docs/api/f005-ip-address.md docs/api/f009-cluster-resource-view.md docs/api/f010-resource-detail.md
 GIT: git diff e59cfd9...HEAD -- docs/product/requirements.md
-GIT: git diff e59cfd9...HEAD -- docs/project/backlog.md docs/project/milestones.md docs/project/dependency-map.md
+GIT: git diff e59cfd9...HEAD -- docs/project/v1/backlog.md docs/project/v1/milestones.md docs/project/v1/dependency-map.md
 GIT: git diff e59cfd9...HEAD -- frontend/src/App.vue
 GIT: git diff e59cfd9...HEAD -- tests/
 GIT: git diff e59cfd9...HEAD --name-only
@@ -415,7 +415,7 @@ GIT: git diff e59cfd9...HEAD -- backend/migrations/
 GIT: git diff e59cfd9...HEAD -- tests/test_auth_guards.py tests/test_resource_views_guards.py backend/app/main.py
 GIT: git diff e59cfd9...HEAD -- docs/api/f002-bare-metal.md docs/api/f005-ip-address.md docs/api/f009-cluster-resource-view.md docs/api/f010-resource-detail.md
 GIT: git diff e59cfd9...HEAD -- docs/product/requirements.md
-GIT: git diff e59cfd9...HEAD -- docs/project/backlog.md docs/project/milestones.md docs/project/dependency-map.md
+GIT: git diff e59cfd9...HEAD -- docs/project/v1/backlog.md docs/project/v1/milestones.md docs/project/v1/dependency-map.md
 GIT: git diff e59cfd9...HEAD -- frontend/src/App.vue
 GIT: git diff e59cfd9...HEAD -- tests/
 GIT: git diff e59cfd9...HEAD --name-only

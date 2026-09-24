@@ -66,7 +66,7 @@ Test Report 与 Test Handoff 就绪，满足正式 Review 的 Gate 前提，**�
   `app/models/cluster.py`、`tests/deletion_guard_helpers.py`。
 - 契约与文档：`docs/api/f009-cluster-resource-view.md`、`docs/api/{api-conventions,f001-cluster,f002-bare-metal}.md`、
   ADR-0003 / ADR-0004 / ADR-0005、`docs/product/handoffs/f009-cluster-resource-view.md`、
-  `docs/architecture/f009-cluster-resource-view-handoff.md`、`docs/project/project-plan.yaml`、README。
+  `docs/architecture/f009-cluster-resource-view-handoff.md`、`docs/project/v1/project-plan.yaml`、README。
 
 **独立复跑的测试 / 门禁证据（Reviewer 亲执行，非引用 Tester 结论）**
 
@@ -88,7 +88,7 @@ cd frontend && npm run typecheck       → exit 0
 ## Product Compliance
 
 对照 `docs/product/handoffs/f009-cluster-resource-view.md`（AC-01 ~ AC-16）与
-`docs/project/project-plan.yaml > F009.acceptance_criteria`（AC-01 ~ AC-18）。
+`docs/project/v1/project-plan.yaml > F009.acceptance_criteria`（AC-01 ~ AC-18）。
 
 | AC | 结论 | 独立核对依据 |
 |---|---|---|
@@ -199,7 +199,7 @@ cd frontend && npm run typecheck       → exit 0
 ```text
 Severity: LOW
 Layer: Project Plan / Git metadata
-Location: docs/project/project-plan.yaml > features[F009].git.head_commit
+Location: docs/project/v1/project-plan.yaml > features[F009].git.head_commit
 Problem: head_commit 被记录为 c656554（== base == start_commit），未反映当前已审查 HEAD
          ac693d7。对比其它 Feature（F001/F012/F013/F014/F015）的 head_commit 均指向
          真实实现 / 测试 HEAD。
@@ -217,7 +217,7 @@ Suggested Owner: Coordinator / Architect
 ```text
 Severity: NOTE
 Layer: Contract / Traceability
-Location: docs/product/handoffs/f009-cluster-resource-view.md vs docs/project/project-plan.yaml > F009
+Location: docs/product/handoffs/f009-cluster-resource-view.md vs docs/project/v1/project-plan.yaml > F009
 Problem: 产品交接定义 AC-01 ~ AC-16；项目计划新增 AC-17（alias 等价）与 AC-18（边界封闭），
          本次任务按 AC-01 ~ AC-18 描述。
 Evidence: 两文档 AC 编号不一致；计划 AC-17/18 内容为既有 R-QUERY-004 / ADR-0003 §2 / guard 的

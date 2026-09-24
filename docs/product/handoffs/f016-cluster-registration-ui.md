@@ -264,7 +264,7 @@ Cluster 的登记字段**仅有名称**（`domain-model.md` §5.1）。因此对
 - **NQ-1（`name` 的 `undefined_constraints`）**：长度 / `trim` / 空串 / NFC 当前未定义，本 Feature **不实现、不承诺**（沿用 f001 NQ-1）。后果：空串 / 含首尾空白名称在 UI 不会被前端拒绝。建议在真实数据规模扩大前由用户裁定是否升级为规则（PROPOSED-3）。
 - **NQ-2（成功后的导航形式与入口位置）**：登记成功是「留在列表刷新」还是「跳转新集群详情」；改名入口是否进列表行。属 UI 设计 / 架构可裁定项（见 PROPOSED-1 / PROPOSED-2），不改变业务行为。
 - **NQ-3（`name` 字段的视觉「必填」标识）**：是否在名称输入框加必填星标属 UI 规范；**不得**因此引入客户端非空拦截（会违反 `undefined_constraints` 边界）。建议仅作视觉提示或不加。
-- **NQ-4（文档与计划元数据）**：`docs/project/project-plan.yaml` 尚无 F016（V1 已全部 DONE）；需由协调器新增 F016 条目（`depends_on: [F001, F013, F014]` 均已 DONE，`layers: {frontend: true}`），并把 F001 的 root-cause 缺口登记为已闭合；`docs/architecture/f001-cluster-handoff.md` Frontend Work §6 与决策 §7 的「不构成 AC」矛盾表述建议加一条指向 F016 的更正注记。属流程 / 文档同步，不改产品规则。
+- **NQ-4（文档与计划元数据）**：`docs/project/v1/project-plan.yaml` 尚无 F016（V1 已全部 DONE）；需由协调器新增 F016 条目（`depends_on: [F001, F013, F014]` 均已 DONE，`layers: {frontend: true}`），并把 F001 的 root-cause 缺口登记为已闭合；`docs/architecture/f001-cluster-handoff.md` Frontend Work §6 与决策 §7 的「不构成 AC」矛盾表述建议加一条指向 F016 的更正注记。属流程 / 文档同步，不改产品规则。
 - **NQ-5（前端测试形态）**：AC-01 ~ AC-17 的组件级验证方式（挂载对话框断言请求体与错误分支、静态 guard 断言前端不实现业务校验）由 Testing / Frontend 决定。
 
 ---
@@ -279,7 +279,7 @@ Cluster 的登记字段**仅有名称**（`domain-model.md` §5.1）。因此对
 4. **错误渲染的统一路径**：按 `error.code`（+ `details[].code` / `details[].field`）分支的固定文案映射，尽可能与既有 `*FormDialog.vue` 的错误渲染形态共享（可抽公共 composable），**明确禁止**解析 `error.message`（契约 §5）。
 5. **「前端不实现业务守卫」的可失败保障**：以组件测试 / 静态 guard 固定 AC-05 与「前后端职责边界」表——前端不存在 `/` 检测、不发起唯一性预检、不做大小写折叠 / `trim` / NFC、不以空串为由拦截。
 6. **不改既有三态与删除路径**：确认列表 / 详情页既有 Loading / Empty / Error / Not Found 与 F014 删除入口不受影响（AC-16 / AC-17）。
-7. **交付层与计划落盘**：确认 F016 为 `frontend` 层；`docs/project/project-plan.yaml` 新增 F016 条目与依赖（回应 NQ-4）。
+7. **交付层与计划落盘**：确认 F016 为 `frontend` 层；`docs/project/v1/project-plan.yaml` 新增 F016 条目与依赖（回应 NQ-4）。
 8. **与 f001 的 AC 边界对齐**：明确本 Feature 的 AC 只覆盖 UI 新增行为，后端写入语义（AC-01 / AC-12）仍归 f001，避免重复验收或语义漂移。
 
 ---

@@ -4,7 +4,7 @@
 > Author Role: product-manager（协调器持久化）
 > Date: 2026-09-21
 > Feature: **F022 — 网段自定义名称 / 子网掩码 / VLAN 标注**（E02，P1，`depends_on: [F020]` = DONE；分支 `feature/F022-network-segment-metadata`，start `dae7fe9`）
-> Product Source: `requirements.md` §12（**修订 R-IP-004**；R-IP-001~003 / R-IP-005~010 保持不变）；`domain-model.md` §5.7 / §8 / §9；`docs/product/handoffs/f020-ip-address-range.md`；`docs/product/handoffs/f021-ip-address-allocation.md`；`docs/api/f020-ip-address-range.md`；`docs/database/f020-ip-address-range-migration.md`；ADR-0002 / ADR-0003 / ADR-0004 / ADR-0005；`docs/project/project-plan.yaml` `decisions_required[DEC-024].resolution`（**权威裁定，RESOLVED 2026-09-21**）
+> Product Source: `requirements.md` §12（**修订 R-IP-004**；R-IP-001~003 / R-IP-005~010 保持不变）；`domain-model.md` §5.7 / §8 / §9；`docs/product/handoffs/f020-ip-address-range.md`；`docs/product/handoffs/f021-ip-address-allocation.md`；`docs/api/f020-ip-address-range.md`；`docs/database/f020-ip-address-range-migration.md`；ADR-0002 / ADR-0003 / ADR-0004 / ADR-0005；`docs/project/v1/project-plan.yaml` `decisions_required[DEC-024].resolution`（**权威裁定，RESOLVED 2026-09-21**）
 
 ---
 

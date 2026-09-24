@@ -214,7 +214,7 @@ CONTAINER_ACTIVE_CHILD_CHECKS == () 且源码含 "= ()"（显式）
 ```text
 Severity: LOW
 Owner: 协调器 / project-manager（元数据）
-Location: docs/project/project-plan.yaml > F007.git.head_commit
+Location: docs/project/v1/project-plan.yaml > F007.git.head_commit
 Problem: head_commit 记录为 0fb1419（实现提交），而 Feature 分支真实 HEAD 与本次审阅基线为 2c383a9
          （其后含 81a603e / e5d0b75 状态提交与 2c383a9 测试交付提交）。
 Evidence: git rev-parse HEAD = 2c383a96f232fd824384e4aeb4efba649a8dc0ee；plan 中 head_commit: 0fb1419dfcd64fbe312966ca5d8f7e9d45ccec1d。

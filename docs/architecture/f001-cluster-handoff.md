@@ -25,7 +25,7 @@ Cluster 登记与管理（F001）。
 - `docs/api/api-conventions.md`（`READY`）、`docs/api/f012-project-foundation.md`（`READY`）
 - `docs/database/csm-v1-schema-design.md`、`docs/database/f012-baseline-migration.md`（`clusters` 表与约束已冻结）
 - `docs/reviews/f012-project-foundation.md`（F-03 MEDIUM：自检面 fail-open）
-- `docs/project/project-plan.yaml`（F001 条目）
+- `docs/project/v1/project-plan.yaml`（F001 条目）
 
 ## Architecture Summary
 

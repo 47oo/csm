@@ -15,7 +15,7 @@
 
 - `docs/product/handoffs/f018-cluster-keyword-search.md`（`READY FOR ARCHITECT`，无 Blocking Open Questions）
 - `docs/product/requirements.md` §16 **R-QUERY-005**（直接产品依据，含「空 / 仅空白关键字不构成有效搜索」）、R-QUERY-003（含「含间接」）/ R-QUERY-004、§17 R-DELETE-002、§19、§22、§23、§4 / §24
-- `docs/project/project-plan.yaml` `features[F018]`（NQ-1 ~ NQ-5 已裁定；NQ-6 / NQ-7 归 Architecture；`DEC-021 = RESOLVED`）
+- `docs/project/v1/project-plan.yaml` `features[F018]`（NQ-1 ~ NQ-5 已裁定；NQ-6 / NQ-7 归 Architecture；`DEC-021 = RESOLVED`）
 - ADR-0003 / ADR-0004 / ADR-0005（均 `ACCEPTED`）
 - 复用依据：`docs/architecture/f010-resource-detail-handoff.md`、`f009-cluster-resource-view-handoff.md`、`docs/api/f010-resource-detail.md`
 

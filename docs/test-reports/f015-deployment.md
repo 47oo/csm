@@ -22,7 +22,7 @@
 - `docs/deployment/csm-v1-internal-deployment.md`（唯一权威部署文档）
 - `docs/product/requirements.md` §20 / §21 / §22 / §23 / §25；`docs/product/domain-model.yaml`
 - `docs/architecture/adr/adr-0001`（部署形态 / docker-compose）、`adr-0002`（PostgreSQL / locale / 版本化向前 migration）、`adr-0003`（错误信封）、`adr-0004`（软删）、`adr-0005`（HTTP 明文 / Cookie 无 `Secure` / `/api/*` 认证边界）
-- `docs/project/project-plan.yaml > F015`
+- `docs/project/v1/project-plan.yaml > F015`
 - 报告格式先例：`docs/test-reports/f013-auth.md`、`docs/test-reports/f014-soft-delete.md`
 
 ## Environment

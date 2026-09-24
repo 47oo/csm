@@ -189,14 +189,14 @@ Severity: **LOW**
 
 Layer: **Git / Project Metadata**
 
-Location: `docs/project/project-plan.yaml > features[F002].git.head_commit`
+Location: `docs/project/v1/project-plan.yaml > features[F002].git.head_commit`
 
 Problem: 计划记录的 `head_commit` 为 `d964263908784ab905eaa12746a473292e0f368c`（实现提交），
 而候选 HEAD / 分支最新提交为 `03bae260a7aff5a720c14c46441b4049d77137d0`（测试提交 `03bae26`）。
 计划元数据与分支真实 HEAD 不一致。
 
 Evidence: `git log --oneline develop..HEAD` 末位为 `03bae26 test(F002): add acceptance and concurrency coverage`；
-`docs/project/project-plan.yaml` 经 `861d067` 检查点写入的 `head_commit` 仍停留在 `d964263`。
+`docs/project/v1/project-plan.yaml` 经 `861d067` 检查点写入的 `head_commit` 仍停留在 `d964263`。
 
 Impact: 不改变任何产品 / 契约 / 运行时行为；仅影响计划元数据可追溯性（与 F012 D-03、F014 REV-02 同类）。
 

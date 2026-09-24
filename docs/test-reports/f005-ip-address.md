@@ -375,7 +375,7 @@ $ npm run build → vue-tsc 通过 + vite build 成功
 2. **多 uvicorn worker / 跨进程并发压测**：并发端到端以独立连接 / 线程验证行锁协议，未做多 worker 压测（无产品需求，V1 单机内网）。
 3. **静态 guard 对动态 SQL / 动态路由构造的穷举覆盖**：承 F014 已知残余风险；本次所有 guard 均以静态 / DB / 路由注入证明可失败，但对运行期动态构造无覆盖。
 4. **嵌套在已批准前缀下的未批准子路由**（如 `POST /api/ip-addresses/pools`）：新增 allowlist 以「首段」判定，不覆盖此类嵌套路径；denylist 移除 `ip-address` token 后亦不再覆盖。当前无此路由，未发现功能性影响（仅记录残余边界）。
-5. **计划元数据一致性**：`docs/project/project-plan.yaml > F005.git.head_commit` 仍为 base `881ee23`（未随实现前进更新）。属协调器元数据，不影响本次验收判定，仅记录。
+5. **计划元数据一致性**：`docs/project/v1/project-plan.yaml > F005.git.head_commit` 仍为 base `881ee23`（未随实现前进更新）。属协调器元数据，不影响本次验收判定，仅记录。
 
 ## Test Status
 

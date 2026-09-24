@@ -4,7 +4,7 @@
 > Author Role: product-manager
 > Date: 2026-09-20
 > Feature: **F019 — 搜索结果聚合视图**（Search Result Aggregation）
-> 上游决策：用户 2026-09-20 对 `DEC-022` 的 8 项裁定（`docs/project/project-plan.yaml` `decisions_required[DEC-022].resolution` 与 `features[F019].open_questions_resolution`）。
+> 上游决策：用户 2026-09-20 对 `DEC-022` 的 8 项裁定（`docs/project/v1/project-plan.yaml` `decisions_required[DEC-022].resolution` 与 `features[F019].open_questions_resolution`）。
 > 产品规则：`docs/product/requirements.md` §16 **R-QUERY-006（新增）** 与 **R-QUERY-005（修订）**。
 
 ## Feature
@@ -167,7 +167,7 @@
 ## 需同步项（交协调器处理，本阶段不改动）
 
 - **无需同步 `docs/product/domain-model*`**：本 Feature 未新增 / 修改任何领域对象、字段、关系、状态或唯一性规则；关联推导**引用** R-QUERY-003，不产生新的领域事实。
-- **需 Architecture / Contract 处理（不属于 Product）**：F018 契约 `docs/api/f018-cluster-keyword-search.md` 的响应形态修订；可能受影响的既有契约立场同步；`docs/project/project-plan.yaml` 中 F019 的 `contract.doc` / `requirements` / `layers` 等元数据更新（由协调器 / PM 处理）。
+- **需 Architecture / Contract 处理（不属于 Product）**：F018 契约 `docs/api/f018-cluster-keyword-search.md` 的响应形态修订；可能受影响的既有契约立场同步；`docs/project/v1/project-plan.yaml` 中 F019 的 `contract.doc` / `requirements` / `layers` 等元数据更新（由协调器 / PM 处理）。
 
 ## Handoff Status
 

@@ -122,14 +122,14 @@ git diff --shortstat develop...HEAD → 28 files changed, 2899 insertions(+), 91
 
 **Severity:** LOW
 
-**Layer:** Project Plan / Traceability（`docs/project/project-plan.yaml`）
+**Layer:** Project Plan / Traceability（`docs/project/v1/project-plan.yaml`）
 
-**Location:** `docs/project/project-plan.yaml`：F002 条目（`acceptance_criteria` 无删除/孤立记录义务）、F005 条目（`acceptance_criteria` 无 `ip_address.cluster_id` 推导一致性）、`requirements_coverage` 的 `R-DELETE-004.covered_by: [F014]`。
+**Location:** `docs/project/v1/project-plan.yaml`：F002 条目（`acceptance_criteria` 无删除/孤立记录义务）、F005 条目（`acceptance_criteria` 无 `ip_address.cluster_id` 推导一致性）、`requirements_coverage` 的 `R-DELETE-004.covered_by: [F014]`。
 
 **Problem:** Product Handoff NQ-1 / NQ-2 与 Architecture Handoff 问题 7 / 问题 10 明确请求 Project Manager 在 F014 阶段把 R-DELETE-004 的真实业务场景归属 F002、把 `ip_address.cluster_id` 一致性治理归属 F005，但 `develop...HEAD` 对 `project-plan.yaml` 的改动**仅含 F014 自身的 git / layers / stage 元数据**，未落 F002 / F005 的义务与 AC。R-DELETE-004 仍仅 `covered_by: [F014]`。
 
 **Evidence:**
-- `git diff develop...HEAD -- docs/project/project-plan.yaml` 仅包含 F014 条目与 `planning_status` / `execution` 的 IN_REVIEW 更新，无 F002 / F005 条目改动。
+- `git diff develop...HEAD -- docs/project/v1/project-plan.yaml` 仅包含 F014 条目与 `planning_status` / `execution` 的 IN_REVIEW 更新，无 F002 / F005 条目改动。
 - F002 `acceptance_criteria`（project-plan.yaml:379-386）未含「Cluster 有活跃 BareMetal → 删除 409」「创建侧 `FOR SHARE`」「孤立记录不变式 = 0」；F005 `acceptance_criteria`（project-plan.yaml:424-430）未含 cluster_id 受控写入/漂移测试。
 - 义务仅在 `docs/product/handoffs/f014-soft-delete.md` NQ-1/NQ-2、`docs/architecture/f014-soft-delete-handoff.md` 问题 7/问题 10、`docs/test-reports/f014-soft-delete.md` Unverified Areas 记录（信息未丢失，但权威计划未承接）。
 
@@ -145,7 +145,7 @@ git diff --shortstat develop...HEAD → 28 files changed, 2899 insertions(+), 91
 
 **Layer:** Project Plan Metadata
 
-**Location:** `docs/project/project-plan.yaml` F014 `git.head_commit`。
+**Location:** `docs/project/v1/project-plan.yaml` F014 `git.head_commit`。
 
 **Problem:** `head_commit: 592e96e2cce091b481e13ad030462546b387d6a1` 落后于分支实际 HEAD `d2805f5`（其后还有 `a87ff04` 元数据检查点与 `d2805f5` 测试提交）。Test Report 亦以 `592e96e` 为「实现 HEAD」。
 

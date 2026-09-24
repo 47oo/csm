@@ -179,7 +179,7 @@ GET /redoc        → 200
 
 **Layer**：Documentation / Project Plan
 
-**Location**：`docs/project/project-plan.yaml` F013 `git.head_commit`
+**Location**：`docs/project/v1/project-plan.yaml` F013 `git.head_commit`
 
 **Problem**：`head_commit` 记为 `01335eea10540f5a115030bb7b0c0cf2a2340118`，但 Feature 当前 HEAD 为 `46c6d8a`（测试提交 `test(F013): add acceptance and regression coverage`），元数据与真实 HEAD 不符。
 

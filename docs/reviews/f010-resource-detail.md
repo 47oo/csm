@@ -113,10 +113,10 @@ $ Guard 注入（/tmp 副本，逐字节还原）：M1 未批准路由、M2 子�
 ```text
 Severity: LOW
 Layer:    Plan / Metadata
-Location: docs/project/project-plan.yaml > features[F010].git.head_commit
+Location: docs/project/v1/project-plan.yaml > features[F010].git.head_commit
 Problem:  计划记录 head_commit = 6109d4c（实现提交），但 Feature 真实 HEAD = 9dff02b（测试提交），
           且同一节点已置 implementation.test: COMPLETE / current_stage: REVIEW —— 二者自相矛盾。
-Evidence: git rev-parse HEAD → 9dff02b…；git show 9dff02b:docs/project/project-plan.yaml → head_commit: 6109d4c…
+Evidence: git rev-parse HEAD → 9dff02b…；git show 9dff02b:docs/project/v1/project-plan.yaml → head_commit: 6109d4c…
 Impact:   不影响代码正确性；但与 git-workflow 的「Feature HEAD 必须与测试 / Review 基线一致」不符，历史上同类均作修正项处理。
 Expected: Merge / DONE 前把 F010 head_commit 更新为 9dff02b（或合并后写 merge_commit）。
 ```

@@ -24,7 +24,7 @@ BareMetal 登记与管理（F002）— CSM V1 唯一有状态资源的登记、�
 - `docs/architecture/f014-soft-delete-handoff.md`、ADR-0001 ~ ADR-0005（均 `ACCEPTED`）
 - `docs/database/f002-bare-metal-migration.md`（Database Handoff，V-1 ~ V-14）
 - `docs/api/f002-bare-metal.md`（API 契约 **READY**，唯一权威）、`docs/api/api-conventions.md`
-- `docs/project/project-plan.yaml > F002`
+- `docs/project/v1/project-plan.yaml > F002`
 - `.pi/skills/resource-domain/SKILL.md`
 - 报告格式先例：`docs/test-reports/f014-soft-delete.md`、`docs/test-reports/f015-deployment.md`
 

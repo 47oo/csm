@@ -35,7 +35,7 @@ $ git diff ; git diff --cached               → (空)
 $ git ls-files --others --exclude-standard   → (空)
 ```
 
-差异文件与任务预期一致：`backend/app/search/{router,schemas,service}.py`、`tests/test_search_api.py`、`tests/test_search_guards.py`、`frontend/src/{api/search.ts,pages/SearchResultsPage.vue,App.vue}`、`frontend/tests/search{Api,ResultsPage,Shell}.spec.ts`、`docs/api/{f018-cluster-keyword-search,f019-search-result-aggregation}.md`、`docs/architecture/f019-...-handoff.md`、`docs/product/requirements.md`、`docs/product/handoffs/f019-....md`、`docs/test-reports/f019-....md`、`docs/project/project-plan.yaml` 及由计划生成的 `backlog.md` / `milestones.md` / `dependency-map.md`。无无关文件、无自动格式化、无新增依赖（`requirements*.txt` / `package.json` 未变更）。
+差异文件与任务预期一致：`backend/app/search/{router,schemas,service}.py`、`tests/test_search_api.py`、`tests/test_search_guards.py`、`frontend/src/{api/search.ts,pages/SearchResultsPage.vue,App.vue}`、`frontend/tests/search{Api,ResultsPage,Shell}.spec.ts`、`docs/api/{f018-cluster-keyword-search,f019-search-result-aggregation}.md`、`docs/architecture/f019-...-handoff.md`、`docs/product/requirements.md`、`docs/product/handoffs/f019-....md`、`docs/test-reports/f019-....md`、`docs/project/v1/project-plan.yaml` 及由计划生成的 `backlog.md` / `milestones.md` / `dependency-map.md`。无无关文件、无自动格式化、无新增依赖（`requirements*.txt` / `package.json` 未变更）。
 
 **未审查内容**：生产实例 `http://192.168.10.221/` 人工核验；~10⁵ 规模性能压测；生产库 locale 下的 §22 语义。见 Unreviewed Areas。
 
@@ -167,7 +167,7 @@ Suggested Owner: Tester
 ```
 Severity: LOW
 Layer:    Project metadata
-Location: docs/project/project-plan.yaml features[F019].git.head_commit
+Location: docs/project/v1/project-plan.yaml features[F019].git.head_commit
 Problem:  head_commit 记为 "5c278ee…"（实现提交），而 branch 实际 HEAD 为 "4524d8e…"
           （test report 提交）。字段名 implies 分支尖端，自动消费者会漏掉 test-report 提交。
 Evidence: 4524d8e 的提交信息明确标注「实现提交 5c278ee」，但仍将 current_stage 改为 REVIEW；

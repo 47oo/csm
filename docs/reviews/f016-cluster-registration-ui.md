@@ -105,7 +105,7 @@ Suggested Owner: Frontend
 ```text
 Severity: LOW
 Layer:    Docs / Project Plan
-Location: docs/project/project-plan.yaml（features[F016].git.head_commit）
+Location: docs/project/v1/project-plan.yaml（features[F016].git.head_commit）
 Problem:  head_commit 记录为 "6388134…"（实现提交），但当前 Feature HEAD 为 ddf49db
           （其后的 test-report 提交）。即该字段落后 2 个提交，未反映 Review 的实际候选 HEAD。
 Impact:    审查范围证据与计划元数据不一致；Review 批准针对的是 ddf49db，而 plan 记为
@@ -120,7 +120,7 @@ Suggested Owner: Coordinator
 ```text
 Severity: NOTE
 Layer:    Docs
-Location: docs/project/project-plan.yaml（F016.last_result）
+Location: docs/project/v1/project-plan.yaml（F016.last_result）
 Problem:  「最高风险 R1：R2 拷贝 BareMetalFormDialog 的 listClusters 做「重名预检」」
           存在笔误（R1/R2 混用）。事实对应 Arch Handoff 的 R1。
 Impact:    仅文档可读性。Expected: 修正为 R1。Owner: Coordinator
@@ -183,7 +183,7 @@ APPROVED WITH FOLLOW-UP
 
 ---
 
-**只读 git 命令清单（无任何改变 Git 状态的命令）**：`git status --short`、`git rev-parse HEAD`、`git rev-parse develop`、`git merge-base develop HEAD`、`git log --oneline develop..HEAD`、`git log --oneline -1 6388134`、`git show --stat --oneline 6388134`、`git diff --stat/--name-status/--numstat 67a498f..ddf49db`（含对 `docs/api`、`backend`、`frontend/src/api`、`frontend/src/App.vue`、`frontend/package.json`、`frontend/src/pages/`、`docs/architecture/f001-cluster-handoff.md`、`docs/project/project-plan.yaml`、两个测试文件的限定路径 diff）、`git diff --cached --stat`、`git ls-files --others --exclude-standard`、`git grep ... 67a498f -- frontend/src`、`git diff --stat -- frontend/src/components/ClusterFormDialog.vue`。未执行 add / commit / branch / merge / stash / reset / checkout / switch。
+**只读 git 命令清单（无任何改变 Git 状态的命令）**：`git status --short`、`git rev-parse HEAD`、`git rev-parse develop`、`git merge-base develop HEAD`、`git log --oneline develop..HEAD`、`git log --oneline -1 6388134`、`git show --stat --oneline 6388134`、`git diff --stat/--name-status/--numstat 67a498f..ddf49db`（含对 `docs/api`、`backend`、`frontend/src/api`、`frontend/src/App.vue`、`frontend/package.json`、`frontend/src/pages/`、`docs/architecture/f001-cluster-handoff.md`、`docs/project/v1/project-plan.yaml`、两个测试文件的限定路径 diff）、`git diff --cached --stat`、`git ls-files --others --exclude-standard`、`git grep ... 67a498f -- frontend/src`、`git diff --stat -- frontend/src/components/ClusterFormDialog.vue`。未执行 add / commit / branch / merge / stash / reset / checkout / switch。
 
 ---
 

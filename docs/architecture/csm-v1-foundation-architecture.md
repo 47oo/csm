@@ -18,7 +18,7 @@
 - `docs/product/requirements.md` —— CONFIRMED BASELINE，Primary Requirements Source
 - `docs/product/domain-model.md` / `docs/product/domain-model.yaml` —— CONFIRMED 领域模型
 - `docs/product/domain-conflict-handoff.md` —— Status `RESOLVED`（Q-001=C / Q-002=B / Q-003=A）
-- `docs/project/project-plan.yaml` —— 14 个 Feature、DEC-009 ~ DEC-014、M1 ~ M5
+- `docs/project/v1/project-plan.yaml` —— 14 个 Feature、DEC-009 ~ DEC-014、M1 ~ M5
 - `.pi/skills/resource-domain/SKILL.md`、`docs/project/git-workflow.md`、`docs/project/repository-structure.md`
 
 ---

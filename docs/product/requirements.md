@@ -66,7 +66,7 @@
 >   - 新增 **R-QUERY-005**：Cluster 内关键字搜索（前置须选定单个 Cluster；范围为该 Cluster 下 BareMetal + R-QUERY-003 五类关联资源「含间接」；匹配为**子串包含 + 不区分大小写 + 单关键字**；结果为混合列表并显示命中字段；无命中复用 R-QUERY-004 Empty）。
 >   - 显式边界：不区分大小写**仅限搜索匹配**，不改变 §22 / `by-name` / 登录语义；「模糊」定义为**子串包含**，非容错/相似度。
 >   - **未修改任何既有规则**（R-QUERY-001 ~ 004、§22、§17、§19 等原样保留）。
->   - 决策来源：用户 2026-09-18 对 `DEC-021` 与 `NQ-1 ~ NQ-5` 的裁定（`docs/project/project-plan.yaml` `features[F018].open_questions`）。
+>   - 决策来源：用户 2026-09-18 对 `DEC-021` 与 `NQ-1 ~ NQ-5` 的裁定（`docs/project/v1/project-plan.yaml` `features[F018].open_questions`）。
 >   - 规则总数：**61 → 62**。
 >
 > - **2026-09-20 — 搜索结果聚合阶段产品裁定（修订 1 条 + 新增 1 条规则）**
@@ -82,7 +82,7 @@
 >   - 显式边界：**不改变**既有 `ip_addresses.ip_address` 的**自由文本登记语义**；**R-IP-001 ~ R-IP-003 保持不变**。
 >   - **IP 自动 / 手动分配不属本阶段**：属 F021（DEC-023 第 7~13 项），当前 BLOCKED，待 F020 DONE 后另行落产品规则。
 >   - 未由产品裁定、留 Architecture：同 Cluster「不重叠」的强制方式（应用层校验 + 漂移查询 vs Postgres 排它约束）、契约形态、错误码具体取值、`database` 层判定、并发实现。
->   - 决策来源：用户 2026-09-20 对 `DEC-023` 的裁定（`docs/project/project-plan.yaml` `decisions_required[DEC-023].resolution`）。
+>   - 决策来源：用户 2026-09-20 对 `DEC-023` 的裁定（`docs/project/v1/project-plan.yaml` `decisions_required[DEC-023].resolution`）。
 >   - 规则总数：**63 → 64**。
 >
 > - **2026-09-21 — IP 自动 / 手动分配阶段产品裁定（新增 6 条规则）**
@@ -109,7 +109,7 @@
 >   - 未由产品裁定、留 Architecture：`name` 的长度 / trim / 空串 / 字符集（**不实现、不承诺**）、
 >     掩码存储表示、`PATCH` 可变语义、错误码 `details[]` 具体取值、
 >     migration `0010_f022_ip_range_metadata` 形态。
->   - 决策来源：用户 2026-09-21 对 `DEC-024` 的裁定（`docs/project/project-plan.yaml`
+>   - 决策来源：用户 2026-09-21 对 `DEC-024` 的裁定（`docs/project/v1/project-plan.yaml`
 >     `decisions_required[DEC-024].resolution`）。
 >   - 规则总数：**70 → 70**（**修订既有 R-IP-004，不新增规则编号**）。
 >
@@ -126,7 +126,7 @@
 >   - **未修改其它规则**：R-IP-001 ~ R-IP-005、R-IP-007、R-IP-008、R-IP-010 **原样保留**。
 >   - 未由产品裁定、留 Architecture：f021 契约修订（`ip_address_range_id` 定为**必填**）与前端范围段选择交互 / 错误分支；
 >     **无数据库变更**（`layers.database = false`）复核。
->   - 决策来源：用户 2026-09-22 对 `DEC-025` 的裁定（`docs/project/project-plan.yaml` `decisions_required[DEC-025].resolution`）。
+>   - 决策来源：用户 2026-09-22 对 `DEC-025` 的裁定（`docs/project/v1/project-plan.yaml` `decisions_required[DEC-025].resolution`）。
 >   - 规则总数：**70 → 70**（**修订既有 R-IP-006 / R-IP-009，不新增规则编号**）。
 
 ---
@@ -1229,7 +1229,7 @@ BareMetal
 ### 匹配字段
 
 * 参与匹配的是每类结果的**标识字段 + 已登记的描述性字段**。
-* 字段清单以本次裁定（`docs/project/project-plan.yaml` `features[F018].open_questions[NQ-2].resolved_to`）为准；字段本身的定义以 `docs/product/domain-model.yaml` 为**权威来源**，本条**不复制**字段清单。
+* 字段清单以本次裁定（`docs/project/v1/project-plan.yaml` `features[F018].open_questions[NQ-2].resolved_to`）为准；字段本身的定义以 `docs/product/domain-model.yaml` 为**权威来源**，本条**不复制**字段清单。
 * **不参与匹配**：资源之间的关系外键、状态字段、系统管理字段（如创建 / 更新时间）。
 * 字段值一律按**文本**参与子串匹配（字段清单已包含 `port` / `cpu` / `memory` / `disk` 等数值型字段；这是“子串包含”的直接含义，非新增规则）。
 

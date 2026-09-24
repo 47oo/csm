@@ -12,7 +12,7 @@
 ## Product Source
 
 - `docs/product/handoffs/f017-sidebar-navigation.md`（`READY FOR ARCHITECT`，无 Blocking Open Questions，AC-01 ~ AC-08）
-- `docs/project/project-plan.yaml` `features[F017]` / `M7` / `DEC-020`
+- `docs/project/v1/project-plan.yaml` `features[F017]` / `M7` / `DEC-020`
 
 ## Architecture Summary
 

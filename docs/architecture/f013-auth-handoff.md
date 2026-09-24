@@ -23,7 +23,7 @@
 - `docs/architecture/f001-cluster-handoff.md`（问题 9）
 - `docs/api/api-conventions.md`、`docs/api/f001-cluster.md`、`docs/api/f012-project-foundation.md`
 - `docs/database/csm-v1-schema-design.md`（`users` / `sessions` 已 `READY`）、`docs/database/f012-baseline-migration.md`
-- `docs/project/project-plan.yaml`（F013，AC-01 ~ AC-15）
+- `docs/project/v1/project-plan.yaml`（F013，AC-01 ~ AC-15）
 
 ## Architecture Summary
 

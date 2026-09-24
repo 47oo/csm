@@ -21,7 +21,7 @@
 - `docs/database/` — 无数据库设计
 - `docs/api/` — 无 API 契约
 - `backend/`、`frontend/`、`tests/` — **无任何应用代码**
-- `docs/project/project-plan.yaml`、`backlog.md`、`dependency-map.md`、`milestones.md` — 无历史计划
+- `docs/project/v1/project-plan.yaml`、`backlog.md`、`dependency-map.md`、`milestones.md` — 无历史计划
 - 无 Handoff、无 Test/Review 报告、无 Feature Branch
 - 无 `develop` 分支；仅 `main`；git 历史仅 4 个提交，无被删除文件
 

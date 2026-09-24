@@ -175,7 +175,7 @@ Layer:
 Project metadata / Coordinator
 
 Location:
-`docs/project/project-plan.yaml`（F004 块 `git.head_commit`）
+`docs/project/v1/project-plan.yaml`（F004 块 `git.head_commit`）
 
 Problem:
 `git.head_commit` 仍为 base commit `cf03e014a9abbd0dad88a00da57947e731778513`，
@@ -184,7 +184,7 @@ Problem:
 已就绪，HEAD 字段与之不匹配。
 
 Evidence:
-`git diff develop...HEAD -- docs/project/project-plan.yaml` 中 `head_commit: cf03e014...`；
+`git diff develop...HEAD -- docs/project/v1/project-plan.yaml` 中 `head_commit: cf03e014...`；
 `git rev-parse HEAD` → `8958252a...`。
 
 Impact:

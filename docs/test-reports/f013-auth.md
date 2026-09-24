@@ -22,7 +22,7 @@
 - `docs/api/api-conventions.md`（`READY`）
 - `docs/architecture/adr/adr-0005-local-authentication-and-session.md`（`ACCEPTED`）
 - `docs/database/csm-v1-schema-design.md`（`users` / `sessions`）、`docs/database/f012-baseline-migration.md`
-- `docs/project/project-plan.yaml` F013 AC-01 ~ AC-15
+- `docs/project/v1/project-plan.yaml` F013 AC-01 ~ AC-15
 - `.pi/skills/resource-domain/SKILL.md`
 
 ## Environment

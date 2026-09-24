@@ -4,7 +4,7 @@
 > Author Role: product-manager
 > Date: 2026-09-20
 > Feature: F020（E02，P1，`depends_on: [F001, F005]`，均已 DONE）
-> Product Source: `requirements.md` §12（R-IP-001~003 保持不变，新增 R-IP-004）；§9、§15、§17、§21、§22；`domain-model.md` §5.7 / §8 / §9；`docs/api/f005-ip-address.md`；ADR-0002 / ADR-0003 / ADR-0004 / ADR-0005；`docs/project/project-plan.yaml` `decisions_required[DEC-023].resolution`
+> Product Source: `requirements.md` §12（R-IP-001~003 保持不变，新增 R-IP-004）；§9、§15、§17、§21、§22；`domain-model.md` §5.7 / §8 / §9；`docs/api/f005-ip-address.md`；ADR-0002 / ADR-0003 / ADR-0004 / ADR-0005；`docs/project/v1/project-plan.yaml` `decisions_required[DEC-023].resolution`
 
 ---
 
@@ -218,7 +218,7 @@ F005 已交付单条 IP 字面值的登记与唯一性，但**显式排除**「I
 - 本 Handoff **不覆盖 F021**：分配（自动 / 手动、「最小 IP」、占用判定、耗尽）**不属于 F020**，其产品规则待 F020 DONE 后另行在 §12 落地。
 - **需同步项（交协调器，Agent 不得自行修改）**：
   - `docs/product/domain-model.md` §5.7 / §8 / §9 及 `docs/product/domain-model.yaml`：范围段（IPAddressRange / 地址池）作为新领域对象、唯一性（同 Cluster 活跃不重叠）、软删与删除守卫、无状态，需与 R-IP-004 同步。
-  - `docs/project/project-plan.yaml` `features[F020].requirements`（当前为 `[]`）：可挂 `R-IP-004`。
+  - `docs/project/v1/project-plan.yaml` `features[F020].requirements`（当前为 `[]`）：可挂 `R-IP-004`。
 - `docs/api/f005-ip-address.md` §非目标与 `docs/product/handoffs/f005-ip-address.md` §Scope 中「IP 池 / 网段 / 子网 / 分配与回收工作流」的排除立场，**仅就范围段部分**由本 Feature 修订；`ip_address` 自由文本登记立场不变。
 
 ---

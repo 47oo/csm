@@ -26,7 +26,7 @@
 - `docs/api/api-conventions.md`（`READY`）
 - `docs/architecture/adr/adr-0004-soft-delete-and-uniqueness-release.md`（`ACCEPTED`）、ADR-0003、ADR-0005
 - `docs/database/csm-v1-schema-design.md`、`docs/database/f012-baseline-migration.md`
-- `docs/project/project-plan.yaml > F014`
+- `docs/project/v1/project-plan.yaml > F014`
 - `.pi/skills/resource-domain/SKILL.md`
 - 报告格式先例：`docs/test-reports/f001-cluster.md`、`docs/test-reports/f013-auth.md`
 

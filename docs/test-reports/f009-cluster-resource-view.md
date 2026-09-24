@@ -22,7 +22,7 @@ Cluster 视角资源查询（F009）— 在 F002 已有的「按 Cluster 限定�
 - `docs/architecture/f009-cluster-resource-view-handoff.md`（Architecture Handoff，`READY FOR IMPLEMENTATION`，Test Work T-01 ~ T-17 / G-009-1 ~ G-009-6 / T-FE-09 ~ T-FE-11、REQUIRED、Constraints）
 - `docs/api/f009-cluster-resource-view.md`（API 契约 **READY**，F009 唯一权威）、`docs/api/f002-bare-metal.md` §2/§3.2、`docs/api/f001-cluster.md`、`docs/api/api-conventions.md`
 - ADR-0003 / ADR-0004 / ADR-0005（均 `ACCEPTED`）
-- `docs/project/project-plan.yaml > F009`（18 条 acceptance_criteria，即本报告 AC-01 ~ AC-18）
+- `docs/project/v1/project-plan.yaml > F009`（18 条 acceptance_criteria，即本报告 AC-01 ~ AC-18）
 - 报告格式先例：`docs/test-reports/f002-bare-metal.md`
 
 ## Environment
@@ -158,7 +158,7 @@ $ npm run build → vue-tsc 通过 + vite build 成功
 
 ## Acceptance Criteria Mapping
 
-AC 编号采用 `docs/project/project-plan.yaml > F009.acceptance_criteria` 顺序（18 条）。
+AC 编号采用 `docs/project/v1/project-plan.yaml > F009.acceptance_criteria` 顺序（18 条）。
 
 | AC | Test | Result | Evidence |
 |---|---|---|---|

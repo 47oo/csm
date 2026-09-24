@@ -23,7 +23,7 @@ F012 — 项目基础框架与运行环境（ENABLER，E07，P0，无 `depends_o
 - `docs/architecture/adr/adr-0001` ~ `adr-0005`（全部 `ACCEPTED`）
 - `docs/api/api-conventions.md`（`READY`）
 - `docs/database/csm-v1-schema-design.md`、`docs/database/f012-baseline-migration.md`（`READY FOR DATABASE IMPLEMENTATION`）
-- `docs/project/project-plan.yaml`（F012 条目）
+- `docs/project/v1/project-plan.yaml`（F012 条目）
 
 ## Architecture Summary
 

@@ -1,7 +1,7 @@
 # CSM Backlog
 
-> Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
-> Source of Truth: `docs/project/project-plan.yaml`
+> Status: 由 `docs/project/v1/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
+> Source of Truth: `docs/project/v1/project-plan.yaml`
 > Generated: 2026-09-22（全部 V1 Feature 处置完毕；`project.status = DONE`）
 > 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 21, 'CANCELLED': 1}`
 
