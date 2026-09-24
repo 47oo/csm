@@ -387,7 +387,7 @@ Review 为 `APPROVED` 或 `APPROVED WITH FOLLOW-UP` 时进入第 9 节，但 `im
 
 Review 获批准后，由主协调器逐项确认：
 
-1. 必需测试通过、真实集成已验证；
+1. 必需测试通过；需要真实前后端集成的 Feature 已验证集成，不需要的有 `NOT_REQUIRED` 及原因；
 2. 没有 BLOCKER / HIGH / 必须修复的 MEDIUM / PRODUCT DECISION REQUIRED；
 3. 所有 Subagent 已结束，工作区 clean；
 4. 当前 Feature HEAD 与 Reviewer 批准的候选 SHA 相同，develop 与已审查 Base SHA 相同。

@@ -168,57 +168,7 @@ OPEN / PROPOSED
 
 ## 4.3 优先关系模型
 
-CSM V1 使用 PostgreSQL。
-
-优先使用清晰的关系模型：
-
-```text
-Table
-Foreign Key
-Unique Constraint
-Check Constraint
-Index
-```
-
-不要因为资源类型较多就立即使用：
-
-```text
-通用 JSON Resource Table
-EAV
-Universal Resource Table
-Generic Relationship Graph
-```
-
-除非已经有明确需求和架构决策。
-
----
-
-## 4.4 避免过早抽象
-
-如果当前确认的对象只有：
-
-```text
-Cluster
-BareMetal
-```
-
-优先设计：
-
-```text
-clusters
-bare_metals
-```
-
-而不是立即设计：
-
-```text
-resources
-resource_types
-resource_attributes
-resource_relationships
-```
-
-后者只有在多个已经确认场景证明需要统一抽象时才考虑。
+CSM V1 使用 PostgreSQL。围绕当前 Feature 已确认的资源与关系设计明确的表、外键和约束；不要仅因资源类型多就引入通用资源表、EAV 或通用关系图。技术栈和建模限制以已批准 ADR 与 `docs/product/requirements.md` 为准。
 
 ---
 
@@ -320,17 +270,7 @@ DELETE FROM ...
 
 不得把不同对象的不同状态模型强行合并。
 
-以当前权威模型为例：
-
-```text
-BareMetal:
-IDLE
-ALLOC
-DOWN
-UNKNOWN
-```
-
-则数据库需要保证：
+按当前产品文档中的合法状态集合、默认值和可空性，确定数据库需要保证：
 
 * 字段不能为空还是允许为空；
 * 默认值；
@@ -561,6 +501,8 @@ Primary entity 尚未确定
 ```text
 READY FOR DATABASE IMPLEMENTATION
 ```
+
+报告最后按 `AGENTS.md` §9.1 附 Git 声明（无 Git 命令时以 `GIT: NONE` 结尾）。
 
 ---
 
