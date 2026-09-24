@@ -51,3 +51,25 @@ CSM V1 已冻结为演示版本 `v1.0.0-demo`（tag → `563eda3`，冻结分支
 
 M13（F024 / F025）的 DRAFT 规划只存在于 `develop` 分支（commit `98141bc`），**不进入 v2**，也不在 `v1.0.0-demo` 范围内。
 它作为 V1 轨道上的未决增量保留在 `develop`，不丢失；是否另行处理由用户决定。
+
+## 6. 应用代码重置（已执行）
+
+2026-09-24，用户确认「V2 是重构且重新进行需求分析」，据此在 `v2` 分支对 V1 应用代码做一次**显式重置提交**
+（不是改写历史；V1 代码完整保留在 `release/v1` 与 tag `v1.0.0-demo`）：
+
+**已删除**（V1 应用代码与技术形态，328 个跟踪文件）：
+
+```
+backend/  frontend/  tests/  deploy/
+alembic.ini  Makefile  pyproject.toml  requirements.txt  requirements-dev.txt
+docker-compose.dev.yml  docker-compose.prod.yml
+.env.example  .dockerignore
+```
+
+**保留**：`docs/`、`.pi/`、`AGENTS.md`、`README.md`（已改为 v2 基调）、`.gitignore`（通用，与技术栈无关）。
+
+**理由**：① 防止 Agent 与规划流程锚定 V1 实现（`AGENTS.md` §3 需求优先于实现）；② V2 领域与范围都变，V1 代码不可直接复用；
+③ V2 技术栈尚未确认，保留 Python/Vue 脚手架等于预选 ADR-0001，与重新架构矛盾。
+
+**未做**：不改写历史、不动 `main` / `release/v1` / tag；V1 产品、架构、ADR、Review、Test 文档暂不移动，
+仅视为参考，其权威性由 V2 文档取代。
