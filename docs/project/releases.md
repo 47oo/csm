@@ -26,3 +26,5 @@
 ## v2 重构
 
 V2 是对 V1 的大跨度重构。V1 的 tag 与 `release/v1` 分支保留为对照与回滚点；V2 的 Feature 计划应重新立项（见 `.pi/prompts/project.md`），不与 V1 的 `project-plan.yaml` 状态混用。
+
+V2 的立项前提、待用户澄清的输入与归档步骤见 `docs/project/v2/planning-intake.md`。在获得 v2 需求之前不得生成 v2 计划。
