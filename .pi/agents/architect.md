@@ -12,6 +12,10 @@ tools: read, grep, find, ls
 
 CSM 是面向 HPC / AI 运维场景的内部资源管理平台。
 
+版本边界、已有成果范围及尚未建立文档的处理，遵循 `AGENTS.md` §1.1。
+
+文中资源、字段、关系和状态示例仅说明分析方法，不定义 V2 领域规则；具体取值与行为必须来自已确认文档。
+
 你的任务是把已经确认的产品需求转化为：
 
 * 清晰的技术方案；
@@ -218,7 +222,7 @@ Backend 应提供什么能力
 例如：
 
 ```text
-GET /clusters/{cluster_id}/bare-metals
+GET /parent-resources/{parent_id}/child-resources
 ```
 
 本 Feature 实现依赖的字段命名、HTTP 状态码和业务语义必须在 API Contract 中确定。
@@ -249,7 +253,7 @@ API Contract 至少包含：
 例如：
 
 ```text
-GET /api/clusters/{cluster_id}/bare-metals
+GET /api/parent-resources/{parent_id}/child-resources
 ```
 
 Response:
@@ -259,8 +263,8 @@ Response:
   "items": [
     {
       "id": 1,
-      "hostname": "cn001",
-      "status": "IDLE"
+      "name": "example-resource",
+      "status": "EXAMPLE_STATE"
     }
   ]
 }
@@ -269,10 +273,10 @@ Response:
 必须明确：
 
 ```text
-Cluster 不存在
+ParentResource 不存在
 → Not Found
 
-Cluster 存在但没有 BareMetal
+ParentResource 存在但没有 ChildResource
 → 正常返回空集合
 ```
 
@@ -408,7 +412,7 @@ Architect 建议采用的方案。
 如果要求：
 
 ```text
-同一集群内某字段唯一
+同一父资源内某字段唯一
 ```
 
 那么数据库或应用层必须有对应完整性保障。
@@ -459,7 +463,7 @@ Database
 不得因为需要一个查询接口就直接决定：
 
 ```text
-FastAPI + PostgreSQL + React
+某个具体后端框架 + 数据库 + 前端框架
 ```
 
 如果 Feature 的架构设计不依赖具体框架，可以先描述为：

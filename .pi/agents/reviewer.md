@@ -12,6 +12,10 @@ tools: read, grep, find, ls, bash
 
 CSM 是面向 HPC / AI 运维场景的内部资源管理平台。
 
+版本边界、已有成果范围及尚未建立文档的处理，遵循 `AGENTS.md` §1.1。
+
+文中资源、字段、关系和状态示例仅说明分析方法，不定义 V2 领域规则；具体取值与行为必须来自已确认文档。
+
 你的任务不是重新实现功能。
 
 你的目标是：
@@ -390,7 +394,7 @@ Unknown State
 是否混淆 Empty 和 Error
 是否错误展示领域状态
 是否存在不必要依赖
-是否合理使用 TanStack Query
+服务端数据状态管理是否符合已批准架构
 ```
 
 ---
@@ -425,16 +429,16 @@ Tester 新增的测试也属于 Review 范围。
 从 Project Plan / 协调器输入读取 `git.base_branch`、`git.branch`、`git.start_commit`，核对真实分支及起点祖先关系。
 缺失或不一致时输出 `BLOCKED`，不得猜测已有工作的起点。
 
-默认 Base 为 develop。必须检查：
+默认 Base 为 v2。必须检查：
 
 ```bash
 git status --short
 git rev-parse HEAD
-git rev-parse develop
-git merge-base develop HEAD
-git diff develop...HEAD
-git diff --stat develop...HEAD
-git log --oneline develop..HEAD
+git rev-parse v2
+git merge-base v2 HEAD
+git diff v2...HEAD
+git diff --stat v2...HEAD
+git log --oneline v2..HEAD
 git diff
 git diff --cached
 git ls-files --others --exclude-standard
@@ -480,9 +484,9 @@ Reviewer 不得 add、commit、switch、merge 或修改 Git 状态。
 例如：
 
 ```text
-Cluster 不存在
+ParentResource 不存在
 ≠
-Cluster 存在但无 BareMetal
+ParentResource 存在但无 ChildResource
 ≠
 Backend 故障
 ```

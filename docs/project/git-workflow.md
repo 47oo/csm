@@ -5,26 +5,23 @@ Git 是 CSM 正式开发流程的一部分：`docs/project/project-plan.yaml` �
 ## 1. 分支职责
 
 * `main`：稳定版本与正式里程碑；普通 Feature 不直接开发或合并到 main。
-* `develop`：当前版本的集成分支。
-* `feature/<feature-id>-<slug>`：单个 Feature，例如 `feature/F005-ip-address`，从 develop 创建。
+* `v2`：当前版本的集成分支。
+* `feature/<feature-id>-<slug>`：单个 Feature，例如 `feature/F005-ip-address`，从 v2 创建。
 
 仓库初始化、master 改名及现有修改归档应单独确认；不得为通过 Gate 自动提交未知改动。
-达到明确版本或 Milestone 后，由独立且明确授权的 Release 流程将 develop 合并到 main。本工作流不自动 push、打 tag 或发布。
+达到明确版本或 Milestone 后，由独立且明确授权的 Release 流程将 v2 合并到 main。本工作流不自动 push、打 tag 或发布。
 
-### 1.1 已冻结版本与 v2 重构（2026-09-24 起）
+### 1.1 V2 集成线
 
-CSM V1 已作为演示版本冻结，并已启动大跨度重构（v2）。版本线职责如下：
+`v2` 是当前版本唯一集成线，Feature 从 `v2` 创建、以 `v2` 为 Review Base，并在通过 Merge Gate 后合并回 `v2`。版本隔离要求见 `AGENTS.md` §1.1。
 
-* `main`：稳定版本线；V1 期间止于 `v1.0.0-demo`。
-* `release/v1`：V1 冻结分支，只读参考 / 紧急修复。
-* `v2`：重构集成线，后续 Feature 从此创建。
-* `develop`：V1 旧集成分支，已与 `main` 对齐，后续由 `v2` 取代。
+V2 计划独立维护，只有当前版本的提交、测试和 Review 证据可用于判断完成状态。
 
-V2 的 Feature 计划应重新立项，不与 V1 的 `project-plan.yaml` 状态混用。
+---
 
 ## 2. Feature 开始与恢复
 
-新 Feature 开始前检查 Git 状态（含暂存区和未跟踪文件），要求工作区 clean，无进行中的 merge/rebase 等操作，再从 develop 创建分支并记录起始 Commit。
+新 Feature 开始前检查 Git 状态（含暂存区和未跟踪文件），要求工作区 clean，无进行中的 merge/rebase 等操作，再从 v2 创建分支并记录起始 Commit。
 
 恢复时核对已记录分支、起始 Commit、当前 HEAD 与阶段证据；保留阻塞分支，不自动重建、删除或覆盖。已有历史缺少 Git 元数据时停止核对，不伪造起点。
 
@@ -36,7 +33,7 @@ V2 的 Feature 计划应重新立项，不与 V1 的 `project-plan.yaml` 状态�
 
 Git 状态管理由主协调 Agent 统一负责。Subagent 报告的 Git 声明要求（交接的验收条件）见 `AGENTS.md` §9.1。
 
-第一版采用同一 Feature Branch、同一工作区；不引入 worktree。并行前划定文件所有权；所有写入任务停止后才能暂存、提交或切分支，防止纳入其他 Agent 未完成的工作。
+当前工作流采用同一 Feature Branch、同一工作区；不引入 worktree。并行前划定文件所有权；所有写入任务停止后才能暂存、提交或切分支，防止纳入其他 Agent 未完成的工作。
 
 ## 4. Commit 原则
 
@@ -59,9 +56,9 @@ Reviewer 确定 Feature 起点和完整差异，不只检查未提交修改：
 
 ```bash
 git status
-git diff develop...HEAD
-git diff --stat develop...HEAD
-git log --oneline develop..HEAD
+git diff v2...HEAD
+git diff --stat v2...HEAD
+git log --oneline v2..HEAD
 ```
 
 同时检查暂存、未暂存及未跟踪内容。
@@ -70,13 +67,13 @@ git log --oneline develop..HEAD
 
 ## 6. Merge Gate 与 Feature DONE
 
-仅当必要测试通过，Reviewer 为 `APPROVED` 或 `APPROVED WITH FOLLOW-UP`，且不存在 BLOCKER、HIGH、必须修复的 MEDIUM、PRODUCT DECISION REQUIRED 时，协调器才可 `git merge --no-ff` 到 develop。
+仅当必要测试通过，Reviewer 为 `APPROVED` 或 `APPROVED WITH FOLLOW-UP`，且不存在 BLOCKER、HIGH、必须修复的 MEDIUM、PRODUCT DECISION REQUIRED 时，协调器才可 `git merge --no-ff` 到 v2。
 
-合并前工作区须 clean、所有写入任务已结束，Feature HEAD 和 develop 必须仍与测试/Review 基线一致；变化时重新验证并 Review，不沿用旧批准。
+合并前工作区须 clean、所有写入任务已结束，Feature HEAD 和 v2 必须仍与测试/Review 基线一致；变化时重新验证并 Review，不沿用旧批准。
 
 冲突或命令失败即停止，保留现场，不自动解决后宣称通过。
 
-Feature 只有在 Review 批准、必要测试通过、分支成功合并进入 develop、Project Plan 与关联视图已更新并提交后才算 `DONE`，才能解锁依赖。
+Feature 只有在 Review 批准、必要测试通过、分支成功合并进入 v2、Project Plan 与关联视图已更新并提交后才算 `DONE`，才能解锁依赖。
 
 Review 批准仅表示可合并，不等于 DONE。失败时保留分支和执行检查点。
 

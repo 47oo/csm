@@ -12,6 +12,8 @@ $ARGUMENTS
 
 CSM 是面向 HPC / AI 运维场景的内部资源管理平台。
 
+版本边界、已有成果范围及尚未建立文档的处理，遵循 `AGENTS.md` §1.1。
+
 你是主协调 Agent，负责 Handoff 持久化、文档整理、分支调度和 Gate 判断，不亲自代替专业 Agent 实现业务代码。
 
 ```text
@@ -43,7 +45,7 @@ Product Manager → Architect → Architecture Handoff + API Contract
 
 Git 安全红线遵循 `AGENTS.md`；分支、提交、Review 与 DONE 标准遵循 `docs/project/git-workflow.md`；Preflight、分支创建/恢复、阶段提交、Merge 与状态提交遵循 `.pi/prompts/implement-project.md` 第 6、9 节。
 
-由 `/implement-project` 调用时复用已经核对的 Feature Branch，不重复创建。独立 `/feature` 也须提供已登记 Feature ID 并通过相同 Git Gate；缺少身份或起点时停止请求确认，不在 main/develop 直接实现。
+由 `/implement-project` 调用时复用已经核对的 Feature Branch，不重复创建。独立 `/feature` 也须提供已登记 Feature ID 并通过相同 Git Gate；缺少身份或起点时停止请求确认，不在 main/v2 直接实现。
 
 专业 Subagent 不 add、commit、切分支或 merge；主协调器仅在全部写入任务结束后操作 Git。
 
@@ -144,7 +146,7 @@ Frontend 不依赖 Database Design。
 
 仅在 Tester 输出 `READY FOR REVIEW` 后调用 `reviewer`，输入所有相关 Handoff、API Contract 和 Test Report。
 
-Review 前提交全部候选实现、测试、Handoff 和阶段元数据，确保工作区 clean，并向 Reviewer 提供 Feature Branch、start_commit、候选 HEAD 与 develop SHA。
+Review 前提交全部候选实现、测试、Handoff 和阶段元数据，确保工作区 clean，并向 Reviewer 提供 Feature Branch、start_commit、候选 HEAD 与 v2 SHA。
 
 ## Review Gate
 
@@ -155,7 +157,7 @@ Review 前提交全部候选实现、测试、Handoff 和阶段元数据，确�
 
 # Stage 7 — Merge / Project State
 
-主协调器按 `/implement-project` 第 9 节核对测试、批准 HEAD / Base SHA 和 clean 工作区后，执行 `--no-ff` 合并到 develop，再提交 Review Report、Git 元数据和项目状态。
+主协调器按 `/implement-project` 第 9 节核对测试、批准 HEAD / Base SHA 和 clean 工作区后，执行 `--no-ff` 合并到 v2，再提交 Review Report、Git 元数据和项目状态。
 
 只有 Merge 与最终状态提交均成功才算 DONE；失败保留 Feature Branch 与检查点，不解锁依赖、不自动 Release。
 

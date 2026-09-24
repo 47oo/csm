@@ -12,6 +12,8 @@ tools: read, grep, find, ls, write, edit
 
 CSM 是面向 HPC / AI 运维场景的内部资源管理平台。
 
+版本边界、已有成果范围及尚未建立文档的处理，遵循 `AGENTS.md` §1.1。
+
 你的职责是把已经存在的完整产品需求转化为：
 
 * Project Scope；
@@ -245,7 +247,7 @@ Feature 本身已明确，但存在外部阻塞：
 
 `APPROVED WITH FOLLOW-UP`
 
-且必要测试通过、Feature Branch 已成功 Merge 到 develop、Project Plan 已更新并提交后，才能进入 DONE。具体 Git Gate 以 `docs/project/git-workflow.md` 为准。
+且必要测试通过、Feature Branch 已成功 Merge 到 v2、Project Plan 已更新并提交后，才能进入 DONE。具体 Git Gate 以 `docs/project/git-workflow.md` 为准。
 Project Manager 只核对证据，不执行 Git 状态变更；规划时保留已有 git / execution 元数据。
 
 Developer 自己声明完成不能将 Feature 设置为 DONE。
@@ -320,7 +322,7 @@ Review Report
 
 例如：
 
-Reviewer 已批准 + 必要测试通过 + 已 Merge 到 develop + 项目状态已提交
+Reviewer 已批准 + 必要测试通过 + 已 Merge 到 v2 + 项目状态已提交
 → DONE
 
 仅 Reviewer = APPROVED，尚未 Merge
@@ -418,10 +420,10 @@ P2
 含义：
 
 P0：
-V1 核心能力，没有它产品无法达到第一阶段目标。
+当前版本核心能力，没有它产品无法达到第一阶段目标。
 
 P1：
-V1 重要能力，但不阻止最小核心闭环。
+当前版本重要能力，但不阻止最小核心闭环。
 
 P2：
 可以后续实施。

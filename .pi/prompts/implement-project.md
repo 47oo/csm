@@ -10,6 +10,8 @@ argument-hint: "[可选：Feature ID，例如 F003]"
 
 CSM 是面向 HPC / AI 运维场景的内部资源管理平台。
 
+版本边界、已有成果范围及尚未建立文档的处理，遵循 `AGENTS.md` §1.1。
+
 可选参数：
 
 $ARGUMENTS
@@ -26,7 +28,7 @@ $ARGUMENTS
 →
 按照 Feature Workflow 执行
 →
-Review 批准后合并到 develop
+Review 批准后合并到 v2
 →
 提交 Project Plan 完成状态
 →
@@ -226,22 +228,22 @@ git status --porcelain=v1 --untracked-files=all
 git status
 ```
 
-要求工作区及暂存区 clean、无未跟踪文件、无进行中的 merge/rebase/cherry-pick 等操作、HEAD 非 detached，且 develop 存在。
+要求工作区及暂存区 clean、无未跟踪文件、无进行中的 merge/rebase/cherry-pick 等操作、HEAD 非 detached，且 v2 存在。
 不满足时输出 `GIT PREFLIGHT BLOCKED`，保留现场，不自动提交、stash、清理或初始化分支。
 
 确认 Feature ID / slug 是安全合法的分支名，目标分支不存在，然后由协调器执行：
 
 ```bash
-git switch develop
+git switch v2
 git rev-parse HEAD
 git switch -c feature/<feature-id>-<slug>
 ```
 
 逐条检查退出状态，失败即停止。记录实际 SHA，不使用示例 SHA：
 
-* `git.base_branch: develop`
+* `git.base_branch: v2`
 * `git.branch`：已创建分支。
-* `git.start_commit`：创建分支时 develop 的完整 SHA，之后保持不变。
+* `git.start_commit`：创建分支时 v2 的完整 SHA，之后保持不变。
 * `git.head_commit`：最近一次已记录的 Feature 交付/检查点提交 SHA。
 * `git.merge_commit: null`：成功集成后才写真实 Merge SHA。
 
@@ -390,13 +392,13 @@ Review 获批准后，由主协调器逐项确认：
 1. 必需测试通过；需要真实前后端集成的 Feature 已验证集成，不需要的有 `NOT_REQUIRED` 及原因；
 2. 没有 BLOCKER / HIGH / 必须修复的 MEDIUM / PRODUCT DECISION REQUIRED；
 3. 所有 Subagent 已结束，工作区 clean；
-4. 当前 Feature HEAD 与 Reviewer 批准的候选 SHA 相同，develop 与已审查 Base SHA 相同。
+4. 当前 Feature HEAD 与 Reviewer 批准的候选 SHA 相同，v2 与已审查 Base SHA 相同。
 
 HEAD 或 Base 变化时停止，重新集成验证和 Review，不能沿用旧批准。
 满足后执行并逐条检查结果：
 
 ```bash
-git switch develop
+git switch v2
 git merge --no-ff feature/<feature-id>-<slug>
 git rev-parse HEAD
 ```
@@ -419,7 +421,7 @@ chore(Fxxx): mark feature complete
 
 ## Merge 后中断恢复
 
-在 develop 核对实际 Merge SHA、两个父提交、批准证据、Feature 分支及状态提交。
+在 v2 核对实际 Merge SHA、两个父提交、批准证据、Feature 分支及状态提交。
 如果 Merge 已存在而 Plan 尚未保存，依据已提交 Plan 的检查点恢复缺失的元数据/状态提交，不重复 Merge。即使工作区 Plan 已写 DONE 并清空 current_feature，也不能丢弃已提交基线中的恢复目标；比较状态差异并确认全部属于该 Feature 后才继续提交。
 仅发现分支是祖先不足以推断该 Feature 获批。
 证据不足或存在额外实现改动时停止人工核对。
@@ -522,7 +524,7 @@ Feature 与 Feature 之间默认串行。
 
 # 12. Project Completion
 
-当所有 V1 必须 Feature：
+当当前版本所有必需 Feature：
 
 `status = DONE`
 
@@ -547,7 +549,7 @@ Feature 与 Feature 之间默认串行。
 
 如果仍然存在 P2：
 
-是否属于 V1 完成条件由 Project Plan 决定。
+是否属于当前版本完成条件由 Project Plan 决定。
 
 不得自行判断 P2 一定可以忽略。
 

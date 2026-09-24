@@ -10,6 +10,8 @@ argument-hint: "<需求来源或项目规划说明>"
 
 CSM 是面向 HPC / AI 运维场景的内部资源管理平台。
 
+版本边界、已有成果范围及尚未建立文档的处理，遵循 `AGENTS.md` §1.1。
+
 用户输入：
 
 $ARGUMENTS
@@ -34,13 +36,13 @@ $ARGUMENTS
 * 当前 `.pi/agents/`
 * 当前代码、已有 Handoff 与已有 Test / Review 结果
 
-目标：确认当前项目已经有什么，而不是假设从零开始。
+目标：确认 V2 已有成果及尚未建立的文档；按 `AGENTS.md` §1.1 处理首次规划，不能以缺少待生成的文档为由阻止需求澄清。
 
 ---
 
 # Stage 2 — Requirements Source
 
-确定完整需求来源。优先使用用户在 `$ARGUMENTS` 中明确指定的文件，例如 `docs/product/requirements.md`；如果需求分散在多个已确认的 Product 文档中，则全部纳入。
+确定完整需求来源。优先使用用户在 `$ARGUMENTS` 中明确指定的文件，例如 `docs/product/requirements-v2.md`；如果需求分散在多个已确认的 Product 文档中，则全部纳入。
 
 不得使用旧聊天中的猜测覆盖当前项目文件。
 

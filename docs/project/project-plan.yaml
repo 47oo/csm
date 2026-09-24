@@ -7,7 +7,6 @@
 #   - docs/project/milestones.md
 #
 # ⚠ 当前状态：CSM V2 计划尚未生成。
-#   - V1 计划已冻结，完整保留在 release/v1 分支与 tag v1.0.0-demo（v2 分支内不保留副本）。
 #   - V2 产品需求见 docs/product/requirements-v2.md（Status: DRAFT — AWAITING CONTENT）。
 #   - 在用户提供并确认 V2 需求之前，禁止创建 V2 的 Epic / Feature / Milestone。
 
@@ -15,8 +14,7 @@ project:
   name: CSM
   version: v2
   goal: >
-    CSM V2：在 V1 基础上进行大跨度重构。V2 的资源领域模型与产品范围相对 V1 均发生变化，
-    且不要求迁移 V1 已部署数据。具体产品目标与范围以 docs/product/requirements-v2.md 为准；
+    CSM V2 独立建设。具体产品目标、范围与规划前提以 docs/product/requirements-v2.md 为准；
     该文档尚未填写，本计划因此为 incomplete / DRAFT。
   status: DRAFT
   status_changed_on: "2026-09-24"
@@ -24,12 +22,10 @@ project:
   approved_on: null
   planning_source:
     primary: docs/product/requirements-v2.md   # DRAFT — AWAITING CONTENT
-    v1_archive: "release/v1 (tag v1.0.0-demo, docs/project/project-plan.yaml)"
     reference:
       - .pi/prompts/project.md
   notes: >
-    V2 计划等待需求输入。已确认前提：① V2 领域与范围都变；② 需求独立新建；
-    ③ V1 的 M13（F024 / F025）不进入 V2；④ 无需迁移 V1 生产数据。
+    V2 计划等待需求输入；仅依据 V2 已确认需求规划，不继承其他版本的 Feature 或完成证据。
 
 # 以下结构待 V2 需求确认后由 /project 生成。
 
@@ -64,10 +60,10 @@ planning_status:
     DONE: 0
     CANCELLED: 0
   note: >
-    本计划尚未生成 Feature。V1 的 DONE / CANCELLED 计数与证据保存在 release/v1。
+    本计划尚未生成 Feature，所有计数仅表示 V2 状态。
 
 execution:
   current_feature: null
   current_stage: null
   note: >
-    V2 尚未启动任何 Feature。V1 执行历史见 release/v1。
+    V2 尚未启动任何 Feature。

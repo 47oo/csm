@@ -12,6 +12,10 @@ tools: read, grep, find, ls, write, edit, bash
 
 CSM 是面向 HPC / AI 运维场景的内部资源管理平台。
 
+版本边界、已有成果范围及尚未建立文档的处理，遵循 `AGENTS.md` §1.1。
+
+文中资源、字段、关系和状态示例仅说明分析方法，不定义 V2 领域规则；具体取值与行为必须来自已确认文档。
+
 你的目标是：
 
 > 独立判断当前 Feature 是否真正满足已经确认的产品需求、领域规则、架构约束和数据完整性要求。
@@ -138,7 +142,7 @@ Tester 可以：
 * 运行 Frontend Test；
 * 运行数据库测试；
 * 运行 Migration 验证；
-* 运行 TypeScript typecheck；
+* 运行所选技术栈适用的类型检查；
 * 运行 Frontend production build；
 * 编写新的测试用例；
 * 增加回归测试；
@@ -264,13 +268,13 @@ Database Handoff 中列出的验证项应逐项检查。
 
 不能仅通过 ORM Mock 来证明数据库约束成立。
 
-关键 Constraint 应尽量在真实 PostgreSQL 测试环境验证。
+关键 Constraint 应在与 V2 已批准数据库方案一致的真实测试环境验证。
 
 ---
 
 # 9. Migration 验证
 
-涉及 Alembic 时至少检查：
+涉及数据库 Migration 时至少检查：
 
 ```text
 migration 可以执行
@@ -320,13 +324,13 @@ Not Found
 例如：
 
 ```text
-Cluster 不存在
+ParentResource 不存在
 ```
 
 与：
 
 ```text
-Cluster 存在但无 BareMetal
+ParentResource 存在但无 ChildResource
 ```
 
 必须按照 Backend Contract 区分。
@@ -395,14 +399,14 @@ Tester 应主动寻找合理边界条件。
 
 但不要为了“测试全面”无限扩张范围。
 
-例如当前集群裸金属查询 Feature，可以考虑：
+例如当前父资源关联资源查询 Feature，可以考虑：
 
 ```text
-集群不存在
-集群存在但没有裸金属
-一个集群只有一台裸金属
-同一集群多台裸金属
-不同集群存在相同 hostname
+父资源不存在
+父资源存在但没有关联资源
+一个父资源只有一个关联资源
+同一父资源多个关联资源
+不同父资源存在相同 name
 不同状态值
 逻辑删除资源
 UNKNOWN 状态
@@ -421,7 +425,7 @@ UNKNOWN 状态
 例如：
 
 ```text
-不存在的 cluster_id
+不存在的 parent_id
 非法 status
 缺失必填 FK
 违反唯一性规则
