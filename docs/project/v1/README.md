@@ -17,9 +17,9 @@
 ## 说明
 
 * 本目录内容对应 `v1.0.0-demo` 时刻的计划状态，**不再更新**。
-* 由于 V1 计划从 `docs/project/` 移入本目录，`docs/product/`、`docs/architecture/`、`docs/database/`、`docs/api/`、
-  `docs/reviews/`、`docs/test-reports/` 等 V1 历史文档中对 `docs/project/project-plan.yaml` 的引用已更新为
-  `docs/project/v1/project-plan.yaml`（仅路径，内容未改）。
+* 2026-09-24 起，V1 设计文档（`docs/product/`、`docs/architecture/`、`docs/database/`、`docs/api/`、`docs/deployment/`、
+  `docs/reviews/`、`docs/test-reports/`）与应用代码已从 `v2` 分支移除，以减少对 V2 重构的干扰；
+  它们完整保存在 `release/v1` 分支与 tag `v1.0.0-demo`（可用 `git show release/v1:<path>` 查看）。
 * 当前（v2）计划的 Source of Truth 为 `docs/project/project-plan.yaml`；v2 需求与规划见
   `docs/product/requirements-v2.md` 与 `docs/project/v2/planning-intake.md`。
 * V1 已部署形态与版本边界见 `docs/project/releases.md`。

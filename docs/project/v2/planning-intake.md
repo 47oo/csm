@@ -73,3 +73,25 @@ docker-compose.dev.yml  docker-compose.prod.yml
 
 **未做**：不改写历史、不动 `main` / `release/v1` / tag；V1 产品、架构、ADR、Review、Test 文档暂不移动，
 仅视为参考，其权威性由 V2 文档取代。
+
+## 7. V1 设计文档清空（已执行）
+
+2026-09-24，用户进一步要求「清空 docs 里以前的需求内容，因为需求要重新做，减少干扰」。据此从 `v2` 分支移除 V1 设计文档
+（共 140 个文件，完整保留在 `release/v1` 与 tag `v1.0.0-demo`）：
+
+* `docs/product/requirements.md`、`domain-model.md`、`domain-model.yaml`、`domain-conflict-handoff.md`、`handoffs/`；
+* `docs/architecture/`（含 `adr/`）、`docs/database/`、`docs/api/`、`docs/deployment/`、`docs/reviews/`、`docs/test-reports/`。
+
+**保留**：`docs/product/requirements-v2.md`（V2 需求）、`docs/project/`（流程 + `v1/` 计划归档 + 本目录）。
+
+**理由**：防止 V2 需求分析与架构重新引入 V1 既有规则（`AGENTS.md` §2 不得自行创造/沿用未确认规则，§3 需求优先）。
+
+## 8. 待处理的连带项：`.pi` 与 `AGENTS.md`
+
+下列内容仍指向已移除的 V1 文档，属 V2 立项的连带项，**尚未处理**（需要用户/角色决策，不自行修改）：
+
+* `AGENTS.md` §3 将 `docs/product/domain-model.md` 定为权威领域模型来源；V2 领域模型建立后需重新指向。
+* `.pi/skills/resource-domain/SKILL.md` 内含 V1 领域知识，可能继续向 V2 规划注入旧规则。
+* `.pi/agents/*.md` 与 `.pi/prompts/*.md` 大量引用 `docs/product/`、`docs/architecture/`、`docs/database/`、`docs/api/`。
+
+建议在启动 V2 规划前单独评估：保留 / 改写 / 归档这些引用与 V1 领域知识。

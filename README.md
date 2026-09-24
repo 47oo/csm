@@ -4,20 +4,21 @@
 
 > **当前状态：CSM V2 重构中。**
 > - CSM V1 已冻结为演示版本 `v1.0.0-demo`（tag → `563eda3`，冻结分支 `release/v1`）。版本边界见 `docs/project/releases.md`。
-> - V2 是对 V1 的大跨度重构（资源领域与产品范围均变化），其应用代码已从 `v2` 分支重置，需求与架构重新进行。
-> - **V1 应用代码未删除**，仍完整保存在 `release/v1` 分支与 `v1.0.0-demo` tag 中，可随时参考。
+> - V2 是对 V1 的大跨度重构（资源领域与产品范围均变化），其**应用代码与 V1 设计文档已从 `v2` 分支重置**，需求与架构重新进行。
+> - **V1 全部内容（代码、需求、架构、API、数据库、Review / Test 文档）未丢失**，完整保存在 `release/v1` 分支与 `v1.0.0-demo` tag 中，可随时参考。
 
 ## 目录
 
 | 路径 | 说明 |
 |---|---|
-| `docs/product/` | 产品需求与领域模型。V2 需求见 `docs/product/requirements-v2.md`（待填写）。 |
-| `docs/architecture/` | 架构决策与 ADR。 |
-| `docs/database/` | 数据模型与 migration 说明。 |
-| `docs/api/` | API 契约。 |
-| `docs/deployment/` | 部署文档（V1）。 |
-| `docs/project/` | 项目计划与流程。V2 计划见 `docs/project/project-plan.yaml`；V1 计划归档于 `docs/project/v1/`。 |
+| `docs/product/requirements-v2.md` | V2 产品需求（Status: DRAFT — AWAITING CONTENT，待填写）。 |
+| `docs/project/project-plan.yaml` | V2 项目计划（当前为 incomplete / DRAFT 骨架）。 |
+| `docs/project/v1/` | V1 冻结计划快照。 |
+| `docs/project/v2/planning-intake.md` | V2 规划前提、待澄清输入与重置记录。 |
+| `docs/project/git-workflow.md` | 分支与提交流程。 |
 | `.pi/` | Agent 定义、Skill、工作流 Prompt。 |
+
+V2 的 `docs/architecture/`、`docs/database/`、`docs/api/`、`docs/deployment/` 以及 `backend/`、`frontend/`、`tests/`、`deploy/` 将在 V2 需求与架构确认后建立（见 `docs/project/repository-structure.md`）。
 
 ## 流程入口
 
