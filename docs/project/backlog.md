@@ -2,8 +2,25 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-22（全部 V1 Feature 处置完毕；`project.status = DONE`）
-> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 21, 'CANCELLED': 1}`
+> Generated: 2026-09-24（新增 F024 / F025 / DEC-026 / DEC-027 / M13，待用户批准；`project.status = DRAFT`）
+> 生成依据：`project.status = DRAFT`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 2, 'DONE': 21, 'CANCELLED': 1}`
+
+**2026-09-24（增量五）**：收到**未获批准**输入「查看集群时看到有多少可用节点、节点可分类；搜索时聚合显示
+集群名称 / 主机名称 / 主机 IP 或 URL / 绑定的网卡 / 类型」。据此**新增** F024（集群概览聚合与节点分类，DRAFT）、
+F025（搜索结果上下文展示扩展，DRAFT）、DEC-026 / DEC-027（均 OPEN）与 M13；E05 追加 F024 / F025。
+`project.status` / `planning_status.status` 由 DONE 转 **DRAFT**（仅表示新增输入待用户批准，不代表既有交付被推翻）。
+F009 当时未交付集群计数（并非永久禁止）；F019 已实现关联链聚合，仅当新诉求改变搜索的单列表形态或新增统计时才与 R-QUERY-005 / R-QUERY-006 冲突。「可用」「分类」语义原待用户 / Product 裁定（2026-09-24 后续部分确认见下）。**既有一律不变**：
+21 DONE + 1 CANCELLED、M1–M12、全部 merge SHA / Tester / Review 证据与各 Feature 的 git 元数据均原样保留；
+F009（merge 6529b0dc）/ F019（merge 292345e8）已 DONE 的实现与结论不被推翻。**未获批准且 DEC-026 / DEC-027
+未裁定前，F024 / F025 不得进入实现。**
+
+**2026-09-24（增量五·再确认）**：用户明确 URL 来自已登记的 **Service.url**；Service 可绑定裸金属、虚拟机或容器（R-SVC-005 / R-SVC-007）。此前「URL 映射哪个对象」已解答，**不再是待确认项**；经 VM / 容器间接关联的 Service URL 是否展示在主机下、多服务 / IP 与 URL 并存时如何分行仍待裁定。DEC-027 与 F025 保持 OPEN / DRAFT，尚未批准整个计划。
+
+**2026-09-24（增量五·续）——部分确认（以下记录当时问题）**：用户新增部分确认（原文含输入错别字，按语境谨慎记录）：「节点」**仅指裸金属（BareMetal）**；
+主机 IP 或 URL **取自其绑定的数据**，**无绑定值不展示**；**多网卡、多 IP 分行展示**。
+- **已确认**：F024 NQ-1 的**对象范围 = 仅 BareMetal**；F025 主机 IP / URL **取自绑定依据**、**无绑定不展示**、**多 NIC / 多 IP 分行展示**。
+- **仍阻塞 / 待确认**：F024「可用」定义、分类维度、计数范围等；F025「不展示」仅指该值还是整条主机行（**不得自行抹掉无 NIC / IP 的主机**）、间接服务 URL 的归属、多服务及 IP / URL 并存时如何分行 / 与 F019 对齐、是否改变单列表 / 不统计语义。URL 来源已在上方再确认。
+- **状态一律不变**：DEC-026 / DEC-027 仍 **OPEN**；F024 / F025 仍 **DRAFT**；M13 / `project.status` / `planning_status.status` 仍 **DRAFT**；无 READY；21 DONE + 1 CANCELLED、M1–M12、counts 与全部证据 / 以前 Git 元数据原样保留。权威见计划 `features[F024/F025].open_questions_resolution` 与 `decisions_required[DEC-026/027].partial_resolution`。
 
 **2026-09-22（增量四·终）**：F023 完成（merge e234908，Reviewer = APPROVED WITH FOLLOW-UP），**F023 DONE**；M12 DONE。
 全部 V1 Feature 处置完毕：**21 DONE + 1 CANCELLED（F011）**；`project.status = DONE`（仅按 DEC-025 修订 R-IP-006 / R-IP-009）。
@@ -55,15 +72,15 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 
 | 维度 | 值 |
 |---|---|
-| Feature 总数 | 22 |
+| Feature 总数 | 24 |
 | P0 | 7（F012、F013、F014、F015、F001、F002、F009） |
-| P1 | 14（F004、F005、F006、F007、F008、F010、F011、F016、F018、F019、F020、F021、F022、F023） |
+| P1 | 16（F004、F005、F006、F007、F008、F010、F011、F016、F018、F019、F020、F021、F022、F023、F024、F025） |
 | P2 | 1（F017） |
 | DONE | 21 |
 | CANCELLED | 1（F011） |
-| DRAFT | 0 |
+| DRAFT | 2（F024、F025） |
 | READY / IN_PROGRESS / BLOCKED | 0 / 0 / 0 |
-| Decisions 总数 | 25（OPEN **0**） |
+| Decisions 总数 | 27（OPEN **2**：DEC-026、DEC-027） |
 
 ## 按 Epic
 
@@ -107,6 +124,8 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | F010 | 资源详情与关联查询 | P1 | **DONE** | F001, F002, F004, F005, F006, F007, F008 | READY | 334b4ca3 |
 | F018 | 集群内资源关键字搜索 | P1 | **DONE** | F001, F002, F004, F005, F006, F007, F008 | READY | f1ac71b1 |
 | F019 | 搜索结果聚合视图 | P1 | **DONE** | F018 | READY | 292345e8 |
+| F024 | 集群概览聚合与节点分类 | P1 | **DRAFT** | F009 | REQUIRED（暂列；待架构复核） | — |
+| F025 | 搜索结果上下文展示扩展 | P1 | **DRAFT** | F019 | REQUIRED（暂列；待架构复核） | — |
 
 ### E06 数据导入
 
@@ -140,6 +159,7 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **DONE** |
 | M11 | 网段自定义名称 / 子网掩码 / VLAN | F022 | **DONE** |
 | M12 | 自动分配指定 IP 地址范围段 | F023 | **DONE** |
+| M13 | 集群概览聚合与搜索结果上下文展示 | F024, F025 | **DRAFT** |
 
 `M5` 的实际结局：`F010` DONE、`F011` **由用户于 2026-09-18 取消**（批量导入不在 V1 交付范围；`requirements.md` §18 的 R-IMPORT-001~004 规则文本按原样保留但标注为不交付）——该里程碑除批量导入外已达成。
 
@@ -174,11 +194,15 @@ mask 为 dotted-quad IPv4 且不强制与 start–end 自洽；vlan 为整数 1�
 | DEC-023 | product | RESOLVED | F020, F021, F005 |
 | DEC-024 | product | RESOLVED | F022, F020, F021, F005 |
 | DEC-025 | product | RESOLVED | F023, F021, F020 |
+| DEC-026 | product | **OPEN** | F024, F009 |
+| DEC-027 | product | **OPEN** | F025, F019, F018 |
 
 `DEC-020`（侧边栏）、`DEC-021`（关键字搜索）与 `DEC-022`（搜索结果聚合）均已 RESOLVED。
 `DEC-022` 已于 2026-09-20 由用户裁定：结果为单一扁平混合列表、按命中项关联链聚合、做关系扩展、采用方案 A（命中行 + 缩进关联行）、仅显示搜索涉及的资源、不去重、标识字段优先于描述性字段排序、取代 F018 扁列表。
 
 `DEC-023`（IP 地址范围段 / 地址池与自动 / 手动分配）已于 2026-09-20 由用户裁定为 **RESOLVED**：范围段用 start–end（IPv4）、恰属一个 Cluster、同 Cluster 不重叠、跨 Cluster 可重复、无状态、软删，且**范围内有活跃 IP 时禁止删除**；分配沿用 IPAddress、必选绑定活跃 NIC，自动取并集内最小未占用 IPv4，占用以活跃 IPAddress 字面相等判定、软删释放，无隐式保留地址，耗尽返回非 500 错误，不新增超出 R-IP-001 的唯一性。
+
+`DEC-026`（集群概览的节点计数与分类聚合）与 `DEC-027`（搜索结果上下文展示扩展）均**仍为 OPEN**，须由用户 / Product 继续裁定。2026-09-24 已部分裁定：「节点」仅 BareMetal（DEC-026）；主机 IP / URL 取自绑定依据、无绑定不展示、多网卡 / 多 IP 分行展示（DEC-027）。URL 来源已确认为 Service.url；仍未决：「可用」定义、分类维度 / 计数范围；「不展示」仅值还是整行、经 VM / 容器间接关联的 Service URL 是否归属主机、多服务及 IP / URL 并存时的分行 / 主机信息、搜索是否改变 R-QUERY-005 / R-QUERY-006 的单列表 / 不统计条款。权威见计划 `decisions_required[DEC-026/027].partial_resolution`。
 
 ## Open Questions（阻塞项，权威见计划 `features[].open_questions`）
 
@@ -189,6 +213,10 @@ name 可选 / 同 Cluster 活跃唯一 / 大小写敏感 / 软删释放；subnet
 
 F020 / F021 的 NQ 已于 2026-09-20 由用户随 **DEC-023 RESOLVED** 全部裁定（摘要见上）。
 F019 的 NQ-1 ~ NQ-8 已于 2026-09-20 由用户裁定（DEC-022 RESOLVED），不再阻塞。
+
+**F024 / F025 的 NQ 为 2026-09-24 新增，随 DEC-026 / DEC-027 待用户裁定；其中部分已于 2026-09-24 后续部分确认。**
+- **已部分确认**：F024 NQ-1 对象范围 = 仅 BareMetal；F025 NQ-2 / NQ-3 中「IP / URL 取自绑定依据、无绑定不展示、多 NIC / 多 IP 分行展示」。
+- **仍 OPEN（blocking 未解除）**：F024「可用」定义（NQ-1）、分类维度 / 取值 / 是否登记字段（NQ-2）、计数范围与软删 / 分页语义（NQ-3）、范围边界（NQ-4）、产品规则落点（NQ-5）、呈现形态（NQ-6）；F025 集群名称是上下文还是匹配项（NQ-1）、「不展示」仅值还是整行与间接关联 Service URL 的归属、多服务及 IP / URL 并存口径（NQ-2）、分行是否重复主机信息 / 与 F019 对齐（NQ-3）、是否改变单列表 / 不统计语义（NQ-4）、产品规则落点（NQ-5）、是否与 F019 / F018 冲突（NQ-6）。权威见计划 `features[F024].open_questions_resolution` / `features[F025].open_questions_resolution`。
 
 ## Follow-ups（聚合；权威见计划 `planning_status.follow_ups`）
 

@@ -2,8 +2,15 @@
 
 > Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
 > Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-22（全部 V1 Feature 处置完毕；`project.status = DONE`）
-> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 21, 'CANCELLED': 1}`
+> Generated: 2026-09-24（新增 M13（F024 / F025），待用户批准；`project.status = DRAFT`）
+> 生成依据：`project.status = DRAFT`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 2, 'DONE': 21, 'CANCELLED': 1}`
+
+**2026-09-24（增量五）**：新增 **M13**（集群概览聚合与搜索结果上下文展示，只含 F024 / F025）与 F024、F025、
+DEC-026 / DEC-027；`project.status` 由 DONE 转 **DRAFT**（待批准）。F009 当时未交付计数（非永久禁止）；F019 已交付关联链聚合。新诉求的具体口径及是否改变搜索单列表 / 不统计规则须先由用户 / Product 裁定（2026-09-24 部分确认见下）。
+**2026-09-24（增量五·再确认）**：用户明确 URL 来自已登记的 **Service.url**；Service 可绑裸金属、VM 或容器。此前 URL 来源问题已解决，但间接服务 URL 的主机归属及多服务 / IP 与 URL 并存如何展示仍 OPEN；M13 / project 仍 DRAFT，未批准计划。
+
+**2026-09-24（增量五·续）——部分确认（当时记录）**：用户新增部分确认：「节点」**仅 BareMetal**、主机 IP / URL **取自绑定依据 / 无绑定不展示**、**多网卡 / 多 IP 分行展示**。其余仍 OPEN（「可用」定义、分类维度 / 计数范围、「不展示」仅值还是整行、间接 Service URL 是否归属主机、多服务与 IP / URL 并存时如何分行 / 与 F019 对齐、单列表 / 不统计语义）。**M13 仍 DRAFT**、无 READY；`project.status` / `planning_status.status` 仍 DRAFT。
+**既有里程碑 M1–M12 及其结论一律不变**（含各 Feature 的 merge SHA）。
 
 **2026-09-22（增量四·终）**：F023 完成（merge e234908）；M12 **DONE**；M1–M12 全部 DONE，全部 V1 Feature 处置完毕（21 DONE + 1 CANCELLED）。
 
@@ -46,6 +53,7 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 | M10 | IP 地址范围段与自动 / 手动分配 | F020, F021 | **DONE** |
 | M11 | 网段自定义名称 / 子网掩码 / VLAN（IP 地址范围段元数据扩展） | F022 | **DONE** |
 | M12 | 自动分配指定 IP 地址范围段 | F023 | **DONE** |
+| M13 | 集群概览聚合与搜索结果上下文展示 | F024, F025 | **DRAFT** |
 
 ## M1 — 平台基础可运行 · 状态：DONE
 
@@ -297,6 +305,37 @@ Milestone 按**产品交付能力**划分，不按 Database / Backend / Frontend
 - Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
 **完成情况**：DEC-025 已 RESOLVED，F023 已于 2026-09-22 DONE（merge e234908；Reviewer = APPROVED WITH FOLLOW-UP，无 BLOCKER/HIGH/MEDIUM）；AC-01 ~ AC-20 全 PASS；无数据库变更。M12 DONE。
+
+---
+
+## M13 — 集群概览聚合与搜索结果上下文展示 · 状态：DRAFT
+
+**目标**：按用户裁定（**DEC-026 / DEC-027 部分确认，仍 OPEN**），为集群视角提供节点计数与分类聚合，并扩展搜索结果的
+上下文展示（集群名称 / 主机 IP 或 URL / 绑定的网卡等），复用已交付的 Cluster 视图（F009）与搜索结果聚合（F019），
+不破坏既有状态 / 查询 / 搜索语义。
+
+**部分确认（2026-09-24 用户输入及再确认）**：「节点」**仅 BareMetal**；IP 经绑定 NIC 的 IPAddress、
+URL 来源为已登记的 **Service.url**（服务可绑定裸金属 / VM / 容器）；无可展示的绑定值不展示；多网卡 / 多 IP 分行展示。
+**仍 OPEN**：「可用」定义、分类维度 / 计数范围、「不展示」仅值还是整条主机行（**不得抹掉无 NIC / IP 的主机**）、
+间接 Service URL 是否归属主机、多服务 / IP 与 URL 并存时分行是否重复主机信息 / 与 F019 每资源一行对齐、
+是否改变单列表 / 不统计语义。**M13 状态仍为 DRAFT，未获批准前不得进入实现。**
+
+| ID | Feature | Priority | 状态 | Merge |
+|---|---|---|---|---|
+| F024 | 集群概览聚合与节点分类 | P1 | **DRAFT** | — |
+| F025 | 搜索结果上下文展示扩展 | P1 | **DRAFT** | — |
+
+**进入条件**
+- DEC-026 / DEC-027 由用户裁定为明确结论（含「可用节点」定义 / 分类维度 / 展示字段选择 / 是否改变单列表语义）。
+- Product 在 requirements.md 相应章节新增 / 修订产品规则，F024 / F025 的 scope 与 AC 可定稿并可挂 requirement ID。
+- F001 / F002 / F009 / F019 均已 DONE（已满足）。
+- 若需要变更契约，须按裁定定稿为 READY；不需要时标记 NOT_REQUIRED。F024 / F025 的 layers（纯前端 / 全栈、database）经 Architecture 复核，不预设新 API / Schema。
+
+**完成判据**
+- 交付范围与可判定 AC 经 Product 定稿。
+- 相关契约 READY；无「契约 / 产品规则禁止、实现却有」的分裂。
+- 未认证 → 401；软删资源不出现；不新增 / 不修改任何状态取值、唯一性、大小写或登录语义。
+- Reviewer 批准并成功 merge 到 develop（Git Gate 见 docs/project/git-workflow.md）。
 
 ---
 
