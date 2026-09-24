@@ -1,69 +1,590 @@
 # CSM 项目计划 — Machine-readable Source of Truth
 #
-# 本文件是 CSM **当前**项目状态与范围的权威来源。
-# 人类可读视图（生成后）：
+# 本文件是 CSM V2 项目范围、依赖、优先级与状态的权威来源。
+# 人类可读派生视图（由本文件生成，不独立保存事实）：
 #   - docs/project/backlog.md
 #   - docs/project/dependency-map.md
 #   - docs/project/milestones.md
 #
-# ⚠ 当前状态：CSM V2 计划尚未生成。
-#   - V2 产品需求见 docs/product/requirements-v2.md（Status: DRAFT — AWAITING CONTENT）。
-#   - 在用户提供并确认 V2 需求之前，禁止创建 V2 的 Epic / Feature / Milestone。
+# 规划依据：
+#   - docs/product/requirements-v2.md（DRAFT — DECISIONS RESOLVED, AWAITING FINAL CONFIRMATION）
+#   - docs/product/domain-model.md（DRAFT — DECISIONS APPLIED）
+#   - docs/project/project-state.md、docs/project/git-workflow.md、docs/project/handoff.md
+#
+# 本计划为首次规划，状态 DRAFT，等待用户批准。不得自行批准或启动实施。
 
 project:
   name: CSM
   version: v2
   goal: >
-    CSM V2 独立建设。具体产品目标、范围与规划前提以 docs/product/requirements-v2.md 为准；
-    该文档尚未填写，本计划因此为 incomplete / DRAFT。
+    为 HPC / AI 运维场景提供统一的集群资源登记、查询、维护、关联与状态查看平台，
+    逐步替代分散的 Excel 台账；V2 独立定义需求、领域模型、架构与实现。
   status: DRAFT
   status_changed_on: "2026-09-24"
   approved_by: null
   approved_on: null
   planning_source:
-    primary: docs/product/requirements-v2.md   # DRAFT — AWAITING CONTENT
-    reference:
-      - .pi/prompts/project.md
+    primary: docs/product/requirements-v2.md
+    domain: docs/product/domain-model.md
+    rules:
+      - docs/project/project-state.md
+      - docs/project/git-workflow.md
+      - docs/project/handoff.md
+    workflow: .pi/prompts/project.md
   notes: >
-    V2 计划等待需求输入；仅依据 V2 已确认需求规划，不继承其他版本的 Feature 或完成证据。
-
-# 以下结构待 V2 需求确认后由 /project 生成。
+    首次规划。V2 现有交付证据为空：v2 分支仅脚手架，无已登记 Feature、
+    无架构/API/数据库文档、无实现代码。所有 Feature 均为 P0，覆盖
+    requirements-v2.md §10 全部 41 条验收场景。技术栈、数据库、部署与 API
+    规范尚未批准，进入实现前必须由用户裁定（见 decisions_required）。
 
 scope:
-  included: []
-  excluded: []
+  included:
+    - 集群登记、选择与作为资源归属（含集群聚合计数与搜索作用域展示，BQ-D）
+    - 计算资源统一身份与登记：统一资源列表/详情、类型切换、筛选分页、按名称/IP 搜索
+    - 计算资源一次原子提交：公共信息 + 类型详情 + 全部网卡 + 全部 IP
+    - 计算资源类型详情：裸金属 SN/CPU/内存/GPU 等；VM 宿主/vCPU/内存；宿主反查 VM
+    - 网段管理：CIDR、用途、技术类型、VLAN、网关、自动分配范围、保留地址、逻辑删除
+    - IPv4 手动与自动分配、释放与重用、并发唯一、耗尽处理
+    - 服务与部署实例：跨集群关联、访问入口（按服务 × 集群）、节点角色、双向查询
+    - 统一模糊搜索与下拉交互规范（所有搜索框/单选/多选/枚举）
+    - 角色权限与操作审计（查看者 / 维护者 / 管理员，审计不随逻辑删除消失）
+    - 非功能与可用性基线：服务端分页、时区、状态文字、键盘、横向滚动、并发保护、无半条数据
+  excluded:
+    - 自动发现
+    - 故障告警
+    - Excel/CSV 导入
+    - Excel/CSV 导出
+    - 批量更新
+    - 完整 CMDB 生命周期
+    - DHCP
+    - 自动修改服务器网络配置
+    - VM 自动创建、迁移、启停
+    - 服务自动部署与健康检查
+  excluded_note: >
+    以上为 P0 范围外（requirements-v2.md §3.2），不构成永久排除。
+    requirements-v2.md 未确认任何非 P0 范围，故本计划不登记 P1/P2 Feature，
+    避免在无已确认需求支撑下预建框架。
 
-epics: []
+# --- Epics：产品能力域 ---
+epics:
+  - id: E1
+    title: 集群与全局导航
+    goal: 集群主数据登记、选择与作为资源归属；集群入口聚合概览与搜索作用域。
+    features: [F001, F010]
+  - id: E2
+    title: 计算资源统一身份与登记
+    goal: 裸金属与 VM 共用资源身份，统一列表/详情、一次原子录入、逻辑删除与恢复。
+    features: [F002, F003]
+  - id: E3
+    title: 类型详情与宿主关系
+    goal: 按资源类型维护专有详情；VM 关联同集群有效裸金属宿主并支持双向查询。
+    features: [F004]
+  - id: E4
+    title: 网段与 IPv4 分配
+    goal: 集群多网段维护与 IPv4 手动/自动分配、保留地址与唯一性保障。
+    features: [F005, F006]
+  - id: E5
+    title: 服务与部署实例
+    goal: 服务跨集群关联、访问入口按服务×集群配置、部署实例与节点角色。
+    features: [F007]
+  - id: E6
+    title: 通用检索与下拉
+    goal: 所有搜索框与下拉支持可输入模糊匹配，服务端模糊查询与稳定排序。
+    features: [F008]
+  - id: E7
+    title: 权限、审计与非功能基线
+    goal: 三角色服务端鉴权、操作审计、性能/可靠性与可用性基线。
+    features: [F009, F011]
 
-features: []
+# --- Features ---
+# 每项：id、title、epic、type、goal、scope、out_of_scope、acceptance、
+#       priority、depends_on、blocking_decisions、status、layers、implementation、
+#       contract、git、evidence
+features:
+  - id: F001
+    title: 集群登记与选择
+    epic: E1
+    type: FEATURE
+    goal: 提供集群主数据登记、列表与选择，作为所有资源的归属前提。
+    scope: >
+      集群编号 code、名称、用途的登记与查询；集群列表；集群选择并记住本次选择；
+      集群作为计算资源、网段、服务的归属。
+    out_of_scope: 集群聚合计数与搜索作用域展示（F010）；权限控制（F009）。
+    acceptance:
+      - requirements-v2.md §4.1.1
+      - requirements-v2.md §6.1（集群编号/名称/用途与选择记忆）
+      - requirements-v2.md §10 场景 40（集群切换部分）
+    priority: P0
+    depends_on: []
+    blocking_decisions: []
+    status: BLOCKED
+    layers: {database: true, backend: true, frontend: true}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
 
-decisions_required: []
+  - id: F002
+    title: 计算资源登记与一次原子提交
+    epic: E2
+    type: FEATURE
+    goal: 以一次提交登记/编辑计算资源公共信息、类型详情、全部网卡与 IP，并保证整单原子。
+    scope: >
+      新增/编辑表单；根据资源类型动态切换字段；裸金属与 VM 类型详情表单；
+      网卡卡片与 IP 分配；一次保存公共信息、类型详情、网卡与 IP；
+      编辑时区分删除网卡、删除 IP 与未修改；同集群有效资源名称唯一校验；
+      resource_type 创建后只读；逻辑删除与恢复；改名不改归属。
+    out_of_scope: 列表与筛选分页（F003）；宿主关系与详情展示（F004）；IP 可用性算法（F006）；网段维护（F005）。
+    acceptance:
+      - requirements-v2.md §4.1.2–4.1.5
+      - requirements-v2.md §4.4
+      - requirements-v2.md §4.5
+      - requirements-v2.md §6.4
+      - requirements-v2.md §7.2、§7.3
+      - requirements-v2.md §10 场景 1, 2, 4, 5, 6, 8, 9, 18, 28, 29, 30, 33, 34, 41
+    priority: P0
+    depends_on: [F001]
+    blocking_decisions: [D-Q3, D-STATUS-SOURCE]
+    status: BLOCKED
+    layers: {database: true, backend: true, frontend: true}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
 
-milestones: []
+  - id: F003
+    title: 计算资源统一列表、详情与服务端分页
+    epic: E2
+    type: FEATURE
+    goal: 提供统一资源列表/详情，支持类型切换、条件筛选、按名称/IP 搜索与服务端分页。
+    scope: >
+      统一资源列表（资源名称、集群、类型、状态、CPU/vCPU/内存摘要、管理 IP、更新时间）；
+      全部/裸金属/虚拟机切换；名称与 IP 搜索；类型与状态筛选；服务端分页；
+      默认按资源名称排序；状态含文字；资源详情公共信息展示；首屏确认集群。
+    out_of_scope: 新增与编辑写入（F002）；类型专有详情与宿主关系（F004）；聚合计数（F010）。
+    acceptance:
+      - requirements-v2.md §4.3
+      - requirements-v2.md §6.2、§6.3（公共部分）
+      - requirements-v2.md §9.2、§9.4
+      - requirements-v2.md §10 场景 7, 8, 32, 33
+    priority: P0
+    depends_on: [F002]
+    blocking_decisions: [D-Q3, D-STATUS-SOURCE]
+    status: BLOCKED
+    layers: {database: false, backend: true, frontend: true}
+    implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
 
-existing_work: []
+  - id: F004
+    title: 类型详情与宿主关系
+    epic: E3
+    type: FEATURE
+    goal: 按资源类型维护专有详情，保证 VM 必须关联同集群有效裸金属宿主，并支持双向查询。
+    scope: >
+      裸金属详情（CPU、内存、GPU、SN、其他硬件信息）；VM 详情（vCPU、内存、宿主机）；
+      VM 必须关联同集群有效裸金属资源（不得为 VM 或自身）；宿主机反查 VM；
+      宿主机按名称或已登记 IPv4 模糊查找、多 IP 命中按资源去重、用户显式选择。
+    out_of_scope: 通用字段校验与一次提交（F002）；搜索框通用规范（F008）。
+    acceptance:
+      - requirements-v2.md §4.7
+      - requirements-v2.md §6.3（类型详情）
+      - requirements-v2.md §7.5
+      - requirements-v2.md §10 场景 13, 14, 15, 33, 35, 36
+    priority: P0
+    depends_on: [F002, F008]
+    blocking_decisions: [D-Q3, D-IP-SEMANTICS]
+    status: BLOCKED
+    layers: {database: true, backend: true, frontend: true}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
 
-requirement_coverage: {}
+  - id: F005
+    title: 网段与保留地址管理
+    epic: E4
+    type: FEATURE
+    goal: 维护集群多网段及其属性、自动分配范围和保留地址，并保护被引用网段与已分配 CIDR。
+    scope: >
+      一个集群多个 IPv4 网段；网段名称、规范化 CIDR、用途、技术类型、VLAN、网关、
+      状态（有效/已删除）、自动分配范围、保留地址（单个或范围）；
+      同集群有效网段名称与规范化 CIDR 分别唯一，跨集群允许相同 CIDR；
+      网段重叠风险提示；网段被有效网卡引用时禁止删除；存在已分配 IP 时禁止修改 CIDR；
+      网段带出只读属性（技术、用途、前缀、网关）；已逻辑删除网段禁止新分配。
+    out_of_scope: IP 分配算法与并发（F006）；网卡选择与录入（F002）。
+    acceptance:
+      - requirements-v2.md §4.6
+      - requirements-v2.md §5（网段约束与保留地址）
+      - requirements-v2.md §6.5
+      - requirements-v2.md §7.1
+      - requirements-v2.md §10 场景 10, 11, 12, 26, 27, 28, 29, 30, 31
+    priority: P0
+    depends_on: [F001]
+    blocking_decisions: [D-Q5]
+    status: BLOCKED
+    layers: {database: true, backend: true, frontend: true}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
+
+  - id: F006
+    title: IPv4 手动与自动分配
+    epic: E4
+    type: FEATURE
+    goal: 在同一集群有效网段内支持手动与自动 IPv4 分配，保证唯一性、并发安全与正确释放。
+    scope: >
+      手动分配（含自动分配范围外、网段内可用地址）；自动分配按数值从小到大；
+      不可分配地址排除（同集群已分配、保留、网关、普通网段网络/广播地址）；
+      /31 点到点、/32 单主机；地址耗尽明确提示且不自动切换网段；
+      删除 IP/网卡/资源时释放，恢复前重新检查；未选网段拒绝分配 IP；
+      并发下地址不重复由数据库/后端最终保证；一次请求失败不残留占用。
+    out_of_scope: 网段属性与保留地址维护（F005）；网卡表单结构（F002）。
+    acceptance:
+      - requirements-v2.md §5
+      - requirements-v2.md §9.3
+      - requirements-v2.md §10 场景 1, 3, 4, 9, 11, 14, 19, 20, 21, 22, 23, 24, 25, 26, 27, 31
+    priority: P0
+    depends_on: [F002, F005]
+    blocking_decisions: [D-Q5, D-IP-SEMANTICS]
+    status: BLOCKED
+    layers: {database: true, backend: true, frontend: true}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
+
+  - id: F007
+    title: 服务、部署实例与访问入口
+    epic: E5
+    type: FEATURE
+    goal: 登记服务及其关联集群、按服务×集群配置访问入口，并登记部署实例、角色与监听信息。
+    scope: >
+      服务编号全局唯一；服务名称、类型；服务关联多个集群；
+      访问入口按“服务 × 关联集群”分别维护 VIP/域名/端口；
+      部署实例指向有效计算资源（裸金属或 VM），实例所属集群须在服务关联集群内；
+      实例节点角色与监听地址/端口；双向查询与跳转裸金属/VM。
+    out_of_scope: 服务自动部署与健康检查（P0 范围外）；节点详情与宿主关系（F004）。
+    acceptance:
+      - requirements-v2.md §4.8
+      - requirements-v2.md §6.6
+      - requirements-v2.md §10 场景 16, 17, 18
+    priority: P0
+    depends_on: [F001, F002]
+    blocking_decisions: [D-BQ-E]
+    status: BLOCKED
+    layers: {database: true, backend: true, frontend: true}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
+
+  - id: F008
+    title: 统一模糊搜索与下拉交互
+    epic: E6
+    type: FEATURE
+    goal: 统一所有搜索框与下拉的模糊匹配、服务端查询、排序、防抖与竞态防护，并提交稳定资源 ID。
+    scope: >
+      所有搜索框与单选/多选/关联对象/固定枚举下拉支持直接输入；
+      匹配内容覆盖集群、计算资源/宿主/服务实例目标、网络范围、服务、固定枚举、页面搜索；
+      匹配规则（英文不区分大小写、去首尾空格、完全>前缀>包含、同级按名称与 ID 稳定排序、
+      IPv4 部分匹配、%/_ 按普通字符）；服务端模糊查询与分页；
+      约 300ms 防抖、回车触发、加载状态、旧请求不覆盖新请求、键盘上下/回车/Esc/清空、
+      无结果提示、清空回到初始候选；关联字段最终提交稳定 resource_id，未匹配输入不创建资源。
+    out_of_scope: 各业务对象的领域校验（F002/F004/F005/F007）。
+    acceptance:
+      - requirements-v2.md §8
+      - requirements-v2.md §7.5（搜索下拉部分）
+      - requirements-v2.md §10 场景 35, 36, 37, 38, 39, 41
+    priority: P0
+    depends_on: [F002]
+    blocking_decisions: []
+    status: BLOCKED
+    layers: {database: false, backend: true, frontend: true}
+    implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
+
+  - id: F009
+    title: 角色权限与操作审计
+    epic: E7
+    type: FEATURE
+    goal: 实现查看者/维护者/管理员三角色的服务端鉴权与不随逻辑删除消失的操作审计。
+    scope: >
+      按角色授权（查看者只读、维护者读写、管理员管理）；
+      关键权限在服务端校验；记录新增、编辑、删除的操作者、时间与关键变更；
+      审计日志不随资源逻辑删除而消失；认证接入组织现有方式。
+    out_of_scope: 认证源具体选型与审计保留周期（D-BQ-F，部署阶段裁定）。
+    acceptance:
+      - requirements-v2.md §2.1
+      - requirements-v2.md §9.1
+      - requirements-v2.md §10 场景 40（权限限制部分）
+    priority: P0
+    depends_on: [F001]
+    blocking_decisions: [D-BQ-F]
+    status: BLOCKED
+    layers: {database: true, backend: true, frontend: true}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
+
+  - id: F010
+    title: 集群聚合概览与搜索作用域
+    epic: E1
+    type: FEATURE
+    goal: 提供集群入口的有效主机/VM/网段/服务聚合计数，并在搜索时展示当前集群作用域。
+    scope: >
+      集群入口展示集群编号、名称、用途、有效主机数量、VM 数量、网段数量、服务数量；
+      搜索 IP 时显示当前集群作用域（BQ-D）。
+    out_of_scope: 集群主数据登记与选择（F001）；各资源自身列表与查询（F003/F005/F007）。
+    acceptance:
+      - requirements-v2.md §6.1（聚合计数）
+      - requirements-v2.md §6.2（搜索作用域展示）
+      - requirements-v2.md §0.4（BQ-D）
+      - requirements-v2.md §10 场景 7（部分）、40
+    priority: P0
+    depends_on: [F002, F003, F005, F007]
+    blocking_decisions: []
+    status: BLOCKED
+    layers: {database: false, backend: true, frontend: true}
+    implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
+
+  - id: F011
+    title: 非功能与可用性基线
+    epic: E7
+    type: FEATURE
+    goal: 在约 1000 台/集群基线上落实分页、可靠性与可用性要求，并验证关键并发与原子性场景。
+    scope: >
+      主机/VM/服务/网段列表服务端分页与常用查询能力；
+      一次提交失败不留半条数据、并发地址不重复的端到端验证；
+      错误定位到具体字段与冲突对象；键盘操作；状态含文字；时间显示时区；窄屏表格横向滚动。
+    out_of_scope: 正式延迟目标与备份/恢复演练（D-BQ-F，部署环境测量后确定）。
+    acceptance:
+      - requirements-v2.md §9.2、§9.3、§9.4
+      - requirements-v2.md §10 场景 7, 9, 22, 23, 39
+    priority: P0
+    depends_on: [F002, F003, F006, F008]
+    blocking_decisions: [D-BQ-F]
+    status: BLOCKED
+    layers: {database: false, backend: true, frontend: true}
+    implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    git: null
+    evidence: []
+
+# --- 需要用户裁定的决策 ---
+# 影响所有 Feature 的架构前提，在实现前必须由用户/架构阶段裁定并记录 ADR。
+decisions_required:
+  - id: D-ARCH-STACK
+    kind: ARCHITECTURE
+    status: OPEN
+    question: 后端/前端技术栈、语言、框架与运行时版本。
+    reason: AGENTS.md §2.9 不得默认技术栈；当前无已批准架构决策。
+    required_by: 实现前（所有 Feature）
+    affects: [ALL]
+  - id: D-ARCH-DB
+    kind: ARCHITECTURE
+    status: OPEN
+    question: 数据库选型、约束与 Migration 策略；展示口径与存储口径一致性策略。
+    reason: 唯一性与并发保护需数据库最终保证；domain-model §1 标记 OPEN。
+    required_by: 数据库设计前（F001/F002/F004/F005/F006/F007/F009）
+    affects: [F001, F002, F004, F005, F006, F007, F009]
+  - id: D-ARCH-API
+    kind: ARCHITECTURE
+    status: OPEN
+    question: API 风格、契约规范与错误语义约定。
+    reason: 各 Feature 需要 API Contract 才能实施，当前无批准 Contract。
+    required_by: CONTRACT 阶段前（所有 Feature）
+    affects: [ALL]
+  - id: D-ARCH-DEPLOY
+    kind: ARCHITECTURE
+    status: OPEN
+    question: 部署架构、内网访问与环境拓扑。
+    reason: 需求 §9.1 仅要求内网访问，未确认部署形态。
+    required_by: 实现/部署前
+    affects: [ALL]
+  - id: D-Q3
+    kind: PRODUCT
+    status: OPEN
+    question: 裸金属 CPU/内存/GPU/SN、VM vCPU/内存等专有属性的必填范围。
+    reason: requirements §1.3、§11.2 Q3；domain-model §7。
+    required_by: 类型详情实现前
+    affects: [F002, F003, F004]
+  - id: D-Q5
+    kind: PRODUCT
+    status: OPEN
+    question: 同集群网段重叠仅提示风险还是禁止写入（当前暂定仅提示）。
+    reason: requirements §4.6.5、§11.2 Q5（PROPOSED）。
+    required_by: 网段/IP 写校验实现前
+    affects: [F005, F006]
+  - id: D-STATUS-SOURCE
+    kind: PRODUCT
+    status: OPEN
+    question: 计算资源“状态来源”的具体语义——记录操作者还是来源系统。
+    reason: requirements §4.3、domain-model §4。
+    required_by: 状态展示实现前
+    affects: [F002, F003]
+  - id: D-IP-SEMANTICS
+    kind: PRODUCT
+    status: OPEN
+    question: IP 实体语义细节（归属表达、历史/释放表达）。
+    reason: domain-model §2 标记 IP 语义细节 OPEN。
+    required_by: IP/宿主关系实现前
+    affects: [F004, F006]
+  - id: D-BQ-E
+    kind: PRODUCT
+    status: OPEN
+    question: “服务类型”“节点角色”是否为受控枚举及其取值集。
+    reason: requirements §11.2 BQ-E。
+    required_by: 服务页与实例实现前
+    affects: [F007]
+  - id: D-BQ-F
+    kind: PRODUCT
+    status: OPEN
+    question: 认证源、审计保留周期、备份与恢复演练、正式延迟目标（部署阶段裁定）。
+    reason: requirements §2.1、§9.1–§9.3、§11.2 BQ-F。
+    required_by: 权限审计与非功能验收前
+    affects: [F009, F011]
+
+# --- Milestones：按产品可交付能力组织 ---
+milestones:
+  - id: M1
+    title: 集群与计算资源基础台账
+    goal: 打通集群登记、计算资源一次录入、统一列表与详情，可替代核心 Excel 台账。
+    features: [F001, F002, F003]
+    exit_criteria: requirements-v2.md §10 场景 1–9、32–34 通过；一次提交原子性与名称唯一生效。
+  - id: M2
+    title: 网段与 IPv4 分配台账
+    goal: 集群多网段维护、保留地址与 IPv4 手动/自动分配闭环。
+    features: [F005, F006]
+    exit_criteria: requirements-v2.md §10 场景 10–12、19–31 通过；并发与耗尽场景在基线环境验证。
+  - id: M3
+    title: 类型详情、宿主关系与服务部署
+    goal: 打通裸金属/VM 专有详情、宿主双向关系与服务部署实例关联。
+    features: [F004, F007]
+    exit_criteria: requirements-v2.md §10 场景 13–18、35–36 通过；VM 宿主约束与服务集群约束生效。
+  - id: M4
+    title: 统一检索、权限审计与集群聚合
+    goal: 落实全量模糊搜索规范、三角色服务端鉴权审计与集群聚合概览。
+    features: [F008, F009, F010]
+    exit_criteria: requirements-v2.md §10 场景 37–41 通过；§8、§9.1 生效。
+  - id: M5
+    title: 非功能与可用性基线
+    goal: 在约 1000 台/集群基线上验证分页、可靠性、原子性与可用性要求。
+    features: [F011]
+    exit_criteria: requirements-v2.md §9.2–§9.4 与场景 7、9、22、23、39 通过。
+
+existing_work:
+  - area: V2 交付证据
+    status: NONE
+    note: >
+      首次规划时 V2 无已登记 Feature、无架构/API/数据库文档、无实现代码、
+      无提交/测试/Review/合并证据。v2 分支仅脚手架，不作为任何 Feature 完成依据。
+
+# --- 需求覆盖核对 ---
+requirement_coverage:
+  rule_sections:
+    "§4.1 集群与计算资源": [F001, F002]
+    "§4.2 网卡与 IP": [F002, F005, F006]
+    "§4.3 计算资源状态": [F002, F003]
+    "§4.4 删除与恢复": [F002]
+    "§4.5 一次提交": [F002]
+    "§4.6 网段": [F005]
+    "§4.7 VM": [F004]
+    "§4.8 服务": [F007]
+    "§5 IPv4 分配规则": [F005, F006]
+    "§6.1 集群入口": [F001, F010]
+    "§6.2 计算资源列表": [F003, F010]
+    "§6.3 资源详情": [F003, F004]
+    "§6.4 新增/编辑": [F002]
+    "§6.5 网段页面": [F005]
+    "§6.6 服务页面": [F007]
+    "§7.1 网卡/IP 录入顺序": [F002, F005]
+    "§7.2 校验": [F002, F008]
+    "§7.3 错误提示": [F002, F006, F011]
+    "§7.4 网段切换": [F002, F005]
+    "§7.5 VM 宿主机选择": [F004, F008]
+    "§8.1 支持匹配内容": [F008]
+    "§8.2 匹配规则": [F008]
+    "§8.3 交互": [F008, F011]
+    "§9.1 安全": [F009]
+    "§9.2 性能": [F003, F011]
+    "§9.3 可靠性": [F002, F006, F011]
+    "§9.4 可用性": [F003, F008, F011]
+  scenarios:
+    "1": [F002, F006]
+    "2": [F002]
+    "3": [F002, F006]
+    "4": [F002, F006]
+    "5": [F002]
+    "6": [F002]
+    "7": [F003, F010, F011]
+    "8": [F002, F003]
+    "9": [F002, F006]
+    "10": [F005]
+    "11": [F005, F006]
+    "12": [F005]
+    "13": [F002, F004]
+    "14": [F004, F006]
+    "15": [F004]
+    "16": [F007]
+    "17": [F007]
+    "18": [F002, F007]
+    "19": [F006]
+    "20": [F006]
+    "21": [F006]
+    "22": [F006, F011]
+    "23": [F006, F011]
+    "24": [F006]
+    "25": [F006]
+    "26": [F005, F006]
+    "27": [F005, F006]
+    "28": [F002, F005]
+    "29": [F002, F005]
+    "30": [F002, F005]
+    "31": [F005, F006]
+    "32": [F003]
+    "33": [F002, F003, F004]
+    "34": [F002]
+    "35": [F004, F008]
+    "36": [F004, F008]
+    "37": [F008]
+    "38": [F008]
+    "39": [F008, F011]
+    "40": [F001, F009, F010]
+    "41": [F002, F008]
+  gaps: []
 
 planning_status:
-  plan_completeness: incomplete
+  plan_completeness: complete
   status: DRAFT
   ready_features: []
   blocked_draft_features:
-    BLOCKED: []
+    BLOCKED: [F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F011]
     DRAFT: []
   counts:
     READY: 0
     IN_PROGRESS: 0
-    BLOCKED: 0
+    BLOCKED: 11
     DRAFT: 0
     DONE: 0
     CANCELLED: 0
   note: >
-    本计划尚未生成 Feature，所有计数仅表示 V2 状态。
+    plan_completeness=complete 表示本计划已覆盖 requirements-v2.md 已确认范围与
+    §10 全部 41 条验收场景；计划本身仍为 DRAFT，等待用户批准。
+    全部 Feature 标记 BLOCKED：`depends_on` 尚未 DONE，且技术栈/数据库/API/部署等
+    架构前提未批准（见 D-ARCH-*），在用户裁定前不具备实施前提。
+    批准后由协调器按 project-state.md 重算 Feature 状态并解锁。
 
 execution:
   current_feature: null
   current_stage: null
   note: >
-    V2 尚未启动任何 Feature。
+    尚未启动任何 Feature。执行检查点为空，无需保留旧检查点。
