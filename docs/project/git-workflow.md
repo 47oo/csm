@@ -11,6 +11,17 @@ Git 是 CSM 正式开发流程的一部分：`docs/project/project-plan.yaml` �
 仓库初始化、master 改名及现有修改归档应单独确认；不得为通过 Gate 自动提交未知改动。
 达到明确版本或 Milestone 后，由独立且明确授权的 Release 流程将 develop 合并到 main。本工作流不自动 push、打 tag 或发布。
 
+### 1.1 已冻结版本与 v2 重构（2026-09-24 起）
+
+CSM V1 已作为演示版本冻结，并已启动大跨度重构（v2）。版本线职责如下，版本边界记录见 `docs/project/releases.md`：
+
+* `main`：稳定版本线；V1 期间止于 `v1.0.0-demo`。
+* `release/v1`：V1 冻结分支，只读参考 / 紧急修复。
+* `v2`：重构集成线，后续 Feature 从此创建。
+* `develop`：V1 旧集成分支，已与 `main` 对齐，后续由 `v2` 取代。
+
+V2 的 Feature 计划应重新立项，不与 V1 的 `project-plan.yaml` 状态混用。
+
 ## 2. Feature 开始与恢复
 
 新 Feature 开始前检查 Git 状态（含暂存区和未跟踪文件），要求工作区 clean，无进行中的 merge/rebase 等操作，再从 develop 创建分支并记录起始 Commit。

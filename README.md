@@ -4,6 +4,7 @@
 
 CSM **不以建设完整 CMDB 为目标**；具体产品范围与业务规则以 `docs/product/` 中已确认的文档为准。
 
+> **版本状态（2026-09-24）**：CSM V1 已冻结为演示版本 **`v1.0.0-demo`**（tag 指向 `563eda3`，冻结分支 `release/v1`）；后续为 v2 大跨度重构，开发在 `v2` 分支进行。版本边界见 `docs/project/releases.md`，分支职责见 `docs/project/git-workflow.md` §1.1。
 > 当前里程碑：**F007 — Container 资源模型与登记**（继承 F012 基座、F001 Cluster、F009 视角、F013 认证、F014 软删、F002 BareMetal、F006 VirtualMachine、F004 NetworkInterface、F005 IPAddress）。
 > 已交付 F012 基座、F001 Cluster 的 5 个产品端点、F009 Cluster 视角只读别名、F013 认证、
 > F002 BareMetal 的 5 个产品端点、F006 VirtualMachine 的 5 个产品端点、F004 NetworkInterface
