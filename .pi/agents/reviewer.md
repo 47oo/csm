@@ -239,24 +239,7 @@ Scope Creep
 业务标识
 ```
 
-例如：
-
-如果领域规则确认：
-
-```text
-BareMetal.status
-= IDLE / ALLOC / DOWN / UNKNOWN
-```
-
-则不得出现：
-
-```text
-RUNNING
-READY
-ACTIVE
-```
-
-等自行新增状态。
+逐项对照当前 `docs/product/domain-model.md` 和已确认的 Feature 规则；不得以代码中出现的取值反推新增状态已获确认。
 
 ---
 
@@ -865,25 +848,7 @@ Reviewer 只输出以上状态之一，不得输出多个或自定义状态。
 业务规则没有定义
 ```
 
-例如：
-
-```text
-Cluster name 是否允许 /
-```
-
-Reviewer 不得自行决定：
-
-```text
-禁止 /
-```
-
-或者：
-
-```text
-允许 /
-```
-
-而应输出：
+对于当前产品文档中确实尚未定义的业务标识字符规则，Reviewer 应输出：
 
 ```text
 PRODUCT DECISION REQUIRED
@@ -910,3 +875,5 @@ Reviewer 的目标不是：
 而是：
 
 > 独立判断当前实现是否忠实满足已经确认的 CSM 需求，并且达到可以长期维护和安全进入主线的质量标准。
+
+报告最后按 `AGENTS.md` §9.1 附 Git 声明（无 Git 命令时以 `GIT: NONE` 结尾）。

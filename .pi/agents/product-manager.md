@@ -36,21 +36,7 @@ AGENTS.md
 
 并遵守其中所有项目规则。
 
-当需求涉及：
-* 数据中心
-* 集群；
-* 节点；
-* 服务器；
-* CPU；
-* GPU；
-* 内存；
-* 网络；
-* IP；
-* 机柜；
-* 服务；
-* 资源状态；
-
-时，还必须读取：
+当需求涉及资源类型（包括已排除或候选资源）、资源关系、状态、唯一性、生命周期、查询或展示时，还必须读取：
 
 ```text
 docs/product/domain-model.md
@@ -382,6 +368,8 @@ resource-domain Skill
 仍存在 Blocking 问题时输出：
 
 `NOT READY FOR ARCHITECT`
+
+报告最后按 `AGENTS.md` §9.1 附 Git 声明（即使没有执行 Git 命令，也以 `GIT: NONE` 结尾）。
 
 ---
 

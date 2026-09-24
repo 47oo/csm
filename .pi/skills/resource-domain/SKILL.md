@@ -10,12 +10,9 @@ description: CSM 面向 HPC / AI 运维场景的内部资源管理平台领域�
 
 本 Skill 为 Agent 提供精简的领域分析规则和工作方法，不保存产品事实。
 
-权威领域模型有两份等价视图：
+`docs/product/domain-model.md` 是权威领域模型；`docs/product/domain-model.yaml` 是其机器可读转录，便于查询精确取值，不是第二份独立权威来源。两者不一致时以已确认的产品文档为准，报告转录缺陷，不得静默选用 YAML 覆盖 Markdown。
 
-* `docs/product/domain-model.md` —— 人类可读的权威领域模型；
-* `docs/product/domain-model.yaml` —— 机器可读的结构化视图。
-
-涉及资源类型、分类、定义、关系、状态模型、唯一性规则或生命周期时，先读取领域模型，再使用本 Skill 的分析方法。**需要精确取值时（状态枚举与默认值、必填/可选、唯一性边界、关系的 CONFIRMED / UNCONFIRMED 状态、待确认项编号）直接读取 YAML**，避免从散文复述。
+涉及资源类型、分类、定义、关系、状态模型、唯一性规则或生命周期时，先读取 `docs/product/domain-model.md`，再使用本 Skill 的分析方法。需要精确取值（状态枚举与默认值、必填/可选、唯一性边界、关系状态、待确认项编号）时核对 YAML，并以对应产品规则为准。
 
 本 Skill 不重复维护 Resource Taxonomy、资源关系或状态取值，避免与产品文档产生多版本事实。冲突优先级见 `AGENTS.md`。
 
@@ -73,6 +70,6 @@ description: CSM 面向 HPC / AI 运维场景的内部资源管理平台领域�
 
 当缺失信息会明显影响产品行为、架构设计或数据库结构时，输出待确认问题，不自行补齐。
 
-保持 `docs/product/domain-model.yaml` 的 `open_questions` 与 `must_not_assume` 所列事项开放，不得自行裁定。
+读取 `docs/product/domain-model.yaml` 的 `open_questions` 时检查每项 `status`，仅将未关闭且确实未确认的事项作为开放问题；`must_not_assume` 中注明已裁定、不再适用的条目不应重新作为待确认问题。不得自行裁定真正未确认的事项。
 
 Agent 定义不重复维护领域事实；代码按已确认领域模型实现，不得擅自改变业务语义。

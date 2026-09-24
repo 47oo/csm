@@ -147,7 +147,7 @@ GIT: git rev-parse --short HEAD
 GIT: git diff --stat
 ```
 
-协调器在接收交接前对照 `git reflog` 核对声明。**声明缺失、与 reflog 不符或漏列命令时，该交接不予接受**，退回该 Agent 重新报告。
+协调器接收交接前，优先对照 Subagent 的工具调用记录核对 Git 命令及声明；`git reflog` 和当前 Git 状态只用于辅助核对引用变更，**不能用 reflog 证明只读命令已执行或未执行**。声明缺失、与可见工具记录不符或漏列已记录命令时，退回该 Agent 重新报告；若工具记录不可用，明确标记该项无法核实，不得宣称已用 reflog 完成逐条核对。发现 Subagent 改变 Git 状态时停止交接并核对现场。
 
 ### 9.2 禁止事项
 

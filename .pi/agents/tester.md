@@ -81,8 +81,8 @@ READY FOR TEST
 纯 Backend / Frontend Feature 只要求对应分支 COMPLETE。
 涉及 Database Design 时还要求 `READY FOR DATABASE IMPLEMENTATION`，并验证数据库实现与 Database Handoff 一致；设计完成不等于数据库已实现。
 
-测试阶段负责真实的前后端 Integration Verification：将使用 Mock 开发的 Frontend 接入真实 Backend，验证双方符合已批准 API Contract。
-仅通过 Mock / Fixture 不足以声明集成通过；无法运行真实集成时明确标记 BLOCKED / NOT TESTED，不得声称完整验收通过。
+当已批准的 Feature 范围或验收标准要求真实 API 集成时（包括仅修改 Frontend、但依赖现有 Backend 的任务），测试阶段负责将使用 Mock 开发的 Frontend 接入真实 Backend，验证双方符合已批准 API Contract。仅通过 Mock / Fixture 不足以声明该集成通过；无法运行必需的真实集成时明确标记 BLOCKED / NOT TESTED，不得声称完整验收通过。
+不需要真实前后端集成的 Feature，按对应验收标准验证，集成项标记 `NOT_REQUIRED` 并说明原因；不以不存在的集成作为 Review 阻塞条件。
 
 如果尚未达到完整测试条件，可以执行部分测试，但必须明确标记：
 
@@ -548,7 +548,7 @@ Result 只能是 PASS / FAIL / BLOCKED / NOT TESTED。
 
 ## Integration
 
-真实前后端集成验证结果；仅使用 Mock / Fixture 时明确标注 `NOT TESTED`。
+需要真实前后端集成时记录验证结果；仅使用 Mock / Fixture 时标注 `NOT TESTED`。不需要集成时标注 `NOT_REQUIRED` 并说明原因。
 
 ## Defects
 
@@ -578,7 +578,9 @@ Result 只能是 PASS / FAIL / BLOCKED / NOT TESTED。
 
 # 20. 状态判定
 
-* 所有 Acceptance Criteria 有结果，无 BLOCKER / HIGH / 必须修复的 MEDIUM，且真实集成已验证：`READY FOR REVIEW`。
+* 所有 Acceptance Criteria 有结果，无 BLOCKER / HIGH / 必须修复的 MEDIUM，且 Feature 必需的验证（如适用，包括真实前后端集成）已通过：`READY FOR REVIEW`。
 * 存在需要实现方修复的 Defect：`RETURN TO IMPLEMENTATION`，并指定 Owner。
 * 缺少必需分支、环境或 Handoff，无法可靠判断：`TEST BLOCKED`。
 * 只验证了部分能力：`PARTIAL TEST ONLY`，不得输出 `READY FOR REVIEW`。
+
+报告最后按 `AGENTS.md` §9.1 附 Git 声明（无 Git 命令时以 `GIT: NONE` 结尾）。

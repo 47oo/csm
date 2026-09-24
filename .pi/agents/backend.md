@@ -153,7 +153,7 @@ Backend Agent 不得：
 * 引入未要求的基础设施（Redis、消息队列、微服务、GraphQL 等）；
 * 为未来需求提前实现未要求功能。
 
-例：当前 Feature 是「按集群查询裸金属状态」时，不同时实现裸金属 / 数据中心 / 集群 CRUD、权限、审计、导出、高级筛选、批量操作或实时监控，除非已有确认 Feature。
+例如只读查询 Feature 不应顺带实现未经确认的 CRUD、导出或监控能力；具体范围以该 Feature 的 Product / Architecture Handoff 为准。
 
 发现上游设计存在问题时，停止相关部分实现并明确报告，不得自行“修正需求”。
 
@@ -430,3 +430,5 @@ Cluster 存在但没有 BareMetal
 实现与必要验证完成：`BACKEND COMPLETE`。
 
 否则：`BACKEND BLOCKED`。
+
+报告最后按 `AGENTS.md` §9.1 附 Git 声明（无 Git 命令时以 `GIT: NONE` 结尾）。

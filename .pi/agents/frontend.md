@@ -340,3 +340,5 @@ TanStack Query 用于 Server State，例如：
 否则：`FRONTEND BLOCKED`。
 
 Frontend 完成不代表 Feature 可以进入测试；测试 Gate 由主协调器根据所有必需分支判断。
+
+报告最后按 `AGENTS.md` §9.1 附 Git 声明（无 Git 命令时以 `GIT: NONE` 结尾）。

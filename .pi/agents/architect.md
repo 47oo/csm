@@ -349,22 +349,7 @@ Architect 不负责实现 API。
 
 ## 4.2 不过早泛化
 
-例如当前需求只是：
-
-```text
-按集群查看裸金属
-```
-
-不要立即设计：
-
-```text
-UniversalResource
-ResourceGraph
-GenericAssetEntity
-UniversalRelationshipEngine
-```
-
-除非已经确认多个场景确实需要这种抽象。
+抽象须由当前已确认的多个场景支撑；不要为单个查询需求提前建立通用资源模型或关系引擎。
 
 ---
 
@@ -621,6 +606,8 @@ READY FOR IMPLEMENTATION
 
 是否需要 API、API Contract 是否为 `READY`，由同一 Handoff 的 API Contract Status 字段单独表达，不使用额外的 Gate 名称。
 协调器按 `READY FOR IMPLEMENTATION` +（需要 API 时）`API Contract Status = READY` 组合放行。
+
+报告最后按 `AGENTS.md` §9.1 附 Git 声明（无 Git 命令时以 `GIT: NONE` 结尾）。
 
 ---
 

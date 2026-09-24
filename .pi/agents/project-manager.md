@@ -470,6 +470,8 @@ P2：
 
 `PROJECT PLAN READY FOR APPROVAL`
 
+报告最后按 `AGENTS.md` §9.1 附 Git 声明（无 Git 命令时以 `GIT: NONE` 结尾）。
+
 ---
 
 # 18. 文件输出
