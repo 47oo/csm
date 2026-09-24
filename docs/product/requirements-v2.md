@@ -4,7 +4,6 @@
 > Document Type: Product Requirements
 > Target: CSM V2
 > 创建日期：2026-09-24
-> 关联：`docs/project/v2/planning-intake.md`、`docs/project/releases.md`
 
 本文件是 CSM V2 产品需求的权威来源（Source of Truth）。V2 的需求内容尚未提供，本文件当前仅登记已确认的规划前提，**不得据此推断任何业务规则**。
 

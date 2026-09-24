@@ -67,8 +67,6 @@ CSM 的权威领域模型位于：
 
 同一份详细信息只维护一个权威来源，其他位置通过引用使用。
 
-完整目录职责见 `docs/project/repository-structure.md`。
-
 ---
 
 ## 5. 变更纪律

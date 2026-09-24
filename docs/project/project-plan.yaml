@@ -10,7 +10,6 @@
 #   - V1 计划已冻结，完整保留在 release/v1 分支与 tag v1.0.0-demo（v2 分支内不保留副本）。
 #   - V2 产品需求见 docs/product/requirements-v2.md（Status: DRAFT — AWAITING CONTENT）。
 #   - 在用户提供并确认 V2 需求之前，禁止创建 V2 的 Epic / Feature / Milestone。
-#   - 规划入口与前置条件见 docs/project/v2/planning-intake.md。
 
 project:
   name: CSM
@@ -27,8 +26,6 @@ project:
     primary: docs/product/requirements-v2.md   # DRAFT — AWAITING CONTENT
     v1_archive: "release/v1 (tag v1.0.0-demo, docs/project/project-plan.yaml)"
     reference:
-      - docs/project/v2/planning-intake.md
-      - docs/project/releases.md
       - .pi/prompts/project.md
   notes: >
     V2 计划等待需求输入。已确认前提：① V2 领域与范围都变；② 需求独立新建；

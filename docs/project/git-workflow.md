@@ -13,7 +13,7 @@ Git 是 CSM 正式开发流程的一部分：`docs/project/project-plan.yaml` �
 
 ### 1.1 已冻结版本与 v2 重构（2026-09-24 起）
 
-CSM V1 已作为演示版本冻结，并已启动大跨度重构（v2）。版本线职责如下，版本边界记录见 `docs/project/releases.md`：
+CSM V1 已作为演示版本冻结，并已启动大跨度重构（v2）。版本线职责如下：
 
 * `main`：稳定版本线；V1 期间止于 `v1.0.0-demo`。
 * `release/v1`：V1 冻结分支，只读参考 / 紧急修复。
