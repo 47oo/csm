@@ -1,10 +1,10 @@
-# CSM V2 计划 revision 7 候选（完整待审批提案）
+# CSM V2 计划 revision 7 提案（已批准落稿，归档）
 
-> Status: **CANDIDATE revision 7 — READY FOR APPROVAL**（第二轮 RV7-01…RV7-07 与第三轮 RV7R3-01…RV7R3-09 已逐条处置，自检与拓扑核对已完成；候选完整，供用户批准；未自行批准、未落稿）
-> Document Type: Project Plan Change Proposal
+> Status: **ARCHIVED — 已批准落稿（revision 7，2026-09-25）**。本文件为 revision 7 的完整变更提案，经用户明确“批准 revision 7”，已由协调器落稿到 `docs/project/project-plan.yaml`（revision 7 `ACCEPTED`，落稿提交 `4bb37ad`）并同步三份派生视图；本文件保留作历史追溯，**不再是待审批候选，也不代表机器状态**（第二轮 RV7-01…RV7-07 与第三轮 RV7R3-01…RV7R3-09 的处置记录仍保留于 §0.1）。
+> Document Type: Project Plan Change Proposal (Archived)
 > Basis: `docs/product/requirements-v2.md`（BQ-M–BQ-U 已确认，§10 场景 **1–71**）与 `docs/product/domain-model.md`
-> 本文件是**待用户批准的项目计划候选**，不是项目机器状态。唯一机器状态来源仍是 `docs/project/project-plan.yaml`（revision 6，`ACCEPTED`，2026-09-24，批准提交 `350870fcb6ddf79bd9a57f43c6b14fc2e5a903b0`）。
-> 本提案**不修改** `project-plan.yaml`、`backlog.md`、`dependency-map.md`、`milestones.md`，不写入任何 `git`/`evidence`/Test/Review/DONE 证据，也不自行启动实施。revision 6 执行基线不被静默覆盖；revision 7 仅在用户单独批准后由协调器落稿。
+> 机器状态唯一来源为 `docs/project/project-plan.yaml`（revision 7，`ACCEPTED`，2026-09-25，落稿提交 `4bb37ad`）；派生视图见 `docs/project/backlog.md`、`docs/project/dependency-map.md`、`docs/project/milestones.md`。
+> 本文件**不写入**任何 `git`/`evidence`/Test/Review/DONE 证据，也不启动实施；执行检查点保持为空。后续需求或范围变化须按项目流程重新规划并对“已批准范围的变化”单独审批。
 
 ---
 
