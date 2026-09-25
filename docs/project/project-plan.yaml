@@ -826,17 +826,17 @@ features:
     depends_on: []
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: ARCHITECTURE
-    last_result: 已创建分支 feature/F013-user-role-management（start_commit e699921）；Product 复用已记录（requirements-v2.md §2.1/§3.1/§4.9/§9.1、§10 场景 72–81，依据 BQ-V/BQ-W，无 Blocking Questions）
-    next_action: 调用 Architect 产出 F013 架构与 API Contract（docs/architecture/、docs/api/F013.md），要求 READY FOR IMPLEMENTATION 且 Contract READY
+    current_stage: DATABASE
+    last_result: Architecture READY FOR IMPLEMENTATION（docs/architecture/F013-user-role-management.md）；Contract READY（docs/api/F013.md，依据 ADR-003）
+    next_action: Database 数据设计（users/user_credentials/sessions/reserved_usernames/audit_log + 初始化建表），要求 READY FOR DATABASE IMPLEMENTATION
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    contract: {status: READY, doc: docs/api/F013.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F013-user-role-management
       start_commit: e6999213a54eb2cab4f1b4f420c6e2a4158fe60f
-      head_commit: null
+      head_commit: 16197f0
       merge_commit: null
     evidence: []
 
@@ -2147,7 +2147,7 @@ planning_status:
 
 execution:
   current_feature: F013
-  current_stage: ARCHITECTURE
+  current_stage: DATABASE
   note: >
-    F013「用户与角色管理」已启动（分支 feature/F013-user-role-management，start_commit e699921）。
-    Product 复用已记录；进行 ARCHITECTURE（Architect 产出架构与 API Contract）。
+    F013「用户与角色管理」进行中（分支 feature/F013-user-role-management，start_commit e699921）。
+    Architecture 与 Contract 已完成；进行 DATABASE 设计。
