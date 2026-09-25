@@ -827,19 +827,20 @@ features:
     depends_on: []
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: IMPLEMENTATION
-    last_result: Backend COMPLETE（backend/，容器内真实 PostgreSQL 集成测试 39 passed；协调器独立复跑通过）
-    next_action: Frontend 实现（登录/改密/用户管理/路由守卫/错误映射），随后 Test → Review
+    current_stage: REVIEW
+    last_result: Tester READY FOR REVIEW（场景 72–81 全 PASS；后端 39 + 前端 82 测试通过；独立探针通过）
+    next_action: Reviewer 独立 Review（候选 HEAD 206261e）；并待用户裁定 F013-T-02（最后启用 admin 改角色是否需保护）
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
     contract: {status: READY, doc: docs/api/F013.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F013-user-role-management
       start_commit: e6999213a54eb2cab4f1b4f420c6e2a4158fe60f
-      head_commit: d25e222
+      head_commit: 206261e
       merge_commit: null
-    evidence: []
+    evidence:
+      - docs/project/reports/F013-test-report.md
 
 # --- 需要用户裁定的决策 ---
 # 影响 Feature 的架构/产品前提，在对应阶段前必须由用户或架构阶段裁定并记录。
@@ -2162,7 +2163,8 @@ planning_status:
 
 execution:
   current_feature: F013
-  current_stage: IMPLEMENTATION
+  current_stage: REVIEW
   note: >
     F013「用户与角色管理」进行中（分支 feature/F013-user-role-management，start_commit e699921）。
-    Architecture/Contract/Database Design 已完成；进行 Backend/Frontend 实现。
+    Backend/Frontend 完成、Tester READY FOR REVIEW；进行 REVIEW（候选 HEAD 206261e）。
+    F013-T-02（最后启用 admin 可被改角色致无管理员）待用户裁定。
