@@ -1,21 +1,21 @@
 # CSM V2 Backlog（派生视图）
 
 > 本文件由 `docs/project/project-plan.yaml` 派生，不独立保存事实。若与计划冲突，以计划为准。
-> 计划状态：**ACCEPTED — 用户已批准 revision 9（2026-09-25）**；revision 9 依据 BQ-W 关闭 D-NAME-COMPARISON 与 D-RESOURCE-HISTORY 并将 F013 重算为 READY；产品需求整体仍为 DRAFT，实施门禁独立适用。全部 Feature 为 P0。
+> 计划状态：**IN_PROGRESS — revision 9（2026-09-25，已批准）**；F013 已启动实施（分支 `feature/F013-user-role-management`）；产品需求整体仍为 DRAFT，实施门禁独立适用。全部 Feature 为 P0。
 
 ## 概览
 
 | 计数 | 值 |
 | --- | --- |
 | Feature 总数 | 13 |
-| READY | 1 |
+| READY | 0 |
 | BLOCKED | 12 |
 | DRAFT | 0 |
-| IN_PROGRESS | 0 |
+| IN_PROGRESS | 1 |
 | IN_REVIEW | 0 |
 | DONE | 0 |
 
-F013 当前为 `READY`（`depends_on=[]` 且 `blocking_decisions=[]`），其余 Feature 仍为 `BLOCKED`：`depends_on` 尚未 DONE，或仍存在 OPEN 决策；此外架构/契约文档尚未产出（D-ARCH-* 已 RESOLVED，affects=ALL，但契约文档待产出）。计划批准与 READY 均不等于需求最终签核、实施授权或 Feature DONE；门禁满足后由协调器核对证据并重算状态。
+F013 当前为 `IN_PROGRESS`（已启动，分支 `feature/F013-user-role-management`），其余 Feature 仍为 `BLOCKED`：`depends_on` 尚未 DONE，或仍存在 OPEN 决策。计划批准与启动均不等于需求最终签核或 Feature DONE；门禁满足后由协调器核对证据并重算状态。
 需求覆盖：requirements-v2.md §10 全部 81 条验收场景（BQ-M–BQ-W），`requirement_coverage.gaps` 为空；每条场景均有 `closure_owner`（闭环归属）。
 
 ## Backlog
@@ -24,7 +24,7 @@ F013 当前为 `READY`（`depends_on=[]` 且 `blocking_decisions=[]`），其余
 
 | ID | 能力 | Epic | 优先级 | 状态 | 依赖 | 阻塞决策 | 需求来源 | 主要验收（闭环） |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| F013 | 用户与角色管理 | E8 | P0 | READY | — | — | §2.1（认证源＝平台自建；统一三角色）；§3.1（用户与角色管理模块）；§4.9（用户与角色管理）；§9.1（登录/会话/口令与用户管理审计） | 72、73、74、75、76、77、78、79、80、81 |
+| F013 | 用户与角色管理 | E8 | P0 | IN_PROGRESS | — | — | §2.1（认证源＝平台自建；统一三角色）；§3.1（用户与角色管理模块）；§4.9（用户与角色管理）；§9.1（登录/会话/口令与用户管理审计） | 72、73、74、75、76、77、78、79、80、81 |
 | F001 | 集群登记、身份、真实删除保护与集群本体权限审计 | E1 | P0 | BLOCKED | F013 | D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES | §4.1.1、§4.1.6–4.1.9；§6.1（集群编号/名称/用途/选择记忆）；§4.4（集群真实删除与资源历史保留）；§2.1、§9.1（集群本体三角色服务端鉴权与操作审计） | 71 |
 | F002 | 计算资源登记、无 IP 网卡与一次原子提交基础 | E2 | P0 | BLOCKED | F001、F005 | D-STATUS-SOURCE、D-IP-SEMANTICS、D-DELETE-DEPENDENCIES、D-DELETE-CONFIRMATION | §2.2（已登记资源补充/新增网卡路径）；§4.1.2–4.1.5、§4.1.8、§4.1.10；§4.2.4、§4.2.5；§4.4（计算资源真实删除与网卡/IP 子项先删）；§4.5（公共信息与网卡的整单原子）；§6.4（表单结构、网卡卡片与网段选择）；§7.2、§7.3、§7.4（公共/网卡部分）；§2.1、§9.1（本对象服务端三角色鉴权与操作审计） | 28、29、34、47、50 |
 | F003 | 计算资源统一列表、详情与服务端分页 | E2 | P0 | BLOCKED | F002、F006 | D-STATUS-SOURCE | §4.3（状态展示）；§6.2（列表公共列、类型切换、筛选、分页、当前集群作用域与 IP 搜索）；§6.3（公共详情）；§9.2、§9.4 | 8、32 |

@@ -22,7 +22,7 @@ project:
   goal: >
     为 HPC / AI 运维场景提供统一的集群资源登记、查询、维护、关联与状态查看平台，
     逐步替代分散的 Excel 台账；V2 独立定义需求、领域模型、架构与实现。
-  status: ACCEPTED
+  status: IN_PROGRESS
   status_changed_on: "2026-09-25"
   plan_revision: 9
   last_planned_on: "2026-09-25"
@@ -825,11 +825,19 @@ features:
     priority: P0
     depends_on: []
     blocking_decisions: []
-    status: READY
+    status: IN_PROGRESS
+    current_stage: ARCHITECTURE
+    last_result: 已创建分支 feature/F013-user-role-management（start_commit e699921）；Product 复用已记录（requirements-v2.md §2.1/§3.1/§4.9/§9.1、§10 场景 72–81，依据 BQ-V/BQ-W，无 Blocking Questions）
+    next_action: 调用 Architect 产出 F013 架构与 API Contract（docs/architecture/、docs/api/F013.md），要求 READY FOR IMPLEMENTATION 且 Contract READY
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
-    git: null
+    git:
+      base_branch: v2
+      branch: feature/F013-user-role-management
+      start_commit: e6999213a54eb2cab4f1b4f420c6e2a4158fe60f
+      head_commit: null
+      merge_commit: null
     evidence: []
 
 # --- 需要用户裁定的决策 ---
@@ -2109,14 +2117,14 @@ requirement_coverage:
 
 planning_status:
   plan_completeness: complete
-  status: ACCEPTED
-  ready_features: [F013]
+  status: IN_PROGRESS
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 12
     DRAFT: 0
     DONE: 0
@@ -2138,7 +2146,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F013
+  current_stage: ARCHITECTURE
   note: >
-    尚未启动任何 Feature。执行检查点为空，无需保留旧检查点。
+    F013「用户与角色管理」已启动（分支 feature/F013-user-role-management，start_commit e699921）。
+    Product 复用已记录；进行 ARCHITECTURE（Architect 产出架构与 API Contract）。
