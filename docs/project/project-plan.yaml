@@ -7,13 +7,13 @@
 #   - docs/project/milestones.md
 #
 # 规划依据：
-#   - docs/product/requirements-v2.md（DRAFT — PARTIALLY CONFIRMED, BQ-M–BQ-U 已落稿）
-#   - docs/product/domain-model.md（DRAFT — DECISIONS APPLIED, BQ-U 已落稿）
+#   - docs/product/requirements-v2.md（DRAFT — PARTIALLY CONFIRMED, BQ-M–BQ-V 已落稿）
+#   - docs/product/domain-model.md（DRAFT — DECISIONS APPLIED, BQ-V 已落稿）
 #   - docs/project/project-state.md、docs/project/git-workflow.md、docs/project/handoff.md
 #
 # 本计划经 2026-09-24 需求变更（BQ-H）后重新规划核对（revision 4/5/6），
-# 并于 2026-09-24 至 2026-09-25 的 BQ-M–BQ-U 需求变更后重新规划核对（revision 7，2026-09-25）。
-# revision 7 已由用户明确批准；需求最终签核及实施门禁仍独立适用，不自动启动实施。
+# 并于 2026-09-24 至 2026-09-25 的 BQ-M–BQ-V 需求变更后重新规划核对（revision 7/8，2026-09-25）。
+# revision 8 已由用户明确批准；需求最终签核及实施门禁仍独立适用，不自动启动实施。
 
 project:
   name: CSM
@@ -23,46 +23,38 @@ project:
     逐步替代分散的 Excel 台账；V2 独立定义需求、领域模型、架构与实现。
   status: ACCEPTED
   status_changed_on: "2026-09-25"
-  plan_revision: 7
+  plan_revision: 8
   last_planned_on: "2026-09-25"
   planning_reason: >
-    revision 7（2026-09-25）依据 requirements-v2.md 的 BQ-M–BQ-U 裁定重新规划：
-    产品范围由 revision 6 的“部分资源逻辑删除/恢复 + 集群真实删除”
-    改为“全部受管资源仅真实删除、无业务恢复”，删除逻辑删除/恢复措辞。
-    真实删除落地为：删除前逐项先删网卡/IP 等子项、删除上级不级联不自动改挂；
-    网段删除前置逐条删除全部已分配地址与保留地址、显式清空网关；
-    访问入口逐条真删、服务可零关联并可解除最后一条关联；
-    删宿主前逐项真删 VM、删任一计算资源前逐项真删指向它的部署实例；
-    集群 code 与已删除服务编号永不复用、集群名称可复用；
-    资源历史（至少操作人与删除/变更内容）随对象写入、P0 仅管理员可查、不自动到期。
-    由此：(1) 新增 F012“资源历史保留与管理员查询”，F001–F011 稳定 ID 不变，共 12 个 Feature；
-    (2) 平台角色/操作者解析基础由 F001 交付，集群本体与每个受管对象
-    （F002/F005/F006/F007）的服务端三角色鉴权、操作审计与历史写入随对象当期交付，
-    F009 收敛为已交付对象的权限/审计一致性复核与集群切换（场景 40），维持 M3；
-    (3) F007 depends_on 增补 F004、F012，F009/F010/F011 depends_on 随之调整；
-    (4) §10 扩展至 1–71，逐条重算 closure_owner/participants/parts，场景 46/68 改由 F007 闭环；
-    (5) decisions_required 新增 D-CODE-FORMAT/D-DELETE-DEPENDENCIES/D-RESOURCE-REASSIGN/
-    D-RESOURCE-HISTORY/D-DELETE-CONFIRMATION，D-SEGMENT-RETENTION 转 RESOLVED。
-    未修改产品文档或新增业务规则；F001–F011 的稳定 ID 不变，F012 为递增新增。
+    revision 8（2026-09-25）依据 requirements-v2.md 的 BQ-V 裁定重新规划：
+    新增 §4.9 用户与角色管理（场景 72–81），平台自建用户与角色管理成为 P0 根能力；
+    据此新增 F013“用户与角色管理”（Epic E8、M1），F013 为唯一根并交付
+    平台角色/操作者解析与会话基础；F001 depends_on 由 [] 调整为 [F013]，
+    F009/F011/F012 显式依赖 F013，F002/F005/F006/F007 经 F001 传递获得该基础。
+    用户批准项目级架构决策 D-ARCH-STACK/DB/API/DEPLOY 并随 BQ-V 关闭 D-BQ-F，
+    上述 5 项在 decisions_required 中置 RESOLVED 并从所有 Feature 的 blocking_decisions 移除 D-BQ-F。
+    §10 扩展至 1–81 条场景，72–81 归 F013，40/48/57/61/64/71 增 F013 participant；
+    Milestone 重算为 M1 44 / M2 9 / M3 21 / M4 7；rule_sections 新增 §4.9，键数 31→32。
+    未修改产品文档或新增业务规则；F001–F012 的稳定 ID 不变，F013 为递增新增。
   requirement_revision:
-    id: BQ-U
+    id: BQ-V
     date: "2026-09-25"
     source: docs/product/requirements-v2.md
     summary: >
-      BQ-M 至 BQ-U（2026-09-24 至 2026-09-25 用户裁定）：全部受管资源取消逻辑删除与业务恢复、
-      统一真实删除；仍存业务关联须先显式逐项删除/解除，仅余历史中已解除的关联不阻止删除；
-      审计与资源历史保留。删除上级前逐项先删下级；网段删除前置逐条删除已分配地址与保留地址、
-      显式清空网关，删后历史配置不参与分配排除；访问入口逐条真实删除，服务可新建/维护为零关联、
-      可显式解除最后一条关联；删宿主前逐项真删 VM、删任一计算资源前逐项真删其部署实例，不自动改挂；
-      集群 code 真实删除后不复用、名称可复用，名称仅字母/中文/下划线/数字、含空格直接拒绝、
-      判重区分大小写；服务编号真实删除后不复用；资源历史至少保留操作人与删除/变更内容，
-      P0 仅平台管理员可查、不自动到期清除。新增验收场景 71（集群本体 CRUD/空关联删除 + 服务端授权/审计）。
+      BQ-V（2026-09-25 用户裁定）：平台自建用户管理，不接入组织既有认证方式；
+      P0 能力为平台管理员维护用户增删改、单一角色（查看者/资源维护者/平台管理员）分配、
+      改密/重置、登录/登出、账号禁用；删除用户保留历史审计且用户名不复用，禁用≠删除；
+      口令最短 8 位且同时含字母与数字、P0 不强制定期过期、可自助改密、无自助找回；
+      用户/角色管理操作进审计且不并入仅管理员可查的受管资源历史（§4.9、场景 72–81）。
+      同时确认：审计/资源历史长期保留、不自动到期、仅管理员可查；性能目标为
+      列表/详情 P95 < 1s、搜索 P95 < 1.5s；部署仅内网 HTTP、不启用 HTTPS；不做备份/恢复演练。
     impact: >
-      §10 扩展为 1–71；新增 F012；F001–F011 稳定 ID 不变；F009 收敛为跨对象一致性复核；
-      对象级服务端三角色鉴权、操作审计与历史写入随对象当期交付，不等待 F009。
+      §10 扩展为 1–81；新增 F013 与 Epic E8；F013 为唯一根并交付平台角色/操作者解析与会话基础；
+      F001 depends_on 调整为 [F013]，F009/F011/F012 增 F013；Milestone 分布 44/9/21/7；
+      规则章节新增 §4.9（键数 32）。
   approved_by: 用户
   approved_on: "2026-09-25"
-  approval_basis: 用户明确指令“批准 revision 7”；仅批准本计划，不代表需求最终签核或实施授权。
+  approval_basis: 用户明确指令“批准 revision 8”；仅批准本计划，不代表需求最终签核或实施授权。
   planning_source:
     primary: docs/product/requirements-v2.md
     domain: docs/product/domain-model.md
@@ -72,12 +64,13 @@ project:
       - docs/project/handoff.md
     workflow: .pi/prompts/project.md
   notes: >
-    BQ-M–BQ-U 需求变更后重新规划（revision 7，2026-09-25）。V2 现有交付证据为空：
+    BQ-M–BQ-V 需求变更后重新规划（revision 8，2026-09-25）。V2 现有交付证据为空：
     v2 分支仅脚手架，无已登记 Feature、无架构/API/数据库文档、无实现代码、
     无测试/Review/合并证据。所有 Feature 均为 P0，覆盖 requirements-v2.md §10
-    全部 71 条验收场景，requirement_coverage.gaps 为空。
-    技术栈、数据库、部署与 API 规范尚未批准，进入实现前必须由用户裁定（见 decisions_required）。
-    依赖为无环有向图。产品需求文件仍为 DRAFT — 未整体签核；revision 7 已获用户批准。
+    全部 81 条验收场景，requirement_coverage.gaps 为空。
+    D-ARCH-* 与 D-BQ-F 已 RESOLVED，但架构/契约文档尚未产出，进入实现前仍受阶段门禁约束
+    （见 decisions_required）。依赖为无环有向图，F013 为唯一根。
+    产品需求文件仍为 DRAFT — 未整体签核；revision 8 已获用户批准。
     实施仍以需求最终确认、阶段决策及 Git 安全门禁为前提；计划批准不等于 Feature DONE。
 
 scope:
@@ -101,8 +94,15 @@ scope:
     - VIP 与节点网卡 IP 分开记录，登记 VIP/监听地址不产生 IP 分配记录
     - 统一模糊搜索与下拉交互规范（所有搜索框/单选/多选/枚举），仅匹配仍存对象
     - 独立全局 IP 查询入口（跨集群结果，与当前集群资源页区分）与集群入口聚合计数（仅统计仍存对象）
-    - 权限与审计：平台角色/操作者解析基础由 F001 交付，各受管对象服务端三角色鉴权、操作审计与历史写入随对象当期交付；集群选择非授权边界
+    - 平台自建用户与角色管理：用户增删改（用户名 + 初始口令 + 单一角色）、单一角色（运维查看者/资源维护者/平台管理员）分配、登录/登出、改密/重置、账号禁用；仅平台管理员维护、服务端校验
+    - 账号生命周期语义：删除用户保留历史审计且用户名不复用；禁用≠删除（禁用禁止登录但保留用户记录、可重新启用）
+    - 口令策略：最短 8 位且同时含字母与数字；P0 不强制定期过期；用户可自助改密、平台管理员可重置；无自助找回
+    - 用户与角色管理审计：按 §9.1 记录操作者、时间与关键变更，不并入仅管理员可查的受管资源历史
+    - 首个平台管理员部署预置，首登须修改初始口令
+    - 权限与审计：平台角色/操作者解析与会话基础由 F013 交付；各受管对象服务端三角色鉴权、操作审计与历史写入随对象当期交付；集群选择非授权边界
     - 资源历史保留与管理员查询：删除/变更历史不随真实删除消失，P0 仅平台管理员可查、不自动到期清除
+    - 非功能与可用性目标：常用列表/详情 P95 < 1s、搜索 P95 < 1.5s（约 1,000 台/集群基线）
+    - 部署与备份取舍：仅内网 HTTP、不启用 HTTPS；P0 不做备份、不做恢复演练（接受数据丢失风险），不降低并发保护与整单原子要求
     - 计算资源真实删除依赖：删宿主机前逐项真删 VM；删任一计算资源前逐项真删指向它的服务部署实例；删除上级不自动改挂
     - 非功能与可用性基线：服务端分页、时区、状态文字、键盘、横向滚动、并发保护、无半条数据
   excluded:
@@ -151,6 +151,10 @@ epics:
     title: 资源历史、权限审计复核与非功能基线
     goal: 各对象当期交付三角色服务端鉴权与操作审计；E7 负责资源历史与管理员查询、跨对象权限/审计一致性复核、全平台终局复核及性能/可靠性与可用性基线。
     features: [F009, F011, F012]
+  - id: E8
+    title: 平台访问控制与用户管理
+    goal: 平台自建用户与角色管理、登录会话与平台角色/操作者解析基础；用户/角色管理操作审计（不并入受管资源历史），作为全部受管对象服务端鉴权与操作审计的身份前提。
+    features: [F013]
 
 # --- Features ---
 # 每项：id、title、epic、type、goal、scope、out_of_scope、acceptance、
@@ -162,12 +166,12 @@ epics:
 # 场景的闭环归属见 requirement_coverage.scenarios.*.closure_owner。
 features:
   - id: F001
-    title: 集群登记、身份、真实删除保护与平台角色/集群本体权限审计
+    title: 集群登记、身份、真实删除保护与集群本体权限审计
     epic: E1
     type: FEATURE
     goal: >
       提供集群主数据登记、列表与选择，保证集群身份稳定，定义真实删除保护规则，
-      并交付平台角色/操作者解析基础与集群本体最小服务端鉴权、操作审计与资源历史写入，
+      并在 F013 交付的平台角色/操作者解析与会话基础上交付集群本体最小服务端鉴权、操作审计与资源历史写入，
       作为所有资源归属与后续对象鉴权的前提。
     scope: >
       集群 code/名称/用途登记与查询；code 去首尾空格+统一大写全局判重（含已真实删除者等价即拒绝）、
@@ -175,8 +179,8 @@ features:
       仍存集群内区分大小写唯一、真实删除后可复用；用途可改。集群列表/选择并记住本次选择；
       作为计算资源、网段、服务归属。真实删除保护：仍存计算资源/网段/服务业务关联须先显式逐项删除/解除，
       不级联；仅余历史中已解除关联不阻止删除；删除后审计与资源历史保留。
-      交付平台角色/操作者解析基础：统一三角色（查看者/资源维护者/平台管理员）识别与操作者身份解析，
-      供本 Feature 及后续对象 Feature（F002/F005/F006/F007/F012）复用（认证源与审计期限按 D-BQ-F）。
+      复用 F013 交付的平台角色/操作者解析与会话基础：统一三角色（查看者/资源维护者/平台管理员）识别
+      与操作者身份解析由 F013 提供，本 Feature 不再自行交付（认证源与审计期限按 BQ-V）。
       集群本体最小服务端鉴权：查看者不得新增/修改/删除；资源维护者/平台管理员可真实删除且仍须满足关联保护；
       集群新增/编辑由平台管理员维护；权限均在服务端校验。集群操作审计记录操作者、时间与关键变更；
       集群删除/变更历史写入（至少操作人 + 内容，无恢复入口；查询与“不自动到期”由 F012 统一提供）。
@@ -199,14 +203,15 @@ features:
       由 F007 在 M3 完成三类关联齐全的最终闭环；场景 58 的跨对象改名归属由 F007 闭环；
       场景 59 的上级逐项先删规则侧、61/64 的历史写入与持久化在 F001 DONE 时可独立校验，
       管理员查询需 F012 交付后由 61/64 联验；场景 57 由 F011 终局复核。
+      本 Feature 复用 F013 交付的角色/操作者解析与会话基础，不自行交付该基础。
       F001 不承诺有关联集群删除保护与资源历史查询的完整验收。
     priority: P0
-    depends_on: []
-    blocking_decisions: [D-NAME-COMPARISON, D-CODE-FORMAT, D-DELETE-CONFIRMATION, D-DELETE-DEPENDENCIES, D-RESOURCE-HISTORY, D-BQ-F]
+    depends_on: [F013]
+    blocking_decisions: [D-NAME-COMPARISON, D-CODE-FORMAT, D-DELETE-CONFIRMATION, D-DELETE-DEPENDENCIES, D-RESOURCE-HISTORY]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -229,7 +234,7 @@ features:
       删除/变更记录资源历史（操作人 + 内容），查询/权限/无到期由 F012；
       改名不改归属；两人基于同一旧版本编辑同一资源时，后提交者收到冲突提示并保留输入，不静默覆盖。
       本对象服务端三角色鉴权与操作审计：查看者只读、资源维护者读写、平台管理员管理，
-      均在服务端校验；复用 F001 交付的角色/操作者解析基础，与对象同期交付、不等待 F009。
+      均在服务端校验；复用 F013 交付、经 F001 集成的角色/操作者解析与会话基础，与对象同期交付、不等待 F009。
       阶段边界：类型字段容器可交付，VM 必填宿主与类型专有详情由 F004 验收，详情“服务”列由 F007 扩展。
       本 Feature 不承诺 VM/服务实例等外部关联的删除拒绝——该规则由 F004/F007 在引入关联后分别验收；
       场景 46 中“遵守任意仍存关联保护”部分同样不能在本 Feature 当期验收，场景 46 由 F007 闭环。
@@ -264,11 +269,11 @@ features:
       场景 48 的 IP 历史写入由 F006、管理员查询由 F012 闭环。
     priority: P0
     depends_on: [F001, F005]
-    blocking_decisions: [D-STATUS-SOURCE, D-NAME-COMPARISON, D-IP-SEMANTICS, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY, D-BQ-F]
+    blocking_decisions: [D-STATUS-SOURCE, D-NAME-COMPARISON, D-IP-SEMANTICS, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -310,7 +315,7 @@ features:
     status: BLOCKED
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -360,7 +365,7 @@ features:
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -382,7 +387,7 @@ features:
       仍被网卡引用须先处理；不级联；删后历史保留地址/网关不参与任何分配排除。
       网段删除/变更历史写入（操作人 + 内容，无恢复入口）：查询/权限/无到期由 F012 统一提供。
       本对象服务端三角色鉴权与操作审计：查看者只读、资源维护者读写、平台管理员管理，
-      服务端校验，复用 F001 角色基础，与对象同期交付、不等待 F009。
+      服务端校验，复用 F013 交付、经 F001 集成的角色/操作者解析与会话基础，与对象同期交付、不等待 F009。
       “网段被引用时禁止删除/CIDR 修改”规则在此定义，由引用方 F002/F006 验收。
     out_of_scope: IP 分配算法与并发（F006）；网卡录入（F002）；资源历史查询（F012）。
     acceptance:
@@ -404,11 +409,11 @@ features:
       场景 40 的网段写入权限拒绝侧由本 Feature 提供，跨对象一致性复核归 F009。
     priority: P0
     depends_on: [F001]
-    blocking_decisions: [D-NAME-COMPARISON, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY, D-BQ-F]
+    blocking_decisions: [D-NAME-COMPARISON, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -431,7 +436,7 @@ features:
       可用性判断仅以平台记录为依据。
       同时验收“网段被引用时禁止删除”“存在已分配 IP 时禁止修改 CIDR”。
       本对象服务端三角色鉴权与操作审计：查看者只读、资源维护者读写、平台管理员管理，
-      服务端校验，复用 F001 角色基础，与对象同期交付、不等待 F009。
+      服务端校验，复用 F013 交付、经 F001 集成的角色/操作者解析与会话基础，与对象同期交付、不等待 F009。
       场景 46 的“遵守任意仍存关联保护”部分（VM/服务实例等）在本 Feature DONE 时尚未引入，
       不能当期验收——场景 46 由 F007 闭环，本 Feature 只验收管理 IP 显式清空/重选与自身子项先删。
     out_of_scope: 网段属性与保留地址维护（F005）；公共信息/网卡结构与整单原子框架（F002）；类型详情（F004）；资源历史查询（F012）。
@@ -480,11 +485,11 @@ features:
       场景 48/61/64 的 IP 历史写入侧在本 Feature DONE 时提供，管理员查询由 F012 交付后联验。
     priority: P0
     depends_on: [F002, F005]
-    blocking_decisions: [D-IP-SEMANTICS, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY, D-BQ-F]
+    blocking_decisions: [D-IP-SEMANTICS, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -511,7 +516,7 @@ features:
       场景 63/67/69/70 的服务/入口历史保留与身份区分由本 Feature 验收。
       集群改名后其资源/网段/服务归属不变（场景 58）由本 Feature 最终闭环。
       本对象服务端三角色鉴权与操作审计：查看者只读、资源维护者读写、平台管理员管理，
-      服务端校验，复用 F001 角色基础，与对象同期交付、不等待 F009；
+      服务端校验，复用 F013 交付、经 F001 集成的角色/操作者解析与会话基础，与对象同期交付、不等待 F009；
       场景 46 的任意仍存关联保护部分（含 VM/服务实例）与场景 68 的服务部署关系不自动改挂部分
       均在本 Feature 引入关联后验收并闭环。
     out_of_scope: >
@@ -551,11 +556,11 @@ features:
       场景 40 的服务/实例写入权限拒绝侧由本 Feature 提供，跨对象一致性复核归 F009。
     priority: P0
     depends_on: [F001, F002, F004, F012]
-    blocking_decisions: [D-BQ-E, D-SERVICE-DETAILS, D-NAME-COMPARISON, D-RESOURCE-REASSIGN, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY, D-BQ-F]
+    blocking_decisions: [D-BQ-E, D-SERVICE-DETAILS, D-NAME-COMPARISON, D-RESOURCE-REASSIGN, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -598,7 +603,7 @@ features:
     status: BLOCKED
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -607,32 +612,32 @@ features:
     epic: E7
     type: FEATURE
     goal: >
-      作为跨对象集成验收 Feature，复核 F001 平台角色/操作者解析基础与
-      F002/F005/F006/F007 各自交付的本对象服务端三角色鉴权与操作审计在跨对象场景下的一致性，
+      作为跨对象集成验收 Feature，复核 F013 平台自建用户/角色/登录会话基础、F001 集群本体鉴权
+      与 F002/F005/F006/F007 各自交付的本对象服务端三角色鉴权与操作审计在跨对象场景下的一致性，
       并验收集群切换不改变角色权限（场景 40）。
     scope: >
       本 Feature 是跨对象集成验收 Feature，不实施任何对象的基础鉴权/审计/历史写入。
-      它复核 F001（平台角色/操作者解析基础）与 F002/F005/F006/F007 各自交付的
-      本对象服务端三角色鉴权与操作审计在跨对象场景下的一致性：
+      它复核 F013（平台自建用户/角色/登录会话基础）、F001（集群本体鉴权）与 F002/F005/F006/F007
+      各自交付的本对象服务端三角色鉴权与操作审计在跨对象场景下的一致性：
       查看者不能写入或真实删除；资源维护者/平台管理员可执行已确认的真实删除且仍受关联保护约束；
       集群选择只是查询作用域，切换集群不改变角色权限（场景 40）。
       独立用户可观察验收：以查看者/维护者/管理员三种身份在不同集群间切换并尝试
       本阶段已交付对象的写/删操作，权限与服务端拒绝行为在切换前后一致。
     out_of_scope: >
       任何对象的基础鉴权/审计/历史写入实现（F001/F002/F005/F006/F007）；
-      认证源与审计期限（D-BQ-F，部署阶段）；资源历史查询（F012）；全平台终局复核（F011）。
+      认证源与审计期限（BQ-V 已确认）；资源历史查询（F012）；全平台终局复核（F011）。
     acceptance:
       - requirements-v2.md §2.1、§9.1（跨对象一致性复核侧）
       - requirements-v2.md §10 场景 40
     acceptance_scenarios:
       - "40（权限限制不随集群切换改变部分）"
     acceptance_note: >
-      场景 40 的“集群切换与选择记忆生效”部分与各对象当期服务端鉴权由 F001/F002/F005/F006/F007 交付；
+      场景 40 的“集群切换与选择记忆生效”部分与各对象当期服务端鉴权由 F013/F001/F002/F005/F006/F007 交付；
       本 Feature 验收跨对象一致性复核部分；场景 57 的全平台终局复核由 F011 验收。
       本 Feature 不实施任何对象的基础鉴权/审计/历史写入。
     priority: P0
-    depends_on: [F001, F002, F004, F005, F006, F007]
-    blocking_decisions: [D-BQ-F]
+    depends_on: [F013, F001, F002, F004, F005, F006, F007]
+    blocking_decisions: []
     status: BLOCKED
     layers: {database: false, backend: false, frontend: false}
     implementation: {database_design: NOT_REQUIRED, backend: NOT_REQUIRED, frontend: NOT_REQUIRED, test: PENDING, review: PENDING}
@@ -675,7 +680,7 @@ features:
     status: BLOCKED
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -686,18 +691,19 @@ features:
     goal: >
       在约 1000 台/集群基线上落实分页、可靠性与可用性要求，
       端到端复核关键并发、原子性与竞态场景，闭环全部搜索面（含 F004/F007/F010）的全量覆盖，
-      并以 F001 角色基础与各对象当期鉴权/审计为基础完成全平台终局复核（场景 57）。
+      并以 F013 用户/角色/登录服务端鉴权与 F001 角色基础、各对象当期鉴权/审计为基础完成全平台终局复核（场景 57）。
     scope: >
       主机/VM/服务/网段列表服务端分页与常用查询能力（含 F007 服务列表、F005 网段列表）；
       一次提交失败不留半条数据、并发地址不重复、并发编辑冲突的后端最终保护端到端验证；
       错误定位到具体字段与冲突对象；键盘操作；状态含文字；时间显示时区；窄屏表格横向滚动；
       全平台搜索框/下拉的全量覆盖端到端复核（含 F004 宿主、F007 服务与服务实例、F010 全局 IP 查询）；
       三角色服务端鉴权在全平台（含服务页与全局 IP 查询）的终局复核：
-      以 F001 交付的角色/操作者解析基础为准，覆盖 F002/F005/F006/F007 各自实现的本对象鉴权/审计
+      以 F013 交付的用户/角色/登录服务端鉴权与 F001 交付的角色/操作者解析基础为准，
+      覆盖 F002/F005/F006/F007 各自实现的本对象鉴权/审计
       及 F009 的一致性复核结论（场景 57）。
     out_of_scope: >
       正式延迟目标/备份恢复演练/审计期限（D-BQ-F）；
-      各搜索面的实现（F002–F010 交付）；角色基础与各对象鉴权/审计的实现（F001/F002/F005/F006/F007 交付）；
+      用户/角色/认证实现（F013 交付）；各搜索面的实现（F002–F010 交付）；角色基础与各对象鉴权/审计的实现（F001/F002/F005/F006/F007 交付）；
       资源历史查询及其管理员读权限的实现（F012 交付）；跨对象一致性复核（F009 交付）。本 Feature 只做端到端复核。
     acceptance:
       - requirements-v2.md §9.2、§9.3、§9.4
@@ -717,15 +723,15 @@ features:
       场景 7 依赖 F003（列表/分页/搜索）、F005（网段）、F007（服务）与 F006（IP 数据）；
       场景 37/38 的最终 closure 在本 Feature 完成：F008 交付基础能力与已交付对象适配，
       F004（宿主）、F007（服务与服务实例）、F010（全局 IP 查询）在同一规范上适配，全部完成后方可全覆盖；
-      场景 39 依赖 F008（M2）的竞态防护实现；场景 57 以 F001 角色基础、各对象当期鉴权/审计
+      场景 39 依赖 F008（M2）的竞态防护实现；场景 57 以 F013 用户/角色/登录服务端鉴权、F001 角色基础、各对象当期鉴权/审计
       及 F009 一致性复核结论为准。
     priority: P0
-    depends_on: [F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F012]
-    blocking_decisions: [D-BQ-F]
+    depends_on: [F013, F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F012]
+    blocking_decisions: []
     status: BLOCKED
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -741,12 +747,12 @@ features:
       对已交付受管对象（集群（F001）、计算资源及其网卡/IP（F002/F006）、网段（F005））
       提供资源历史查询：删除/变更后历史保留、不随真实删除消失；
       至少可见操作人与删除/变更内容；P0 仅平台管理员可查询，
-      查看者与资源维护者由服务端拒绝（直接复用 F001 交付的统一角色/操作者解析基础，
+      查看者与资源维护者由服务端拒绝（直接复用 F013 交付、经 F001 集成的统一角色/操作者解析基础，
       本 Feature 独立于 F009，不要求 F009 先交付）；不自动到期清除；
       历史不作为仍存业务关联或恢复入口。
       本 Feature 不覆盖服务/入口历史——服务/入口的历史写入与统一查询由 F007 在本能力上扩展。
     out_of_scope: >
-      平台角色/操作者解析基础与集群鉴权/审计/历史写入（F001）；跨对象权限审计一致性复核（F009）；
+      平台角色/操作者解析与会话基础（F013）；集群鉴权/审计/历史写入（F001）；跨对象权限审计一致性复核（F009）；
       其他对象自身的删除/变更历史写入（F002/F005/F006/F007）；服务/入口历史覆盖（F007）；
       历史与审计载体边界（D-RESOURCE-HISTORY，实施交 Architect/Database）。
     acceptance:
@@ -758,17 +764,74 @@ features:
       - "61"
       - "64"
     acceptance_note: >
-      本 Feature 在 F009 之前、直接复用 F001 交付的统一角色基础提供管理员查询；
+      本 Feature 在 F009 之前、直接复用 F013 交付、经 F001 集成的统一角色/操作者解析基础提供管理员查询；
       历史写入侧由 F001/F002/F005/F006 提供，48/61/64 的写入侧在对应对象 Feature DONE 时提供；
       服务与入口历史由 F007 扩展并在 63/67/69/70 闭环；
       场景 51/59 的集群/计算资源/网段历史保留由本 Feature 的查询覆盖。
     priority: P0
-    depends_on: [F001, F002, F005, F006]
-    blocking_decisions: [D-RESOURCE-HISTORY, D-BQ-F]
+    depends_on: [F013, F001, F002, F005, F006]
+    blocking_decisions: [D-RESOURCE-HISTORY]
     status: BLOCKED
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: API 规范未批准}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    git: null
+    evidence: []
+
+  - id: F013
+    title: 用户与角色管理
+    epic: E8
+    type: FEATURE
+    goal: >
+      交付平台自建用户与角色管理及平台角色/操作者解析与会话基础：用户增删改、单一角色分配、
+      登录/登出、改密/重置、账号禁用；仅平台管理员维护、服务端校验；删除用户保留审计且用户名不复用；
+      禁用≠删除；作为全部受管对象服务端鉴权与操作审计的身份前提。
+    scope: >
+      用户增删改（用户名 + 初始口令 + 单一角色）；用户名在仍存用户中唯一（大小写/首尾空格比较口径按 D-NAME-COMPARISON）。
+      单一角色（运维查看者/资源维护者/平台管理员）；角色分配后新操作按新角色鉴权、旧角色不再生效；集群选择不是授权边界。
+      登录/登出：已启用账号 + 正确口令登录并建立会话；禁用/未知账号或错误口令不建立会话、不创建/修改业务数据；
+      登出后原会话失效，再访问受保护资源须重新登录。
+      账号禁用：禁止登录但保留用户记录，可重新启用；与删除不同。
+      删除用户：移除账号、不能登录；其历史操作与审计保留；用户名不复用。
+      口令策略：最短 8 位且同时含字母与数字；P0 不强制定期过期；用户可自助改密，平台管理员可重置；无自助找回。
+      维护权限：用户增删改、角色分配、改密/重置、禁用/启用仅平台管理员可执行，关键权限由服务端校验；
+      查看者与维护者越权请求被拒绝且数据不变。
+      审计：用户与角色管理操作按 §9.1 记录操作者、时间与关键变更；不并入仅管理员可查的受管资源历史。
+      首个管理员由部署/初始化预置，首登须修改初始口令。
+      交付平台角色/操作者解析与会话基础，供 F001/F002/F005/F006/F007/F012 复用（受管资源业务授权仍由各对象 Feature 实施）。
+    out_of_scope: >
+      组织认证/SSO/LDAP/AD 对接、自助注册、口令找回、MFA、按集群或资源的细粒度授权（P0 不含，不构成永久排除）；
+      受管资源的业务鉴权/审计/历史写入（F001/F002/F005/F006/F007）；跨对象权限/审计一致性复核（F009）；
+      全平台终局复核（F011）；资源历史查询（F012）。
+    acceptance:
+      - requirements-v2.md §2.1（认证源＝平台自建；统一三角色）
+      - requirements-v2.md §3.1（用户与角色管理模块）
+      - requirements-v2.md §4.9（用户与角色管理）
+      - requirements-v2.md §9.1（登录/会话/口令与用户管理审计）
+      - requirements-v2.md §10 场景 72–81
+    acceptance_scenarios:
+      - "72"
+      - "73"
+      - "74"
+      - "75"
+      - "76"
+      - "77"
+      - "78"
+      - "79"
+      - "80"
+      - "81"
+    acceptance_note: >
+      场景 80 的越权拒绝由本 Feature 服务端实现并闭环；跨对象权限一致性复核见 F009（场景 40），
+      全平台终局复核见 F011（场景 57）。用户名比较口径依赖 D-NAME-COMPARISON，审计载体依赖 D-RESOURCE-HISTORY。
+      本 Feature 交付的角色/操作者解析与会话基础被 F001/F002/F005/F006/F007/F012 复用；
+      用户/角色管理操作进审计但不并入受管资源历史（场景 81）。
+    priority: P0
+    depends_on: []
+    blocking_decisions: [D-NAME-COMPARISON, D-RESOURCE-HISTORY]
+    status: BLOCKED
+    layers: {database: true, backend: true, frontend: true}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
 
@@ -778,30 +841,43 @@ features:
 decisions_required:
   - id: D-ARCH-STACK
     kind: ARCHITECTURE
-    status: OPEN
+    status: RESOLVED
     question: 后端/前端技术栈、语言、框架与运行时版本。
     reason: AGENTS.md §2.9 不得默认技术栈；当前无已批准架构决策。
+    resolution: >
+      用户批准（2026-09-25）：后端 Python 3.12 + FastAPI + Pydantic v2 + SQLAlchemy 2
+      （P0 不启用 Alembic 迁移，绿地用初始化建表，后续结构变更走显式流程）；
+      前端 Vue 3 + TypeScript + Vite + Element Plus + Pinia + Vue Router。
     required_by: 实现前（所有 Feature）
     affects: [ALL]
   - id: D-ARCH-DB
     kind: ARCHITECTURE
-    status: OPEN
+    status: RESOLVED
     question: 数据库选型、约束与 Migration 策略；展示口径与存储口径一致性策略。
     reason: 唯一性与并发保护需数据库最终保证；尤其影响 F001/F002/F004/F005/F006/F007/F009/F012。
+    resolution: >
+      用户批准：PostgreSQL 唯一主库；真删业务表 + 独立保留标识表（集群 code、服务编号真删后不复用）
+      + 追加历史/审计表；比较键单独存储，展示保留用户输入形态。
     required_by: 数据库设计前
     affects: [ALL]
   - id: D-ARCH-API
     kind: ARCHITECTURE
-    status: OPEN
+    status: RESOLVED
     question: API 风格、契约规范与错误语义约定（含整单原子提交与并发冲突的表达）。
     reason: 各 Feature 需要 API Contract 才能实施，当前无批准 Contract；requirements §4.5 不规定 HTTP 方法。
+    resolution: >
+      用户批准：REST + OpenAPI；整单更新用显式子项操作（增/改/删）；乐观锁版本、冲突 409、
+      application/problem+json 字段级错误；offset 分页。
     required_by: CONTRACT 阶段前（所有 Feature）
     affects: [ALL]
   - id: D-ARCH-DEPLOY
     kind: ARCHITECTURE
-    status: OPEN
+    status: RESOLVED
     question: 部署架构、内网访问与环境拓扑。
     reason: 需求 §9.1 仅要求内网访问，未确认部署形态。
+    resolution: >
+      用户批准：内网 + 反向代理；Docker Compose（不强制 K8s）；dev/staging/prod；
+      仅 HTTP 不启用 HTTPS；不做备份/恢复演练。
     required_by: 实现/部署前
     affects: [ALL]
   - id: D-Q3
@@ -822,12 +898,12 @@ decisions_required:
     kind: PRODUCT
     status: OPEN
     question: >
-      资源名、接口名、网段名、服务编号的比较口径（大小写/首尾空格）；
+      资源名、接口名、网段名、服务编号、用户名的比较口径（大小写/首尾空格）；
       集群名称已允许字符的具体范围与长度（集群名称判重区分大小写、含空格直接拒绝已按 BQ-M 确认，
       服务编号真实删除后不复用已按 BQ-U 确认；不得把 §8 搜索规则套作唯一性规则）。
     reason: requirements §11.2 NAME-COMPARISON；domain-model §7。
     required_by: 唯一性约束设计前
-    affects: [F001, F002, F005, F007]
+    affects: [F001, F002, F005, F007, F013]
   - id: D-CODE-FORMAT
     kind: PRODUCT
     status: OPEN
@@ -882,10 +958,11 @@ decisions_required:
     reason: >
       已裁定：至少留操作人与删除/变更内容、P0 仅管理员可查、不自动到期清除；
       历史写入随各对象归属（集群 F001、计算资源/网卡 F002、网段 F005、IP F006、服务/入口 F007），
+      用户/角色管理操作由 F013 写入审计、不并入资源历史；
       查询侧由 F012（已交付对象）与 F007（服务/入口扩展）提供，F009 只复核一致性、不承诺历史载体；
       F009 由 D-BQ-F 覆盖，故不列入 affects。
     required_by: 资源历史与审计载体设计前
-    affects: [F001, F002, F005, F006, F007, F012]
+    affects: [F001, F002, F005, F006, F007, F012, F013]
   - id: D-DELETE-CONFIRMATION
     kind: PRODUCT
     status: OPEN
@@ -895,9 +972,13 @@ decisions_required:
     affects: [F001, F002, F005, F006, F007]
   - id: D-BQ-F
     kind: PRODUCT
-    status: OPEN
+    status: RESOLVED
     question: 认证源、审计保留周期、备份与恢复演练、正式延迟目标（认证源与审计期限在对象鉴权/审计实现前裁定，F001 交付解析基础）。
     reason: requirements §2.1、§9.1–§9.3、§11.2 BQ-F。
+    resolution: >
+      随 BQ-V 关闭（requirements-v2.md §11.1 BQ-V、§9.1–§9.3）：认证源＝平台自建；
+      审计/资源历史长期保留、不自动到期、仅管理员可查；性能目标列表/详情 P95 < 1s、搜索 P95 < 1.5s；
+      仅内网 HTTP、不启用 HTTPS；不做备份/恢复演练。
     required_by: 权限审计与非功能验收前
     affects: [F001, F002, F005, F006, F007, F009, F011, F012]
   - id: D-Q5
@@ -926,28 +1007,30 @@ decisions_required:
 # 退出标准只引用本 Milestone 内闭环（closure_owner）的场景，不在依赖未完成时承诺验收。
 milestones:
   - id: M1
-    title: 平台基础、集群本体、资源网络台账与资源历史
+    title: 平台访问控制、集群本体、资源网络台账与资源历史
     goal: >
-      先由 F001 交付平台角色/操作者解析基础，并在集群本体完成最小三角色服务端鉴权、审计与资源历史写入；
+      先由 F013 交付平台自建用户/角色管理与登录会话基础；
+      再由 F001 复用该基础交付集群本体与最小服务端鉴权、审计、资源历史写入；
       再打通网段台账（含网段历史写入与鉴权）、计算资源一次原子录入
       （公共信息 + 全部网卡 + 全部 IP，含本对象鉴权/审计）与统一列表/详情，
       可替代核心 Excel 台账，且删除行为符合“逐项先删、无恢复、历史保留”，并由 F012 提供管理员历史查询。
-    features: [F001, F005, F002, F006, F012, F003]
+    features: [F013, F001, F005, F002, F006, F012, F003]
     depends_within: >
-      F001 → F005 → F002 → F006 → {F012, F003}（同一 Milestone 内的实施与验收顺序）。
+      F013 → F001 → F005 → F002 → F006 → {F012, F003}（同一 Milestone 内的实施与验收顺序）。
     exit_criteria: >
-      闭环场景共 34 条：3、4、8、9、10、11、12、19、20、21、24、25、26、27、28、29、30、31、32、34、43、44、45、47、48、50、52、53、60、61、62、64、65、71
+      闭环场景共 44 条：3、4、8、9、10、11、12、19、20、21、24、25、26、27、28、29、30、31、32、34、43、44、45、47、48、50、52、53、60、61、62、64、65、71、72、73、74、75、76、77、78、79、80、81
       由 M1 内 Feature 闭环通过；
       场景 2（同名裸金属/名称唯一）、5（网卡/IP 归属）、6（唯一性与网卡/IP 可见）、
       42（网络内容/公共信息不变）、51（计算资源与网段关联）、59（上级逐项先删规则侧）、
       40（集群切换/记忆与角色基础）、55（主机数/VM 数展示侧）、56（当前集群列表侧）、
       68（宿主删除的自身子项部分）的 M1 部分通过；
+      平台支持自建用户/单一角色/登录登出、口令策略与禁用/删除语义、首个管理员预置；
       一次提交（含 IP）原子性、资源/接口/名称唯一、IPv4 并发唯一、跨重叠排除、耗尽与释放规则验证通过；
       M1 退出时同一表单支持一次录入公共信息 + 全部网卡 + 全部 IP；
       管理员可查已交付对象（集群/计算资源+网卡/IP/网段）的资源历史、非管理员被拒且历史不自动清除。
     note: >
-      前置决策：D-ARCH-*、D-STATUS-SOURCE、D-NAME-COMPARISON、D-CODE-FORMAT、D-IP-SEMANTICS、
-      D-DELETE-*、D-RESOURCE-HISTORY、D-BQ-F。
+      前置决策：D-STATUS-SOURCE、D-NAME-COMPARISON、D-CODE-FORMAT、D-IP-SEMANTICS、
+      D-DELETE-*、D-RESOURCE-HISTORY（D-ARCH-* 与 D-BQ-F 已 RESOLVED）。
   - id: M2
     title: 统一检索、类型详情与宿主关系
     goal: >
@@ -962,8 +1045,8 @@ milestones:
       场景 18（VM 关联部分）、场景 42（类型详情不变部分）、场景 68（VM/网卡/IP 不改挂侧）通过；
       VM 宿主约束、类型摘要与已交付对象的基础搜索匹配规则生效。
     note: >
-      前置决策：D-ARCH-*、D-Q3、D-DELETE-DEPENDENCIES、D-RESOURCE-REASSIGN
-      （= F004 blocking_decisions 的完整集合；F008 无阻塞决策）。
+      前置决策：D-Q3、D-DELETE-DEPENDENCIES、D-RESOURCE-REASSIGN
+      （= F004 blocking_decisions 的完整集合；F008 无阻塞决策；D-ARCH-* 与 D-BQ-F 已 RESOLVED）。
   - id: M3
     title: 服务、服务历史、跨对象权限复核与集群导航
     goal: >
@@ -979,23 +1062,23 @@ milestones:
       场景 42 的既有网卡/IP/公共信息不变由 M1 的 F006 验收，本 Milestone 闭环类型详情（F004）与 VM/服务关联（F007）不变；
       场景 51 三类关联（计算资源/网段/服务关联）齐全的最终闭环通过。
     note: >
-      前置决策：D-ARCH-*、D-BQ-E、D-SERVICE-DETAILS、D-NAME-COMPARISON、D-RESOURCE-REASSIGN、
-      D-DELETE-*、D-RESOURCE-HISTORY、D-BQ-F。
+      前置决策：D-BQ-E、D-SERVICE-DETAILS、D-NAME-COMPARISON、D-RESOURCE-REASSIGN、
+      D-DELETE-*、D-RESOURCE-HISTORY（D-ARCH-* 与 D-BQ-F 已 RESOLVED）。
   - id: M4
     title: 非功能、可用性基线与全平台权限复核
     goal: >
       在约 1000 台/集群基线上端到端复核分页、可靠性、原子性、并发与竞态防护要求，
-      并复核全平台三角色服务端鉴权（以 F001 角色/操作者解析基础与 F002/F005/F006/F007
-      当期对象级实现为准，含 F009 一致性复核结论）与全部搜索面覆盖。
+      并复核全平台三角色服务端鉴权（以 F013 用户/角色/登录服务端鉴权、F001 角色/操作者解析基础
+      与 F002/F005/F006/F007 当期对象级实现为准，含 F009 一致性复核结论）与全部搜索面覆盖。
     features: [F011]
-    depends_within: F001–F010、F012 全部完成后实施（F011 依赖全部 Feature）。
+    depends_within: F001–F013 全部完成后实施（F011 依赖全部 Feature）。
     exit_criteria: >
       闭环场景共 7 条：7、22、23、37、38、39、57 通过；
       场景 22/23 的功能实现由 F006（M1）验收，本 Feature 千节点端到端复核；
       场景 37/38 在所有搜索面（含 F004 宿主、F007 服务与服务实例、F010 全局 IP 查询）交付后完成全量覆盖闭环；
-      场景 57 以 F001 角色基础、各对象当期鉴权/审计及 F009 一致性复核结论为准。
+      场景 57 以 F013 用户/角色/登录服务端鉴权、F001 角色基础、各对象当期鉴权/审计及 F009 一致性复核结论为准。
     note: >
-      前置决策：D-ARCH-*、D-BQ-F。
+      前置决策：无（D-ARCH-*、D-BQ-F 已 RESOLVED；产品 OPEN 项非 M4 阻塞，但其实现须已在各对象阶段裁定）。
 
 existing_work:
   - area: V2 交付证据
@@ -1009,16 +1092,17 @@ existing_work:
 # --- 重新规划核对记录 ---
 planning_audit:
   audited_on: "2026-09-25"
-  basis_commit: f384144
-  requirement_revision: BQ-U（2026-09-25，docs/product/requirements-v2.md）
+  basis_commit: 45acff1
+  requirement_revision: BQ-V（2026-09-25，docs/product/requirements-v2.md）
   features:
     independent_acceptance: >
-      revision 7 的 12 个 Feature 均被界定为“DONE 时依赖已满足、具备用户可观察的当期可验收价值”：
-      F001 交付平台角色/操作者解析基础 + 集群本体最小三角色服务端鉴权/审计/历史（闭环 71）；
+      revision 8 的 13 个 Feature 均被界定为“DONE 时依赖已满足、具备用户可观察的当期可验收价值”：
+      F013 交付平台自建用户/角色管理与登录会话基础（闭环 72–81）；
+      F001 在 F013 基础上交付集群本体最小鉴权/审计/历史（闭环 71）；
       F002 交付公共信息、无 IP 网卡、整单原子基础、自身子项先删、本对象鉴权/审计/历史写入
       （闭环 28/29/34/47/50）；F006 在同一表单集成 IP、管理 IP、IP 真实删除释放、历史写入与本对象鉴权/审计
       （闭环 20 条）；F005 交付网段台账、真实删除前置、网段历史写入与本对象鉴权/审计（闭环 10/12/53）；
-      F012 在 F009 之前直接复用 F001 统一角色基础提供管理员历史查询（闭环 48/61/64）；
+      F012 直接复用 F013 经 F001 集成的统一角色基础提供管理员历史查询（闭环 48/61/64）；
       F003 交付列表/详情（闭环 8/32）；F008 交付已交付对象的基础搜索/下拉能力与全量模糊（闭环 41）；
       F004 交付类型详情、类型摘要、宿主关系、删宿主前逐项真删 VM（闭环 1/2/13/14/15/33/35/36，M2 仍有 8 条）；
       F007 交付服务/实例/入口、服务历史写入与统一查询扩展、服务与部署依赖闭环
@@ -1026,38 +1110,78 @@ planning_audit:
       F009 收敛为跨对象一致性复核 + 集群切换（闭环 40，独立用户可观察，不实施基础鉴权）；
       F010 交付聚合/作用域/全局 IP 查询（闭环 55/56/66）；
       F011 作为最终集成复核全平台权限与搜索面（闭环 7/22/23/37/38/39/57）。
-      未把数据库/API/页面拆成独立产品 Feature；F001–F011 稳定 ID 不变，F012 为新增。
+      未把数据库/API/页面拆成独立产品 Feature；F001–F012 稳定 ID 不变，F013 为新增。
   dependencies:
     acyclic: true
     changes:
-      - F007 depends_on 由 [F001, F002] 调整为 [F001, F002, F004, F012]（部署实例目标含 VM，服务/入口历史扩展 F012 统一查询）。
-      - F009 depends_on 由 [F001] 调整为 [F001, F002, F004, F005, F006, F007]（收敛为已交付对象的跨对象一致性复核，方向为对象 → F009）。
-      - F010 depends_on 增补 F004（类型摘要与 VM 计数来源）。
-      - F011 depends_on 由 [F002, F003, F004, F005, F006, F007, F008, F010] 调整为
-        [F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F012]（全平台终局复核需 F009 复核结论与 F012 历史查询）。
-      - 新增 F012 depends_on [F001, F002, F005, F006]。
-      - F002/F003/F004/F005/F006/F008 的依赖边未变（F002 维持 [F001, F005]，F005 维持 [F001]）。
+      - 新增 F013 depends_on []（唯一根，交付平台自建用户/角色与会话基础）。
+      - F001 depends_on 由 [] 调整为 [F013]（集群本体最小服务端鉴权复用 F013 的身份/角色/会话基础）。
+      - F009 depends_on 增 F013（跨对象权限/审计一致性复核直接复核 F013 的权限/会话基础，场景 40）。
+      - F011 depends_on 增 F013（全平台三角色终局复核含用户/角色/登录，场景 57）。
+      - F012 depends_on 增 F013（管理员可查历史复用 F013 的角色/操作者判定，场景 48/61/64）。
+      - F002/F005/F006/F007 经 F001 传递获得 F013 基础，未新增冗余直边。
     notes: >
       全部依赖为无环有向图，拓扑序为
-      F001 → F005 → F002 → F006 → F012 → F003 → F008 → F004 → F007 → F009 → F010 → F011。
+      F013 → F001 → F005 → F002 → F006 → F012 → F003 → F008 → F004 → F007 → F009 → F010 → F011。
       无 scope 早于其生产对象创建、也无对象级鉴权/审计/历史写入晚于对象落地（随对象当期交付）；
-      F009 不为任何对象写路径的前置（方向为对象 → F009），F012 依赖对象以提供查询、不被对象写入反向依赖；
-      F005 不反向依赖资源/IP。场景 46/68 的 closure_owner 均为 F007，位于其全部 participants 之后。
+      F013 为唯一根且不依赖任何受管对象；F009/F011 位于 F013 与全部对象 Feature 之后；
+      F012 依赖对象以提供查询、不被对象写入反向依赖。
+      场景 72–81 的 closure_owner F013 自身闭环；40/48/57/61/64/71 的 closure_owner 均位于新增 participant F013 之后。
   coverage:
-    rule_sections: 31
-    scenarios: 71
-    closure_owners_assigned: 71
+    rule_sections: 32
+    scenarios: 81
+    closure_owners_assigned: 81
     closure_audit: >
-      revision 7 逐条核对 71 条场景的 closure_owner 在其 DONE 时依赖已满足：
-      closure 分布为 M1 34 条、M2 9 条、M3 21 条、M4 7 条；
+      revision 8 逐条核对 81 条场景的 closure_owner 在其 DONE 时依赖已满足：
+      closure 分布为 M1 44 条、M2 9 条、M3 21 条、M4 7 条；
       无任一 closure_owner 早于其参与 Feature（按 depends_on 传递闭包核对），无未分配 closure 的场景。
     gaps: []
   status_evidence:
     done: 0
     statement: >
       V2 无已登记 Feature 的提交/测试/Review/合并证据；无 Feature 可推断 DONE。
-      全部 Feature 记为 BLOCKED（依赖未 DONE 且架构前提未批准）。
+      全部 Feature 记为 BLOCKED（依赖未 DONE 且产品 OPEN 未裁定）。
   discrepancies:
+    - id: R8-S1
+      kind: PLAN_SCOPE
+      layer: MILESTONE
+      location: project-plan.yaml scope/features/milestones（revision 8）
+      detail: >
+        BQ-V 新增 §4.9 用户与角色管理（场景 72–81），revision 7 无对应 Feature，
+        平台身份/角色判定原由 F001 承接，范围与依赖均需调整。
+      blocks_planning: false
+      owner: project-manager
+      status: RESOLVED
+      resolution: >
+        新增 F013「用户与角色管理」（Epic E8、M1、根）；F001 depends_on 调整为 [F013] 并改述角色基础来源；
+        F009/F011/F012 显式依赖 F013；F002/F005/F006/F007 经 F001 传递获得。
+    - id: R8-D1
+      kind: DECISION_ALIGNMENT
+      layer: FEATURE
+      location: project-plan.yaml features[*].blocking_decisions（revision 8）
+      detail: >
+        D-ARCH-STACK/DB/API/DEPLOY 与 D-BQ-F 已由用户批准/随 BQ-V 关闭，
+        原列于 F001/F002/F005/F006/F007/F009/F011/F012 的 D-BQ-F 不再构成阻塞。
+      blocks_planning: false
+      owner: project-manager
+      status: RESOLVED
+      resolution: >
+        5 项决策在 decisions_required 置 RESOLVED 并附依据；从所有 Feature 的 blocking_decisions 移除 D-BQ-F；
+        F013 blocking_decisions 为 [D-NAME-COMPARISON, D-RESOURCE-HISTORY]。
+    - id: R8-C1
+      kind: COVERAGE
+      layer: REQUIREMENT
+      location: project-plan.yaml requirement_coverage（revision 8）
+      detail: >
+        §10 场景由 1–71 扩展为 1–81，rule_sections 由 31 键增至 32 键，
+        Milestone 闭环分布由 34/9/21/7 变为 44/9/21/7。
+      blocks_planning: false
+      owner: project-manager
+      status: RESOLVED
+      resolution: >
+        新增 §4.9 用户与角色管理映射 F013；§2.1/§3.1/§9.1 纳入 F013；scenarios 重算为 1–81，
+        72–81 归 F013，40/48/57/61/64/71 增 F013 participant；M1 增 F013 并置首，
+        closure_audit 按 44/9/21/7 记录。
     - id: R7-B1
       kind: FEATURE_ACCEPTANCE
       layer: FEATURE
@@ -1325,6 +1449,34 @@ planning_audit:
       status: RESOLVED
       resolution: 关键路径更正为 F001 → F005 → F002 → F006 → F003 → F008 → F004 → F007 → F010 → F011。
   history:
+    - plan_revision: 7
+      superseded: true
+      audited_on: "2026-09-25"
+      basis_commit: f384144
+      requirement_revision: BQ-U（2026-09-25，docs/product/requirements-v2.md）
+      note: >
+        revision 7 审计记录已被 revision 8 取代（superseded），保留以供追溯；
+        其逐条 discrepancy 结论（R7-*、RV7-*、R7R-*）继续保留在本文件 planning_audit.discrepancies。
+      features:
+        independent_acceptance: >
+          revision 7 的 12 个 Feature 均被界定为“DONE 时依赖已满足、具备用户可观察的当期可验收价值”；
+          F001–F011 稳定 ID 不变，F012 为新增。
+      dependencies:
+        acyclic: true
+        notes: >
+          拓扑序 F001 → F005 → F002 → F006 → F012 → F003 → F008 → F004 → F007 → F009 → F010 → F011。
+      coverage:
+        rule_sections: 31
+        scenarios: 71
+        closure_owners_assigned: 71
+        closure_audit: >
+          revision 7 逐条核对 71 条场景的 closure_owner 在其 DONE 时依赖已满足：
+          closure 分布为 M1 34 条、M2 9 条、M3 21 条、M4 7 条；无 closure_owner 早于其参与 Feature。
+        gaps: []
+      status_evidence:
+        done: 0
+        statement: >
+          V2 无已登记 Feature 的提交/测试/Review/合并证据；全部 Feature 记为 BLOCKED。
     - plan_revision: 6
       superseded: true
       audited_on: "2026-09-24"
@@ -1466,9 +1618,9 @@ planning_audit:
 requirement_coverage:
   rule_sections:
     "§1.3 资源抽象": [F002, F004]
-    "§2.1 角色与首期权限": [F001, F002, F005, F006, F007, F009, F011, F012]
+    "§2.1 角色与首期权限": [F013, F001, F002, F005, F006, F007, F009, F011, F012]
     "§2.2 典型任务路径": [F002, F003, F004, F006, F007, F008, F010, F012]
-    "§3.1 P0 交付内容与边界": [F001, F002, F004, F005, F006, F007]
+    "§3.1 P0 交付内容与边界": [F013, F001, F002, F004, F005, F006, F007]
     "§4.1 集群与计算资源": [F001, F002]
     "§4.2 网卡与 IP": [F002, F005, F006]
     "§4.3 计算资源状态": [F002, F003]
@@ -1477,6 +1629,7 @@ requirement_coverage:
     "§4.6 网段": [F005]
     "§4.7 VM": [F004]
     "§4.8 服务": [F007]
+    "§4.9 用户与角色管理": [F013]
     "§5 IPv4 分配规则": [F005, F006]
     "§6.1 集群入口": [F001, F010]
     "§6.2 计算资源列表": [F003, F004, F010]
@@ -1492,7 +1645,7 @@ requirement_coverage:
     "§8.1 支持匹配内容": [F004, F007, F008, F010]
     "§8.2 匹配规则": [F008]
     "§8.3 交互": [F008, F010, F011]
-    "§9.1 安全": [F001, F002, F005, F006, F007, F009, F011, F012]
+    "§9.1 安全": [F013, F001, F002, F005, F006, F007, F009, F011, F012]
     "§9.2 性能": [F003, F005, F007, F011]
     "§9.3 可靠性": [F002, F006, F011]
     "§9.4 可用性": [F003, F008, F011]
@@ -1672,10 +1825,11 @@ requirement_coverage:
         - {owner: F008, aspect: 竞态防护实现}
         - {owner: F011, aspect: 端到端复核}
     "40":
-      participants: [F001, F002, F005, F006, F007, F009]
+      participants: [F013, F001, F002, F005, F006, F007, F009]
       closure_owner: F009
       parts:
-        - {owner: F001, aspect: 集群切换/记忆与角色基础}
+        - {owner: F013, aspect: 用户/角色与登录会话基础（角色判定来源）}
+        - {owner: F001, aspect: 集群切换/记忆与集群本体鉴权}
         - {owner: F002, aspect: 公共信息/网卡侧读取权限}
         - {owner: F005, aspect: 网段服务端鉴权在切换下不变}
         - {owner: F006, aspect: IP/网卡服务端鉴权在切换下不变}
@@ -1723,9 +1877,10 @@ requirement_coverage:
         - {owner: F007, aspect: 服务实例关联保护与最终闭环}
     "47": {participants: [F002], closure_owner: F002}
     "48":
-      participants: [F002, F006, F012]
+      participants: [F013, F002, F006, F012]
       closure_owner: F012
       parts:
+        - {owner: F013, aspect: 角色/操作者解析与管理员判定基础}
         - {owner: F002, aspect: 资源真删/无恢复/历史写入}
         - {owner: F006, aspect: IP 历史写入}
         - {owner: F012, aspect: 管理员查询/无到期}
@@ -1772,9 +1927,10 @@ requirement_coverage:
         - {owner: F008, aspect: 搜索交互}
         - {owner: F010, aspect: 全局 IP 查询入口与作用域}
     "57":
-      participants: [F001, F002, F005, F006, F007, F009, F011]
+      participants: [F013, F001, F002, F005, F006, F007, F009, F011]
       closure_owner: F011
       parts:
+        - {owner: F013, aspect: 自建用户/角色/登录服务端鉴权}
         - {owner: F001, aspect: 平台角色/操作者解析基础与集群本体鉴权}
         - {owner: F002, aspect: 本对象当期服务端鉴权与关联保护下的删除授权}
         - {owner: F005, aspect: 本对象当期服务端鉴权与关联保护下的删除授权}
@@ -1808,9 +1964,10 @@ requirement_coverage:
         - {owner: F005, aspect: 删除前置规则/保留地址/网关/历史写入}
         - {owner: F006, aspect: 已分配地址前置}
     "61":
-      participants: [F001, F002, F005, F006, F012]
+      participants: [F013, F001, F002, F005, F006, F012]
       closure_owner: F012
       parts:
+        - {owner: F013, aspect: 角色/操作者解析（管理员判定）}
         - {owner: F001, aspect: 集群历史写入（写入与持久化在 F001 DONE 可独立校验）}
         - {owner: F002, aspect: 计算资源/网卡历史写入}
         - {owner: F005, aspect: 网段历史写入}
@@ -1830,9 +1987,10 @@ requirement_coverage:
         - {owner: F012, aspect: 统一历史查询（服务/入口侧由 F007 扩展）}
         - {owner: F007, aspect: 最终闭环}
     "64":
-      participants: [F001, F002, F005, F006, F012]
+      participants: [F013, F001, F002, F005, F006, F012]
       closure_owner: F012
       parts:
+        - {owner: F013, aspect: 角色/操作者解析（管理员判定）}
         - {owner: F001, aspect: 集群历史写入（写入与持久化在 F001 DONE 可独立校验）}
         - {owner: F002, aspect: 计算资源/网卡历史写入}
         - {owner: F005, aspect: 网段历史写入}
@@ -1880,10 +2038,21 @@ requirement_coverage:
         - {owner: F012, aspect: 统一历史查询}
         - {owner: F007, aspect: 最终闭环}
     "71":
-      participants: [F001]
+      participants: [F013, F001]
       closure_owner: F001
       parts:
-        - {owner: F001, aspect: 集群本体新增/编辑/删除、最小三角色服务端鉴权、集群审计与历史写入}
+        - {owner: F013, aspect: 角色/操作者解析与会话基础（三角色判定）}
+        - {owner: F001, aspect: 集群本体新增/编辑/删除、最小三角色服务端鉴权、集群审计与历史写入；管理员查询由 61/64 联验（F012）、关联后改名归属按场景 58 由 F007 联验}
+    "72": {participants: [F013], closure_owner: F013}
+    "73": {participants: [F013], closure_owner: F013}
+    "74": {participants: [F013], closure_owner: F013}
+    "75": {participants: [F013], closure_owner: F013}
+    "76": {participants: [F013], closure_owner: F013}
+    "77": {participants: [F013], closure_owner: F013}
+    "78": {participants: [F013], closure_owner: F013}
+    "79": {participants: [F013], closure_owner: F013}
+    "80": {participants: [F013], closure_owner: F013}
+    "81": {participants: [F013], closure_owner: F013}
   gaps: []
 
 planning_status:
@@ -1891,24 +2060,24 @@ planning_status:
   status: ACCEPTED
   ready_features: []
   blocked_draft_features:
-    BLOCKED: [F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012]
+    BLOCKED: [F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012, F013]
     DRAFT: []
   counts:
     READY: 0
     IN_PROGRESS: 0
-    BLOCKED: 12
+    BLOCKED: 13
     DRAFT: 0
     DONE: 0
     CANCELLED: 0
   note: >
     plan_completeness=complete 表示本计划已覆盖 requirements-v2.md 已确认范围与
-    §10 全部 71 条验收场景（gaps 为空，含 2026-09-24 至 2026-09-25 BQ-M–BQ-U 新增场景 71），
-    且每条场景均有 closure_owner。revision 7 已获用户批准，计划状态 ACCEPTED；
+    §10 全部 81 条验收场景（gaps 为空，含 2026-09-24 至 2026-09-25 BQ-M–BQ-V 新增场景 72–81），
+    且每条场景均有 closure_owner。revision 8 已获用户批准，计划状态 ACCEPTED；
     产品需求仍待整体签核。
-    revision 7 已逐条核对 closure_owner 与其 depends_on/Milestone 顺序一致（见 coverage.closure_audit），
+    revision 8 已逐条核对 closure_owner 与其 depends_on/Milestone 顺序一致（见 coverage.closure_audit），
     无 closure_owner 早于参与 Feature 的死锁。
     全部 Feature 标记 BLOCKED：`depends_on` 尚未 DONE，且技术栈/数据库/API/部署等
-    架构前提未批准（见 D-ARCH-*，affects=ALL），在用户裁定前不具备实施前提。
+    架构前提已 RESOLVED 但契约文档尚未产出（见 D-ARCH-*，affects=ALL），在阶段门禁满足前不具备实施前提。
     Milestone 顺序与退出标准已核对为满足 depends_on 与 closure_owner（见 planning_audit）。
     仅在需求与阶段门禁满足并核对 Git 状态后，由协调器按 project-state.md
     重算 Feature 状态；本次批准不自动启动实施。
