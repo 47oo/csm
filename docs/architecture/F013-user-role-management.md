@@ -90,10 +90,10 @@ F013 在既有 ADR 架构内新增一个横向模块「平台访问控制」，�
 
 | 表（建议名） | 需要保障的行为 | 依据 |
 | --- | --- | --- |
-| `users` | 平台用户；`id` 稳定主键；`username` 原样存储（保留输入形态）；`role` 单一角色；`status ∈ {enabled, disabled}`；`must_change_password`；`version` 乐观锁；`created_at/updated_at` | §4.9.2/4/6/7/11 |
-| `users` 唯一性 | **仍存用户**内 `username` 唯一，比较键＝去首尾空格后**区分大小写**；纯空白拒绝。数据库对比较键建唯一约束 | §4.9.3、BQ-W |
-| `users_login_key`（比较键，可并入 `users` 或独立） | 存 `trim(username)` 作为判重键；唯一约束作用于该键 | BQ-W |
-| `reserved_usernames`（保留标识表） | **永不删除**，主键为用户名比较键；用户创建/改名时写入；删除用户不删除。保证「用户名不复用」，独立于 `users` 是否存在 | §4.9.7、ADR-002 |
+| `users` | 平台用户；`id` 稳定主键；`username`（仅字母与数字、长度 1–128、区分大小写、**创建后不可修改**）；`role` 单一角色；`status ∈ {enabled, disabled}`；`must_change_password`；`version` 乐观锁；`created_at/updated_at` | §4.9.2/4/6/7/11、BQ-X |
+| `users` 唯一性 | **仍存用户**内 `username` 唯一，**仅字母与数字、长度 1–128**、区分大小写；创建后不可修改。数据库对该唯一键建约束 | §4.9.3、BQ-W、BQ-X |
+| `users_login_key`（可并入 `users`） | 存 `username` 作为判重键（仅字母数字、无空格）；唯一约束作用于该键 | BQ-W、BQ-X |
+| `reserved_usernames`（保留标识表） | **永不删除**，主键为用户名比较键；用户**仅创建时**写入（用户名不可修改）；删除用户不删除。保证「用户名不复用」，独立于 `users` 是否存在 | §4.9.7、BQ-X、ADR-002 |
 | `user_credentials`（1:1，或并入 `users`） | 每个用户当前口令哈希（Argon2id 编码串，含算法与参数）；改密/重置只替换哈希；随用户删除而删除（历史由审计承载） | §4.9.8 |
 | `sessions` | 服务端会话：`token_hash`（不存明文 token）、`user_id`、`created_at`、`expires_at`、`revoked_at`、可选 `last_seen_at`；登出/删除用户/禁用/改密时使其失效 | §4.9.5/6/7 |
 | `audit_log` | **append-only**；`occurred_at`、`actor_user_id`(nullable)、`actor_username_snapshot`、`action`、`target_type`、`target_id`、`target_key_snapshot`、`change`(JSON)、`result`；**不使用仅指向 `users` 的 FK 级联删除**，用户删除后审计仍可读 | §4.9.10、ADR-005 |
@@ -164,6 +164,7 @@ F013 在既有 ADR 架构内新增一个横向模块「平台访问控制」，�
 - 登录失败不区分账号是否存在，避免枚举；不创建/修改任何业务数据（场景 72）。
 - 越权（非管理员调用用户管理）：服务端 `403 FORBIDDEN`，数据不变（场景 80）。
 - P0 不引入登录限流框架；`PROPOSED` 可在反向代理层加重试限制（不属本期必需）。
+- **最后一个管理员保护（BQ-X）**：删除或禁用前，在同一事务内校验「启用中的 `admin` 用户数 > 1」；若目标为最后一个启用中的管理员，拒绝返回 `409 LAST_ADMIN`，不改变任何数据（系统始终至少保留一个可登录管理员）。
 
 ---
 
@@ -180,7 +181,7 @@ Contract 状态 **READY**（依据 ADR-003 已批准）。Base：`/api/v1`；错
 | 5 | GET | `/users` | 用户列表（分页/筛选） | admin |
 | 6 | POST | `/users` | 新增用户 | admin |
 | 7 | GET | `/users/{user_id}` | 用户详情 | admin |
-| 8 | PATCH | `/users/{user_id}` | 修改用户名/角色（乐观锁） | admin |
+| 8 | PATCH | `/users/{user_id}` | 修改角色（用户名不可改；乐观锁） | admin |
 | 9 | DELETE | `/users/{user_id}` | 删除用户 | admin |
 | 10 | POST | `/users/{user_id}/disable` | 禁用 | admin |
 | 11 | POST | `/users/{user_id}/enable` | 启用 | admin |
@@ -218,8 +219,9 @@ Contract 状态 **READY**（依据 ADR-003 已批准）。Base：`/api/v1`；错
 **PROPOSED（架构建议，非产品规则）**：① Cookie 会话 + SameSite/Origin 校验；② Argon2id；③ 会话默认 TTL 12h；④ 改密/重置/禁用即失效会话；⑤ 新增/重置也置首登改密；⑥ 字母=ASCII。
 
 **OPEN / 关注**：
-- `D-USERNAME-RENAME`：本次按「用户可修改用户名」设计（改名时旧比较键保留于 `reserved_usernames`，新键须唯一），以满足 §4.9「用户增删改」；若产品意图是用户名不可变，需确认并简化。非阻塞。
-- `D-LAST-ADMIN`：是否禁止删除/禁用最后一个管理员以避免系统锁死，产品未规定，本次**不强制**，列为风险与后续问题。
+- `D-USERNAME-RENAME`（已裁定，BQ-X）：用户名**创建后不可修改**；`PATCH /users/{id}` 仅修改角色；`reserved_usernames` 仅创建时写入。
+- `D-LAST-ADMIN`（已裁定，BQ-X）：禁止删除或禁用**最后一个启用中的平台管理员**；删除/禁用事务内校验，拒绝返回 `409 LAST_ADMIN`。
+- 用户名长度/字符集（已裁定，BQ-X）：**仅字母与数字、长度 1–128**；由 Contract/DB CHECK 与前端校验共同保证。
 - 明文 HTTP 下口令与会话可能被内网嗅探（BQ-V 已接受）；无备份意味着数据不可恢复（BQ-V 已接受）。
 
 ---

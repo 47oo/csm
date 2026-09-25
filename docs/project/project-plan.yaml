@@ -822,6 +822,7 @@ features:
       全平台终局复核见 F011（场景 57）。用户名比较口径（BQ-W）与审计载体（ADR-005）已裁定。
       本 Feature 交付的角色/操作者解析与会话基础被 F001/F002/F005/F006/F007/F012 复用；
       用户/角色管理操作进审计但不并入受管资源历史（场景 81）。
+      BQ-X：用户名仅字母与数字、长度 1–128、创建后不可修改；禁止删除或禁用最后一个启用中的平台管理员。
     priority: P0
     depends_on: []
     blocking_decisions: []
@@ -1173,6 +1174,20 @@ planning_audit:
         两项决策在 decisions_required 置 RESOLVED 并附依据；从所有 Feature 的 blocking_decisions 移除；
         重算 F013 为 READY（depends_on=[] 且 blocking_decisions=[]），其余 Feature 仍 BLOCKED；
         planning_status/counts（READY 1、BLOCKED 12）与派生视图同步；范围/Feature/场景未变。
+    - id: R9-D2
+      kind: DECISION_ALIGNMENT
+      layer: FEATURE
+      location: requirements-v2.md §4.9 / §10.75–77,79；F013 架构/Contract/数据库设计（revision 9，F013 实施中）
+      detail: >
+        BQ-X 明确用户名仅字母与数字、长度 1–128、创建后不可修改，并禁止删除/禁用最后一个启用中的管理员；
+        影响 F013 的 §4.9、场景 75/76/77/79文本、API Contract（PATCH 仅角色、新增 LAST_ADMIN）与数据库设计。
+      blocks_planning: false
+      owner: coordinator
+      status: RESOLVED
+      resolution: >
+        已更新 requirements-v2.md（BQ-X、§4.9、场景 75/76/77/79）、domain-model.md、
+        docs/architecture/F013-user-role-management.md、docs/api/F013.md、docs/database/F013.md；
+        场景编号与 Feature 覆盖不变（仍 1–81，F013 闭环 72–81）；属于 F013 实施中的已确认规则细化，不改变范围/依赖。
     - id: R8-S1
       kind: PLAN_SCOPE
       layer: MILESTONE
