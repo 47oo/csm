@@ -9,5 +9,6 @@
 | [ADR-002](adr-002-database.md) | D-ARCH-DB | 数据库与数据行为 | ACCEPTED | 2026-09-25（用户，revision 8 / BQ-V） |
 | [ADR-003](adr-003-api.md) | D-ARCH-API | API 风格与契约 | ACCEPTED | 2026-09-25（用户，revision 8 / BQ-V） |
 | [ADR-004](adr-004-deployment.md) | D-ARCH-DEPLOY | 部署形态与环境 | ACCEPTED | 2026-09-25（用户，revision 8 / BQ-V） |
+| [ADR-005](adr-005-history-audit.md) | D-RESOURCE-HISTORY | 资源历史与审计载体 | ACCEPTED | 2026-09-25（用户，BQ-W） |
 
 参考：`docs/product/requirements-v2.md` §11.1 BQ-V、`docs/project/proposals/revision-8.md`、`docs/project/project-plan.yaml`。
