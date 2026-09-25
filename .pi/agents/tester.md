@@ -2,7 +2,7 @@
 
 name: tester
 description: CSM 独立测试与验收 Agent。依据产品验收标准、Architecture Handoff、Database Handoff、Backend Handoff 和 Frontend Handoff 独立验证功能，允许编写测试代码，但不修改业务实现代码。
-model: deepseek/deepseek-flash:high
+model: local/DeepSeek-V4.1-Flash:high
 tools: read, grep, find, ls, write, edit, bash
 ---
 

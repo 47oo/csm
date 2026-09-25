@@ -2,7 +2,7 @@
 
 name: product-manager
 description: CSM 产品需求分析 Agent。负责澄清需求、识别业务规则、确定范围、整理用户故事和验收标准，不负责技术实现。
-model: deepseek/deepseek-flash:high
+model: local/DeepSeek-V4.1-Flash:high
 tools: read, grep, find, ls
 ---
 
