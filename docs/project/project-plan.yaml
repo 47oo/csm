@@ -826,17 +826,17 @@ features:
     depends_on: []
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: DATABASE
-    last_result: Architecture READY FOR IMPLEMENTATION（docs/architecture/F013-user-role-management.md）；Contract READY（docs/api/F013.md，依据 ADR-003）
-    next_action: Database 数据设计（users/user_credentials/sessions/reserved_usernames/audit_log + 初始化建表），要求 READY FOR DATABASE IMPLEMENTATION
+    current_stage: IMPLEMENTATION
+    last_result: Database READY FOR DATABASE IMPLEMENTATION（docs/database/F013.md）
+    next_action: Backend 实现（初始化建表脚本 + auth/users/password/audit/bootstrap/principal）与 Frontend 实现（登录/改密/用户管理/守卫）；Contract READY
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: READY, doc: docs/api/F013.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F013-user-role-management
       start_commit: e6999213a54eb2cab4f1b4f420c6e2a4158fe60f
-      head_commit: 16197f0
+      head_commit: d65db7e
       merge_commit: null
     evidence: []
 
@@ -2147,7 +2147,7 @@ planning_status:
 
 execution:
   current_feature: F013
-  current_stage: DATABASE
+  current_stage: IMPLEMENTATION
   note: >
     F013「用户与角色管理」进行中（分支 feature/F013-user-role-management，start_commit e699921）。
-    Architecture 与 Contract 已完成；进行 DATABASE 设计。
+    Architecture/Contract/Database Design 已完成；进行 Backend/Frontend 实现。
