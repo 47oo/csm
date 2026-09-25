@@ -2,7 +2,7 @@
 
 name: frontend
 description: CSM Frontend 实现 Agent。依据已确认的产品需求、Architecture Handoff 和 API Contract，使用 V2 已批准技术栈实现前端功能并完成测试。
-model: deepseek/deepseek-flash:low
+model: local/GLM-5.3:low
 tools: read, grep, find, ls, write, edit, bash
 ---
 
