@@ -12,8 +12,9 @@
 #   - docs/project/project-state.md、docs/project/git-workflow.md、docs/project/handoff.md
 #
 # 本计划经 2026-09-24 需求变更（BQ-H）后重新规划核对（revision 4/5/6），
-# 并于 2026-09-24 至 2026-09-25 的 BQ-M–BQ-V 需求变更后重新规划核对（revision 7/8，2026-09-25）。
-# revision 8 已由用户明确批准；需求最终签核及实施门禁仍独立适用，不自动启动实施。
+# 并于 2026-09-24 至 2026-09-25 的 BQ-M–BQ-W 需求变更后重新规划核对（revision 7/8/9，2026-09-25）。
+# revision 9 依据 BQ-W 关闭 D-NAME-COMPARISON、D-RESOURCE-HISTORY 并重算 F013 为 READY；
+# 需求最终签核及实施门禁仍独立适用，不自动启动实施。
 
 project:
   name: CSM
@@ -23,38 +24,32 @@ project:
     逐步替代分散的 Excel 台账；V2 独立定义需求、领域模型、架构与实现。
   status: ACCEPTED
   status_changed_on: "2026-09-25"
-  plan_revision: 8
+  plan_revision: 9
   last_planned_on: "2026-09-25"
   planning_reason: >
-    revision 8（2026-09-25）依据 requirements-v2.md 的 BQ-V 裁定重新规划：
-    新增 §4.9 用户与角色管理（场景 72–81），平台自建用户与角色管理成为 P0 根能力；
-    据此新增 F013“用户与角色管理”（Epic E8、M1），F013 为唯一根并交付
-    平台角色/操作者解析与会话基础；F001 depends_on 由 [] 调整为 [F013]，
-    F009/F011/F012 显式依赖 F013，F002/F005/F006/F007 经 F001 传递获得该基础。
-    用户批准项目级架构决策 D-ARCH-STACK/DB/API/DEPLOY 并随 BQ-V 关闭 D-BQ-F，
-    上述 5 项在 decisions_required 中置 RESOLVED 并从所有 Feature 的 blocking_decisions 移除 D-BQ-F。
-    §10 扩展至 1–81 条场景，72–81 归 F013，40/48/57/61/64/71 增 F013 participant；
-    Milestone 重算为 M1 44 / M2 9 / M3 21 / M4 7；rule_sections 新增 §4.9，键数 31→32。
-    未修改产品文档或新增业务规则；F001–F012 的稳定 ID 不变，F013 为递增新增。
+    revision 9（2026-09-25）依据 requirements-v2.md 的 BQ-W 裁定与 ADR-005 更新机器计划：
+    关闭 D-NAME-COMPARISON（资源名/接口名/网段名/用户名去首尾空格后区分大小写、禁止纯空白；
+    集群名称长度 1–64；服务编号去首尾空格后统一大写）与
+    D-RESOURCE-HISTORY（资源历史与审计分表、仅追加写；资源历史管理员可查、长期、不自动到期；审计保留一致）；
+    两项决策在 decisions_required 置 RESOLVED，并从所有 Feature 的 blocking_decisions 移除。
+    重算状态：F013 depends_on=[] 且 blocking_decisions=[] → READY，其余 Feature 仍 BLOCKED
+    （依赖未 DONE 或仍有其它 OPEN 决策）。范围、Feature 数量与 §10 场景均未变。
+    未修改产品/架构文档，未新增业务规则，未启动实施。
   requirement_revision:
-    id: BQ-V
+    id: BQ-W
     date: "2026-09-25"
     source: docs/product/requirements-v2.md
     summary: >
-      BQ-V（2026-09-25 用户裁定）：平台自建用户管理，不接入组织既有认证方式；
-      P0 能力为平台管理员维护用户增删改、单一角色（查看者/资源维护者/平台管理员）分配、
-      改密/重置、登录/登出、账号禁用；删除用户保留历史审计且用户名不复用，禁用≠删除；
-      口令最短 8 位且同时含字母与数字、P0 不强制定期过期、可自助改密、无自助找回；
-      用户/角色管理操作进审计且不并入仅管理员可查的受管资源历史（§4.9、场景 72–81）。
-      同时确认：审计/资源历史长期保留、不自动到期、仅管理员可查；性能目标为
-      列表/详情 P95 < 1s、搜索 P95 < 1.5s；部署仅内网 HTTP、不启用 HTTPS；不做备份/恢复演练。
+      BQ-W（2026-09-25 用户裁定）：资源名/接口名/网段名/用户名去首尾空格后区分大小写判重、
+      禁止纯空白；集群名称长度 1–64；服务编号去首尾空格后统一大写判重且真实删除后不复用；
+      资源历史与审计分表、仅追加写，资源历史管理员可查、长期保留、不自动到期，审计保留一致（见 ADR-005）。
     impact: >
-      §10 扩展为 1–81；新增 F013 与 Epic E8；F013 为唯一根并交付平台角色/操作者解析与会话基础；
-      F001 depends_on 调整为 [F013]，F009/F011/F012 增 F013；Milestone 分布 44/9/21/7；
-      规则章节新增 §4.9（键数 32）。
+      关闭 D-NAME-COMPARISON 与 D-RESOURCE-HISTORY，并从所有 Feature 的 blocking_decisions 移除；
+      F013 blocking_decisions 变为空且 depends_on=[] → READY，其余 Feature 仍 BLOCKED；
+      范围、Feature 数量（13）、§10 场景（81）与 coverage（32/81/81）未变。
   approved_by: 用户
   approved_on: "2026-09-25"
-  approval_basis: 用户明确指令“批准 revision 8”；仅批准本计划，不代表需求最终签核或实施授权。
+  approval_basis: 用户确认 BQ-W 两项裁定后更新决策状态与 READY；范围/Feature/场景未变；不代表需求最终签核或实施授权。
   planning_source:
     primary: docs/product/requirements-v2.md
     domain: docs/product/domain-model.md
@@ -64,14 +59,16 @@ project:
       - docs/project/handoff.md
     workflow: .pi/prompts/project.md
   notes: >
-    BQ-M–BQ-V 需求变更后重新规划（revision 8，2026-09-25）。V2 现有交付证据为空：
+    BQ-W 决策关闭后更新（revision 9，2026-09-25）。V2 现有交付证据为空：
     v2 分支仅脚手架，无已登记 Feature、无架构/API/数据库文档、无实现代码、
     无测试/Review/合并证据。所有 Feature 均为 P0，覆盖 requirements-v2.md §10
     全部 81 条验收场景，requirement_coverage.gaps 为空。
-    D-ARCH-* 与 D-BQ-F 已 RESOLVED，但架构/契约文档尚未产出，进入实现前仍受阶段门禁约束
+    D-NAME-COMPARISON 与 D-RESOURCE-HISTORY 已 RESOLVED（BQ-W、ADR-005）；
+    D-ARCH-* 与 D-BQ-F 亦已 RESOLVED，但架构/契约文档尚未产出，进入实现前仍受阶段门禁约束
     （见 decisions_required）。依赖为无环有向图，F013 为唯一根。
-    产品需求文件仍为 DRAFT — 未整体签核；revision 8 已获用户批准。
-    实施仍以需求最终确认、阶段决策及 Git 安全门禁为前提；计划批准不等于 Feature DONE。
+    状态重算：F013 READY，其余 12 个 Feature BLOCKED。产品需求文件仍为 DRAFT — 未整体签核；
+    revision 9 已获用户批准。实施仍以需求最终确认、阶段决策及 Git 安全门禁为前提；
+    F013 为 READY 不等于已启动实施，计划批准不等于 Feature DONE。
 
 scope:
   included:
@@ -207,7 +204,7 @@ features:
       F001 不承诺有关联集群删除保护与资源历史查询的完整验收。
     priority: P0
     depends_on: [F013]
-    blocking_decisions: [D-NAME-COMPARISON, D-CODE-FORMAT, D-DELETE-CONFIRMATION, D-DELETE-DEPENDENCIES, D-RESOURCE-HISTORY]
+    blocking_decisions: [D-CODE-FORMAT, D-DELETE-CONFIRMATION, D-DELETE-DEPENDENCIES]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
@@ -269,7 +266,7 @@ features:
       场景 48 的 IP 历史写入由 F006、管理员查询由 F012 闭环。
     priority: P0
     depends_on: [F001, F005]
-    blocking_decisions: [D-STATUS-SOURCE, D-NAME-COMPARISON, D-IP-SEMANTICS, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY]
+    blocking_decisions: [D-STATUS-SOURCE, D-IP-SEMANTICS, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
@@ -409,7 +406,7 @@ features:
       场景 40 的网段写入权限拒绝侧由本 Feature 提供，跨对象一致性复核归 F009。
     priority: P0
     depends_on: [F001]
-    blocking_decisions: [D-NAME-COMPARISON, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY]
+    blocking_decisions: [D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
@@ -485,7 +482,7 @@ features:
       场景 48/61/64 的 IP 历史写入侧在本 Feature DONE 时提供，管理员查询由 F012 交付后联验。
     priority: P0
     depends_on: [F002, F005]
-    blocking_decisions: [D-IP-SEMANTICS, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY]
+    blocking_decisions: [D-IP-SEMANTICS, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
@@ -556,7 +553,7 @@ features:
       场景 40 的服务/实例写入权限拒绝侧由本 Feature 提供，跨对象一致性复核归 F009。
     priority: P0
     depends_on: [F001, F002, F004, F012]
-    blocking_decisions: [D-BQ-E, D-SERVICE-DETAILS, D-NAME-COMPARISON, D-RESOURCE-REASSIGN, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION, D-RESOURCE-HISTORY]
+    blocking_decisions: [D-BQ-E, D-SERVICE-DETAILS, D-RESOURCE-REASSIGN, D-DELETE-DEPENDENCIES, D-DELETE-CONFIRMATION]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
@@ -770,7 +767,7 @@ features:
       场景 51/59 的集群/计算资源/网段历史保留由本 Feature 的查询覆盖。
     priority: P0
     depends_on: [F013, F001, F002, F005, F006]
-    blocking_decisions: [D-RESOURCE-HISTORY]
+    blocking_decisions: []
     status: BLOCKED
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
@@ -822,13 +819,13 @@ features:
       - "81"
     acceptance_note: >
       场景 80 的越权拒绝由本 Feature 服务端实现并闭环；跨对象权限一致性复核见 F009（场景 40），
-      全平台终局复核见 F011（场景 57）。用户名比较口径依赖 D-NAME-COMPARISON，审计载体依赖 D-RESOURCE-HISTORY。
+      全平台终局复核见 F011（场景 57）。用户名比较口径（BQ-W）与审计载体（ADR-005）已裁定。
       本 Feature 交付的角色/操作者解析与会话基础被 F001/F002/F005/F006/F007/F012 复用；
       用户/角色管理操作进审计但不并入受管资源历史（场景 81）。
     priority: P0
     depends_on: []
-    blocking_decisions: [D-NAME-COMPARISON, D-RESOURCE-HISTORY]
-    status: BLOCKED
+    blocking_decisions: []
+    status: READY
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
@@ -896,12 +893,16 @@ decisions_required:
     affects: [F002, F003]
   - id: D-NAME-COMPARISON
     kind: PRODUCT
-    status: OPEN
+    status: RESOLVED
     question: >
       资源名、接口名、网段名、服务编号、用户名的比较口径（大小写/首尾空格）；
       集群名称已允许字符的具体范围与长度（集群名称判重区分大小写、含空格直接拒绝已按 BQ-M 确认，
       服务编号真实删除后不复用已按 BQ-U 确认；不得把 §8 搜索规则套作唯一性规则）。
     reason: requirements §11.2 NAME-COMPARISON；domain-model §7。
+    resolution: >
+      BQ-W 确认（2026-09-25）：资源名/接口名/网段名/用户名去首尾空格后区分大小写判重、禁止纯空白；
+      集群名称长度 1–64；服务编号去首尾空格后统一大写判重。不再是待决项，
+      已从所有 Feature 的 blocking_decisions 移除。
     required_by: 唯一性约束设计前
     affects: [F001, F002, F005, F007, F013]
   - id: D-CODE-FORMAT
@@ -953,7 +954,7 @@ decisions_required:
     affects: [F004, F007]
   - id: D-RESOURCE-HISTORY
     kind: PRODUCT
-    status: OPEN
+    status: RESOLVED
     question: 资源历史与审计的载体边界；审计保留周期。
     reason: >
       已裁定：至少留操作人与删除/变更内容、P0 仅管理员可查、不自动到期清除；
@@ -961,6 +962,10 @@ decisions_required:
       用户/角色管理操作由 F013 写入审计、不并入资源历史；
       查询侧由 F012（已交付对象）与 F007（服务/入口扩展）提供，F009 只复核一致性、不承诺历史载体；
       F009 由 D-BQ-F 覆盖，故不列入 affects。
+    resolution: >
+      BQ-W + ADR-005 确认（2026-09-25）：资源历史与审计分表承载、均为仅追加写；
+      资源历史管理员可查、长期保留、不自动到期，审计保留策略一致；表结构/字段/索引交 Database。
+      不再是待决项，已从所有 Feature 的 blocking_decisions 移除。
     required_by: 资源历史与审计载体设计前
     affects: [F001, F002, F005, F006, F007, F012, F013]
   - id: D-DELETE-CONFIRMATION
@@ -1029,8 +1034,8 @@ milestones:
       M1 退出时同一表单支持一次录入公共信息 + 全部网卡 + 全部 IP；
       管理员可查已交付对象（集群/计算资源+网卡/IP/网段）的资源历史、非管理员被拒且历史不自动清除。
     note: >
-      前置决策：D-STATUS-SOURCE、D-NAME-COMPARISON、D-CODE-FORMAT、D-IP-SEMANTICS、
-      D-DELETE-*、D-RESOURCE-HISTORY（D-ARCH-* 与 D-BQ-F 已 RESOLVED）。
+      前置决策：D-STATUS-SOURCE、D-CODE-FORMAT、D-IP-SEMANTICS、D-DELETE-*
+      （D-ARCH-*、D-BQ-F、D-NAME-COMPARISON、D-RESOURCE-HISTORY 已 RESOLVED）。
   - id: M2
     title: 统一检索、类型详情与宿主关系
     goal: >
@@ -1062,8 +1067,8 @@ milestones:
       场景 42 的既有网卡/IP/公共信息不变由 M1 的 F006 验收，本 Milestone 闭环类型详情（F004）与 VM/服务关联（F007）不变；
       场景 51 三类关联（计算资源/网段/服务关联）齐全的最终闭环通过。
     note: >
-      前置决策：D-BQ-E、D-SERVICE-DETAILS、D-NAME-COMPARISON、D-RESOURCE-REASSIGN、
-      D-DELETE-*、D-RESOURCE-HISTORY（D-ARCH-* 与 D-BQ-F 已 RESOLVED）。
+      前置决策：D-BQ-E、D-SERVICE-DETAILS、D-RESOURCE-REASSIGN、D-DELETE-*
+      （D-ARCH-*、D-BQ-F、D-NAME-COMPARISON、D-RESOURCE-HISTORY 已 RESOLVED）。
   - id: M4
     title: 非功能、可用性基线与全平台权限复核
     goal: >
@@ -1092,11 +1097,11 @@ existing_work:
 # --- 重新规划核对记录 ---
 planning_audit:
   audited_on: "2026-09-25"
-  basis_commit: 45acff1
-  requirement_revision: BQ-V（2026-09-25，docs/product/requirements-v2.md）
+  basis_commit: 77ef197
+  requirement_revision: BQ-W（2026-09-25，docs/product/requirements-v2.md）
   features:
     independent_acceptance: >
-      revision 8 的 13 个 Feature 均被界定为“DONE 时依赖已满足、具备用户可观察的当期可验收价值”：
+      revision 9 沿用 revision 8 的 13 个 Feature 界定（本轮未变更范围），均被界定为“DONE 时依赖已满足、具备用户可观察的当期可验收价值”：
       F013 交付平台自建用户/角色管理与登录会话基础（闭环 72–81）；
       F001 在 F013 基础上交付集群本体最小鉴权/审计/历史（闭环 71）；
       F002 交付公共信息、无 IP 网卡、整单原子基础、自身子项先删、本对象鉴权/审计/历史写入
@@ -1114,6 +1119,7 @@ planning_audit:
   dependencies:
     acyclic: true
     changes:
+      - revision 9 未变更任何 depends_on（F013 仍为唯一根、depends_on=[]）。
       - 新增 F013 depends_on []（唯一根，交付平台自建用户/角色与会话基础）。
       - F001 depends_on 由 [] 调整为 [F013]（集群本体最小服务端鉴权复用 F013 的身份/角色/会话基础）。
       - F009 depends_on 增 F013（跨对象权限/审计一致性复核直接复核 F013 的权限/会话基础，场景 40）。
@@ -1132,7 +1138,8 @@ planning_audit:
     scenarios: 81
     closure_owners_assigned: 81
     closure_audit: >
-      revision 8 逐条核对 81 条场景的 closure_owner 在其 DONE 时依赖已满足：
+      revision 9 未变更覆盖：rule_sections 32、scenarios 81、closure_owners_assigned 81；
+      逐条核对 81 条场景的 closure_owner 在其 DONE 时依赖已满足：
       closure 分布为 M1 44 条、M2 9 条、M3 21 条、M4 7 条；
       无任一 closure_owner 早于其参与 Feature（按 depends_on 传递闭包核对），无未分配 closure 的场景。
     gaps: []
@@ -1140,8 +1147,24 @@ planning_audit:
     done: 0
     statement: >
       V2 无已登记 Feature 的提交/测试/Review/合并证据；无 Feature 可推断 DONE。
-      全部 Feature 记为 BLOCKED（依赖未 DONE 且产品 OPEN 未裁定）。
+      F013 READY（depends_on=[] 且 blocking_decisions=[]），其余 12 个 Feature 记为 BLOCKED
+      （依赖未 DONE 或仍有其它 OPEN 决策）。READY 不代表已启动实施。
   discrepancies:
+    - id: R9-D1
+      kind: DECISION_ALIGNMENT
+      layer: FEATURE
+      location: project-plan.yaml decisions_required / features[*].blocking_decisions（revision 9）
+      detail: >
+        BQ-W 关闭 D-NAME-COMPARISON 与 D-RESOURCE-HISTORY（ADR-005），
+        二者原列于 F001/F002/F005/F006/F007/F012/F013 的 blocking_decisions，
+        并影响 F013 的 READY 判定。
+      blocks_planning: false
+      owner: project-manager
+      status: RESOLVED
+      resolution: >
+        两项决策在 decisions_required 置 RESOLVED 并附依据；从所有 Feature 的 blocking_decisions 移除；
+        重算 F013 为 READY（depends_on=[] 且 blocking_decisions=[]），其余 Feature 仍 BLOCKED；
+        planning_status/counts（READY 1、BLOCKED 12）与派生视图同步；范围/Feature/场景未变。
     - id: R8-S1
       kind: PLAN_SCOPE
       layer: MILESTONE
@@ -1449,6 +1472,35 @@ planning_audit:
       status: RESOLVED
       resolution: 关键路径更正为 F001 → F005 → F002 → F006 → F003 → F008 → F004 → F007 → F010 → F011。
   history:
+    - plan_revision: 8
+      superseded: true
+      audited_on: "2026-09-25"
+      basis_commit: 45acff1
+      requirement_revision: BQ-V（2026-09-25，docs/product/requirements-v2.md）
+      note: >
+        revision 8 审计记录已被 revision 9 取代（superseded），保留以供追溯；
+        其 discrepancy 结论（R8-*、R7-*、RV7-*、R7R-*）继续保留在本文件 planning_audit.discrepancies。
+      features:
+        independent_acceptance: >
+          revision 8 的 13 个 Feature 均被界定为“DONE 时依赖已满足、具备用户可观察的当期可验收价值”；
+          F001–F012 稳定 ID 不变，F013 为新增。
+      dependencies:
+        acyclic: true
+        notes: >
+          拓扑序 F013 → F001 → F005 → F002 → F006 → F012 → F003 → F008 → F004 → F007 → F009 → F010 → F011。
+      coverage:
+        rule_sections: 32
+        scenarios: 81
+        closure_owners_assigned: 81
+        closure_audit: >
+          revision 8 逐条核对 81 条场景的 closure_owner 在其 DONE 时依赖已满足：
+          closure 分布为 M1 44 条、M2 9 条、M3 21 条、M4 7 条；无 closure_owner 早于其参与 Feature。
+        gaps: []
+      status_evidence:
+        done: 0
+        statement: >
+          V2 无已登记 Feature 的提交/测试/Review/合并证据；全部 Feature 记为 BLOCKED
+          （依赖未 DONE 且产品 OPEN 未裁定）。
     - plan_revision: 7
       superseded: true
       audited_on: "2026-09-25"
@@ -2058,26 +2110,29 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: ACCEPTED
-  ready_features: []
+  ready_features: [F013]
   blocked_draft_features:
-    BLOCKED: [F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012, F013]
+    BLOCKED: [F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
-    READY: 0
+    READY: 1
     IN_PROGRESS: 0
-    BLOCKED: 13
+    BLOCKED: 12
     DRAFT: 0
     DONE: 0
     CANCELLED: 0
   note: >
     plan_completeness=complete 表示本计划已覆盖 requirements-v2.md 已确认范围与
-    §10 全部 81 条验收场景（gaps 为空，含 2026-09-24 至 2026-09-25 BQ-M–BQ-V 新增场景 72–81），
-    且每条场景均有 closure_owner。revision 8 已获用户批准，计划状态 ACCEPTED；
+    §10 全部 81 条验收场景（gaps 为空，含 2026-09-24 至 2026-09-25 BQ-M–BQ-W 新增场景 72–81），
+    且每条场景均有 closure_owner。revision 9 已获用户批准，计划状态 ACCEPTED；
     产品需求仍待整体签核。
-    revision 8 已逐条核对 closure_owner 与其 depends_on/Milestone 顺序一致（见 coverage.closure_audit），
+    revision 9 依据 BQ-W 关闭 D-NAME-COMPARISON 与 D-RESOURCE-HISTORY（ADR-005）
+    并从所有 Feature 的 blocking_decisions 移除；F013 depends_on=[] 且 blocking_decisions=[] → READY，
+    其余 12 个 Feature 仍 BLOCKED（依赖未 DONE 或仍有其它 OPEN 决策）。
+    closure_owner 与其 depends_on/Milestone 顺序未变（见 coverage.closure_audit），
     无 closure_owner 早于参与 Feature 的死锁。
-    全部 Feature 标记 BLOCKED：`depends_on` 尚未 DONE，且技术栈/数据库/API/部署等
-    架构前提已 RESOLVED 但契约文档尚未产出（见 D-ARCH-*，affects=ALL），在阶段门禁满足前不具备实施前提。
+    技术栈/数据库/API/部署等架构前提已 RESOLVED 但契约文档尚未产出（见 D-ARCH-*，affects=ALL），
+    仍构成项目级阶段门禁；F013 READY 不等于已启动实施，执行检查点仍为空。
     Milestone 顺序与退出标准已核对为满足 depends_on 与 closure_owner（见 planning_audit）。
     仅在需求与阶段门禁满足并核对 Git 状态后，由协调器按 project-state.md
     重算 Feature 状态；本次批准不自动启动实施。

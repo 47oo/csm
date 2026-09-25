@@ -1,7 +1,8 @@
 # CSM V2 Milestones（派生视图）
 
 > 本文件由 `docs/project/project-plan.yaml` 派生，只引用计划事实。若与计划冲突，以计划为准。
-> 计划状态：**ACCEPTED — 用户已批准 revision 8（2026-09-25）**；产品需求整体仍为 DRAFT，实施门禁独立适用。全部 Feature 为 P0。
+> 计划状态：**ACCEPTED — 用户已批准 revision 9（2026-09-25）**；产品需求整体仍为 DRAFT，实施门禁独立适用。全部 Feature 为 P0。
+> revision 9 依据 BQ-W 关闭 D-NAME-COMPARISON 与 D-RESOURCE-HISTORY；Milestone 划分与退出标准未变，状态重算后 F013 为 READY、其余 12 个 Feature 仍为 BLOCKED。
 > Milestone 按产品可交付能力组织，顺序保证任一 Milestone 的 Feature 只依赖本 Milestone 或更早 Milestone 的 Feature；
 > 退出标准按 `closure_owner` 只引用在本 Milestone 或更早已闭环的 §10 场景（其余为 parts），不在依赖未完成时承诺验收。
 
@@ -11,7 +12,7 @@
 - **Feature**：F013、F001、F005、F002、F006、F012、F003
 - **Milestone 内实施/验收顺序**：F013 → F001 → F005 → F002 → F006 → {F012, F003}（同一 Milestone 内的实施与验收顺序）。
 - **退出标准**：闭环场景共 44 条：3、4、8、9、10、11、12、19、20、21、24、25、26、27、28、29、30、31、32、34、43、44、45、47、48、50、52、53、60、61、62、64、65、71、72、73、74、75、76、77、78、79、80、81 由 M1 内 Feature 闭环通过； 场景 2（同名裸金属/名称唯一）、5（网卡/IP 归属）、6（唯一性与网卡/IP 可见）、 42（网络内容/公共信息不变）、51（计算资源与网段关联）、59（上级逐项先删规则侧）、 40（集群切换/记忆与角色基础）、55（主机数/VM 数展示侧）、56（当前集群列表侧）、 68（宿主删除的自身子项部分）的 M1 部分通过； 平台支持自建用户/单一角色/登录登出、口令策略与禁用/删除语义、首个管理员预置； 一次提交（含 IP）原子性、资源/接口/名称唯一、IPv4 并发唯一、跨重叠排除、耗尽与释放规则验证通过； M1 退出时同一表单支持一次录入公共信息 + 全部网卡 + 全部 IP； 管理员可查已交付对象（集群/计算资源+网卡/IP/网段）的资源历史、非管理员被拒且历史不自动清除。
-- **前置决策**：D-STATUS-SOURCE、D-NAME-COMPARISON、D-CODE-FORMAT、D-IP-SEMANTICS、D-DELETE-*、D-RESOURCE-HISTORY（D-ARCH-* 与 D-BQ-F 已 RESOLVED）。
+- **前置决策**：D-STATUS-SOURCE、D-CODE-FORMAT、D-IP-SEMANTICS、D-DELETE-*（D-ARCH-*、D-BQ-F、D-NAME-COMPARISON、D-RESOURCE-HISTORY 已 RESOLVED）。
 
 ## M2 — 统一检索、类型详情与宿主关系
 
@@ -27,7 +28,7 @@
 - **Feature**：F007、F009、F010
 - **Milestone 内实施/验收顺序**：F007 → {F009, F010}（F007 依赖 M1/M2 与 F012；F009/F010 依赖 M1/M2/M3 内更早 Feature）。
 - **退出标准**：闭环场景共 21 条：5、6、16、17、18、40、42、46、49、51、54、55、56、58、59、63、66、67、68、69、70 通过； §4.8 服务真实删除保护、§6.1 统计口径、§6.2 全局 IP 查询、§9.1 权限生效； 场景 42 的既有网卡/IP/公共信息不变由 M1 的 F006 验收，本 Milestone 闭环类型详情（F004）与 VM/服务关联（F007）不变； 场景 51 三类关联（计算资源/网段/服务关联）齐全的最终闭环通过。
-- **前置决策**：D-BQ-E、D-SERVICE-DETAILS、D-NAME-COMPARISON、D-RESOURCE-REASSIGN、D-DELETE-*、D-RESOURCE-HISTORY（D-ARCH-* 与 D-BQ-F 已 RESOLVED）。
+- **前置决策**：D-BQ-E、D-SERVICE-DETAILS、D-RESOURCE-REASSIGN、D-DELETE-*（D-ARCH-*、D-BQ-F、D-NAME-COMPARISON、D-RESOURCE-HISTORY 已 RESOLVED）。
 
 ## M4 — 非功能、可用性基线与全平台权限复核
 

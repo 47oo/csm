@@ -1,10 +1,9 @@
 # CSM V2 依赖图（派生视图）
 
 > 本文件由 `docs/project/project-plan.yaml` 派生，只引用计划事实。若与计划冲突，以计划为准。
-> 计划状态：**ACCEPTED — 用户已批准 revision 8（2026-09-25）**；产品需求整体仍为 DRAFT，实施门禁独立适用。所有 Feature 均为 P0。
-> 本次核对（revision 8）按 BQ-V 新增 F013「用户与角色管理」（唯一根，交付平台自建用户/角色与会话基础）：
-> F001 dep 由 [] 调整为 [F013]；F009/F011/F012 dep 增 F013；F002/F005/F006/F007 经 F001 传递获得；
-> 所有 Feature 移除已 RESOLVED 的 D-BQ-F。
+> 计划状态：**ACCEPTED — 用户已批准 revision 9（2026-09-25）**；产品需求整体仍为 DRAFT，实施门禁独立适用。所有 Feature 均为 P0。
+> 本次核对（revision 9）依据 BQ-W 关闭 D-NAME-COMPARISON 与 D-RESOURCE-HISTORY，并从所有 Feature 的 blocking_decisions 移除；
+> 依赖边未变（F013 仍为唯一根），仅状态重算：F013 → READY，其余 12 个 Feature 仍 BLOCKED。
 
 ## 依赖边（depends_on）
 
@@ -110,4 +109,4 @@ graph TD
 
 架构决策 D-ARCH-STACK、D-ARCH-DB、D-ARCH-API、D-ARCH-DEPLOY 以及 D-BQ-F 已由用户批准/随 BQ-V 关闭（RESOLVED），但架构文档、API 契约与数据库设计尚未产出，仍构成项目级阶段门禁（不表现为 Feature 依赖）。
 
-因此当前无 READY Feature，全部为 BLOCKED。
+因此当前 F013 为 READY（depends_on=[] 且 blocking_decisions=[]），其余 12 个 Feature 仍为 BLOCKED。
