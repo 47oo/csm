@@ -8,6 +8,15 @@ export const USERNAME_PATTERN = /^[A-Za-z0-9]{1,128}$/
 
 export const USERNAME_RULE_MESSAGE = '用户名仅允许字母与数字，长度 1–128'
 
+/** 内置管理员账号名（BQ-Y）：固定为 `admin`，由部署预置；不可删除、不可禁用、不可修改角色，可修改口令。
+ * 前端据此做交互提示（禁用对应操作），服务端仍以 409 PROTECTED_ADMIN 做最终校验。 */
+export const BUILT_IN_ADMIN_USERNAME = 'admin'
+
+/** 是否内置管理员账号（BQ-Y：仅保护该账号，其它管理员可正常操作；用户名区分大小写） */
+export function isProtectedAdmin(username: string): boolean {
+  return username === BUILT_IN_ADMIN_USERNAME
+}
+
 /** 口令策略：≥8 位且同时包含字母与数字（§4.9.8） */
 export const PASSWORD_POLICY_MESSAGE = '口令至少 8 位且同时包含字母与数字'
 

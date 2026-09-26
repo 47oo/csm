@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   PASSWORD_POLICY_MESSAGE,
   USERNAME_RULE_MESSAGE,
+  isProtectedAdmin,
   roleLabel,
   statusLabel,
   validatePassword,
@@ -54,6 +55,16 @@ describe('validatePassword（§4.9.8：≥8 位且同时含字母与数字）', 
     'abcdefg ', // 含空格且无数字
   ])('拒绝不满足策略的口令 %j', (value) => {
     expect(validatePassword(value)).toBe(PASSWORD_POLICY_MESSAGE)
+  })
+})
+
+describe('内置管理员账号判定（BQ-Y：仅保护固定账号 admin，区分大小写）', () => {
+  it('用户名 admin 为内置管理员账号', () => {
+    expect(isProtectedAdmin('admin')).toBe(true)
+  })
+
+  it.each(['Admin', 'ADMIN', 'admin1', 'root', ''])('用户名 %j 不是内置管理员账号，可正常操作', (value) => {
+    expect(isProtectedAdmin(value)).toBe(false)
   })
 })
 

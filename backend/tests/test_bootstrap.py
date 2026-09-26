@@ -16,20 +16,22 @@ def _count(db, model) -> int:
 
 def test_seed_initial_admin_idempotent() -> None:
     with SessionLocal() as db:
-        assert seed_initial_admin(db, username="root", password="Rootpass1") is True
+        assert seed_initial_admin(db, password="Rootpass1") is True
         db.commit()
 
     with SessionLocal() as db:
         # 第二次执行：已有 admin，跳过预置。
-        assert seed_initial_admin(db, username="other", password="Rootpass2") is False
+        assert seed_initial_admin(db, password="Rootpass2") is False
         db.commit()
 
         admins = db.scalars(select(User).where(User.role == "admin")).all()
         assert len(admins) == 1
         admin = admins[0]
-        assert admin.username == "root"
+        # 内置管理员用户名固定为 admin（BQ-Y）。
+        assert admin.username == "admin"
         assert admin.status == "enabled"
         assert admin.must_change_password is True
+        assert admin.is_builtin is True
 
         assert _count(db, UserCredential) == 1
         assert _count(db, ReservedUsername) == 1
@@ -50,7 +52,7 @@ def test_seed_initial_admin_idempotent() -> None:
 
 def test_seed_generates_password_when_missing(capsys) -> None:
     with SessionLocal() as db:
-        seed_initial_admin(db, username="auto")
+        seed_initial_admin(db)
         db.commit()
 
     out = capsys.readouterr().out
@@ -59,6 +61,8 @@ def test_seed_generates_password_when_missing(capsys) -> None:
     with SessionLocal() as db:
         admin = db.scalar(select(User).where(User.role == "admin"))
         assert admin is not None
+        assert admin.username == "admin"
+        assert admin.is_builtin is True
         assert password_policy_ok("placeholder") is False
         assert admin.must_change_password is True
 

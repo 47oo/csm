@@ -56,6 +56,7 @@ def add_user():
         *,
         status: str = "enabled",
         must_change: bool = False,
+        builtin: bool = False,
     ) -> int:
         with SessionLocal() as db:
             db.add(ReservedUsername(username_key=username))
@@ -64,6 +65,7 @@ def add_user():
                 role=role,
                 status=status,
                 must_change_password=must_change,
+                is_builtin=builtin,
             )
             db.add(user)
             db.flush()

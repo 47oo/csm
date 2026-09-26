@@ -56,6 +56,17 @@ def test_role_status_check() -> None:
             _insert_user(conn, "badstatus", status="suspended")
 
 
+def test_is_builtin_defaults_false() -> None:
+    with engine.begin() as conn:
+        user_id = _insert_user(conn, "plainuser")
+        assert (
+            conn.execute(
+                text("SELECT is_builtin FROM users WHERE id=:i"), {"i": user_id}
+            ).scalar_one()
+            is False
+        )
+
+
 def test_reserved_usernames_is_append_only() -> None:
     with engine.begin() as conn:
         conn.execute(

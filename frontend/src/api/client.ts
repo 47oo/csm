@@ -3,7 +3,7 @@
 //
 // 401 → onUnauthorized（跳登录页）；403 PASSWORD_CHANGE_REQUIRED →
 // onPasswordChangeRequired（强制改密）；403 其它 → onForbidden（提示）；
-// 409（USERNAME_TAKEN / VERSION_CONFLICT / LAST_ADMIN）不跳转，错误原样抛出，
+// 409（USERNAME_TAKEN / VERSION_CONFLICT / PROTECTED_ADMIN）不跳转，错误原样抛出，
 // 由页面保留输入并提示。处理器经 setApiHandlers 注入（main.ts 装配），
 // 避免本模块直接依赖 router / Element Plus（便于单测）。
 

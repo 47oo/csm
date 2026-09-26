@@ -28,13 +28,14 @@ tests/                 pytest 集成与数据库约束测试（真实 PostgreSQL
 
 ```bash
 cd backend
-CSM_INITIAL_ADMIN_USERNAME=admin CSM_INITIAL_ADMIN_PASSWORD='ChangeMe1' \
+CSM_INITIAL_ADMIN_PASSWORD='ChangeMe1' \
   docker compose up -d --build
 # API: http://localhost:8000  OpenAPI: http://localhost:8000/docs
 ```
 
 - `db`：PostgreSQL 16。
-- `init`：执行 `python scripts/init_db.py`，幂等建表并预置首个管理员（`must_change_password=true`）。
+- `init`：执行 `python scripts/init_db.py`，幂等建表并预置内置管理员 `admin`
+  （`role='admin'`、`is_builtin=true`、`must_change_password=true`）。
   未提供 `CSM_INITIAL_ADMIN_PASSWORD` 时会生成随机口令并打印到 `init` 日志一次。
 - `backend`：uvicorn 提供 `/api/v1`。仅 HTTP（ADR-004）。
 
@@ -46,9 +47,13 @@ docker network create csm-test-net
 docker run -d --name csm-pg --network csm-test-net \
   -e POSTGRES_USER=csm -e POSTGRES_PASSWORD=csm -e POSTGRES_DB=csm_test postgres:16
 
-# 2) 构建并运行 pytest
+# 2) 构建镜像（注意 .dockerignore 排除了 tests/，故构建产物不含测试）
 docker build -t csm-backend .
+
+# 3) 挂载源码运行 pytest，使 tests/ 可见（-v $PWD:/app 覆盖镜像内 /app，
+#    已安装的依赖仍来自镜像）
 docker run --rm --network csm-test-net \
+  -v "$PWD:/app" -w /app \
   -e CSM_DATABASE_URL=postgresql+psycopg://csm:csm@csm-pg:5432/csm_test \
   csm-backend pytest -q
 ```
@@ -64,5 +69,4 @@ CASCADE/SET NULL、乐观锁、会话过期谓词）。
 | `CSM_SESSION_TTL_SECONDS` | `43200`（12h） | 会话绝对 TTL |
 | `CSM_SESSION_COOKIE` | `csm_session` | 会话 Cookie 名 |
 | `CSM_COOKIE_SECURE` | `false` | ADR-004：HTTP-only，不设 Secure |
-| `CSM_INITIAL_ADMIN_USERNAME` | `admin` | 首个管理员用户名 |
-| `CSM_INITIAL_ADMIN_PASSWORD` | 空（生成随机） | 首个管理员初始口令 |
+| `CSM_INITIAL_ADMIN_PASSWORD` | 空（生成随机） | 内置管理员 `admin` 的初始口令 |

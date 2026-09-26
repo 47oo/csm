@@ -207,30 +207,72 @@ def test_scenario_77_delete_user(client, add_user, login_as) -> None:
         assert db.get(User, created["id"]) is None
 
 
-def test_scenario_77_cannot_delete_last_enabled_admin(
+def test_builtin_admin_cannot_be_deleted_disabled_or_role_changed(
     client, add_user, login_as
 ) -> None:
-    admin_id = _admin(client, add_user, login_as)
-
-    resp = client.delete(f"/api/v1/users/{admin_id}?version=1")
-    assert resp.status_code == 409
-    assert resp.json()["code"] == "LAST_ADMIN"
+    """BQ-Y：内置管理员 admin 不可删除/禁用/改角色，409 PROTECTED_ADMIN 且数据不变。"""
+    add_user("admin", "Adminpass1", "admin", builtin=True)
+    _admin(client, add_user, login_as)  # 非内置管理员 root 作为操作者。
 
     with SessionLocal() as db:
-        assert db.get(User, admin_id) is not None
+        builtin = db.scalar(select(User).where(User.username == "admin"))
+        builtin_id = builtin.id
+        before = (builtin.role, builtin.status, builtin.version, builtin.is_builtin)
+
+    # 删除
+    deleted = client.delete(f"/api/v1/users/{builtin_id}?version=1")
+    assert deleted.status_code == 409
+    assert deleted.json()["code"] == "PROTECTED_ADMIN"
+    assert deleted.headers["content-type"].startswith("application/problem+json")
+
+    # 禁用
+    disabled = client.post(f"/api/v1/users/{builtin_id}/disable")
+    assert disabled.status_code == 409
+    assert disabled.json()["code"] == "PROTECTED_ADMIN"
+
+    # 改角色
+    changed = client.patch(
+        f"/api/v1/users/{builtin_id}", json={"role": "viewer", "version": 1}
+    )
+    assert changed.status_code == 409
+    assert changed.json()["code"] == "PROTECTED_ADMIN"
+
+    with SessionLocal() as db:
+        builtin = db.get(User, builtin_id)
+        after = (builtin.role, builtin.status, builtin.version, builtin.is_builtin)
+    assert after == before == ("admin", "enabled", 1, True)
 
 
-def test_delete_last_admin_allowed_when_another_enabled_admin(
+def test_builtin_admin_protected_when_sole_admin(client, add_user, login_as) -> None:
+    """内置 admin 是唯一管理员时仍受保护（不再有 LAST_ADMIN 限制）。"""
+    admin_id = add_user("admin", "Adminpass1", "admin", builtin=True)
+    assert login_as(client, "admin", "Adminpass1").status_code == 200
+
+    assert client.post(f"/api/v1/users/{admin_id}/disable").status_code == 409
+    assert client.delete(f"/api/v1/users/{admin_id}?version=1").status_code == 409
+    assert (
+        client.patch(
+            f"/api/v1/users/{admin_id}", json={"role": "viewer", "version": 1}
+        ).status_code
+        == 409
+    )
+
+    with SessionLocal() as db:
+        admin = db.get(User, admin_id)
+        assert (admin.role, admin.status, admin.version) == ("admin", "enabled", 1)
+
+
+def test_non_builtin_admin_can_be_deleted_even_if_only_other_admin(
     client, add_user, login_as
 ) -> None:
-    _admin(client, add_user, login_as)
-    second = client.post(
-        "/api/v1/users",
-        json={"username": "root2", "password": "Rootpass2", "role": "admin"},
-    ).json()
+    """非内置 admin 是唯一其它 admin 时仍可删除（无通用最后管理员限制）。"""
+    add_user("admin", "Adminpass1", "admin", builtin=True)
+    root_id = add_user("root", "Rootpass1", "admin")
+    assert login_as(client, "root", "Rootpass1").status_code == 200
 
-    # 存在两个启用 admin，可删其一。
-    assert client.delete(f"/api/v1/users/{second['id']}?version=1").status_code == 204
+    assert client.delete(f"/api/v1/users/{root_id}?version=1").status_code == 204
+    with SessionLocal() as db:
+        assert db.get(User, root_id) is None
 
 
 def test_scenario_79_disable_and_enable(client, add_user, login_as) -> None:
@@ -255,17 +297,28 @@ def test_scenario_79_disable_and_enable(client, add_user, login_as) -> None:
     assert login_as(client, "toggler", "Initpass1").status_code == 200
 
 
-def test_scenario_79_cannot_disable_last_enabled_admin(
+def test_non_builtin_admin_disable_and_role_change_without_last_admin_limit(
     client, add_user, login_as
 ) -> None:
-    admin_id = _admin(client, add_user, login_as)
+    """非内置 admin 可禁用/改角色，即使它是唯一其它 admin。"""
+    add_user("admin", "Adminpass1", "admin", builtin=True)
+    root_id = add_user("root", "Rootpass1", "admin")
+    assert login_as(client, "admin", "Adminpass1").status_code == 200
 
-    resp = client.post(f"/api/v1/users/{admin_id}/disable")
-    assert resp.status_code == 409
-    assert resp.json()["code"] == "LAST_ADMIN"
-
+    # 禁用唯一其它 admin：允许。
+    assert client.post(f"/api/v1/users/{root_id}/disable").status_code == 204
     with SessionLocal() as db:
-        assert db.get(User, admin_id).status == "enabled"
+        assert db.get(User, root_id).status == "disabled"
+
+    # 重新启用后修改角色：允许。
+    assert client.post(f"/api/v1/users/{root_id}/enable").status_code == 204
+    current = client.get(f"/api/v1/users/{root_id}").json()
+    patched = client.patch(
+        f"/api/v1/users/{root_id}",
+        json={"role": "viewer", "version": current["version"]},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["role"] == "viewer"
 
 
 def test_scenario_78_admin_reset_password(client, add_user, login_as) -> None:

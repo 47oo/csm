@@ -18,6 +18,7 @@ import {
   PASSWORD_POLICY_MESSAGE,
   ROLE_OPTIONS,
   STATUS_LABELS,
+  isProtectedAdmin,
   roleLabel,
   statusLabel,
   validatePassword,
@@ -237,6 +238,10 @@ async function handleEdit(): Promise<void> {
       if (error.code === 'VERSION_CONFLICT') {
         // 保留输入并提示；用户可关闭后重新打开以获取最新版本
         editConflict.value = '该用户已被其他人修改，当前编辑内容未提交。请关闭后重新打开编辑。'
+      } else if (error.code === 'PROTECTED_ADMIN') {
+        // 内置账号 admin 角色不可修改（BQ-Y）；列表入口已禁用，此处为服务端拒绝的兜底处理
+        editVisible.value = false
+        ElMessage.error('内置管理员账号不可修改角色')
       } else if (error.status === 422) {
         editServerErrors.role = error.fieldError('role') ?? ''
       } else {
@@ -250,7 +255,7 @@ async function handleEdit(): Promise<void> {
   }
 }
 
-// ---------- 删除（Contract §3.5：version 经 query，LAST_ADMIN 保护） ----------
+// ---------- 删除（Contract §3.5：version 经 query；内置账号 admin 409 PROTECTED_ADMIN，BQ-Y） ----------
 async function handleDelete(row: UserListItem): Promise<void> {
   let version: number
   try {
@@ -274,8 +279,8 @@ async function handleDelete(row: UserListItem): Promise<void> {
     ElMessage.success('用户已删除')
     void load()
   } catch (error) {
-    if (isApiError(error) && error.code === 'LAST_ADMIN') {
-      ElMessage.error('禁止删除最后一个启用中的平台管理员')
+    if (isApiError(error) && error.code === 'PROTECTED_ADMIN') {
+      ElMessage.error('内置管理员账号不可删除')
     } else if (isApiError(error) && error.code === 'VERSION_CONFLICT') {
       ElMessage.error('该用户已被其他人修改，请刷新后重试')
       void load()
@@ -302,8 +307,8 @@ async function handleToggleStatus(row: UserListItem): Promise<void> {
       ElMessage.success('用户已禁用')
       void load()
     } catch (error) {
-      if (isApiError(error) && error.code === 'LAST_ADMIN') {
-        ElMessage.error('禁止禁用最后一个启用中的平台管理员')
+      if (isApiError(error) && error.code === 'PROTECTED_ADMIN') {
+        ElMessage.error('内置管理员账号不可禁用')
       } else {
         handleActionError(error)
       }
@@ -482,12 +487,28 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="primary" @click="openReset(row)">重置口令</el-button>
-            <el-button link :type="row.status === 'enabled' ? 'warning' : 'success'" @click="handleToggleStatus(row)">
-              {{ row.status === 'enabled' ? '禁用' : '启用' }}
-            </el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <!-- 内置管理员账号（BQ-Y）：删除/禁用/修改角色（编辑）不可用，仅可重置口令。
+                 此处仅为交互提示，服务端仍以 409 PROTECTED_ADMIN 做最终校验。 -->
+            <el-tooltip
+              v-if="isProtectedAdmin(row.username)"
+              content="内置管理员账号不可删除、不可禁用、不可修改角色"
+              placement="top"
+            >
+              <span class="protected-ops">
+                <el-button link type="primary" disabled>编辑</el-button>
+                <el-button link type="primary" @click="openReset(row)">重置口令</el-button>
+                <el-button link type="warning" disabled>禁用</el-button>
+                <el-button link type="danger" disabled>删除</el-button>
+              </span>
+            </el-tooltip>
+            <template v-else>
+              <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+              <el-button link type="primary" @click="openReset(row)">重置口令</el-button>
+              <el-button link :type="row.status === 'enabled' ? 'warning' : 'success'" @click="handleToggleStatus(row)">
+                {{ row.status === 'enabled' ? '禁用' : '启用' }}
+              </el-button>
+              <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            </template>
           </template>
         </el-table-column>
         <template #empty>
@@ -668,6 +689,10 @@ onMounted(() => {
 }
 .reset-target {
   margin: 0 0 12px;
+}
+/* 内置管理员操作区（BQ-Y）：包裹禁用按钮，保证 tooltip 悬停可用 */
+.protected-ops {
+  display: inline-block;
 }
 .reset-hint {
   margin: 0;

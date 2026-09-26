@@ -40,6 +40,9 @@ class User(Base):
     must_change_password: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
     )
+    is_builtin: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     version: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("1")
     )

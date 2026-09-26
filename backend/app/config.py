@@ -29,7 +29,6 @@ class Settings:
     session_ttl_seconds: int
     cookie_name: str
     cookie_secure: bool
-    initial_admin_username: str | None
     initial_admin_password: str | None
 
 
@@ -43,7 +42,6 @@ def get_settings() -> Settings:
         cookie_name=os.environ.get("CSM_SESSION_COOKIE", "csm_session"),
         # ADR-004：仅 HTTP，不启用 Secure。
         cookie_secure=_bool_env("CSM_COOKIE_SECURE", False),
-        initial_admin_username=os.environ.get("CSM_INITIAL_ADMIN_USERNAME"),
         initial_admin_password=os.environ.get("CSM_INITIAL_ADMIN_PASSWORD"),
     )
 

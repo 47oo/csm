@@ -1,10 +1,10 @@
 # CSM F013 后端部署（内网、HTTP-only；ADR-004）
 #
 # 用法：
-#   CSM_INITIAL_ADMIN_USERNAME=admin CSM_INITIAL_ADMIN_PASSWORD='ChangeMe1' \
+#   CSM_INITIAL_ADMIN_PASSWORD='ChangeMe1' \
 #     docker compose up -d --build
 #
-# init 服务在建表后预置首个管理员（幂等）；backend 待 init 成功后再启动。
+# init 服务在建表后预置内置管理员 admin（幂等）；backend 待 init 成功后再启动。
 
 services:
   db:
@@ -26,7 +26,6 @@ services:
     command: python scripts/init_db.py
     environment:
       CSM_DATABASE_URL: postgresql+psycopg://csm:csm@db:5432/csm
-      CSM_INITIAL_ADMIN_USERNAME: ${CSM_INITIAL_ADMIN_USERNAME:-admin}
       CSM_INITIAL_ADMIN_PASSWORD: ${CSM_INITIAL_ADMIN_PASSWORD:-}
     depends_on:
       db:

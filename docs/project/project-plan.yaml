@@ -827,20 +827,21 @@ features:
     depends_on: []
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: REVIEW
-    last_result: Tester READY FOR REVIEW（场景 72–81 全 PASS；后端 39 + 前端 82 测试通过；独立探针通过）
-    next_action: Reviewer 独立 Review（候选 HEAD 206261e）；并待用户裁定 F013-T-02（最后启用 admin 改角色是否需保护）
+    current_stage: TEST
+    last_result: BQ-Y 实现完成（仅保护内置 admin；Backend 41 passed、Frontend 88 passed/build）；实现变更后重测
+    next_action: Tester 独立重测（内置 admin 保护/PROTECTED_ADMIN、场景 75–81 回归），要求 READY FOR REVIEW
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
-    contract: {status: READY, doc: docs/api/F013.md, reason: ADR-003 已批准；架构 Contract READY}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
+    contract: {status: READY, doc: docs/api/F013.md, reason: ADR-003 已批准；架构 Contract READY（含 BQ-Y PROTECTED_ADMIN）}
     git:
       base_branch: v2
       branch: feature/F013-user-role-management
       start_commit: e6999213a54eb2cab4f1b4f420c6e2a4158fe60f
-      head_commit: 206261e
+      head_commit: e71d503
       merge_commit: null
-    evidence:
-      - docs/project/reports/F013-test-report.md
+    evidence: []
+    evidence_note: >
+      docs/project/reports/F013-test-report.md 为 BQ-Y 前的测试记录，因实现变更已 superseded，不再作为候选证据。
 
 # --- 需要用户裁定的决策 ---
 # 影响 Feature 的架构/产品前提，在对应阶段前必须由用户或架构阶段裁定并记录。
@@ -2163,8 +2164,7 @@ planning_status:
 
 execution:
   current_feature: F013
-  current_stage: REVIEW
+  current_stage: TEST
   note: >
     F013「用户与角色管理」进行中（分支 feature/F013-user-role-management，start_commit e699921）。
-    Backend/Frontend 完成、Tester READY FOR REVIEW；进行 REVIEW（候选 HEAD 206261e）。
-    F013-T-02（最后启用 admin 可被改角色致无管理员）待用户裁定。
+    应用 BQ-Y（仅保护内置 admin）；Backend/Frontend 已改，重跑 TEST。

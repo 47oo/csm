@@ -80,22 +80,13 @@ def _get_user_or_404(db: Session, user_id: int) -> User:
     return user
 
 
-def _enabled_admin_count(db: Session, *, excluding_id: int) -> int:
-    return db.scalar(
-        select(func.count())
-        .select_from(User)
-        .where(
-            User.role == "admin",
-            User.status == "enabled",
-            User.id != excluding_id,
-        )
-    )
+def _ensure_not_builtin(user: User, action: str) -> None:
+    """内置管理员账号 ``admin`` 不可删除/禁用/改角色（BQ-Y）。
 
-
-def _is_last_enabled_admin(db: Session, user: User) -> bool:
-    if user.role != "admin" or user.status != "enabled":
-        return False
-    return _enabled_admin_count(db, excluding_id=user.id) == 0
+    拒绝时在写库前抛出，保证数据不变。
+    """
+    if user.is_builtin:
+        raise problem(409, "PROTECTED_ADMIN", f"内置管理员账号不可{action}")
 
 
 @router.get("", response_model=PagedUsers)
@@ -232,6 +223,7 @@ def update_user(
         raise problem(400, "INVALID_REQUEST", "仅允许修改角色字段")
 
     user = _get_user_or_404(db, user_id)
+    _ensure_not_builtin(user, "修改角色")
     old_role = user.role
     now = _utcnow()
 
@@ -266,10 +258,7 @@ def delete_user(
     admin: Principal = Depends(admin_required),
 ) -> None:
     user = _get_user_or_404(db, user_id)
-    if _is_last_enabled_admin(db, user):
-        raise problem(
-            409, "LAST_ADMIN", "禁止删除最后一个启用中的平台管理员"
-        )
+    _ensure_not_builtin(user, "删除")
 
     username = user.username
     audit.write(
@@ -281,6 +270,9 @@ def delete_user(
         username,
         {"role": user.role, "status": user.status},
     )
+    # 先落审计行再删用户：删除操作者自身时 FK ON DELETE SET NULL 才能生效
+    # （会话 autoflush=False，审计 INSERT 需显式 flush）。
+    db.flush()
     result = db.execute(
         delete(User).where(User.id == user_id, User.version == version)
     )
@@ -297,12 +289,9 @@ def disable_user(
     admin: Principal = Depends(admin_required),
 ) -> None:
     user = _get_user_or_404(db, user_id)
+    _ensure_not_builtin(user, "禁用")
     if user.status == "disabled":
         return
-    if _is_last_enabled_admin(db, user):
-        raise problem(
-            409, "LAST_ADMIN", "禁止禁用最后一个启用中的平台管理员"
-        )
 
     now = _utcnow()
     db.execute(

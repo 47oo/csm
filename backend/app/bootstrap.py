@@ -95,17 +95,20 @@ def generate_password(length: int = 16) -> str:
 
 def seed_initial_admin(
     db: Session,
-    username: str | None = None,
     password: str | None = None,
 ) -> bool:
-    """若无任何 admin 用户，则预置首个管理员。返回是否执行了预置。"""
+    """若无任何 admin 用户，则预置内置管理员。返回是否执行了预置。
+
+    内置默认管理员用户名固定为 ``admin``（BQ-Y；不再读取
+    CSM_INITIAL_ADMIN_USERNAME）。
+    """
     admin_count = db.scalar(
         select(func.count()).select_from(User).where(User.role == "admin")
     )
     if admin_count and admin_count > 0:
         return False
 
-    username = username or settings.initial_admin_username or "admin"
+    username = "admin"
     if password is None:
         password = settings.initial_admin_password
     if not password:
@@ -131,6 +134,7 @@ def seed_initial_admin(
         role="admin",
         status="enabled",
         must_change_password=True,
+        is_builtin=True,
     )
     db.add(user)
     db.flush()
@@ -148,7 +152,7 @@ def seed_initial_admin(
         target_type="user",
         target_id=str(user.id),
         target_key_snapshot=user.username,
-        change={"role": "admin", "must_change_password": True},
+        change={"role": "admin", "must_change_password": True, "is_builtin": True},
         result="success",
     )
     db.flush()
@@ -158,17 +162,16 @@ def seed_initial_admin(
 def initialize(
     engine: Engine | None = None,
     *,
-    username: str | None = None,
     password: str | None = None,
 ) -> None:
-    """创建 Schema 并（按需）预置首个管理员。用于部署初始化脚本。"""
+    """创建 Schema 并（按需）预置内置管理员。用于部署初始化脚本。"""
     from .db import engine as default_engine
 
     target_engine = engine or default_engine
     create_schema(target_engine)
     db = SessionLocal()
     try:
-        seed_initial_admin(db, username=username, password=password)
+        seed_initial_admin(db, password=password)
         db.commit()
     finally:
         db.close()

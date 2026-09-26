@@ -199,7 +199,7 @@ describe('全局 401/403/409 处理分支', () => {
     expect(onPasswordChangeRequired).not.toHaveBeenCalled()
   })
 
-  it.each(['USERNAME_TAKEN', 'VERSION_CONFLICT', 'LAST_ADMIN'])(
+  it.each(['USERNAME_TAKEN', 'VERSION_CONFLICT', 'PROTECTED_ADMIN'])(
     '409 %s → 不触发任何全局处理器，错误原样抛给页面（保留输入由页面处理）',
     async (code) => {
       const handlers = {

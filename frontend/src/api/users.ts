@@ -62,7 +62,7 @@ export function deleteUser(userId: number, version: number): Promise<void> {
     .then(() => undefined)
 }
 
-/** POST /users/{user_id}/disable：禁用（幂等；最后一个启用中的管理员 409 LAST_ADMIN） */
+/** POST /users/{user_id}/disable：禁用（幂等；内置账号 admin 返回 409 PROTECTED_ADMIN，BQ-Y） */
 export function disableUser(userId: number): Promise<void> {
   return client
     .post<void>(`/users/${userId}/disable`)

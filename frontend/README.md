@@ -24,5 +24,7 @@ pnpm build     # vue-tsc 类型检查 + vite 构建（dist/）
 - `/login` 登录页；`/change-password` 首登强制改密 / 自助改密；`/admin/users` 用户管理（admin）
 - 路由守卫：未登录 → `/login`；非 admin 不可进 `/admin/*`；`must_change_password` 强制改密
 - 统一错误处理：problem+json 字段级错误、401 跳登录、403 提示、
-  403 PASSWORD_CHANGE_REQUIRED 强制改密、409（USERNAME_TAKEN / VERSION_CONFLICT / LAST_ADMIN）
+  403 PASSWORD_CHANGE_REQUIRED 强制改密、409（USERNAME_TAKEN / VERSION_CONFLICT / PROTECTED_ADMIN）
   保留输入并提示（`src/api/client.ts` + `src/api/handlers.ts`）
+- 内置管理员账号 `admin` 不可删除/禁用/修改角色（BQ-Y）：列表中对应操作禁用并以 tooltip 说明，
+  服务端仍以 409 PROTECTED_ADMIN 最终校验；其它管理员可正常操作（`src/views/AdminUsersView.vue`）
