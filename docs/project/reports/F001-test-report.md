@@ -42,5 +42,13 @@ Docker（postgres:16 独立容器/网络）、Node 22 + pnpm。所有临时容�
 ## 结论
 适用验收项全部 PASS，无必须修复问题，未验证项均为后续 Feature 依赖。**READY FOR REVIEW**。
 
+## 修复轮 1 重测（Review CHANGES REQUIRED 后）
+Reviewer 发现 REVIEW-1（名称正则 `$` 允许尾随换行 → 误报 409/500）等，Backend 已修复（`fix(F001): correct cluster name/code validation and integrity mapping`，提交 `a25a1d4`）：
+- 名称/`code` 改用 `re.fullmatch`；`code` 限 ASCII 字母数字后再 `upper`；`IntegrityError` 按约束名映射（name→409 NAME_TAKEN、code→409 CODE_TAKEN、其它 CHECK→422）。
+- 新增回归：名称尾随换行 422（POST/PATCH，不再 500）；`code` 非 ASCII 422 CODE_FORMAT；PATCH 同名 409。
+- 协调器独立复跑：后端 **64 passed**；前端未改动（仍 166 passed / build 通过）。
+
+结论仍为 **READY FOR REVIEW**（修复后重新走 Review）。
+
 ## Git（只读）
-`git rev-parse`、`git branch`、`git status`、`git diff --stat`、`git log`（无写操作）。HEAD=14941e4，工作区 clean。
+`git rev-parse`、`git branch`、`git status`、`git diff --stat`、`git log`（无写操作）。初测 HEAD=14941e4；修复后候选 HEAD=a25a1d4。

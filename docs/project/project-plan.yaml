@@ -212,8 +212,8 @@ features:
     blocking_decisions: []
     status: IN_PROGRESS
     current_stage: REVIEW
-    last_result: Tester READY FOR REVIEW（后端 61 + 前端 166 passed；独立探针 85/85）
-    next_action: Reviewer 独立 Review（候选 HEAD 14941e4、base v2）
+    last_result: 修复轮1完成（REVIEW-1/2/NOTE-3）；后端 64 passed（协调器独立复跑），前端 166 未变；待重新 Review
+    next_action: Reviewer 重新 Review（候选 HEAD a25a1d4、base v2；旧批准失效）
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
     contract: {status: READY, doc: docs/api/F001.md, reason: ADR-003 已批准；架构 Contract READY}
@@ -221,7 +221,7 @@ features:
       base_branch: v2
       branch: feature/F001-cluster-identity-and-deletion
       start_commit: 1727490c1c67e9803331692ec0e242a0cf67cf8a
-      head_commit: 14941e4
+      head_commit: a25a1d4
       merge_commit: null
     evidence:
       - docs/project/reports/F001-test-report.md
