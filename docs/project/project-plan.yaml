@@ -210,11 +210,19 @@ features:
     priority: P0
     depends_on: [F013]
     blocking_decisions: []
-    status: READY
+    status: IN_PROGRESS
+    current_stage: ARCHITECTURE
+    last_result: 已创建分支 feature/F001-cluster-identity-and-deletion（start_commit 1727490）；Product 复用已记录（requirements-v2.md §4.1/§4.4/§6.1/§2.1/§9.1、§10 场景 50/51/58/59/61/64/71，依据 BQ-M/V/W/Z，无 Blocking Questions）
+    next_action: 调用 Architect 产出 F001 架构与 API Contract（docs/architecture/、docs/api/F001.md），要求 READY FOR IMPLEMENTATION 且 Contract READY
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
-    git: null
+    git:
+      base_branch: v2
+      branch: feature/F001-cluster-identity-and-deletion
+      start_commit: 1727490c1c67e9803331692ec0e242a0cf67cf8a
+      head_commit: null
+      merge_commit: null
     evidence: []
 
   - id: F002
@@ -2210,13 +2218,13 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: IN_PROGRESS
-  ready_features: [F001]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 11
     DRAFT: 0
     DONE: 1
@@ -2238,8 +2246,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F001
+  current_stage: ARCHITECTURE
   note: >
-    F013「用户与角色管理」已完成（Merge dcfa6ff，批准 HEAD a4eac3a）并做最终状态提交。
-    无进行中 Feature；重算 READY 后由项目调度决定下一 Feature。
+    F001「集群登记、身份与真实删除保护」已启动（分支 feature/F001-cluster-identity-and-deletion，start_commit 1727490）。
+    Product 复用已记录；进行 ARCHITECTURE。
