@@ -822,25 +822,26 @@ features:
       全平台终局复核见 F011（场景 57）。用户名比较口径（BQ-W）与审计载体（ADR-005）已裁定。
       本 Feature 交付的角色/操作者解析与会话基础被 F001/F002/F005/F006/F007/F012 复用；
       用户/角色管理操作进审计但不并入受管资源历史（场景 81）。
-      BQ-X：用户名仅字母与数字、长度 1–128、创建后不可修改；禁止删除或禁用最后一个启用中的平台管理员。
+      BQ-X：用户名仅字母与数字、长度 1–128、创建后不可修改；BQ-Y：仅保护内置账号 admin（不可删除/禁用/改角色，可改密码）。
     priority: P0
     depends_on: []
     blocking_decisions: []
-    status: IN_PROGRESS
-    current_stage: REVIEW
-    last_result: Tester READY FOR REVIEW（BQ-Y 后重测；后端 41 + 前端 88 passed；独立探针 45/45）
-    next_action: Reviewer 独立 Review（候选 HEAD d78b940、base v2）
+    status: DONE
+    current_stage: null
+    last_result: Reviewer APPROVED WITH FOLLOW-UP（候选 a4eac3a）；Merge dcfa6ff；F013 完成
+    next_action: null（重算 READY 后由项目调度决定下一 Feature）
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
     contract: {status: READY, doc: docs/api/F013.md, reason: ADR-003 已批准；架构 Contract READY（含 BQ-Y PROTECTED_ADMIN）}
     git:
       base_branch: v2
       branch: feature/F013-user-role-management
       start_commit: e6999213a54eb2cab4f1b4f420c6e2a4158fe60f
-      head_commit: d78b940
-      merge_commit: null
+      head_commit: a4eac3a1367e7d9bd360b43134f30dfea2296b88
+      merge_commit: dcfa6ff37cb1dcf0670ae6ae435f45d86df7f768
     evidence:
       - docs/project/reports/F013-test-report.md
+      - docs/project/reports/F013-review-report.md
 
 # --- 需要用户裁定的决策 ---
 # 影响 Feature 的架构/产品前提，在对应阶段前必须由用户或架构阶段裁定并记录。
@@ -2140,10 +2141,10 @@ planning_status:
     DRAFT: []
   counts:
     READY: 0
-    IN_PROGRESS: 1
+    IN_PROGRESS: 0
     BLOCKED: 12
     DRAFT: 0
-    DONE: 0
+    DONE: 1
     CANCELLED: 0
   note: >
     plan_completeness=complete 表示本计划已覆盖 requirements-v2.md 已确认范围与
@@ -2162,8 +2163,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: F013
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   note: >
-    F013「用户与角色管理」进行中（分支 feature/F013-user-role-management，start_commit e699921）。
-    BQ-Y 已实现并重测；进行 REVIEW（候选 HEAD d78b940）。
+    F013「用户与角色管理」已完成（Merge dcfa6ff，批准 HEAD a4eac3a）并做最终状态提交。
+    无进行中 Feature；重算 READY 后由项目调度决定下一 Feature。
