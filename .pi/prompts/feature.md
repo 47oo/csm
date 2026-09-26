@@ -1,174 +1,73 @@
 ---
+description: 执行单个已登记 Feature，按需复用设计并完成实现、验证、Review 与合并
+argument-hint: "[任务或 Feature ID]"
+---
 
-description: 按 Contract First 与前后端并行流程分析、设计、实现、测试并 Review 一个 Feature
-argument-hint: "<Feature 描述>"
------------------------------
+# Feature Workflow
 
-# CSM Feature Workflow
+输入：$ARGUMENTS（已登记 Feature ID 或调度器提供的恢复任务）
 
-处理以下 Feature：
+主协调器负责分工、共享文档持久化、Gate、状态和 Git；专业角色按 `.pi/agents/` 执行。所有 Subagent 调用使用 `agentScope: project`。
 
-$ARGUMENTS
+读取 `AGENTS.md`、`docs/project/project-state.md`、`docs/project/git-workflow.md`、`docs/project/handoff.md`，再加载当前 Feature 及明确依赖。无需为每项任务遍历所有文档。
 
-CSM 是面向 HPC / AI 运维场景的内部资源管理平台。
+## 1. 入口与阶段复用
 
-你是主协调 Agent，负责 Handoff 持久化、文档整理、分支调度和 Gate 判断，不亲自代替专业 Agent 实现业务代码。
+独立调用也要求项目已批准、Feature READY 或合法恢复目标；从 implement-project 调用时复用其恢复信息。按 Git Workflow 执行 Preflight / 创建或恢复分支；新任务在 Preflight 成功后设置 project=IN_PROGRESS、Feature=IN_PROGRESS、execution.current_feature，并将两个 current_stage 设为 PRODUCT；恢复任务从 next_action 继续，不重置已完成阶段。每个重要阶段按状态规范更新结果与证据，并按 Git Workflow 保存检查点。
 
-```text
-Product Manager → Architect → Architecture Handoff + API Contract
-                                      │
-                   ┌──────────────────┴──────────────────┐
-                   ▼                                     ▼
-                Frontend                         Database（需要时）
-                   │                                     ↓
-                   │                              Backend（需要时）
-                   └──────────────────┬──────────────────┘
-                                      ▼
-                              Tester → Reviewer
-```
+Product / Architecture / Database 已有成果满足以下全部条件时，协调器可以记录复用结果而不再次调用该角色：
 
-所有 Subagent 调用必须使用 `agentScope: project`，不得使用用户级同名 Agent。
+* 有可读取的确认/批准证据，明确覆盖本 Feature 的范围、验收与适用设计。
+* 依据、实现基线和依赖没有使结论失效的变化。
+* 必需输入齐备，无未决业务、架构、完整性或 Contract 问题。
 
-# 总体原则
+记录来源、版本、覆盖范围与核对结论。无法判断时交原角色核对，不由协调器补做专业决策；不能仅因功能简单跳过 Gate。实现修复后的 Test / Review 不能靠复用旧报告放行。
 
-开始前读取 `AGENTS.md`，检查已有 `docs/product/`、`docs/product/domain-model.md`、`docs/architecture/`、`docs/architecture/adr/`、`docs/database/`、`docs/api/`、`.pi/skills/` 和 `.pi/agents/`。
+## 2. Product 与 Architecture
 
-1. 遵守各 Agent 在 `.pi/agents/` 中定义的职责、Gate 和输出格式，不重复其实现或验证方法。
-2. 不跳过 Blocking Gate，不让下游猜测或解决上游业务问题。
-3. 不把 PROPOSED / UNCONFIRMED 自动升级为 CONFIRMED，不静默实现 OPEN。
-4. 不为流程完整调用不需要的分支，也不因功能简单省略必要验证。
-5. 产品规则、长期架构选型、数据唯一性、删除/历史保留、权限和关键领域关系存在未确认决策时，停止并等待用户确认。
+Product 缺失或失效时调用 product-manager，只有 `READY FOR ARCHITECT` 且无 Blocking Questions 才继续。协调器将确认规则保存到产品文档，报告引用。
 
-# Git Lifecycle
+Architecture 缺失或失效时调用 architect，要求 `READY FOR IMPLEMENTATION`、明确 layers、必要设计与验证策略。重大未决技术问题暂停等待决策，不让开发者代为裁定。
 
-Git 安全红线遵循 `AGENTS.md`；分支、提交、Review 与 DONE 标准遵循 `docs/project/git-workflow.md`；Preflight、分支创建/恢复、阶段提交、Merge 与状态提交遵循 `.pi/prompts/implement-project.md` 第 6、9 节。
+随后检查 Contract：需要 API 时必须 READY、有权威文档与批准依据，字段完整性按 architect.md 的唯一清单核对；无需 API 为 NOT_REQUIRED 且有理由。缺失、未批准或 BLOCKED 不放行。
 
-由 `/implement-project` 调用时复用已经核对的 Feature Branch，不重复创建。独立 `/feature` 也须提供已登记 Feature ID 并通过相同 Git Gate；缺少身份或起点时停止请求确认，不在 main/develop 直接实现。
+## 3. 按需实施
 
-专业 Subagent 不 add、commit、切分支或 merge；主协调器仅在全部写入任务结束后操作 Git。
+| 分支 | 启动依据 | 完成结果 |
+| --- | --- | --- |
+| Database Design | layers.database=true，Product / Architecture 完成 | READY FOR DATABASE IMPLEMENTATION |
+| Backend | layers.backend=true，Contract Gate 通过，必要 Database Design 完成 | BACKEND COMPLETE |
+| Frontend | layers.frontend=true，Contract Gate 通过 | FRONTEND COMPLETE |
 
-# Stage 1 — Product
+无需的分支记录 NOT_REQUIRED。Schema 变更必须明确实现责任，默认由 Backend 实现，设计完成不代表实现完成。Frontend 不等待 Database / Backend；Backend 与 Frontend 可在文件所有权清晰时并行。
 
-调用 `product-manager`，输入 Feature 描述及相关已有资料。要求输出 Product Handoff。
+协调器持久化只读角色产物；所有写入停止后按 Git Workflow 提交检查点。阻塞时记录已完成和仍在运行的分支，不能假称取消或静止；先停止/等待受影响写入，再做 Git 操作。
 
-## Product Gate
+API Contract 冲突时停止受影响实现，返回 Architect / Product；重新批准后通知双方并重新验证受影响成果。原 COMPLETE 不直接沿用。
 
-只有 `READY FOR ARCHITECT` 且无 Blocking Open Questions 才继续。会改变业务行为的 PROPOSED 未确认时也视为阻塞。
+## 4. Test 与 Review
 
-否则输出 `FEATURE BLOCKED AT PRODUCT`，列出真正阻塞的 1～3 个问题，停止，不自行回答。
+只有全部必需分支完成（包括数据库实际实现）才调用 tester。输入当前验收、设计、Contract、实现报告，要求独立实际验证。只有 `READY FOR REVIEW` 可进入正式 Review；PARTIAL / BLOCKED 不能通过。
 
-通过后由协调器持久化确认的产品规则和 Product Handoff，遵循现有命名规范；必要时使用 `docs/product/features/<feature-name>.md` 与 `docs/product/handoffs/<feature-name>.md`。
+按 Git Workflow 提交全部候选交付物、确保 clean，并提供候选 HEAD / Base 与测试证据，调用 reviewer。结果仅 APPROVED / APPROVED WITH FOLLOW-UP 可进入 Merge Gate；其他结果按原因返回或阻塞。
 
-# Stage 2 — Architecture
+## 5. 有限修复循环
 
-调用 `architect`，输入最终 Product Handoff。要求输出 Architecture Handoff 和 API Contract。
+已确认范围内、不需要修改产品、架构或 Contract 决策的实现/测试缺陷，可以自动返回对应 Backend / Frontend / Tester。每轮修复后重跑受影响测试及必要回归，再执行独立 Review；旧批准失效。
 
-## Architecture Gate
+每次显式执行（包括用户明确恢复）最多自动修复 2 轮。一个修复轮次包括派发缺陷、修复、重新 Test / Review；并行修多个缺陷仍算一轮。内部递归调用不能重置计数，历史问题 ID 与结果保留。
 
-必须得到 `READY FOR IMPLEMENTATION`，表示架构完成且实现分支具备必要依据。
+出现下列情况立即暂停，保存 BLOCKED、失败阶段与 next_action：
 
-* 产品问题：`RETURN TO PRODUCT`。
-* 需要用户确认的长期技术决策：`ARCHITECTURE DECISION REQUIRED`，可建议 `/architecture-decision`。
-* 其他阻塞返回 Architect。未知或缺失状态不得放行。
+* 同一必须修复问题在一轮修复验证后仍存在，或达到两轮仍有必须修复问题。
+* 新业务规则、架构或 Contract 决策、破坏性数据操作需要确认。
+* Git 异常、基线不一致、文件归属冲突、环境阻塞或无法可靠验证。
+* 责任角色不能在授权范围内修复。
 
-协调器保存最终 Architecture Handoff，避免重复产品详细规则。
+需求/设计变化应重新走受影响上游 Gate；不能借修复循环扩展范围。用户明确继续后可以开始新的两轮预算，但不能清除历史缺陷或省略重新验证。
 
-# Stage 3 — Contract Gate
+## 6. 合并、状态与输出
 
-检查 Architecture Handoff 的 API Contract Status：
+按 Git Workflow 的 Merge Gate 合并，保存报告与最终状态并提交；只有最终状态提交成功才返回 `FEATURE COMPLETE` 或 `FEATURE COMPLETE WITH FOLLOW-UP`。输出 Feature 分支、批准 HEAD、Merge SHA、状态提交 SHA 与证据链接。
 
-* 需要 API 时必须为 `READY`，且包含 Endpoint、Method、Path / Query Parameters、Request / Response Schema、字段类型、nullable、Error Semantics 和 Empty / Not Found 语义。
-* 不需要 API 时允许 `NOT_REQUIRED`，必须说明原因。
-* `BLOCKED`、缺失、未批准或必需 Contract 非 READY：输出 `API CONTRACT BLOCKED` 并停止，不启动 Backend / Frontend。
-
-内容较多时由协调器根据已批准输出保存到 `docs/api/<feature>.md`，Handoff 引用唯一权威来源。Contract 必须在实现前可供双方读取。
-
-# Stage 4 — Implementation Branches
-
-依据 Architecture Handoff 的 layers 选择分支，未需要的标记 `NOT_REQUIRED`。下表中的分支可以并行，不代表固定串行顺序。
-
-| 场景 | 分支与条件 |
-| --- | --- |
-| 纯 Frontend | Frontend（无 API 时 `NOT_REQUIRED`） |
-| 纯 Backend | Backend（有 API 仍需 Contract READY） |
-| 数据库 + Backend | Database Design → Backend |
-| Full Stack，无 DB 变更 | Frontend 与 Backend 并行 |
-| Full Stack，有 DB 变更 | Frontend 与 Database Design → Backend 并行 |
-
-`database: true` 表示本次需要数据库设计/变更；数据库实现由 Backend 承担。需要数据库变更却没有实现责任分支时返回 Architect 澄清，不得把设计完成当作实现完成。
-
-## Database Design
-
-调用 `database`，输入 Product Handoff 和 Architecture Handoff。只有 `READY FOR DATABASE IMPLEMENTATION` 才允许 Backend 按该设计实现数据库变更。协调器保存设计到 `docs/database/`，保留 CONFIRMED / PROPOSED / OPEN 区分。否则按归属输出 `RETURN TO PRODUCT` 或 `RETURN TO ARCHITECT`，不得让 Backend 解决 Schema Blocking。
-
-Frontend 不依赖 Database Design。
-
-## Frontend
-
-调用 `frontend`，输入 Product Handoff、Architecture Handoff 和 API Contract。Backend Handoff 不是启动条件。完成为 `FRONTEND COMPLETE`，失败为 `FRONTEND BLOCKED`。
-
-## Backend
-
-调用 `backend`，输入 Product Handoff、Architecture Handoff、API Contract 和 Database Handoff（如存在）。完成为 `BACKEND COMPLETE`，失败为 `BACKEND BLOCKED`。Backend 不等待 Frontend。
-
-## 并行与 Contract 冲突
-
-并行前划定文件修改范围；共享文档由协调器统一持久化。
-
-任一分支输出 `API CONTRACT CHANGE REQUIRED` 时，停止受影响实现与下游推进，报告当前 Contract、问题、建议及双方影响，返回 Architect / Product。Contract 重新批准后，通知双方并重新检查受影响实现和测试；旧的 COMPLETE 不能直接沿用。
-
-分支 BLOCKED 时记录已完成和进行中的分支，不得进入 Tester 或假称已取消仍在运行的任务。
-
-# Stage 5 — Implementation Gate 与 Test
-
-由协调器根据 layers 汇总全部必需分支，所有必需分支满足后才输出 `READY FOR TEST`：
-
-| 必需分支 | 放行条件 |
-| --- | --- |
-| Database Design | READY FOR DATABASE IMPLEMENTATION，且 Backend 已完成对应数据库实现 |
-| Backend | BACKEND COMPLETE |
-| Frontend | FRONTEND COMPLETE |
-
-不需要的分支不参与 Gate。缺失 Handoff、未知状态或阻塞均不得放行。
-
-调用 `tester`，输入 Product Handoff、Architecture Handoff、API Contract，以及所需 Database / Backend / Frontend Handoff。
-
-## Test Gate
-
-* `READY FOR REVIEW`：进入 Reviewer。
-* `RETURN TO IMPLEMENTATION`：按 Defect Owner 输出 `RETURN TO BACKEND` / `RETURN TO FRONTEND` / `RETURN TO DATABASE`，停止。
-* `TEST BLOCKED`：输出原因并停止。
-* 产品 / 架构问题：返回对应上游并停止。
-
-# Stage 6 — Review
-
-仅在 Tester 输出 `READY FOR REVIEW` 后调用 `reviewer`，输入所有相关 Handoff、API Contract 和 Test Report。
-
-Review 前提交全部候选实现、测试、Handoff 和阶段元数据，确保工作区 clean，并向 Reviewer 提供 Feature Branch、start_commit、候选 HEAD 与 develop SHA。
-
-## Review Gate
-
-* `APPROVED` / `APPROVED WITH FOLLOW-UP`：允许进入 Merge Gate，尚未 DONE；Follow-up 必须列明。
-* `CHANGES REQUIRED`：输出 `RETURN TO <OWNER>` 与 Finding，Feature 不完成。
-* `PRODUCT DECISION REQUIRED`：等待用户决策。
-* `BLOCKED`：停止并说明原因。
-
-# Stage 7 — Merge / Project State
-
-主协调器按 `/implement-project` 第 9 节核对测试、批准 HEAD / Base SHA 和 clean 工作区后，执行 `--no-ff` 合并到 develop，再提交 Review Report、Git 元数据和项目状态。
-
-只有 Merge 与最终状态提交均成功才算 DONE；失败保留 Feature Branch 与检查点，不解锁依赖、不自动 Release。
-
-# 停止与变更纪律
-
-不自动进行无限 Developer → Tester 或 Developer → Reviewer 修复循环。发现缺陷时停止本次自动推进，说明阶段、问题、责任 Agent 和下一步建议；修复由下一次明确执行继续。
-
-协调器不越过专业 Agent 重写实现。
-
-# 最终输出
-
-成功时输出 `Feature Complete`，包含 Feature、Product、Architecture、API Contract 引用、Database、Backend、Frontend、Tests、Review、Follow-ups。不需要的层写 `Not required`，无 Follow-up 写 `None`。
-
-最终状态为 `FEATURE COMPLETE` 或 `FEATURE COMPLETE WITH FOLLOW-UP`，必须与 Reviewer 结果一致，且 Merge / 项目状态提交成功；输出 Feature Branch、批准 HEAD、Merge SHA 及最终状态提交 SHA。
-
-非成功时输出 `Feature Workflow Stopped`，包含 Feature、Current Stage、Status、Blocking Issues、Completed Stages / Branches（含进行中分支）、Next Action 与责任角色。不得声称 Feature 已完成。
+未完成时输出 `Feature Workflow Stopped`，列出阶段、问题、责任角色、已完成/进行中分支、修复轮数和下一步。按项目状态规范更新检查点，不能声称已合并或 DONE。

@@ -1,84 +1,169 @@
-"""认证 HTTP 路由（F013，docs/api/f013-auth.md §5）。
-
-3 个端点挂载于 ``/api`` 前缀下（由 ``app.main`` 挂载）：
-
-- ``POST /api/auth/login``：**唯一认证豁免端点**；
-- ``POST /api/auth/logout``：受认证保护（失效会话返回 401）；
-- ``GET /api/auth/session``：受认证保护。
-
-Cookie 契约（契约 §3）：``csm_session`` + ``HttpOnly`` + ``SameSite=Lax`` +
-**不设 ``Secure``** + ``Path=/api`` + 不设 ``Domain`` + ``Max-Age=28800``。
-令牌值不得出现在响应体 / 日志中。
-"""
+"""认证与会话路由：POST /auth/login、/auth/logout、GET /auth/me、POST /auth/change-password。"""
 
 from __future__ import annotations
 
-from typing import Annotated
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Request, Response
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db_session
-from app.auth import service
-from app.auth.middleware import (
-    COOKIE_NAME,
-    SESSION_MAX_AGE,
-    current_user_from_state,
+from .. import audit
+from ..config import settings
+from ..db import get_db
+from ..errors import problem
+from ..models import User, UserCredential, UserSession
+from ..schemas import ChangePasswordRequest, CurrentUserOut, LoginRequest
+from ..security.password import (
+    PASSWORD_POLICY_MESSAGE,
+    hash_password,
+    password_policy_ok,
+    verify_password,
 )
-from app.auth.schemas import AuthenticatedUser, LoginRequest
-from app.common.errors import UnauthenticatedError
+from ..security.principal import Principal, get_current_user
+from ..security.tokens import generate_token, sha256_hex
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-SessionDep = Annotated[Session, Depends(get_db_session)]
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
     response.set_cookie(
-        key=COOKIE_NAME,
+        key=settings.cookie_name,
         value=token,
-        max_age=SESSION_MAX_AGE,
-        path="/api",
+        path="/",
         httponly=True,
         samesite="lax",
-        secure=False,
-        # 不设 domain：host-only。
+        secure=settings.cookie_secure,
+        max_age=settings.session_ttl_seconds,
     )
 
 
-def _clear_session_cookie(response: Response) -> None:
-    response.delete_cookie(
-        key=COOKIE_NAME,
-        path="/api",
-        httponly=True,
-        samesite="lax",
-        secure=False,
+@router.post("/login", response_model=CurrentUserOut)
+def login(
+    payload: LoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> User:
+    user = db.scalar(select(User).where(User.username_key == payload.username))
+    if user is None:
+        raise problem(401, "INVALID_CREDENTIALS", "用户名或口令错误")
+
+    credential = db.get(UserCredential, user.id)
+    if credential is None or not verify_password(credential.password_hash, payload.password):
+        raise problem(401, "INVALID_CREDENTIALS", "用户名或口令错误")
+
+    if user.status != "enabled":
+        raise problem(403, "ACCOUNT_DISABLED", "账号已禁用")
+
+    now = _utcnow()
+    token = generate_token()
+    db.add(
+        UserSession(
+            token_hash=sha256_hex(token),
+            user_id=user.id,
+            created_at=now,
+            expires_at=now + timedelta(seconds=settings.session_ttl_seconds),
+        )
     )
+    db.commit()
 
-
-@router.post("/login", response_model=AuthenticatedUser)
-def login(payload: LoginRequest, response: Response, session: SessionDep) -> AuthenticatedUser:
-    """登录：凭据正确 → 200 + ``Set-Cookie``；否则统一 401。"""
-    user = service.authenticate(session, payload.username, payload.password)
-    token = service.establish_session(session, user)
     _set_session_cookie(response, token)
-    return AuthenticatedUser.model_validate(user)
+    return user
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(request: Request, session: SessionDep) -> Response:
-    """登出：物理删除当前会话行并清除 Cookie（会话失效时为 401，由中间件返回）。"""
-    service.logout(session, request.cookies.get(COOKIE_NAME))
-    response = Response(status_code=status.HTTP_204_NO_CONTENT)
-    _clear_session_cookie(response)
+@router.post("/logout", status_code=204)
+def logout(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Response:
+    token = request.cookies.get(settings.cookie_name)
+    if token:
+        session = db.scalar(
+            select(UserSession).where(UserSession.token_hash == sha256_hex(token))
+        )
+        if session is not None and session.revoked_at is None:
+            session.revoked_at = _utcnow()
+            db.commit()
+
+    response = Response(status_code=204)
+    response.delete_cookie(settings.cookie_name, path="/")
     return response
 
 
-@router.get("/session", response_model=AuthenticatedUser)
-def get_current_session(request: Request) -> AuthenticatedUser:
-    """返回当前已认证身份；无有效会话时由中间件返回 401。"""
-    current_user = current_user_from_state(request)
-    if current_user is None:
-        # 理论上不可达（中间件已拦截）；保持 fail-closed。
-        raise UnauthenticatedError()
-    return current_user
+@router.get("/me", response_model=CurrentUserOut)
+def me(user: Principal = Depends(get_current_user)) -> CurrentUserOut:
+    return CurrentUserOut(
+        id=user.user_id,
+        username=user.username,
+        role=user.role,  # type: ignore[arg-type]
+        status=user.status,  # type: ignore[arg-type]
+        must_change_password=user.must_change_password,
+    )
+
+
+@router.post("/change-password", status_code=204)
+def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: Principal = Depends(get_current_user),
+) -> Response:
+    credential = db.get(UserCredential, user.user_id)
+    if credential is None or not verify_password(
+        credential.password_hash, payload.current_password
+    ):
+        raise problem(400, "INVALID_CURRENT_PASSWORD", "当前口令错误")
+
+    if not password_policy_ok(payload.new_password):
+        raise problem(
+            422,
+            "VALIDATION_ERROR",
+            "字段校验失败",
+            errors=[
+                {
+                    "field": "new_password",
+                    "code": "PASSWORD_POLICY",
+                    "message": PASSWORD_POLICY_MESSAGE,
+                }
+            ],
+        )
+
+    now = _utcnow()
+    credential.password_hash = hash_password(payload.new_password)
+    credential.password_updated_at = now
+
+    current_token = request.cookies.get(settings.cookie_name)
+    current_hash = sha256_hex(current_token) if current_token else None
+    revoked = db.execute(
+        update(UserSession)
+        .where(
+            UserSession.user_id == user.user_id,
+            UserSession.revoked_at.is_(None),
+            UserSession.token_hash != current_hash,
+        )
+        .values(revoked_at=now)
+    ).rowcount
+
+    db_user = db.get(User, user.user_id)
+    assert db_user is not None
+    db_user.must_change_password = False
+    db_user.version = db_user.version + 1
+    db_user.updated_at = now
+
+    audit.write(
+        db,
+        user,
+        "user.change_password",
+        "user",
+        str(user.user_id),
+        db_user.username,
+        {"must_change_password": False, "others_sessions_revoked": revoked},
+    )
+    db.commit()
+
+    response = Response(status_code=204)
+    return response
