@@ -210,12 +210,21 @@ features:
     priority: P0
     depends_on: [F013]
     blocking_decisions: []
-    status: READY
+    status: IN_PROGRESS
+    current_stage: REVIEW
+    last_result: 修复轮1完成（REVIEW-1/2/NOTE-3）；后端 64 passed（协调器独立复跑），前端 166 未变；待重新 Review
+    next_action: Reviewer 重新 Review（候选 HEAD a25a1d4、base v2；旧批准失效）
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
-    git: null
-    evidence: []
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
+    contract: {status: READY, doc: docs/api/F001.md, reason: ADR-003 已批准；架构 Contract READY}
+    git:
+      base_branch: v2
+      branch: feature/F001-cluster-identity-and-deletion
+      start_commit: 1727490c1c67e9803331692ec0e242a0cf67cf8a
+      head_commit: a25a1d4
+      merge_commit: null
+    evidence:
+      - docs/project/reports/F001-test-report.md
 
   - id: F002
     title: 计算资源登记、无 IP 网卡与一次原子提交基础
@@ -2210,13 +2219,13 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: IN_PROGRESS
-  ready_features: [F001]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 11
     DRAFT: 0
     DONE: 1
@@ -2238,8 +2247,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F001
+  current_stage: REVIEW
   note: >
-    F013「用户与角色管理」已完成（Merge dcfa6ff，批准 HEAD a4eac3a）并做最终状态提交。
-    无进行中 Feature；重算 READY 后由项目调度决定下一 Feature。
+    F001「集群登记、身份与真实删除保护」进行中（分支 feature/F001-cluster-identity-and-deletion，start_commit 1727490）。
+    Backend/Frontend 完成、Tester READY FOR REVIEW；进行 REVIEW（候选 HEAD 14941e4）。

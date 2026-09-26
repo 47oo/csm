@@ -70,6 +70,49 @@ TRIGGER_STATEMENTS = [
         BEFORE UPDATE OR DELETE ON reserved_usernames
         FOR EACH ROW EXECUTE FUNCTION csm_reject_mutation();
     """,
+    # reserved_cluster_codes 只增不删（复用通用 csm_reject_mutation）。
+    """
+    DROP TRIGGER IF EXISTS trg_reserved_cluster_codes_append_only ON reserved_cluster_codes;
+    """,
+    """
+    CREATE TRIGGER trg_reserved_cluster_codes_append_only
+        BEFORE UPDATE OR DELETE ON reserved_cluster_codes
+        FOR EACH ROW EXECUTE FUNCTION csm_reject_mutation();
+    """,
+    # resource_history append-only：拒绝 DELETE 与任何内容 UPDATE，但允许
+    # users 删除时 FK ON DELETE SET NULL 将 actor_user_id 置 NULL（数据库
+    # 设计 §2.3 同时要求 SET NULL 与 append-only）。
+    """
+    CREATE OR REPLACE FUNCTION csm_resource_history_append_only() RETURNS trigger AS $$
+    BEGIN
+        IF TG_OP = 'DELETE' THEN
+            RAISE EXCEPTION 'append-only table: % delete rejected', TG_TABLE_NAME;
+        END IF;
+        IF NEW.id = OLD.id
+           AND NEW.occurred_at = OLD.occurred_at
+           AND NEW.actor_username_snapshot = OLD.actor_username_snapshot
+           AND NEW.target_type = OLD.target_type
+           AND NEW.target_id IS NOT DISTINCT FROM OLD.target_id
+           AND NEW.target_key_snapshot IS NOT DISTINCT FROM OLD.target_key_snapshot
+           AND NEW.action = OLD.action
+           AND NEW.change = OLD.change
+           AND NEW.actor_user_id IS NULL
+           AND OLD.actor_user_id IS NOT NULL
+        THEN
+            RETURN NEW;
+        END IF;
+        RAISE EXCEPTION 'append-only table: % update rejected', TG_TABLE_NAME;
+    END;
+    $$ LANGUAGE plpgsql;
+    """,
+    """
+    DROP TRIGGER IF EXISTS trg_resource_history_append_only ON resource_history;
+    """,
+    """
+    CREATE TRIGGER trg_resource_history_append_only
+        BEFORE UPDATE OR DELETE ON resource_history
+        FOR EACH ROW EXECUTE FUNCTION csm_resource_history_append_only();
+    """,
 ]
 
 

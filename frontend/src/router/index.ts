@@ -19,6 +19,11 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/ChangePasswordView.vue'),
   },
   {
+    path: '/clusters',
+    name: 'clusters',
+    component: () => import('../views/ClustersView.vue'),
+  },
+  {
     path: '/admin/users',
     name: 'admin-users',
     component: () => import('../views/AdminUsersView.vue'),

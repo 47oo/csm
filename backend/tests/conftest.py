@@ -21,7 +21,10 @@ from app.main import app  # noqa: E402
 from app.models import ReservedUsername, User, UserCredential  # noqa: E402
 from app.security.password import hash_password  # noqa: E402
 
-_ALL_TABLES = "users, user_credentials, sessions, reserved_usernames, audit_log"
+_ALL_TABLES = (
+    "users, user_credentials, sessions, reserved_usernames, audit_log, "
+    "clusters, reserved_cluster_codes, resource_history"
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
