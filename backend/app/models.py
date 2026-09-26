@@ -142,6 +142,108 @@ class ReservedUsername(Base):
     )
 
 
+class Cluster(Base):
+    __tablename__ = "clusters"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    code_key: Mapped[str] = mapped_column(
+        Text, Computed("upper(btrim(code))", persisted=True), nullable=False
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("1")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "code = btrim(code) AND btrim(code) <> ''",
+            name="chk_clusters_code_trimmed",
+        ),
+        CheckConstraint(
+            "code_key ~ '^[A-Z0-9]{1,32}$'",
+            name="chk_clusters_code_key_format",
+        ),
+        CheckConstraint(
+            "name ~ '^[A-Za-z0-9_\u4e00-\u9fff]{1,64}$'",
+            name="chk_clusters_name_format",
+        ),
+        CheckConstraint(
+            "btrim(purpose) <> '' AND char_length(purpose) <= 200",
+            name="chk_clusters_purpose",
+        ),
+        CheckConstraint("version >= 1", name="chk_clusters_version"),
+        UniqueConstraint("code_key", name="uq_clusters_code_key"),
+        UniqueConstraint("name", name="uq_clusters_name"),
+        Index("ix_clusters_code", "code"),
+        Index("ix_clusters_created_at", "created_at"),
+    )
+
+
+class ReservedClusterCode(Base):
+    __tablename__ = "reserved_cluster_codes"
+
+    code_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    reserved_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "code_key ~ '^[A-Z0-9]{1,32}$'",
+            name="chk_reserved_cluster_codes_format",
+        ),
+    )
+
+
+class ResourceHistory(Base):
+    __tablename__ = "resource_history"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    actor_user_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    actor_username_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
+    target_type: Mapped[str] = mapped_column(Text, nullable=False)
+    target_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_key_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
+    action: Mapped[str] = mapped_column(Text, nullable=False)
+    change: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "btrim(actor_username_snapshot) <> ''",
+            name="chk_resource_history_actor_snapshot",
+        ),
+        CheckConstraint(
+            "btrim(target_type) <> ''",
+            name="chk_resource_history_target_type",
+        ),
+        CheckConstraint(
+            "action IN ('update','delete')",
+            name="chk_resource_history_action",
+        ),
+        Index("ix_resource_history_occurred_at", text("occurred_at DESC")),
+        Index("ix_resource_history_actor", "actor_user_id"),
+        Index("ix_resource_history_target", "target_type", "target_id"),
+    )
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
 

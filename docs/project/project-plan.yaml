@@ -212,16 +212,16 @@ features:
     blocking_decisions: []
     status: IN_PROGRESS
     current_stage: IMPLEMENTATION
-    last_result: Database READY FOR DATABASE IMPLEMENTATION（docs/database/F001.md）
-    next_action: Backend 实现（clusters/reserved_cluster_codes/resource_history + 5 端点）与 Frontend 实现（集群列表/新增/编辑/删除二次确认/选择记忆）
+    last_result: Backend COMPLETE（backend/，真实 PostgreSQL 集成测试 61 passed；协调器独立复跑通过）
+    next_action: Frontend 实现（集群列表/新增/编辑/删除二次确认/选择记忆），随后 Test → Review
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: READY, doc: docs/api/F001.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F001-cluster-identity-and-deletion
       start_commit: 1727490c1c67e9803331692ec0e242a0cf67cf8a
-      head_commit: 05456ba
+      head_commit: 161d287
       merge_commit: null
     evidence: []
 
