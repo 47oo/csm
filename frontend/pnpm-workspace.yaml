@@ -1,0 +1,4 @@
+# pnpm 11 构建脚本白名单（esbuild 二进制、vue-demi postinstall）
+allowBuilds:
+  esbuild: true
+  vue-demi: true

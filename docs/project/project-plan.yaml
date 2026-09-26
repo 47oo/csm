@@ -22,7 +22,7 @@ project:
   goal: >
     为 HPC / AI 运维场景提供统一的集群资源登记、查询、维护、关联与状态查看平台，
     逐步替代分散的 Excel 台账；V2 独立定义需求、领域模型、架构与实现。
-  status: ACCEPTED
+  status: IN_PROGRESS
   status_changed_on: "2026-09-25"
   plan_revision: 9
   last_planned_on: "2026-09-25"
@@ -822,15 +822,25 @@ features:
       全平台终局复核见 F011（场景 57）。用户名比较口径（BQ-W）与审计载体（ADR-005）已裁定。
       本 Feature 交付的角色/操作者解析与会话基础被 F001/F002/F005/F006/F007/F012 复用；
       用户/角色管理操作进审计但不并入受管资源历史（场景 81）。
+      BQ-X：用户名仅字母与数字、长度 1–128、创建后不可修改；禁止删除或禁用最后一个启用中的平台管理员。
     priority: P0
     depends_on: []
     blocking_decisions: []
-    status: READY
+    status: IN_PROGRESS
+    current_stage: REVIEW
+    last_result: Tester READY FOR REVIEW（BQ-Y 后重测；后端 41 + 前端 88 passed；独立探针 45/45）
+    next_action: Reviewer 独立 Review（候选 HEAD d78b940、base v2）
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
-    git: null
-    evidence: []
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
+    contract: {status: READY, doc: docs/api/F013.md, reason: ADR-003 已批准；架构 Contract READY（含 BQ-Y PROTECTED_ADMIN）}
+    git:
+      base_branch: v2
+      branch: feature/F013-user-role-management
+      start_commit: e6999213a54eb2cab4f1b4f420c6e2a4158fe60f
+      head_commit: d78b940
+      merge_commit: null
+    evidence:
+      - docs/project/reports/F013-test-report.md
 
 # --- 需要用户裁定的决策 ---
 # 影响 Feature 的架构/产品前提，在对应阶段前必须由用户或架构阶段裁定并记录。
@@ -1165,6 +1175,20 @@ planning_audit:
         两项决策在 decisions_required 置 RESOLVED 并附依据；从所有 Feature 的 blocking_decisions 移除；
         重算 F013 为 READY（depends_on=[] 且 blocking_decisions=[]），其余 Feature 仍 BLOCKED；
         planning_status/counts（READY 1、BLOCKED 12）与派生视图同步；范围/Feature/场景未变。
+    - id: R9-D2
+      kind: DECISION_ALIGNMENT
+      layer: FEATURE
+      location: requirements-v2.md §4.9 / §10.75–77,79；F013 架构/Contract/数据库设计（revision 9，F013 实施中）
+      detail: >
+        BQ-X 明确用户名仅字母与数字、长度 1–128、创建后不可修改，并禁止删除/禁用最后一个启用中的管理员；
+        影响 F013 的 §4.9、场景 75/76/77/79文本、API Contract（PATCH 仅角色、新增 LAST_ADMIN）与数据库设计。
+      blocks_planning: false
+      owner: coordinator
+      status: RESOLVED
+      resolution: >
+        已更新 requirements-v2.md（BQ-X、§4.9、场景 75/76/77/79）、domain-model.md、
+        docs/architecture/F013-user-role-management.md、docs/api/F013.md、docs/database/F013.md；
+        场景编号与 Feature 覆盖不变（仍 1–81，F013 闭环 72–81）；属于 F013 实施中的已确认规则细化，不改变范围/依赖。
     - id: R8-S1
       kind: PLAN_SCOPE
       layer: MILESTONE
@@ -2109,14 +2133,14 @@ requirement_coverage:
 
 planning_status:
   plan_completeness: complete
-  status: ACCEPTED
-  ready_features: [F013]
+  status: IN_PROGRESS
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 12
     DRAFT: 0
     DONE: 0
@@ -2138,7 +2162,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F013
+  current_stage: REVIEW
   note: >
-    尚未启动任何 Feature。执行检查点为空，无需保留旧检查点。
+    F013「用户与角色管理」进行中（分支 feature/F013-user-role-management，start_commit e699921）。
+    BQ-Y 已实现并重测；进行 REVIEW（候选 HEAD d78b940）。
