@@ -1,8 +1,8 @@
 # CSM V2 Milestones（派生视图）
 
 > 本文件由 `docs/project/project-plan.yaml` 派生，只引用计划事实。若与计划冲突，以计划为准。
-> 计划状态：**ACCEPTED — 用户已批准 revision 9（2026-09-25）**；产品需求整体仍为 DRAFT，实施门禁独立适用。全部 Feature 为 P0。
-> revision 9 依据 BQ-W 关闭 D-NAME-COMPARISON 与 D-RESOURCE-HISTORY；Milestone 划分与退出标准未变，状态重算后 F013 为 READY、其余 12 个 Feature 仍为 BLOCKED。
+> 计划状态：**IN_PROGRESS — revision 10（2026-09-25，已批准）**；产品需求整体仍为 DRAFT，实施门禁独立适用。全部 Feature 为 P0。
+> revision 10 依据 BQ-Z 关闭 D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES，并新增 §10 场景 82；Milestone 划分未变，状态重算后 F013 为 DONE、F001 为 READY、其余 11 个 Feature 仍为 BLOCKED。
 > Milestone 按产品可交付能力组织，顺序保证任一 Milestone 的 Feature 只依赖本 Milestone 或更早 Milestone 的 Feature；
 > 退出标准按 `closure_owner` 只引用在本 Milestone 或更早已闭环的 §10 场景（其余为 parts），不在依赖未完成时承诺验收。
 
@@ -12,7 +12,7 @@
 - **Feature**：F013、F001、F005、F002、F006、F012、F003
 - **Milestone 内实施/验收顺序**：F013 → F001 → F005 → F002 → F006 → {F012, F003}（同一 Milestone 内的实施与验收顺序）。
 - **退出标准**：闭环场景共 44 条：3、4、8、9、10、11、12、19、20、21、24、25、26、27、28、29、30、31、32、34、43、44、45、47、48、50、52、53、60、61、62、64、65、71、72、73、74、75、76、77、78、79、80、81 由 M1 内 Feature 闭环通过； 场景 2（同名裸金属/名称唯一）、5（网卡/IP 归属）、6（唯一性与网卡/IP 可见）、 42（网络内容/公共信息不变）、51（计算资源与网段关联）、59（上级逐项先删规则侧）、 40（集群切换/记忆与角色基础）、55（主机数/VM 数展示侧）、56（当前集群列表侧）、 68（宿主删除的自身子项部分）的 M1 部分通过； 平台支持自建用户/单一角色/登录登出、口令策略与禁用/删除语义、首个管理员预置； 一次提交（含 IP）原子性、资源/接口/名称唯一、IPv4 并发唯一、跨重叠排除、耗尽与释放规则验证通过； M1 退出时同一表单支持一次录入公共信息 + 全部网卡 + 全部 IP； 管理员可查已交付对象（集群/计算资源+网卡/IP/网段）的资源历史、非管理员被拒且历史不自动清除。
-- **前置决策**：D-STATUS-SOURCE、D-CODE-FORMAT、D-IP-SEMANTICS、D-DELETE-*（D-ARCH-*、D-BQ-F、D-NAME-COMPARISON、D-RESOURCE-HISTORY 已 RESOLVED）。
+- **前置决策**：D-STATUS-SOURCE、D-IP-SEMANTICS（D-ARCH-*、D-BQ-F、D-NAME-COMPARISON、D-RESOURCE-HISTORY、D-CODE-FORMAT、D-DELETE-* 已 RESOLVED）。
 
 ## M2 — 统一检索、类型详情与宿主关系
 
@@ -20,7 +20,7 @@
 - **Feature**：F008、F004
 - **Milestone 内实施/验收顺序**：F003（M1）→ F008 → F004（F004 同时依赖 M1 的 F002/F003）。
 - **退出标准**：闭环场景共 9 条：1、2、13、14、15、33、35、36、41 通过； 场景 37/38 的已交付对象基础部分通过（最终 closure 留待 M4 的 F011）； 场景 18（VM 关联部分）、场景 42（类型详情不变部分）、场景 68（VM/网卡/IP 不改挂侧）通过； VM 宿主约束、类型摘要与已交付对象的基础搜索匹配规则生效。
-- **前置决策**：D-Q3、D-DELETE-DEPENDENCIES、D-RESOURCE-REASSIGN（= F004 blocking_decisions 的完整集合；F008 无阻塞决策；D-ARCH-* 与 D-BQ-F 已 RESOLVED）。
+- **前置决策**：D-Q3、D-RESOURCE-REASSIGN（= F004 blocking_decisions 的完整集合；F008 无阻塞决策；D-ARCH-*、D-BQ-F、D-DELETE-DEPENDENCIES 已 RESOLVED）。
 
 ## M3 — 服务、服务历史、跨对象权限复核与集群导航
 
@@ -28,26 +28,26 @@
 - **Feature**：F007、F009、F010
 - **Milestone 内实施/验收顺序**：F007 → {F009, F010}（F007 依赖 M1/M2 与 F012；F009/F010 依赖 M1/M2/M3 内更早 Feature）。
 - **退出标准**：闭环场景共 21 条：5、6、16、17、18、40、42、46、49、51、54、55、56、58、59、63、66、67、68、69、70 通过； §4.8 服务真实删除保护、§6.1 统计口径、§6.2 全局 IP 查询、§9.1 权限生效； 场景 42 的既有网卡/IP/公共信息不变由 M1 的 F006 验收，本 Milestone 闭环类型详情（F004）与 VM/服务关联（F007）不变； 场景 51 三类关联（计算资源/网段/服务关联）齐全的最终闭环通过。
-- **前置决策**：D-BQ-E、D-SERVICE-DETAILS、D-RESOURCE-REASSIGN、D-DELETE-*（D-ARCH-*、D-BQ-F、D-NAME-COMPARISON、D-RESOURCE-HISTORY 已 RESOLVED）。
+- **前置决策**：D-BQ-E、D-SERVICE-DETAILS、D-RESOURCE-REASSIGN（D-ARCH-*、D-BQ-F、D-NAME-COMPARISON、D-RESOURCE-HISTORY、D-DELETE-* 已 RESOLVED）。
 
 ## M4 — 非功能、可用性基线与全平台权限复核
 
 - **目标**：在约 1000 台/集群基线上端到端复核分页、可靠性、原子性、并发与竞态防护要求， 并复核全平台三角色服务端鉴权（以 F013 用户/角色/登录服务端鉴权、F001 角色/操作者解析基础与 F002/F005/F006/F007 当期对象级实现为准，含 F009 一致性复核结论）与全部搜索面覆盖。
 - **Feature**：F011
 - **Milestone 内实施/验收顺序**：F001–F013 全部完成后实施（F011 依赖全部 Feature）。
-- **退出标准**：闭环场景共 7 条：7、22、23、37、38、39、57 通过； 场景 22/23 的功能实现由 F006（M1）验收，本 Feature 千节点端到端复核； 场景 37/38 在所有搜索面（含 F004 宿主、F007 服务与服务实例、F010 全局 IP 查询）交付后完成全量覆盖闭环； 场景 57 以 F013 用户/角色/登录服务端鉴权、F001 角色基础、各对象当期鉴权/审计及 F009 一致性复核结论为准。
-- **前置决策**：无（D-ARCH-*、D-BQ-F 已 RESOLVED；产品 OPEN 项非 M4 阻塞，但其实现须已在各对象阶段裁定）。
+- **退出标准**：闭环场景共 8 条：7、22、23、37、38、39、57、82 通过； 场景 22/23 的功能实现由 F006（M1）验收，本 Feature 千节点端到端复核； 场景 37/38 在所有搜索面（含 F004 宿主、F007 服务与服务实例、F010 全局 IP 查询）交付后完成全量覆盖闭环； 场景 57 以 F013 用户/角色/登录服务端鉴权、F001 角色基础、各对象当期鉴权/审计及 F009 一致性复核结论为准； 场景 82 的各对象删除二次确认与名称/`code` 匹配提交由 F001/F002/F005/F007 各自实现，本 Feature 端到端复核整体一致（BQ-Z）。
+- **前置决策**：无（D-ARCH-*、D-BQ-F、D-CODE-FORMAT、D-DELETE-* 已 RESOLVED；产品 OPEN 项非 M4 阻塞，但其实现须已在各对象阶段裁定）。
 
 ## 里程碑与需求覆盖
 
-全部 81 条 §10 验收场景均被 M1–M4 覆盖，且每条场景的 `closure_owner` 均在其所属 Milestone 或更早完成：
+全部 82 条 §10 验收场景均被 M1–M4 覆盖，且每条场景的 `closure_owner` 均在其所属 Milestone 或更早完成：
 
 | Milestone | 闭环场景（closure_owner 在本 Milestone） | 数量 |
 | --- | --- | --- |
 | M1 | 3–4、8–12、19–21、24–32、34、43–45、47–48、50、52–53、60–62、64–65、71–81 | 44 |
 | M2 | 1–2、13–15、33、35–36、41 | 9 |
 | M3 | 5–6、16–18、40、42、46、49、51、54–56、58–59、63、66–70 | 21 |
-| M4 | 7、22–23、37–39、57 | 7 |
-| **合计** | §10 全部场景 | **81** |
+| M4 | 7、22–23、37–39、57、82 | 8 |
+| **合计** | §10 全部场景 | **82** |
 
-说明（parts，不在该 Milestone 闭环）：场景 46/68 由 F007（M3）最终闭环，F002/F004/F006 只承担自身可独立验收部分；场景 55 由 F010 闭环，F003/F005/F007 提供计数来源；场景 59 由 F007 闭环，F001/F002/F004/F005/F006/F012 提供各类子项处理；场景 37/38 由 F008 交付基础、F004/F007/F010 适配、F011 闭环；场景 72–81 由 F013（M1）自身闭环。映射明细（participants / closure_owner / parts）见 `docs/project/project-plan.yaml.requirement_coverage` 与 `backlog.md`。
+说明（parts，不在该 Milestone 闭环）：场景 46/68 由 F007（M3）最终闭环，F002/F004/F006 只承担自身可独立验收部分；场景 55 由 F010 闭环，F003/F005/F007 提供计数来源；场景 59 由 F007 闭环，F001/F002/F004/F005/F006/F012 提供各类子项处理；场景 37/38 由 F008 交付基础、F004/F007/F010 适配、F011 闭环；场景 82 由 F011（M4）端到端复核，F001/F002/F005/F007 各自提供删除确认交互；场景 72–81 由 F013（M1）自身闭环。映射明细（participants / closure_owner / parts）见 `docs/project/project-plan.yaml.requirement_coverage` 与 `backlog.md`。
