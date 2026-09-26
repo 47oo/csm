@@ -81,6 +81,13 @@ describe('路由守卫：未登录', () => {
     await navigateTo('/login')
     expect(router.currentRoute.value.name).toBe('login')
   })
+
+  it('访问 /clusters 跳转 /login 并携带回跳地址', async () => {
+    setUser(null)
+    await navigateTo('/clusters')
+    expect(router.currentRoute.value.name).toBe('login')
+    expect(router.currentRoute.value.query.redirect).toBe('/clusters')
+  })
 })
 
 describe('路由守卫：已登录', () => {
@@ -114,6 +121,16 @@ describe('路由守卫：已登录', () => {
     expect(router.currentRoute.value.name).toBe('home')
     await navigateTo('/change-password')
     expect(router.currentRoute.value.name).toBe('change-password')
+  })
+
+  it('三种角色均可进入 /clusters（列表/详情任意已登录；写操作由服务端校验）', async () => {
+    for (const role of ['viewer', 'maintainer', 'admin'] as const) {
+      setActivePinia(createPinia())
+      router = createAppRouter()
+      setUser({ ...maintainer, role })
+      await navigateTo('/clusters')
+      expect(router.currentRoute.value.name).toBe('clusters')
+    }
   })
 })
 
