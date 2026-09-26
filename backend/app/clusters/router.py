@@ -33,8 +33,11 @@ router = APIRouter(prefix="/clusters", tags=["clusters"])
 admin_required = require_roles("admin")
 delete_required = require_roles("maintainer", "admin")
 
-_CODE_RE = re.compile(r"^[A-Z0-9]{1,32}$")
-_NAME_RE = re.compile(r"^[A-Za-z0-9_\u4e00-\u9fff]{1,64}$")
+_CODE_RE = re.compile(r"[A-Z0-9]{1,32}")
+# 应用层要求原始 code（去首尾空格后）为 ASCII 字母/数字，避免 Python 与 PostgreSQL
+# ``upper`` 对非 ASCII（如 ß/全角）行为不一致导致 DB CHECK 与应用层判断偏离。
+_CODE_INPUT_RE = re.compile(r"[A-Za-z0-9]{1,32}")
+_NAME_RE = re.compile(r"[A-Za-z0-9_\u4e00-\u9fff]{1,64}")
 _CODE_MESSAGE = "集群 code 规范化后仅允许大写字母与数字，长度 1–32"
 _NAME_MESSAGE = "集群名称仅允许字母、中文、下划线或数字，长度 1–64"
 _PURPOSE_MESSAGE = "用途不能为空，且长度不超过 200"
@@ -80,6 +83,49 @@ def _is_fk_violation(exc: IntegrityError) -> bool:
     orig = getattr(exc, "orig", None)
     state = getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None)
     return state == "23503"
+
+
+def _constraint_name(exc: IntegrityError) -> str:
+    diag = getattr(getattr(exc, "orig", None), "diag", None)
+    return getattr(diag, "constraint_name", "") or ""
+
+
+def _integrity_problem(exc: IntegrityError):
+    """将集群写入的 DB 完整性冲突映射为 Contract 错误语义。
+
+    - 唯一约束冲突 → 409（名称/`code` 各自错误码）；
+    - 其它 CHECK/格式违规 → 422 VALIDATION_ERROR（不误报 CODE_TAKEN、不抛出 500）。
+    """
+    constraint = _constraint_name(exc)
+    if "uq_clusters_name" in constraint:
+        return problem(409, "CLUSTER_NAME_TAKEN", "集群名称已被占用")
+    # CHECK/格式违规优先于保留表的唯一冲突判定，避免误报 CODE_TAKEN。
+    if "chk_clusters_name_format" in constraint:
+        return problem(
+            422, "VALIDATION_ERROR", "字段校验失败", errors=[_name_format_error()]
+        )
+    if "chk_clusters_code" in constraint or "chk_reserved_cluster_codes" in constraint:
+        return problem(
+            422, "VALIDATION_ERROR", "字段校验失败", errors=[_code_format_error()]
+        )
+    if "chk_clusters_purpose" in constraint:
+        return problem(
+            422, "VALIDATION_ERROR", "字段校验失败", errors=[_purpose_error()]
+        )
+    if "uq_clusters_code_key" in constraint or "reserved_cluster_codes" in constraint:
+        return problem(409, "CLUSTER_CODE_TAKEN", "集群 code 已被占用，且不可复用")
+    return problem(
+        422,
+        "VALIDATION_ERROR",
+        "字段校验失败",
+        errors=[
+            {
+                "field": "request",
+                "code": "VALIDATION_ERROR",
+                "message": "数据不满足数据库约束",
+            }
+        ],
+    )
 
 
 def _cluster_change(cluster: Cluster) -> dict[str, str]:
@@ -142,10 +188,11 @@ def create_cluster(
     admin: Principal = Depends(admin_required),
 ) -> Cluster:
     errors = []
-    normalized = normalize_cluster_code(payload.code)
-    if not _CODE_RE.match(normalized):
+    display_code = payload.code.strip()
+    normalized = display_code.upper()
+    if not _CODE_INPUT_RE.fullmatch(display_code) or not _CODE_RE.fullmatch(normalized):
         errors.append(_code_format_error())
-    if not _NAME_RE.match(payload.name):
+    if not _NAME_RE.fullmatch(payload.name):
         errors.append(_name_format_error())
     if not _purpose_valid(payload.purpose):
         errors.append(_purpose_error())
@@ -153,15 +200,14 @@ def create_cluster(
         raise problem(422, "VALIDATION_ERROR", "字段校验失败", errors=errors)
 
     now = _utcnow()
-    display_code = payload.code.strip()
 
     # 同事务先写保留标识表：冲突（含已真实删除集群用过的 code）→ 409。
     db.add(ReservedClusterCode(code_key=normalized))
     try:
         db.flush()
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
-        raise problem(409, "CLUSTER_CODE_TAKEN", "集群 code 已被占用，且不可复用")
+        raise _integrity_problem(exc)
 
     cluster = Cluster(
         code=display_code,
@@ -176,10 +222,7 @@ def create_cluster(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", "") or ""
-        if "uq_clusters_name" in constraint:
-            raise problem(409, "CLUSTER_NAME_TAKEN", "集群名称已被占用")
-        raise problem(409, "CLUSTER_CODE_TAKEN", "集群 code 已被占用，且不可复用")
+        raise _integrity_problem(exc)
 
     audit.write(
         db,
@@ -242,7 +285,7 @@ def update_cluster(
         )
 
     errors = []
-    if payload.name is not None and not _NAME_RE.match(payload.name):
+    if payload.name is not None and not _NAME_RE.fullmatch(payload.name):
         errors.append(_name_format_error())
     if payload.purpose is not None and not _purpose_valid(payload.purpose):
         errors.append(_purpose_error())
@@ -275,10 +318,7 @@ def update_cluster(
         )
     except IntegrityError as exc:
         db.rollback()
-        constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", "") or ""
-        if "uq_clusters_name" in constraint:
-            raise problem(409, "CLUSTER_NAME_TAKEN", "集群名称已被占用")
-        raise
+        raise _integrity_problem(exc)
 
     if result.rowcount == 0:
         db.rollback()

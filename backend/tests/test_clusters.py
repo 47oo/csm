@@ -58,6 +58,63 @@ def test_code_format_rejected(client, add_user, login_as) -> None:
         assert resp.json()["errors"][0]["code"] == "CODE_FORMAT", bad
 
 
+def test_code_non_ascii_rejected(client, add_user, login_as) -> None:
+    """非 ASCII/全角 code 必须在应用层被拒，避免与 PostgreSQL upper 不一致。"""
+    _auth(client, add_user, login_as, "root", "admin")
+
+    # ß 在 Python 会 upper 成 "SS"，而 PostgreSQL 保持原样；全角同理。
+    for bad in ["ß", "aß", "ＡＢ", "ａｂ", "１２３", "ß1"]:
+        resp = _create(client, bad, name="ValidName")
+        assert resp.status_code == 422, repr(bad)
+        assert resp.json()["code"] == "VALIDATION_ERROR", repr(bad)
+        assert resp.json()["errors"][0]["code"] == "CODE_FORMAT", repr(bad)
+
+    # 合法大小写/首尾空格仍需正确规范化。
+    ok = _create(client, "  n96p  ", name="ValidName")
+    assert ok.status_code == 201, ok.text
+    assert ok.json()["code"] == "n96p"
+
+
+def test_name_trailing_newline_rejected(client, add_user, login_as) -> None:
+    """`$` 锚点曾放过尾随换行；应被应用层拒绝为 422，而非 DB 冲突 409/500。"""
+    _auth(client, add_user, login_as, "root", "admin")
+
+    # POST：名称尾随换行 → 422 NAME_FORMAT（此前误报 409 CLUSTER_CODE_TAKEN）。
+    for bad in ["abc\n", "abc\r", "abc\r\n"]:
+        resp = _create(client, "NL001", name=bad)
+        assert resp.status_code == 422, repr(bad)
+        assert resp.json()["errors"][0]["code"] == "NAME_FORMAT", repr(bad)
+        assert resp.json()["code"] == "VALIDATION_ERROR", repr(bad)
+
+    # PATCH：名称尾随换行 → 422（此前未捕获 IntegrityError → 500）。
+    cluster = _create(client, "NL002", name="GoodName").json()
+    patched = client.patch(
+        f"/api/v1/clusters/{cluster['id']}",
+        json={"name": "xyz\n", "version": cluster["version"]},
+    )
+    assert patched.status_code == 422, patched.text
+    assert patched.json()["errors"][0]["code"] == "NAME_FORMAT"
+
+    # 名称未被修改。
+    detail = client.get(f"/api/v1/clusters/{cluster['id']}")
+    assert detail.json()["name"] == "GoodName"
+
+
+def test_name_conflict_on_patch_is_409(client, add_user, login_as) -> None:
+    _auth(client, add_user, login_as, "root", "admin")
+    first = _create(client, "CNF1", name="TakenName").json()
+    second = _create(client, "CNF2", name="OtherName").json()
+
+    resp = client.patch(
+        f"/api/v1/clusters/{second['id']}",
+        json={"name": "TakenName", "version": second["version"]},
+    )
+    assert resp.status_code == 409
+    assert resp.json()["code"] == "CLUSTER_NAME_TAKEN"
+    assert resp.json()["code"] != "CLUSTER_CODE_TAKEN"
+    assert client.get(f"/api/v1/clusters/{first['id']}").status_code == 200
+
+
 def test_code_immutable_via_patch(client, add_user, login_as) -> None:
     _auth(client, add_user, login_as, "root", "admin")
     cluster = _create(client, "C001", name="Alpha").json()
