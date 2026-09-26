@@ -211,17 +211,17 @@ features:
     depends_on: [F013]
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: ARCHITECTURE
-    last_result: 已创建分支 feature/F001-cluster-identity-and-deletion（start_commit 1727490）；Product 复用已记录（requirements-v2.md §4.1/§4.4/§6.1/§2.1/§9.1、§10 场景 50/51/58/59/61/64/71，依据 BQ-M/V/W/Z，无 Blocking Questions）
-    next_action: 调用 Architect 产出 F001 架构与 API Contract（docs/architecture/、docs/api/F001.md），要求 READY FOR IMPLEMENTATION 且 Contract READY
+    current_stage: DATABASE
+    last_result: Architecture READY FOR IMPLEMENTATION（docs/architecture/F001-cluster-registry.md）；Contract READY（docs/api/F001.md）
+    next_action: Database 设计（clusters/reserved_cluster_codes/resource_history），要求 READY FOR DATABASE IMPLEMENTATION
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    contract: {status: READY, doc: docs/api/F001.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F001-cluster-identity-and-deletion
       start_commit: 1727490c1c67e9803331692ec0e242a0cf67cf8a
-      head_commit: null
+      head_commit: 1f30c32
       merge_commit: null
     evidence: []
 
@@ -2247,7 +2247,7 @@ planning_status:
 
 execution:
   current_feature: F001
-  current_stage: ARCHITECTURE
+  current_stage: DATABASE
   note: >
-    F001「集群登记、身份与真实删除保护」已启动（分支 feature/F001-cluster-identity-and-deletion，start_commit 1727490）。
-    Product 复用已记录；进行 ARCHITECTURE。
+    F001「集群登记、身份与真实删除保护」进行中（分支 feature/F001-cluster-identity-and-deletion，start_commit 1727490）。
+    Architecture 与 Contract 已完成；进行 DATABASE 设计。
