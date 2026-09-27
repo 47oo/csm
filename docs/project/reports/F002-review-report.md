@@ -53,3 +53,13 @@ F002 实现、设计、Schema 与测试满足已确认需求与 Contract，真�
 
 ## 未审查项
 真实浏览器 E2E 与前后端真实联调（F002 Test Work 仅要求 Vitest）；F004/F006/F007 引入关联后的端到端删除保护；`name` collation 部署差异；第三方依赖供应链审计。
+---
+
+## Follow-up 修复记录（post-merge，2026-09-27）
+
+- **F002-R-06（LOW）已修复**：`uq_network_interfaces_resource_name` 改为 `DEFERRABLE INITIALLY IMMEDIATE`，资源写事务内 `SET CONSTRAINTS ... DEFERRED`；`create_schema` 幂等重建已存在库约束。同一 PATCH 内接口名互换（终态合法）可保存，终态冲突仍 `409 INTERFACE_NAME_TAKEN`。
+- **F002-R-07（LOW）已修复**：兜底命中 `uq_resources_cluster_name` 时 `RESOURCE_NAME_EXISTS` 回填 `existing_resource_id`/`existing_resource_type`。
+- 分支 `fix/F002-followups`，批准 HEAD `9508da1`；独立复核真实 postgres:16 全量 **125 passed**（基线 120），约束重建幂等、数据保全、事务级 `SET CONSTRAINTS` 无泄漏；Reviewer 结论 **APPROVED WITH FOLLOW-UP**（唯一跟进为补记本验证）。
+- **Merge**：`1e6a13e`（父 = Base `c80155b` 与批准 HEAD `9508da1`）。
+- 文档同步：`docs/database/F002.md` 已记录 deferrable 约束与幂等重建。
+- 仍保留：NOTE-F002-1（同值 PATCH 是否计为一次变更，待 Product/Architect 确认；非缺陷）。
