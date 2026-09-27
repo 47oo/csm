@@ -15,6 +15,7 @@
 # 并于 2026-09-24 至 2026-09-25 的 BQ-M–BQ-Z 需求变更后重新规划核对（revision 7/8/9/10，2026-09-25）。
 # revision 10 依据 BQ-Z 关闭 D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES，
 # 新增 §10 场景 82，并重算 F001（depends_on=[F013] 已 DONE）为 READY；
+# revision 11 依据 BQ-AA/BQ-AB 关闭 D-STATUS-SOURCE/D-IP-SEMANTICS，F002 转 READY（不变更规划实质）。
 # 需求最终签核及实施门禁仍独立适用，不自动启动实施。
 
 project:
@@ -25,36 +26,31 @@ project:
     逐步替代分散的 Excel 台账；V2 独立定义需求、领域模型、架构与实现。
   status: IN_PROGRESS
   status_changed_on: "2026-09-25"
-  plan_revision: 10
+  plan_revision: 11
   last_planned_on: "2026-09-25"
   planning_reason: >
-    revision 10（2026-09-25）依据 requirements-v2.md 的 BQ-Z 裁定与新增场景 82 更新机器计划：
-    关闭 D-CODE-FORMAT（集群 code 规范化后仅大写字母与数字、长度 1–32）、
-    D-DELETE-CONFIRMATION（真实删除前二次确认；集群/计算资源/网段/服务需输入名称或 code 匹配后才可提交）与
-    D-DELETE-DEPENDENCIES（无新增受管对象；上级删除一律先显式处理仍存子项/关联、不级联，已由 BQ-M/N/O/P/S/T 覆盖）；
-    三项决策在 decisions_required 置 RESOLVED，并从所有 Feature 的 blocking_decisions 移除。
-    需求 §10 新增场景 82（真实删除二次确认），closure_owner=F011、participants [F001,F002,F005,F007,F011]，
-    场景总数 81→82，F011 闭环 7→8。
-    重算状态：F001 depends_on=[F013]（F013 已 DONE）且 blocking_decisions=[] → READY，其余 Feature 仍 BLOCKED
-    （依赖未 DONE 或仍有其它 OPEN 决策）。范围内 Feature 数量与其余场景未变。
-    未修改产品/架构文档，未新增业务规则，未启动实施。
+    revision 11（2026-09-25）依据 requirements-v2.md 的 BQ-AA/BQ-AB 裁定更新机器计划，
+    关闭两个产品门禁决策：D-STATUS-SOURCE（状态来源记录操作者；仅保留状态更新时间）与
+    D-IP-SEMANTICS（网卡/IP 单独真实删除无业务恢复入口；历史表达/存储交 Architect/Database）。
+    两项在 decisions_required 置 RESOLVED，并从 F002 的 blocking_decisions 移除；
+    重算状态：F002 depends_on=[F001,F005] 均已 DONE 且 blocking_decisions=[] → READY；其余 Feature 仍 BLOCKED。
+    本 revision 不变更 Feature 数量、范围、场景、依赖或 Milestone，未新增业务规则，未启动实施；
+    完整规划审计沿用 revision 10（见 planning_audit），本 revision 仅记录决策收敛。
   requirement_revision:
-    id: BQ-Z
+    id: BQ-AB
     date: "2026-09-25"
     source: docs/product/requirements-v2.md
     summary: >
-      BQ-Z（2026-09-25 用户裁定）：集群 code 规范化（去首尾空格+统一大写）后仅允许大写字母与数字、
-      长度 1–32（^[A-Z0-9]{1,32}$）；真实删除前须二次确认，集群/计算资源/网段/服务需输入名称或 code
-      匹配后才可提交；无新增受管对象，上级删除一律先显式处理仍存子项/关联、不级联
-      （§4.1.11、§4.4.7、§10 场景 82）。
+      BQ-AA（2026-09-25 用户裁定）：计算资源状态来源记录操作者（不记录来源系统）；仅保留状态更新时间，
+      不额外区分状态更新时间与一般资源更新时间（§4.3）。BQ-AB（用户裁定）：网卡/IP 单独真实删除无业务
+      恢复入口；具体历史表达/存储方式交 Architect/Database 在网络生命周期设计中确定（§4.4）。
     impact: >
-      关闭 D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES，并从所有 Feature 的 blocking_decisions 移除；
-      F001 blocking_decisions 变为空且 depends_on=[F013] 已 DONE → READY，其余 Feature 仍 BLOCKED；
-      §10 新增场景 82（closure_owner=F011），场景 81→82，Milestone 闭环分布 44/9/21/8，
-      coverage（32/82/82）与 F011 闭环计数（7→8）同步。
+      关闭 D-STATUS-SOURCE、D-IP-SEMANTICS，并从 F002 的 blocking_decisions 移除；
+      F002 depends_on=[F001,F005] 均已 DONE 且 blocking_decisions=[] → READY，其余 Feature 仍 BLOCKED；
+      不变更 Feature 数量、范围、场景、依赖或 Milestone，未新增业务规则。
   approved_by: 用户
   approved_on: "2026-09-25"
-  approval_basis: 用户确认 BQ-Z 三项裁定后更新决策状态、新增场景 82 并重算状态；F001 因 F013 已 DONE 转 READY；Feature 数量未变；不代表需求最终签核或实施授权。
+  approval_basis: 用户确认 BQ-AA/BQ-AB 两项裁定后更新决策状态并重算状态；F002 转 READY；不代表需求最终签核或实施授权。
   planning_source:
     primary: docs/product/requirements-v2.md
     domain: docs/product/domain-model.md
@@ -64,14 +60,15 @@ project:
       - docs/project/handoff.md
     workflow: .pi/prompts/project.md
   notes: >
-    BQ-Z 决策关闭后更新（revision 10，2026-09-25）。V2 交付证据：仅 F013 已 DONE（Merge dcfa6ff，
-    Review APPROVED WITH FOLLOW-UP）；其余 Feature 无架构/API/数据库文档、无实现代码、无测试/Review/合并证据。
+    BQ-AA/BQ-AB 决策关闭后更新（revision 11，2026-09-25）。V2 交付证据：F013（Merge dcfa6ff）、
+    F001（Merge 6ad6346）、F005（Merge 102e348）已 DONE，均有架构/API/数据库/实现/测试/Review 证据；
+    其余 Feature 无对应证据。
     所有 Feature 均为 P0，覆盖 requirements-v2.md §10 全部 82 条验收场景，requirement_coverage.gaps 为空。
-    D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES 已 RESOLVED（BQ-Z）；
+    D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES（BQ-Z）及 D-STATUS-SOURCE（BQ-AA）、D-IP-SEMANTICS（BQ-AB）已 RESOLVED；
     D-ARCH-* 与 D-BQ-F 亦已 RESOLVED，但架构/契约文档尚未产出，进入实现前仍受阶段门禁约束
     （见 decisions_required）。依赖为无环有向图，F013 为唯一根。
-    状态重算：F013 DONE、F001 READY（depends_on=[F013] 已 DONE 且 blocking_decisions=[]），
-    其余 11 个 Feature BLOCKED。产品需求文件仍为 DRAFT — 未整体签核；revision 10 待用户批准。
+    状态重算：F013/F001/F005 DONE；F002 READY（depends_on=[F001,F005] 已 DONE 且 blocking_decisions=[]），
+    其余 10 个 Feature BLOCKED。产品需求文件仍为 DRAFT — 未整体签核；revision 11 待用户批准。
     实施仍以需求最终确认、阶段决策及 Git 安全门禁为前提；F001 为 READY 不等于已启动实施，
     计划批准不等于 Feature DONE。
 
@@ -281,11 +278,11 @@ features:
       场景 48 的 IP 历史写入由 F006、管理员查询由 F012 闭环。
     priority: P0
     depends_on: [F001, F005]
-    blocking_decisions: [D-STATUS-SOURCE, D-IP-SEMANTICS]
-    status: BLOCKED
+    blocking_decisions: []
+    status: READY
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出（F002 已 READY，实施时产出）}
     git: null
     evidence: []
 
@@ -924,11 +921,14 @@ decisions_required:
     affects: [F004]
   - id: D-STATUS-SOURCE
     kind: PRODUCT
-    status: OPEN
+    status: RESOLVED
     question: 计算资源“状态来源”的具体语义——记录操作者还是来源系统；状态更新时间与一般资源更新时间的区分。
     reason: requirements §4.3、§11.2 STATUS-SOURCE；domain-model §4。
     required_by: 状态展示实现前
     affects: [F002, F003]
+    resolution: >
+      BQ-AA 确认（2026-09-25）：状态来源记录操作者（不记录来源系统）；仅保留状态更新时间，
+      不额外区分状态更新时间与一般资源更新时间。不再是待决项，已从所有 Feature 的 blocking_decisions 移除。
   - id: D-NAME-COMPARISON
     kind: PRODUCT
     status: RESOLVED
@@ -955,7 +955,7 @@ decisions_required:
     affects: [F001]
   - id: D-IP-SEMANTICS
     kind: PRODUCT
-    status: OPEN
+    status: RESOLVED
     question: 网卡/IP 单独真实删除后的历史表达（无业务恢复入口）。
     reason: >
       requirements §4.4 的资源级真实删除与整次原子已确认，不再重开；
@@ -963,6 +963,9 @@ decisions_required:
       历史存储方式交 Architect/Database。
     required_by: 网络生命周期设计前
     affects: [F002, F006]
+    resolution: >
+      BQ-AB 确认（2026-09-25）：网卡/IP 单独真实删除无业务恢复入口；具体历史表达/存储方式
+      交 Architect/Database 在网络生命周期设计中确定。不再是待决项，已从所有 Feature 的 blocking_decisions 移除。
   - id: D-BQ-E
     kind: PRODUCT
     status: OPEN
@@ -1146,8 +1149,11 @@ existing_work:
 # --- 重新规划核对记录 ---
 planning_audit:
   audited_on: "2026-09-25"
-  basis_commit: 140a260
-  requirement_revision: BQ-Z（2026-09-25，docs/product/requirements-v2.md）
+  basis_commit: 46f0d2a
+  requirement_revision: BQ-AB（2026-09-25，docs/product/requirements-v2.md；revision 11 决策收敛）
+  revision_note: >
+    revision 11 仅关闭 D-STATUS-SOURCE（BQ-AA）与 D-IP-SEMANTICS（BQ-AB）两项产品决策并将 F002 置 READY；
+    Feature 界定、依赖、场景、Milestone 与 coverage 均沿用 revision 10，未重新界定。
   features:
     independent_acceptance: >
       revision 10 沿用 revision 9 的 13 个 Feature 界定（本轮未变更范围），均被界定为“DONE 时依赖已满足、具备用户可观察的当期可验收价值”：
@@ -1553,6 +1559,14 @@ planning_audit:
       status: RESOLVED
       resolution: 关键路径更正为 F001 → F005 → F002 → F006 → F003 → F008 → F004 → F007 → F010 → F011。
   history:
+    - plan_revision: 10
+      superseded: true
+      audited_on: "2026-09-25"
+      basis_commit: 140a260
+      requirement_revision: BQ-Z（2026-09-25，docs/product/requirements-v2.md）
+      note: >
+        revision 10 的规划审计（features/dependencies/coverage/status_evidence）已由 revision 11 原样承接；
+        revision 11 仅收敛 D-STATUS-SOURCE/D-IP-SEMANTICS 并将 F002 置 READY，未变更规划实质。
     - plan_revision: 9
       superseded: true
       audited_on: "2026-09-25"
@@ -2229,14 +2243,14 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: IN_PROGRESS
-  ready_features: []
+  ready_features: [F002]
   blocked_draft_features:
     BLOCKED: [F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
-    READY: 0
+    READY: 1
     IN_PROGRESS: 0
-    BLOCKED: 11
+    BLOCKED: 10
     DRAFT: 0
     DONE: 3
     CANCELLED: 0
