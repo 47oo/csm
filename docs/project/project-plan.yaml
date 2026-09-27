@@ -287,7 +287,8 @@ features:
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
-    evidence: []
+    evidence:
+      - docs/project/reports/F005-test-report.md
 
   - id: F003
     title: 计算资源统一列表、详情与服务端分页
@@ -423,17 +424,17 @@ features:
     depends_on: [F001]
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: IMPLEMENTATION
-    last_result: Backend COMPLETE（91 passed）；Frontend COMPLETE（frontend/，Vitest 266 passed、pnpm build 通过）
-    next_action: Tester 独立验证（场景 10/12/53/60/82 相关、DB 约束），要求 READY FOR REVIEW
+    current_stage: REVIEW
+    last_result: Tester READY FOR REVIEW（后端 91 + 前端 266 passed；独立探针 80/80）
+    next_action: Reviewer 独立 Review（候选 HEAD d6c3f83、base v2）
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
     contract: {status: READY, doc: docs/api/F005.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F005-network-segments
       start_commit: dd6e22bf7aa57b9b6c7f4dbee6518ba5afcd1aa9
-      head_commit: 25a27b6
+      head_commit: d6c3f83
       merge_commit: null
     evidence: []
 
