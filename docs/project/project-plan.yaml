@@ -423,17 +423,17 @@ features:
     depends_on: [F001]
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: ARCHITECTURE
-    last_result: 产品规则复用（requirements §4.6/§5/§6.5/§4.4/§2.1/§9.1；BQ-M/N/O/R/W/Z；无 Blocking Question）
-    next_action: Architect 产出架构与 Contract（docs/architecture/F005-*.md、docs/api/F005.md）
+    current_stage: DATABASE
+    last_result: Architect READY FOR IMPLEMENTATION；Contract READY（docs/api/F005.md，9 端点）
+    next_action: Database 设计（docs/database/F005.md）
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    contract: {status: READY, doc: docs/api/F005.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F005-network-segments
       start_commit: dd6e22bf7aa57b9b6c7f4dbee6518ba5afcd1aa9
-      head_commit: dd6e22bf7aa57b9b6c7f4dbee6518ba5afcd1aa9
+      head_commit: f06f648
       merge_commit: null
     evidence: []
 
@@ -2257,7 +2257,7 @@ planning_status:
 
 execution:
   current_feature: F005
-  current_stage: ARCHITECTURE
+  current_stage: DATABASE
   note: >
     F005「网段、保留地址与网段历史写入」进行中（分支 feature/F005-network-segments，start_commit dd6e22b，base v2）。
-    产品规则复用完成；进行 ARCHITECTURE 与 Contract。
+    Architecture/Contract 完成（READY）；进行 DATABASE 设计。
