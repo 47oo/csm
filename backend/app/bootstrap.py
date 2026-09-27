@@ -148,6 +148,39 @@ def create_schema(engine: Engine) -> None:
 
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
+        # F002-R-06：``uq_network_interfaces_resource_name`` 需为
+        # ``DEFERRABLE INITIALLY IMMEDIATE``，使同一 PATCH 内的接口名互换可在
+        # 提交时统一判定唯一性。绿地由模型 ``create_all`` 直接生成；对已存在库
+        # （约束创建于本次修复前）在此幂等重建为 deferrable，不改列/语义/既有数据。
+        if conn.scalar(
+            text("SELECT to_regclass('network_interfaces') IS NOT NULL")
+        ):
+            condeferrable = conn.scalar(
+                text(
+                    "SELECT condeferrable FROM pg_constraint "
+                    "WHERE conname = 'uq_network_interfaces_resource_name'"
+                )
+            )
+            if condeferrable is not True:
+                conn.execute(
+                    text(
+                        """
+                        DO $$ BEGIN
+                            IF EXISTS (
+                                SELECT 1 FROM pg_constraint
+                                WHERE conname = 'uq_network_interfaces_resource_name'
+                            ) THEN
+                                ALTER TABLE network_interfaces
+                                    DROP CONSTRAINT uq_network_interfaces_resource_name;
+                            END IF;
+                            ALTER TABLE network_interfaces
+                                ADD CONSTRAINT uq_network_interfaces_resource_name
+                                UNIQUE (resource_id, name)
+                                DEFERRABLE INITIALLY IMMEDIATE;
+                        END $$;
+                        """
+                    )
+                )
         for statement in TRIGGER_STATEMENTS:
             conn.execute(text(statement))
 

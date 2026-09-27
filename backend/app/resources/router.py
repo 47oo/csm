@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -145,7 +145,9 @@ def create_resource(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        raise resource_write_problem(exc)
+        raise resource_write_problem(
+            exc, db, cluster_id=payload.cluster_id, name=name
+        )
 
     for interface_name, segment_id in resolved:
         db.add(
@@ -162,7 +164,9 @@ def create_resource(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        raise resource_write_problem(exc)
+        raise resource_write_problem(
+            exc, db, cluster_id=payload.cluster_id, name=name
+        )
 
     audit.write(
         db,
@@ -196,6 +200,7 @@ def update_resource(
     user: Principal = Depends(write_required),
 ) -> dict[str, Any]:
     resource = get_resource_or_404(db, resource_id)
+    cluster_id = resource.cluster_id
 
     extras = payload.model_extra or {}
     if (
@@ -458,11 +463,18 @@ def update_resource(
         )
     except IntegrityError as exc:
         db.rollback()
-        raise resource_write_problem(exc)
+        raise resource_write_problem(
+            exc, db, cluster_id=cluster_id, name=new_name
+        )
     if result.rowcount == 0:
         db.rollback()
         raise problem(409, "VERSION_CONFLICT", "资源已被其他人修改，请刷新后重试")
 
+    # F002-R-06：接口名唯一约束延迟到提交时判定，允许同一 PATCH 内互换等中间态
+    # 瞬时重名；终态冲突仍由前置校验（409 INTERFACE_NAME_TAKEN）或提交时约束兜底。
+    db.execute(
+        text("SET CONSTRAINTS uq_network_interfaces_resource_name DEFERRED")
+    )
     try:
         # 先删（释放接口名），再改，再增。
         if deleted_ids:
@@ -503,7 +515,9 @@ def update_resource(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        raise resource_write_problem(exc)
+        raise resource_write_problem(
+            exc, db, cluster_id=cluster_id, name=new_name
+        )
 
     change: dict[str, Any] = {}
     if new_name != old_name:
@@ -543,7 +557,13 @@ def update_resource(
     resource_history.write(
         db, user, "update", "resource", str(resource.id), new_name, change
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise resource_write_problem(
+            exc, db, cluster_id=cluster_id, name=new_name
+        )
     db.refresh(resource)
     return resource_detail(db, resource)
 

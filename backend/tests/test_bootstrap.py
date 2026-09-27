@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.bootstrap import seed_initial_admin
 from app.db import SessionLocal, engine
@@ -72,3 +72,48 @@ def test_create_schema_is_idempotent() -> None:
 
     create_schema(engine)
     create_schema(engine)
+
+
+def _interface_name_constraint_deferrable() -> bool:
+    with engine.connect() as conn:
+        return bool(
+            conn.scalar(
+                text(
+                    "SELECT condeferrable FROM pg_constraint "
+                    "WHERE conname = 'uq_network_interfaces_resource_name'"
+                )
+            )
+        )
+
+
+def test_interface_name_unique_constraint_is_deferrable() -> None:
+    # 绿地 create_all 即产生 DEFERRABLE INITIALLY IMMEDIATE（F002-R-06）。
+    assert _interface_name_constraint_deferrable() is True
+
+
+def test_create_schema_upgrades_existing_interface_constraint() -> None:
+    """已存在库（修复前的非 deferrable 约束）由 create_schema 幂等重建。"""
+    from app.bootstrap import create_schema
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE network_interfaces "
+                "DROP CONSTRAINT uq_network_interfaces_resource_name"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE network_interfaces "
+                "ADD CONSTRAINT uq_network_interfaces_resource_name "
+                "UNIQUE (resource_id, name)"
+            )
+        )
+    assert _interface_name_constraint_deferrable() is False
+
+    create_schema(engine)
+    assert _interface_name_constraint_deferrable() is True
+
+    # 幂等：再次执行不报错、保持 deferrable。
+    create_schema(engine)
+    assert _interface_name_constraint_deferrable() is True

@@ -319,6 +319,104 @@ def test_interface_name_taken_against_existing(client, add_user, login_as) -> No
     assert conflict.json()["code"] == "INTERFACE_NAME_TAKEN"
 
 
+def test_interface_name_swap_in_single_patch(client, add_user, login_as) -> None:
+    """F002-R-06：同一 PATCH 内互换两个接口名（终态合法）可保存。
+
+    逐条 UPDATE 的中间态会瞬时重名，依赖 deferrable 唯一约束在提交时统一判定。
+    """
+    _auth(client, add_user, login_as, "root", "admin")
+    c1 = _make_cluster(client, "C18")
+    resource = _make_resource(
+        client, c1, name="swap", interfaces=[{"name": "eth0"}, {"name": "eth1"}]
+    ).json()
+    rid = resource["id"]
+    by_name = {i["name"]: i for i in resource["interfaces"]}
+    eth0_id = by_name["eth0"]["id"]
+    eth1_id = by_name["eth1"]["id"]
+
+    swapped = client.patch(
+        f"{BASE}/{rid}",
+        json={
+            "interfaces": [
+                {"op": "update", "id": eth0_id, "name": "eth1"},
+                {"op": "update", "id": eth1_id, "name": "eth0"},
+            ],
+            "version": 1,
+        },
+    )
+    assert swapped.status_code == 200, swapped.text
+    body = swapped.json()
+    assert body["version"] == 2
+    assert {i["id"]: i["name"] for i in body["interfaces"]} == {
+        eth0_id: "eth1",
+        eth1_id: "eth0",
+    }
+
+    # 落库终态正确。
+    detail = client.get(f"{BASE}/{rid}").json()
+    assert {i["id"]: i["name"] for i in detail["interfaces"]} == {
+        eth0_id: "eth1",
+        eth1_id: "eth0",
+    }
+
+
+def test_interface_name_swap_terminal_conflict(client, add_user, login_as) -> None:
+    """F002-R-06：终态冲突（eth0→eth1 而 eth1 不变）仍返回 409 且无残留。"""
+    _auth(client, add_user, login_as, "root", "admin")
+    c1 = _make_cluster(client, "C19")
+    resource = _make_resource(
+        client,
+        c1,
+        name="swap-bad",
+        interfaces=[{"name": "eth0"}, {"name": "eth1"}],
+    ).json()
+    rid = resource["id"]
+    by_name = {i["name"]: i for i in resource["interfaces"]}
+
+    conflict = client.patch(
+        f"{BASE}/{rid}",
+        json={
+            "interfaces": [
+                {"op": "update", "id": by_name["eth0"]["id"], "name": "eth1"}
+            ],
+            "version": 1,
+        },
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["code"] == "INTERFACE_NAME_TAKEN"
+
+    # 整单回滚：名称与版本不变。
+    detail = client.get(f"{BASE}/{rid}").json()
+    assert detail["version"] == 1
+    assert {i["name"] for i in detail["interfaces"]} == {"eth0", "eth1"}
+
+
+def test_resource_name_conflict_fallback_includes_existing(
+    client, add_user, login_as, monkeypatch
+) -> None:
+    """F002-R-07：并发/兜底命中 uq_resources_cluster_name 时带扩展成员。
+
+    模拟前置查重与插入之间的并发窗口（前置查重未命中），由 DB 唯一约束兜底
+    触发 23505，验证 ``existing_resource_id``/``existing_resource_type`` 回填。
+    """
+    import app.resources.router as resources_router
+
+    _auth(client, add_user, login_as, "root", "admin")
+    c1 = _make_cluster(client, "C20")
+    existing = _make_resource(client, c1, name="fallback").json()
+
+    monkeypatch.setattr(
+        resources_router, "find_by_cluster_name", lambda *a, **k: None
+    )
+
+    dup = _make_resource(client, c1, name="fallback")
+    assert dup.status_code == 409, dup.text
+    body = dup.json()
+    assert body["code"] == "RESOURCE_NAME_EXISTS"
+    assert body["existing_resource_id"] == existing["id"]
+    assert body["existing_resource_type"] == "bare_metal"
+
+
 # --- 网段校验 ---------------------------------------------------------------
 
 
