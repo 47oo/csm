@@ -35,6 +35,38 @@ class NetworkInterfaceResource(BaseModel):
     updated_at: datetime
 
 
+class ClusterScope(BaseModel):
+    """F003 列表作用域回显（只读）。"""
+
+    cluster_id: int
+    cluster_code: str
+    cluster_name: str
+
+
+class ResourceListItem(BaseModel):
+    """F003 计算资源列表项（公共列；类型摘要由 F004 扩展）。"""
+
+    id: int
+    name: str
+    cluster_id: int
+    cluster_code: str
+    cluster_name: str
+    resource_type: str
+    resource_type_label: str
+    status: str
+    status_label: str
+    management_ip: ManagementIpSummary | None
+    updated_at: datetime
+
+
+class PagedResources(BaseModel):
+    items: list[ResourceListItem]
+    total: int
+    page: int
+    page_size: int
+    scope: ClusterScope
+
+
 class ResourceFormDetail(BaseModel):
     id: int
     cluster_id: int

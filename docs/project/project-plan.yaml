@@ -328,12 +328,21 @@ features:
     priority: P0
     depends_on: [F002, F006]
     blocking_decisions: []
-    status: READY
+    status: IN_PROGRESS
     layers: {database: false, backend: true, frontend: true}
-    implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出（F003 已 READY，实施时产出）}
-    git: null
-    evidence: []
+    implementation: {database_design: NOT_REQUIRED, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
+    current_stage: REVIEW
+    last_result: Tester READY FOR REVIEW（后端 177 + 前端 451 passed；独立探针 56/56）
+    next_action: Reviewer 独立 Review（候选 HEAD 9757994、base v2）
+    contract: {status: READY, doc: docs/api/F003.md, reason: ADR-003 已批准；架构 Contract READY；database NOT_REQUIRED}
+    git:
+      base_branch: v2
+      branch: feature/F003-resource-list-detail
+      start_commit: ccc6f9ffece626d10482b3f6ce5b4941dc32fd12
+      head_commit: 9757994
+      merge_commit: null
+    evidence:
+      - docs/project/reports/F003-test-report.md
 
   - id: F004
     title: 类型详情、列表/详情类型摘要与宿主关系
@@ -2267,13 +2276,13 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: IN_PROGRESS
-  ready_features: [F003, F012]
+  ready_features: [F012]
   blocked_draft_features:
     BLOCKED: [F004, F007, F008, F009, F010, F011]
     DRAFT: []
   counts:
-    READY: 2
-    IN_PROGRESS: 0
+    READY: 1
+    IN_PROGRESS: 1
     IN_REVIEW: 0
     BLOCKED: 6
     DRAFT: 0
@@ -2296,7 +2305,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F003
+  current_stage: ARCHITECTURE
   note: >
-    F006 已完成（Merge 6fc6cd4，批准 HEAD 9662f2c）并做最终状态提交。重算 READY=[F003, F012]；无进行中 Feature。
+    F003「计算资源统一列表、详情与服务端分页」进行中（分支 feature/F003-resource-list-detail，
+    start_commit ccc6f9f，base v2）。Architecture/Contract（无 Database 层）与 Backend/Frontend 完成、Tester READY FOR REVIEW；进行 REVIEW（候选 HEAD 9757994）。

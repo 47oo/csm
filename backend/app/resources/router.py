@@ -31,11 +31,13 @@ from ..models import IpAddress, NetworkInterface, NetworkSegment, Resource
 from ..network_segments.service import SegmentUsage
 from ..security.principal import Principal, get_current_user, require_roles
 from .schemas import (
+    PagedResources,
     ResourceCreateRequest,
     ResourceFormDetail,
     ResourceUpdateRequest,
 )
 from .service import (
+    ALLOWED_SORTS,
     DEFAULT_STATUS,
     INTERFACE_OPS,
     RESOURCE_TYPES,
@@ -45,6 +47,7 @@ from .service import (
     find_by_cluster_name,
     get_cluster_or_404,
     get_resource_or_404,
+    list_resources,
     name_exists_problem,
     resolve_segment,
     resource_detail,
@@ -56,6 +59,92 @@ from .service import (
 router = APIRouter(prefix="/resources", tags=["resources"])
 
 write_required = require_roles("maintainer", "admin")
+
+
+@router.get("", response_model=PagedResources)
+def get_resources(
+    cluster_id: str | None = Query(None, description="当前集群作用域（必填）"),
+    resource_type: str | None = Query(None),
+    status: str | None = Query(None),
+    q: str | None = Query(None),
+    sort: str = Query("name"),
+    page: str | None = Query(None),
+    page_size: str | None = Query(None),
+    db: Session = Depends(get_db),
+    _user: Principal = Depends(get_current_user),
+) -> dict[str, Any]:
+    """计算资源统一列表（F003；与 ``POST /resources`` 同路径不同方法）。
+
+    ``cluster_id`` 必填且为唯一作用域；缺失/非法 → 400。列表只读，不写审计/历史。
+    """
+    errors: list[dict[str, str]] = []
+
+    parsed_cluster_id: int | None = None
+    if cluster_id is None:
+        errors.append(
+            err(
+                "cluster_id",
+                "CLUSTER_ID_REQUIRED",
+                "资源列表必须指定当前集群作用域 cluster_id",
+            )
+        )
+    else:
+        try:
+            parsed_cluster_id = int(cluster_id)
+        except (TypeError, ValueError):
+            parsed_cluster_id = None
+        if parsed_cluster_id is None or parsed_cluster_id <= 0:
+            errors.append(
+                err("cluster_id", "CLUSTER_ID_INVALID", "cluster_id 必须为正整数")
+            )
+
+    if resource_type is not None and resource_type not in RESOURCE_TYPES:
+        errors.append(
+            err(
+                "resource_type",
+                "RESOURCE_TYPE_INVALID",
+                "资源类型必须为 bare_metal 或 virtual_machine",
+            )
+        )
+    if status is not None and status not in STATUSES:
+        errors.append(err("status", "STATUS_INVALID", "状态取值非法"))
+    if sort not in ALLOWED_SORTS:
+        errors.append(err("sort", "INVALID_SORT", "排序参数非法"))
+
+    parsed_page = 1
+    if page is not None:
+        try:
+            parsed_page = int(page)
+        except (TypeError, ValueError):
+            parsed_page = 0
+        if parsed_page < 1:
+            errors.append(err("page", "INVALID_PAGE", "page 必须为不小于 1 的整数"))
+
+    parsed_page_size = 20
+    if page_size is not None:
+        try:
+            parsed_page_size = int(page_size)
+        except (TypeError, ValueError):
+            parsed_page_size = 0
+        if parsed_page_size < 1 or parsed_page_size > 100:
+            errors.append(
+                err("page_size", "INVALID_PAGE_SIZE", "page_size 取值范围为 1–100")
+            )
+
+    if errors:
+        raise problem(400, "INVALID_REQUEST", "查询参数非法", errors=errors)
+
+    assert parsed_cluster_id is not None
+    return list_resources(
+        db,
+        cluster_id=parsed_cluster_id,
+        resource_type=resource_type,
+        status=status,
+        q=q,
+        sort=sort,
+        page=parsed_page,
+        page_size=parsed_page_size,
+    )
 
 
 def _fail_validation(errors: list[dict[str, Any]]) -> None:

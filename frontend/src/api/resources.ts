@@ -1,4 +1,5 @@
-// 计算资源 API（Contract docs/api/F002.md：新增 / 表单加载详情 / 编辑 / 真实删除，4 端点）。
+// 计算资源 API（Contract docs/api/F002.md：新增 / 表单加载详情 / 编辑 / 真实删除，4 端点；
+// F003 扩展 GET /resources 统一列表，Contract docs/api/F003.md）。
 // 字段与错误语义严格按 Contract；401/403 全局处理（client 拦截），
 // 400/409/422 由页面按 code/字段呈现（utils/resourceRules 的文案与卡片定位映射）。
 // 409 RESOURCE_NAME_EXISTS 的扩展成员 existing_resource_id / existing_resource_type
@@ -166,6 +167,93 @@ export interface ResourceDeleteQuery {
   /** 二次确认：去首尾空格后须等于资源名称（区分大小写，BQ-Z） */
   confirm: string
   version: number
+}
+
+// ---------- F003：统一资源列表（Contract docs/api/F003.md §1/§2.1） ----------
+
+/** 列表排序键（Contract F003 §2.1；默认 name 升序，`-` 前缀降序） */
+export type ResourceSort =
+  | 'name'
+  | '-name'
+  | 'updated_at'
+  | '-updated_at'
+  | 'created_at'
+  | '-created_at'
+  | 'status'
+  | '-status'
+
+/** 列表作用域回显（Contract F003 §1 ClusterScope：本次查询的集群作用域，只读） */
+export interface ClusterScope {
+  cluster_id: number
+  /** 集群展示编号（便利字段） */
+  cluster_code: string
+  /** 集群名称（便利字段） */
+  cluster_name: string
+}
+
+/** 计算资源列表项（Contract F003 §1 ResourceListItem：公共列；
+ * CPU/vCPU/内存摘要列由 F004 以附加字段扩展） */
+export interface ResourceListItem {
+  id: number
+  name: string
+  cluster_id: number
+  /** 所属集群展示编号（便利字段） */
+  cluster_code: string
+  /** 所属集群名称（便利字段） */
+  cluster_name: string
+  resource_type: ResourceType
+  /** 类型展示文字：裸金属/虚拟机（服务端给出，§6.2/§9.4） */
+  resource_type_label: string
+  status: ResourceStatus
+  /** 状态展示文字：空闲/已分配/宕机/未知（服务端给出；状态不得只靠颜色） */
+  status_label: string
+  /** 管理 IP 摘要；未指定 null（复用 F006 ManagementIpSummary） */
+  management_ip: ManagementIpSummary | null
+  updated_at: string
+}
+
+/** GET /resources 分页响应（Contract F003 §1 PagedResources） */
+export interface PagedResources {
+  /** 当前页数据；空为 [] */
+  items: ResourceListItem[]
+  /** 当前集群作用域与过滤条件下匹配总数 */
+  total: number
+  page: number
+  page_size: number
+  /** 本次查询作用域回显（前端显式展示「当前集群作用域」） */
+  scope: ClusterScope
+}
+
+/** GET /resources 查询输入（Contract F003 §2.1：cluster_id 必填为唯一作用域；
+ * 空串筛选 = 不发送（全部）；q 去首尾空格后为空 = 不发送） */
+export interface ResourceListQueryInput {
+  /** 当前集群作用域（必填；缺失/非法 → 400 CLUSTER_ID_REQUIRED/CLUSTER_ID_INVALID） */
+  cluster_id: number
+  resource_type?: ResourceType | ''
+  status?: ResourceStatus | ''
+  q?: string
+  page?: number
+  page_size?: number
+  sort?: ResourceSort | ''
+}
+
+/** GET /resources：计算资源统一列表（当前集群作用域、类型/状态筛选、名称/IP 搜索、
+ * 服务端分页、默认按名称排序；任意已登录；与 POST /resources 同路径不同方法）。
+ * 空结果与不存在 cluster_id 均 200 + items:[]/total:0；错误 400 INVALID_REQUEST
+ * （CLUSTER_ID_REQUIRED/CLUSTER_ID_INVALID/RESOURCE_TYPE_INVALID/STATUS_INVALID/
+ * INVALID_SORT/INVALID_PAGE/INVALID_PAGE_SIZE）、401 经 client 归一化 */
+export function listResources(query: ResourceListQueryInput): Promise<PagedResources> {
+  const params: Record<string, string> = {}
+  params.cluster_id = String(query.cluster_id)
+  if (query.resource_type !== undefined && query.resource_type !== '') {
+    params.resource_type = query.resource_type
+  }
+  if (query.status !== undefined && query.status !== '') params.status = query.status
+  if (query.q !== undefined && query.q.trim() !== '') params.q = query.q.trim()
+  if (query.page !== undefined) params.page = String(query.page)
+  if (query.page_size !== undefined) params.page_size = String(query.page_size)
+  if (query.sort !== undefined && query.sort !== '') params.sort = query.sort
+  return client.get<PagedResources>('/resources', { params }).then((res) => res.data)
 }
 
 /** POST /resources：新增（201 → ResourceFormDetail；409 RESOURCE_NAME_EXISTS
