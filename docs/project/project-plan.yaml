@@ -422,11 +422,19 @@ features:
     priority: P0
     depends_on: [F001]
     blocking_decisions: []
-    status: READY
+    status: IN_PROGRESS
+    current_stage: ARCHITECTURE
+    last_result: 产品规则复用（requirements §4.6/§5/§6.5/§4.4/§2.1/§9.1；BQ-M/N/O/R/W/Z；无 Blocking Question）
+    next_action: Architect 产出架构与 Contract（docs/architecture/F005-*.md、docs/api/F005.md）
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
-    git: null
+    git:
+      base_branch: v2
+      branch: feature/F005-network-segments
+      start_commit: dd6e22bf7aa57b9b6c7f4dbee6518ba5afcd1aa9
+      head_commit: dd6e22bf7aa57b9b6c7f4dbee6518ba5afcd1aa9
+      merge_commit: null
     evidence: []
 
   - id: F006
@@ -2220,13 +2228,13 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: IN_PROGRESS
-  ready_features: [F005]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 11
     DRAFT: 0
     DONE: 2
@@ -2248,8 +2256,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F005
+  current_stage: ARCHITECTURE
   note: >
-    F001「集群登记、身份与真实删除保护」已完成（Merge 6ad6346，批准 HEAD 1db39fd）并做最终状态提交。
-    重算后 F005 为 READY；无进行中 Feature。
+    F005「网段、保留地址与网段历史写入」进行中（分支 feature/F005-network-segments，start_commit dd6e22b，base v2）。
+    产品规则复用完成；进行 ARCHITECTURE 与 Contract。
