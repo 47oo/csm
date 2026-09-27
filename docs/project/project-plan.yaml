@@ -327,11 +327,11 @@ features:
       普通列表不显示已真实删除对象，历史查询由 F012 提供。
     priority: P0
     depends_on: [F002, F006]
-    blocking_decisions: [D-STATUS-SOURCE]
-    status: BLOCKED
+    blocking_decisions: []
+    status: READY
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出（F003 已 READY，实施时产出）}
     git: null
     evidence: []
 
@@ -511,21 +511,22 @@ features:
     priority: P0
     depends_on: [F002, F005]
     blocking_decisions: []
-    status: IN_PROGRESS
+    status: DONE
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
-    current_stage: IMPLEMENTATION
-    last_result: Backend COMPLETE（158 passed）；Frontend COMPLETE（frontend/，Vitest 391 passed、pnpm build 通过）
-    next_action: Tester 独立验证（场景 3/4/19–27/30/31/43–46/52/60/62/65 相关、IP 唯一/释放/网段保护/管理 IP），要求 READY FOR REVIEW
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
+    current_stage: null
+    last_result: Reviewer APPROVED WITH FOLLOW-UP（候选 9662f2c）；Merge 6fc6cd4；F006 完成
+    next_action: null（重算 READY=[F003,F012]）
     contract: {status: READY, doc: docs/api/F006.md, reason: ADR-003 已批准；架构 Contract READY，扩展 docs/api/F002.md}
     git:
       base_branch: v2
       branch: feature/F006-ip-allocation
       start_commit: 75162137351f789f2d8f383534309137b57b01a8
-      head_commit: ab0ca3f
-      merge_commit: null
-    evidence: []
-
+      head_commit: 9662f2c1a006be0ca3eca308939de3e59ab5d69a
+      merge_commit: 6fc6cd488efdb6f51b9a09a9c59ed7d31c25738c
+    evidence:
+      - docs/project/reports/F006-test-report.md
+      - docs/project/reports/F006-review-report.md
   - id: F007
     title: 服务、部署实例、访问入口与服务历史
     epic: E5
@@ -807,10 +808,10 @@ features:
     priority: P0
     depends_on: [F013, F001, F002, F005, F006]
     blocking_decisions: []
-    status: BLOCKED
+    status: READY
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出（F012 已 READY，实施时产出）}
     git: null
     evidence: []
 
@@ -2266,17 +2267,17 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: IN_PROGRESS
-  ready_features: []
+  ready_features: [F003, F012]
   blocked_draft_features:
-    BLOCKED: [F003, F004, F007, F008, F009, F010, F011, F012]
+    BLOCKED: [F004, F007, F008, F009, F010, F011]
     DRAFT: []
   counts:
-    READY: 0
-    IN_PROGRESS: 1
+    READY: 2
+    IN_PROGRESS: 0
     IN_REVIEW: 0
-    BLOCKED: 8
+    BLOCKED: 6
     DRAFT: 0
-    DONE: 4
+    DONE: 5
     CANCELLED: 0
   note: >
     plan_completeness=complete 表示本计划已覆盖 requirements-v2.md 已确认范围与
@@ -2295,8 +2296,7 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: F006
-  current_stage: ARCHITECTURE
+  current_feature: null
+  current_stage: null
   note: >
-    F006「IPv4 分配与同一表单 IP 集成」进行中（分支 feature/F006-ip-allocation，
-    start_commit 7516213，base v2）。Architecture/Contract/Database/Backend 完成；Frontend 完成；进行独立 TEST。
+    F006 已完成（Merge 6fc6cd4，批准 HEAD 9662f2c）并做最终状态提交。重算 READY=[F003, F012]；无进行中 Feature。
