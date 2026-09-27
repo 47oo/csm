@@ -553,6 +553,12 @@ def delete_segment(
         raise problem(409, "SEGMENT_HAS_RESERVED_ADDRESSES", "仍存保留地址，禁止删除")
     if segment.gateway is not None:
         raise problem(409, "SEGMENT_GATEWAY_NOT_CLEARED", "网关尚未显式清空，禁止删除")
+    # F006：显式前置检查已分配 IP。该分支必须优先于 DELETE 的 23503 兜底：
+    # 有已分配 IP 必然伴随同网段网卡引用，PostgreSQL 会先报
+    # ``fk_network_interfaces_segment`` 而掩盖 ``SEGMENT_HAS_ALLOCATIONS``
+    # （Contract F006 §4/§5、架构 §6.2）。
+    if SegmentUsage.allocated_count(db, segment.id) > 0:
+        raise problem(409, "SEGMENT_HAS_ALLOCATIONS", "仍有已分配 IP，禁止删除")
 
     snapshot = {"name": segment.name, "cidr": segment.cidr}
     # 同一事务先写审计与资源历史，再执行 DELETE。

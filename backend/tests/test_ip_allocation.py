@@ -722,6 +722,57 @@ def test_segment_protections(client, add_user, login_as) -> None:
     assert cidr_edit.json()["code"] == "CIDR_IMMUTABLE"
 
 
+def test_segment_delete_precedence_and_interface_only(client, add_user, login_as) -> None:
+    """删除前置顺序：保留/网关 → 已分配 IP → 网卡引用（无 IP）。"""
+    _auth(client, add_user, login_as, "root", "admin")
+    cid = _make_cluster(client, "C21")
+
+    # 仅被网卡引用（无 IP）→ SEGMENT_HAS_INTERFACES。
+    seg_if = _make_segment(client, cid, name="ifonly", cidr="10.21.0.0/24").json()
+    _make_resource(
+        client, cid, name="cnif",
+        interfaces=[{"name": "eth0", "segment_id": seg_if["id"]}],
+    )
+    only_if = client.delete(
+        f"{SEGMENTS}/{seg_if['id']}",
+        params={"confirm": seg_if["name"], "version": 1},
+    )
+    assert only_if.status_code == 409
+    assert only_if.json()["code"] == "SEGMENT_HAS_INTERFACES"
+
+    # 有已分配 IP（同时被网卡引用）：保留/网关前置优先，其次已分配 IP 优先于网卡引用。
+    seg_alloc = _make_segment(
+        client, cid, name="alloc", cidr="10.22.0.0/24", gateway="10.22.0.1"
+    ).json()
+    _make_resource(
+        client, cid, name="cnalloc",
+        interfaces=[
+            {
+                "name": "eth0",
+                "segment_id": seg_alloc["id"],
+                "ips": [{"mode": "manual", "address": "10.22.0.10"}],
+            }
+        ],
+    )
+    # 网关未清 → SEGMENT_GATEWAY_NOT_CLEARED（保留/网关前置）。
+    gw = client.delete(
+        f"{SEGMENTS}/{seg_alloc['id']}",
+        params={"confirm": seg_alloc["name"], "version": 1},
+    )
+    assert gw.status_code == 409
+    assert gw.json()["code"] == "SEGMENT_GATEWAY_NOT_CLEARED"
+    # 清空网关后 → 已分配 IP 优先返回 SEGMENT_HAS_ALLOCATIONS（而非网卡引用）。
+    assert client.delete(
+        f"{SEGMENTS}/{seg_alloc['id']}/gateway", params={"version": 1}
+    ).status_code == 204
+    alloc = client.delete(
+        f"{SEGMENTS}/{seg_alloc['id']}",
+        params={"confirm": seg_alloc["name"], "version": 2},
+    )
+    assert alloc.status_code == 409
+    assert alloc.json()["code"] == "SEGMENT_HAS_ALLOCATIONS"
+
+
 def test_reserved_and_gateway_conflicts_with_allocation(client, add_user, login_as) -> None:
     _auth(client, add_user, login_as, "root", "admin")
     cid = _make_cluster(client, "C19")

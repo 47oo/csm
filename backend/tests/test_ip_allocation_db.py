@@ -87,6 +87,11 @@ def _constraint_name(exc: IntegrityError) -> str:
     return getattr(diag, "constraint_name", "") or ""
 
 
+def _sqlstate(exc: IntegrityError) -> str:
+    orig = getattr(exc, "orig", None)
+    return getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None) or ""
+
+
 def test_unique_cluster_ip_and_cross_cluster_reuse() -> None:
     with engine.begin() as conn:
         c1 = _insert_cluster(conn, "F1")
@@ -185,19 +190,54 @@ def test_interface_and_segment_restrict_fk() -> None:
         i1 = _insert_interface(conn, r1, c1, "eth0", seg)
         _insert_ip(conn, i1, r1, c1, seg, "10.4.0.5")
 
+    # 删除仍有 IP 的网卡被 RESTRICT 拒绝。ip_addresses 指向 network_interfaces
+    # 的三条 FK 同时引用同一行，PostgreSQL 不保证先报哪一条，故断言 SQLSTATE 且
+    # 约束名属于这三条之一，避免绑定触发顺序。
     with pytest.raises(IntegrityError) as exc:
         with engine.begin() as conn:
             conn.execute(
                 text("DELETE FROM network_interfaces WHERE id=:i"), {"i": i1}
             )
-    assert "fk_ip_addresses_interface" in _constraint_name(exc.value)
+    assert _sqlstate(exc.value) == "23503"
+    assert _constraint_name(exc.value) in {
+        "fk_ip_addresses_interface",
+        "fk_ip_addresses_interface_segment",
+        "fk_ip_addresses_interface_resource",
+    }
 
+    # 删除仍有已分配 IP 的网段被 RESTRICT 拒绝。
+    # 注意：有已分配 IP 必然有同网段网卡引用，PostgreSQL 可能先报
+    # ``fk_network_interfaces_segment``；``fk_ip_addresses_segment`` 在该场景无法
+    # 单独触发，故此处断言 RESTRICT 语义（23503），并由独立用例在 pg_constraint
+    # 中校验该约束确实存在且为 ON DELETE RESTRICT（见
+    # ``test_segment_restrict_constraint_definition``）。
     with pytest.raises(IntegrityError) as exc:
         with engine.begin() as conn:
             conn.execute(
                 text("DELETE FROM network_segments WHERE id=:i"), {"i": seg}
             )
-    assert "fk_ip_addresses_segment" in _constraint_name(exc.value)
+    assert _sqlstate(exc.value) == "23503"
+
+
+def test_segment_restrict_constraint_definition() -> None:
+    """``fk_ip_addresses_segment`` 存在且为 ON DELETE RESTRICT。
+
+    该约束在有已分配 IP 场景下与 ``fk_network_interfaces_segment`` 同时被违反，
+    无法在行级单独触发，故以目录校验证明其 RESTRICT 语义（数据库设计 §10.1-4）。
+    """
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                "SELECT c.contype, c.confdeltype, cl.relname AS ref_table "
+                "FROM pg_constraint c "
+                "JOIN pg_class cl ON cl.oid = c.confrelid "
+                "WHERE c.conname='fk_ip_addresses_segment'"
+            )
+        ).one_or_none()
+    assert row is not None
+    assert row.contype == "f"
+    assert row.confdeltype == "r"  # ON DELETE RESTRICT
+    assert row.ref_table == "network_segments"
 
 
 def test_interface_segment_composite_fk() -> None:
