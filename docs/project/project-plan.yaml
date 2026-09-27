@@ -279,7 +279,7 @@ features:
     priority: P0
     depends_on: [F001, F005]
     blocking_decisions: []
-    status: IN_PROGRESS
+    status: IN_REVIEW
     current_stage: REVIEW
     last_result: Tester READY FOR REVIEW（后端 120 + 前端 329 passed；独立探针 60/60）
     next_action: Reviewer 独立 Review（候选 HEAD ddde361、base v2）
@@ -381,7 +381,7 @@ features:
     blocking_decisions: [D-Q3, D-RESOURCE-REASSIGN]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
@@ -514,7 +514,7 @@ features:
     blocking_decisions: [D-IP-SEMANTICS]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
@@ -585,7 +585,7 @@ features:
     blocking_decisions: [D-BQ-E, D-SERVICE-DETAILS, D-RESOURCE-REASSIGN]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
+    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
@@ -2257,7 +2257,8 @@ planning_status:
     DRAFT: []
   counts:
     READY: 0
-    IN_PROGRESS: 1
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     BLOCKED: 10
     DRAFT: 0
     DONE: 3
