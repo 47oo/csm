@@ -330,16 +330,16 @@ features:
     blocking_decisions: []
     status: IN_PROGRESS
     layers: {database: false, backend: true, frontend: true}
-    implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: NOT_REQUIRED, backend: COMPLETE, frontend: PENDING, test: PENDING, review: PENDING}
     current_stage: IMPLEMENTATION
-    last_result: Architect READY FOR IMPLEMENTATION；Contract READY（docs/api/F003.md，新增 GET /resources + 复用详情；无 Database 层）
-    next_action: Backend 实现（GET /resources 列表查询）与 Frontend 实现（资源列表/详情页）
+    last_result: Backend COMPLETE（177 passed，含 14 新增；协调器独立复跑通过）
+    next_action: Frontend 实现（资源列表/详情页），随后 Test → Review
     contract: {status: READY, doc: docs/api/F003.md, reason: ADR-003 已批准；架构 Contract READY；database NOT_REQUIRED}
     git:
       base_branch: v2
       branch: feature/F003-resource-list-detail
       start_commit: ccc6f9ffece626d10482b3f6ce5b4941dc32fd12
-      head_commit: 4914523
+      head_commit: 308ff39
       merge_commit: null
     evidence: []
 
@@ -2308,4 +2308,4 @@ execution:
   current_stage: ARCHITECTURE
   note: >
     F003「计算资源统一列表、详情与服务端分页」进行中（分支 feature/F003-resource-list-detail，
-    start_commit ccc6f9f，base v2）。Architecture/Contract 完成（READY，无 Database 层）；进行 Backend/Frontend 实现。
+    start_commit ccc6f9f，base v2）。Architecture/Contract 完成（无 Database 层）；Backend 完成（177 passed）；进行 Frontend 实现。

@@ -8,9 +8,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from ..errors import problem
 from ..ip_allocation.addressing import ipv4_to_int
@@ -27,6 +27,30 @@ RESOURCE_TYPES = ("bare_metal", "virtual_machine")
 STATUSES = ("IDLE", "ALLOC", "DOWN", "UNKNOWN")
 DEFAULT_STATUS = "ALLOC"
 NAME_MAX = 128
+
+RESOURCE_TYPE_LABELS = {
+    "bare_metal": "裸金属",
+    "virtual_machine": "虚拟机",
+}
+STATUS_LABELS = {
+    "IDLE": "空闲",
+    "ALLOC": "已分配",
+    "DOWN": "宕机",
+    "UNKNOWN": "未知",
+}
+
+# 排序白名单（F003 §4.4）：字段 → (ORM 属性, 是否降序)。
+SORT_FIELDS: dict[str, tuple[str, bool]] = {
+    "name": ("name", False),
+    "-name": ("name", True),
+    "updated_at": ("updated_at", False),
+    "-updated_at": ("updated_at", True),
+    "created_at": ("created_at", False),
+    "-created_at": ("created_at", True),
+    "status": ("status", False),
+    "-status": ("status", True),
+}
+ALLOWED_SORTS = tuple(SORT_FIELDS)
 
 INTERFACE_OPS = ("create", "update", "delete")
 
@@ -182,6 +206,162 @@ def resource_detail(db: Session, resource: Resource) -> dict[str, Any]:
         "version": resource.version,
         "created_at": resource.created_at,
         "updated_at": resource.updated_at,
+    }
+
+
+def _list_item(
+    resource: Resource,
+    cluster: Cluster,
+    ip_row: IpAddress | None,
+    iface_row: NetworkInterface | None,
+) -> dict[str, Any]:
+    management_ip: dict[str, Any] | None = None
+    if ip_row is not None:
+        management_ip = {
+            "ip_id": ip_row.id,
+            "address": ip_row.ip,
+            "interface_id": ip_row.interface_id,
+            "interface_name": iface_row.name if iface_row is not None else "",
+        }
+    return {
+        "id": resource.id,
+        "name": resource.name,
+        "cluster_id": resource.cluster_id,
+        "cluster_code": cluster.code,
+        "cluster_name": cluster.name,
+        "resource_type": resource.resource_type,
+        "resource_type_label": RESOURCE_TYPE_LABELS.get(
+            resource.resource_type, resource.resource_type
+        ),
+        "status": resource.status,
+        "status_label": STATUS_LABELS.get(resource.status, resource.status),
+        "management_ip": management_ip,
+        "updated_at": resource.updated_at,
+    }
+
+
+def _match_weight(value: str, needle: str) -> int | None:
+    """§8.2 匹配权重：完全(1) > 前缀(2) > 包含(4)；不匹配返回 None。
+
+    ``needle`` 已 lower 并去首尾空白；``%``/``_`` 在 Python ``in`` 下天然为字面量。
+    """
+    lowered = value.lower()
+    if lowered == needle:
+        return 1
+    if lowered.startswith(needle):
+        return 2
+    if needle in lowered:
+        return 4
+    return None
+
+
+def list_resources(
+    db: Session,
+    *,
+    cluster_id: int,
+    resource_type: str | None,
+    status: str | None,
+    q: str | None,
+    sort: str,
+    page: int,
+    page_size: int,
+) -> dict[str, Any]:
+    """F003 计算资源列表：集群作用域 + 类型/状态筛选 + q 搜索 + 排序 + offset 分页。
+
+    无 ``q`` 走 SQL 排序分页；有 ``q`` 时在集群内全量匹配并按权重排序后再分页。
+    管理 IP 与集群列一次 JOIN 取回，IP 搜索批量取回，避免 N+1。
+    """
+    cluster = db.get(Cluster, cluster_id)
+    scope = {
+        "cluster_id": cluster_id,
+        "cluster_code": cluster.code if cluster is not None else "",
+        "cluster_name": cluster.name if cluster is not None else "",
+    }
+
+    conditions: list[Any] = [Resource.cluster_id == cluster_id]
+    if resource_type is not None:
+        conditions.append(Resource.resource_type == resource_type)
+    if status is not None:
+        conditions.append(Resource.status == status)
+
+    mgmt_ip = aliased(IpAddress)
+    mgmt_iface = aliased(NetworkInterface)
+    base = (
+        select(Resource, Cluster, mgmt_ip, mgmt_iface)
+        .join(Cluster, Cluster.id == Resource.cluster_id)
+        .outerjoin(mgmt_ip, mgmt_ip.id == Resource.management_ip_id)
+        .outerjoin(mgmt_iface, mgmt_iface.id == mgmt_ip.interface_id)
+        .where(*conditions)
+    )
+
+    needle = q.strip().lower() if q is not None and q.strip() != "" else None
+
+    if needle is None:
+        total = (
+            db.scalar(select(func.count()).select_from(Resource).where(*conditions))
+            or 0
+        )
+        field, descending = SORT_FIELDS[sort]
+        column = getattr(Resource, field)
+        order = column.desc() if descending else column.asc()
+        rows = db.execute(
+            base.order_by(order, Resource.id.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all()
+        return {
+            "items": [_list_item(*row) for row in rows],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "scope": scope,
+        }
+
+    candidates = db.execute(base).all()
+    ip_rows = db.execute(
+        select(IpAddress.resource_id, IpAddress.ip).where(
+            IpAddress.cluster_id == cluster_id
+        )
+    ).all()
+    ips_by_resource: dict[int, list[str]] = {}
+    for resource_id, address in ip_rows:
+        ips_by_resource.setdefault(resource_id, []).append(address)
+
+    needle_is_id = needle.isdigit()
+    needle_int = int(needle) if needle_is_id else None
+
+    scored: list[tuple[int, Any, Any, Any, Any]] = []
+    for resource, cluster_row, ip_row, iface_row in candidates:
+        weights: list[int] = []
+        weight = _match_weight(resource.name, needle)
+        if weight is not None:
+            weights.append(weight)
+        for address in ips_by_resource.get(resource.id, ()):
+            weight = _match_weight(address, needle)
+            if weight is not None:
+                weights.append(weight)
+        if needle_is_id and needle_int == resource.id:
+            weights.append(3)
+        if weights:
+            scored.append((min(weights), resource, cluster_row, ip_row, iface_row))
+
+    scored.sort(key=lambda item: item[1].id)
+    field, descending = SORT_FIELDS[sort]
+    scored.sort(key=lambda item: getattr(item[1], field), reverse=descending)
+    scored.sort(key=lambda item: item[0])
+
+    total = len(scored)
+    start = (page - 1) * page_size
+    page_slice = scored[start : start + page_size]
+    return {
+        "items": [
+            _list_item(resource, cluster_row, ip_row, iface_row)
+            for _, resource, cluster_row, ip_row, iface_row in page_slice
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "scope": scope,
     }
 
 
