@@ -838,7 +838,7 @@ onMounted(() => {
               <span v-else class="segment-muted">未设置</span>
             </el-descriptions-item>
             <el-descriptions-item label="已分配 IP">
-              {{ deleteTarget.allocated_count }} 条（删除前须逐项删除；当前阶段恒为 0）
+              {{ deleteTarget.allocated_count }} 条（删除前须逐项删除）
             </el-descriptions-item>
           </el-descriptions>
           <el-form @submit.prevent="handleDelete">

@@ -141,10 +141,10 @@ const SEGMENT_CONFLICT_MESSAGES: Record<string, string> = {
   SEGMENT_HAS_RESERVED_ADDRESSES: '该网段仍有保留地址：须先逐条删除全部保留地址，才能删除网段',
   SEGMENT_GATEWAY_NOT_CLEARED: '该网段网关尚未清空：须先显式清空网关，才能删除网段',
   SEGMENT_HAS_INTERFACES:
-    '该网段仍被网卡引用：须先解除对应网卡关联，才能删除网段（网卡录入由后续能力提供）',
+    '该网段仍被网卡引用：须先在资源表单中解除对应网卡关联（或改选其它网段），才能删除网段',
   SEGMENT_HAS_ALLOCATIONS:
-    '该网段仍有已分配 IP：须先逐项删除已分配地址，才能删除网段（IP 分配由后续能力提供）',
-  CIDR_IMMUTABLE: '该网段存在已分配 IP，禁止修改 CIDR（IP 分配由后续能力提供）',
+    '该网段仍有已分配 IP：须先在对应资源的编辑表单中逐项删除已分配地址，才能删除网段',
+  CIDR_IMMUTABLE: '该网段存在已分配 IP，禁止修改 CIDR（须先逐项删除已分配地址）',
   VERSION_CONFLICT: '该网段已被其他人修改（并发冲突），请刷新后重试',
   DELETE_CONFIRMATION_MISMATCH: '确认输入与网段名称不匹配（网段可能已被其他人修改），未执行删除',
 }

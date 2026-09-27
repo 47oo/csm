@@ -81,6 +81,11 @@ def contains(cidr: str, ip: str) -> bool:
 
 
 def _network_broadcast(cidr: str) -> tuple[int, int] | None:
+    return network_broadcast(cidr)
+
+
+def network_broadcast(cidr: str) -> tuple[int, int] | None:
+    """前缀 ``≤ 30`` 网段的 ``(network, broadcast)`` 整数；``/31``、``/32`` 返回 None。"""
     network = ipaddress.ip_network(cidr, strict=False)
     if network.prefixlen > 30:
         # /31 点到点、/32 单主机：不产生网络/广播排除（架构 §5.2 第 4 条）。

@@ -48,7 +48,7 @@ export interface NetworkSegmentListItem {
   /** 两端是否均非空 */
   auto_alloc_enabled: boolean
   reserved_address_count: number
-  /** F005 阶段恒为 0（F006 扩展） */
+  /** 已分配 IP 数（F006 接入真实计算） */
   allocated_count: number
   /** 可自动分配数量（§5 快照） */
   auto_assignable_count: number
@@ -77,6 +77,30 @@ export interface PagedNetworkSegments {
 /** GET .../reserved-addresses 响应（Contract §1 ReservedAddressList） */
 export interface ReservedAddressList {
   items: ReservedAddress[]
+}
+
+/** 网段已分配 IP 及归属项（Contract F006 §1 AllocatedIpItem） */
+export interface AllocatedIpItem {
+  ip_id: number
+  address: string
+  /** 归属资源 */
+  resource_id: number
+  resource_name: string
+  /** bare_metal / virtual_machine */
+  resource_type: string
+  interface_id: number
+  interface_name: string
+  is_management: boolean
+  created_at: string
+}
+
+/** GET /network-segments/{id}/allocated-ips 分页响应（Contract F006 §1 PagedAllocatedIps；
+ * 按地址数值升序；无已分配 → items:[] + total:0） */
+export interface PagedAllocatedIps {
+  items: AllocatedIpItem[]
+  total: number
+  page: number
+  page_size: number
 }
 
 // ---------- 请求类型（Contract §2/§3） ----------
@@ -131,6 +155,14 @@ export interface SegmentDeleteQuery {
 export interface ReservedAddressCreatePayload {
   start_ip: string
   end_ip?: string | null
+}
+
+/** GET /network-segments/{id}/allocated-ips 查询输入（Contract F006 §3.1；
+ * q 去首尾空格后匹配地址/资源名/接口名，空项不发送） */
+export interface AllocatedIpListQueryInput {
+  page?: number
+  page_size?: number
+  q?: string
 }
 
 // ---------- 端点（Contract §2/§3） ----------
@@ -202,6 +234,21 @@ export function deleteReservedAddress(segmentId: number, reservedId: number): Pr
   return client
     .delete<void>(`/network-segments/${segmentId}/reserved-addresses/${reservedId}`)
     .then(() => undefined)
+}
+
+/** GET /network-segments/{segment_id}/allocated-ips：网段已分配 IP 及归属
+ * （Contract F006 §3.1；任意已登录；分页/q 搜索；供 F005 页「已分配 IP 及归属」） */
+export function listAllocatedIps(
+  segmentId: number,
+  query: AllocatedIpListQueryInput = {},
+): Promise<PagedAllocatedIps> {
+  const params: Record<string, string> = {}
+  if (query.page !== undefined) params.page = String(query.page)
+  if (query.page_size !== undefined) params.page_size = String(query.page_size)
+  if (query.q !== undefined && query.q.trim() !== '') params.q = query.q.trim()
+  return client
+    .get<PagedAllocatedIps>(`/network-segments/${segmentId}/allocated-ips`, { params })
+    .then((res) => res.data)
 }
 
 /** DELETE /network-segments/{segment_id}/gateway?version=：显式清空网关

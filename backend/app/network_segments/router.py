@@ -269,6 +269,16 @@ def create_segment(
     if db.get(Cluster, payload.cluster_id) is None:
         raise problem(404, "CLUSTER_NOT_FOUND", "所属集群不存在")
 
+    # F006：新增网段网关若落在同集群既有已分配 IP 上，拒绝（§5、场景 27/52）。
+    if payload.gateway is not None:
+        allocated = SegmentUsage.allocated_ip_nums(db, payload.cluster_id)
+        if ipv4_to_int(payload.gateway) in allocated:
+            raise problem(
+                409,
+                "GATEWAY_CONFLICTS_ALLOCATION",
+                "网关与同集群既有已分配 IP 冲突",
+            )
+
     now = _utcnow()
     segment = NetworkSegment(
         cluster_id=payload.cluster_id,
@@ -450,6 +460,17 @@ def update_segment(
     )
     if gateway_err:
         _fail([gateway_err])
+
+    # F006：设置/修改网关与同集群既有分配冲突 → 409（原配置不变）。
+    allocated_nums_set: set[int] | None = None
+    if new_gateway is not None and new_gateway != segment.gateway:
+        allocated_nums_set = SegmentUsage.allocated_ip_nums(db, segment.cluster_id)
+        if ipv4_to_int(new_gateway) in allocated_nums_set:
+            raise problem(
+                409,
+                "GATEWAY_CONFLICTS_ALLOCATION",
+                "网关与同集群既有已分配 IP 冲突",
+            )
     auto_start, auto_end, auto_errors = _resolve_auto_range(
         new_auto_start, new_auto_end, new_cidr
     )
@@ -532,6 +553,12 @@ def delete_segment(
         raise problem(409, "SEGMENT_HAS_RESERVED_ADDRESSES", "仍存保留地址，禁止删除")
     if segment.gateway is not None:
         raise problem(409, "SEGMENT_GATEWAY_NOT_CLEARED", "网关尚未显式清空，禁止删除")
+    # F006：显式前置检查已分配 IP。该分支必须优先于 DELETE 的 23503 兜底：
+    # 有已分配 IP 必然伴随同网段网卡引用，PostgreSQL 会先报
+    # ``fk_network_interfaces_segment`` 而掩盖 ``SEGMENT_HAS_ALLOCATIONS``
+    # （Contract F006 §4/§5、架构 §6.2）。
+    if SegmentUsage.allocated_count(db, segment.id) > 0:
+        raise problem(409, "SEGMENT_HAS_ALLOCATIONS", "仍有已分配 IP，禁止删除")
 
     snapshot = {"name": segment.name, "cidr": segment.cidr}
     # 同一事务先写审计与资源历史，再执行 DELETE。
@@ -632,6 +659,15 @@ def create_reserved_address(
                     break
     if errors:
         _fail(errors)
+
+    # F006：新增保留范围与同集群既有已分配 IP 冲突 → 409（含重叠网段、跨网段）。
+    allocated = SegmentUsage.allocated_ip_nums(db, segment.cluster_id)
+    if any(start <= num <= end for num in allocated):
+        raise problem(
+            409,
+            "RESERVED_ADDRESS_CONFLICTS_ALLOCATION",
+            "保留地址与同集群既有已分配 IP 冲突",
+        )
 
     row = SegmentReservedAddress(
         segment_id=segment.id,

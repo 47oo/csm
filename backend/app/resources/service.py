@@ -13,7 +13,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..errors import problem
-from ..models import Cluster, NetworkInterface, NetworkSegment, Resource, User
+from ..ip_allocation.addressing import ipv4_to_int
+from ..models import (
+    Cluster,
+    IpAddress,
+    NetworkInterface,
+    NetworkSegment,
+    Resource,
+    User,
+)
 
 RESOURCE_TYPES = ("bare_metal", "virtual_machine")
 STATUSES = ("IDLE", "ALLOC", "DOWN", "UNKNOWN")
@@ -99,19 +107,53 @@ def _segment_summary(segment: NetworkSegment) -> dict[str, Any]:
     }
 
 
-def _interface_out(db: Session, interface: NetworkInterface) -> dict[str, Any]:
+def _interface_out(
+    db: Session, interface: NetworkInterface, management_ip_id: int | None
+) -> dict[str, Any]:
     segment = None
     if interface.segment_id is not None:
         row = db.get(NetworkSegment, interface.segment_id)
         if row is not None:
             segment = _segment_summary(row)
+    ips = db.scalars(
+        select(IpAddress).where(IpAddress.interface_id == interface.id)
+    ).all()
+    ips = sorted(ips, key=lambda row: ipv4_to_int(row.ip))
     return {
         "id": interface.id,
         "name": interface.name,
         "segment_id": interface.segment_id,
         "segment": segment,
+        "ips": [
+            {
+                "id": ip.id,
+                "address": ip.ip,
+                "segment_id": ip.segment_id,
+                "interface_id": ip.interface_id,
+                "is_management": ip.id == management_ip_id,
+                "created_at": ip.created_at,
+            }
+            for ip in ips
+        ],
         "created_at": interface.created_at,
         "updated_at": interface.updated_at,
+    }
+
+
+def _management_ip_out(
+    db: Session, resource: Resource
+) -> dict[str, Any] | None:
+    if resource.management_ip_id is None:
+        return None
+    ip = db.get(IpAddress, resource.management_ip_id)
+    if ip is None:
+        return None
+    interface = db.get(NetworkInterface, ip.interface_id)
+    return {
+        "ip_id": ip.id,
+        "address": ip.ip,
+        "interface_id": ip.interface_id,
+        "interface_name": interface.name if interface is not None else "",
     }
 
 
@@ -133,8 +175,10 @@ def resource_detail(db: Session, resource: Resource) -> dict[str, Any]:
         "status_updated_by_username": username,
         "status_updated_at": resource.status_updated_at,
         "interfaces": [
-            _interface_out(db, i) for i in fetch_interfaces(db, resource.id)
+            _interface_out(db, i, resource.management_ip_id)
+            for i in fetch_interfaces(db, resource.id)
         ],
+        "management_ip": _management_ip_out(db, resource),
         "version": resource.version,
         "created_at": resource.created_at,
         "updated_at": resource.updated_at,

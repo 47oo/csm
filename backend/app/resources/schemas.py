@@ -1,10 +1,18 @@
-"""F002 资源 Pydantic v2 Schemas（字段以 docs/api/F002.md 为准）。"""
+"""F002 资源 Pydantic v2 Schemas（字段以 docs/api/F002.md，F006 扩展为准）。"""
 
 from __future__ import annotations
 
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
+
+from ..ip_allocation.schemas import (
+    IpAddressResource,
+    IpCreate,
+    IpOp,
+    ManagementIpRef,
+    ManagementIpSummary,
+)
 
 
 class InterfaceSegmentSummary(BaseModel):
@@ -22,6 +30,7 @@ class NetworkInterfaceResource(BaseModel):
     name: str
     segment_id: int | None
     segment: InterfaceSegmentSummary | None
+    ips: list[IpAddressResource]
     created_at: datetime
     updated_at: datetime
 
@@ -38,6 +47,7 @@ class ResourceFormDetail(BaseModel):
     status_updated_by_username: str | None
     status_updated_at: datetime
     interfaces: list[NetworkInterfaceResource]
+    management_ip: ManagementIpSummary | None
     version: int
     created_at: datetime
     updated_at: datetime
@@ -47,6 +57,7 @@ class NetworkInterfaceCreateRequest(BaseModel):
     # 名称可空以便手动返回 INTERFACE_NAME_FORMAT（而非通用请求体校验）。
     name: str | None = None
     segment_id: int | None = None
+    ips: list[IpCreate] | None = None
     model_config = ConfigDict(extra="ignore")
 
 
@@ -56,6 +67,7 @@ class ResourceCreateRequest(BaseModel):
     resource_type: str | None = None
     status: str | None = None
     interfaces: list[NetworkInterfaceCreateRequest] | None = None
+    management_ip: ManagementIpRef | None = None
     model_config = ConfigDict(extra="ignore")
 
 
@@ -65,6 +77,7 @@ class NetworkInterfaceOpRequest(BaseModel):
     id: int | None = None
     name: str | None = None
     segment_id: int | None = None
+    ips: list[IpOp] | None = None
     model_config = ConfigDict(extra="ignore")
 
 
@@ -75,4 +88,5 @@ class ResourceUpdateRequest(BaseModel):
     name: str | None = None
     status: str | None = None
     interfaces: list[NetworkInterfaceOpRequest] | None = None
+    management_ip: ManagementIpRef | None = None
     version: int
