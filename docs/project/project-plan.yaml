@@ -422,21 +422,22 @@ features:
     priority: P0
     depends_on: [F001]
     blocking_decisions: []
-    status: IN_PROGRESS
-    current_stage: REVIEW
-    last_result: Tester READY FOR REVIEW（后端 91 + 前端 266 passed；独立探针 80/80）
-    next_action: Reviewer 独立 Review（候选 HEAD d6c3f83、base v2）
+    status: DONE
+    current_stage: null
+    last_result: Reviewer APPROVED WITH FOLLOW-UP（候选 49a2429）；Merge 102e348；F005 完成
+    next_action: null（重算 READY=[]；下一候选 F002 因 D-STATUS-SOURCE/D-IP-SEMANTICS OPEN 仍 BLOCKED）
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
     contract: {status: READY, doc: docs/api/F005.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F005-network-segments
       start_commit: dd6e22bf7aa57b9b6c7f4dbee6518ba5afcd1aa9
-      head_commit: d6c3f83
-      merge_commit: null
+      head_commit: 49a242989eb8328fd632ec62476e4bb8b2155de6
+      merge_commit: 102e348a71f01ebb74dc1b3add3b6368ae73c57b
     evidence:
       - docs/project/reports/F005-test-report.md
+      - docs/project/reports/F005-review-report.md
   - id: F006
     title: IPv4 分配与同一表单 IP 集成
     epic: E4
@@ -2234,10 +2235,10 @@ planning_status:
     DRAFT: []
   counts:
     READY: 0
-    IN_PROGRESS: 1
+    IN_PROGRESS: 0
     BLOCKED: 11
     DRAFT: 0
-    DONE: 2
+    DONE: 3
     CANCELLED: 0
   note: >
     plan_completeness=complete 表示本计划已覆盖 requirements-v2.md 已确认范围与
@@ -2256,8 +2257,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: F005
-  current_stage: DATABASE
+  current_feature: null
+  current_stage: null
   note: >
-    F005「网段、保留地址与网段历史写入」进行中（分支 feature/F005-network-segments，start_commit dd6e22b，base v2）。
-    Architecture/Contract/Database 完成；Backend/Frontend 完成；进行独立 TEST。
+    F005「网段、保留地址与网段历史写入」已完成（Merge 102e348，批准 HEAD 49a2429）并做最终状态提交。
+    重算 READY 为空；下一候选 F002 依赖的两个产品决策 D-STATUS-SOURCE、D-IP-SEMANTICS 仍 OPEN，需用户确认后方可 READY。
