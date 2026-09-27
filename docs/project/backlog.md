@@ -9,7 +9,7 @@
 | --- | --- |
 | Feature 总数 | 13 |
 | READY | 0 |
-| BLOCKED | 10 |
+| BLOCKED | 9 |
 | DRAFT | 0 |
 | IN_PROGRESS | 0 |
 | IN_REVIEW | 1 |

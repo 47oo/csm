@@ -68,7 +68,7 @@ project:
     D-ARCH-* 与 D-BQ-F 亦已 RESOLVED，但架构/契约文档尚未产出，进入实现前仍受阶段门禁约束
     （见 decisions_required）。依赖为无环有向图，F013 为唯一根。
     状态重算：F013/F001/F005 DONE；F002 READY（depends_on=[F001,F005] 已 DONE 且 blocking_decisions=[]），
-    其余 10 个 Feature BLOCKED。产品需求文件仍为 DRAFT — 未整体签核；revision 11 待用户批准。
+    其余 9 个 Feature BLOCKED。产品需求文件仍为 DRAFT — 未整体签核；revision 11 待用户批准。
     实施仍以需求最终确认、阶段决策及 Git 安全门禁为前提；F001 为 READY 不等于已启动实施，
     计划批准不等于 Feature DONE。
 
@@ -2253,13 +2253,13 @@ planning_status:
   status: IN_PROGRESS
   ready_features: []
   blocked_draft_features:
-    BLOCKED: [F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012]
+    BLOCKED: [F003, F004, F006, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
     READY: 0
     IN_PROGRESS: 0
     IN_REVIEW: 1
-    BLOCKED: 10
+    BLOCKED: 9
     DRAFT: 0
     DONE: 3
     CANCELLED: 0
@@ -2270,7 +2270,7 @@ planning_status:
     产品需求仍待整体签核。
     revision 10 依据 BQ-Z 关闭 D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES
     并从所有 Feature 的 blocking_decisions 移除；F013 已 DONE，F001 depends_on=[F013] 且 blocking_decisions=[] → READY，
-    其余 11 个 Feature 仍 BLOCKED（依赖未 DONE 或仍有其它 OPEN 决策）。
+    F002 随后启动并处于 IN_REVIEW；其余 9 个 Feature 仍 BLOCKED（依赖未 DONE 或仍有其它 OPEN 决策）。
     closure_owner 与其 depends_on/Milestone 顺序未变（见 coverage.closure_audit），
     无 closure_owner 早于参与 Feature 的死锁。
     技术栈/数据库/API/部署等架构前提已 RESOLVED 但契约文档尚未产出（见 D-ARCH-*，affects=ALL），
@@ -2281,7 +2281,7 @@ planning_status:
 
 execution:
   current_feature: F002
-  current_stage: ARCHITECTURE
+  current_stage: REVIEW
   note: >
-    F002「计算资源登记、无 IP 网卡与一次原子提交基础」进行中（分支 feature/F002-resource-registration，
-    start_commit 93921ed，base v2）。Architecture/Contract/Database 完成；进行 Backend/Frontend 实现。
+    F002「计算资源登记、无 IP 网卡与一次原子提交基础」处于 IN_REVIEW（分支 feature/F002-resource-registration，
+    start_commit 93921ed，base v2）。实现/测试完成，进行 Review/Merge。
