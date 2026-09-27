@@ -1,14 +1,20 @@
 <script setup lang="ts">
-// 计算资源表单页（架构 F002 §2.4）：
+// 计算资源表单页（架构 F002 §2.4 + F006 §2.4）：
 // - 路由 /clusters/:clusterId/resources/new（新增）与 /clusters/:clusterId/resources/:resourceId/edit（编辑）；
 // - 新增：集群可选（复用 F001 useClusterStore；切换清除不再匹配的网段选择 §7.1）、
-//   资源类型必选（创建后只读）、状态、网卡卡片；一次提交公共信息 + 全部网卡（§4.5 整单原子）；
-// - 编辑：集群/类型只读回显；网卡卡片区分「删除 / 未修改 / 新增或修改」映射 interfaces[] 显式 op；
+//   资源类型必选（创建后只读）、状态、网卡卡片；一次提交公共信息 + 全部网卡 + 全部 IP +
+//   管理 IP（§4.5 整单原子）；
+// - 每张网卡 IP 区：手动输入 / 自动分配（未选网段禁用并提示先选网段，§4.6.7/场景 31；
+//   自动分配仅网段已启用自动范围时可用，服务端权威）；IP 列表展示与删除（既有 IP 标记
+//   「将删除」可恢复，提交映射 op:'delete'；未列出=未修改；不可改地址）；
+// - 管理 IP：资源级选择，候选为本表单将保存的 IP（§4.2.9）；删除当前管理 IP/其网卡时
+//   强制显式清空/重选（§4.2.11/场景 46）；
 // - 同名 409 RESOURCE_NAME_EXISTS → existing_resource_id 弹确认进入编辑（§4.1.10）；
 // - 删除：二次确认须输入资源名称（BQ-Z）；RESOURCE_HAS_INTERFACES 引导先删网卡；
-// - 409 冲突保留输入不关窗；字段级错误定位到具体字段与网卡卡片（§7.3）。
+// - 409 冲突（VERSION_CONFLICT / IP_ALREADY_IN_USE 等）保留输入不关窗；字段级错误定位到
+//   具体字段、网卡卡片与 IP 条目（interfaces[i].ips[j]，§7.3）。
 // 状态与提交逻辑见 composables/useResourceForm；权限仅隐藏入口，服务端为最终校验（§7.2）。
-import { useResourceForm } from '../composables/useResourceForm'
+import { useResourceForm, MANAGEMENT_IP_KEEP, MANAGEMENT_IP_NONE } from '../composables/useResourceForm'
 import type { InterfaceCard } from '../utils/resourceRules'
 import {
   RESOURCE_STATUS_OPTIONS,
@@ -50,6 +56,9 @@ const {
   deleteVersionConflict,
   deleteConfirmMatched,
   remainingInterfaceCount,
+  managementIpCandidates,
+  managementIpValue,
+  managementKeepLabel,
   clusterOptions,
   clusterLoadError,
   init,
@@ -62,6 +71,12 @@ const {
   setCardSegment,
   clearCardError,
   segmentSummary,
+  addCardIp,
+  removeCardIp,
+  restoreCardIp,
+  clearCardIpError,
+  setManagementIpValue,
+  isCurrentManagementIp,
   submit,
   dismissSameName,
   confirmSameNameGoEdit,
@@ -248,7 +263,7 @@ function handleConflictResolvedClose(): void {
               <span class="resource-section-title">
                 网卡
                 <span class="resource-nics-hint">
-                  （同一资源下 0..N 张；接口名唯一；每张可选 0..1 个本集群网段；本阶段不分配 IP）
+                  （同一资源下 0..N 张；接口名唯一；每张可选 0..1 个本集群网段；每张可分配 0..N 个 IP）
                 </span>
               </span>
               <span v-if="segmentsLoading" class="resource-nics-loading">网段加载中…</span>
@@ -352,6 +367,92 @@ function handleConflictResolvedClose(): void {
                   {{ segmentSummary(card.segmentId)?.gateway ?? '未设置' }}
                 </el-descriptions-item>
               </el-descriptions>
+
+              <!-- IP 分配区（F006 §2.4）：手动输入 / 自动分配；未选网段禁用并提示先选网段（§4.6.7、场景 31）；
+                   自动分配仅网段已启用自动范围时可用（服务端权威，场景 25） -->
+              <div class="nic-ips">
+                <div class="nic-ips-head">
+                  <span class="nic-ips-title">IP 分配</span>
+                  <span class="nic-ips-hint">（IP 创建后不可改地址，只能删除后重新分配）</span>
+                  <span v-if="canManage" class="nic-ips-actions">
+                    <el-button
+                      size="small"
+                      :disabled="card.removed || card.segmentId === null"
+                      @click="addCardIp(card, 'manual')"
+                    >
+                      手动输入 IP
+                    </el-button>
+                    <el-button
+                      size="small"
+                      :disabled="
+                        card.removed ||
+                        card.segmentId === null ||
+                        segmentSummary(card.segmentId)?.autoAllocEnabled === false
+                      "
+                      @click="addCardIp(card, 'auto')"
+                    >
+                      自动分配
+                    </el-button>
+                  </span>
+                </div>
+                <div v-if="card.segmentId === null" class="nic-ips-segment-hint">
+                  请先选择网段，再分配 IP（手动输入或自动分配）
+                </div>
+                <div
+                  v-else-if="segmentSummary(card.segmentId)?.autoAllocEnabled === false"
+                  class="nic-ips-segment-hint"
+                >
+                  该网段未启用自动分配范围，只能手动分配
+                </div>
+
+                <!-- IP 列表：既有（含将删除）与待分配条目 -->
+                <div v-if="card.ips.length > 0" class="nic-ip-list">
+                  <div
+                    v-for="ip in card.ips"
+                    :key="ip.key"
+                    class="nic-ip-row"
+                    :class="{ 'nic-ip-row-removed': ip.removed }"
+                  >
+                    <template v-if="ip.id !== null">
+                      <code class="nic-ip-address">{{ ip.address }}</code>
+                      <el-tag v-if="isCurrentManagementIp(ip.id)" size="small" type="warning">管理 IP</el-tag>
+                      <el-tag v-if="ip.removed" size="small" type="danger">将删除</el-tag>
+                      <span v-if="canManage && !card.removed">
+                        <el-button v-if="!ip.removed" link type="danger" size="small" @click="removeCardIp(card, ip.key)">
+                          删除
+                        </el-button>
+                        <el-button v-else link type="primary" size="small" @click="restoreCardIp(card, ip.key)">
+                          恢复
+                        </el-button>
+                      </span>
+                    </template>
+                    <template v-else>
+                      <el-input
+                        v-if="ip.mode === 'manual'"
+                        v-model="ip.address"
+                        placeholder="IPv4 地址，须落在所选网段 CIDR 内"
+                        class="nic-ip-input"
+                        :disabled="!canManage || card.removed"
+                        @input="clearCardIpError(card.key, ip.key, 'address')"
+                      />
+                      <span v-else class="nic-ip-auto">自动分配（保存时由服务端在网段启用的自动范围内选址）</span>
+                      <el-tag size="small" type="success">新增 · {{ ip.mode === 'manual' ? '手动' : '自动' }}</el-tag>
+                      <span v-if="canManage && !card.removed">
+                        <el-button link type="danger" size="small" @click="removeCardIp(card, ip.key)">移除</el-button>
+                      </span>
+                    </template>
+                    <div v-if="fieldErrors.cards[card.key]?.ips[ip.key]?.address" class="nic-ip-error">
+                      {{ fieldErrors.cards[card.key]?.ips[ip.key]?.address }}
+                    </div>
+                    <div v-else-if="fieldErrors.cards[card.key]?.ips[ip.key]?.other" class="nic-ip-error">
+                      {{ fieldErrors.cards[card.key]?.ips[ip.key]?.other }}
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="nic-ips-empty">
+                  暂无 IP：无 IP 网卡可直接保存（如无 IP 的 IB 接口，§4.2.4）；分配 IP 前必须选定网段
+                </div>
+              </div>
             </div>
 
             <el-alert
@@ -362,6 +463,37 @@ function handleConflictResolvedClose(): void {
               :title="fieldErrors.cards[card.key]?.other"
             />
           </el-card>
+        </el-card>
+
+        <!-- 管理 IP（§4.2.9：资源级引用，候选为本表单将保存的网卡 IP；§4.2.11 删除当前管理 IP/其网卡时须同次显式清空/重选） -->
+        <el-card shadow="never" class="resource-section">
+          <template #header><span class="resource-section-title">管理 IP</span></template>
+          <el-form-item
+            label="管理 IP（可选）"
+            :error="fieldErrors.management_ip || undefined"
+          >
+            <el-select
+              :model-value="managementIpValue"
+              filterable
+              placeholder="从本表单将保存的网卡 IP 中指定（可不指定）"
+              class="resource-management-ip-select"
+              :disabled="!canManage"
+              @change="setManagementIpValue"
+            >
+              <el-option v-if="mode === 'edit'" :value="MANAGEMENT_IP_KEEP" :label="managementKeepLabel" />
+              <el-option :value="MANAGEMENT_IP_NONE" label="无管理 IP（不指定 / 显式清空）" />
+              <el-option
+                v-for="c in managementIpCandidates"
+                :key="c.value"
+                :value="c.value"
+                :label="c.label"
+              />
+            </el-select>
+            <div class="resource-management-ip-hint">
+              管理 IP 从该资源已登记（含本次将保存）的网卡 IP 中指定；删除当前管理 IP 或其所属网卡时，
+              必须在同一次提交中显式清空或重选，否则整单拒绝（不会静默清空或改指）
+            </div>
+          </el-form-item>
         </el-card>
 
         <!-- 记录级提示（409 INTERFACE_NAME_TAKEN / NO_FIELDS 等；保留输入） -->
@@ -616,6 +748,84 @@ function handleConflictResolvedClose(): void {
 }
 .nic-segment-info {
   margin-top: 4px;
+}
+.nic-ips {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #e4e7ed;
+}
+.nic-ips-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nic-ips-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+.nic-ips-hint {
+  color: #909399;
+  font-size: 12px;
+}
+.nic-ips-actions {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.nic-ips-segment-hint {
+  margin-top: 6px;
+  color: #909399;
+  font-size: 12px;
+}
+.nic-ip-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nic-ip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.nic-ip-row-removed {
+  opacity: 0.65;
+}
+.nic-ip-row-removed .nic-ip-address {
+  text-decoration: line-through;
+}
+.nic-ip-address {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+.nic-ip-input {
+  width: 280px;
+}
+.nic-ip-auto {
+  color: #606266;
+  font-size: 12px;
+}
+.nic-ip-error {
+  width: 100%;
+  color: #f56c6c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.nic-ips-empty {
+  margin-top: 6px;
+  color: #909399;
+  font-size: 12px;
+}
+.resource-management-ip-select {
+  width: 100%;
+  max-width: 420px;
+}
+.resource-management-ip-hint {
+  width: 100%;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.5;
 }
 .resource-form-notice,
 .resource-conflict {

@@ -513,16 +513,16 @@ features:
     blocking_decisions: []
     status: IN_PROGRESS
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
     current_stage: IMPLEMENTATION
-    last_result: Database COMPLETE；Backend COMPLETE（158 passed，含 33 新增；协调器独立复跑通过）
-    next_action: Frontend 实现（资源表单 IP 区/管理 IP/allocated-ips 页签），随后 Test → Review
+    last_result: Backend COMPLETE（158 passed）；Frontend COMPLETE（frontend/，Vitest 391 passed、pnpm build 通过）
+    next_action: Tester 独立验证（场景 3/4/19–27/30/31/43–46/52/60/62/65 相关、IP 唯一/释放/网段保护/管理 IP），要求 READY FOR REVIEW
     contract: {status: READY, doc: docs/api/F006.md, reason: ADR-003 已批准；架构 Contract READY，扩展 docs/api/F002.md}
     git:
       base_branch: v2
       branch: feature/F006-ip-allocation
       start_commit: 75162137351f789f2d8f383534309137b57b01a8
-      head_commit: 3724620
+      head_commit: ab0ca3f
       merge_commit: null
     evidence: []
 
@@ -2299,4 +2299,4 @@ execution:
   current_stage: ARCHITECTURE
   note: >
     F006「IPv4 分配与同一表单 IP 集成」进行中（分支 feature/F006-ip-allocation，
-    start_commit 7516213，base v2）。Architecture/Contract/Database 完成；Backend 完成（158 passed）；进行 Frontend 实现。
+    start_commit 7516213，base v2）。Architecture/Contract/Database/Backend 完成；Frontend 完成；进行独立 TEST。

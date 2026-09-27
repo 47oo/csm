@@ -1,8 +1,10 @@
-// 资源表单状态机单测（架构 F002 §2.4）：通过在真实 router（memory history）+ pinia 下
-// 挂载宿主组件驱动 composable（模式与 useSegmentPageScope.test.ts 一致），API 模块 mock。
-// 覆盖：路由匹配与编辑初始化、网卡 op 映射端到端（interfaces 缺省=不改动）、
+// 资源表单状态机单测（架构 F002 §2.4 + F006 §2.4）：通过在真实 router（memory history）+
+// pinia 下挂载宿主组件驱动 composable（模式与 useSegmentPageScope.test.ts 一致），API 模块 mock。
+// 覆盖：路由匹配与编辑初始化、网卡/IP op 映射端到端（interfaces/ips 缺省=不改动）、
 // 同名 409 RESOURCE_NAME_EXISTS 进入编辑、并发冲突保留输入与刷新重提、
-// 删除二次确认（BQ-Z）与删除前置、字段级错误定位到网卡卡片、前端基础校验、
+// 删除二次确认（BQ-Z）与删除前置、字段级错误定位到网卡卡片与 IP 条目（interfaces[i].ips[j]）、
+// IP 冲突 conflicts 归属展示、未选网段禁用分配、改网段清除待分配/须释放既有 IP、
+// 管理 IP 强制清空/重选（MANAGEMENT_IP_REQUIRED 前端阻断）、前端基础校验、
 // 权限隐藏（viewer 只读）、切换集群清除不匹配网段（§7.1）。
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick } from 'vue'
@@ -17,7 +19,7 @@ import type { ResourceFormDetail } from '../api/resources'
 import { useResourceForm } from './useResourceForm'
 
 vi.mock('element-plus', () => ({
-  ElMessage: { success: vi.fn(), warning: vi.fn(), error: vi.fn() },
+  ElMessage: { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 
 vi.mock('../api/resources', () => ({
@@ -79,6 +81,7 @@ function segmentListItem(id: number, clusterId: number, name: string, cidr: stri
 const CLUSTER_1_SEGMENTS = [segmentListItem(3, 1, 'management', '192.168.1.0/24')]
 const CLUSTER_2_SEGMENTS = [segmentListItem(5, 2, 'storage', '10.0.0.0/24')]
 
+/** F002 形态基线（无 IP、无管理 IP） */
 const detail: ResourceFormDetail = {
   id: 7,
   cluster_id: 1,
@@ -104,6 +107,7 @@ const detail: ResourceFormDetail = {
         vlan: 100,
         gateway: '192.168.1.1',
       },
+      ips: [],
       created_at: NOW,
       updated_at: NOW,
     },
@@ -112,13 +116,37 @@ const detail: ResourceFormDetail = {
       name: 'ib0',
       segment_id: null,
       segment: null,
+      ips: [],
       created_at: NOW,
       updated_at: NOW,
     },
   ],
+  management_ip: null,
   version: 3,
   created_at: NOW,
   updated_at: NOW,
+}
+
+/** F006 形态基线：eth0 已有 1 个 IP（55，管理 IP），ib0 无 IP */
+const detailWithIp: ResourceFormDetail = {
+  ...detail,
+  interfaces: [
+    {
+      ...detail.interfaces[0]!,
+      ips: [
+        {
+          id: 55,
+          address: '192.168.1.10',
+          segment_id: 3,
+          interface_id: 10,
+          is_management: true,
+          created_at: NOW,
+        },
+      ],
+    },
+    detail.interfaces[1]!,
+  ],
+  management_ip: { ip_id: 55, address: '192.168.1.10', interface_id: 10, interface_name: 'eth0' },
 }
 
 let router: Router
@@ -674,5 +702,509 @@ describe('切换集群清除不匹配网段（§7.1：新增表单未保存时�
     // 集群 2 无网段 3 → 清除选择；接口名保留
     expect(card.segmentId).toBeNull()
     expect(card.name).toBe('eth0')
+  })
+})
+
+// ---------- F006：IP 分配与管理 IP ----------
+
+describe('IP op 映射端到端（F006 §5.1：嵌套显式操作；未列出=未修改）', () => {
+  it('编辑：删既有 IP + 待分配 manual/auto + 新网卡带 IP + 删含 IP 网卡 → 嵌套 ips 显式操作', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const cards = exposed!.cards.value
+    const eth0 = cards[0]!
+
+    // 删除既有 IP 55；追加待分配 manual + auto
+    exposed!.removeCardIp(eth0, eth0.ips[0]!.key)
+    exposed!.addCardIp(eth0, 'manual')
+    eth0.ips[1]!.address = '192.168.1.20'
+    exposed!.addCardIp(eth0, 'auto')
+    // 新网卡带 manual IP
+    exposed!.addInterface()
+    const added = exposed!.cards.value[2]!
+    added.name = 'eth9'
+    exposed!.setCardSegment(added, 3)
+    exposed!.addCardIp(added, 'manual')
+    added.ips[0]!.address = '192.168.1.21'
+    // 同步删除管理 IP：显式清空（否则被 MANAGEMENT_IP_REQUIRED 前端阻断）
+    exposed!.setManagementIpValue('__none__')
+
+    await exposed!.submit()
+    await flush()
+
+    expect(resourcesApi.updateResource).toHaveBeenCalledWith(7, {
+      interfaces: [
+        {
+          op: 'update',
+          id: 10,
+          ips: [
+            { op: 'delete', id: 55 },
+            { op: 'create', mode: 'manual', address: '192.168.1.20' },
+            { op: 'create', mode: 'auto' },
+          ],
+        },
+        {
+          op: 'create',
+          name: 'eth9',
+          segment_id: 3,
+          ips: [{ op: 'create', mode: 'manual', address: '192.168.1.21' }],
+        },
+      ],
+      management_ip: null,
+      version: 3,
+    })
+  })
+
+  it('编辑：仅删除既有 IP（网卡未改名/未改网段）→ op:update 只携带 ips；未修改的既有 IP 不列入', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    exposed!.removeCardIp(eth0, eth0.ips[0]!.key) // 删除管理 IP 55
+    exposed!.setManagementIpValue('__none__') // 同次显式清空
+    await exposed!.submit()
+    await flush()
+    expect(resourcesApi.updateResource).toHaveBeenCalledWith(7, {
+      interfaces: [{ op: 'update', id: 10, ips: [{ op: 'delete', id: 55 }] }],
+      management_ip: null,
+      version: 3,
+    })
+  })
+
+  it('编辑：标记删除含 IP 的网卡 → op:delete 同项携带 IP 显式删除（INTERFACE_HAS_IPS 前置）', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    exposed!.removeInterface(eth0.key)
+    exposed!.setManagementIpValue('__none__') // 管理 IP 随网卡删除：须显式清空
+    await exposed!.submit()
+    await flush()
+    expect(resourcesApi.updateResource).toHaveBeenCalledWith(7, {
+      interfaces: [{ op: 'delete', id: 10, ips: [{ op: 'delete', id: 55 }] }],
+      management_ip: null,
+      version: 3,
+    })
+  })
+
+  it('新增提交：ips（manual/auto）+ management_ip={interface_index,address}（IP 尚无 ID，Contract F006 §1）', async () => {
+    await mountForm('/clusters/1/resources/new')
+    exposed!.name.value = 'cn002'
+    exposed!.resourceType.value = 'bare_metal'
+    exposed!.addInterface()
+    const card = exposed!.cards.value[0]!
+    card.name = 'eth0'
+    exposed!.setCardSegment(card, 3)
+    exposed!.addCardIp(card, 'manual')
+    card.ips[0]!.address = '192.168.1.10'
+    exposed!.addCardIp(card, 'auto')
+    // 选定第 0 张网卡的 manual IP 为管理 IP
+    exposed!.setManagementIpValue(`${card.key}::${card.ips[0]!.key}`)
+
+    await exposed!.submit()
+    await flush()
+
+    expect(resourcesApi.createResource).toHaveBeenCalledWith({
+      cluster_id: 1,
+      name: 'cn002',
+      resource_type: 'bare_metal',
+      status: 'ALLOC',
+      interfaces: [
+        {
+          name: 'eth0',
+          segment_id: 3,
+          ips: [
+            { mode: 'manual', address: '192.168.1.10' },
+            { mode: 'auto' },
+          ],
+        },
+      ],
+      management_ip: { interface_index: 0, address: '192.168.1.10' },
+    })
+  })
+
+  it('编辑重选既有 IP → management_ip={ip_id}；未选择时省略（=不修改）', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const ib0 = exposed!.cards.value[1]!
+    exposed!.setCardSegment(ib0, 3)
+    exposed!.addCardIp(ib0, 'manual')
+    ib0.ips[0]!.address = '192.168.1.99'
+    // 重选到新 IP（本请求内新建 → interface_index）
+    exposed!.setManagementIpValue(`${ib0.key}::${ib0.ips[0]!.key}`)
+    await exposed!.submit()
+    await flush()
+    expect(resourcesApi.updateResource).toHaveBeenCalledWith(7, {
+      interfaces: [
+        { op: 'update', id: 11, segment_id: 3, ips: [{ op: 'create', mode: 'manual', address: '192.168.1.99' }] },
+      ],
+      management_ip: { interface_index: 0, address: '192.168.1.99' },
+      version: 3,
+    })
+  })
+
+  it('编辑重选未修改网卡上的既有 IP → management_ip={ip_id}（无需 interface_index，网卡可不列入 interfaces[]）', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    // 直接把管理 IP 重选到同一既有 IP（ip_id 55，网卡未修改）
+    exposed!.setManagementIpValue(`${eth0.key}::${eth0.ips[0]!.key}`)
+    await exposed!.submit()
+    await flush()
+    expect(resourcesApi.updateResource).toHaveBeenCalledWith(7, {
+      management_ip: { ip_id: 55 },
+      version: 3,
+    })
+  })
+
+  it('保存成功后以响应重建基线：IP 与管理 IP 回显、「保持当前」重置', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    // 服务端响应含既有 IP 55 与新建的 192.168.1.20（按地址数值升序）
+    const saved: ResourceFormDetail = {
+      ...detailWithIp,
+      version: 4,
+      interfaces: [
+        {
+          ...detailWithIp.interfaces[0]!,
+          ips: [
+            ...detailWithIp.interfaces[0]!.ips,
+            {
+              id: 80,
+              address: '192.168.1.20',
+              segment_id: 3,
+              interface_id: 10,
+              is_management: false,
+              created_at: NOW,
+            },
+          ],
+        },
+        detailWithIp.interfaces[1]!,
+      ],
+    }
+    vi.mocked(resourcesApi.updateResource).mockResolvedValue(saved)
+    const eth0 = exposed!.cards.value[0]!
+    exposed!.addCardIp(eth0, 'manual')
+    eth0.ips[1]!.address = '192.168.1.20'
+    await exposed!.submit()
+    await flush()
+    expect(exposed!.version.value).toBe(4)
+    expect(exposed!.cards.value[0]!.ips.map((ip) => ip.address)).toEqual(['192.168.1.10', '192.168.1.20'])
+    expect(exposed!.managementIpValue.value).toBe('__keep__')
+    expect(exposed!.managementKeepLabel.value).toContain('192.168.1.10')
+  })
+})
+
+describe('未选网段禁用分配（§4.6.7、场景 31：分配 IP 前必须选定网段）', () => {
+  it('未选网段时 addCardIp 不产生条目；选定网段后可分配', async () => {
+    await mountForm('/clusters/1/resources/new')
+    exposed!.name.value = 'vm001'
+    exposed!.resourceType.value = 'virtual_machine'
+    exposed!.addInterface()
+    const card = exposed!.cards.value[0]!
+    card.name = 'ib0'
+    expect(card.segmentId).toBeNull()
+    exposed!.addCardIp(card, 'manual')
+    exposed!.addCardIp(card, 'auto')
+    expect(card.ips).toHaveLength(0)
+
+    exposed!.setCardSegment(card, 3)
+    exposed!.addCardIp(card, 'manual')
+    exposed!.addCardIp(card, 'auto')
+    expect(card.ips).toHaveLength(2)
+    expect(card.ips[0]).toMatchObject({ mode: 'manual', address: '' })
+    expect(card.ips[1]).toMatchObject({ mode: 'auto' })
+  })
+
+  it('网段选项携带自动分配范围信息（autoAllocEnabled；供视图禁用「自动分配」，服务端权威）', async () => {
+    await mountForm('/clusters/1/resources/7/edit')
+    expect(exposed!.segmentSummary(3)?.autoAllocEnabled).toBe(false)
+    // 启用自动范围的网段
+    vi.mocked(listNetworkSegments).mockImplementation(async () => ({
+      items: [{ ...CLUSTER_1_SEGMENTS[0]!, auto_alloc_start: '192.168.1.20', auto_alloc_end: '192.168.1.30', auto_alloc_enabled: true }],
+      total: 1,
+      page: 1,
+      page_size: 100,
+    }))
+    await exposed!.retryLoadSegments()
+    await flush()
+    expect(exposed!.segmentSummary(3)?.autoAllocEnabled).toBe(true)
+  })
+})
+
+describe('切换网段（§7.4：清除待分配地址；既有 IP 须显式释放）', () => {
+  it('切换网段清除原网段的待分配地址（manual/auto），既有 IP 保留', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    exposed!.addCardIp(eth0, 'manual')
+    eth0.ips[1]!.address = '192.168.1.20'
+    exposed!.addCardIp(eth0, 'auto')
+
+    exposed!.setCardSegment(eth0, 3) // 同值：不清除
+    expect(eth0.ips).toHaveLength(3)
+
+    exposed!.setCardSegment(eth0, null) // 清空网段：待分配清除、既有保留
+    expect(eth0.ips).toHaveLength(1)
+    expect(eth0.ips[0]!.id).toBe(55)
+  })
+
+  it('已有 IP 的网卡改网段但未释放旧 IP → 前端阻断（INTERFACE_SEGMENT_CHANGE_REQUIRES_IP_RELEASE），不发请求', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    exposed!.setCardSegment(eth0, 5) // 3 → 5，仍保留 IP 55
+    await exposed!.submit()
+    expect(resourcesApi.updateResource).not.toHaveBeenCalled()
+    expect(exposed!.fieldErrors.cards[eth0.key]?.segment_id).toContain('释放')
+
+    // 显式删除旧 IP + 同次显式清空管理 IP 后允许提交（新网段重新分配）
+    exposed!.removeCardIp(eth0, eth0.ips[0]!.key)
+    exposed!.setManagementIpValue('__none__')
+    await exposed!.submit()
+    await flush()
+    expect(resourcesApi.updateResource).toHaveBeenCalledWith(7, {
+      interfaces: [
+        { op: 'update', id: 10, segment_id: 5, ips: [{ op: 'delete', id: 55 }] },
+      ],
+      management_ip: null,
+      version: 3,
+    })
+  })
+})
+
+describe('管理 IP 强制清空/重选（§4.2.11、场景 46：MANAGEMENT_IP_REQUIRED 前端阻断）', () => {
+  it('删除当前管理 IP 但未显式清空/重选 → 提交阻断并提示，不发请求；输入保留', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    exposed!.removeCardIp(eth0, eth0.ips[0]!.key)
+    await exposed!.submit()
+    expect(resourcesApi.updateResource).not.toHaveBeenCalled()
+    expect(exposed!.fieldErrors.management_ip).toContain('显式清空或重选')
+    // 输入保留：IP 仍标记删除（用户意图保留）
+    expect(eth0.ips[0]!.removed).toBe(true)
+  })
+
+  it('删除管理 IP 所在网卡但未显式清空/重选 → 同样阻断', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    exposed!.removeInterface(eth0.key)
+    await exposed!.submit()
+    expect(resourcesApi.updateResource).not.toHaveBeenCalled()
+    expect(exposed!.fieldErrors.management_ip).toContain('显式清空或重选')
+  })
+
+  it('显式清空（无管理 IP）后允许提交：management_ip=null', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    exposed!.removeCardIp(eth0, eth0.ips[0]!.key)
+    exposed!.setManagementIpValue('__none__')
+    await exposed!.submit()
+    await flush()
+    expect(resourcesApi.updateResource).toHaveBeenCalledWith(7, {
+      interfaces: [{ op: 'update', id: 10, ips: [{ op: 'delete', id: 55 }] }],
+      management_ip: null,
+      version: 3,
+    })
+  })
+
+  it('仅清空管理 IP（无其它修改）→ 允许提交（management_ip:null 是有效变更）', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    exposed!.setManagementIpValue('__none__')
+    await exposed!.submit()
+    await flush()
+    expect(resourcesApi.updateResource).toHaveBeenCalledWith(7, {
+      management_ip: null,
+      version: 3,
+    })
+  })
+
+  it('所选候选 IP 被删除后 → 提交阻断并提示重选；重选后可提交', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    exposed!.addCardIp(eth0, 'manual')
+    eth0.ips[1]!.address = '192.168.1.20'
+    exposed!.setManagementIpValue(`${eth0.key}::${eth0.ips[1]!.key}`)
+    exposed!.removeCardIp(eth0, eth0.ips[1]!.key) // 选出后删除该候选
+    await exposed!.submit()
+    expect(resourcesApi.updateResource).not.toHaveBeenCalled()
+    expect(exposed!.fieldErrors.management_ip).toContain('重新选择')
+
+    exposed!.setManagementIpValue('__none__')
+    await exposed!.submit()
+    await flush()
+    expect(resourcesApi.updateResource).toHaveBeenCalledTimes(1)
+  })
+
+  it('候选列表：既有未删与待分配 manual（非空地址）参与；auto 与已删除不参与', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    exposed!.addCardIp(eth0, 'manual')
+    eth0.ips[1]!.address = '192.168.1.20'
+    exposed!.addCardIp(eth0, 'auto')
+    const candidates = exposed!.managementIpCandidates.value
+    expect(candidates.map((c) => c.address)).toEqual(['192.168.1.10', '192.168.1.20'])
+    // 标记删除后从候选移除
+    exposed!.removeCardIp(eth0, eth0.ips[0]!.key)
+    expect(exposed!.managementIpCandidates.value.map((c) => c.address)).toEqual(['192.168.1.20'])
+  })
+})
+
+describe('IP 字段级错误定位与冲突展示（F006 §7.3/§0）', () => {
+  it('422 VALIDATION_ERROR：interfaces[0].ips[0].address（IP_OUT_OF_SEGMENT）定位到具体 IP 条目，输入保留', async () => {
+    await mountForm('/clusters/1/resources/new')
+    exposed!.name.value = 'vm001'
+    exposed!.resourceType.value = 'virtual_machine'
+    exposed!.addInterface()
+    const card = exposed!.cards.value[0]!
+    card.name = 'eth0'
+    exposed!.setCardSegment(card, 3)
+    exposed!.addCardIp(card, 'manual')
+    // 192.168.1.100 在 CIDR 内（本机可判的越界已由前端校验拦截；保留地址等仅服务端可知）
+    card.ips[0]!.address = '192.168.1.100'
+    vi.mocked(resourcesApi.createResource).mockRejectedValue(
+      new ApiError(422, 'VALIDATION_ERROR', '字段校验失败', [
+        { field: 'interfaces[0].ips[0].address', code: 'IP_RESERVED', message: '192.168.1.100 命中保留地址' },
+      ]),
+    )
+    await exposed!.submit()
+    await flush()
+    const ipKey = card.ips[0]!.key
+    expect(exposed!.fieldErrors.cards[card.key]?.ips[ipKey]?.address).toBe('192.168.1.100 命中保留地址')
+    expect(card.ips[0]!.address).toBe('192.168.1.100') // 冲突保留输入
+  })
+
+  it('409 IP_ALREADY_IN_USE：conflicts 归属展示 + errors[] 定位 + 输入保留', async () => {
+    await mountForm('/clusters/1/resources/new')
+    exposed!.name.value = 'vm001'
+    exposed!.resourceType.value = 'virtual_machine'
+    exposed!.addInterface()
+    const card = exposed!.cards.value[0]!
+    card.name = 'eth0'
+    exposed!.setCardSegment(card, 3)
+    exposed!.addCardIp(card, 'manual')
+    card.ips[0]!.address = '192.168.1.10'
+    vi.mocked(resourcesApi.createResource).mockRejectedValue(
+      new ApiError(
+        409,
+        'IP_ALREADY_IN_USE',
+        'IP 已被占用',
+        [{ field: 'interfaces[0].ips[0].address', code: 'IP_ALREADY_IN_USE', message: '192.168.1.10 已被本集群使用' }],
+        {
+          conflicts: [
+            { ip: '192.168.1.10', resource_id: 7, resource_name: 'cn002', interface_id: 12, interface_name: 'ib0' },
+          ],
+        },
+      ),
+    )
+    await exposed!.submit()
+    await flush()
+    expect(exposed!.formNotice.value).toBe('192.168.1.10 已被本集群 cn002/ib0 使用')
+    expect(exposed!.fieldErrors.cards[card.key]?.ips[card.ips[0]!.key]?.address).toBe('192.168.1.10 已被本集群使用')
+    expect(card.ips[0]!.address).toBe('192.168.1.10') // 冲突保留输入
+  })
+
+  it('409 NO_AVAILABLE_ADDRESS（errors[] 裸 ips[j]）→ 定位到 IP 条目 + 记录级提示，不切换网段', async () => {
+    await mountForm('/clusters/1/resources/new')
+    exposed!.name.value = 'vm001'
+    exposed!.resourceType.value = 'virtual_machine'
+    exposed!.addInterface()
+    const card = exposed!.cards.value[0]!
+    card.name = 'eth0'
+    exposed!.setCardSegment(card, 3)
+    exposed!.addCardIp(card, 'auto')
+    vi.mocked(resourcesApi.createResource).mockRejectedValue(
+      new ApiError(409, 'NO_AVAILABLE_ADDRESS', '自动分配范围内暂无可用地址', [
+        { field: 'interfaces[0].ips[0]', code: 'NO_AVAILABLE_ADDRESS', message: '自动分配范围内暂无可用地址' },
+      ]),
+    )
+    await exposed!.submit()
+    await flush()
+    const ipKey = card.ips[0]!.key
+    expect(exposed!.fieldErrors.cards[card.key]?.ips[ipKey]?.other).toBe('自动分配范围内暂无可用地址')
+    expect(exposed!.formNotice.value).toContain('不会自动切换')
+    expect(card.segmentId).toBe(3) // 不切换网段
+  })
+
+  it('422 MANAGEMENT_IP_REQUIRED（服务端返回）→ 管理 IP 字段错误（前端预检漏网时兜底）', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    vi.mocked(resourcesApi.updateResource).mockRejectedValue(
+      new ApiError(422, 'MANAGEMENT_IP_REQUIRED', '删除管理 IP 或其网卡前须同次显式清空或重选管理 IP'),
+    )
+    // 不改动管理 IP 选择（keep）但让其它字段变化触发提交
+    exposed!.name.value = 'cn001-x'
+    await exposed!.submit()
+    await flush()
+    expect(exposed!.fieldErrors.management_ip).toContain('显式清空或重选')
+  })
+})
+
+describe('IP 前端基础校验（§7.2：语法 / CIDR 内 / 同表单重复；不发请求）', () => {
+  it('manual 地址非法 / 越出所选网段 → IP 条目错误，不发请求', async () => {
+    await mountForm('/clusters/1/resources/new')
+    exposed!.name.value = 'vm001'
+    exposed!.resourceType.value = 'virtual_machine'
+    exposed!.addInterface()
+    const card = exposed!.cards.value[0]!
+    card.name = 'eth0'
+    exposed!.setCardSegment(card, 3)
+
+    exposed!.addCardIp(card, 'manual')
+    card.ips[0]!.address = '300.1.1.1'
+    await exposed!.submit()
+    expect(resourcesApi.createResource).not.toHaveBeenCalled()
+    expect(exposed!.fieldErrors.cards[card.key]?.ips[card.ips[0]!.key]?.address).toContain('IPv4')
+
+    card.ips[0]!.address = '10.99.0.1' // 语法合法但不在 192.168.1.0/24 内
+    await exposed!.submit()
+    expect(resourcesApi.createResource).not.toHaveBeenCalled()
+    expect(exposed!.fieldErrors.cards[card.key]?.ips[card.ips[0]!.key]?.address).toContain('CIDR')
+
+    card.ips[0]!.address = '192.168.1.50' // 网段内（保留/网关/网络/广播由服务端权威拒绝）
+    await exposed!.submit()
+    await flush()
+    expect(resourcesApi.createResource).toHaveBeenCalledTimes(1)
+  })
+
+  it('同表单重复 IP（跨网卡、与既有未删重复）→ 双条目错误，不发请求', async () => {
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    const eth0 = exposed!.cards.value[0]!
+    const ib0 = exposed!.cards.value[1]!
+    exposed!.setCardSegment(ib0, 3)
+    exposed!.addCardIp(ib0, 'manual')
+    ib0.ips[0]!.address = '192.168.1.10' // 与 eth0 既有 IP 55 重复
+    exposed!.addCardIp(ib0, 'manual')
+    ib0.ips[1]!.address = '192.168.1.10' // 本网卡内重复
+    await exposed!.submit()
+    expect(resourcesApi.updateResource).not.toHaveBeenCalled()
+    const eth0IpKey = eth0.ips[0]!.key
+    expect(exposed!.fieldErrors.cards[eth0.key]?.ips[eth0IpKey]?.address).toContain('重复')
+    expect(exposed!.fieldErrors.cards[ib0.key]?.ips[ib0.ips[0]!.key]?.address).toContain('重复')
+    expect(exposed!.fieldErrors.cards[ib0.key]?.ips[ib0.ips[1]!.key]?.address).toContain('重复')
+  })
+})
+
+describe('权限隐藏（F006：viewer 只读；服务端为最终校验）', () => {
+  it('viewer：IP 增删与管理 IP 选择均不产生动作', async () => {
+    useAuthStore().$patch({ user: { ...viewer } })
+    vi.mocked(resourcesApi.getResource).mockResolvedValue(detailWithIp)
+    await mountForm('/clusters/1/resources/7/edit')
+    expect(exposed!.canManage.value).toBe(false)
+    const eth0 = exposed!.cards.value[0]!
+    const before = eth0.ips[0]!.removed
+    exposed!.addCardIp(eth0, 'manual')
+    expect(eth0.ips).toHaveLength(1)
+    exposed!.removeCardIp(eth0, eth0.ips[0]!.key)
+    expect(eth0.ips[0]!.removed).toBe(before)
+    exposed!.setManagementIpValue('__none__')
+    expect(exposed!.managementIpValue.value).toBe('__keep__')
+    await exposed!.submit()
+    expect(resourcesApi.updateResource).not.toHaveBeenCalled()
   })
 })

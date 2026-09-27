@@ -1,12 +1,13 @@
 <script setup lang="ts">
-// 网段详情抽屉（架构 F005 §2.4 / 需求 §6.5）：
-// - §6.5 全字段展示 + 计数快照（保留地址条目数、已分配数量——F005 阶段恒 0、
-//   可自动分配数量——§5 BQ-R 快照）；
+// 网段详情抽屉（架构 F005 §2.4 / 需求 §6.5 + F006 §2.4）：
+// - §6.5 全字段展示 + 计数快照（保留地址条目数、已分配数量、可自动分配数量——§5 BQ-R 快照；
+//   F006 接入后 allocated_count / auto_assignable_count 为真实计算值）；
 // - 重叠提示（§4.6.5）；
 // - 保留地址增删控件（显式子项操作，Contract §3.1–3.3）；
 // - 网关设置（PATCH，Contract §2.4）与显式清空（DELETE /gateway，Contract §3.4，
 //   幂等 + 乐观锁；删除前置之一，BQ-O）；
-// - 「已分配 IP 及归属」空态占位：数据由后续能力（IP 分配，F006）提供。
+// - 「已分配 IP 及归属」（F006）：GET /network-segments/{id}/allocated-ips 只读分页列表
+//   （分页 / q 搜索 / 空态 / 加载 / 错误态，见 composables/useSegmentAllocatedIps）。
 // 写操作入口仅 maintainer/admin 可见；服务端为最终校验（架构 §8.2）。
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -22,7 +23,9 @@ import {
 } from '../api/segments'
 import { apiErrorMessage, isApiError } from '../api/client'
 import { useAuthStore } from '../stores/auth'
+import { useSegmentAllocatedIps } from '../composables/useSegmentAllocatedIps'
 import { formatDateTime } from '../utils/format'
+import { resourceTypeLabel } from '../utils/resourceRules'
 import {
   canManageSegments,
   overlapWarningText,
@@ -52,6 +55,12 @@ const visible = computed({
 
 // 写操作入口可见性：仅 maintainer/admin（服务端为最终校验）
 const canManage = computed(() => canManageSegments(auth.user?.role))
+
+// ---------- 已分配 IP 及归属（F006 Contract §3.1：只读分页 + q 搜索；任意已登录） ----------
+const allocated = useSegmentAllocatedIps(
+  computed(() => props.segmentId),
+  computed(() => props.modelValue),
+)
 
 // ---------- 详情加载（Contract §2.3） ----------
 const detail = ref<NetworkSegmentDetail | null>(null)
@@ -312,7 +321,6 @@ async function handleDeleteReserved(row: ReservedAddress): Promise<void> {
           </el-descriptions-item>
           <el-descriptions-item label="已分配数量">
             {{ detail.allocated_count }}
-            <span class="segment-muted">（当前阶段恒为 0）</span>
           </el-descriptions-item>
           <el-descriptions-item label="可自动分配数量">
             {{ detail.auto_assignable_count }}
@@ -406,13 +414,76 @@ async function handleDeleteReserved(row: ReservedAddress): Promise<void> {
           </el-form-item>
         </el-form>
 
-        <!-- 「已分配 IP 及归属」空态占位（数据由 F006 提供） -->
-        <h4 class="drawer-heading">已分配 IP 及归属</h4>
-        <el-empty
-          description="「已分配 IP 及归属」列表将由后续能力（IP 分配）提供；当前阶段该网段无已分配 IP（已分配数量恒为 0）。"
-          :image-size="60"
-          class="drawer-section"
-        />
+        <!-- 已分配 IP 及归属（F006 §3.1：只读分页 + q 搜索；任意已登录可见） -->
+        <h4 class="drawer-heading">已分配 IP 及归属（{{ detail.allocated_count }}）</h4>
+        <div class="drawer-allocated">
+          <div class="drawer-allocated-toolbar">
+            <el-input
+              :model-value="allocated.q.value"
+              placeholder="搜索地址 / 资源名 / 接口名"
+              clearable
+              class="drawer-allocated-search"
+              @update:model-value="allocated.setQ"
+              @keyup.enter="allocated.searchNow"
+              @clear="allocated.searchNow"
+            />
+            <span class="segment-muted">共 {{ allocated.total.value }} 条</span>
+          </div>
+          <el-alert
+            v-if="allocated.loadError.value"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="`已分配 IP 加载失败：${allocated.loadError.value}`"
+          >
+            <el-button size="small" @click="allocated.retry">重试</el-button>
+          </el-alert>
+          <el-table
+            v-else
+            v-loading="allocated.loading.value"
+            :data="allocated.items.value"
+            size="small"
+            class="drawer-section"
+          >
+            <el-table-column prop="address" label="地址" width="130">
+              <template #default="{ row }">
+                <code class="segment-code">{{ row.address }}</code>
+              </template>
+            </el-table-column>
+            <el-table-column label="归属资源" min-width="150">
+              <template #default="{ row }">
+                {{ row.resource_name }}
+                <span class="segment-muted">（{{ resourceTypeLabel(row.resource_type) }}）</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="interface_name" label="接口" width="100" />
+            <el-table-column label="管理 IP" width="80">
+              <template #default="{ row }">
+                <el-tag v-if="row.is_management" size="small" type="warning">是</el-tag>
+                <span v-else class="segment-muted">—</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="分配时间" min-width="150">
+              <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+            </el-table-column>
+            <template #empty>
+              <el-empty
+                :description="
+                  allocated.q.value.trim() !== '' ? '没有匹配的已分配 IP' : '该网段暂无已分配 IP'
+                "
+                :image-size="48"
+              />
+            </template>
+          </el-table>
+          <el-pagination
+            v-if="allocated.total.value > allocated.pageSize.value"
+            layout="total, prev, pager, next"
+            :total="allocated.total.value"
+            :page-size="allocated.pageSize.value"
+            :current-page="allocated.page.value"
+            @current-change="allocated.setPage"
+          />
+        </div>
       </template>
     </div>
   </el-drawer>
@@ -462,6 +533,19 @@ async function handleDeleteReserved(row: ReservedAddress): Promise<void> {
 }
 .segment-code {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+.drawer-allocated {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.drawer-allocated-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.drawer-allocated-search {
+  width: 240px;
 }
 .segment-muted {
   color: #909399;

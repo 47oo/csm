@@ -25,17 +25,40 @@ export interface InterfaceSegmentSummary {
   gateway: string | null
 }
 
-/** 响应中的网卡（Contract §1 NetworkInterfaceResource） */
+/** 响应中的网卡 IP（Contract F006 §1 IpAddressResource；按地址数值升序） */
+export interface IpAddressResource {
+  id: number
+  /** 规范化 IPv4 */
+  address: string
+  /** 分配时所选网段 ID */
+  segment_id: number
+  /** 所属网卡 ID */
+  interface_id: number
+  /** 是否为所属资源的管理 IP（§4.2.9） */
+  is_management: boolean
+  created_at: string
+}
+
+/** 响应中的网卡（Contract §1 NetworkInterfaceResource；F006 扩展 ips） */
 export interface NetworkInterfaceResource {
   id: number
-  /** 接口名（去首尾空格） */
   name: string
   /** 关联网段 ID；未选为 null */
   segment_id: number | null
   /** 关联网段摘要；未选为 null（便利字段） */
   segment: InterfaceSegmentSummary | null
+  /** 该网卡 IP；无 IP 为 []（F006） */
+  ips: IpAddressResource[]
   created_at: string
   updated_at: string
+}
+
+/** 响应中的管理 IP 摘要（Contract F006 §1 ManagementIpSummary；未指定 null） */
+export interface ManagementIpSummary {
+  ip_id: number
+  address: string
+  interface_id: number
+  interface_name: string
 }
 
 /** 表单详情（Contract §1 ResourceFormDetail：GET/POST/PATCH 响应） */
@@ -53,19 +76,31 @@ export interface ResourceFormDetail {
   status_updated_by: number | null
   status_updated_by_username: string | null
   status_updated_at: string
-  /** 网卡列表（按 name 稳定排序；空为 []） */
+  /** 网卡列表（按 name 稳定排序；空为 []；每项含 ips） */
   interfaces: NetworkInterfaceResource[]
+  /** 管理 IP 摘要；未指定 null（F006 §1） */
+  management_ip: ManagementIpSummary | null
   /** 乐观锁 */
   version: number
   created_at: string
   updated_at: string
 }
 
-/** POST /resources 网卡项（Contract §1 NetworkInterfaceCreate） */
+/** POST /resources 网卡 IP 新增项（Contract F006 §1 IpCreate；manual 必填 address，
+ * auto 省略 address 由服务端选址） */
+export interface IpCreateItem {
+  mode: 'manual' | 'auto'
+  /** manual 必填且合法；auto 省略或 null */
+  address?: string | null
+}
+
+/** POST /resources 网卡项（Contract §1 NetworkInterfaceCreate；F006 扩展 ips） */
 export interface NetworkInterfaceCreateItem {
   name: string
   /** 省略或 null = 不选网段 */
   segment_id: number | null
+  /** 缺省 []；分配 IP 时 segment_id 必须非空 */
+  ips?: IpCreateItem[]
 }
 
 /** POST /resources 请求体（Contract §2.1） */
@@ -77,9 +112,30 @@ export interface ResourceCreatePayload {
   status?: ResourceStatus
   /** 缺省=空数组；同 payload 内接口名不得重复 */
   interfaces?: NetworkInterfaceCreateItem[]
+  /** 缺省/null = 无管理 IP；仅可引用本请求内的 IP（{interface_index,address}） */
+  management_ip?: ManagementIpRef | null
 }
 
-/** PATCH /resources/{id} 网卡显式操作项（Contract §1 NetworkInterfaceOp，判别字段 op） */
+/** 管理 IP 引用（Contract F006 §1 ManagementIpRef）：{ip_id}=重选既有；
+ * {interface_index,address}=引用同一请求 interfaces[]（0 基下标）内的 IP；
+ * 创建资源时 IP 尚无 ID，仅后者可用 */
+export type ManagementIpRef = { ip_id: number } | { interface_index: number; address: string }
+
+/** PATCH 网卡 IP 显式操作项（Contract F006 §1 IpOp，判别字段 op：
+ * create 新增（manual 必填 address / auto 省略）、delete 显式删除既有 id；
+ * 未列入 ips[] 的既有 IP = 未修改；IP 不可改地址，改址=删除后重新分配） */
+export interface IpOpItem {
+  op: 'create' | 'delete'
+  /** delete 必填：须属于该网卡/资源，否则 IP_NOT_FOUND */
+  id?: number
+  /** create：manual/auto */
+  mode?: 'manual' | 'auto'
+  /** create+manual 必填且合法 IPv4 */
+  address?: string | null
+}
+
+/** PATCH /resources/{id} 网卡显式操作项（Contract §1 NetworkInterfaceOp，判别字段 op；
+ * F006 扩展 ips：delete 网卡可同项携带其 IP 显式删除） */
 export interface NetworkInterfaceOpItem {
   op: 'create' | 'update' | 'delete'
   /** update/delete 必填：须属于该资源 */
@@ -88,6 +144,8 @@ export interface NetworkInterfaceOpItem {
   name?: string
   /** update 省略=不修改；null=清空（create：null=不选网段） */
   segment_id?: number | null
+  /** 显式 IP 增/删；缺省=不改动该网卡 IP */
+  ips?: IpOpItem[]
 }
 
 /** PATCH /resources/{id} 请求体（Contract §2.3：省略字段=不修改；version 必填；
@@ -97,6 +155,9 @@ export interface ResourceUpdatePayload {
   status?: ResourceStatus
   /** 省略或 [] = 不改动网卡；显式 op 增/改/删 */
   interfaces?: NetworkInterfaceOpItem[]
+  /** 省略=不修改；null=显式清空；否则重选（F006 §2.3）；删除当前管理 IP/其网卡
+   * 而未给出 → MANAGEMENT_IP_REQUIRED */
+  management_ip?: ManagementIpRef | null
   version: number
 }
 
@@ -109,7 +170,8 @@ export interface ResourceDeleteQuery {
 
 /** POST /resources：新增（201 → ResourceFormDetail；409 RESOURCE_NAME_EXISTS
  * 响应扩展成员 existing_resource_id/existing_resource_type → ApiError.extensions；
- * 404 CLUSTER_NOT_FOUND、422 字段级 errors[] 由页面呈现） */
+ * 404 CLUSTER_NOT_FOUND、422 字段级 errors[]（含 F006 IP 错误码）、409 IP_ALREADY_IN_USE
+ * （附 conflicts）/ NO_AVAILABLE_ADDRESS 由页面呈现） */
 export function createResource(payload: ResourceCreatePayload): Promise<ResourceFormDetail> {
   return client.post<ResourceFormDetail>('/resources', payload).then((res) => res.data)
 }
@@ -119,7 +181,8 @@ export function getResource(resourceId: number): Promise<ResourceFormDetail> {
   return client.get<ResourceFormDetail>(`/resources/${resourceId}`).then((res) => res.data)
 }
 
-/** PATCH /resources/{resource_id}：编辑公共信息 + 网卡显式增/改/删（乐观锁、整单原子） */
+/** PATCH /resources/{resource_id}：编辑公共信息 + 网卡/IP 显式增/删 + 管理 IP 清空/重选
+ * （乐观锁、整单原子；F006 扩展） */
 export function updateResource(
   resourceId: number,
   payload: ResourceUpdatePayload,

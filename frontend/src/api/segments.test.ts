@@ -10,10 +10,12 @@ import {
   deleteNetworkSegment,
   deleteReservedAddress,
   getNetworkSegment,
+  listAllocatedIps,
   listNetworkSegments,
   listReservedAddresses,
   updateNetworkSegment,
   type NetworkSegmentDetail,
+  type PagedAllocatedIps,
   type PagedNetworkSegments,
   type ReservedAddress,
 } from './segments'
@@ -387,6 +389,60 @@ describe('网段错误映射（problem+json → ApiError；401/403 走全局，�
   it('404 SEGMENT_NOT_FOUND / RESERVED_ADDRESS_NOT_FOUND → ApiError 携带 code，由页面刷新', async () => {
     useTestAdapter(() => ({ status: 404, data: problemBody('SEGMENT_NOT_FOUND', '网段不存在', undefined, 404) }))
     const error = await client.get('/network-segments/999').catch((e: unknown) => e)
+    if (isApiError(error)) {
+      expect(error.status).toBe(404)
+      expect(error.code).toBe('SEGMENT_NOT_FOUND')
+    } else {
+      expect.unreachable('应为 ApiError')
+    }
+  })
+})
+
+describe('listAllocatedIps（Contract F006 §3.1：GET /network-segments/{id}/allocated-ips）', () => {
+  const allocatedPage: PagedAllocatedIps = {
+    items: [
+      {
+        ip_id: 55,
+        address: '192.168.1.10',
+        resource_id: 7,
+        resource_name: 'cn001',
+        resource_type: 'bare_metal',
+        interface_id: 10,
+        interface_name: 'eth0',
+        is_management: true,
+        created_at: '2026-09-25T00:00:00Z',
+      },
+    ],
+    total: 1,
+    page: 1,
+    page_size: 20,
+  }
+
+  it('路径含网段 ID；page/page_size/q 经 query 传递（q 去首尾空格）', async () => {
+    const captured = captureRequests(() => allocatedPage)
+    await listAllocatedIps(5, { page: 2, page_size: 50, q: '  cn001 ' })
+    expect(captured[0]?.method).toBe('get')
+    expect(captured[0]?.url).toBe('/network-segments/5/allocated-ips')
+    expect(captured[0]?.params).toEqual({ page: '2', page_size: '50', q: 'cn001' })
+  })
+
+  it('空项不发送（缺省参数）；空结果 items:[] + total:0 正常返回', async () => {
+    const captured = captureRequests(() => ({ items: [], total: 0, page: 1, page_size: 20 }))
+    const result = await listAllocatedIps(5)
+    expect(captured[0]?.params).toEqual({})
+    expect(result.items).toEqual([])
+    expect(result.total).toBe(0)
+  })
+
+  it('q 纯空白不发送', async () => {
+    const captured = captureRequests(() => allocatedPage)
+    await listAllocatedIps(5, { q: '   ' })
+    expect(captured[0]?.params).toEqual({})
+  })
+
+  it('404 SEGMENT_NOT_FOUND → ApiError 携带 code（页面呈现）', async () => {
+    useTestAdapter(() => ({ status: 404, data: problemBody('SEGMENT_NOT_FOUND', '网段不存在', undefined, 404) }))
+    const error = await listAllocatedIps(999).catch((e: unknown) => e)
     if (isApiError(error)) {
       expect(error.status).toBe(404)
       expect(error.code).toBe('SEGMENT_NOT_FOUND')

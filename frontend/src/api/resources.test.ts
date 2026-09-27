@@ -114,6 +114,16 @@ const detail: ResourceFormDetail = {
         vlan: 100,
         gateway: '192.168.1.1',
       },
+      ips: [
+        {
+          id: 55,
+          address: '192.168.1.10',
+          segment_id: 3,
+          interface_id: 10,
+          is_management: true,
+          created_at: '2026-09-25T00:00:00Z',
+        },
+      ],
       created_at: '2026-09-25T00:00:00Z',
       updated_at: '2026-09-25T00:00:00Z',
     },
@@ -122,10 +132,17 @@ const detail: ResourceFormDetail = {
       name: 'ib0',
       segment_id: null,
       segment: null,
+      ips: [],
       created_at: '2026-09-25T00:00:00Z',
       updated_at: '2026-09-25T00:00:00Z',
     },
   ],
+  management_ip: {
+    ip_id: 55,
+    address: '192.168.1.10',
+    interface_id: 10,
+    interface_name: 'eth0',
+  },
   version: 3,
   created_at: '2026-09-25T00:00:00Z',
   updated_at: '2026-09-25T00:00:00Z',
@@ -232,6 +249,111 @@ describe('deleteResource（Contract §2.4：DELETE /resources/{id}?confirm=&vers
     expect(captured[0]?.method).toBe('delete')
     expect(captured[0]?.url).toBe('/resources/7')
     expect(captured[0]?.params).toEqual({ confirm: 'cn001', version: 3 })
+  })
+})
+
+describe('F006 扩展：interfaces[].ips 与顶层 management_ip（Contract F006 §1/§2）', () => {
+  it('POST：ips[]（manual 带 address / auto 省略）与 management_ip={interface_index,address} 原样传递', async () => {
+    const captured = captureRequests(() => detail)
+    await createResource({
+      cluster_id: 1,
+      name: 'cn001',
+      resource_type: 'bare_metal',
+      status: 'ALLOC',
+      interfaces: [
+        {
+          name: 'eth0',
+          segment_id: 3,
+          ips: [
+            { mode: 'manual', address: '192.168.1.10' },
+            { mode: 'auto' },
+          ],
+        },
+        { name: 'ib0', segment_id: null, ips: [] },
+      ],
+      management_ip: { interface_index: 0, address: '192.168.1.10' },
+    })
+    expect(JSON.parse(captured[0]?.data as string)).toEqual({
+      cluster_id: 1,
+      name: 'cn001',
+      resource_type: 'bare_metal',
+      status: 'ALLOC',
+      interfaces: [
+        {
+          name: 'eth0',
+          segment_id: 3,
+          ips: [
+            { mode: 'manual', address: '192.168.1.10' },
+            { mode: 'auto' },
+          ],
+        },
+        { name: 'ib0', segment_id: null, ips: [] },
+      ],
+      management_ip: { interface_index: 0, address: '192.168.1.10' },
+    })
+  })
+
+  it('POST：ips/management_ip 缺省时不出现（向后兼容 F002 请求体）', async () => {
+    const captured = captureRequests(() => detail)
+    await createResource({ cluster_id: 1, name: 'cn001', resource_type: 'bare_metal' })
+    const body = JSON.parse(captured[0]?.data as string) as Record<string, unknown>
+    expect('management_ip' in body).toBe(false)
+  })
+
+  it('PATCH：ips[] 显式 op（delete 带 id / create manual / create auto）与 management_ip={ip_id} 原样传递', async () => {
+    const captured = captureRequests(() => detail)
+    await updateResource(7, {
+      interfaces: [
+        {
+          op: 'update',
+          id: 10,
+          segment_id: 3,
+          ips: [
+            { op: 'delete', id: 55 },
+            { op: 'create', mode: 'auto' },
+          ],
+        },
+        { op: 'create', name: 'ib1', segment_id: 4, ips: [{ op: 'create', mode: 'manual', address: '10.0.0.7' }] },
+        { op: 'delete', id: 11, ips: [{ op: 'delete', id: 60 }] },
+      ],
+      management_ip: { ip_id: 55 },
+      version: 3,
+    })
+    expect(JSON.parse(captured[0]?.data as string)).toEqual({
+      interfaces: [
+        {
+          op: 'update',
+          id: 10,
+          segment_id: 3,
+          ips: [
+            { op: 'delete', id: 55 },
+            { op: 'create', mode: 'auto' },
+          ],
+        },
+        { op: 'create', name: 'ib1', segment_id: 4, ips: [{ op: 'create', mode: 'manual', address: '10.0.0.7' }] },
+        { op: 'delete', id: 11, ips: [{ op: 'delete', id: 60 }] },
+      ],
+      management_ip: { ip_id: 55 },
+      version: 3,
+    })
+  })
+
+  it('PATCH：management_ip=null（显式清空）原样传递；GET 响应含 interfaces[].ips 与 management_ip', async () => {
+    const captured = captureRequests(() => detail)
+    await updateResource(7, { management_ip: null, version: 3 })
+    const body = JSON.parse(captured[0]?.data as string) as Record<string, unknown>
+    expect(body).toEqual({ management_ip: null, version: 3 })
+
+    const result = await getResource(7)
+    expect(result.interfaces[0]?.ips[0]?.address).toBe('192.168.1.10')
+    expect(result.interfaces[0]?.ips[0]?.is_management).toBe(true)
+    expect(result.interfaces[1]?.ips).toEqual([])
+    expect(result.management_ip).toEqual({
+      ip_id: 55,
+      address: '192.168.1.10',
+      interface_id: 10,
+      interface_name: 'eth0',
+    })
   })
 })
 
@@ -344,6 +466,66 @@ describe('错误映射（problem+json → ApiError；401/403 走全局，其余�
       expect(error.status).toBe(400)
       expect(error.code).toBe('INVALID_REQUEST')
       expect(error.errors[0]?.code).toBe('RESOURCE_TYPE_IMMUTABLE')
+    } else {
+      expect.unreachable('应为 ApiError')
+    }
+  })
+
+  it('409 IP_ALREADY_IN_USE：errors[] 含 interfaces[i].ips[j].address 下标定位，conflicts 扩展成员可读（F006 §0）', async () => {
+    useTestAdapter(() => ({
+      status: 409,
+      data: problemBody('IP_ALREADY_IN_USE', 'IP 已被占用', 409, {
+        conflicts: [
+          { ip: '10.0.0.1', resource_id: 7, resource_name: 'cn002', interface_id: 12, interface_name: 'ib0' },
+        ],
+      }, [
+        { field: 'interfaces[0].ips[0].address', code: 'IP_ALREADY_IN_USE', message: '10.0.0.1 已被本集群使用' },
+      ]),
+    }))
+    const error = await createResource({
+      cluster_id: 1,
+      name: 'cn001',
+      resource_type: 'bare_metal',
+    }).catch((e: unknown) => e)
+    if (isApiError(error)) {
+      expect(error.code).toBe('IP_ALREADY_IN_USE')
+      expect(error.fieldError('interfaces[0].ips[0].address')).toBe('10.0.0.1 已被本集群使用')
+      expect(error.extensions['conflicts']).toEqual([
+        { ip: '10.0.0.1', resource_id: 7, resource_name: 'cn002', interface_id: 12, interface_name: 'ib0' },
+      ])
+    } else {
+      expect.unreachable('应为 ApiError')
+    }
+  })
+
+  it('409 NO_AVAILABLE_ADDRESS / INTERFACE_HAS_IPS → ApiError 原样抛给页面（不触发全局处理器）', async () => {
+    const handlers = {
+      onUnauthorized: vi.fn(),
+      onForbidden: vi.fn(),
+      onPasswordChangeRequired: vi.fn(),
+    }
+    setApiHandlers(handlers)
+    useTestAdapter(() => ({ status: 409, data: problemBody('NO_AVAILABLE_ADDRESS', '自动范围耗尽', 409) }))
+    const error = await updateResource(7, { version: 3 }).catch((e: unknown) => e)
+    if (isApiError(error)) {
+      expect(error.status).toBe(409)
+      expect(error.code).toBe('NO_AVAILABLE_ADDRESS')
+    } else {
+      expect.unreachable('应为 ApiError')
+    }
+    expect(handlers.onUnauthorized).not.toHaveBeenCalled()
+    expect(handlers.onForbidden).not.toHaveBeenCalled()
+  })
+
+  it('422 MANAGEMENT_IP_REQUIRED → code 可读（管理 IP 强制清空/重选，页面阻断提示）', async () => {
+    useTestAdapter(() => ({
+      status: 422,
+      data: problemBody('MANAGEMENT_IP_REQUIRED', '删除管理 IP 或其网卡前须同次显式清空或重选管理 IP', 422),
+    }))
+    const error = await updateResource(7, { version: 3, management_ip: null }).catch((e: unknown) => e)
+    if (isApiError(error)) {
+      expect(error.status).toBe(422)
+      expect(error.code).toBe('MANAGEMENT_IP_REQUIRED')
     } else {
       expect.unreachable('应为 ApiError')
     }
