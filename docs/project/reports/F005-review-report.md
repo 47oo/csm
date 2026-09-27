@@ -50,3 +50,13 @@
 
 ## 未审查项
 真实浏览器 E2E；跨集群 collation 大小写确定性；F002/F006/F012 引入引用后的端到端行为；第三方依赖供应链审计。
+---
+
+## Follow-up 修复记录（post-merge，2026-09-27）
+
+- **REVIEW-F005-1（MEDIUM，原非阻塞）已修复**：分支 `fix/F005-review-01-patch-lock`（base `000a408`）候选 HEAD `31a9b69`；`update_segment` 在读取既有保留地址/校验前对父网段行 `SELECT ... FOR UPDATE`（锁序与保留地址新增一致），新增真实并发回归测试（撤销修复后该测试失败，确证其有效性）。
+- 独立复核：真实 postgres:16 全量 **92 passed**；范围 4 文件；未改 Schema/Contract/产品语义；架构 §9 与 Contract §0 错误码一致。Reviewer 结论 **APPROVED**。
+- **Merge**：`9860a4e`（父 = Base `000a408` 与批准 HEAD `31a9b69`）。
+- **NOTE-F005-2**（架构 §9 摘要）随修复同步关闭。
+- **NOTE-F005-5**（文档澄清）：架构 §6.3 已补充「PATCH 亦取父行锁；删除单条保留地址不加父行锁」。
+- 仍保留：NOTE-F005-3（PATCH 同值是否计为一次变更，待 Product/Architect 确认；非缺陷）。

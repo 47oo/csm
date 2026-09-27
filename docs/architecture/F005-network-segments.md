@@ -229,7 +229,7 @@ F005 在 ADR 既定架构内新增一个受管对象模块「网段（NetworkSeg
 
 ### 6.3 并发控制 `CONFIRMED`（§9.3、ADR-003）
 - 网段 `PATCH`/`DELETE` 使用 `version` 条件更新（ADR-003）。
-- 保留地址增删、网关清空在事务内对父网段 `SELECT ... FOR UPDATE` 串行化，避免与 CIDR 修改竞争导致「保留地址落在 CIDR 外」；**不**改变父网段 `version`（`PROPOSED`：`version` 只跟踪可编辑网段属性，见 Contract）。
+- **网段 `PATCH`、保留地址新增、网关清空（及删除网段）**在事务内对父网段 `SELECT ... FOR UPDATE` 串行化，避免与 CIDR 修改竞争导致「保留地址落在 CIDR 外」；**不**改变父网段 `version`（`PROPOSED`：`version` 只跟踪可编辑网段属性，见 Contract）。删除单条保留地址不获取父行锁（删除不破坏该不变量）。
 - 地址唯一性（IP）由数据库/后端最终保证属 F006。
 
 ---
