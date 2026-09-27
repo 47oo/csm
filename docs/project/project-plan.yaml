@@ -281,16 +281,16 @@ features:
     blocking_decisions: []
     status: IN_PROGRESS
     current_stage: IMPLEMENTATION
-    last_result: Database COMPLETE（docs/database/F002.md）；Backend COMPLETE（120 passed，含 28 新增；协调器独立复跑通过）
-    next_action: Frontend 实现（资源表单 /clusters/:clusterId/resources/...），随后 Test → Review
+    last_result: Backend COMPLETE（120 passed）；Frontend COMPLETE（frontend/，Vitest 329 passed、pnpm build 通过）
+    next_action: Tester 独立验证（场景 2/28/29/34/47/50 相关、DB 约束、F001/F005 删除保护），要求 READY FOR REVIEW
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
     contract: {status: READY, doc: docs/api/F002.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F002-resource-registration
       start_commit: 93921ed1f26b3b0f098e7dfaf31b35ef7066aed3
-      head_commit: 7157bc0
+      head_commit: 10fcde4
       merge_commit: null
     evidence: []
 
@@ -381,7 +381,7 @@ features:
     blocking_decisions: [D-Q3, D-RESOURCE-REASSIGN]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
@@ -514,7 +514,7 @@ features:
     blocking_decisions: [D-IP-SEMANTICS]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []
@@ -585,7 +585,7 @@ features:
     blocking_decisions: [D-BQ-E, D-SERVICE-DETAILS, D-RESOURCE-REASSIGN]
     status: BLOCKED
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
     evidence: []

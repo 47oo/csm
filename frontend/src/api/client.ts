@@ -10,18 +10,47 @@
 import axios, { type AxiosInstance } from 'axios'
 import type { FieldError, ProblemBody } from './types'
 
+/** problem+json 标准成员键：其余字段按扩展成员透传（如 F002 的 existing_resource_id） */
+const PROBLEM_STANDARD_KEYS: ReadonlySet<string> = new Set([
+  'type',
+  'title',
+  'status',
+  'code',
+  'message',
+  'errors',
+])
+
+/** 从 problem+json 响应体提取扩展成员（非标准字段原样透传） */
+function problemExtensions(body: Record<string, unknown>): Record<string, unknown> {
+  const extensions: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(body)) {
+    if (!PROBLEM_STANDARD_KEYS.has(key)) extensions[key] = value
+  }
+  return extensions
+}
+
 /** 归一化后的 API 错误：承载 problem+json 的 code/message/errors[] */
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
   readonly errors: FieldError[]
+  /** problem+json 扩展成员（如 F002 RESOURCE_NAME_EXISTS 的 existing_resource_id /
+   * existing_resource_type）；非该类错误为空对象 */
+  readonly extensions: Record<string, unknown>
 
-  constructor(status: number, code: string, message: string, errors: FieldError[] = []) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    errors: FieldError[] = [],
+    extensions: Record<string, unknown> = {},
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.errors = errors
+    this.extensions = extensions
   }
 
   /** 取某字段的字段级错误信息（无则 undefined） */
@@ -78,6 +107,7 @@ export function normalizeApiError(error: unknown): ApiError {
         typeof problem.code === 'string' && problem.code ? problem.code : 'UNKNOWN',
         typeof problem.message === 'string' && problem.message ? problem.message : `请求失败（HTTP ${status}）`,
         Array.isArray(problem.errors) ? problem.errors : [],
+        problemExtensions(body as Record<string, unknown>),
       )
     }
     if (error.response) {

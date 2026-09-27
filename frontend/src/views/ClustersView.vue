@@ -37,6 +37,11 @@ function goSegments(row: ClusterListItem): void {
   void router.push({ name: 'cluster-segments', params: { clusterId: String(row.id) } })
 }
 
+/** 跳转该集群的新增计算资源表单（F002；写入口仅 maintainer/admin，服务端最终校验） */
+function goNewResource(row: ClusterListItem): void {
+  void router.push({ name: 'resource-new', params: { clusterId: String(row.id) } })
+}
+
 // 操作入口可见性（服务端为最终校验）：新增/编辑仅 admin；删除 maintainer/admin
 const canCreate = computed(() => auth.isAdmin)
 const canDelete = computed(() => auth.user?.role === 'maintainer' || auth.user?.role === 'admin')
@@ -423,10 +428,12 @@ onMounted(() => {
         <el-table-column label="更新时间" width="170">
           <template #default="{ row }">{{ formatDateTime(row.updated_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
-            <!-- 网段：任意已登录可查看（F005）；编辑仅平台管理员；删除 maintainer/admin -->
+            <!-- 网段/资源：任意已登录可查看（F005/F002）；编辑仅平台管理员；删除 maintainer/admin -->
             <el-button link type="primary" @click="goSegments(row)">网段</el-button>
+            <!-- 新增资源入口仅 maintainer/admin（服务端校验为最终保证） -->
+            <el-button v-if="canDelete" link type="primary" @click="goNewResource(row)">资源</el-button>
             <el-button v-if="canCreate" link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button v-if="canDelete" link type="danger" @click="openDelete(row)">删除</el-button>
           </template>
