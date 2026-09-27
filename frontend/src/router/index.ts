@@ -30,6 +30,18 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/SegmentsView.vue'),
   },
   {
+    // 新增计算资源（架构 F002 §2.4：资源表单；写入口仅 maintainer/admin，服务端最终校验）
+    path: '/clusters/:clusterId(\\d+)/resources/new',
+    name: 'resource-new',
+    component: () => import('../views/ResourceFormView.vue'),
+  },
+  {
+    // 编辑计算资源（架构 F002 §2.4：供表单加载的单资源详情 + 网卡显式增/改/删）
+    path: '/clusters/:clusterId(\\d+)/resources/:resourceId(\\d+)/edit',
+    name: 'resource-edit',
+    component: () => import('../views/ResourceFormView.vue'),
+  },
+  {
     path: '/admin/users',
     name: 'admin-users',
     component: () => import('../views/AdminUsersView.vue'),

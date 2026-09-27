@@ -117,9 +117,34 @@ TRIGGER_STATEMENTS = [
 
 
 def create_schema(engine: Engine) -> None:
-    """建立 5 张表、约束、索引（幂等）并补充触发器 DDL。"""
+    """建立全部表、约束、索引（幂等）并补充触发器 DDL。"""
     # 确保模型已注册到元数据。
     from . import models  # noqa: F401
+
+    # F002：``network_interfaces`` 的复合 FK 以 ``network_segments(id, cluster_id)``
+    # 为目标。若 F005 表已存在但缺少该附加唯一约束（F002 前初始化的库），
+    #必须先幂等补齐，否则 ``create_all`` 建 ``network_interfaces`` 会失败。
+    with engine.begin() as conn:
+        table_exists = conn.scalar(
+            text("SELECT to_regclass('network_segments') IS NOT NULL")
+        )
+        if table_exists:
+            conn.execute(
+                text(
+                    """
+                    DO $$ BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint
+                            WHERE conname = 'uq_network_segments_id_cluster'
+                        ) THEN
+                            ALTER TABLE network_segments
+                                ADD CONSTRAINT uq_network_segments_id_cluster
+                                UNIQUE (id, cluster_id);
+                        END IF;
+                    END $$;
+                    """
+                )
+            )
 
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
