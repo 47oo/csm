@@ -6,12 +6,15 @@
 
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+import threading
+import time
 
-from app.db import SessionLocal
+from fastapi.testclient import TestClient
+from sqlalchemy import func, select, text
+
+from app.db import SessionLocal, engine
 from app.main import app
-from app.models import AuditLog, NetworkSegment, ResourceHistory
+from app.models import AuditLog, NetworkSegment, ResourceHistory, SegmentReservedAddress
 
 PASSWORD = "Passw0rd1"
 BASE = "/api/v1/network-segments"
@@ -349,6 +352,83 @@ def test_patch_cidr_narrowing_blocks_existing_reserved(
 
     # CIDR 未变，保留地址仍可用。
     assert client.get(f"{BASE}/{sid}").json()["cidr"] == "192.168.1.0/24"
+
+
+def test_patch_cidr_blocks_against_concurrent_reserved_insert(
+    client, add_user, login_as
+) -> None:
+    """并发回归（REVIEW-F005-1）：CIDR 收窄须与保留地址新增串行化。
+
+    连接 B 先锁定父网段并插入一条未提交的保留地址；连接 A 发起的 PATCH 收窄
+    CIDR 必须阻塞在该父行锁上。B 提交后 A 继续，须读到新保留地址并返回
+    ``422 RESERVED_OUT_OF_CIDR``，且 CIDR 不被修改。
+    """
+    _auth(client, add_user, login_as, "root", "admin")
+    cid = _make_cluster(client, "C19")
+    seg = _make_segment(client, cid, name="ConcNarrow", cidr="192.168.1.0/24").json()
+    sid = seg["id"]
+
+    patch_result: dict[str, object] = {}
+    started = threading.Event()
+
+    def run_patch() -> None:
+        started.wait(timeout=10)
+        patch_result["response"] = client.patch(
+            f"{BASE}/{sid}",
+            json={"cidr": "192.168.1.0/25", "version": 1},
+        )
+
+    thread = threading.Thread(target=run_patch)
+    thread.start()
+
+    try:
+        with SessionLocal() as db_b:
+            # B：锁定父网段后插入保留地址但暂不提交。
+            db_b.execute(
+                select(NetworkSegment)
+                .where(NetworkSegment.id == sid)
+                .with_for_update()
+            ).scalar_one()
+            db_b.add(
+                SegmentReservedAddress(
+                    segment_id=sid,
+                    start_ip="192.168.1.200",
+                    end_ip="192.168.1.200",
+                )
+            )
+            db_b.flush()
+            started.set()
+
+            # 等待 A 确实阻塞在该父行锁（后端存在未授予锁）。
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                with engine.connect() as conn:
+                    waiting = conn.scalar(
+                        text("SELECT count(*) FROM pg_locks WHERE NOT granted")
+                    )
+                if waiting:
+                    break
+                time.sleep(0.05)
+            else:
+                db_b.rollback()
+                raise AssertionError("PATCH 未在父网段行锁上阻塞")
+
+            # B 提交；A 应解除阻塞并读到新保留地址。
+            db_b.commit()
+    finally:
+        started.set()
+        thread.join(timeout=15)
+
+    assert not thread.is_alive(), "PATCH 未在父行锁释放后继续"
+    response = patch_result["response"]
+    assert response.status_code == 422, response.text
+    assert any(
+        e["code"] == "RESERVED_OUT_OF_CIDR" for e in response.json()["errors"]
+    )
+    # CIDR 未被收窄，保留地址仍在 CIDR 内。
+    detail = client.get(f"{BASE}/{sid}").json()
+    assert detail["cidr"] == "192.168.1.0/24"
+    assert [r["start_ip"] for r in detail["reserved_addresses"]] == ["192.168.1.200"]
 
 
 # --- 集群删除保护 -----------------------------------------------------------

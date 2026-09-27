@@ -343,7 +343,10 @@ def update_segment(
             errors=[_err("request", "NO_FIELDS", "至少提供一个可修改字段")],
         )
 
-    segment = get_segment_or_404(db, segment_id)
+    # 事务内先锁定父网段行（与保留地址新增相同的父行锁序），再读取既有保留
+    # 地址并做「CIDR 收窄不得使保留地址越界」校验；否则并发新增保留地址可
+    # 在无锁读取之后提交，导致保留地址落在收窄后的 CIDR 外（架构 §6.3）。
+    segment = get_segment_or_404(db, segment_id, for_update=True)
 
     errors: list[dict[str, str]] = []
     new_name = segment.name
