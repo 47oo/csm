@@ -510,12 +510,20 @@ features:
       场景 48/61/64 的 IP 历史写入侧在本 Feature DONE 时提供，管理员查询由 F012 交付后联验。
     priority: P0
     depends_on: [F002, F005]
-    blocking_decisions: [D-IP-SEMANTICS]
-    status: READY
+    blocking_decisions: []
+    status: IN_PROGRESS
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出（F006 已 READY，实施时产出）}
-    git: null
+    current_stage: ARCHITECTURE
+    last_result: 产品规则复用（requirements §4.2/§4.4/§4.5/§5/§6.4/§7.1–7.4/§9.3/§2.1/§9.1；BQ-AB/W/Z/AC；无 Blocking Question）
+    next_action: Architect 产出架构与 Contract（docs/architecture/F006-*.md、docs/api/F006.md）
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    git:
+      base_branch: v2
+      branch: feature/F006-ip-allocation
+      start_commit: 75162137351f789f2d8f383534309137b57b01a8
+      head_commit: 75162137351f789f2d8f383534309137b57b01a8
+      merge_commit: null
     evidence: []
 
   - id: F007
@@ -2258,13 +2266,13 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: IN_PROGRESS
-  ready_features: [F006]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F003, F004, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
     BLOCKED: 8
     DRAFT: 0
@@ -2287,7 +2295,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F006
+  current_stage: ARCHITECTURE
   note: >
-    F002 已完成（Merge 1b682e2，批准 HEAD 1e62741）并做最终状态提交。重算 READY=[F006]；无进行中 Feature。
+    F006「IPv4 分配与同一表单 IP 集成」进行中（分支 feature/F006-ip-allocation，
+    start_commit 7516213，base v2）。产品规则复用完成；进行 ARCHITECTURE 与 Contract。
