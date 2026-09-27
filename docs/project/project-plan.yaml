@@ -15,6 +15,7 @@
 # 并于 2026-09-24 至 2026-09-25 的 BQ-M–BQ-Z 需求变更后重新规划核对（revision 7/8/9/10，2026-09-25）。
 # revision 10 依据 BQ-Z 关闭 D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES，
 # 新增 §10 场景 82，并重算 F001（depends_on=[F013] 已 DONE）为 READY；
+# revision 12 依据 BQ-AC 确认“无变化字段重复提交仍计一次变更”（不变更规划实质）。
 # revision 11 依据 BQ-AA/BQ-AB 关闭 D-STATUS-SOURCE/D-IP-SEMANTICS，F002 转 READY（不变更规划实质）。
 # 需求最终签核及实施门禁仍独立适用，不自动启动实施。
 
@@ -26,31 +27,28 @@ project:
     逐步替代分散的 Excel 台账；V2 独立定义需求、领域模型、架构与实现。
   status: IN_PROGRESS
   status_changed_on: "2026-09-25"
-  plan_revision: 11
+  plan_revision: 12
   last_planned_on: "2026-09-25"
   planning_reason: >
-    revision 11（2026-09-25）依据 requirements-v2.md 的 BQ-AA/BQ-AB 裁定更新机器计划，
-    关闭两个产品门禁决策：D-STATUS-SOURCE（状态来源记录操作者；仅保留状态更新时间）与
-    D-IP-SEMANTICS（网卡/IP 单独真实删除无业务恢复入口；历史表达/存储交 Architect/Database）。
-    两项在 decisions_required 置 RESOLVED，并从 F002 的 blocking_decisions 移除；
-    重算状态：F002 depends_on=[F001,F005] 均已 DONE 且 blocking_decisions=[] → READY；其余 Feature 仍 BLOCKED。
-    本 revision 不变更 Feature 数量、范围、场景、依赖或 Milestone，未新增业务规则，未启动实施；
-    完整规划审计沿用 revision 10（见 planning_audit），本 revision 仅记录决策收敛。
+    revision 12（2026-09-25）依据 requirements-v2.md 的 BQ-AC 裁定更新机器计划：
+    确认“PATCH/编辑重复提交未改变任何字段时，仍按一次变更处理（版本递增并写变更历史），不做幂等短路”，
+    适用于全部受管对象，关闭 F001 FU-4、F005 NOTE-F005-3、F002 NOTE-F002-1。
+    本 revision 不变更 Feature 数量、范围、场景、依赖、决策状态或 Milestone，未新增产品范围；
+    重算状态保持不变：F006 READY（depends_on=[F002,F005] 已 DONE），其余 8 个 Feature BLOCKED。
+    完整规划审计沿用 revision 11（见 planning_audit），本 revision 仅记录行为语义澄清。
   requirement_revision:
-    id: BQ-AB
+    id: BQ-AC
     date: "2026-09-25"
     source: docs/product/requirements-v2.md
     summary: >
-      BQ-AA（2026-09-25 用户裁定）：计算资源状态来源记录操作者（不记录来源系统）；仅保留状态更新时间，
-      不额外区分状态更新时间与一般资源更新时间（§4.3）。BQ-AB（用户裁定）：网卡/IP 单独真实删除无业务
-      恢复入口；具体历史表达/存储方式交 Architect/Database 在网络生命周期设计中确定（§4.4）。
+      BQ-AC（用户裁定，采纳 B）：PATCH/编辑重复提交未改变任何字段时，仍按一次变更处理
+      （version 递增并写入变更历史），不做幂等短路；适用于全部受管对象（§4.5）。
     impact: >
-      关闭 D-STATUS-SOURCE、D-IP-SEMANTICS，并从 F002 的 blocking_decisions 移除；
-      F002 depends_on=[F001,F005] 均已 DONE 且 blocking_decisions=[] → READY，其余 Feature 仍 BLOCKED；
-      不变更 Feature 数量、范围、场景、依赖或 Milestone，未新增业务规则。
+      关闭 F001 FU-4、F005 NOTE-F005-3、F002 NOTE-F002-1；不变更 Feature 数量、范围、场景、依赖、
+      决策状态或 Milestone，不改变 F006 READY 与其余 BLOCKED 的重算结果。
   approved_by: 用户
   approved_on: "2026-09-25"
-  approval_basis: 用户确认 BQ-AA/BQ-AB 两项裁定后更新决策状态并重算状态；F002 转 READY；不代表需求最终签核或实施授权。
+  approval_basis: 用户确认 BQ-AC（采纳 B）后更新需求/领域文档；不代表需求最终签核或实施授权。
   planning_source:
     primary: docs/product/requirements-v2.md
     domain: docs/product/domain-model.md
@@ -68,7 +66,7 @@ project:
     D-ARCH-* 与 D-BQ-F 亦已 RESOLVED，但架构/契约文档尚未产出，进入实现前仍受阶段门禁约束
     （见 decisions_required）。依赖为无环有向图，F013 为唯一根。
     状态重算：F013/F001/F005 DONE；F002 READY（depends_on=[F001,F005] 已 DONE 且 blocking_decisions=[]），
-    其余 9 个 Feature BLOCKED。产品需求文件仍为 DRAFT — 未整体签核；revision 11 待用户批准。
+    其余 9 个 Feature BLOCKED。产品需求文件仍为 DRAFT — 未整体签核；revision 12 待用户批准。
     实施仍以需求最终确认、阶段决策及 Git 安全门禁为前提；F001 为 READY 不等于已启动实施，
     计划批准不等于 Feature DONE。
 
@@ -1159,10 +1157,10 @@ existing_work:
 planning_audit:
   audited_on: "2026-09-25"
   basis_commit: 46f0d2a
-  requirement_revision: BQ-AB（2026-09-25，docs/product/requirements-v2.md；revision 11 决策收敛）
+  requirement_revision: BQ-AC（2026-09-25，docs/product/requirements-v2.md；revision 12 行为语义澄清）
   revision_note: >
-    revision 11 仅关闭 D-STATUS-SOURCE（BQ-AA）与 D-IP-SEMANTICS（BQ-AB）两项产品决策并将 F002 置 READY；
-    Feature 界定、依赖、场景、Milestone 与 coverage 均沿用 revision 10，未重新界定。
+    revision 12 仅确认 BQ-AC（无变化字段重复提交仍计一次变更）；Feature 界定、依赖、场景、Milestone、
+    coverage 与全部决策状态均沿用 revision 11，未重新界定。
   features:
     independent_acceptance: >
       revision 10 沿用 revision 9 的 13 个 Feature 界定（本轮未变更范围），均被界定为“DONE 时依赖已满足、具备用户可观察的当期可验收价值”：
@@ -1568,6 +1566,14 @@ planning_audit:
       status: RESOLVED
       resolution: 关键路径更正为 F001 → F005 → F002 → F006 → F003 → F008 → F004 → F007 → F010 → F011。
   history:
+    - plan_revision: 11
+      superseded: true
+      audited_on: "2026-09-25"
+      basis_commit: 46f0d2a
+      requirement_revision: BQ-AA/BQ-AB（2026-09-25，docs/product/requirements-v2.md）
+      note: >
+        revision 11 关闭 D-STATUS-SOURCE/D-IP-SEMANTICS 并将 F002 置 READY；其规划实质由 revision 12 沿用；
+        revision 12 仅追加 BQ-AC 行为语义澄清。
     - plan_revision: 10
       superseded: true
       audited_on: "2026-09-25"
