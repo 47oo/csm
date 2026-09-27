@@ -700,10 +700,10 @@ def test_audit_and_history(client, add_user, login_as) -> None:
         assert history is not None
         assert history.target_key_snapshot == "AuditRes"
         assert history.change["interfaces"]["created"] == [
-            {"name": "ib1", "segment_id": None}
+            {"name": "ib1", "segment_id": None, "ips": []}
         ]
         assert history.change["interfaces"]["deleted"] == [
-            {"id": iface_id, "name": "eth0"}
+            {"id": iface_id, "name": "eth0", "ips": []}
         ]
 
     # 删除前先删网卡，再真实删除；历史保留。

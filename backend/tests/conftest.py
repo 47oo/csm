@@ -25,7 +25,7 @@ _ALL_TABLES = (
     "users, user_credentials, sessions, reserved_usernames, audit_log, "
     "clusters, reserved_cluster_codes, resource_history, "
     "network_segments, segment_reserved_addresses, "
-    "resources, network_interfaces"
+    "resources, network_interfaces, ip_addresses"
 )
 
 

@@ -20,17 +20,9 @@ from .addressing import (
     ipv4_to_int,
     ranges_overlap,
 )
+from .usage import SegmentUsage
 
-
-class SegmentUsage:
-    """F005 计数扩展点（架构 §2.3 / §7.2）。
-
-    ``allocated_count`` 在 F005 阶段恒为 0；F006 以真实 IP 分配查询替换。
-    """
-
-    @staticmethod
-    def allocated_count(db: Session, segment_id: int) -> int:  # noqa: ARG004
-        return 0
+__all__ = ["SegmentUsage"]
 
 
 def is_fk_violation(exc: IntegrityError) -> bool:
@@ -147,12 +139,20 @@ def _auto_assignable(
     segment: NetworkSegment,
     overlaps: list[NetworkSegment],
 ) -> int:
-    return auto_assignable_count(
+    base = auto_assignable_count(
         segment.auto_alloc_start,
         segment.auto_alloc_end,
         _addressing(db, segment),
         [_addressing(db, o) for o in overlaps],
     )
+    if base == 0 or segment.auto_alloc_start is None or segment.auto_alloc_end is None:
+        return base
+    # F006 接入：同集群已分配 IP 也扣除（快照，不预占；架构 §5 BQ-R / 场景 65）。
+    start = ipv4_to_int(segment.auto_alloc_start)
+    end = ipv4_to_int(segment.auto_alloc_end)
+    allocated = SegmentUsage.allocated_ip_nums(db, segment.cluster_id)
+    extra = sum(1 for num in allocated if start <= num <= end)
+    return max(base - extra, 0)
 
 
 def _base_item(

@@ -146,6 +146,38 @@ def create_schema(engine: Engine) -> None:
                 )
             )
 
+    # F006 §7.1 步骤 1：``ip_addresses`` 的复合 FK 以 ``network_interfaces``
+    # 的附加唯一约束为目标，须先于 ``ip_addresses`` 建表。均含 PK ``id``，对既有
+    # 数据恒成立；幂等守卫避免重复执行报错。
+    with engine.begin() as conn:
+        if conn.scalar(
+            text("SELECT to_regclass('network_interfaces') IS NOT NULL")
+        ):
+            conn.execute(
+                text(
+                    """
+                    DO $$ BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint
+                            WHERE conname = 'uq_network_interfaces_id_segment'
+                        ) THEN
+                            ALTER TABLE network_interfaces
+                                ADD CONSTRAINT uq_network_interfaces_id_segment
+                                UNIQUE (id, segment_id);
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint
+                            WHERE conname = 'uq_network_interfaces_id_resource_cluster'
+                        ) THEN
+                            ALTER TABLE network_interfaces
+                                ADD CONSTRAINT uq_network_interfaces_id_resource_cluster
+                                UNIQUE (id, resource_id, cluster_id);
+                        END IF;
+                    END $$;
+                    """
+                )
+            )
+
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
         # F002-R-06：``uq_network_interfaces_resource_name`` 需为
@@ -177,6 +209,42 @@ def create_schema(engine: Engine) -> None:
                                 ADD CONSTRAINT uq_network_interfaces_resource_name
                                 UNIQUE (resource_id, name)
                                 DEFERRABLE INITIALLY IMMEDIATE;
+                        END $$;
+                        """
+                    )
+                )
+        # F006 §7.1 步骤 3：``resources`` 附加可空列 + 复合 FK + 索引（幂等）。
+        # ``create_all`` 不会改动已存在表；绿地由模型直接生成，增量库在此补齐。
+        if conn.scalar(text("SELECT to_regclass('resources') IS NOT NULL")):
+            conn.execute(
+                text(
+                    "ALTER TABLE resources "
+                    "ADD COLUMN IF NOT EXISTS management_ip_id bigint"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_resources_management_ip_id "
+                    "ON resources (management_ip_id)"
+                )
+            )
+            if conn.scalar(
+                text("SELECT to_regclass('ip_addresses') IS NOT NULL")
+            ):
+                conn.execute(
+                    text(
+                        """
+                        DO $$ BEGIN
+                            IF NOT EXISTS (
+                                SELECT 1 FROM pg_constraint
+                                WHERE conname = 'fk_resources_management_ip'
+                            ) THEN
+                                ALTER TABLE resources
+                                    ADD CONSTRAINT fk_resources_management_ip
+                                    FOREIGN KEY (id, management_ip_id)
+                                    REFERENCES ip_addresses(resource_id, id)
+                                    ON DELETE RESTRICT;
+                            END IF;
                         END $$;
                         """
                     )

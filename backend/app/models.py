@@ -444,6 +444,8 @@ class Resource(Base):
     status_updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # F006：管理 IP 引用（可空）。指向本资源某个网卡的 IP；复合 FK 见 __table_args__。
+    management_ip_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     version: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("1")
     )
@@ -473,7 +475,17 @@ class Resource(Base):
             name="chk_resources_status",
         ),
         CheckConstraint("version >= 1", name="chk_resources_version"),
+        # F006：管理 IP 必须属于本资源。循环 FK 用 use_alter 打破；
+        # 已存在库由 bootstrap 的幂等 ALTER 补充（数据库设计 §2.2/§7）。
+        ForeignKeyConstraint(
+            ["id", "management_ip_id"],
+            ["ip_addresses.resource_id", "ip_addresses.id"],
+            ondelete="RESTRICT",
+            name="fk_resources_management_ip",
+            use_alter=True,
+        ),
         Index("ix_resources_cluster_id", "cluster_id"),
+        Index("ix_resources_management_ip_id", "management_ip_id"),
     )
 
 
@@ -511,6 +523,16 @@ class NetworkInterface(Base):
             deferrable=True,
             initially="IMMEDIATE",
         ),
+        # F006：作 ``ip_addresses`` 复合 FK 的目标（附加约束，含 PK ``id`` 恒唯一）。
+        UniqueConstraint(
+            "id", "segment_id", name="uq_network_interfaces_id_segment"
+        ),
+        UniqueConstraint(
+            "id",
+            "resource_id",
+            "cluster_id",
+            name="uq_network_interfaces_id_resource_cluster",
+        ),
         CheckConstraint(
             "name = btrim(name) AND btrim(name) <> '' AND char_length(name) <= 128",
             name="chk_network_interfaces_name",
@@ -533,4 +555,79 @@ class NetworkInterface(Base):
         Index(
             "ix_network_interfaces_segment_cluster", "segment_id", "cluster_id"
         ),
+    )
+
+
+class IpAddress(Base):
+    """F006 IP 分配记录（docs/database/F006.md §2.1）。
+
+    真实删除即删行；无 status/deleted_at；同集群有效 IPv4 全局唯一由
+    ``uq_ip_addresses_cluster_ip`` 保证。冗余 ``resource_id``/``cluster_id`` 由
+    复合 FK 钉住为所属网卡的值。
+    """
+
+    __tablename__ = "ip_addresses"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    interface_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    resource_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cluster_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    segment_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    ip: Mapped[str] = mapped_column(Text, nullable=False)
+    ip_key: Mapped[str] = mapped_column(
+        Text, Computed("ip", persisted=True), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        # DEFERRABLE INITIALLY IMMEDIATE：同一事务内「先删后建同址」/交换地址由
+        # 应用按 delete→create 顺序保证，唯一性在提交时统一判定（数据库设计 §2.1/§7.2）。
+        UniqueConstraint(
+            "cluster_id",
+            "ip_key",
+            name="uq_ip_addresses_cluster_ip",
+            deferrable=True,
+            initially="IMMEDIATE",
+        ),
+        # 供 ``resources (id, management_ip_id) → ip_addresses(resource_id, id)``
+        # 复合 FK 引用；PostgreSQL FK 目标不允许延迟唯一约束，故非延迟。
+        UniqueConstraint(
+            "resource_id", "id", name="uq_ip_addresses_resource_id"
+        ),
+        CheckConstraint(f"ip ~ '{_IPV4_RE}'", name="chk_ip_addresses_ip"),
+        ForeignKeyConstraint(
+            ["interface_id"],
+            ["network_interfaces.id"],
+            ondelete="RESTRICT",
+            name="fk_ip_addresses_interface",
+        ),
+        ForeignKeyConstraint(
+            ["segment_id"],
+            ["network_segments.id"],
+            ondelete="RESTRICT",
+            name="fk_ip_addresses_segment",
+        ),
+        # 「IP 属于网卡所选网段」由数据库声明式保证（含网卡改段兜底）。
+        ForeignKeyConstraint(
+            ["interface_id", "segment_id"],
+            ["network_interfaces.id", "network_interfaces.segment_id"],
+            ondelete="RESTRICT",
+            name="fk_ip_addresses_interface_segment",
+        ),
+        # 钉住冗余 ``resource_id``/``cluster_id`` 恒等于所属网卡。
+        ForeignKeyConstraint(
+            ["interface_id", "resource_id", "cluster_id"],
+            [
+                "network_interfaces.id",
+                "network_interfaces.resource_id",
+                "network_interfaces.cluster_id",
+            ],
+            ondelete="RESTRICT",
+            name="fk_ip_addresses_interface_resource",
+        ),
+        Index("ix_ip_addresses_interface_id", "interface_id"),
+        Index("ix_ip_addresses_segment_id", "segment_id"),
+        Index("ix_ip_addresses_resource_id", "resource_id"),
     )
