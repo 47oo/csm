@@ -24,7 +24,8 @@ from app.security.password import hash_password  # noqa: E402
 _ALL_TABLES = (
     "users, user_credentials, sessions, reserved_usernames, audit_log, "
     "clusters, reserved_cluster_codes, resource_history, "
-    "network_segments, segment_reserved_addresses"
+    "network_segments, segment_reserved_addresses, "
+    "resources, network_interfaces"
 )
 
 

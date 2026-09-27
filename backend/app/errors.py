@@ -13,6 +13,7 @@ class ProblemException(Exception):
         message: str,
         errors: list[dict[str, Any]] | None = None,
         headers: dict[str, str] | None = None,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
@@ -20,6 +21,7 @@ class ProblemException(Exception):
         self.message = message
         self.errors = errors
         self.headers = headers or {}
+        self.extra = extra or {}
 
 
 def problem(
@@ -28,8 +30,9 @@ def problem(
     message: str,
     errors: list[dict[str, Any]] | None = None,
     headers: dict[str, str] | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> ProblemException:
-    return ProblemException(status_code, code, message, errors, headers)
+    return ProblemException(status_code, code, message, errors, headers, extra)
 
 
 def problem_body(problem_exc: ProblemException) -> dict[str, Any]:
@@ -42,4 +45,6 @@ def problem_body(problem_exc: ProblemException) -> dict[str, Any]:
     }
     if problem_exc.errors is not None:
         body["errors"] = problem_exc.errors
+    # Contract 扩展成员（如 RESOURCE_NAME_EXISTS 的 existing_resource_id）。
+    body.update(problem_exc.extra)
     return body

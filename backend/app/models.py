@@ -11,6 +11,7 @@ from sqlalchemy import (
     Computed,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Identity,
     Index,
     Integer,
@@ -299,6 +300,10 @@ class NetworkSegment(Base):
         UniqueConstraint(
             "cluster_id", "cidr_key", name="uq_network_segments_cluster_cidr"
         ),
+        # F002 §7.1：作 ``network_interfaces (segment_id, cluster_id)`` 复合 FK 的目标。
+        UniqueConstraint(
+            "id", "cluster_id", name="uq_network_segments_id_cluster"
+        ),
         CheckConstraint(
             "name = btrim(name) AND btrim(name) <> '' AND char_length(name) <= 128",
             name="chk_network_segments_name",
@@ -404,4 +409,119 @@ class AuditLog(Base):
         Index("ix_audit_log_occurred_at", text("occurred_at DESC")),
         Index("ix_audit_log_actor", "actor_user_id"),
         Index("ix_audit_log_target", "target_type", "target_id"),
+    )
+
+
+class Resource(Base):
+    """计算资源主表（docs/database/F002.md §2.1）。"""
+
+    __tablename__ = "resources"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    cluster_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "clusters.id",
+            ondelete="RESTRICT",
+            name="fk_resources_cluster",
+        ),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    resource_type: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'ALLOC'")
+    )
+    status_updated_by: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "users.id",
+            ondelete="SET NULL",
+            name="fk_resources_status_updated_by",
+        ),
+        nullable=True,
+    )
+    status_updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("1")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("cluster_id", "name", name="uq_resources_cluster_name"),
+        UniqueConstraint("id", "cluster_id", name="uq_resources_id_cluster"),
+        CheckConstraint(
+            "name = btrim(name) AND btrim(name) <> '' AND char_length(name) <= 128",
+            name="chk_resources_name",
+        ),
+        CheckConstraint(
+            "resource_type IN ('bare_metal','virtual_machine')",
+            name="chk_resources_type",
+        ),
+        CheckConstraint(
+            "status IN ('IDLE','ALLOC','DOWN','UNKNOWN')",
+            name="chk_resources_status",
+        ),
+        CheckConstraint("version >= 1", name="chk_resources_version"),
+        Index("ix_resources_cluster_id", "cluster_id"),
+    )
+
+
+class NetworkInterface(Base):
+    """无 IP 网卡子表（docs/database/F002.md §2.2）。"""
+
+    __tablename__ = "network_interfaces"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    resource_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # 冗余列：由复合 FK 钉住为所属资源的集群（落实「网段同集群」）。
+    cluster_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    segment_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "resource_id", "name", name="uq_network_interfaces_resource_name"
+        ),
+        CheckConstraint(
+            "name = btrim(name) AND btrim(name) <> '' AND char_length(name) <= 128",
+            name="chk_network_interfaces_name",
+        ),
+        ForeignKeyConstraint(
+            ["resource_id", "cluster_id"],
+            ["resources.id", "resources.cluster_id"],
+            ondelete="RESTRICT",
+            name="fk_network_interfaces_resource",
+        ),
+        ForeignKeyConstraint(
+            ["segment_id", "cluster_id"],
+            ["network_segments.id", "network_segments.cluster_id"],
+            ondelete="RESTRICT",
+            name="fk_network_interfaces_segment",
+        ),
+        Index(
+            "ix_network_interfaces_resource_cluster", "resource_id", "cluster_id"
+        ),
+        Index(
+            "ix_network_interfaces_segment_cluster", "segment_id", "cluster_id"
+        ),
     )
