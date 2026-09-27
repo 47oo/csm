@@ -1,9 +1,9 @@
 # F006 Test Report — IPv4 分配与同一表单 IP 集成
 
 - Task：F006（独立测试）；Tester；范围：后端 F006 IP 分配、前后端同表单 IP 集成、F005 网段保护扩展、`allocated-ips` 只读端点、审计/历史、DB 约束。
-- Status：**RETURN TO IMPLEMENTATION**
+- Status：**READY FOR REVIEW**（初测 RETURN TO IMPLEMENTATION 后经修复轮 1/2 关闭）
 - Basis：`docs/product/requirements-v2.md` §4.2/§4.4/§4.5/§5/§6.4/§7.1/§7.3/§7.4/§9.3、§10 场景 3/4/9/11/19–27/30/31/43/44/45/46/52/60/62/65、BQ-AB/BQ-AC/BQ-W/BQ-Z；`docs/api/F006.md`、`docs/api/F002.md`、`docs/api/F005.md`；`docs/architecture/F006-ip-allocation.md`；`docs/database/F006.md`。
-- 候选版本：分支 `feature/F006-ip-allocation`，HEAD `0b7038a`，base `v2`；测试期间工作区 clean（`git status --porcelain` 空）。
+- 候选版本：分支 `feature/F006-ip-allocation`，初测 HEAD `0b7038a`；修复后候选 HEAD 见文末修复轮记录；base `v2`；测试期间工作区 clean。
 
 ## Environment
 
@@ -130,3 +130,11 @@ GIT: git show --stat HEAD
 - **F006-N-01（NOTE）已处理**：`docs/database/F006.md` 已澄清 `SEGMENT_HAS_ALLOCATIONS` 由应用前置返回、FK 为兜底。
 - 协调器独立复跑：后端 **160 passed**（基线 158 + 2 回归）；前端未改动（391 passed / build 通过）。
 - 结论：缺陷关闭，重新走独立 Review。
+
+## 修复轮 2 重测（Reviewer CHANGES REQUIRED 后）
+
+- **F006-RV-01（MEDIUM）已修复**：`POST /resources` 并发分配到同集群同一地址返回 `500` 的问题；create 路径不再延迟该唯一约束、`db.commit()`/写入 `IntegrityError` 经 `ip_write_conflict_problem` 映射为 `409 IP_ALREADY_IN_USE`（附 `conflicts`）或自动 `409 NO_AVAILABLE_ADDRESS`；PATCH 路径映射一致补齐 `conflicts`。
+- 新增 API 层并发回归用例（手动/自动 POST、手动 PATCH）：恰一个成功、另一个 409，DB 仅一行、失败方无残留。
+- **F006-RV-04（NOTE）已处理**：`docs/api/F006.md` 错误表补记 `IP_INVALID` 子码。
+- 协调器独立复跑：后端 **163 passed**（基线 160 + 3 回归）；前端未改动（391 passed / build 通过）。
+- 结论：缺陷关闭，**READY FOR REVIEW**（重新走独立 Review）。

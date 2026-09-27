@@ -25,7 +25,7 @@ from ..ip_allocation.service import (
     allocate_specs,
     conflicting_ips,
     existing_ips_for_resource,
-    ip_write_problem,
+    ip_write_conflict_problem,
 )
 from ..models import IpAddress, NetworkInterface, NetworkSegment, Resource
 from ..network_segments.service import SegmentUsage
@@ -259,11 +259,18 @@ def create_resource(
             exc, db, cluster_id=payload.cluster_id, name=name
         )
 
-    # 同事务「先删后建同址」安全网；本请求地址已前置去重。
-    db.execute(text("SET CONSTRAINTS uq_ip_addresses_cluster_ip DEFERRED"))
+    # F006-RV-01：创建路径无「同事务先删后建同址」需求，故不将
+    # uq_ip_addresses_cluster_ip 延迟到提交；唯一性在受保护的 flush 触发，
+    # 并发/交错争用同一地址时映射为 409（手动 IP_ALREADY_IN_USE 附 conflicts /
+    # 自动 NO_AVAILABLE_ADDRESS）而非 500。
     created_by_interface: dict[int, list[tuple[str, IpAddress]]] = {}
     automatic = False
     manual = False
+    planned_addresses = {
+        p.address
+        for planned in planned_by_interface.values()
+        for p in planned
+    }
     try:
         for item in resolved:
             planned = planned_by_interface.get(item["index"], [])
@@ -288,7 +295,13 @@ def create_resource(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        prob = ip_write_problem(exc, automatic=automatic and not manual)
+        prob = ip_write_conflict_problem(
+            db,
+            exc,
+            cluster_id=payload.cluster_id,
+            candidate_addresses=planned_addresses,
+            automatic=automatic and not manual,
+        )
         if prob is not None:
             raise prob
         raise resource_write_problem(
@@ -328,7 +341,22 @@ def create_resource(
         resource.name,
         snapshot,
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        prob = ip_write_conflict_problem(
+            db,
+            exc,
+            cluster_id=payload.cluster_id,
+            candidate_addresses=planned_addresses,
+            automatic=automatic and not manual,
+        )
+        if prob is not None:
+            raise prob
+        raise resource_write_problem(
+            exc, db, cluster_id=payload.cluster_id, name=name
+        )
     db.refresh(resource)
     return resource_detail(db, resource)
 
@@ -877,6 +905,9 @@ def update_resource(
     manual = any(
         p.mode == MANUAL for planned in planned_by_action.values() for p in planned
     )
+    planned_addresses = {
+        p.address for planned in planned_by_action.values() for p in planned
+    }
     created_by_action: dict[int, list[tuple[str, IpAddress]]] = {}
     phase = "ip_delete"
     try:
@@ -973,8 +1004,13 @@ def update_resource(
             db.flush()
     except IntegrityError as exc:
         db.rollback()
-        prob = ip_write_problem(
-            exc, automatic=automatic and not manual, phase=phase
+        prob = ip_write_conflict_problem(
+            db,
+            exc,
+            cluster_id=cluster_id,
+            candidate_addresses=planned_addresses,
+            automatic=automatic and not manual,
+            phase=phase,
         )
         if prob is not None:
             raise prob
@@ -1069,7 +1105,13 @@ def update_resource(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        prob = ip_write_problem(exc, automatic=automatic and not manual)
+        prob = ip_write_conflict_problem(
+            db,
+            exc,
+            cluster_id=cluster_id,
+            candidate_addresses=planned_addresses,
+            automatic=automatic and not manual,
+        )
         if prob is not None:
             raise prob
         raise resource_write_problem(exc, db, cluster_id=cluster_id, name=new_name)

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import threading
+
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.db import SessionLocal
+from app.main import app
 from app.models import AuditLog, IpAddress, Resource, ResourceHistory
+from app.network_segments.usage import SegmentUsage
 
 PASSWORD = "Passw0rd1"
 BASE = "/api/v1/resources"
@@ -860,3 +864,252 @@ def test_audit_and_history_include_ips_and_management(client, add_user, login_as
     with SessionLocal() as db:
         assert db.scalar(select(func.count()).select_from(IpAddress).where(IpAddress.resource_id == created["id"])) == 0
         assert db.scalar(select(func.count()).select_from(ResourceHistory).where(ResourceHistory.target_id == str(created["id"]))) >= 1
+
+# --- 并发唯一性（F006-RV-01 回归） -----------------------------------------
+
+
+def _concurrent_api_calls(monkeypatch, builders, username: str = "root") -> list:
+    """并发执行同集群同地址的两个写请求，模拟交错的前置快照与写入。
+
+    ``SegmentUsage.allocated_ip_nums`` 被屏障包裹：两个请求都先取到相同的
+    前置可用性快照，再同时继续写入，从而复现「前置快照与写入之间被并发提交
+    插入同地址」的交错；最终由 ``uq_ip_addresses_cluster_ip`` 兜底。
+    """
+    barrier = threading.Barrier(len(builders), timeout=30)
+    original = SegmentUsage.allocated_ip_nums
+
+    def synced(db, cluster_id):
+        snapshot = original(db, cluster_id)
+        barrier.wait()
+        return snapshot
+
+    monkeypatch.setattr(SegmentUsage, "allocated_ip_nums", staticmethod(synced))
+    clients = [TestClient(app) for _ in builders]
+    responses: list = [None] * len(builders)
+    try:
+        for test_client in clients:
+            login = test_client.post(
+                "/api/v1/auth/login",
+                json={"username": username, "password": PASSWORD},
+            )
+            assert login.status_code == 200, login.text
+
+        def run(index: int) -> None:
+            responses[index] = builders[index](clients[index])
+
+        threads = [
+            threading.Thread(target=run, args=(index,))
+            for index in range(len(builders))
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=40)
+        assert all(
+            not thread.is_alive() for thread in threads
+        ), "并发请求未在超时内完成"
+    finally:
+        for test_client in clients:
+            test_client.close()
+    return responses
+
+
+def test_concurrent_create_same_manual_address_conflicts(
+    client, add_user, login_as, monkeypatch
+) -> None:
+    """F006-RV-01：并发/交错 POST 同地址 → 恰好一个 201，另一个 409 含 conflicts。"""
+    _auth(client, add_user, login_as, "root", "admin")
+    cid = _make_cluster(client, "C30")
+    seg = _make_segment(client, cid, cidr="10.30.0.0/24").json()
+    sid = seg["id"]
+
+    def body(name: str) -> dict:
+        return {
+            "cluster_id": cid,
+            "name": name,
+            "resource_type": "bare_metal",
+            "interfaces": [
+                {
+                    "name": "eth0",
+                    "segment_id": sid,
+                    "ips": [{"mode": "manual", "address": "10.30.0.5"}],
+                }
+            ],
+        }
+
+    def build(name: str):
+        return lambda test_client: test_client.post(BASE, json=body(name))
+
+    responses = _concurrent_api_calls(
+        monkeypatch, [build("racer-a"), build("racer-b")]
+    )
+    assert sorted(r.status_code for r in responses) == [201, 409], [
+        r.text for r in responses
+    ]
+
+    loser = next(r for r in responses if r.status_code == 409)
+    payload = loser.json()
+    assert payload["code"] == "IP_ALREADY_IN_USE"
+    assert len(payload["conflicts"]) == 1
+    assert payload["conflicts"][0]["ip"] == "10.30.0.5"
+    winner = next(r for r in responses if r.status_code == 201).json()
+    assert payload["conflicts"][0]["resource_name"] == winner["name"]
+    assert payload["conflicts"][0]["interface_name"] == "eth0"
+
+    # 失败方整单回滚：仅一行资源、一行 IP，且失败方资源不存在。
+    failed_name = "racer-b" if winner["name"] == "racer-a" else "racer-a"
+    with SessionLocal() as db:
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(Resource)
+                .where(Resource.cluster_id == cid)
+            )
+            == 1
+        )
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(IpAddress)
+                .where(IpAddress.cluster_id == cid)
+            )
+            == 1
+        )
+        assert (
+            db.scalar(
+                select(Resource.id).where(
+                    Resource.cluster_id == cid, Resource.name == failed_name
+                )
+            )
+            is None
+        )
+
+
+def test_concurrent_create_same_auto_address_no_available(
+    client, add_user, login_as, monkeypatch
+) -> None:
+    """并发自动分配争用同一候选地址 → 409 NO_AVAILABLE_ADDRESS，不切换网段。"""
+    _auth(client, add_user, login_as, "root", "admin")
+    cid = _make_cluster(client, "C31")
+    seg = _make_segment(
+        client,
+        cid,
+        cidr="10.31.0.0/24",
+        auto_alloc_start="10.31.0.20",
+        auto_alloc_end="10.31.0.25",
+    ).json()
+    sid = seg["id"]
+
+    def body(name: str) -> dict:
+        return {
+            "cluster_id": cid,
+            "name": name,
+            "resource_type": "bare_metal",
+            "interfaces": [
+                {
+                    "name": "eth0",
+                    "segment_id": sid,
+                    "ips": [{"mode": "auto"}],
+                }
+            ],
+        }
+
+    def build(name: str):
+        return lambda test_client: test_client.post(BASE, json=body(name))
+
+    responses = _concurrent_api_calls(
+        monkeypatch, [build("auto-a"), build("auto-b")]
+    )
+    assert sorted(r.status_code for r in responses) == [201, 409], [
+        r.text for r in responses
+    ]
+    loser = next(r for r in responses if r.status_code == 409)
+    assert loser.json()["code"] == "NO_AVAILABLE_ADDRESS"
+
+    winner = next(r for r in responses if r.status_code == 201).json()
+    assert [ip["address"] for ip in winner["interfaces"][0]["ips"]] == ["10.31.0.20"]
+    with SessionLocal() as db:
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(IpAddress)
+                .where(IpAddress.cluster_id == cid)
+            )
+            == 1
+        )
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(Resource)
+                .where(Resource.cluster_id == cid)
+            )
+            == 1
+        )
+
+
+def test_concurrent_patch_same_manual_address_conflicts(
+    client, add_user, login_as, monkeypatch
+) -> None:
+    """PATCH 并发映射确认：同一集群同地址两路 PATCH → 一个 200、一个 409。"""
+    _auth(client, add_user, login_as, "root", "admin")
+    cid = _make_cluster(client, "C32")
+    seg = _make_segment(client, cid, cidr="10.32.0.0/24").json()
+    sid = seg["id"]
+
+    def make_resource(name: str) -> dict:
+        resp = _make_resource(
+            client,
+            cid,
+            name=name,
+            interfaces=[{"name": "eth0", "segment_id": sid}],
+        )
+        assert resp.status_code == 201, resp.text
+        return resp.json()
+
+    first = make_resource("patch-a")
+    second = make_resource("patch-b")
+
+    def build(resource: dict):
+        interface_id = resource["interfaces"][0]["id"]
+
+        def call(test_client):
+            return test_client.patch(
+                f"{BASE}/{resource['id']}",
+                json={
+                    "interfaces": [
+                        {
+                            "op": "update",
+                            "id": interface_id,
+                            "ips": [
+                                {
+                                    "op": "create",
+                                    "mode": "manual",
+                                    "address": "10.32.0.5",
+                                }
+                            ],
+                        }
+                    ],
+                    "version": 1,
+                },
+            )
+
+        return call
+
+    responses = _concurrent_api_calls(
+        monkeypatch, [build(first), build(second)]
+    )
+    assert sorted(r.status_code for r in responses) == [200, 409], [
+        r.text for r in responses
+    ]
+    loser = next(r for r in responses if r.status_code == 409)
+    assert loser.json()["code"] == "IP_ALREADY_IN_USE"
+    assert loser.json()["conflicts"][0]["ip"] == "10.32.0.5"
+    with SessionLocal() as db:
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(IpAddress)
+                .where(IpAddress.cluster_id == cid)
+            )
+            == 1
+        )

@@ -268,6 +268,33 @@ def ip_write_problem(
     return None
 
 
+def ip_write_conflict_problem(
+    db: Session,
+    exc: IntegrityError,
+    *,
+    cluster_id: int,
+    candidate_addresses: set[str],
+    automatic: bool = False,
+    phase: str | None = None,
+):
+    """``ip_write_problem`` 的并发兜底扩展：``IP_ALREADY_IN_USE`` 附 ``conflicts``。
+
+    前置可用性快照与写入之间被并发提交插入了同集群同地址时，唯一约束在写入
+    阶段兜底触发（创建路径不在事务内延迟该约束）。此处在回滚后按本次计划地址
+    反查现存占用行，补齐 Contract 要求的 ``conflicts`` 成员；其余错误语义不变。
+    """
+    prob = ip_write_problem(exc, automatic=automatic, phase=phase)
+    if (
+        prob is not None
+        and prob.code == "IP_ALREADY_IN_USE"
+        and candidate_addresses
+    ):
+        conflicts = conflicting_ips(db, cluster_id, candidate_addresses)
+        if conflicts:
+            prob.extra = {**prob.extra, "conflicts": conflicts}
+    return prob
+
+
 def allocated_ip_item(
     ip: IpAddress, interface: NetworkInterface, resource: Resource, is_management: bool
 ) -> dict[str, Any]:
