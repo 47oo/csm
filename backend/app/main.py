@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from .auth.router import router as auth_router
 from .clusters.router import router as clusters_router
 from .errors import ProblemException, problem_body
+from .network_segments.router import router as network_segments_router
 from .users.router import router as users_router
 
 logger = logging.getLogger("csm")
@@ -83,3 +84,4 @@ def healthz() -> dict[str, str]:
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
 app.include_router(clusters_router, prefix="/api/v1")
+app.include_router(network_segments_router, prefix="/api/v1")

@@ -24,6 +24,17 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
 
+_IPV4_RE = (
+    r"^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\."
+    r"(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\."
+    r"(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\."
+    r"(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$"
+)
+_IPV4_CIDR_RE = (
+    r"^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}"
+    r"(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])/(3[0-2]|[12]?[0-9])$"
+)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -241,6 +252,120 @@ class ResourceHistory(Base):
         Index("ix_resource_history_occurred_at", text("occurred_at DESC")),
         Index("ix_resource_history_actor", "actor_user_id"),
         Index("ix_resource_history_target", "target_type", "target_id"),
+    )
+
+
+class NetworkSegment(Base):
+    __tablename__ = "network_segments"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    cluster_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "clusters.id",
+            ondelete="RESTRICT",
+            name="fk_network_segments_cluster",
+        ),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    cidr: Mapped[str] = mapped_column(Text, nullable=False)
+    cidr_key: Mapped[str] = mapped_column(
+        Text, Computed("cidr", persisted=True), nullable=False
+    )
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    technology: Mapped[str] = mapped_column(Text, nullable=False)
+    vlan: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gateway: Mapped[str | None] = mapped_column(Text, nullable=True)
+    auto_alloc_start: Mapped[str | None] = mapped_column(Text, nullable=True)
+    auto_alloc_end: Mapped[str | None] = mapped_column(Text, nullable=True)
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("1")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "cluster_id", "name", name="uq_network_segments_cluster_name"
+        ),
+        UniqueConstraint(
+            "cluster_id", "cidr_key", name="uq_network_segments_cluster_cidr"
+        ),
+        CheckConstraint(
+            "name = btrim(name) AND btrim(name) <> '' AND char_length(name) <= 128",
+            name="chk_network_segments_name",
+        ),
+        CheckConstraint(
+            f"cidr ~ '{_IPV4_CIDR_RE}'",
+            name="chk_network_segments_cidr",
+        ),
+        CheckConstraint(
+            "btrim(purpose) <> '' AND char_length(purpose) <= 200",
+            name="chk_network_segments_purpose",
+        ),
+        CheckConstraint(
+            "btrim(technology) <> '' AND char_length(technology) <= 100",
+            name="chk_network_segments_technology",
+        ),
+        CheckConstraint(
+            "vlan IS NULL OR vlan BETWEEN 1 AND 4094",
+            name="chk_network_segments_vlan",
+        ),
+        CheckConstraint(
+            f"gateway IS NULL OR gateway ~ '{_IPV4_RE}'",
+            name="chk_network_segments_gateway",
+        ),
+        CheckConstraint(
+            (
+                "(auto_alloc_start IS NULL) = (auto_alloc_end IS NULL) AND "
+                "(auto_alloc_start IS NULL OR ("
+                f"auto_alloc_start ~ '{_IPV4_RE}' AND auto_alloc_end ~ '{_IPV4_RE}'"
+                "))"
+            ),
+            name="chk_network_segments_auto_alloc",
+        ),
+        CheckConstraint("version >= 1", name="chk_network_segments_version"),
+        Index("ix_network_segments_cluster_id", "cluster_id"),
+    )
+
+
+class SegmentReservedAddress(Base):
+    __tablename__ = "segment_reserved_addresses"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    segment_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "network_segments.id",
+            ondelete="RESTRICT",
+            name="fk_segment_reserved_addresses_segment",
+        ),
+        nullable=False,
+    )
+    start_ip: Mapped[str] = mapped_column(Text, nullable=False)
+    end_ip: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            f"start_ip ~ '{_IPV4_RE}'",
+            name="chk_segment_reserved_addresses_start_ip",
+        ),
+        CheckConstraint(
+            f"end_ip ~ '{_IPV4_RE}'",
+            name="chk_segment_reserved_addresses_end_ip",
+        ),
+        Index("ix_segment_reserved_addresses_segment_id", "segment_id"),
     )
 
 

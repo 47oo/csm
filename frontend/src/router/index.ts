@@ -24,6 +24,12 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/ClustersView.vue'),
   },
   {
+    // 网段列表（架构 F005 §2.4：集群内列表；clusterId 仅限数字）
+    path: '/clusters/:clusterId(\\d+)/segments',
+    name: 'cluster-segments',
+    component: () => import('../views/SegmentsView.vue'),
+  },
+  {
     path: '/admin/users',
     name: 'admin-users',
     component: () => import('../views/AdminUsersView.vue'),
