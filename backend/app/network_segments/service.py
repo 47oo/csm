@@ -81,8 +81,22 @@ def fk_delete_problem(exc: IntegrityError):
     return problem(409, "SEGMENT_HAS_RESERVED_ADDRESSES", "网段仍有关联资源，禁止删除")
 
 
-def get_segment_or_404(db: Session, segment_id: int) -> NetworkSegment:
-    segment = db.get(NetworkSegment, segment_id)
+def get_segment_or_404(
+    db: Session, segment_id: int, *, for_update: bool = False
+) -> NetworkSegment:
+    """按 id 取网段，不存在返回 ``404 SEGMENT_NOT_FOUND``。
+
+    ``for_update=True`` 时对目标行加 ``SELECT ... FOR UPDATE`` 行锁（架构 §6.3），
+    与保留地址新增共享同一父行锁，串行化「改 CIDR」与「新增保留地址」的竞争。
+    """
+    if for_update:
+        segment = db.execute(
+            select(NetworkSegment)
+            .where(NetworkSegment.id == segment_id)
+            .with_for_update()
+        ).scalar_one_or_none()
+    else:
+        segment = db.get(NetworkSegment, segment_id)
     if segment is None:
         raise problem(404, "SEGMENT_NOT_FOUND", "网段不存在")
     return segment
