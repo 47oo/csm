@@ -424,16 +424,16 @@ features:
     blocking_decisions: []
     status: IN_PROGRESS
     current_stage: IMPLEMENTATION
-    last_result: Database COMPLETE（docs/database/F005.md）；Backend COMPLETE（91 passed，含 27 新增；协调器独立复跑通过）
-    next_action: Frontend 实现（网段页面 /clusters/:clusterId/segments），随后 Test → Review
+    last_result: Backend COMPLETE（91 passed）；Frontend COMPLETE（frontend/，Vitest 266 passed、pnpm build 通过）
+    next_action: Tester 独立验证（场景 10/12/53/60/82 相关、DB 约束），要求 READY FOR REVIEW
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: PENDING, test: PENDING, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
     contract: {status: READY, doc: docs/api/F005.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F005-network-segments
       start_commit: dd6e22bf7aa57b9b6c7f4dbee6518ba5afcd1aa9
-      head_commit: 313135e
+      head_commit: 25a27b6
       merge_commit: null
     evidence: []
 
@@ -2260,4 +2260,4 @@ execution:
   current_stage: DATABASE
   note: >
     F005「网段、保留地址与网段历史写入」进行中（分支 feature/F005-network-segments，start_commit dd6e22b，base v2）。
-    Architecture/Contract/Database 完成；Backend 完成（91 passed）；进行 Frontend 实现。
+    Architecture/Contract/Database 完成；Backend/Frontend 完成；进行独立 TEST。

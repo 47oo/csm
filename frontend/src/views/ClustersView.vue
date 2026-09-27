@@ -2,7 +2,9 @@
 // 集群列表页 /clusters（架构 F001 §2.3）：分页/q 搜索/排序；新增与编辑仅 admin、
 // 真实删除 maintainer/admin（含 BQ-Z 二次确认：须输入集群名称或 code 匹配后才可提交）。
 // 前端权限仅用于隐藏入口，最终权限由服务端校验（架构 §2.3）。
+// F005：操作列增加「网段」入口（跳转该集群的网段列表，任意已登录可查看）。
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormItemRule } from 'element-plus'
 import {
@@ -28,6 +30,12 @@ import {
 
 const auth = useAuthStore()
 const clusterStore = useClusterStore()
+const router = useRouter()
+
+/** 跳转该集群的网段列表（F005，任意已登录可查看；作用域由集群选择状态承接） */
+function goSegments(row: ClusterListItem): void {
+  void router.push({ name: 'cluster-segments', params: { clusterId: String(row.id) } })
+}
 
 // 操作入口可见性（服务端为最终校验）：新增/编辑仅 admin；删除 maintainer/admin
 const canCreate = computed(() => auth.isAdmin)
@@ -415,9 +423,10 @@ onMounted(() => {
         <el-table-column label="更新时间" width="170">
           <template #default="{ row }">{{ formatDateTime(row.updated_at) }}</template>
         </el-table-column>
-        <el-table-column v-if="canCreate || canDelete" label="操作" width="140" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <!-- 编辑仅平台管理员；删除 maintainer/admin；查看者无操作入口 -->
+            <!-- 网段：任意已登录可查看（F005）；编辑仅平台管理员；删除 maintainer/admin -->
+            <el-button link type="primary" @click="goSegments(row)">网段</el-button>
             <el-button v-if="canCreate" link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button v-if="canDelete" link type="danger" @click="openDelete(row)">删除</el-button>
           </template>
