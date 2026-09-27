@@ -279,11 +279,19 @@ features:
     priority: P0
     depends_on: [F001, F005]
     blocking_decisions: []
-    status: READY
+    status: IN_PROGRESS
+    current_stage: ARCHITECTURE
+    last_result: 产品规则复用（requirements §4.1/§4.2/§4.3/§4.4/§4.5/§2.2/§6.4/§7.1–7.4/§2.1/§9.1；BQ-AA/AB/W/Z；无 Blocking Question）
+    next_action: Architect 产出架构与 Contract（docs/architecture/F002-*.md、docs/api/F002.md）
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出（F002 已 READY，实施时产出）}
-    git: null
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    git:
+      base_branch: v2
+      branch: feature/F002-resource-registration
+      start_commit: 93921ed1f26b3b0f098e7dfaf31b35ef7066aed3
+      head_commit: 93921ed1f26b3b0f098e7dfaf31b35ef7066aed3
+      merge_commit: null
     evidence: []
 
   - id: F003
@@ -2243,13 +2251,13 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: IN_PROGRESS
-  ready_features: [F002]
+  ready_features: []
   blocked_draft_features:
     BLOCKED: [F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
-    READY: 1
-    IN_PROGRESS: 0
+    READY: 0
+    IN_PROGRESS: 1
     BLOCKED: 10
     DRAFT: 0
     DONE: 3
@@ -2271,8 +2279,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F002
+  current_stage: ARCHITECTURE
   note: >
-    F005「网段、保留地址与网段历史写入」已完成（Merge 102e348，批准 HEAD 49a2429）并做最终状态提交。
-    重算 READY 为空；下一候选 F002 依赖的两个产品决策 D-STATUS-SOURCE、D-IP-SEMANTICS 仍 OPEN，需用户确认后方可 READY。
+    F002「计算资源登记、无 IP 网卡与一次原子提交基础」进行中（分支 feature/F002-resource-registration，
+    start_commit 93921ed，base v2）。产品规则复用完成；进行 ARCHITECTURE 与 Contract。
