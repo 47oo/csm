@@ -30,6 +30,20 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/SegmentsView.vue'),
   },
   {
+    // 计算资源统一列表（架构 F003 §2.4/§7：集群作用域 + 类型/状态筛选 + 搜索 +
+    // 服务端分页；任意已登录可读，写入口仅 maintainer/admin，服务端最终校验）
+    path: '/clusters/:clusterId(\\d+)/resources',
+    name: 'cluster-resources',
+    component: () => import('../views/ClusterResourcesView.vue'),
+  },
+  {
+    // 资源公共详情（架构 F003 §2.4/§5：复用 F002/F006 GET /resources/{id}；
+    // 任意已登录可读；类型专有字段（F004）与服务关联（F007）后续以附加字段扩展）
+    path: '/clusters/:clusterId(\\d+)/resources/:resourceId(\\d+)',
+    name: 'resource-detail',
+    component: () => import('../views/ResourceDetailView.vue'),
+  },
+  {
     // 新增计算资源（架构 F002 §2.4：资源表单；写入口仅 maintainer/admin，服务端最终校验）
     path: '/clusters/:clusterId(\\d+)/resources/new',
     name: 'resource-new',

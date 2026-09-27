@@ -9,8 +9,12 @@ import {
   createResource,
   deleteResource,
   getResource,
+  listResources,
   updateResource,
+  type ManagementIpSummary,
+  type PagedResources,
   type ResourceFormDetail,
+  type ResourceListItem,
 } from './resources'
 
 const originalAdapter = client.defaults.adapter
@@ -574,5 +578,133 @@ describe('错误映射（problem+json → ApiError；401/403 走全局，其余�
     } else {
       expect.unreachable('应为 ApiError')
     }
+  })
+})
+
+// ---------- F003：GET /resources 统一资源列表（Contract docs/api/F003.md §2.1） ----------
+
+const listItem = (overrides: Partial<ResourceListItem> & Pick<ResourceListItem, 'id'>): ResourceListItem => ({
+  name: 'cn001',
+  cluster_id: 1,
+  cluster_code: 'N96P',
+  cluster_name: '生产集群',
+  resource_type: 'bare_metal',
+  resource_type_label: '裸金属',
+  status: 'ALLOC',
+  status_label: '已分配',
+  management_ip: null,
+  updated_at: '2026-09-25T00:00:00Z',
+  ...overrides,
+})
+
+function pagedResources(items: ResourceListItem[], total: number, pageNumber = 1): PagedResources {
+  return {
+    items,
+    total,
+    page: pageNumber,
+    page_size: 20,
+    scope: { cluster_id: 1, cluster_code: 'N96P', cluster_name: '生产集群' },
+  }
+}
+
+describe('listResources（Contract F003 §2.1：GET /resources，cluster_id 必填作用域）', () => {
+  it('仅 cluster_id：query 只含 cluster_id（其余默认由服务端应用）', async () => {
+    const captured = captureRequests(() => pagedResources([], 0))
+    await listResources({ cluster_id: 1 })
+    expect(captured[0]?.method).toBe('get')
+    expect(captured[0]?.url).toBe('/resources')
+    expect(captured[0]?.params).toEqual({ cluster_id: '1' })
+  })
+
+  it('完整筛选：resource_type/status/q（去首尾空格）/page/page_size/sort 全部经 query 传递', async () => {
+    const captured = captureRequests(() => pagedResources([], 0))
+    await listResources({
+      cluster_id: 3,
+      resource_type: 'virtual_machine',
+      status: 'DOWN',
+      q: '  192.168.1.  ',
+      page: 2,
+      page_size: 50,
+      sort: '-updated_at',
+    })
+    expect(captured[0]?.params).toEqual({
+      cluster_id: '3',
+      resource_type: 'virtual_machine',
+      status: 'DOWN',
+      q: '192.168.1.',
+      page: '2',
+      page_size: '50',
+      sort: '-updated_at',
+    })
+  })
+
+  it('空串筛选与纯空白 q 不发送（= 全部 / 不搜索）', async () => {
+    const captured = captureRequests(() => pagedResources([], 0))
+    await listResources({ cluster_id: 1, resource_type: '', status: '', q: '   ', sort: '' })
+    expect(captured[0]?.params).toEqual({ cluster_id: '1' })
+  })
+
+  it('响应解析：items/total/scope（作用域回显，含类型/状态展示文字与管理 IP）', async () => {
+    const managementIp: ManagementIpSummary = {
+      ip_id: 55,
+      address: '192.168.1.10',
+      interface_id: 10,
+      interface_name: 'eth0',
+    }
+    useTestAdapter(() => ({
+      status: 200,
+      data: pagedResources([listItem({ id: 7, management_ip: managementIp })], 1),
+    }))
+    const data = await listResources({ cluster_id: 1 })
+    expect(data.total).toBe(1)
+    expect(data.items[0]?.status_label).toBe('已分配')
+    expect(data.items[0]?.resource_type_label).toBe('裸金属')
+    expect(data.items[0]?.management_ip).toEqual(managementIp)
+    expect(data.scope).toEqual({ cluster_id: 1, cluster_code: 'N96P', cluster_name: '生产集群' })
+  })
+
+  it.each([
+    'CLUSTER_ID_REQUIRED',
+    'CLUSTER_ID_INVALID',
+    'RESOURCE_TYPE_INVALID',
+    'STATUS_INVALID',
+    'INVALID_SORT',
+    'INVALID_PAGE',
+    'INVALID_PAGE_SIZE',
+  ])('400 INVALID_REQUEST（errors[].code=%s）→ ApiError 可读（Contract F003 §0 错误码总表）', async (fieldCode) => {
+    const handlers = {
+      onUnauthorized: vi.fn(),
+      onForbidden: vi.fn(),
+      onPasswordChangeRequired: vi.fn(),
+    }
+    setApiHandlers(handlers)
+    useTestAdapter(() => ({
+      status: 400,
+      data: problemBody('INVALID_REQUEST', '查询参数非法', 400, undefined, [
+        { field: 'cluster_id', code: fieldCode, message: '参数非法' },
+      ]),
+    }))
+    const error = await listResources({ cluster_id: 1 }).catch((e: unknown) => e)
+    if (isApiError(error)) {
+      expect(error.status).toBe(400)
+      expect(error.code).toBe('INVALID_REQUEST')
+      expect(error.errors[0]?.code).toBe(fieldCode)
+    } else {
+      expect.unreachable('应为 ApiError')
+    }
+    expect(handlers.onUnauthorized).not.toHaveBeenCalled()
+    expect(handlers.onForbidden).not.toHaveBeenCalled()
+  })
+
+  it('401 UNAUTHENTICATED → 触发全局 onUnauthorized（跳登录）', async () => {
+    const onUnauthorized = vi.fn()
+    setApiHandlers({
+      onUnauthorized,
+      onForbidden: vi.fn(),
+      onPasswordChangeRequired: vi.fn(),
+    })
+    useTestAdapter(() => ({ status: 401, data: problemBody('UNAUTHENTICATED', '未登录', 401) }))
+    await listResources({ cluster_id: 1 }).catch(() => undefined)
+    expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
 })
