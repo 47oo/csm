@@ -279,21 +279,22 @@ features:
     priority: P0
     depends_on: [F001, F005]
     blocking_decisions: []
-    status: IN_REVIEW
-    current_stage: REVIEW
-    last_result: Tester READY FOR REVIEW（后端 120 + 前端 329 passed；独立探针 60/60）
-    next_action: Reviewer 独立 Review（候选 HEAD ddde361、base v2）
+    status: DONE
+    current_stage: null
+    last_result: Reviewer APPROVED（候选 1e62741）；Merge 1b682e2；F002 完成
+    next_action: null（重算 READY=[F006]）
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
+    implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
     contract: {status: READY, doc: docs/api/F002.md, reason: ADR-003 已批准；架构 Contract READY}
     git:
       base_branch: v2
       branch: feature/F002-resource-registration
       start_commit: 93921ed1f26b3b0f098e7dfaf31b35ef7066aed3
-      head_commit: ddde361
-      merge_commit: null
+      head_commit: 1e6274111c566ccac5cb5fee49732e8d4ec34005
+      merge_commit: 1b682e2a3d416e7cbd666d572fb95c86ad08cdec
     evidence:
       - docs/project/reports/F002-test-report.md
+      - docs/project/reports/F002-review-report.md
   - id: F003
     title: 计算资源统一列表、详情与服务端分页
     epic: E2
@@ -512,10 +513,10 @@ features:
     priority: P0
     depends_on: [F002, F005]
     blocking_decisions: [D-IP-SEMANTICS]
-    status: BLOCKED
+    status: READY
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出（F006 已 READY，实施时产出）}
     git: null
     evidence: []
 
@@ -1208,7 +1209,7 @@ planning_audit:
       场景 82 closure_owner=F011（M4），participants [F001,F002,F005,F007,F011]，其参与 Feature 均在 F011 之前交付。
     gaps: []
   status_evidence:
-    done: 1
+    done: 4
     statement: >
       F013 已 DONE（Merge dcfa6ff，Review APPROVED WITH FOLLOW-UP），具备提交/测试/Review/合并证据；
       其余 Feature 无证据。F001 READY（depends_on=[F013] 已 DONE 且 blocking_decisions=[]），
@@ -2251,17 +2252,17 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: IN_PROGRESS
-  ready_features: []
+  ready_features: [F006]
   blocked_draft_features:
-    BLOCKED: [F003, F004, F006, F007, F008, F009, F010, F011, F012]
+    BLOCKED: [F003, F004, F007, F008, F009, F010, F011, F012]
     DRAFT: []
   counts:
-    READY: 0
+    READY: 1
     IN_PROGRESS: 0
-    IN_REVIEW: 1
-    BLOCKED: 9
+    IN_REVIEW: 0
+    BLOCKED: 8
     DRAFT: 0
-    DONE: 3
+    DONE: 4
     CANCELLED: 0
   note: >
     plan_completeness=complete 表示本计划已覆盖 requirements-v2.md 已确认范围与
@@ -2280,8 +2281,7 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: F002
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   note: >
-    F002「计算资源登记、无 IP 网卡与一次原子提交基础」处于 IN_REVIEW（分支 feature/F002-resource-registration，
-    start_commit 93921ed，base v2）。实现/测试完成，进行 Review/Merge。
+    F002 已完成（Merge 1b682e2，批准 HEAD 1e62741）并做最终状态提交。重算 READY=[F006]；无进行中 Feature。
