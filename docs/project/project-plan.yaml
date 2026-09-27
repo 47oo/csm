@@ -328,11 +328,19 @@ features:
     priority: P0
     depends_on: [F002, F006]
     blocking_decisions: []
-    status: READY
+    status: IN_PROGRESS
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出（F003 已 READY，实施时产出）}
-    git: null
+    current_stage: ARCHITECTURE
+    last_result: 产品规则复用（requirements §4.3/§6.2/§6.3/§9.2/§9.4；BQ-AA；无 Blocking Question；database 层 NOT_REQUIRED）
+    next_action: Architect 产出架构与 Contract（docs/architecture/F003-*.md、docs/api/F003.md）
+    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    git:
+      base_branch: v2
+      branch: feature/F003-resource-list-detail
+      start_commit: ccc6f9ffece626d10482b3f6ce5b4941dc32fd12
+      head_commit: ccc6f9ffece626d10482b3f6ce5b4941dc32fd12
+      merge_commit: null
     evidence: []
 
   - id: F004
@@ -2267,13 +2275,13 @@ requirement_coverage:
 planning_status:
   plan_completeness: complete
   status: IN_PROGRESS
-  ready_features: [F003, F012]
+  ready_features: [F012]
   blocked_draft_features:
     BLOCKED: [F004, F007, F008, F009, F010, F011]
     DRAFT: []
   counts:
-    READY: 2
-    IN_PROGRESS: 0
+    READY: 1
+    IN_PROGRESS: 1
     IN_REVIEW: 0
     BLOCKED: 6
     DRAFT: 0
@@ -2296,7 +2304,8 @@ planning_status:
     重算 Feature 状态；本次批准不自动启动实施。
 
 execution:
-  current_feature: null
-  current_stage: null
+  current_feature: F003
+  current_stage: ARCHITECTURE
   note: >
-    F006 已完成（Merge 6fc6cd4，批准 HEAD 9662f2c）并做最终状态提交。重算 READY=[F003, F012]；无进行中 Feature。
+    F003「计算资源统一列表、详情与服务端分页」进行中（分支 feature/F003-resource-list-detail，
+    start_commit ccc6f9f，base v2）。产品规则复用完成；进行 ARCHITECTURE 与 Contract。
