@@ -287,8 +287,7 @@ features:
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
     git: null
-    evidence:
-      - docs/project/reports/F005-test-report.md
+    evidence: []
 
   - id: F003
     title: 计算资源统一列表、详情与服务端分页
@@ -436,8 +435,8 @@ features:
       start_commit: dd6e22bf7aa57b9b6c7f4dbee6518ba5afcd1aa9
       head_commit: d6c3f83
       merge_commit: null
-    evidence: []
-
+    evidence:
+      - docs/project/reports/F005-test-report.md
   - id: F006
     title: IPv4 分配与同一表单 IP 集成
     epic: E4
