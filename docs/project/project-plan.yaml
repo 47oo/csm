@@ -513,16 +513,16 @@ features:
     blocking_decisions: []
     status: IN_PROGRESS
     layers: {database: true, backend: true, frontend: true}
-    implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    current_stage: DATABASE
-    last_result: Architect READY FOR IMPLEMENTATION；Contract READY（docs/api/F006.md，扩展 F002 + 新增 allocated-ips；F005 新增冲突错误码已同步）
-    next_action: Database 设计（docs/database/F006.md）
+    implementation: {database_design: COMPLETE, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
+    current_stage: IMPLEMENTATION
+    last_result: Database READY FOR DATABASE IMPLEMENTATION（docs/database/F006.md，ip_addresses + management_ip_id + 复合 FK）
+    next_action: Backend 实现（ip_addresses + SegmentUsage 接入 + 资源事务扩展 + allocated-ips 端点）与 Frontend 实现（IP 区）
     contract: {status: READY, doc: docs/api/F006.md, reason: ADR-003 已批准；架构 Contract READY，扩展 docs/api/F002.md}
     git:
       base_branch: v2
       branch: feature/F006-ip-allocation
       start_commit: 75162137351f789f2d8f383534309137b57b01a8
-      head_commit: f27889a
+      head_commit: dae2c2a
       merge_commit: null
     evidence: []
 
@@ -2299,4 +2299,4 @@ execution:
   current_stage: ARCHITECTURE
   note: >
     F006「IPv4 分配与同一表单 IP 集成」进行中（分支 feature/F006-ip-allocation，
-    start_commit 7516213，base v2）。Architecture/Contract 完成（READY）；进行 DATABASE 设计。
+    start_commit 7516213，base v2）。Architecture/Contract/Database 完成；进行 Backend/Frontend 实现。
