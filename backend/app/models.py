@@ -499,8 +499,17 @@ class NetworkInterface(Base):
     )
 
     __table_args__ = (
+        # 延迟唯一约束（DEFERRABLE INITIALLY IMMEDIATE）：同一 PATCH 内互换
+        # 两个接口名（终态合法）时，逐条 UPDATE 的中间态可瞬时重名；唯一性在
+        # 提交时统一判定（F002-R-06）。仍保持立即生效的默认行为，仅当写事务显式
+        # ``SET CONSTRAINTS ... DEFERRED`` 才延迟到提交。组合键语义与数据库设计
+        # §2.2 一致（同一资源下接口名唯一）。
         UniqueConstraint(
-            "resource_id", "name", name="uq_network_interfaces_resource_name"
+            "resource_id",
+            "name",
+            name="uq_network_interfaces_resource_name",
+            deferrable=True,
+            initially="IMMEDIATE",
         ),
         CheckConstraint(
             "name = btrim(name) AND btrim(name) <> '' AND char_length(name) <= 128",

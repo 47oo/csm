@@ -167,14 +167,36 @@ def constraint_name(exc: IntegrityError) -> str:
     return getattr(diag, "constraint_name", "") or ""
 
 
-def resource_write_problem(exc: IntegrityError):
-    """资源/网卡写入的 DB 完整性冲突 → Contract 错误语义（并发兜底）。"""
-    name = constraint_name(exc)
-    if "uq_resources_cluster_name" in name:
-        return problem(409, "RESOURCE_NAME_EXISTS", "同集群已存在同名资源")
-    if "uq_network_interfaces_resource_name" in name:
+def resource_write_problem(
+    exc: IntegrityError,
+    db: Session | None = None,
+    *,
+    cluster_id: int | None = None,
+    name: str | None = None,
+):
+    """资源/网卡写入的 DB 完整性冲突 → Contract 错误语义（并发兜底）。
+
+    ``uq_resources_cluster_name``（23505）的兜底需与前置查重路径一致地带上
+    ``existing_resource_id``/``existing_resource_type`` 扩展成员：传入 ``db`` 与
+    冲突坐标（``cluster_id``/``name``，此时调用方应已 ``rollback``）后，在本事务
+    外重新查询仍存同名资源并回填（F002-R-07）。
+    """
+    name_ = constraint_name(exc)
+    if "uq_resources_cluster_name" in name_:
+        extra: dict[str, Any] | None = None
+        if db is not None and cluster_id is not None and name is not None:
+            existing = find_by_cluster_name(db, cluster_id, name)
+            if existing is not None:
+                extra = {
+                    "existing_resource_id": existing.id,
+                    "existing_resource_type": existing.resource_type,
+                }
+        return problem(
+            409, "RESOURCE_NAME_EXISTS", "同集群已存在同名资源", extra=extra
+        )
+    if "uq_network_interfaces_resource_name" in name_:
         return problem(409, "INTERFACE_NAME_TAKEN", "同一资源下接口名重复")
-    if "fk_network_interfaces_segment" in name:
+    if "fk_network_interfaces_segment" in name_:
         return problem(
             422,
             "VALIDATION_ERROR",
@@ -187,20 +209,20 @@ def resource_write_problem(exc: IntegrityError):
                 )
             ],
         )
-    if "fk_network_interfaces_resource" in name:
+    if "fk_network_interfaces_resource" in name_:
         return problem(409, "RESOURCE_HAS_INTERFACES", "仍存网卡，禁止真实删除")
-    if "fk_resources_cluster" in name:
+    if "fk_resources_cluster" in name_:
         return problem(
             409, "CLUSTER_HAS_ASSOCIATIONS", "集群仍有关联资源，禁止真实删除"
         )
-    if "chk_network_interfaces_name" in name:
+    if "chk_network_interfaces_name" in name_:
         return problem(
             422,
             "VALIDATION_ERROR",
             "字段校验失败",
             errors=[err("interfaces", "INTERFACE_NAME_FORMAT", "接口名不满足约束")],
         )
-    if "chk_resources_name" in name:
+    if "chk_resources_name" in name_:
         return problem(
             422,
             "VALIDATION_ERROR",
