@@ -422,7 +422,7 @@ features:
     priority: P0
     depends_on: [F001]
     blocking_decisions: []
-    status: BLOCKED
+    status: READY
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: PENDING, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
     contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
