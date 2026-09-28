@@ -5,7 +5,7 @@
 //   （§8.2 同级按名称及 ID 稳定排序；匹配与排序在服务端完成）。
 import { listClusters, type ClusterListItem } from '../api/clusters'
 import { listResources, type ResourceListItem } from '../api/resources'
-import { listNetworkSegments, type NetworkSegmentListItem } from '../api/segments'
+import { listNetworkSegments } from '../api/segments'
 
 /** 统一下拉选项（架构 F008 §4.2）：value=稳定 ID；keywords 仅用于客户端本地过滤场景 */
 export interface SearchOption {
@@ -45,8 +45,18 @@ export function resourceToSearchOption(resource: ResourceListItem): SearchOption
   }
 }
 
+/** 网段下拉展示字段（segmentToSearchOption 只读取这些字段；NetworkSegmentListItem 与
+ * 资源表单的 SegmentOption 均结构满足） */
+export interface SegmentSearchFields {
+  id: number
+  name: string
+  cidr: string
+  purpose: string
+  technology: string
+}
+
 /** 网段 → SearchOption：value=id；label=「名称 · CIDR · 用途」；keywords=名称+CIDR+用途+技术类型 */
-export function segmentToSearchOption(segment: NetworkSegmentListItem): SearchOption {
+export function segmentToSearchOption(segment: SegmentSearchFields): SearchOption {
   return {
     value: segment.id,
     label: `${segment.name} · ${segment.cidr} · ${segment.purpose}`,

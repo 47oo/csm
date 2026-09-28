@@ -24,8 +24,16 @@ import type {
   ResourceStatus,
   ResourceType,
 } from '../api/resources'
-import { listNetworkSegments } from '../api/segments'
+import { getNetworkSegment, listNetworkSegments } from '../api/segments'
 import { apiErrorMessage, isApiError } from '../api/client'
+import {
+  clusterToSearchOption,
+  fetchClusterSearchOptions,
+  fetchSegmentSearchOptions,
+  segmentToSearchOption,
+  type SearchOption,
+  type SearchOptionsPage,
+} from '../utils/searchOptions'
 import { useAuthStore } from '../stores/auth'
 import { useClusterStore } from '../stores/clusters'
 import {
@@ -441,6 +449,50 @@ export function useResourceForm() {
     if (clusterId !== null) void loadSegmentOptions(clusterId)
   }
 
+  // ---------- 网段/集群下拉数据源（F008 §4.2/§5.1、需求 §8.1：服务端 q 模糊匹配） ----------
+
+  /** 网段下拉初始候选与选中回显（全量列表 → SearchOption；label=名称·CIDR·用途，§7.1）。
+   * 列表加载失败或加载后新建的网段由 segmentFetcher 服务端搜索补充，选中后
+   * ensureSegmentSummary 补取摘要 */
+  const segmentSearchOptions = computed<SearchOption[]>(() =>
+    segmentOptions.value.map(segmentToSearchOption),
+  )
+
+  /** 集群下拉初始候选与回显（F001 store 缓存 → SearchOption；label=编号 名称） */
+  const clusterSearchOptions = computed<SearchOption[]>(() =>
+    clusterStore.clusters.map(clusterToSearchOption),
+  )
+
+  /** 网段下拉数据源（F008 §5.1）：服务端 q 匹配 网段名称/CIDR/用途/技术类型，
+   * cluster_id 作用域 + sort=name + 小 page_size；匹配与排序在服务端完成（§8.2）。
+   * 未选集群时不请求（§7.1 只列出当前集群网段，无作用域不提供候选） */
+  function segmentFetcher(query: string, page: number, pageSize: number): Promise<SearchOptionsPage> {
+    const clusterId = selectedClusterId.value
+    if (clusterId === null) return Promise.resolve({ items: [], total: 0 })
+    return fetchSegmentSearchOptions(clusterId, query, page, pageSize)
+  }
+
+  /** 集群下拉数据源（F008 §5.1）：服务端 q 匹配 集群名称/编号；sort=name + 小 page_size */
+  function clusterFetcher(query: string, page: number, pageSize: number): Promise<SearchOptionsPage> {
+    return fetchClusterSearchOptions(query, page, pageSize)
+  }
+
+  /** 选中网段但全量列表无摘要（列表加载失败 / 加载后才新建的网段）时补取详情，
+   * 供只读带出（§4.2.7/§7.1）与自动分配范围提示；补取失败不阻断选择，
+   * 网段存在性/归属由服务端在提交时权威校验 */
+  async function ensureSegmentSummary(segmentId: number): Promise<void> {
+    if (segmentSummary(segmentId) !== null) return
+    try {
+      const d = await getNetworkSegment(segmentId)
+      // 竞态/跨集群防护：响应所属集群与当前选择不一致（切换中或已过期）时丢弃
+      if (d.cluster_id !== selectedClusterId.value) return
+      if (segmentSummary(segmentId) !== null) return
+      segmentOptions.value = [...segmentOptions.value, toSegmentOption(d)]
+    } catch {
+      // 补取失败：只读带出保持缺失；不伪装数据，提交仍由服务端校验
+    }
+  }
+
   // ---------- 详情应用 ----------
 
   function applyDetail(d: ResourceFormDetail): void {
@@ -567,6 +619,10 @@ export function useResourceForm() {
       }
       return
     }
+    // 切换集群即失效旧作用域：先清空旧集群候选再加载新集群（§7.1）。
+    // 加载失败也不回退旧集群列表——网段下拉（FuzzySelect 服务端搜索）随 selectedClusterId
+    // 重建并自行取新集群初始候选，不依赖此全量列表；全量列表仅供摘要/自动分配范围/清理判定
+    segmentOptions.value = []
     await loadSegmentOptions(id)
     for (const card of cards.value) {
       if (card.segmentId !== null && !segmentOptions.value.some((s) => s.id === card.segmentId)) {
@@ -630,6 +686,8 @@ export function useResourceForm() {
     }
     card.segmentId = segmentId
     clearCardError(card.key, 'segment_id')
+    // 服务端搜索选中的网段可能不在全量列表（列表加载失败/加载后新建）：补取摘要供只读带出
+    if (segmentId !== null) void ensureSegmentSummary(segmentId)
     const pendingCount = card.ips.filter((ip) => ip.id === null).length
     if (pendingCount > 0) {
       card.ips = card.ips.filter((ip) => ip.id !== null)
@@ -1011,6 +1069,11 @@ export function useResourceForm() {
     segmentOptions,
     segmentsLoading,
     segmentsError,
+    // 网段/集群下拉数据源（F008 §5.1：服务端 q + 稳定 ID 提交）
+    segmentSearchOptions,
+    clusterSearchOptions,
+    segmentFetcher,
+    clusterFetcher,
     submitting,
     conflict,
     conflictResolved,
