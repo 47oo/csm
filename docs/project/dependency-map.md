@@ -1,144 +1,112 @@
-# CSM Feature Dependency Map
+# CSM V2 依赖图（派生视图）
 
-> Status: 由 `docs/project/project-plan.yaml` **生成**（人类可读视图，不构成机器状态的唯一来源）
-> Source of Truth: `docs/project/project-plan.yaml`
-> Generated: 2026-09-22（全部 V1 Feature 处置完毕；`project.status = DONE`）
-> 生成依据：`project.status = DONE`；计数 `{'READY': 0, 'IN_PROGRESS': 0, 'BLOCKED': 0, 'DRAFT': 0, 'DONE': 21, 'CANCELLED': 1}`
+> 本文件由 `docs/project/project-plan.yaml` 派生，只引用计划事实。若与计划冲突，以计划为准。
+> 计划状态：**IN_PROGRESS — revision 10（2026-09-25，已批准）**；F013 已 DONE；F001 转 READY；产品需求整体仍为 DRAFT，实施门禁独立适用。所有 Feature 均为 P0。
+> 本次核对（revision 10）依据 BQ-Z 关闭 D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES，并从所有 Feature 的 blocking_decisions 移除；
+> 依赖边未变（F013 仍为唯一根），状态重算：F013 DONE，F001 READY（depends_on=[F013] 已 DONE 且 blocking_decisions=[]），其余 11 个 Feature 仍 BLOCKED。
 
-**2026-09-22（增量四·终）**：F023 完成（merge e234908，Reviewer = APPROVED WITH FOLLOW-UP），F023 DONE（无数据库变更）。全部 V1 Feature 处置完毕（21 DONE + 1 CANCELLED）。
+## 依赖边（depends_on）
 
-**2026-09-21（增量三·终）**：F022 完成（merge b467e89，Reviewer = APPROVED WITH FOLLOW-UP），F022 DONE（数据库增量：ip_address_ranges + migration 0010）。全部 V1 Feature 处置完毕（20 DONE + 1 CANCELLED）。
+| Feature | 依赖 | 说明 |
+| --- | --- | --- |
+| F013 用户与角色管理 | — | 根节点（唯一根）；交付平台自建用户/角色管理与登录会话基础，作为全部受管对象鉴权/审计的身份前提。 |
+| F001 集群登记、身份、真实删除保护与集群本体权限审计 | F013 | 复用 F013 的角色/操作者解析与会话基础；交付集群归属与最小服务端鉴权/审计/历史。当前在依赖 F013 已 DONE 且无阻塞决策下为 `READY`。 |
+| F002 计算资源登记、无 IP 网卡与一次原子提交基础 | F001、F005 | 需要集群归属；无 IP 网卡需选择本集群仍存网段（§4.6.9/4.6.10）；经 F001 传递获得 F013 基础。 |
+| F003 计算资源统一列表、详情与服务端分页 | F002、F006 | 读取已登记资源；展示管理 IP 并在当前集群作用域内按 IP 搜索（§6.2）；详情“服务”列由 F007 扩展。 |
+| F004 类型详情、列表/详情类型摘要与宿主关系 | F002、F003、F008 | 在 F002 表单与 F003 列表/详情上扩展类型详情；宿主搜索用 F008；闭环场景 2 的 VM 同名。 |
+| F005 网段、保留地址与网段历史写入 | F001 | 网段属集群，独立于资源与 IP；经 F001 传递获得 F013 基础。 |
+| F006 IPv4 分配与同一表单 IP 集成 | F002、F005 | 需要网卡/资源表单与网段；在其上集成 IP、管理 IP 与含 IP 原子提交；经 F001 传递获得 F013 基础。 |
+| F007 服务、部署实例、访问入口与服务历史 | F001、F002、F004、F012 | 服务关联集群，实例指向资源（含 VM/F004）；服务/入口历史扩展 F012 统一查询；经 F001 传递获得 F013 基础。 |
+| F008 统一模糊搜索与下拉交互 | F002、F003 | 基础搜索/下拉覆盖已交付对象（含资源页搜索）；宿主/服务/全局 IP 查询由 F004/F007/F010 适配。 |
+| F009 跨对象权限审计一致性复核与集群切换验收 | F013、F001、F002、F004、F005、F006、F007 | 跨对象一致性复核需 F013 权限/会话基础与全部对象 Feature 的当期鉴权/审计已交付；方向为对象 → F009。 |
+| F010 集群聚合概览、查询作用域与全局 IP 查询 | F002、F003、F004、F005、F007、F008 | 聚合计数依赖各资源；全局 IP 查询复用搜索交互；VM 计数来源 F004。 |
+| F011 非功能、可用性基线与全平台权限复核 | F013、F001、F002、F003、F004、F005、F006、F007、F008、F009、F010、F012 | 端到端复核分页/原子/并发/竞态，并复核全平台鉴权（含 F013 用户/角色/登录）与全部搜索面（37/38/57）。 |
+| F012 资源历史保留与管理员查询 | F013、F001、F002、F005、F006 | 资源历史查询依赖集群/计算资源/网段/IP 已交付，并复用 F013 交付、经 F001 集成的统一角色/操作者解析基础。 |
 
-**2026-09-21（增量三·续）**：用户采纳 DEC-024 推荐方案，DEC-024 **RESOLVED**，F022 由 DRAFT 转 **READY**（依赖 F020 已 DONE）。
+依赖关系为无环有向图（DAG），拓扑序（一个合法解）：`F013 → F001 → F005 → F002 → F006 → F012 → F003 → F008 → F004 → F007 → F009 → F010 → F011`。需求覆盖为 requirements-v2.md §10 全部 82 条验收场景（含 BQ-Z 新增场景 82），每条场景的 `closure_owner` 见计划 `requirement_coverage.scenarios`。
 
-**2026-09-21（终）**：F021 完成（merge 011d05d，Reviewer = APPROVED WITH FOLLOW-UP），F021 DONE；M10 DONE。全部 V1 Feature 处置完毕（19 DONE + 1 CANCELLED）。
+## Feature 级验收顺序（消除死锁）
 
-**2026-09-21（续）**：F021 转 IN_PROGRESS，自 develop（1942ec4）创建分支 `feature/F021-ip-address-allocation`。
+- 新增 F013 depends_on []（唯一根，交付平台自建用户/角色与会话基础）。
+- F001 depends_on 由 [] 调整为 [F013]（集群本体最小服务端鉴权复用 F013 的身份/角色/会话基础）。
+- F009 depends_on 增 F013（跨对象权限/审计一致性复核直接复核 F013 的权限/会话基础，场景 40）。
+- F011 depends_on 增 F013（全平台三角色终局复核含用户/角色/登录，场景 57）。
+- F012 depends_on 增 F013（管理员可查历史复用 F013 的角色/操作者判定，场景 48/61/64）。
+- F002/F005/F006/F007 经 F001 传递获得 F013 基础，未新增冗余直边（避免假依赖）。
 
-**2026-09-21**：F020 完成（merge e4291a1，Reviewer = APPROVED WITH FOLLOW-UP），**F020 DONE**；F021 由 **BLOCKED 转 READY**（唯一阻塞 F020 已解除）。
+## Mermaid 图
 
-**2026-09-20（二）增量**：新增 F020（IP 地址范围段管理，depends_on F001、F005）、F021（IP 自动 / 手动分配，depends_on F020、F005、F004、F002）、DEC-023 与 M10。
-**2026-09-20（续）**：DEC-023 已由用户 RESOLVED；F020 转 **READY**，F021 转 **BLOCKED**（仅因依赖 F020 未 DONE）。
-**既有依赖与结论一律不变**：M1–M9、各 Feature 的 `depends_on`、merge SHA 与状态均原样保留；R-IP-001 ~ R-IP-003 保持不变。
+```mermaid
+graph TD
+  F013[F013 用户与角色管理/认证与角色基础]
+  F001[F001 集群本体/身份/真删/集群鉴权]
+  F005[F005 网段/保留地址/网段历史]
+  F002[F002 资源登记/无 IP 网卡/原子基础]
+  F006[F006 IPv4 分配/表单 IP 集成]
+  F012[F012 资源历史与管理员查询]
+  F003[F003 资源列表与详情]
+  F008[F008 统一模糊搜索与下拉]
+  F004[F004 类型详情/摘要/宿主关系]
+  F007[F007 服务/实例/入口/服务历史]
+  F009[F009 跨对象权限审计一致性复核]
+  F010[F010 聚合/作用域/全局 IP 查询]
+  F011[F011 非功能/可用性/全平台权限复核]
 
-**2026-09-18（五）增量**：新增 F019（搜索结果聚合视图，depends_on F018）、DEC-022 与 M9。
-**2026-09-20**：DEC-022 由用户裁定，F019 转 **READY** 并已完成 Feature Workflow（merge 292345e8）。
-
-**重建说明**：本文件由 `project-plan.yaml` 重新生成，取代此前陈旧的正文（旧版仍写「Feature 总数 14 / DONE 10 / F007 READY / M4 进行中」等）。
-历史结论（F011 取消、M5 的实际结局、各 Feature 的 merge SHA、各条 follow-up）均按计划原样保留，未因重建而丢失。
-
-依赖仅表示**真正的实施依赖**（B 无法在 A 未 DONE 时正确实现）。依赖为 DAG，无循环。
-图例：`A --> B` 表示 **B depends_on A**（A 是 B 的前置）。
-
-## 依赖表（权威：计划 `features[].depends_on`）
-
-| Feature | 状态 | depends_on | 层 |
-|---|---|---|---|
-| F012 项目基础框架与运行环境 | DONE | — | database, backend, frontend |
-| F013 本地账号认证与会话 | DONE | F012 | database, backend, frontend |
-| F014 逻辑删除与数据一致性治理 | DONE | F012 | backend, frontend |
-| F015 内网部署与运行环境 | DONE | F012, F013 | backend, deployment |
-| F001 Cluster 登记与管理 | DONE | F012 | backend, frontend |
-| F002 BareMetal 登记与管理 | DONE | F001 | database, backend, frontend |
-| F004 NetworkInterface 管理 | DONE | F002 | database, backend, frontend |
-| F005 IPAddress 管理 | DONE | F004 | database, backend, frontend |
-| F006 VirtualMachine 登记与管理 | DONE | F002 | database, backend, frontend |
-| F007 Container 资源模型与登记 | DONE | F006, F002 | database, backend, frontend |
-| F008 Service 资源管理与 Cluster 共享关联 | DONE | F001, F002, F006, F007 | database, backend, frontend |
-| F009 Cluster 视角资源查询 | DONE | F001, F002 | backend |
-| F010 资源详情与关联查询 | DONE | F001, F002, F004, F005, F006, F007, F008 | backend, frontend |
-| F011 Excel 模板与批量导入 | CANCELLED | F001, F002, F004, F005, F006, F007, F008 | — |
-| F016 Cluster 登记与改名 UI | DONE | F001, F013, F014 | frontend |
-| F017 应用外壳侧边栏导航 | DONE | F012, F013, F001, F002, F004, F005, F006, F007, F008, F010 | frontend |
-| F018 集群内资源关键字搜索 | DONE | F001, F002, F004, F005, F006, F007, F008 | backend, frontend |
-| F019 搜索结果聚合视图 | DONE | F018 | backend, frontend（database: false） |
-| F020 IP 地址范围段（地址池）管理 | DONE | F001, F005 | database, backend, frontend |
-| F021 IP 地址自动 / 手动分配 | DONE | F020, F005, F004, F002 | backend, frontend（database: false） |
-| F022 网段自定义名称 / 子网掩码 / VLAN 标注 | DONE | F020 | database, backend, frontend |
-| F023 自动分配时指定 IP 地址范围段 | DONE | F020, F021 | backend, frontend（database: false） |
-
-## 全量依赖 DAG
-
-```text
-F012 项目基础框架与运行环境 (P0, DONE)
-   └──> F013 本地账号认证与会话 (P0, DONE)
-   └──> F014 逻辑删除与数据一致性治理 (P0, DONE)
-   └──> F015 内网部署与运行环境 (P0, DONE)
-   └──> F001 Cluster 登记与管理 (P0, DONE)
-   └──> F017 应用外壳侧边栏导航 (P2, DONE)
+  F013 --> F001
+  F013 --> F009
+  F013 --> F011
+  F013 --> F012
+  F001 --> F005
+  F001 --> F002
+  F005 --> F002
+  F002 --> F006
+  F005 --> F006
+  F001 --> F012
+  F002 --> F012
+  F005 --> F012
+  F006 --> F012
+  F002 --> F003
+  F006 --> F003
+  F002 --> F008
+  F003 --> F008
+  F002 --> F004
+  F003 --> F004
+  F008 --> F004
+  F001 --> F007
+  F002 --> F007
+  F004 --> F007
+  F012 --> F007
+  F001 --> F009
+  F002 --> F009
+  F004 --> F009
+  F005 --> F009
+  F006 --> F009
+  F007 --> F009
+  F002 --> F010
+  F003 --> F010
+  F004 --> F010
+  F005 --> F010
+  F007 --> F010
+  F008 --> F010
+  F009 --> F011
+  F010 --> F011
+  F001 --> F011
+  F002 --> F011
+  F003 --> F011
+  F004 --> F011
+  F005 --> F011
+  F006 --> F011
+  F007 --> F011
+  F008 --> F011
+  F012 --> F011
 ```
 
-F019（搜索结果聚合视图，P1，DONE）依赖 F018：
+## 关键路径
 
-```text
-F018 集群内资源关键字搜索 (P1, DONE)
-   └──> F019 搜索结果聚合视图 (P1, DONE)  ← merge 292345e8（产品语义由 DEC-022 裁定，Reviewer = APPROVED WITH FOLLOW-UP）
-```
+`F013 → F001 → F005 → F002 → F006 → F003 → F008 → F004 → F007 → F009 → F011` 为最长实施链，是决定 P0 完成时间的关键路径。`F012` 在其依赖对象交付后、F009 之前提供管理员历史查询；`F009` 位于全部对象 Feature 之后做一致性复核；`F013` 为唯一根。
 
-F020 / F021（本次新增）依赖既有网络资源链：
+## 全局架构前提
 
-```text
-F001 Cluster 登记与管理 (P0, DONE) ──┬──> F020 IP 地址范围段（地址池）管理 (P1, DONE)  ← merge e4291a1
-F005 IPAddress 管理 (P1, DONE) ──────┘        └──> F021 IP 地址自动 / 手动分配 (P1, DONE)  ← merge 011d05d
+架构决策 D-ARCH-STACK、D-ARCH-DB、D-ARCH-API、D-ARCH-DEPLOY 以及 D-BQ-F 已由用户批准/随 BQ-V 关闭（RESOLVED），但架构文档、API 契约与数据库设计尚未产出，仍构成项目级阶段门禁（不表现为 Feature 依赖）。
 
-F022（网段元数据扩展，本次新增）依赖已交付的 F020：
-
-```text
-F020 IP 地址范围段（地址池）管理 (P1, DONE) ──> F022 网段自定义名称 / 子网掩码 / VLAN 标注 (P1, DONE)  ← merge b467e89
-
-F023（自动分配指定范围段，本次新增）修订 F021 已交付的自动分配，真实前置为 F021（分配模块）与 F020（范围段）：
-
-F020 IP 地址范围段 (P1, DONE) ─┐
-                               ├──> F023 自动分配时指定 IP 地址范围段 (P1, READY)
-F021 IP 自动 / 手动分配 (P1, DONE) ─┘   ← 修订 R-IP-006 / f021 契约；无数据库变更
-```
-
-> F021 **不是** F022 的前置；若裁定要求分配按掩码 / VLAN 过滤，属对 F021 的**前向影响**，待 DEC-024 裁定后评估，不画反向依赖边。
-F004 NetworkInterface 管理 (P1, DONE) ─────────┘
-F002 BareMetal 登记与管理 (P0, DONE) ──────────┘
-```
-
-> F021 依赖 F020（被分配的地址范围段）、F005（IPAddress 登记 / 唯一性 / 受控 `cluster_id` 推导模型）、F004/F002（NQ-1 已裁定分配产物为绑定 NetworkInterface 的 IPAddress，故二者为真实前置）。F021 唯一阻塞 F020 已于 2026-09-21 DONE，故 F021 转 READY。
-
-## 拓扑序（实施顺序参考）
-
-```text
- 1. F012  DONE
- 2. F013  DONE
- 3. F014  DONE
- 4. F015  DONE
- 5. F001  DONE
- 6. F002  DONE
- 7. F004  DONE
- 8. F005  DONE
- 9. F006  DONE
-10. F007  DONE
-11. F008  DONE
-12. F009  DONE
-13. F010  DONE
-14. F011  CANCELLED
-15. F016  DONE
-16. F017  DONE
-17. F018  DONE
-18. F019  DONE（merge 292345e8）
-19. F020  DONE（merge e4291a1）
-20. F021  DONE（merge 011d05d；数据库零变更）
-21. F022  DONE（merge b467e89；ip_address_ranges + migration 0010）
-22. F023  DONE（merge e234908；无数据库变更）
-```
-
-## 可并行执行的 Feature
-
-- 当前 **无 READY / IN_PROGRESS / BLOCKED**；全部 V1 Feature 已 DONE（或 CANCELLED）。
-- F020 与 F021 之间有真实依赖（F021 → F020），**不可并行**；F020 DONE 后 F021 方可启动。
-- 若后续一个 Milestone 内出现多个相互无依赖的 Feature，可并行；但必须划清文件所有权（`docs/project/git-workflow.md` §3）。
-
-## 说明
-
-- `F019` 已 `DONE`（merge 292345e8，Reviewer = APPROVED WITH FOLLOW-UP）；产品语义由 DEC-022 裁定（2026-09-20）。F019 遗留 REV-1 / REV-2（测试覆盖回退，LOW）与 REV-4（NOTE）作为非阻塞 follow-up。
-- `F018` 已 `DONE`（merge f1ac71b1）；`F017`（侧边栏）与 `F018`（搜索）无依赖边，两者对 `frontend/src/App.vue` 的所有权冲突已解除。
-- `F020` / `F021` 已完成：F020 DONE（merge e4291a1）、F021 DONE（merge 011d05d）。
-- `F022` 已完成：DEC-024 已 RESOLVED，扩展 `ip_address_ranges` 加 3 个可空列（name / subnet_mask / vlan）+ migration 0010（merge b467e89）。全部 V1 交付（20 DONE + 1 CANCELLED）。
-- `F023` 已完成：DEC-025 已 RESOLVED，修订 R-IP-006 / R-IP-009 与 f021 契约（自动分配必须指定活跃范围段，耗尽不回退，merge e234908）；**无数据库变更**。全部 V1 交付（21 DONE + 1 CANCELLED）。
-- `F011` 为 `CANCELLED`（用户 2026-09-18 决定），不在实施顺序中。
-- 优先级（P0 / P1 / P2）不代表执行顺序；执行顺序以上方拓扑序为准。
+因此当前 F013 已 DONE（Merge dcfa6ff），F001 为 READY（depends_on=[F013] 已 DONE 且 blocking_decisions=[]），其余 11 个 Feature 仍为 BLOCKED（依赖未 DONE 或仍有其它 OPEN 决策）。

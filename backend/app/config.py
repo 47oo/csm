@@ -1,42 +1,49 @@
-"""应用配置（环境变量）。
-
-F012 只引入运行所需的配置项：运行环境与数据库连接。不引入认证 / 缓存 /
-消息队列等未要求的基础设施配置。
-"""
+"""运行期配置。全部经环境变量注入（ADR-004），不硬编码凭据。"""
 
 from __future__ import annotations
 
-from functools import lru_cache
-from typing import Literal
-
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-Environment = Literal["dev", "test", "prod"]
+import os
+from dataclasses import dataclass
 
 
-class Settings(BaseSettings):
-    """从环境变量（前缀 ``CSM_``）读取的应用配置。"""
+def _int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
 
-    model_config = SettingsConfigDict(
-        env_prefix="CSM_",
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
+
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+@dataclass(frozen=True)
+class Settings:
+    database_url: str
+    session_ttl_seconds: int
+    cookie_name: str
+    cookie_secure: bool
+    initial_admin_password: str | None
+
+
+def get_settings() -> Settings:
+    return Settings(
+        database_url=os.environ.get(
+            "CSM_DATABASE_URL",
+            "postgresql+psycopg://csm:csm@localhost:5432/csm",
+        ),
+        session_ttl_seconds=_int_env("CSM_SESSION_TTL_SECONDS", 12 * 3600),
+        cookie_name=os.environ.get("CSM_SESSION_COOKIE", "csm_session"),
+        # ADR-004：仅 HTTP，不启用 Secure。
+        cookie_secure=_bool_env("CSM_COOKIE_SECURE", False),
+        initial_admin_password=os.environ.get("CSM_INITIAL_ADMIN_PASSWORD"),
     )
 
-    environment: Environment = "dev"
 
-    # SQLAlchemy URL，驱动为 psycopg 3（postgresql+psycopg://）。
-    database_url: str = "postgresql+psycopg://csm:csm@localhost:5432/csm"
-
-    # 连接池配置。
-    db_pool_size: int = 5
-    db_max_overflow: int = 10
-    db_pool_timeout: int = 30
-    db_pool_recycle: int = 1800
-    db_echo: bool = False
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
+settings = get_settings()

@@ -12,6 +12,14 @@ CSM 不以建设完整 CMDB 为目标。
 
 ---
 
+## 1.1 V2 版本边界与文档建立
+
+V2 独立定义需求、领域模型、架构和实现，不依赖、不参考 V1 的代码、设计、API、数据库、测试、Review 或执行历史。不得从旧分支、标签或历史提交读取这些内容来补齐 V2。
+
+本文件及 Agent / Prompt 中的“已有”“当前”成果均指 V2 成果。通用协作工具和工程安全规则可以保留，不代表继承任何旧产品规则或技术选型。V2 产品规划前提以 `docs/product/requirements-v2.md` 为准。
+
+文档按阶段建立：需求澄清和首次规划先读取 V2 需求文件；`docs/product/domain-model.md` 尚未建立时，记录缺失并从用户确认的 V2 需求建立，不阻止需求澄清。架构、数据库、API 与计划派生视图尚未生成时同样记录为未建立，不回查旧版本。进入设计、实现、测试或正式 Review 前，仍必须满足对应阶段所需的已确认输入；缺少必要输入时明确阻塞。
+
 ## 2. 开发基本原则
 
 1. 在开始实现之前，先理解需求及预期行为。
@@ -43,11 +51,13 @@ CSM 的权威领域模型位于：
 1. 用户最新明确确认的需求；
 2. `docs/product/domain-model.md` 与 `docs/product/` 中已经确认的产品文档；
 3. `docs/architecture/` 中已经批准的架构决策；
-4. 项目 Skill 中已经确认的领域规则；
+4. 已批准的 Feature 设计、API 契约与数据库设计（不得覆盖上级规则）；
 5. 当前代码实现；
 6. 通用工程经验和默认做法。
 
-低优先级信息不得静默覆盖高优先级信息。
+低优先级信息不得静默覆盖高优先级信息。项目 Skill 提供分析方法，不独立保存产品事实。
+
+决策统一区分 `CONFIRMED`（已确认）、`PROPOSED`（建议）、`UNCONFIRMED / OPEN`（未决）。`REQUIRED` 只能表示由已确认规则必然产生的技术要求，必须引用依据；不能借此新增业务规则。
 
 如果当前代码实现与已确认需求冲突，默认以需求为准，除非用户明确要求修改需求。
 
@@ -66,8 +76,6 @@ CSM 的权威领域模型位于：
 新增或修改长期有效规则时，必须同步更新对应文档。
 
 同一份详细信息只维护一个权威来源，其他位置通过引用使用。
-
-完整目录职责见 `docs/project/repository-structure.md`。
 
 ---
 
@@ -126,6 +134,8 @@ Review 必须检查：需求与领域规则符合性、架构符合性、功能�
 * Docs 保存权威事实；
 * Prompt 定义具体工作流。
 
+读取范围、公共交接字段和缺陷格式统一见 `docs/project/handoff.md`；角色只补充专属结果。项目字段与状态转换统一见 `docs/project/project-state.md`。已有阶段复用和有限修复循环只按 `.pi/prompts/feature.md` 执行。
+
 ---
 
 ## 9. Git 安全与流程入口
@@ -159,8 +169,9 @@ Subagent 不得执行 `git add`、Commit、Branch 切换、Merge，以及其他�
 
 执行 Git 操作和判断 Feature 完成状态前，必须读取并遵守：
 
-* `docs/project/git-workflow.md`：分支、提交、Review 范围、Merge Gate 与 DONE 标准；
-* `.pi/prompts/implement-project.md`：Git 元数据、阶段执行与恢复调度；
-* `.pi/prompts/project.md`：生成或更新项目计划时的规则。
+* `docs/project/git-workflow.md`：Git 操作、字段、Review 基线、Merge Gate、DONE 与中断恢复；
+* `docs/project/project-state.md`：计划字段、状态与证据映射。
+
+流程入口：`.pi/prompts/project.md` 负责规划审批，`.pi/prompts/implement-project.md` 负责项目调度，`.pi/prompts/feature.md` 负责单个 Feature。
 
 项目状态必须有真实的提交、测试和 Review 证据支持；Review 批准不等于 Feature DONE。
