@@ -644,21 +644,22 @@ features:
     priority: P0
     depends_on: [F002, F003]
     blocking_decisions: []
-    status: IN_PROGRESS
+    status: DONE
     layers: {database: false, backend: true, frontend: true}
-    implementation: {database_design: NOT_REQUIRED, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
-    last_result: Tester READY FOR REVIEW（后端 196 + 前端 534 + 探针 40/40）；D-F008-01 修复轮 1 闭环；F001/F005 q 排序交叉引用已同步
-    next_action: Reviewer 独立 Review（候选 HEAD 1be29f4、base v2）
+    implementation: {database_design: NOT_REQUIRED, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
+    last_result: Reviewer APPROVED WITH FOLLOW-UP（候选 7fd9bd0）；Merge 3e5f0bd；F008 完成
+    next_action: null（重算 READY=[F012]；F004 仅余 D-Q3、D-RESOURCE-REASSIGN）
     contract: {status: READY, doc: docs/api/F008.md, reason: ADR-003 已批准；无新增端点，统一既有 q 排序；database NOT_REQUIRED}
     git:
       base_branch: v2
       branch: feature/F008-unified-search
       start_commit: ce20ae97b6bc3f7e55d57163dafc30b7da961ead
-      head_commit: 1be29f4
-      merge_commit: null
+      head_commit: 7fd9bd0bd663824904b240755505b242afba75c2
+      merge_commit: 3e5f0bd4b5c115afbb64c9d291a1c5a42b16b409
     evidence:
       - docs/project/reports/F008-test-report.md
-    current_stage: REVIEW
+      - docs/project/reports/F008-review-report.md
+    current_stage: null
 
   - id: F009
     title: 跨对象权限审计一致性复核与集群切换验收
@@ -2292,11 +2293,11 @@ planning_status:
     DRAFT: []
   counts:
     READY: 1
-    IN_PROGRESS: 1
+    IN_PROGRESS: 0
     IN_REVIEW: 0
     BLOCKED: 5
     DRAFT: 0
-    DONE: 6
+    DONE: 7
     CANCELLED: 0
   note: >
     plan_completeness=complete 表示本计划已覆盖 requirements-v2.md 已确认范围与
@@ -2318,4 +2319,4 @@ execution:
   current_feature: F008
   current_stage: ARCHITECTURE
   note: >
-    F008 已启动（start ce20ae9）。Backend/Frontend 完成、Tester READY FOR REVIEW（D-F008-01 修复轮 1 已闭环）；进行 REVIEW（候选 HEAD 1be29f4）。
+    F008 已完成（Merge 3e5f0bd，批准 HEAD 7fd9bd0）并做最终状态提交。重算 READY=[F012]；F004 依赖已满足但 D-Q3、D-RESOURCE-REASSIGN 仍 OPEN。
