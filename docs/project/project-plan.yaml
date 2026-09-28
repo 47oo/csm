@@ -647,17 +647,17 @@ features:
     status: IN_PROGRESS
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    last_result: 产品规则复用（requirements §8、§7.5；场景 41/37/38 基础部分；无阻塞决策）
-    next_action: Architect 产出架构与 Contract（docs/architecture/F008-*.md、docs/api/F008.md）
-    contract: {status: BLOCKED, doc: null, reason: 架构契约文档待产出}
+    last_result: Architect READY FOR IMPLEMENTATION；Contract READY（docs/api/F008.md，无新增端点，仅统一 q 排序；无 Database 层）
+    next_action: Backend 实现（app/search/matching.py + clusters/segments rank 排序）与 Frontend 实现（统一搜索/下拉组件与页面接入）
+    contract: {status: READY, doc: docs/api/F008.md, reason: ADR-003 已批准；无新增端点，统一既有 q 排序；database NOT_REQUIRED}
     git:
       base_branch: v2
       branch: feature/F008-unified-search
       start_commit: ce20ae97b6bc3f7e55d57163dafc30b7da961ead
-      head_commit: ce20ae97b6bc3f7e55d57163dafc30b7da961ead
+      head_commit: 0e23954
       merge_commit: null
     evidence: []
-    current_stage: ARCHITECTURE
+    current_stage: IMPLEMENTATION
 
   - id: F009
     title: 跨对象权限审计一致性复核与集群切换验收
@@ -2317,4 +2317,4 @@ execution:
   current_feature: F008
   current_stage: ARCHITECTURE
   note: >
-    F008 已启动（分支 feature/F008-unified-search，start ce20ae9）；产品规则复用完成，进行 ARCHITECTURE 与 Contract。
+    F008 已启动（start ce20ae9）。Architecture/Contract 完成（READY，无 Database 层）；进行 Backend/Frontend 实现。
