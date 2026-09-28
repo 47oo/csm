@@ -22,6 +22,8 @@ import {
   resourceTypeLabel,
 } from '../utils/resourceRules'
 import { formatDateTime } from '../utils/format'
+import EnumSelect from '../components/EnumSelect.vue'
+import type { ResourceStatus, ResourceType } from '../api/resources'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -89,6 +91,18 @@ const {
 /** 新增模式集群选择（el-select 清空归一为 null） */
 function handleClusterChange(id: unknown): void {
   void selectCluster(typeof id === 'number' ? id : null)
+}
+
+/** 资源类型选择（EnumSelect 清空归一为 null；必选字段，实际不可清空；'' = 未选） */
+function handleTypeChange(value: ResourceType | '' | null): void {
+  resourceType.value = value ?? ''
+  fieldErrors.resource_type = ''
+}
+
+/** 状态选择（EnumSelect 清空归一为 null；不可清空，仅类型层面兼容） */
+function handleStatusChange(value: ResourceStatus | null): void {
+  status.value = value ?? 'ALLOC'
+  fieldErrors.status = ''
 }
 
 /** 网卡网段选择（清空归一为 null = 暂不选网段） */
@@ -203,39 +217,29 @@ function handleConflictResolvedClose(): void {
               class="resource-field-grow"
               :error="fieldErrors.resource_type || undefined"
             >
-              <el-select
-                v-model="resourceType"
+              <!-- 固定枚举下拉（F008）：中文展示名/英文代码均可输入匹配 -->
+              <EnumSelect
+                :model-value="resourceType"
+                :options="RESOURCE_TYPE_OPTIONS"
                 placeholder="裸金属 / 虚拟机（创建后不可修改）"
                 class="resource-type-select"
                 :disabled="!canManage"
-                @change="fieldErrors.resource_type = ''"
-              >
-                <el-option
-                  v-for="opt in RESOURCE_TYPE_OPTIONS"
-                  :key="opt.value"
-                  :value="opt.value"
-                  :label="opt.label"
-                />
-              </el-select>
+                @update:model-value="handleTypeChange"
+              />
             </el-form-item>
             <el-form-item v-else label="资源类型（创建后不可修改）" class="resource-field-grow">
               <el-input :model-value="resourceTypeLabel(resourceType)" disabled />
             </el-form-item>
 
             <el-form-item label="状态" class="resource-field-grow" :error="fieldErrors.status || undefined">
-              <el-select
-                v-model="status"
+              <!-- 固定枚举下拉（F008）：中文展示名/英文代码均可输入匹配 -->
+              <EnumSelect
+                :model-value="status"
+                :options="RESOURCE_STATUS_OPTIONS"
                 class="resource-status-select"
                 :disabled="!canManage"
-                @change="fieldErrors.status = ''"
-              >
-                <el-option
-                  v-for="opt in RESOURCE_STATUS_OPTIONS"
-                  :key="opt.value"
-                  :value="opt.value"
-                  :label="opt.label"
-                />
-              </el-select>
+                @update:model-value="handleStatusChange"
+              />
             </el-form-item>
           </div>
 

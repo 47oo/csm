@@ -17,6 +17,7 @@ from .. import audit, resource_history
 from ..db import get_db
 from ..errors import problem
 from ..models import Cluster, NetworkSegment, SegmentReservedAddress
+from ..search.matching import like_pattern, normalize_query, rank_case
 from ..security.principal import Principal, get_current_user, require_roles
 from .addressing import (
     CidrError,
@@ -183,11 +184,11 @@ def list_segments(
     conditions = []
     if cluster_id is not None:
         conditions.append(NetworkSegment.cluster_id == cluster_id)
-    if q is not None and q.strip() != "":
-        escaped = (
-            q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        )
-        pattern = f"%{escaped}%"
+    # F008：有 q 时 rank（完全 > 前缀 > 包含）为第一排序键；无 q 行为不变。
+    order_by = [_SORT_MAP[sort], NetworkSegment.id.asc()]
+    needle = normalize_query(q)
+    if needle is not None:
+        pattern = like_pattern(needle)
         conditions.append(
             or_(
                 NetworkSegment.name.ilike(pattern, escape="\\"),
@@ -196,6 +197,16 @@ def list_segments(
                 NetworkSegment.technology.ilike(pattern, escape="\\"),
             )
         )
+        order_by.insert(
+            0,
+            rank_case(
+                NetworkSegment.name,
+                NetworkSegment.cidr,
+                NetworkSegment.purpose,
+                NetworkSegment.technology,
+                needle=needle,
+            ),
+        )
 
     total = db.scalar(
         select(func.count()).select_from(NetworkSegment).where(*conditions)
@@ -203,7 +214,7 @@ def list_segments(
     rows = db.scalars(
         select(NetworkSegment)
         .where(*conditions)
-        .order_by(_SORT_MAP[sort], NetworkSegment.id.asc())
+        .order_by(*order_by)
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()

@@ -1,6 +1,7 @@
-// 集群列表行「资源」入口单测（架构 F003 §7：任意已登录可见；沿用既有「网段」入口风格）：
-// F003 起「资源」跳转该集群的资源列表（cluster-resources）；原 F002 新增表单入口改为
-// 「新增资源」并保持仅 maintainer/admin 可见（viewer 只读，服务端为最终校验）。
+// 集群列表页单测：
+// - 行内入口（F003）：「资源」任意已登录可见；「新增资源」仅 maintainer/admin；
+// - F008 页面搜索统一交互：300ms 防抖（去空格、回第 1 页）、回车立即、清空回初始、
+//   无结果文案、旧请求不覆盖较新请求。列表其余行为由 Contract F001 手工验证覆盖。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, nextTick } from 'vue'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
@@ -42,6 +43,10 @@ const cluster: ClusterListItem = {
   updated_at: NOW,
 }
 
+function pagedClusters(items: ClusterListItem[], total = items.length) {
+  return { items, total, page: 1, page_size: 20 }
+}
+
 let router: Router
 let pinia: Pinia
 let app: ReturnType<typeof createApp> | null = null
@@ -76,10 +81,37 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
   }
 }
 
+function searchInput(): HTMLInputElement {
+  const input = document.querySelector<HTMLInputElement>('[data-test-id="cluster-search-input"]')
+  expect(input).not.toBeNull()
+  return input!
+}
+
+async function typeQuery(query: string): Promise<void> {
+  const input = searchInput()
+  input.value = query
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+  await flush()
+}
+
+/** 等待真实防抖（300ms）到期 */
+async function waitForDebounce(ms = 380): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms))
+  await flush()
+}
+
+function pressEnter(): void {
+  searchInput().dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }))
+}
+
+function tableText(): string {
+  return document.querySelector('.clusters-table')?.textContent ?? ''
+}
+
 beforeEach(async () => {
   vi.clearAllMocks()
   document.body.innerHTML = ''
-  mockedList.mockResolvedValue({ items: [cluster], total: 1, page: 1, page_size: 20 })
+  mockedList.mockResolvedValue(pagedClusters([cluster]))
   pinia = createPinia()
   setActivePinia(pinia)
   router = createRouter({ history: createMemoryHistory(), routes })
@@ -117,5 +149,112 @@ describe('集群行「资源」入口（F003；任意已登录可见）', () => 
     mountView()
     await flush()
     expect(findButton('新增资源')).toBeDefined()
+  })
+})
+
+describe('搜索（F008 §8.3 统一交互：防抖 + 竞态 + 清空回初始 + 无结果文案）', () => {
+  it('首屏加载：无 q、默认 sort=code', async () => {
+    mountView()
+    await flush()
+    expect(mockedList).toHaveBeenCalledWith({
+      page: 1,
+      page_size: 20,
+      q: '',
+      sort: 'code',
+    })
+  })
+
+  it('输入后约 300ms 防抖触发：q 去首尾空格、回到第 1 页', async () => {
+    mountView()
+    await flush()
+    mockedList.mockClear()
+
+    await typeQuery('  N96P ')
+    await waitForDebounce()
+    expect(mockedList).toHaveBeenCalledTimes(1)
+    expect(mockedList).toHaveBeenLastCalledWith({
+      page: 1,
+      page_size: 20,
+      q: 'N96P',
+      sort: 'code',
+    })
+  })
+
+  it('回车立即搜索（跳过防抖，不重复请求）', async () => {
+    mountView()
+    await flush()
+    mockedList.mockClear()
+
+    await typeQuery('N96')
+    pressEnter()
+    await flush()
+    expect(mockedList).toHaveBeenCalledTimes(1)
+    expect(mockedList).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'N96' }))
+    await waitForDebounce()
+    expect(mockedList).toHaveBeenCalledTimes(1)
+  })
+
+  it('清除按钮：立即回到初始候选（无 q）', async () => {
+    mountView()
+    await flush()
+    await typeQuery('N96')
+    await waitForDebounce()
+    expect(mockedList).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'N96' }))
+
+    mockedList.mockClear()
+    const wrapper = searchInput().closest('.el-input')
+    wrapper?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }))
+    await flush()
+    const clearIcon = document.querySelector('.el-input__clear')
+    expect(clearIcon).not.toBeNull()
+    clearIcon!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flush()
+    expect(mockedList).toHaveBeenCalledTimes(1)
+    expect(mockedList).toHaveBeenLastCalledWith({
+      page: 1,
+      page_size: 20,
+      q: '',
+      sort: 'code',
+    })
+  })
+
+  it('无结果：显示「未找到匹配的集群」（区别于空数据文案）', async () => {
+    mountView()
+    await flush()
+    mockedList.mockResolvedValue(pagedClusters([], 0))
+    await typeQuery('不存在')
+    await waitForDebounce()
+    expect(tableText()).toContain('未找到匹配的集群')
+    expect(tableText()).not.toContain('暂无集群')
+  })
+
+  it('旧请求不覆盖较新请求（§8.3 竞态）', async () => {
+    const deferred: Array<(p: ReturnType<typeof pagedClusters>) => void> = []
+    mockedList.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          deferred.push(resolve)
+        }),
+    )
+    mountView()
+    await flush()
+    expect(deferred).toHaveLength(1)
+
+    await typeQuery('N9')
+    await waitForDebounce()
+    await typeQuery('N96')
+    await waitForDebounce()
+    expect(deferred).toHaveLength(3)
+
+    // 较新请求（N96）先返回 → 生效
+    deferred[2]!(pagedClusters([{ ...cluster, id: 2, name: '新结果集群' }]))
+    await flush()
+    expect(tableText()).toContain('新结果集群')
+
+    // 较旧请求（N9）后返回 → 不覆盖
+    deferred[1]!(pagedClusters([{ ...cluster, id: 3, name: '过期结果集群' }]))
+    await flush()
+    expect(tableText()).toContain('新结果集群')
+    expect(tableText()).not.toContain('过期结果集群')
   })
 })

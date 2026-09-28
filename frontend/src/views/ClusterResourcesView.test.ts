@@ -191,6 +191,40 @@ describe('类型切换（全部/裸金属/虚拟机）', () => {
   })
 })
 
+describe('状态筛选（F008 EnumSelect：中文展示名/英文代码输入匹配）', () => {
+  it('输入中文「空闲」过滤并选中：以 status=IDLE 筛选重新请求', async () => {
+    mocked.mockResolvedValue(paged([], 0))
+    mountView()
+    await flush()
+    mocked.mockClear()
+
+    const filter = document.querySelector('[data-test-id="resource-status-filter"]')
+    expect(filter).not.toBeNull()
+    const input = filter!.querySelector<HTMLInputElement>('input.el-select__input')!
+    input.dispatchEvent(new FocusEvent('focus', { bubbles: true }))
+    input.click()
+    await flush()
+    // 本地过滤：下拉展示全部选项（含「全部状态」伪选项）
+    const items = Array.from(document.querySelectorAll('.enum-select-dropdown .el-select-dropdown__item')).map(
+      (el) => el.textContent?.trim(),
+    )
+    expect(items).toContain('全部状态')
+    expect(items).toContain('空闲')
+
+    input.value = '空闲'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await flush()
+    const matched = Array.from(document.querySelectorAll('.enum-select-dropdown .el-select-dropdown__item'))
+    expect(matched.map((el) => el.textContent?.trim())).toEqual(['空闲'])
+
+    matched[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flush()
+    expect(mocked).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cluster_id: 1, status: 'IDLE', page: 1 }),
+    )
+  })
+})
+
 describe('空态 / 错误态区分（错误不伪装成空列表）', () => {
   it('无资源：空态文案（该集群暂无计算资源）', async () => {
     mocked.mockResolvedValue(paged([], 0))

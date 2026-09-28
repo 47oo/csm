@@ -646,15 +646,15 @@ features:
     blocking_decisions: []
     status: IN_PROGRESS
     layers: {database: false, backend: true, frontend: true}
-    implementation: {database_design: NOT_REQUIRED, backend: PENDING, frontend: PENDING, test: PENDING, review: PENDING}
-    last_result: Architect READY FOR IMPLEMENTATION；Contract READY（docs/api/F008.md，无新增端点，仅统一 q 排序；无 Database 层）
-    next_action: Backend 实现（app/search/matching.py + clusters/segments rank 排序）与 Frontend 实现（统一搜索/下拉组件与页面接入）
+    implementation: {database_design: NOT_REQUIRED, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
+    last_result: Backend COMPLETE（196 passed，含 19 新增；协调器独立复跑通过）；Frontend COMPLETE（Vitest 520 passed、pnpm build 通过）
+    next_action: Tester 独立验证（§8.2 权重排序/字面量/全量分页；§8.3 防抖/竞态/键盘/清空回初始；场景 41），要求 READY FOR REVIEW
     contract: {status: READY, doc: docs/api/F008.md, reason: ADR-003 已批准；无新增端点，统一既有 q 排序；database NOT_REQUIRED}
     git:
       base_branch: v2
       branch: feature/F008-unified-search
       start_commit: ce20ae97b6bc3f7e55d57163dafc30b7da961ead
-      head_commit: 0e23954
+      head_commit: dd6d6f4
       merge_commit: null
     evidence: []
     current_stage: IMPLEMENTATION
@@ -2317,4 +2317,4 @@ execution:
   current_feature: F008
   current_stage: ARCHITECTURE
   note: >
-    F008 已启动（start ce20ae9）。Architecture/Contract 完成（READY，无 Database 层）；进行 Backend/Frontend 实现。
+    F008 已启动（start ce20ae9）。Architecture/Contract（无 Database 层）与 Backend/Frontend 完成；进行独立 TEST。

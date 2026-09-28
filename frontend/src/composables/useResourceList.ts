@@ -7,6 +7,8 @@
 // - 作用域变化（切换/清除集群）刷新列表：页码重置、搜索词保留（仍限新集群）；
 //   未选择集群不发起查询（页面提示选择集群）；
 // - 响应回显 scope（ClusterScope）供页面显式展示「当前集群作用域」（§6.2）。
+// 搜索输入防抖/回车立即/竞态/清空回初始的通用实现已抽取至 useSearchInput（F008 §4.2），
+// 本文件保持既有语义不变。
 // 权限：列表任意已登录（viewer 只读）；服务端为最终校验。
 import { ref, watch, type Ref } from 'vue'
 import {
@@ -18,17 +20,13 @@ import {
   type ResourceType,
 } from '../api/resources'
 import { apiErrorMessage } from '../api/client'
-
-/** 搜索防抖（§8.3：输入后约 300ms 自动更新） */
-const SEARCH_DEBOUNCE_MS = 300
+import { useSearchInput, SEARCH_DEBOUNCE_MS } from './useSearchInput'
 
 export function useResourceList(scopeClusterId: Ref<number | null>) {
   const items = ref<ResourceListItem[]>([])
   const total = ref(0)
   const page = ref(1)
   const pageSize = ref(20)
-  /** 搜索框输入值（防抖前的展示值） */
-  const q = ref('')
   /** 类型筛选：'' = 全部（对应「全部/裸金属/虚拟机」切换） */
   const resourceType = ref<ResourceType | ''>('')
   /** 状态筛选：'' = 全部 */
@@ -39,17 +37,21 @@ export function useResourceList(scopeClusterId: Ref<number | null>) {
   const loading = ref(false)
   const loadError = ref('')
 
-  /** 已应用到请求的关键词（去首尾空格；空 = 不搜索） */
-  let appliedQ = ''
-  /** 请求序号：丢弃切换集群/筛选/翻页过程中的过期响应 */
-  let token = 0
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  // 搜索输入状态机（§8.3）：q 防抖 / 回车立即 / 请求序号竞态 / 清空回初始
+  const search = useSearchInput({
+    debounceMs: SEARCH_DEBOUNCE_MS,
+    onSearch: () => {
+      page.value = 1
+      void load()
+    },
+  })
+  const q = search.q
 
   async function load(): Promise<void> {
     const clusterId = scopeClusterId.value
     if (clusterId === null) {
-      // 无选中集群：不发起查询（页面提示选择集群），不伪装成空列表
-      token += 1
+      // 无选中集群：不发起查询（页面提示选择集群），不伪装成空列表；作废进行中的请求
+      search.invalidate()
       items.value = []
       total.value = 0
       scope.value = null
@@ -57,7 +59,7 @@ export function useResourceList(scopeClusterId: Ref<number | null>) {
       loading.value = false
       return
     }
-    const current = ++token
+    const current = search.beginLoad()
     loading.value = true
     loadError.value = ''
     try {
@@ -65,48 +67,35 @@ export function useResourceList(scopeClusterId: Ref<number | null>) {
         cluster_id: clusterId,
         ...(resourceType.value !== '' ? { resource_type: resourceType.value } : {}),
         ...(status.value !== '' ? { status: status.value } : {}),
-        ...(appliedQ !== '' ? { q: appliedQ } : {}),
+        ...(search.appliedQ.value !== '' ? { q: search.appliedQ.value } : {}),
         page: page.value,
         page_size: pageSize.value,
         sort: sort.value,
       })
-      if (current !== token) return // 旧请求不覆盖较新请求
+      if (!search.isCurrent(current)) return // 旧请求不覆盖较新请求
       items.value = data.items
       total.value = data.total
       scope.value = data.scope
     } catch (error) {
-      if (current !== token) return
+      if (!search.isCurrent(current)) return
       // 错误显式呈现，不伪装成空结果
       items.value = []
       total.value = 0
       scope.value = null
       loadError.value = apiErrorMessage(error)
     } finally {
-      if (current === token) loading.value = false
+      if (search.isCurrent(current)) loading.value = false
     }
   }
 
   /** 搜索输入：300ms 防抖后回到第 1 页加载（§8.3） */
   function setQ(value: string): void {
-    q.value = value
-    if (debounceTimer !== null) clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => {
-      debounceTimer = null
-      appliedQ = value.trim()
-      page.value = 1
-      void load()
-    }, SEARCH_DEBOUNCE_MS)
+    search.setQ(value)
   }
 
   /** 回车立即搜索（§8.3），取消未触发的防抖 */
   function searchNow(): void {
-    if (debounceTimer !== null) {
-      clearTimeout(debounceTimer)
-      debounceTimer = null
-    }
-    appliedQ = q.value.trim()
-    page.value = 1
-    void load()
+    search.searchNow()
   }
 
   /** 类型切换（全部/裸金属/虚拟机）：回到第 1 页 */
@@ -143,12 +132,7 @@ export function useResourceList(scopeClusterId: Ref<number | null>) {
 
   /** 重置筛选/搜索/排序（回到默认 name 升序第 1 页） */
   function resetFilters(): void {
-    if (debounceTimer !== null) {
-      clearTimeout(debounceTimer)
-      debounceTimer = null
-    }
-    q.value = ''
-    appliedQ = ''
+    search.resetQuiet()
     resourceType.value = ''
     status.value = ''
     sort.value = 'name'

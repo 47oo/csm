@@ -8,6 +8,8 @@
 // - 重叠风险提示（§4.6.5：仅提示、允许保存）；
 // - 详情抽屉：保留地址增删、网关设置/显式清空、计数快照、「已分配 IP 及归属」占位；
 // - 409 冲突保留输入不关窗；401/403 由全局拦截器处理。
+// F008：页面搜索接入统一交互（useSearchInput：300ms 防抖 / 回车立即 / 竞态丢弃 /
+// 清空回初始 / 无结果文案；保留「查询」按钮作为可访问性补充）。
 // 前端权限仅隐藏入口，服务端为最终校验（架构 §8.2）。
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -24,6 +26,7 @@ import {
   type SegmentSort,
 } from '../api/segments'
 import { apiErrorMessage, isApiError, type ApiError } from '../api/client'
+import { useSearchInput, SEARCH_DEBOUNCE_MS } from '../composables/useSearchInput'
 import { useAuthStore } from '../stores/auth'
 import { useSegmentPageScope } from '../composables/useSegmentPageScope'
 import SegmentDetailDrawer from '../components/SegmentDetailDrawer.vue'
@@ -48,11 +51,10 @@ const { scopeClusterId, scopeCluster } = useSegmentPageScope()
 // 写操作入口可见性（服务端为最终校验）：新增/编辑/删除/保留地址/网关仅 maintainer/admin
 const canManage = computed(() => canManageSegments(auth.user?.role))
 
-// ---------- 列表查询（Contract §2.1：cluster_id/page/page_size/q/sort） ----------
+// ---------- 列表查询（Contract §2.1：cluster_id/page/page_size/q/sort；F008 统一搜索交互） ----------
 const query = reactive({
   page: 1,
   page_size: 20,
-  q: '',
   sort: 'name' as SegmentSort,
 })
 
@@ -63,23 +65,30 @@ const listError = ref('')
 /** 最近一次保存（新增/编辑）成功后的重叠风险提示；空 = 无 */
 const overlapNotice = ref('')
 
-const hasFilter = computed(() => query.q.trim() !== '')
+// 搜索输入状态机（§8.3）：q 防抖 / 回车立即 / 请求序号竞态 / 清空回初始
+const { q: searchQ, appliedQ, setQ, searchNow, resetQuiet, beginLoad, isCurrent, invalidate } =
+  useSearchInput({
+    debounceMs: SEARCH_DEBOUNCE_MS,
+    onSearch: () => {
+      query.page = 1
+      void load()
+    },
+  })
 
-/** 请求序号：丢弃切换集群/翻页过程中的过期响应 */
-let loadToken = 0
+const hasFilter = computed(() => appliedQ.value !== '')
 
 async function load(): Promise<void> {
   const clusterId = scopeClusterId.value
   if (clusterId === null) {
-    // 无选中集群：不发起查询（页面提示选择集群），不伪装成空列表
-    loadToken += 1
+    // 无选中集群：不发起查询（页面提示选择集群），不伪装成空列表；作废进行中的请求
+    invalidate()
     items.value = []
     total.value = 0
     listError.value = ''
     loading.value = false
     return
   }
-  const token = ++loadToken
+  const current = beginLoad()
   loading.value = true
   listError.value = ''
   try {
@@ -87,37 +96,38 @@ async function load(): Promise<void> {
       cluster_id: clusterId,
       page: query.page,
       page_size: query.page_size,
-      q: query.q,
+      q: appliedQ.value,
       sort: query.sort,
     })
-    if (token !== loadToken) return
+    if (!isCurrent(current)) return // 旧请求不覆盖较新请求
     items.value = data.items
     total.value = data.total
   } catch (error) {
-    if (token !== loadToken) return
+    if (!isCurrent(current)) return
     // 错误显式呈现，不伪装成空结果
     items.value = []
     total.value = 0
     listError.value = apiErrorMessage(error)
   } finally {
-    if (token === loadToken) loading.value = false
+    if (isCurrent(current)) loading.value = false
   }
 }
 
-// 切换集群刷新列表（架构 §2.4）：页码重置、清除过期提示
+// 切换集群刷新列表（架构 §2.4）：页码重置、清除过期提示（搜索词保留，仍限新集群）
 watch(scopeClusterId, () => {
   query.page = 1
   overlapNotice.value = ''
   void load()
 })
 
-function handleSearch(): void {
+/** 排序切换：回到第 1 页重新加载 */
+function handleSortChange(): void {
   query.page = 1
   void load()
 }
 
 function handleResetFilters(): void {
-  query.q = ''
+  resetQuiet()
   query.sort = 'name'
   query.page = 1
   void load()
@@ -520,19 +530,21 @@ onMounted(() => {
 
       <!-- 搜索/排序区 -->
       <el-card class="segments-filter" shadow="never">
-        <el-form inline @submit.prevent="handleSearch">
+        <el-form inline @submit.prevent="searchNow">
           <el-form-item label="搜索">
             <el-input
-              v-model="query.q"
-              placeholder="名称 / CIDR / 用途 / 技术类型包含匹配"
+              :model-value="searchQ"
+              placeholder="名称 / CIDR / 用途 / 技术类型模糊匹配"
               clearable
               style="width: 260px"
-              @keyup.enter="handleSearch"
-              @clear="handleSearch"
+              data-test-id="segment-search-input"
+              @update:model-value="setQ"
+              @keyup.enter="searchNow"
+              @clear="searchNow"
             />
           </el-form-item>
           <el-form-item label="排序">
-            <el-select v-model="query.sort" style="width: 150px" @change="handleSearch">
+            <el-select v-model="query.sort" style="width: 150px" @change="handleSortChange">
               <el-option value="name" label="名称 升序" />
               <el-option value="-name" label="名称 降序" />
               <el-option value="cidr" label="CIDR 升序" />
@@ -542,7 +554,8 @@ onMounted(() => {
             </el-select>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="handleSearch">查询</el-button>
+            <!-- 可访问性补充：显式查询按钮（搜索本身已防抖自动更新，§8.3） -->
+            <el-button type="primary" @click="searchNow">查询</el-button>
             <el-button @click="handleResetFilters">重置</el-button>
           </el-form-item>
         </el-form>

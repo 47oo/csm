@@ -18,6 +18,7 @@ import { formatDateTime } from '../utils/format'
 import { useAuthStore } from '../stores/auth'
 import { useResourcePageScope } from '../composables/useResourcePageScope'
 import { useResourceList } from '../composables/useResourceList'
+import EnumSelect from '../components/EnumSelect.vue'
 import type { ResourceListItem, ResourceStatus } from '../api/resources'
 
 const router = useRouter()
@@ -66,6 +67,17 @@ const hasFilter = computed(
 const emptyDescription = computed(() =>
   hasFilter.value ? '未找到匹配的计算资源' : '该集群暂无计算资源',
 )
+
+/** 状态筛选选项：'' = 全部（固定枚举下拉支持中文展示名/英文代码输入匹配，F008 §8.1） */
+const statusFilterOptions: Array<{ value: ResourceStatus | ''; label: string }> = [
+  { value: '', label: '全部状态' },
+  ...RESOURCE_STATUS_OPTIONS,
+]
+
+/** EnumSelect 清空归一为 null → ''（全部）；本下拉不可清空，仅类型层面兼容 */
+function handleStatusFilterChange(value: ResourceStatus | '' | null): void {
+  setStatus(value ?? '')
+}
 
 /** 状态标签颜色（§9.4：颜色为辅助，文字必需；文字用服务端返回的 status_label） */
 function statusTagType(value: ResourceStatus): 'success' | 'danger' | 'info' | 'primary' {
@@ -133,15 +145,15 @@ function goCreate(): void {
             </el-radio-group>
           </el-form-item>
           <el-form-item label="状态">
-            <el-select :model-value="status" style="width: 150px" @change="setStatus">
-              <el-option value="" label="全部状态" />
-              <el-option
-                v-for="opt in RESOURCE_STATUS_OPTIONS"
-                :key="opt.value"
-                :value="opt.value"
-                :label="opt.label"
-              />
-            </el-select>
+            <!-- 固定枚举下拉（F008）：中文展示名/英文代码均可输入匹配 -->
+            <EnumSelect
+              :model-value="status"
+              :options="statusFilterOptions"
+              placeholder="全部状态"
+              style="width: 150px"
+              data-test-id="resource-status-filter"
+              @update:model-value="handleStatusFilterChange"
+            />
           </el-form-item>
           <el-form-item label="排序">
             <el-select :model-value="sort" style="width: 150px" @change="setSort">

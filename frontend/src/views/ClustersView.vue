@@ -5,6 +5,8 @@
 // F005：操作列增加「网段」入口（跳转该集群的网段列表，任意已登录可查看）。
 // F003：操作列增加「资源」入口（跳转该集群的资源列表，任意已登录可查看）；
 // 原 F002「资源」（新增表单）入口改为「新增资源」以区分读写入口。
+// F008：页面搜索接入统一交互（useSearchInput：300ms 防抖 / 回车立即 / 竞态丢弃 /
+// 清空回初始 / 无结果文案；保留「查询」按钮作为可访问性补充）。
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -20,6 +22,7 @@ import {
   type ClusterSort,
 } from '../api/clusters'
 import { apiErrorMessage, isApiError } from '../api/client'
+import { useSearchInput, SEARCH_DEBOUNCE_MS } from '../composables/useSearchInput'
 import { useAuthStore } from '../stores/auth'
 import { useClusterStore } from '../stores/clusters'
 import {
@@ -53,11 +56,10 @@ function goNewResource(row: ClusterListItem): void {
 const canCreate = computed(() => auth.isAdmin)
 const canDelete = computed(() => auth.user?.role === 'maintainer' || auth.user?.role === 'admin')
 
-// ---------- 列表查询（Contract §2.1：page/page_size/q/sort） ----------
+// ---------- 列表查询（Contract §2.1：page/page_size/q/sort；F008 统一搜索交互） ----------
 const query = reactive({
   page: 1,
   page_size: 20,
-  q: '',
   sort: 'code' as ClusterSort,
 })
 
@@ -66,38 +68,51 @@ const total = ref(0)
 const loading = ref(false)
 const listError = ref('')
 
-const hasFilter = computed(() => query.q.trim() !== '')
+// 搜索输入状态机（§8.3）：q 防抖 / 回车立即 / 请求序号竞态 / 清空回初始
+const { q: searchQ, appliedQ, setQ, searchNow, resetQuiet, beginLoad, isCurrent } = useSearchInput({
+  debounceMs: SEARCH_DEBOUNCE_MS,
+  onSearch: () => {
+    query.page = 1
+    void load()
+  },
+})
+
+const hasFilter = computed(() => appliedQ.value !== '')
 
 async function load(): Promise<void> {
+  const current = beginLoad()
   loading.value = true
   listError.value = ''
   try {
     const data = await listClusters({
       page: query.page,
       page_size: query.page_size,
-      q: query.q,
+      q: appliedQ.value,
       sort: query.sort,
     })
+    if (!isCurrent(current)) return // 旧请求不覆盖较新请求
     items.value = data.items
     total.value = data.total
   } catch (error) {
+    if (!isCurrent(current)) return
     // 错误显式呈现，不伪装成空列表
     items.value = []
     total.value = 0
     listError.value = apiErrorMessage(error)
   } finally {
-    loading.value = false
+    if (isCurrent(current)) loading.value = false
   }
 }
 
-function handleSearch(): void {
+function handleResetFilters(): void {
+  resetQuiet()
+  query.sort = 'code'
   query.page = 1
   void load()
 }
 
-function handleResetFilters(): void {
-  query.q = ''
-  query.sort = 'code'
+/** 排序切换：回到第 1 页重新加载 */
+function handleSortChange(): void {
   query.page = 1
   void load()
 }
@@ -374,19 +389,21 @@ onMounted(() => {
   <div class="clusters-page">
     <!-- 搜索/排序区 -->
     <el-card class="clusters-filter" shadow="never">
-      <el-form inline @submit.prevent="handleSearch">
+      <el-form inline @submit.prevent="searchNow">
         <el-form-item label="搜索">
           <el-input
-            v-model="query.q"
-            placeholder="集群编号或名称包含匹配"
+            :model-value="searchQ"
+            placeholder="集群编号或名称模糊匹配"
             clearable
             style="width: 240px"
-            @keyup.enter="handleSearch"
-            @clear="handleSearch"
+            data-test-id="cluster-search-input"
+            @update:model-value="setQ"
+            @keyup.enter="searchNow"
+            @clear="searchNow"
           />
         </el-form-item>
         <el-form-item label="排序">
-          <el-select v-model="query.sort" style="width: 160px" @change="handleSearch">
+          <el-select v-model="query.sort" style="width: 160px" @change="handleSortChange">
             <el-option value="code" label="编号 升序" />
             <el-option value="-code" label="编号 降序" />
             <el-option value="name" label="名称 升序" />
@@ -396,7 +413,8 @@ onMounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSearch">查询</el-button>
+          <!-- 可访问性补充：显式查询按钮（搜索本身已防抖自动更新，§8.3） -->
+          <el-button type="primary" @click="searchNow">查询</el-button>
           <el-button @click="handleResetFilters">重置</el-button>
         </el-form-item>
       </el-form>
