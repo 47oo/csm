@@ -646,18 +646,19 @@ features:
     blocking_decisions: []
     status: IN_PROGRESS
     layers: {database: false, backend: true, frontend: true}
-    implementation: {database_design: NOT_REQUIRED, backend: COMPLETE, frontend: COMPLETE, test: PENDING, review: PENDING}
-    last_result: Backend COMPLETE（196 passed，含 19 新增；协调器独立复跑通过）；Frontend COMPLETE（Vitest 520 passed、pnpm build 通过）
-    next_action: Tester 独立验证（§8.2 权重排序/字面量/全量分页；§8.3 防抖/竞态/键盘/清空回初始；场景 41），要求 READY FOR REVIEW
+    implementation: {database_design: NOT_REQUIRED, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: PENDING}
+    last_result: Tester READY FOR REVIEW（后端 196 + 前端 534 + 探针 40/40）；D-F008-01 修复轮 1 闭环；F001/F005 q 排序交叉引用已同步
+    next_action: Reviewer 独立 Review（候选 HEAD 1be29f4、base v2）
     contract: {status: READY, doc: docs/api/F008.md, reason: ADR-003 已批准；无新增端点，统一既有 q 排序；database NOT_REQUIRED}
     git:
       base_branch: v2
       branch: feature/F008-unified-search
       start_commit: ce20ae97b6bc3f7e55d57163dafc30b7da961ead
-      head_commit: dd6d6f4
+      head_commit: 1be29f4
       merge_commit: null
-    evidence: []
-    current_stage: IMPLEMENTATION
+    evidence:
+      - docs/project/reports/F008-test-report.md
+    current_stage: REVIEW
 
   - id: F009
     title: 跨对象权限审计一致性复核与集群切换验收
@@ -2317,4 +2318,4 @@ execution:
   current_feature: F008
   current_stage: ARCHITECTURE
   note: >
-    F008 已启动（start ce20ae9）。Architecture/Contract（无 Database 层）与 Backend/Frontend 完成；进行独立 TEST。
+    F008 已启动（start ce20ae9）。Backend/Frontend 完成、Tester READY FOR REVIEW（D-F008-01 修复轮 1 已闭环）；进行 REVIEW（候选 HEAD 1be29f4）。
