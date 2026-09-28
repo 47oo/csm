@@ -18,6 +18,7 @@ from .. import audit, resource_history
 from ..db import get_db
 from ..errors import problem
 from ..models import Cluster, ReservedClusterCode
+from ..search.matching import like_pattern, normalize_query, rank_case
 from ..security.principal import Principal, get_current_user, require_roles
 from .normalize import normalize_cluster_code
 from .schemas import (
@@ -147,19 +148,19 @@ def list_clusters(
         raise problem(400, "INVALID_REQUEST", "非法的排序参数")
 
     conditions = []
-    if q is not None and q.strip() != "":
-        escaped = (
-            q.strip()
-            .replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_")
-        )
-        pattern = f"%{escaped}%"
+    # F008：有 q 时 rank（完全 > 前缀 > 包含）为第一排序键；无 q 行为不变。
+    order_by = [_SORT_MAP[sort], Cluster.id.asc()]
+    needle = normalize_query(q)
+    if needle is not None:
+        pattern = like_pattern(needle)
         conditions.append(
             or_(
                 Cluster.code.ilike(pattern, escape="\\"),
                 Cluster.name.ilike(pattern, escape="\\"),
             )
+        )
+        order_by.insert(
+            0, rank_case(Cluster.code, Cluster.name, needle=needle)
         )
 
     total = db.scalar(select(func.count()).select_from(Cluster).where(*conditions))
@@ -167,7 +168,7 @@ def list_clusters(
         db.scalars(
             select(Cluster)
             .where(*conditions)
-            .order_by(_SORT_MAP[sort], Cluster.id.asc())
+            .order_by(*order_by)
             .offset((page - 1) * page_size)
             .limit(page_size)
         )

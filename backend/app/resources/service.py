@@ -22,6 +22,7 @@ from ..models import (
     Resource,
     User,
 )
+from ..search.matching import match_rank, normalize_query
 
 RESOURCE_TYPES = ("bare_metal", "virtual_machine")
 STATUSES = ("IDLE", "ALLOC", "DOWN", "UNKNOWN")
@@ -243,16 +244,9 @@ def _list_item(
 def _match_weight(value: str, needle: str) -> int | None:
     """§8.2 匹配权重：完全(1) > 前缀(2) > 包含(4)；不匹配返回 None。
 
-    ``needle`` 已 lower 并去首尾空白；``%``/``_`` 在 Python ``in`` 下天然为字面量。
+    自 F008 起复用共享纯函数 :func:`app.search.matching.match_rank`，行为不变。
     """
-    lowered = value.lower()
-    if lowered == needle:
-        return 1
-    if lowered.startswith(needle):
-        return 2
-    if needle in lowered:
-        return 4
-    return None
+    return match_rank(value, needle)
 
 
 def list_resources(
@@ -294,7 +288,8 @@ def list_resources(
         .where(*conditions)
     )
 
-    needle = q.strip().lower() if q is not None and q.strip() != "" else None
+    normalized = normalize_query(q)
+    needle = normalized.lower() if normalized is not None else None
 
     if needle is None:
         total = (

@@ -31,6 +31,7 @@ vi.mock('../api/resources', () => ({
 
 vi.mock('../api/segments', () => ({
   listNetworkSegments: vi.fn(),
+  getNetworkSegment: vi.fn(),
 }))
 
 vi.mock('../api/clusters', () => ({
@@ -39,7 +40,7 @@ vi.mock('../api/clusters', () => ({
 
 // vi.mock 的模块在静态提升后可用：在此处引入以获得类型化的 mock
 import * as resourcesApi from '../api/resources'
-import { listNetworkSegments } from '../api/segments'
+import { getNetworkSegment, listNetworkSegments } from '../api/segments'
 import { listClusters } from '../api/clusters'
 
 const maintainer: CurrentUser = {
@@ -80,6 +81,14 @@ function segmentListItem(id: number, clusterId: number, name: string, cidr: stri
 
 const CLUSTER_1_SEGMENTS = [segmentListItem(3, 1, 'management', '192.168.1.0/24')]
 const CLUSTER_2_SEGMENTS = [segmentListItem(5, 2, 'storage', '10.0.0.0/24')]
+
+/** 网段详情 fixture（NetworkSegmentDetail = ListItem + version/保留地址/重叠）；
+ * F008 修复：setCardSegment 选中全量列表外网段时补取摘要 */
+function segmentDetail(id: number) {
+  const base =
+    id === 5 ? CLUSTER_2_SEGMENTS[0]! : { ...CLUSTER_1_SEGMENTS[0]!, id, name: `seg-${id}` }
+  return { ...base, version: 1, reserved_addresses: [], overlaps: [] }
+}
 
 /** F002 形态基线（无 IP、无管理 IP） */
 const detail: ResourceFormDetail = {
@@ -217,6 +226,7 @@ beforeEach(() => {
     page: 1,
     page_size: 100,
   }))
+  vi.mocked(getNetworkSegment).mockImplementation(async (id) => segmentDetail(id))
   vi.mocked(resourcesApi.getResource).mockResolvedValue(detail)
   vi.mocked(resourcesApi.createResource).mockResolvedValue(detail)
   vi.mocked(resourcesApi.updateResource).mockResolvedValue(detail)
@@ -702,6 +712,153 @@ describe('切换集群清除不匹配网段（§7.1：新增表单未保存时�
     // 集群 2 无网段 3 → 清除选择；接口名保留
     expect(card.segmentId).toBeNull()
     expect(card.name).toBe('eth0')
+  })
+
+  it('切换集群后全量列表加载失败：不回退旧集群列表，选择仍被清除（不因异步下拉破坏清理）', async () => {
+    await mountForm('/clusters/1/resources/new')
+    exposed!.addInterface()
+    const card = exposed!.cards.value[0]!
+    card.name = 'eth0'
+    exposed!.setCardSegment(card, 3)
+
+    vi.mocked(listNetworkSegments).mockRejectedValueOnce(new Error('服务器错误'))
+    await exposed!.selectCluster(2)
+    await flush()
+    // 旧集群选项不残留；选择已清除；错误显式呈现（可重试）
+    expect(exposed!.segmentOptions.value).toEqual([])
+    expect(card.segmentId).toBeNull()
+    expect(exposed!.segmentsError.value).not.toBe('')
+  })
+})
+
+describe('未选网段仍可保存（§7.1/场景 30：未分配 IP 的网卡可暂不选择网段）', () => {
+  it('网卡无网段无 IP → segment_id:null 提交；不发补取详情请求', async () => {
+    await mountForm('/clusters/1/resources/new')
+    exposed!.name.value = 'ib-host'
+    exposed!.resourceType.value = 'bare_metal'
+    exposed!.addInterface()
+    const card = exposed!.cards.value[0]!
+    card.name = 'ib0'
+    expect(card.segmentId).toBeNull()
+
+    await exposed!.submit()
+    await flush()
+
+    expect(resourcesApi.createResource).toHaveBeenCalledWith({
+      cluster_id: 1,
+      name: 'ib-host',
+      resource_type: 'bare_metal',
+      status: 'ALLOC',
+      interfaces: [{ name: 'ib0', segment_id: null }],
+    })
+  })
+})
+
+describe('网段/集群下拉数据源（F008 §5.1：服务端 q 模糊匹配 + 稳定 ID 提交，场景 41）', () => {
+  it('segmentFetcher：服务端 q + cluster_id 作用域 + sort=name + 小 page_size；label=名称·CIDR·用途', async () => {
+    await mountForm('/clusters/1/resources/new')
+    vi.mocked(listNetworkSegments).mockClear()
+    const page = await exposed!.segmentFetcher('Ether', 1, 20)
+    expect(listNetworkSegments).toHaveBeenCalledWith({
+      cluster_id: 1,
+      q: 'Ether',
+      page: 1,
+      page_size: 20,
+      sort: 'name',
+    })
+    expect(page.items).toEqual([
+      {
+        value: 3,
+        label: 'management · 192.168.1.0/24 · 管理',
+        keywords: 'management 192.168.1.0/24 管理 Ethernet',
+      },
+    ])
+    expect(page.total).toBe(1)
+  })
+
+  it('未选集群时 segmentFetcher 不请求（§7.1 只列当前集群网段，无作用域不提供候选）', async () => {
+    await mountForm('/clusters/1/resources/new')
+    await exposed!.selectCluster(null) // 防御路径：UI 上集群不可清空
+    await flush()
+    vi.mocked(listNetworkSegments).mockClear()
+    const page = await exposed!.segmentFetcher('任意', 1, 20)
+    expect(listNetworkSegments).not.toHaveBeenCalled()
+    expect(page).toEqual({ items: [], total: 0 })
+  })
+
+  it('clusterFetcher：服务端 q + sort=name + 小 page_size；label=编号 名称', async () => {
+    await mountForm('/clusters/1/resources/new')
+    vi.mocked(listClusters).mockClear()
+    const page = await exposed!.clusterFetcher('N97', 1, 20)
+    expect(listClusters).toHaveBeenCalledWith({ q: 'N97', page: 1, page_size: 20, sort: 'name' })
+    expect(page.items.map((o) => o.value)).toEqual([1, 2])
+    expect(page.items.map((o) => o.label)).toEqual(['N96P 生产集群', 'N97P 测试集群'])
+  })
+
+  it('segmentSearchOptions/clusterSearchOptions：全量列表映射为初始候选/回显（label 同适配器）', async () => {
+    await mountForm('/clusters/1/resources/new')
+    expect(exposed!.segmentSearchOptions.value).toEqual([
+      {
+        value: 3,
+        label: 'management · 192.168.1.0/24 · 管理',
+        keywords: 'management 192.168.1.0/24 管理 Ethernet',
+      },
+    ])
+    expect(exposed!.clusterSearchOptions.value.map((o) => o.label)).toEqual([
+      'N96P 生产集群',
+      'N97P 测试集群',
+    ])
+  })
+})
+
+describe('选中全量列表外网段补取摘要（F008 修复：服务端搜索选中后只读带出）', () => {
+  it('列表无该网段（加载失败/加载后新建）→ 补取详情，segmentSummary 只读字段可用', async () => {
+    // 全量列表为空，模拟仅能通过服务端搜索选中的网段（id 9，集群 1 新建）
+    vi.mocked(listNetworkSegments).mockResolvedValue({ items: [], total: 0, page: 1, page_size: 100 })
+    vi.mocked(getNetworkSegment).mockResolvedValueOnce({
+      ...segmentDetail(9),
+      name: 'new-seg',
+      cidr: '10.20.0.0/16',
+      purpose: '存储',
+      technology: 'InfiniBand',
+      gateway: '10.20.0.1',
+      auto_alloc_start: '10.20.0.20',
+      auto_alloc_end: '10.20.0.30',
+      auto_alloc_enabled: true,
+    })
+    await mountForm('/clusters/1/resources/new')
+    expect(exposed!.segmentOptions.value).toEqual([])
+
+    exposed!.addInterface()
+    const card = exposed!.cards.value[0]!
+    card.name = 'ib0'
+    exposed!.setCardSegment(card, 9)
+    await flush()
+
+    expect(getNetworkSegment).toHaveBeenCalledWith(9)
+    const summary = exposed!.segmentSummary(9)
+    expect(summary).toMatchObject({
+      id: 9,
+      technology: 'InfiniBand',
+      purpose: '存储',
+      cidr: '10.20.0.0/16',
+      gateway: '10.20.0.1',
+      autoAllocEnabled: true,
+    })
+  })
+
+  it('补取响应属于其它集群（切换中/过期）→ 丢弃，不混入当前作用域', async () => {
+    await mountForm('/clusters/1/resources/new')
+    exposed!.addInterface()
+    const card = exposed!.cards.value[0]!
+    card.name = 'eth0'
+    // 网段 5 属集群 2：全量列表（集群 1）无它，补取后因集群不一致被丢弃
+    exposed!.setCardSegment(card, 5)
+    await flush()
+    expect(getNetworkSegment).toHaveBeenCalledWith(5)
+    expect(exposed!.segmentSummary(5)).toBeNull()
+    // 选择保留（提交时由服务端权威校验归属）
+    expect(card.segmentId).toBe(5)
   })
 })
 

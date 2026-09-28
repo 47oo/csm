@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..errors import problem
 from ..models import IpAddress, NetworkInterface, NetworkSegment, Resource
+from ..search.matching import match_rank, normalize_query
 from ..security.principal import Principal, get_current_user
 from .addressing import ipv4_to_int
 from .schemas import AllocatedIpItem, PagedAllocatedIps
@@ -38,32 +39,45 @@ def list_allocated_ips(
         .where(IpAddress.segment_id == segment_id)
     ).all()
 
-    needle = q.strip().lower() if q and q.strip() else None
-    items: list[dict] = []
+    needle = normalize_query(q)
+    ranked: list[tuple[int, dict]] = []
     for ip, interface, resource in rows:
         if needle is not None:
-            haystacks = (
-                ip.ip.lower(),
-                resource.name.lower(),
-                interface.name.lower(),
-            )
-            if not any(needle in value for value in haystacks):
+            ranks = [
+                rank
+                for rank in (
+                    match_rank(ip.ip, needle),
+                    match_rank(resource.name, needle),
+                    match_rank(interface.name, needle),
+                )
+                if rank is not None
+            ]
+            if not ranks:
                 continue
-        items.append(
-            {
-                "ip_id": ip.id,
-                "address": ip.ip,
-                "resource_id": ip.resource_id,
-                "resource_name": resource.name,
-                "resource_type": resource.resource_type,
-                "interface_id": ip.interface_id,
-                "interface_name": interface.name,
-                "is_management": resource.management_ip_id == ip.id,
-                "created_at": ip.created_at,
-            }
+            rank = min(ranks)
+        else:
+            # 无 q：保持既有默认排序（地址数值升序）。
+            rank = 0
+        ranked.append(
+            (
+                rank,
+                {
+                    "ip_id": ip.id,
+                    "address": ip.ip,
+                    "resource_id": ip.resource_id,
+                    "resource_name": resource.name,
+                    "resource_type": resource.resource_type,
+                    "interface_id": ip.interface_id,
+                    "interface_name": interface.name,
+                    "is_management": resource.management_ip_id == ip.id,
+                    "created_at": ip.created_at,
+                },
+            )
         )
 
-    items.sort(key=lambda item: ipv4_to_int(item["address"]))
+    # F008：有 q 时 rank 优先，同级与无 q 时均按地址数值升序（既有默认）。
+    ranked.sort(key=lambda pair: (pair[0], ipv4_to_int(pair[1]["address"])))
+    items = [item for _, item in ranked]
     total = len(items)
     start = (page - 1) * page_size
     page_items = items[start : start + page_size]

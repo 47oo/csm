@@ -4,6 +4,8 @@
 // - 新增：集群可选（复用 F001 useClusterStore；切换清除不再匹配的网段选择 §7.1）、
 //   资源类型必选（创建后只读）、状态、网卡卡片；一次提交公共信息 + 全部网卡 + 全部 IP +
 //   管理 IP（§4.5 整单原子）；
+// - 网络范围/集群下拉接入 FuzzySelect（F008 §4.2/§5.1、需求 §8.1）：服务端 q 模糊匹配
+//   （网段：名称/CIDR/用途/技术类型；集群：名称/编号），提交稳定 ID，未匹配文本不提交；
 // - 每张网卡 IP 区：手动输入 / 自动分配（未选网段禁用并提示先选网段，§4.6.7/场景 31；
 //   自动分配仅网段已启用自动范围时可用，服务端权威）；IP 列表展示与删除（既有 IP 标记
 //   「将删除」可恢复，提交映射 op:'delete'；未列出=未修改；不可改地址）；
@@ -22,6 +24,9 @@ import {
   resourceTypeLabel,
 } from '../utils/resourceRules'
 import { formatDateTime } from '../utils/format'
+import EnumSelect from '../components/EnumSelect.vue'
+import FuzzySelect from '../components/FuzzySelect.vue'
+import type { ResourceStatus, ResourceType } from '../api/resources'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -38,7 +43,10 @@ const {
   cards,
   detail,
   selectedClusterId,
-  segmentOptions,
+  segmentSearchOptions,
+  clusterSearchOptions,
+  segmentFetcher,
+  clusterFetcher,
   segmentsLoading,
   segmentsError,
   submitting,
@@ -59,7 +67,6 @@ const {
   managementIpCandidates,
   managementIpValue,
   managementKeepLabel,
-  clusterOptions,
   clusterLoadError,
   init,
   retryLoadClusters,
@@ -86,12 +93,24 @@ const {
   submitDelete,
 } = useResourceForm()
 
-/** 新增模式集群选择（el-select 清空归一为 null） */
+/** 新增模式集群选择（FuzzySelect change 归一为稳定 ID；不可清空，防御归一 null） */
 function handleClusterChange(id: unknown): void {
   void selectCluster(typeof id === 'number' ? id : null)
 }
 
-/** 网卡网段选择（清空归一为 null = 暂不选网段） */
+/** 资源类型选择（EnumSelect 清空归一为 null；必选字段，实际不可清空；'' = 未选） */
+function handleTypeChange(value: ResourceType | '' | null): void {
+  resourceType.value = value ?? ''
+  fieldErrors.resource_type = ''
+}
+
+/** 状态选择（EnumSelect 清空归一为 null；不可清空，仅类型层面兼容） */
+function handleStatusChange(value: ResourceStatus | null): void {
+  status.value = value ?? 'ALLOC'
+  fieldErrors.status = ''
+}
+
+/** 网卡网段选择（FuzzySelect change 归一为稳定 ID；清空为 null = 暂不选网段） */
 function handleSegmentChange(card: InterfaceCard, id: unknown): void {
   setCardSegment(card, typeof id === 'number' ? id : null)
 }
@@ -154,27 +173,23 @@ function handleConflictResolvedClose(): void {
         <el-card shadow="never" class="resource-section">
           <template #header><span class="resource-section-title">公共信息</span></template>
 
-          <!-- 新增：集群选择；编辑：只读回显 -->
+          <!-- 新增：集群选择（FuzzySelect 服务端 q 匹配 名称/编号，F008 §8.1）；编辑：只读回显 -->
           <el-form-item
             v-if="mode === 'create'"
             label="所属集群"
             :error="fieldErrors.cluster_id || undefined"
           >
-            <el-select
+            <FuzzySelect
               :model-value="selectedClusterId"
-              filterable
+              :fetcher="clusterFetcher"
+              :initial-options="clusterSearchOptions"
+              :clearable="false"
               placeholder="选择集群（本次新增归属该集群，创建后不可修改）"
               class="resource-cluster-select"
+              popper-class="resource-cluster-dropdown"
               :disabled="!canManage"
               @change="handleClusterChange"
-            >
-              <el-option
-                v-for="c in clusterOptions"
-                :key="c.id"
-                :value="c.id"
-                :label="`${c.code} ${c.name}`"
-              />
-            </el-select>
+            />
             <div v-if="clusterLoadError" class="resource-inline-error">
               集群列表加载失败：{{ clusterLoadError }}
               <el-button link type="primary" size="small" @click="retryLoadClusters">重试</el-button>
@@ -203,39 +218,29 @@ function handleConflictResolvedClose(): void {
               class="resource-field-grow"
               :error="fieldErrors.resource_type || undefined"
             >
-              <el-select
-                v-model="resourceType"
+              <!-- 固定枚举下拉（F008）：中文展示名/英文代码均可输入匹配 -->
+              <EnumSelect
+                :model-value="resourceType"
+                :options="RESOURCE_TYPE_OPTIONS"
                 placeholder="裸金属 / 虚拟机（创建后不可修改）"
                 class="resource-type-select"
                 :disabled="!canManage"
-                @change="fieldErrors.resource_type = ''"
-              >
-                <el-option
-                  v-for="opt in RESOURCE_TYPE_OPTIONS"
-                  :key="opt.value"
-                  :value="opt.value"
-                  :label="opt.label"
-                />
-              </el-select>
+                @update:model-value="handleTypeChange"
+              />
             </el-form-item>
             <el-form-item v-else label="资源类型（创建后不可修改）" class="resource-field-grow">
               <el-input :model-value="resourceTypeLabel(resourceType)" disabled />
             </el-form-item>
 
             <el-form-item label="状态" class="resource-field-grow" :error="fieldErrors.status || undefined">
-              <el-select
-                v-model="status"
+              <!-- 固定枚举下拉（F008）：中文展示名/英文代码均可输入匹配 -->
+              <EnumSelect
+                :model-value="status"
+                :options="RESOURCE_STATUS_OPTIONS"
                 class="resource-status-select"
                 :disabled="!canManage"
-                @change="fieldErrors.status = ''"
-              >
-                <el-option
-                  v-for="opt in RESOURCE_STATUS_OPTIONS"
-                  :key="opt.value"
-                  :value="opt.value"
-                  :label="opt.label"
-                />
-              </el-select>
+                @update:model-value="handleStatusChange"
+              />
             </el-form-item>
           </div>
 
@@ -324,22 +329,21 @@ function handleConflictResolvedClose(): void {
                   class="resource-field-grow"
                   :error="fieldErrors.cards[card.key]?.segment_id || undefined"
                 >
-                  <el-select
+                  <!-- F008 §8.1：服务端 q 匹配 网段名称/CIDR/用途/技术类型（仅本集群，§7.1）；
+                       展示「名称 · CIDR · 用途」；提交稳定 segment_id；未选网段可保存（场景 30）；
+                       key 含集群：切换集群时重建，候选不再残留旧集群（配合 composable 清理） -->
+                  <FuzzySelect
+                    :key="`${card.key}:${selectedClusterId ?? 'none'}`"
                     :model-value="card.segmentId"
+                    :fetcher="segmentFetcher"
+                    :initial-options="segmentSearchOptions"
                     clearable
-                    filterable
-                    placeholder="选择本集群网段（分配 IP 前必须选定）"
+                    placeholder="搜索本集群网段：名称 / CIDR / 用途 / 技术类型（可暂不选）"
                     class="resource-segment-select"
-                    :disabled="!canManage || card.removed || segmentsLoading"
+                    popper-class="resource-segment-dropdown"
+                    :disabled="!canManage || card.removed || segmentsLoading || selectedClusterId === null"
                     @change="handleSegmentChange(card, $event)"
-                  >
-                    <el-option
-                      v-for="s in segmentOptions"
-                      :key="s.id"
-                      :value="s.id"
-                      :label="`${s.name} · ${s.cidr} · ${s.purpose}`"
-                    />
-                  </el-select>
+                  />
                 </el-form-item>
               </div>
 
