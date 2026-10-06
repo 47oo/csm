@@ -151,3 +151,16 @@ Thumbs.db
 .pi/cache/
 .pi/tmp/
 .pi/*.local.*
+
+# ----------------------------
+# CSM F001 后端 / 部署本地产物
+# ----------------------------
+backend/.venv/
+backend/.pytest_cache/
+backend/*.egg-info/
+backups/
+*.dump
+*.dump.tmp
+htmlcov/
+.coverage
+coverage.xml

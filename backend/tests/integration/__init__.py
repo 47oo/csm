@@ -1,0 +1,1 @@
+"""Integration tests (require real PostgreSQL via TEST_DATABASE_URL)."""
