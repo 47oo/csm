@@ -1,11 +1,13 @@
-# V3 一期流程入口骨架；本次只更新文档，未开展 Feature 规划或授权实施。
+# CSM V3 一期首次完整计划（16 Feature，DRAFT，待用户批准 revision 4）。
+# 规划字段由 Project Manager 维护；批准、暂停标记、执行检查点与派生视图由协调器维护。
+# Scope/acceptance 已综合 Architect / Database 全局评估与协调裁定；不含实施授权。
 project:
   name: CSM — Cluster Source Manager
   version: V3 phase 1
   requirements:
     path: docs/product/requirements-v3.md
     revision: 3
-  plan_revision: 3
+  plan_revision: 4
   status: DRAFT
   approval:
     plan_revision: null
@@ -16,61 +18,423 @@ project:
   acceptance:
     status: PENDING
     evidence: []
-features: []
+features:
+  - id: F001
+    title: 工程与部署底座
+    kind: ENABLER
+    priority: P0
+    milestone: M1 基础与访问控制
+    scope: "建立前后端工程骨架与部署基线：FastAPI / Pydantic 后端与 React / TypeScript / Vite 前端脚手架、Nginx 入口代理、docker compose up -d 启动 Nginx→Frontend/FastAPI→PostgreSQL；SQLAlchemy 2.x + Alembic 迁移基线与首个基准迁移；扩展启用策略（pg_trgm、btree_gist 等）在基线迁移明确并经本 Feature DATABASE Gate 签核；真实 PostgreSQL 集成测试基线（pytest fixture 可建 schema、执行 Alembic、事务级清理；SQLite 仅用于纯逻辑冒烟，不作约束证据）；备份机制骨架（pg_dump 流程、恢复文档与冒烟验证，不宣称已覆盖 Audit 数据）；配置与凭据注入机制（真实初始凭据不入仓）；为 T07/T35 并发验证准备多连接并发与最终持久化状态断言前提。"
+    acceptance: "docker compose up -d 可启动完整链路并访问健康检查；Alembic 基线可在真实 PostgreSQL 建库并回滚；pytest 集成基线可运行并清理；扩展启用策略在迁移中明确；备份骨架可执行 pg_dump 并按文档恢复；D02 基础部分（软件版本、目录结构、迁移基线、扩展、测试基线）在本 Feature 由 Architect / Database 签核。"
+    requirements:
+      - docs/product/requirements-v3.md#26-数据库
+      - docs/product/requirements-v3.md#27-数据完整性
+      - docs/product/requirements-v3.md#29-技术栈
+      - docs/product/requirements-v3.md#30-部署
+      - docs/product/requirements-v3.md#31-测试
+    depends_on: []
+    blocking_decisions: []
+    status: DRAFT
+  - id: F002
+    title: 认证、初始账号与权限横切
+    kind: FEATURE
+    priority: P0
+    milestone: M1 基础与访问控制
+    scope: "请求级横切：本地账号登录、部署时初始化首个 ADMIN 实体与创建流程、服务端权限矩阵、当前操作者上下文注入、401/403 语义、敏感字段不落日志策略骨架、编辑版本冲突 409 语义定义；认证、初始账号、版本冲突与错误语义、敏感字段、连接池、乐观锁版本列等 D02 认证部分在本 Feature CONTRACT 签核；权限矩阵端到端在 F003 起完整回归（T25/T26 分阶段闭合）。遵循公共 API 约定。"
+    acceptance: "本地登录与初始 ADMIN 创建可用；服务端按权限矩阵执行鉴权并返回 401/403；过期版本编辑返回 409 且无静默覆盖；不记录或展示密码/令牌等敏感内容；T25/T26 的认证与权限部分在 F003 交付后完整回归通过。"
+    requirements:
+      - docs/product/requirements-v3.md#23-用户与权限
+      - docs/product/requirements-v3.md#22-audit-log
+      - docs/product/requirements-v3.md#29-技术栈
+      - docs/product/requirements-v3.md#30-部署
+      - docs/product/requirements-v3.md#31-测试
+    depends_on:
+      - F001
+    blocking_decisions: []
+    status: DRAFT
+  - id: F003
+    title: Cluster 管理与持久化横切首落地
+    kind: FEATURE
+    priority: P0
+    milestone: M2 集群与裸金属闭环
+    scope: "Cluster 实体（name、code、status、description、metadata 及审计字段）；code 全局唯一、大小写不敏感、创建后不可改、软删除后不重用（全量唯一索引）；name 可改、允许中文、不强制唯一；status ACTIVE/INACTIVE 人工维护、不级联其他对象状态、不释放 IP；INACTIVE 仍按既有权限维护，默认查询含停用且支持状态过滤。持久化横切随首个业务对象落地：deleted_at 软删列与默认过滤、ADMIN 查看已删除对象与恢复（首个对象）、Audit 表与写路径（operator/action/object_type/object_id/before_data/after_data/created_at，与业务写入同事务）、端到端乐观锁（过期版本拒绝、无静默覆盖）、名称归一化、稳定 ID；D01 共享约定基座（名称归一化与字符长度、稳定 ID、必填、时间存储/接口/展示时区、MiB/GiB 单位与数值上限、nullable、省略语义）在本 Feature CONTRACT 签核；D02 审计一致性部分签核。Cluster 列表（组合过滤/排序/分页，向统一契约收敛）、Cluster Detail（§19）与 Cluster 维度基础搜索入口；本域字段契约补齐 D01，归一化键列与唯一约束首次建表落地。"
+    acceptance: "code 规则与 T13 通过；停用集群维护、默认查询含停用与状态过滤通过（T29）；软删默认隐藏且 ADMIN 可恢复、恢复重检冲突（T24 首个对象）；关键修改写入 Audit 且与业务同事务（T26 部分）；过期版本编辑被 409 拒绝（T26）；名称归一化与稳定 ID 固化为共享契约（T40 部分）；D01 基座与 D02 审计一致性在本 Feature CONTRACT 签核。"
+    requirements:
+      - docs/product/requirements-v3.md#5-cluster
+      - docs/product/requirements-v3.md#41-创建必填项与名称规范
+      - docs/product/requirements-v3.md#19-cluster-detail
+      - docs/product/requirements-v3.md#21-逻辑删除
+      - docs/product/requirements-v3.md#22-audit-log
+      - docs/product/requirements-v3.md#25-api
+      - docs/product/requirements-v3.md#27-数据完整性
+      - docs/product/requirements-v3.md#28-前端
+    depends_on:
+      - F001
+      - F002
+    blocking_decisions: []
+    status: DRAFT
+  - id: F004
+    title: Resource 核心登记
+    kind: FEATURE
+    priority: P0
+    milestone: M2 集群与裸金属闭环
+    scope: "统一 Resource 模型（cluster、hostname、resource_type、role、status、description、metadata 及审计字段）；resource_type 仅 BARE_METAL/VIRTUAL_MACHINE（后续类型扩展本期不实现）；Role 枚举默认 OTHER、显式 null 拒绝、可扩展；Status 默认 UNKNOWN、人工维护；同 Cluster hostname 去空白转小写归一化唯一、软删后可重用、跨 Cluster 允许同名；普通 API、导入、搜索与数据库唯一性共用同一归一化规则；创建后不可直接改所属 Cluster 或 resource_type；Resource 列表（组合过滤 cluster/type/role/status，§25 示例）、Resource Detail Overview 区域（§18）与 hostname 基础搜索接入全局搜索入口；软删/恢复/审计接入横切基座；本域字段契约补齐 D01，hostname 归一化键列与 (cluster, hostname) 部分唯一约束首次建表落地。"
+    acceptance: "同 Cluster 重复 hostname 创建失败、跨 Cluster 同名允许、软删后可重建（T01、T02、T03）；大小写与首尾空白归一化一致（T11）；默认值生效与 Role 显式 null 拒绝（T37）；不能直接改 Cluster 或类型（T19 相关）；列表组合过滤符合 §25；DATABASE Gate 由 Database 签核。"
+    requirements:
+      - docs/product/requirements-v3.md#6-resource
+      - docs/product/requirements-v3.md#7-hostname-唯一性
+      - docs/product/requirements-v3.md#41-创建必填项与名称规范
+      - docs/product/requirements-v3.md#18-resource-detail
+      - docs/product/requirements-v3.md#21-逻辑删除
+      - docs/product/requirements-v3.md#27-数据完整性
+    depends_on:
+      - F003
+    blocking_decisions: []
+    status: DRAFT
+  - id: F005
+    title: BareMetal 硬件与容量
+    kind: FEATURE
+    priority: P0
+    milestone: M2 集群与裸金属闭环
+    scope: "BareMetalDetail 硬件字段（manufacturer、model、serial_number、cpu_model、cpu_sockets、cpu_cores、memory_mb、gpu_model、gpu_count）；硬件参数可空、未知值保存 null 不以 0 表示；cpu_sockets/cpu_cores 正整数、gpu_count 非负整数（0 表示明确无 GPU）、memory_mb 单位 MiB；SN 一期无全局唯一约束；经常查询/排序/统计的数据结构化，厂商特有或低频数据用 JSONB；明细跟随 Resource 生命周期、无独立删除入口；Resource Detail Hardware 区域展示（§18）；本域字段契约补齐 D01。"
+    acceptance: "未知为 null 与单位语义通过（T38）；cpu_cores 为整机物理核心总数、不含超线程（T39）；Hardware 区域展示符合 §18；DATABASE Gate 由 Database 签核。"
+    requirements:
+      - docs/product/requirements-v3.md#8-bare-metal
+      - docs/product/requirements-v3.md#18-resource-detail
+      - docs/product/requirements-v3.md#27-数据完整性
+    depends_on:
+      - F004
+    blocking_decisions: []
+    status: DRAFT
+  - id: F006
+    title: 虚拟机登记
+    kind: FEATURE
+    priority: P0
+    milestone: M3 虚拟化与接口
+    scope: "VirtualMachineDetail（host_resource_id、vcpu、memory_mb、disk_gb、hypervisor、metadata）；VM 必关联未删除的 BARE_METAL Host 且同 Cluster；同 Cluster 内可更换 Host 并记录 Audit；存在未删除 VM 引用时 Host 不可删除；容量参数可空及单位语义；明细跟随 Resource 生命周期；不校验 VM 总 vCPU/内存是否超过 Host 容量；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。"
+    acceptance: "VM Host 类型与集群校验通过（T08、T09）；换 Host 审计与 Host 引用删除限制通过（T19）；容量单位与零值语义通过（T38、T39）；登记不因超过 Host 容量被拒绝（T39）；DATABASE Gate 由 Database 签核。"
+    requirements:
+      - docs/product/requirements-v3.md#9-virtual-machine
+      - docs/product/requirements-v3.md#6-resource
+      - docs/product/requirements-v3.md#8-bare-metal
+      - docs/product/requirements-v3.md#21-逻辑删除
+      - docs/product/requirements-v3.md#22-audit-log
+      - docs/product/requirements-v3.md#27-数据完整性
+    depends_on:
+      - F004
+    blocking_decisions: []
+    status: DRAFT
+  - id: F007
+    title: Interface 接口管理
+    kind: FEATURE
+    priority: P0
+    milestone: M3 虚拟化与接口
+    scope: "Interface（resource、name、interface_type、mac_address、speed_mbps、mtu、parent_interface、enabled、description、metadata）；接口类型枚举默认 OTHER、不由名称推断；同 Resource 名称唯一、区分大小写、禁止内部空白、删除后可复用；parent_interface 归属同 Resource、禁自引用与环路（应用层或触发器缺口在本 Feature DATABASE Gate 明确）；MAC 可空、一期无全局唯一；speed_mbps 表示标称速率；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。"
+    acceptance: "Interface 名称唯一与复用通过（T12、T40、T41）；parent_interface 约束通过（T20）；默认值与类型不由名称推断通过（T37）；DATABASE Gate 由 Database 签核并记录环路检测缺口处理。"
+    requirements:
+      - docs/product/requirements-v3.md#10-interface
+      - docs/product/requirements-v3.md#41-创建必填项与名称规范
+      - docs/product/requirements-v3.md#21-逻辑删除
+      - docs/product/requirements-v3.md#27-数据完整性
+    depends_on:
+      - F004
+    blocking_decisions: []
+    status: DRAFT
+  - id: F008
+    title: Network 网络管理
+    kind: FEATURE
+    priority: P0
+    milestone: M4 网络与 IPAM
+    scope: "Network（cluster、name、cidr、gateway、status、auto_allocate、description、metadata）；仅 IPv4，CIDR 优先使用 PostgreSQL CIDR；同 Cluster 未删除 Network 不允许 CIDR 重叠、INACTIVE 仍参与；有未删除 Pool 或 IP 时禁止改 CIDR 或所属 Cluster；gateway 必须属于 CIDR 并从可分配集合排除；status ACTIVE/INACTIVE 且 INACTIVE 禁新增分配；auto_allocate 默认 false；名称大小写不敏感、Cluster 内唯一、可复用；数据库设计热点（跨表 CIDR 归属、软删引用限制与恢复重检）在本 Feature DATABASE Gate 由 Database 签核；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。"
+    acceptance: "CIDR 重叠与变更限制、gateway 规则通过（T14，T30 相关）；INACTIVE 禁分配与默认查询通过（T16、T29）；名称规则通过（T40、T41）；跨表 CIDR 归属与软删引用由 Database 签核；DATABASE Gate 由 Database 签核。"
+    requirements:
+      - docs/product/requirements-v3.md#11-network
+      - docs/product/requirements-v3.md#111-ipv4-地址边界
+      - docs/product/requirements-v3.md#41-创建必填项与名称规范
+      - docs/product/requirements-v3.md#21-逻辑删除
+      - docs/product/requirements-v3.md#27-数据完整性
+    depends_on:
+      - F003
+    blocking_decisions: []
+    status: DRAFT
+  - id: F009
+    title: IP Pool 地址池
+    kind: FEATURE
+    priority: P0
+    milestone: M4 网络与 IPAM
+    scope: "IPPool（network、name、start_address、end_address、allocation_mode、description）；起止地址属于 Network 且起不大于止，同 Network 未删除池互不重叠；allocation_mode MANUAL/AUTO/RESERVED 及分配行为；名称大小写不敏感、Network 内唯一、可复用；保留范围与网关变更冲突（新建或扩大 RESERVED、AUTO/MANUAL 改为 RESERVED、已占用地址设为 gateway 均拒绝并返回冲突数量与可查询明细）；删除或缩小池不回收 IP 且保留来源历史；数据库设计热点（Pool 范围重叠表示、软删引用限制与恢复重检）在本 Feature DATABASE Gate 由 Database 签核；字段契约补齐 D01。"
+    acceptance: "越界、逆序、有效池重叠与分配模式行为通过（T15）；保留范围与网关冲突返回数量与明细通过（T33）；池变更不回收与来源历史通过（T34）；名称规则通过（T40、T41）；DATABASE Gate 由 Database 签核。"
+    requirements:
+      - docs/product/requirements-v3.md#12-ip-pool
+      - docs/product/requirements-v3.md#121-保留范围及网关变更冲突
+      - docs/product/requirements-v3.md#111-ipv4-地址边界
+      - docs/product/requirements-v3.md#21-逻辑删除
+      - docs/product/requirements-v3.md#27-数据完整性
+    depends_on:
+      - F008
+    blocking_decisions: []
+    status: DRAFT
+  - id: F010
+    title: IP 地址分配与容量
+    kind: FEATURE
+    priority: P0
+    milestone: M4 网络与 IPAM
+    scope: "IPAddress 独立对象与 Network→IPAddress→Interface 关系、未绑定仍占用；自动分配（ACTIVE 加 auto_allocate 加 AUTO 池、按地址升序、池耗尽不切换、并发不重复）；手动分配（池内或池外合法、禁 gateway/RESERVED/禁用地址）；解绑与释放语义（解绑不释放、释放需 ADMIN、Endpoint 引用先处理）；IP 完整性（属于 CIDR、同 Cluster 全局唯一、Cluster 一致性）；IPv4 地址边界与禁用网段；Dashboard Network 与 AUTO 池容量公式；共享 Network 级锁域与并发保护；软删引用限制与恢复重检；D02 约束/索引/锁/IPAM 并发在本 Feature CONTRACT 后关闭；字段契约补齐 D01。"
+    acceptance: "自动与手动分配、并发不重复通过（T07、T16、T17）；完整性与地址边界通过（T04、T05、T06、T10、T30、T31）；解绑/释放与 Endpoint 引用通过（T22、T23）；容量公式通过（T32）；并发冲突保护通过（T35）；D02 在本 Feature CONTRACT 关闭；DATABASE Gate 由 Database 签核。"
+    requirements:
+      - docs/product/requirements-v3.md#13-ip-address
+      - docs/product/requirements-v3.md#131-自动分配
+      - docs/product/requirements-v3.md#132-手动分配
+      - docs/product/requirements-v3.md#133-解绑与释放
+      - docs/product/requirements-v3.md#14-ip-完整性
+      - docs/product/requirements-v3.md#111-ipv4-地址边界
+      - docs/product/requirements-v3.md#20-dashboard
+      - docs/product/requirements-v3.md#21-逻辑删除
+      - docs/product/requirements-v3.md#27-数据完整性
+    depends_on:
+      - F007
+      - F008
+      - F009
+    blocking_decisions: []
+    status: DRAFT
+  - id: F011
+    title: Service 服务登记
+    kind: FEATURE
+    priority: P1
+    milestone: M5 服务与端点
+    scope: "Service（resource、name、status、description、metadata）；状态 RUNNING/STOPPED/UNKNOWN 默认 UNKNOWN 且人工维护；名称大小写不敏感、同 Resource 内唯一、删除后可复用；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。"
+    acceptance: "名称归一化与同 Resource 唯一通过（T21、T40、T41）；默认状态与人工维护通过（T21、T37）；DATABASE Gate 由 Database 签核。"
+    requirements:
+      - docs/product/requirements-v3.md#15-service
+      - docs/product/requirements-v3.md#41-创建必填项与名称规范
+      - docs/product/requirements-v3.md#21-逻辑删除
+    depends_on:
+      - F004
+    blocking_decisions: []
+    status: DRAFT
+  - id: F012
+    title: Service Endpoint 监听端点
+    kind: FEATURE
+    priority: P1
+    milestone: M5 服务与端点
+    scope: "ServiceEndpoint（service、ip_address、protocol、port、description）；IP 必填、未删除且绑定在 Service 所属 Resource 的 Interface；协议仅 TCP/UDP、端口 1 到 65535；同一有效 IP 上 protocol 加 port 不重复；不支持通配地址、Unix Socket 或跨资源共享 VIP；有 Endpoint 引用时禁解绑、转移或释放 IP；字段契约补齐 D01。"
+    acceptance: "Endpoint 归属与监听唯一通过（T22）；协议与端口校验通过；有 Endpoint 引用时 IP 不可解绑/转移/释放通过（T22、T23）；DATABASE Gate 由 Database 签核。"
+    requirements:
+      - docs/product/requirements-v3.md#16-service-endpoint
+      - docs/product/requirements-v3.md#15-service
+      - docs/product/requirements-v3.md#13-ip-address
+      - docs/product/requirements-v3.md#27-数据完整性
+    depends_on:
+      - F010
+      - F011
+    blocking_decisions: []
+    status: DRAFT
+  - id: F013
+    title: 全局搜索与 Dashboard
+    kind: FEATURE
+    priority: P1
+    milestone: M6 检索、导入与系统功能
+    scope: "首页全局搜索入口，支持 hostname、IP、Cluster、Service 模糊搜索并定位 Resource；使用 pg_trgm 支持模糊搜索（GIN 索引为建议，具体索引在数据库设计签核）；Dashboard 展示 Cluster/Resource/BareMetal/VM/Network 数量与 IP 使用情况，含 Network 与 AUTO 池可分配、占用、剩余口径；各实体列表组合过滤/排序/分页属各域 Feature（向同一契约收敛），全局 /api/v1/search 与 Dashboard 汇总属本 Feature；需要 API 契约并遵循公共 API 约定；pg_trgm 索引引入点（F004 或 F013）由首个需要模糊查询的 Feature Contract 加 D02 裁定。"
+    acceptance: "按 hostname/IP/Cluster/Service 命中对应 Resource（§33）；Dashboard 计数与容量口径符合 §20（T32）；模糊搜索使用 pg_trgm 且索引方案经 Database 签核；本 Feature Contract 明确列表契约收敛与索引引入点。"
+    requirements:
+      - docs/product/requirements-v3.md#17-全局搜索
+      - docs/product/requirements-v3.md#20-dashboard
+      - docs/product/requirements-v3.md#19-cluster-detail
+      - docs/product/requirements-v3.md#18-resource-detail
+      - docs/product/requirements-v3.md#33-目标查询场景
+      - docs/product/requirements-v3.md#25-api
+    depends_on:
+      - F003
+      - F004
+      - F005
+      - F006
+      - F008
+      - F009
+      - F010
+      - F011
+    blocking_decisions: []
+    status: DRAFT
+  - id: F014
+    title: CSV / Excel 批量导入
+    kind: FEATURE
+    priority: P1
+    milestone: M6 检索、导入与系统功能
+    scope: "CSV 与 .xlsx 资源新增导入（不按 hostname 更新或覆盖现存资源）；固定模板与逐列说明（VM 模板含 Host 引用列，依 D03）；先校验并展示错误行再由用户确认，正式写入再次校验；整批成功或整批回滚，回滚不留业务变更记录；文件内重复、现存冲突、非法字段或关系报错含行号、字段、原因；走与普通 API 相同的 Service Layer 校验；同步处理并设置文件大小与行数上限；cluster 列校验；预校验与写入均执行权限检查；D03 模板与性能上限在本 Feature CONTRACT 签核，并在最终合并核对后关闭 D01 记录。"
+    acceptance: "先校验后确认、整批回滚、错误行明细通过（T27）；VM Host 必须已存在且不隐式创建通过（T28）；不更新或覆盖现存资源通过；文件与行数上限按签核契约验证通过（T28）；D03 在本 Feature CONTRACT 签核、D01 最终关闭核对完成。"
+    requirements:
+      - docs/product/requirements-v3.md#24-批量导入
+      - docs/product/requirements-v3.md#4-核心模型
+      - docs/product/requirements-v3.md#5-cluster
+      - docs/product/requirements-v3.md#6-resource
+      - docs/product/requirements-v3.md#9-virtual-machine
+      - docs/product/requirements-v3.md#23-用户与权限
+    depends_on:
+      - F003
+      - F004
+      - F005
+      - F006
+    blocking_decisions: []
+    status: DRAFT
+  - id: F015
+    title: Audit 查询、已删除对象管理与系统功能
+    kind: FEATURE
+    priority: P1
+    milestone: M6 检索、导入与系统功能
+    scope: "完整 Audit 查询 API 与页面（限 ADMIN，按操作者、对象类型、时间等过滤分页；资源 Activity 对所有基础角色可见，已随各域 Feature 提供，本 Feature 提供跨对象完整审计查询）；ADMIN 已删除对象统一查看与恢复入口（覆盖 Cluster/Resource/Interface/Network/IPPool/IPAddress/Service/ServiceEndpoint；恢复只恢复当前对象、重新检查唯一性与依赖有效性、标识被重用或依赖仍被删除时失败、不覆盖新对象；各对象删除/恢复规则随其自身 Feature 落地，本 Feature 提供统一入口与查询）；用户与账号管理（ADMIN 创建账号、分配角色、停用账号；不开放自行注册；账号停用保留历史操作者身份并记录审计）；System 页面（§28）；Audit 持续保留、不自动过期、无修改/删除/清空入口（含 ADMIN）。"
+    acceptance: "ADMIN 可查看及恢复已删除对象、恢复不自动恢复关联对象、标识重用或依赖仍被删除时恢复失败（T24）；完整 Audit 查询限 ADMIN、资源 Activity 全角色可见（T25）；账号停用不改变旧审计、审计保留历史操作者（T26、T36）；Audit 无修改/删除/清空入口（T36）；名称复用后旧对象恢复失败且新对象不被覆盖（T41 恢复侧）。"
+    requirements:
+      - docs/product/requirements-v3.md#21-逻辑删除
+      - docs/product/requirements-v3.md#22-audit-log
+      - docs/product/requirements-v3.md#23-用户与权限
+      - docs/product/requirements-v3.md#28-前端
+    depends_on:
+      - F002
+      - F003
+      - F004
+      - F005
+      - F006
+      - F007
+      - F008
+      - F009
+      - F010
+      - F011
+      - F012
+    blocking_decisions: []
+    status: DRAFT
+  - id: F016
+    title: 一期集成验收与交付
+    kind: FEATURE
+    priority: P0
+    milestone: M7 一期整体验收
+    scope: "在真实 Docker Compose 环境（Nginx→Frontend/FastAPI→PostgreSQL）执行 §31–§33 跨功能验收；备份与恢复验证包含 Audit 覆盖（T36）；承接 project.acceptance；其 layers 与 api_required 由本 Feature 自身 Architecture 阶段确定（计划不预设）。"
+    acceptance: "Compose 环境可 docker compose up -d 并完成 §32 上线验收；T01–T41 映射完整并有真实执行证据；备份覆盖 Audit 验证通过（T36）；验收证据写入 project.acceptance，由协调器核验后置 COMPLETE。"
+    requirements:
+      - docs/product/requirements-v3.md#31-测试
+      - docs/product/requirements-v3.md#32-上线验收
+      - docs/product/requirements-v3.md#33-目标查询场景
+      - docs/product/requirements-v3.md#30-部署
+      - docs/product/requirements-v3.md#22-audit-log
+    depends_on:
+      - F001
+      - F002
+      - F003
+      - F004
+      - F005
+      - F006
+      - F007
+      - F008
+      - F009
+      - F010
+      - F011
+      - F012
+      - F013
+      - F014
+      - F015
+    blocking_decisions: []
+    status: DRAFT
 decisions_required:
   - id: Q02-A
     source: docs/product/requirements-v3.md#352-六项业务决策confirmed
     status: CONFIRMED
     kind: BUSINESS_DECISION
-    affects: Cluster 及所属对象操作，待首次规划关联 Feature
+    affects:
+      - F003
+      - F013
+      - F014
     owner: Product Manager / 用户
   - id: Q04-A
     source: docs/product/requirements-v3.md#352-六项业务决策confirmed
     status: CONFIRMED
     kind: BUSINESS_DECISION
-    affects: 地址分配与容量，待首次规划关联 Feature
+    affects:
+      - F008
+      - F009
+      - F010
+      - F013
     owner: Product Manager / 用户
   - id: Q04-B
     source: docs/product/requirements-v3.md#352-六项业务决策confirmed
     status: CONFIRMED
     kind: BUSINESS_DECISION
-    affects: Pool 与 gateway 变更，待首次规划关联 Feature
+    affects:
+      - F009
+      - F010
+      - F013
     owner: Product Manager / 用户
   - id: Q07-A
     source: docs/product/requirements-v3.md#352-六项业务决策confirmed
     status: CONFIRMED
     kind: BUSINESS_DECISION
-    affects: Audit 保留策略，待首次规划关联 Feature
+    affects:
+      - F003
+      - F015
+      - F016
     owner: Product Manager / 用户
   - id: Q10-A
     source: docs/product/requirements-v3.md#352-六项业务决策confirmed
     status: CONFIRMED
     kind: BUSINESS_DECISION
-    affects: 字段业务定义，待首次规划关联 Feature
+    affects:
+      - F004
+      - F005
+      - F006
+      - F007
+      - F008
+      - F009
+      - F010
+      - F011
+      - F012
+      - F014
     owner: Product Manager / 用户
   - id: Q10-B
     source: docs/product/requirements-v3.md#352-六项业务决策confirmed
     status: CONFIRMED
     kind: BUSINESS_DECISION
-    affects: 剩余名称规范与重用，待首次规划关联 Feature
+    affects:
+      - F003
+      - F004
+      - F007
+      - F008
+      - F009
+      - F011
+      - F015
     owner: Product Manager / 用户
   - id: D01
     source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
     status: OPEN
     kind: DESIGN_INPUT
-    affects: 字段契约，待首次规划关联 Feature
+    affects:
+      - F003
+      - F004
+      - F005
+      - F006
+      - F007
+      - F008
+      - F009
+      - F010
+      - F011
+      - F012
+      - F014
     owner: Architect / Database
   - id: D02
     source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
     status: OPEN
     kind: DESIGN_INPUT
-    affects: 架构及数据设计，待首次规划关联 Feature
+    affects:
+      - F001
+      - F002
+      - F003
+      - F008
+      - F009
+      - F010
+      - F016
     owner: Architect / Database
   - id: D03
     source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
     status: OPEN
     kind: DESIGN_INPUT
-    affects: 导入模板与性能，待首次规划关联 Feature
+    affects:
+      - F014
     owner: Architect / Backend / Tester
 pending_changes: []
 execution:
@@ -78,14 +442,14 @@ execution:
   authorization: null
   current_feature: null
   current_stage: null
-  last_result: V3 需求 revision 3 已按用户确认关闭六项业务问题；D01–D03 待设计，未生成完整计划
-  next_action: 按 project Prompt 开展首次规划及轻量架构评估，承接 D01–D03 专业设计输入
+  last_result: 首次完整计划已定稿待批准
+  next_action: 等待用户批准计划 revision 4
   repair_rounds: 0
 planning_status:
   status: DRAFT
-  plan_completeness: incomplete
+  plan_completeness: complete
   counts:
-    DRAFT: 0
+    DRAFT: 16
     BLOCKED: 0
     READY: 0
     IN_PROGRESS: 0
@@ -95,4 +459,20 @@ planning_status:
   ready_features: []
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: []
+    DRAFT:
+      - F001
+      - F002
+      - F003
+      - F004
+      - F005
+      - F006
+      - F007
+      - F008
+      - F009
+      - F010
+      - F011
+      - F012
+      - F013
+      - F014
+      - F015
+      - F016
