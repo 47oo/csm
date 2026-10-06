@@ -51,8 +51,8 @@ features:
     depends_on: []
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: IMPLEMENTATION
-    next_action: backend 与 frontend 并行实现（文件所有权已划定）
+    current_stage: TEST
+    next_action: tester 独立执行 TD-2 验证项（V1–V8+V3b / B1–B11）
     layers:
       database: true
       backend: true
@@ -64,6 +64,8 @@ features:
       database: COMPLETE
       test_design: COMPLETE
       contract: NOT_REQUIRED
+      backend: COMPLETE
+      frontend: COMPLETE
     not_required:
       contract: F001 无业务 API（api_required=false）；健康检查为运维端点已在 docs/features/F001/architecture.md §1.4 定义；最终设计签核见同文件「最终设计定稿」章节（Architect 2026-10-06，核对 f001-baseline.md v1 与 TD-2）
     evidence:
@@ -75,11 +77,15 @@ features:
         - docs/database/f001-baseline.md
       test_design:
         - docs/features/F001/test-report.md#test-design
+      backend:
+        - docs/features/F001/implementation.md
+      frontend:
+        - docs/features/F001/implementation.md
     git:
       base_branch: v3
       branch: feature/F001-engineering-foundation
       start_commit: 77ad69e7b59a2f27d13c206438876bc7cbe73ee9
-      head_commit: null
+      head_commit: 85cbfdb678f3070e2f4b6a5ac745838e65e1d821
       merge_commit: null
   - id: F002
     title: 认证、初始账号与权限横切
@@ -538,9 +544,9 @@ execution:
     authorized_on: "2026-10-06"
     basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
   current_feature: F001
-  current_stage: IMPLEMENTATION
-  last_result: F001 CONTRACT Gate 定稿（READY FOR IMPLEMENTATION，contract=NOT_REQUIRED，D02 基础部分签核完成）
-  next_action: backend 与 frontend 并行实现后交 TEST
+  current_stage: TEST
+  last_result: F001 实现完成（backend/frontend 均 COMPLETE，提交 85cbfdb）
+  next_action: tester 独立执行测试（V1 Compose 全链路为关键补验项）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
