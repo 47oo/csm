@@ -110,13 +110,21 @@ features:
       - F001
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: ARCHITECTURE
-    next_action: architect 输出 F002 方案/layers/api_required/D02 认证部分
+    current_stage: DATABASE
+    next_action: database 完成 users/user_sessions 设计；并行 tester 测试设计
+    layers:
+      database: true
+      backend: true
+      frontend: true
+    api_required: true
     implementation:
       product: COMPLETE
+      architecture: COMPLETE
     evidence:
       product:
         - docs/features/F002/product.md
+      architecture:
+        - docs/features/F002/architecture.md
     git:
       base_branch: v3
       branch: feature/F002-auth-permissions
@@ -561,9 +569,9 @@ execution:
     authorized_on: "2026-10-06"
     basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
   current_feature: F002
-  current_stage: ARCHITECTURE
-  last_result: F002 PRODUCT Gate 通过（READY FOR ARCHITECT）
-  next_action: architect 执行 F002 架构设计（D02 认证部分）
+  current_stage: DATABASE
+  last_result: F002 ARCHITECTURE Gate 通过（READY FOR DESIGN，argon2id+服务端会话+权限矩阵+错误信封）
+  next_action: database 设计 users/user_sessions，并行 tester 测试设计
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
