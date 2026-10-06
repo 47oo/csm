@@ -50,9 +50,9 @@ features:
       - docs/product/requirements-v3.md#31-测试
     depends_on: []
     blocking_decisions: []
-    status: IN_PROGRESS
-    current_stage: REVIEW
-    next_action: reviewer 正式 Review（基线：分支 feature/F001-engineering-foundation，候选 HEAD db72c19+测试报告）
+    status: IN_REVIEW
+    current_stage: MERGE
+    next_action: Merge Gate：合并已执行（5586bd9），待最终状态提交
     layers:
       database: true
       backend: true
@@ -67,6 +67,7 @@ features:
       backend: COMPLETE
       frontend: COMPLETE
       test: COMPLETE
+      review: COMPLETE
     not_required:
       contract: F001 无业务 API（api_required=false）；健康检查为运维端点已在 docs/features/F001/architecture.md §1.4 定义；最终设计签核见同文件「最终设计定稿」章节（Architect 2026-10-06，核对 f001-baseline.md v1 与 TD-2）
     evidence:
@@ -84,12 +85,14 @@ features:
         - docs/features/F001/implementation.md
       test:
         - docs/features/F001/test-report.md#test-execution
+      review:
+        - docs/features/F001/review-report.md
     git:
       base_branch: v3
       branch: feature/F001-engineering-foundation
       start_commit: 77ad69e7b59a2f27d13c206438876bc7cbe73ee9
-      head_commit: 85cbfdb678f3070e2f4b6a5ac745838e65e1d821
-      merge_commit: null
+      head_commit: 83998e35e621f7976a7fef97cfb9c1eb0c3f9aab
+      merge_commit: 5586bd98bfb788a0c457d8c009d6e0cf8e1ec02a
   - id: F002
     title: 认证、初始账号与权限横切
     kind: FEATURE
@@ -547,9 +550,9 @@ execution:
     authorized_on: "2026-10-06"
     basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
   current_feature: F001
-  current_stage: REVIEW
-  last_result: F001 TEST Gate 通过（READY FOR REVIEW，7/7 验收 PASS，无必须修复缺陷，TE-1）
-  next_action: reviewer 正式 Review 后进入 Merge Gate
+  current_stage: MERGE
+  last_result: F001 Review APPROVED WITH FOLLOW-UP（候选 83998e3）；合并已执行（Merge 5586bd9，父提交验证通过）
+  next_action: 最终状态提交（F001 DONE、解锁 F002）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -558,8 +561,8 @@ planning_status:
     DRAFT: 0
     BLOCKED: 15
     READY: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     DONE: 0
     CANCELLED: 0
   ready_features: []
