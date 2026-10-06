@@ -158,3 +158,48 @@ Fixture 要点：`TEST_DATABASE_URL` 指向真实 PG 独立测试库（不引入
 2. DATABASE Gate：基线迁移形态、扩展清单（btree_gist 裁定）、迁移环境与连接池方向、备份脚本与恢复文档设计。
 3. TEST_DESIGN Gate：V1–V7 可执行性、真实 PG fixture 与并发前提、备份恢复冒烟判据。
 4. 二者完成后 Architect 定稿 `READY FOR IMPLEMENTATION`（contract=NOT_REQUIRED + 理由）。
+
+## 最终设计定稿（CONTRACT Gate）
+
+- 签核者：Architect；日期：2026-10-06
+- 设计结论：`READY FOR IMPLEMENTATION`
+- 核对的 Database Design：`docs/database/f001-baseline.md` v1（DB-D1–DB-D12）
+- 核对的 Test Design：`docs/features/F001/test-report.md` TD-2（V1–V8+V3b / B1–B11）
+- 上游依据：requirements-v3.md revision 3；project-plan.yaml plan_revision 4（F001 已批准）
+- 覆盖范围：F001 D02 基础部分——软件版本、目录结构、迁移基线、扩展策略、测试基线、连接池/超时/隔离骨架、备份骨架与恢复文档、验证策略定稿。
+
+### Contract
+
+`api_required = false` → Contract = **NOT_REQUIRED**（无业务 API；健康检查为运维端点，见 §1.4）。
+
+### 一致性核对（摘要）
+
+- 扩展：架构 DR-04 ↔ DB-D2 一致（pg_trgm 必启，btree_gist 推迟 F008/F009）。
+- downgrade：DB-D4 非对称 ↔ TD-2 V2/B1/B4 一致（不 drop 扩展，仅清 alembic_version，再 upgrade 幂等）。
+- 健康检查：架构 §1.4 ↔ TD-2 V1/B7/B8 完全对齐。
+- 版本选型：架构 §2.1 由本定稿升为 DESIGN 基线。
+- 验证策略：架构 V1–V7 由 TD-2 扩展为 V1–V8+V3b，7 项验收 7/7 映射。
+- 连接池与 IPAM：DB-D8/D9 骨架 + 事务级锁在 F008–F010 定稿，一致。
+- 备份边界：三方一致，不宣称 Audit 覆盖（T36 归 F016）。
+
+### 差异与采纳口径
+
+- A1（MEDIUM，Tester/TEST 阶段）：TD-2 V3/B3 断言口径改为"基线声明扩展集合 = {pg_trgm}，pg_trgm 存在、btree_gist 不存在，忽略 plpgsql 等 PG 默认扩展"，避免误判 FAIL。
+- A2（LOW，Database/Backend 实现核对）：命名约定 pk 模板按 `pk_%(table_name)s`。
+- A3（NOTE）：备份/恢复脚本须支持容器内执行（宿主机无 pg_dump）。
+- A4（NOTE）：备份判据以 DB-D12 5 项为设计口径、TD-2 V5 枚举为执行口径。
+- A5（NOTE）：验证编号以 TD-2 为执行权威（V1–V8+V3b）。
+
+### D02 基础部分签核（Architect + Database 联合）
+
+软件版本、目录结构、迁移基线、扩展策略、测试基线：**签核完成**。D02 其余部分（认证、版本冲突/错误语义、审计一致性、约束/索引/锁/IPAM 并发）在 F002/F003/F008–F010 各自 Gate 关闭，本次不提前签核。
+
+### 实现范围
+
+- Backend：FastAPI 骨架/配置/DB 会话/健康检查/Alembic 基线/pytest fixture/备份脚本后端侧。
+- Frontend：Vite 脚手架/api client(base=/api/v1)/nginx 静态服务接线。
+- Database 实现：由 Backend 承担（无业务表）。
+
+### 边界
+
+不实现认证/初始 ADMIN（F002）；不建业务对象；不执行 T01–T41；不宣称 Audit 备份覆盖（F016/T36）；容器可启动≠生产上线验收（§32）。

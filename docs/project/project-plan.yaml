@@ -51,8 +51,8 @@ features:
     depends_on: []
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: CONTRACT
-    next_action: tester 复核 TD-1 与数据库设计差异后，architect 定稿签核最终设计
+    current_stage: IMPLEMENTATION
+    next_action: backend 与 frontend 并行实现（文件所有权已划定）
     layers:
       database: true
       backend: true
@@ -63,6 +63,9 @@ features:
       architecture: COMPLETE
       database: COMPLETE
       test_design: COMPLETE
+      contract: NOT_REQUIRED
+    not_required:
+      contract: F001 无业务 API（api_required=false）；健康检查为运维端点已在 docs/features/F001/architecture.md §1.4 定义；最终设计签核见同文件「最终设计定稿」章节（Architect 2026-10-06，核对 f001-baseline.md v1 与 TD-2）
     evidence:
       product:
         - docs/features/F001/product.md
@@ -535,9 +538,9 @@ execution:
     authorized_on: "2026-10-06"
     basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
   current_feature: F001
-  current_stage: CONTRACT
-  last_result: F001 DATABASE 与 TEST_DESIGN Gate 通过（扩展仅 pg_trgm、btree_gist 推迟、非对称 downgrade、TD-1 READY）
-  next_action: tester 复核 TD-1 与数据库设计差异，随后 architect 定稿 READY FOR IMPLEMENTATION
+  current_stage: IMPLEMENTATION
+  last_result: F001 CONTRACT Gate 定稿（READY FOR IMPLEMENTATION，contract=NOT_REQUIRED，D02 基础部分签核完成）
+  next_action: backend 与 frontend 并行实现后交 TEST
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
