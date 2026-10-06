@@ -110,8 +110,13 @@ features:
       - F001
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: PRODUCT
-    next_action: 执行 PRODUCT Gate（F002 需求确认与验收映射）
+    current_stage: ARCHITECTURE
+    next_action: architect 输出 F002 方案/layers/api_required/D02 认证部分
+    implementation:
+      product: COMPLETE
+    evidence:
+      product:
+        - docs/features/F002/product.md
     git:
       base_branch: v3
       branch: feature/F002-auth-permissions
@@ -556,9 +561,9 @@ execution:
     authorized_on: "2026-10-06"
     basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
   current_feature: F002
-  current_stage: PRODUCT
-  last_result: F002（认证、初始账号与权限横切）已启动，进入 PRODUCT Gate
-  next_action: product-manager 确认 F002 需求与验收映射后放行 ARCHITECTURE
+  current_stage: ARCHITECTURE
+  last_result: F002 PRODUCT Gate 通过（READY FOR ARCHITECT）
+  next_action: architect 执行 F002 架构设计（D02 认证部分）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
