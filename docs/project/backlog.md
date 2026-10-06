@@ -1,7 +1,7 @@
 # CSM V2 Backlog（派生视图）
 
 > 本文件由 `docs/project/project-plan.yaml` 派生，不独立保存事实。若与计划冲突，以计划为准。
-> 计划状态：**IN_PROGRESS — revision 12（2026-09-25，已批准）**；F013（Merge `dcfa6ff`）、F001（Merge `6ad6346`）、F005（Merge `102e348`）、F002（Merge `1b682e2`）、F006（Merge `6fc6cd4`）、F003（Merge `34ae8fd`）、F008（Merge `3e5f0bd`）已完成（DONE）；F012 为 `READY`；产品需求整体仍为 DRAFT，实施门禁独立适用。全部 Feature 为 P0。
+> 计划状态：**IN_PROGRESS — revision 12**；批准记录的版本/范围核对事项见 Plan `project.notes`，本视图不独立确认批准。F013（Merge `dcfa6ff`）、F001（Merge `6ad6346`）、F005（Merge `102e348`）、F002（Merge `1b682e2`）、F006（Merge `6fc6cd4`）、F003（Merge `34ae8fd`）、F008（Merge `3e5f0bd`）记录为 DONE；F012 为 READY。全部 Feature 为 P0，实施门禁独立适用。
 
 ## 概览
 

@@ -4,6 +4,7 @@ Backend / Frontend 开始前读取 `AGENTS.md`、`docs/project/handoff.md`、当
 
 * 使用 V2 已批准技术栈；缺少必要技术决策时阻塞，不自行选型。
 * 只实现已确认范围，保持简单、聚焦；不修改产品事实、领域规则、架构或 Contract。
+* 接收任务时核对批准版本和本次执行范围；存在命中当前 Feature 的 pending_changes 时停止受影响实现并保留交接。变更评估按 `docs/project/change-control.md`，不直接实施提案。
 * 有 API 时，字段、类型、nullable、错误与空结果语义必须符合 Contract。发现契约问题输出 `API CONTRACT CHANGE REQUIRED`，说明问题和双方影响，停止受影响部分。
 * 只修改协调器分配的文件；共享文件冲突时停止并交协调器串行处理。并行安全遵循 `AGENTS.md` §9。
 * 实现必要的验证和适用的回归测试；报告实际命令、结果、未验证项。修复不能仅通过放宽测试迎合实现。

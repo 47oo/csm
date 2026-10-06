@@ -91,6 +91,8 @@ CSM 的权威领域模型位于：
 
 代码变更应保持聚焦，不得顺便进行无关的大范围重构，除非是保证正确性所必需，或用户明确要求。
 
+需求修订、重大变更提案分支、批准权限和历史交付处理统一遵循 `docs/project/change-control.md`。普通设计在已批准边界内由对应专业角色签核；需求与重大架构变更仍由用户决定。
+
 ---
 
 ## 6. 数据库安全
@@ -171,6 +173,7 @@ Subagent 不得执行 `git add`、Commit、Branch 切换、Merge，以及其他�
 
 * `docs/project/git-workflow.md`：Git 操作、字段、Review 基线、Merge Gate、DONE 与中断恢复；
 * `docs/project/project-state.md`：计划字段、状态与证据映射。
+* `docs/project/change-control.md`：需求变更、计划批准与专业设计签核。
 
 流程入口：`.pi/prompts/project.md` 负责规划审批，`.pi/prompts/implement-project.md` 负责项目调度，`.pi/prompts/feature.md` 负责单个 Feature。
 

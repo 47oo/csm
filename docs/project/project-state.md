@@ -8,6 +8,8 @@
 
 项目状态：`DRAFT`（待确认）、`ACCEPTED`（用户批准）、`IN_PROGRESS`（执行中）、`DONE`（完成证据已提交）。只有 ACCEPTED / IN_PROGRESS 可自动实施。空计划或 incomplete 计划不能因零个未完成 Feature 被判为 DONE。
 
+状态不替代批准。计划批准、实施授权与设计签核按 `docs/project/change-control.md` 核验；恢复任务同样适用，不因存在检查点而跳过当前批准范围和暂停标记。
+
 | Feature 状态 | 条件 |
 | --- | --- |
 | DRAFT | 范围或验收标准尚未明确 |
@@ -28,12 +30,34 @@
 * `layers.database/backend/frontend`：boolean；不使用状态字符串。database 表示需要数据库设计/变更，数据库实现由 Backend 承担。
 * `implementation.database_design/backend/frontend/test/review`：PENDING / COMPLETE / BLOCKED / NOT_REQUIRED。NOT_REQUIRED 必须有范围理由，Test / Review 的必要验证不能据此省略。
 * `contract.status`：READY / BLOCKED / NOT_REQUIRED；需要 API 且 READY 时必须有 `contract.doc` 和批准依据。
-* `last_result`、`next_action`：阶段结果、责任角色与恢复动作。
+* `last_result`、`next_action`：阶段结果、责任角色与恢复动作；无后续恢复动作时 `next_action: null`。说明放 `last_result` / `note`，不得写成字符串 `null（说明）`。
 * `evidence`：阶段报告、权威文档版本、测试基线、Review 与 Git 证据的引用；复用阶段记录复用来源、适用范围及核对结果。
 * `repair`：本次执行的自动修复轮数、问题 ID、责任角色、每轮结果；轮次策略由 `feature.md` 定义。
 * Feature 的 `git` 字段含义由 Git Workflow 定义。
 
 计划尚未生成 Feature 时保持空数组，不为符合字段规范创建虚构任务。未来旧格式或缺失元数据须核对证据后显式迁移，不能按字符串真值调度。
+
+### 批准与变更字段
+
+* `project.approval`：当前有效计划批准，包含 `plan_revision`、`feature_ids`（批准覆盖的明确 ID 列表）、`approved_by`、`approved_on`、`basis`（可定位确认来源及批准范围）。`plan_revision` 必须与当前计划一致；部分批准不放行未列出的 Feature。
+* `pending_changes`：默认为空列表。每项包含 `id`、`proposal`（提案路径）、`affects`（Feature ID 列表或 `ALL`）。仅保存尚未解除的暂停标记；批准并落地或用户取消后移除，处理历史保存在提案。命中标记的 Feature 不得开始、恢复或合并。
+* 本次实施授权由协调器在交接/执行输出中记录来源、SINGLE / CONTINUOUS 模式和范围，不以 `project.approval` 代替。恢复时沿用仍有效的授权；无法取得依据时再请求缺失的授权。
+
+旧的 `approved_by/approved_on/approval_basis` 等记录可保留历史，但只有核对明确版本、范围和确认来源后才能迁移到 `project.approval`。流程维护不能替用户补签旧计划。候选修订的批准记录在提案中保存，不能覆盖当前有效批准。
+
+### 一致性校验
+
+协调器在调度前、恢复现场核对后、状态提交前及提交后运行：
+
+```bash
+python3 scripts/validate_project_state.py
+```
+
+选择开始或恢复的 Feature 后另运行 `python3 scripts/validate_project_state.py --feature Fxxx`，检查当前计划批准覆盖与暂停标记。脚本依赖 Python 3 和 PyYAML（工具依赖见 `scripts/requirements.txt`）；不要求安装应用运行环境。
+
+检查包括 ID/依赖无环、合法状态与字段类型、READY 的依赖/决策、统计和派生列表、执行检查点与 Feature 阶段一致、DONE 的阶段清空与证据字段、禁止伪 null。`DONE` 的 git/evidence 非空仅是结构要求，实际提交、测试、Review 证据仍按 Git Workflow 人工核验。
+
+失败输出 `PROJECT STATE INVALID`，停止调度或状态提交，先按证据修复；不能自动清空冲突检查点。Git 中断恢复需要先定位实际现场，再校正状态，不能因校验失败而丢弃未提交产物。批准缺失输出 `PROJECT APPROVAL RECONCILIATION REQUIRED`；应先查已有证据，不能自动认定用户从未授权。
 
 ## 阶段结果映射
 

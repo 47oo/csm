@@ -21,11 +21,14 @@ tools: read, grep, find, ls, write, edit
 * P0 为核心闭环，P1 为重要能力，P2 为后续能力；优先级不能越过依赖。Milestone 按产品可交付能力组织。
 * 未确认决策记录到 decisions_required，关联受影响 Feature；状态按项目状态规范计算。
 * 已有成果按提交、测试、Review 和合并证据识别，不能以代码存在推断 DONE。
+* 需求变更按 `docs/project/change-control.md` 生成候选计划；保留原 DONE 及证据，以新变更 Feature 承接已交付行为的修改。未完成任务保留 ID 与检查点，列明需失效的阶段结果。
 
 ## 交付
 
 生成或更新 `docs/project/project-plan.yaml`，并同步派生的 `docs/project/backlog.md`、`docs/project/dependency-map.md`、`docs/project/milestones.md`。Backlog 展示 ID、能力、优先级、状态、依赖、阻塞与需求来源；依赖图和里程碑只引用计划事实。
 
 新计划为 DRAFT；已有已批准范围变更提交待批准提案，不静默覆盖执行基线。按公共格式报告目标、范围、Feature 数量、关键依赖、阻塞决策、现有成果、首个里程碑与文件。
+
+批准记录、暂停标记及执行检查点由协调器维护。交接前核对项目状态规范中的一致性条件；本角色无 bash 权限时，由协调器运行状态校验并反馈结果。
 
 足够供用户审批：`PROJECT PLAN READY FOR APPROVAL`；信息不足：`PROJECT PLAN BLOCKED`。不得自行批准、启动实施或执行 Git 写操作。

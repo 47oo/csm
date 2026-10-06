@@ -11,9 +11,13 @@ argument-hint: "[任务或 Feature ID]"
 
 读取 `AGENTS.md`、`docs/project/project-state.md`、`docs/project/git-workflow.md`、`docs/project/handoff.md`，再加载当前 Feature 及明确依赖。无需为每项任务遍历所有文档。
 
+批准权限和需求修订按 `docs/project/change-control.md`。独立调用仅执行本 Feature；不自动转到其它 Feature，也不在 proposal 分支实施。
+
 ## 1. 入口与阶段复用
 
 独立调用也要求项目已批准、Feature READY 或合法恢复目标；从 implement-project 调用时复用其恢复信息。按 Git Workflow 执行 Preflight / 创建或恢复分支；新任务在 Preflight 成功后设置 project=IN_PROGRESS、Feature=IN_PROGRESS、execution.current_feature，并将两个 current_stage 设为 PRODUCT；恢复任务从 next_action 继续，不重置已完成阶段。每个重要阶段按状态规范更新结果与证据，并按 Git Workflow 保存检查点。
+
+新建或恢复前运行 `python3 scripts/validate_project_state.py --feature Fxxx`，核对批准版本、本次实施授权及 pending_changes。已有检查点不能绕过需求变更暂停；中断 Merge/状态提交先按 Git Workflow 恢复现场，再校验。不从旧报告臆补缺失批准。
 
 Product / Architecture / Database 已有成果满足以下全部条件时，协调器可以记录复用结果而不再次调用该角色：
 
@@ -29,7 +33,7 @@ Product 缺失或失效时调用 product-manager，只有 `READY FOR ARCHITECT` 
 
 Architecture 缺失或失效时调用 architect，要求 `READY FOR IMPLEMENTATION`、明确 layers、必要设计与验证策略。重大未决技术问题暂停等待决策，不让开发者代为裁定。
 
-随后检查 Contract：需要 API 时必须 READY、有权威文档与批准依据，字段完整性按 architect.md 的唯一清单核对；无需 API 为 NOT_REQUIRED 且有理由。缺失、未批准或 BLOCKED 不放行。
+随后检查 Contract：需要 API 时必须 READY、有权威文档与专业签核/上游批准依据，字段完整性按 architect.md 的唯一清单核对；普通设计批准按 Change Control 由 Architect 签核、协调器核验，无需逐份请求用户。无需 API 为 NOT_REQUIRED 且有理由。缺失、未批准或 BLOCKED 不放行。
 
 ## 3. 按需实施
 
@@ -40,6 +44,8 @@ Architecture 缺失或失效时调用 architect，要求 `READY FOR IMPLEMENTATI
 | Frontend | layers.frontend=true，Contract Gate 通过 | FRONTEND COMPLETE |
 
 无需的分支记录 NOT_REQUIRED。Schema 变更必须明确实现责任，默认由 Backend 实现，设计完成不代表实现完成。Frontend 不等待 Database / Backend；Backend 与 Frontend 可在文件所有权清晰时并行。
+
+Database READY 必须附设计版本及上游依据，由协调器核验接收后放行 Backend；不能仅凭一个状态词视为已批准设计。
 
 协调器持久化只读角色产物；所有写入停止后按 Git Workflow 提交检查点。阻塞时记录已完成和仍在运行的分支，不能假称取消或静止；先停止/等待受影响写入，再做 Git 操作。
 
@@ -65,6 +71,8 @@ API Contract 冲突时停止受影响实现，返回 Architect / Product；重�
 * 责任角色不能在授权范围内修复。
 
 需求/设计变化应重新走受影响上游 Gate；不能借修复循环扩展范围。用户明确继续后可以开始新的两轮预算，但不能清除历史缺陷或省略重新验证。
+
+需求修订超出当前批准范围时转 Project Planning / Change Control，暂停受影响任务；已 DONE 的交付以新变更 Feature 承接，不改写原完成历史。
 
 ## 6. 合并、状态与输出
 

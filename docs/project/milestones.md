@@ -1,8 +1,8 @@
 # CSM V2 Milestones（派生视图）
 
 > 本文件由 `docs/project/project-plan.yaml` 派生，只引用计划事实。若与计划冲突，以计划为准。
-> 计划状态：**IN_PROGRESS — revision 10（2026-09-25，已批准）**；产品需求整体仍为 DRAFT，实施门禁独立适用。全部 Feature 为 P0。
-> revision 10 依据 BQ-Z 关闭 D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES，并新增 §10 场景 82；Milestone 划分未变，状态重算后 F013 为 DONE、F001 为 READY、其余 11 个 Feature 仍为 BLOCKED。
+> 计划状态：**IN_PROGRESS — revision 12**；批准记录的版本/范围核对事项见 Plan `project.notes`。全部 Feature 为 P0，实施门禁独立适用。
+> Milestone 划分未变；当前 Feature 记录为 DONE=7、READY=[F012]、BLOCKED=5。M1 尚余 F012，M2 尚余 F004，M3/M4 未完成；不以已交付 Feature 数量替代里程碑退出验收。
 > Milestone 按产品可交付能力组织，顺序保证任一 Milestone 的 Feature 只依赖本 Milestone 或更早 Milestone 的 Feature；
 > 退出标准按 `closure_owner` 只引用在本 Milestone 或更早已闭环的 §10 场景（其余为 parts），不在依赖未完成时承诺验收。
 
@@ -12,7 +12,7 @@
 - **Feature**：F013、F001、F005、F002、F006、F012、F003
 - **Milestone 内实施/验收顺序**：F013 → F001 → F005 → F002 → F006 → {F012, F003}（同一 Milestone 内的实施与验收顺序）。
 - **退出标准**：闭环场景共 44 条：3、4、8、9、10、11、12、19、20、21、24、25、26、27、28、29、30、31、32、34、43、44、45、47、48、50、52、53、60、61、62、64、65、71、72、73、74、75、76、77、78、79、80、81 由 M1 内 Feature 闭环通过； 场景 2（同名裸金属/名称唯一）、5（网卡/IP 归属）、6（唯一性与网卡/IP 可见）、 42（网络内容/公共信息不变）、51（计算资源与网段关联）、59（上级逐项先删规则侧）、 40（集群切换/记忆与角色基础）、55（主机数/VM 数展示侧）、56（当前集群列表侧）、 68（宿主删除的自身子项部分）的 M1 部分通过； 平台支持自建用户/单一角色/登录登出、口令策略与禁用/删除语义、首个管理员预置； 一次提交（含 IP）原子性、资源/接口/名称唯一、IPv4 并发唯一、跨重叠排除、耗尽与释放规则验证通过； M1 退出时同一表单支持一次录入公共信息 + 全部网卡 + 全部 IP； 管理员可查已交付对象（集群/计算资源+网卡/IP/网段）的资源历史、非管理员被拒且历史不自动清除。
-- **前置决策**：D-STATUS-SOURCE、D-IP-SEMANTICS（D-ARCH-*、D-BQ-F、D-NAME-COMPARISON、D-RESOURCE-HISTORY、D-CODE-FORMAT、D-DELETE-* 已 RESOLVED）。
+- **前置决策**：D-STATUS-SOURCE、D-IP-SEMANTICS 已分别由 BQ-AA/BQ-AB 关闭；M1 各 Feature 当前无 blocking_decisions，F012 仍需自身设计与实施 Gate（其它已关闭决策见 Plan）。
 
 ## M2 — 统一检索、类型详情与宿主关系
 
@@ -34,7 +34,7 @@
 
 - **目标**：在约 1000 台/集群基线上端到端复核分页、可靠性、原子性、并发与竞态防护要求， 并复核全平台三角色服务端鉴权（以 F013 用户/角色/登录服务端鉴权、F001 角色/操作者解析基础与 F002/F005/F006/F007 当期对象级实现为准，含 F009 一致性复核结论）与全部搜索面覆盖。
 - **Feature**：F011
-- **Milestone 内实施/验收顺序**：F001–F013 全部完成后实施（F011 依赖全部 Feature）。
+- **Milestone 内实施/验收顺序**：其余 12 个 Feature 全部完成后实施 F011（不包含 F011 自身）。
 - **退出标准**：闭环场景共 8 条：7、22、23、37、38、39、57、82 通过； 场景 22/23 的功能实现由 F006（M1）验收，本 Feature 千节点端到端复核； 场景 37/38 在所有搜索面（含 F004 宿主、F007 服务与服务实例、F010 全局 IP 查询）交付后完成全量覆盖闭环； 场景 57 以 F013 用户/角色/登录服务端鉴权、F001 角色基础、各对象当期鉴权/审计及 F009 一致性复核结论为准； 场景 82 的各对象删除二次确认与名称/`code` 匹配提交由 F001/F002/F005/F007 各自实现，本 Feature 端到端复核整体一致（BQ-Z）。
 - **前置决策**：无（D-ARCH-*、D-BQ-F、D-CODE-FORMAT、D-DELETE-* 已 RESOLVED；产品 OPEN 项非 M4 阻塞，但其实现须已在各对象阶段裁定）。
 

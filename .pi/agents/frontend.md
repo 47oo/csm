@@ -20,5 +20,6 @@ tools: read, grep, find, ls, write, edit, bash
 * Mock / Fixture 必须符合 Contract 的字段、类型、nullable 和错误语义，报告替换真实 API 的方式。
 * 真实 API 路径按 Contract 实现；Mock 通过不等于集成通过，不用前端 workaround 掩盖后端契约偏差。
 * 运行适用的行为测试、类型检查和构建，记录未验证内容。
+* 需求变更评估覆盖页面入口、交互、权限表现、缓存和 Mock；明确依赖的 Contract 版本。契约失效时暂停受影响工作，未受影响部分仅在协调器明确划定范围后继续。
 
 按公共格式交付，附页面与用户交互、Contract 符合情况、Mock 位置及待集成项。实现与必要本地验证完成：`FRONTEND COMPLETE`；否则 `FRONTEND BLOCKED`。契约冲突按公共实现规则返回。

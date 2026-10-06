@@ -6,6 +6,7 @@
 
 * `v2`：当前版本集成分支。
 * `feature/<feature-id>-<slug>`：从 v2 创建的单个 Feature 分支。
+* `proposal/<change-id>-<slug>`：从 v2 创建的需求变更提案分支，不执行 Feature 实现。
 * `main`：稳定版本，只能通过独立授权的 Release 流程更新。
 
 普通 Feature 不直接在 v2/main 实现；默认不 push、打 tag、删除分支或发布。文档维护等用户明确授权的直接操作按授权范围执行，不伪装成 Feature DONE。
@@ -55,6 +56,8 @@ git switch -c feature/<feature-id>-<slug>
 
 Review 前提交全部候选实现、测试、Handoff 与检查点，工作区 clean。测试针对提交内容有效；出现额外实现变化时重新测试。
 
+涉及项目状态的提交前运行 `project-state.md` 的一致性校验；提交后再次核对。批准 HEAD 冻结期间不得为记录校验结果修改工作区。
+
 ## 4. 正式 Review 基线
 
 Reviewer 从 Plan/协调器取得 branch、start_commit 与 base_branch，核对起点与完整范围：
@@ -77,6 +80,8 @@ git ls-files --others --exclude-standard
 ## 5. Merge Gate 与 DONE
 
 必须同时满足：必要测试（包括适用的真实集成）通过；Review APPROVED / APPROVED WITH FOLLOW-UP；无 BLOCKER、HIGH、必须修复 MEDIUM 或产品未决问题；全部写入者结束；工作区 clean；候选 HEAD 与批准 HEAD、v2 与批准 Base SHA 均一致。
+
+同时核对当前计划批准仍覆盖此 Feature、无命中它的 pending_changes；需求/设计版本变化使批准失效时，重新走受影响 Gate。
 
 Review 获批准后，review = COMPLETE、stage = MERGE 和报告暂存于协调器输出，不先写入工作区或提交，以免改变批准 HEAD。批准证据丢失则重新 Review。
 
@@ -103,3 +108,14 @@ git rev-parse HEAD
 * 仅发现分支为祖先不足以证明获批；证据不足、额外实现改动或归属不明则停止核对。
 
 项目整体 DONE 也须提交状态与视图、核对证据并确认 clean；可包含在最后一个 Feature 状态提交中。空计划不能当作项目完成。
+
+## 7. 需求变更提案分支
+
+变更内容、暂停范围及批准流程见 `change-control.md`。以下操作仅由协调器在用户要求开展需求变更工作时执行；维护流程文件本身不意味着启动提案或实施。
+
+* 创建前核对当前 V2 分支和工作区；若有进行中 Feature，停止写入并保存可核验的检查点，不把它合并为 DONE。存在未知改动或不能安全提交时保留现场并报告，禁止自动 stash。
+* 在执行基线记录 `pending_changes` 和提案标识。若暂停标记先记录于 Feature 分支，切到 v2 后也须同步这一协调元数据，使 v2 调度器能够看见；不得同时搬运未完成实现。先完成必要的元数据提交，再从 clean v2 创建提案分支，记录实际基线 SHA。
+* 在提案分支修改文档与候选计划，保持活动 Plan 的原批准基线。未批准产品正文不得进入 v2；未完成 Feature 分支保持独立。
+* 用户批准具体提案版本后，核对当前 v2 与提案基线差异、批准范围和文档一致性。在提案分支应用已批准计划及视图、清理相应暂停标记并校验，提交后合入 v2。冲突或额外变化影响批准内容时重新核对，不能直接沿用旧批准。
+* 提案合并属于需求/计划基线变更，不产生 Feature DONE；不套用实现的 Test/Review Merge Gate，但必须有产品/计划批准、适用的专业影响评估及状态校验。进入代码实现后重新按 Feature Gate 执行。
+* 提案取消时只撤销对应暂停标记并保存取消依据；不合入候选产品正文。切回未完成 Feature 前再次核对新基线和受影响 Gate，不自动覆盖原检查点。

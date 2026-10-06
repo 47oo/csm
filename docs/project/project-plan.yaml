@@ -58,17 +58,11 @@ project:
       - docs/project/handoff.md
     workflow: .pi/prompts/project.md
   notes: >
-    BQ-AA/BQ-AB 决策关闭后更新（revision 11，2026-09-25）。V2 交付证据：F013（Merge dcfa6ff）、
-    F001（Merge 6ad6346）、F005（Merge 102e348）已 DONE，均有架构/API/数据库/实现/测试/Review 证据；
-    其余 Feature 无对应证据。
-    所有 Feature 均为 P0，覆盖 requirements-v2.md §10 全部 82 条验收场景，requirement_coverage.gaps 为空。
-    D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES（BQ-Z）及 D-STATUS-SOURCE（BQ-AA）、D-IP-SEMANTICS（BQ-AB）已 RESOLVED；
-    D-ARCH-* 与 D-BQ-F 亦已 RESOLVED，但架构/契约文档尚未产出，进入实现前仍受阶段门禁约束
-    （见 decisions_required）。依赖为无环有向图，F013 为唯一根。
-    状态重算：F013/F001/F005 DONE；F002 READY（depends_on=[F001,F005] 已 DONE 且 blocking_decisions=[]），
-    其余 9 个 Feature BLOCKED。产品需求文件仍为 DRAFT — 未整体签核；revision 12 待用户批准。
-    实施仍以需求最终确认、阶段决策及 Git 安全门禁为前提；F001 为 READY 不等于已启动实施，
-    计划批准不等于 Feature DONE。
+    当前 Feature 状态与交付引用以 features 为准，统计见 planning_status；历史规划判断保存在 planning_audit 等记录中。
+    所有 Feature 均为 P0，requirement_coverage 记录 82 条验收场景及闭环归属，不据此替代实际验收。
+    旧批准字段只明确记录 BQ-AC 确认，旧摘要同时出现“revision 12 待批准”等表述；
+    本次流程维护不裁定旧计划是否整体获批，也不重签历史交付。
+    下次调度前按 change-control.md 核对当前 V2 确认来源、revision 和适用范围，再迁移 project.approval。
 
 scope:
   included:
@@ -208,7 +202,7 @@ features:
     status: DONE
     current_stage: null
     last_result: Reviewer APPROVED WITH FOLLOW-UP（候选 1db39fd）；Merge 6ad6346；F001 完成
-    next_action: null（重算 READY 后由项目调度决定下一 Feature）
+    next_action: null
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
     contract: {status: READY, doc: docs/api/F001.md, reason: ADR-003 已批准；架构 Contract READY}
@@ -280,7 +274,7 @@ features:
     status: DONE
     current_stage: null
     last_result: Reviewer APPROVED（候选 1e62741）；Merge 1b682e2；F002 完成
-    next_action: null（重算 READY=[F006]）
+    next_action: null
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
     contract: {status: READY, doc: docs/api/F002.md, reason: ADR-003 已批准；架构 Contract READY}
@@ -333,7 +327,7 @@ features:
     implementation: {database_design: NOT_REQUIRED, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
     current_stage: null
     last_result: Reviewer APPROVED WITH FOLLOW-UP（候选 a992ae8）；Merge 34ae8fd；F003 完成
-    next_action: null（重算 READY=[F008,F012]）
+    next_action: null
     contract: {status: READY, doc: docs/api/F003.md, reason: ADR-003 已批准；架构 Contract READY；database NOT_REQUIRED}
     git:
       base_branch: v2
@@ -439,7 +433,7 @@ features:
     status: DONE
     current_stage: null
     last_result: Reviewer APPROVED WITH FOLLOW-UP（候选 49a2429）；Merge 102e348；F005 完成
-    next_action: null（重算 READY=[]；下一候选 F002 因 D-STATUS-SOURCE/D-IP-SEMANTICS OPEN 仍 BLOCKED）
+    next_action: null
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
     contract: {status: READY, doc: docs/api/F005.md, reason: ADR-003 已批准；架构 Contract READY}
@@ -526,7 +520,7 @@ features:
     implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
     current_stage: null
     last_result: Reviewer APPROVED WITH FOLLOW-UP（候选 9662f2c）；Merge 6fc6cd4；F006 完成
-    next_action: null（重算 READY=[F003,F012]）
+    next_action: null
     contract: {status: READY, doc: docs/api/F006.md, reason: ADR-003 已批准；架构 Contract READY，扩展 docs/api/F002.md}
     git:
       base_branch: v2
@@ -648,7 +642,7 @@ features:
     layers: {database: false, backend: true, frontend: true}
     implementation: {database_design: NOT_REQUIRED, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
     last_result: Reviewer APPROVED WITH FOLLOW-UP（候选 7fd9bd0）；Merge 3e5f0bd；F008 完成
-    next_action: null（重算 READY=[F012]；F004 仅余 D-Q3、D-RESOURCE-REASSIGN）
+    next_action: null
     contract: {status: READY, doc: docs/api/F008.md, reason: ADR-003 已批准；无新增端点，统一既有 q 排序；database NOT_REQUIRED}
     git:
       base_branch: v2
@@ -889,7 +883,7 @@ features:
     status: DONE
     current_stage: null
     last_result: Reviewer APPROVED WITH FOLLOW-UP（候选 a4eac3a）；Merge dcfa6ff；F013 完成
-    next_action: null（重算 READY 后由项目调度决定下一 Feature）
+    next_action: null
     layers: {database: true, backend: true, frontend: true}
     implementation: {database_design: COMPLETE, backend: COMPLETE, frontend: COMPLETE, test: COMPLETE, review: COMPLETE}
     contract: {status: READY, doc: docs/api/F013.md, reason: ADR-003 已批准；架构 Contract READY（含 BQ-Y PROTECTED_ADMIN）}
@@ -2302,21 +2296,14 @@ planning_status:
   note: >
     plan_completeness=complete 表示本计划已覆盖 requirements-v2.md 已确认范围与
     §10 全部 82 条验收场景（gaps 为空，含 2026-09-25 BQ-Z 新增场景 82），
-    且每条场景均有 closure_owner。revision 10 待用户批准；
-    产品需求仍待整体签核。
-    revision 10 依据 BQ-Z 关闭 D-CODE-FORMAT、D-DELETE-CONFIRMATION、D-DELETE-DEPENDENCIES
-    并从所有 Feature 的 blocking_decisions 移除；F013 已 DONE，F001 depends_on=[F013] 且 blocking_decisions=[] → READY，
-    F002 随后启动并处于 IN_REVIEW；其余 9 个 Feature 仍 BLOCKED（依赖未 DONE 或仍有其它 OPEN 决策）。
-    closure_owner 与其 depends_on/Milestone 顺序未变（见 coverage.closure_audit），
-    无 closure_owner 早于参与 Feature 的死锁。
-    技术栈/数据库/API/部署等架构前提已 RESOLVED 但契约文档尚未产出（见 D-ARCH-*，affects=ALL），
-    仍构成项目级阶段门禁；F001 READY 不等于已启动实施，执行检查点仍为空。
-    Milestone 顺序与退出标准已核对为满足 depends_on 与 closure_owner（见 planning_audit）。
-    仅在需求与阶段门禁满足并核对 Git 状态后，由协调器按 project-state.md
-    重算 Feature 状态；本次批准不自动启动实施。
+    且每条场景均有 closure_owner，不表示全部产品细节已确认或已完成验收。
+    当前计数为 DONE=7、READY=1、BLOCKED=5，无进行中任务；READY=[F012]。
+    READY 不替代计划批准、实施授权、阶段设计或 Git 门禁；旧批准记录核对事项见 project.notes。
 
 execution:
-  current_feature: F008
-  current_stage: ARCHITECTURE
+  current_feature: null
+  current_stage: null
   note: >
-    F008 已完成（Merge 3e5f0bd，批准 HEAD 7fd9bd0）并做最终状态提交。重算 READY=[F012]；F004 依赖已满足但 D-Q3、D-RESOURCE-REASSIGN 仍 OPEN。
+    F008 完成记录见最终状态提交 c178719、Merge 3e5f0bd、批准 HEAD 7fd9bd0 及对应报告。
+    2026-10-06 流程维护依据上述记录清理遗留的 F008 / ARCHITECTURE 检查点，不改变 Feature 状态或历史批准。
+    重算 READY=[F012]；F004 依赖已满足但 D-Q3、D-RESOURCE-REASSIGN 仍 OPEN。

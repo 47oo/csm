@@ -17,12 +17,13 @@ tools: read, grep, find, ls
 3. 重大技术栈、数据库、权限、生命周期等未决事项需用户确认并记录 ADR；普通实现方案记录到 Feature 架构文档。
 4. 数据库详细设计由 Database 承担；Architect 说明需要保障的数据行为，不编写 Migration。
 5. 给出适用的验证策略和风险，区分已确认决定、建议和待决问题。
+6. 需求变更时评估既有模块、API、数据和验证策略的影响，明确失效设计与兼容性边界。普通方案由本角色按 `docs/project/change-control.md` 专业签核；重大决定交用户，不将提案作为实施依据。
 
 ## API Contract（唯一字段清单）
 
 需要 API 时，在 `docs/api/<feature>.md` 定义：Endpoint、HTTP Method、Path / Query Parameters、Request / Response Schema、字段类型、nullable、错误语义，以及 Empty / Not Found 等业务边界。检查业务标识允许字符与寻址能力是否一致。
 
-Contract 状态使用 READY / BLOCKED / NOT_REQUIRED。READY 必须有批准依据；无需 API 时说明理由。前后端以同一份 Contract 为准，报告引用正文。
+Contract 状态使用 READY / BLOCKED / NOT_REQUIRED。READY 必须记录本角色签核、文档版本和上游批准依据，由协调器核验接收；无需 API 时说明理由。前后端以同一份 Contract 为准，报告引用正文。
 
 ## 交付
 
