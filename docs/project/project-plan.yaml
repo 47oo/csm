@@ -1,6 +1,6 @@
-# CSM V3 一期首次完整计划（16 Feature，DRAFT，待用户批准 revision 4）。
+# CSM V3 一期完整计划 revision 4：已批准（2026-10-06），CONTINUOUS 执行授权覆盖 F001-F016。
 # 规划字段由 Project Manager 维护；批准、暂停标记、执行检查点与派生视图由协调器维护。
-# Scope/acceptance 已综合 Architect / Database 全局评估与协调裁定；不含实施授权。
+# Scope/acceptance 已综合 Architect / Database 全局评估与协调裁定。
 project:
   name: CSM — Cluster Source Manager
   version: V3 phase 1
@@ -8,13 +8,29 @@ project:
     path: docs/product/requirements-v3.md
     revision: 3
   plan_revision: 4
-  status: DRAFT
+  status: ACCEPTED
   approval:
-    plan_revision: null
-    feature_ids: []
-    approved_by: null
-    approved_on: null
-    basis: null
+    plan_revision: 4
+    feature_ids:
+      - F001
+      - F002
+      - F003
+      - F004
+      - F005
+      - F006
+      - F007
+      - F008
+      - F009
+      - F010
+      - F011
+      - F012
+      - F013
+      - F014
+      - F015
+      - F016
+    approved_by: 用户
+    approved_on: "2026-10-06"
+    basis: "用户于 2026-10-06 批准：『后续如果没有问题，就按计划执行 implement-project，如果还有问题，则给个推荐，按推荐修改后，再执行 implement-project，这里批准开始』。对象为 docs/project/project-plan.yaml revision 4 全部 16 个 Feature；协调器核验定稿发现 5 处缺陷，按预授权以推荐方案修正后落地本批准。确认来源：本次会话用户指令。"
   acceptance:
     status: PENDING
     evidence: []
@@ -34,7 +50,7 @@ features:
       - docs/product/requirements-v3.md#31-测试
     depends_on: []
     blocking_decisions: []
-    status: DRAFT
+    status: READY
   - id: F002
     title: 认证、初始账号与权限横切
     kind: FEATURE
@@ -51,7 +67,9 @@ features:
     depends_on:
       - F001
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F001"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F003
     title: Cluster 管理与持久化横切首落地
     kind: FEATURE
@@ -72,7 +90,9 @@ features:
       - F001
       - F002
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F001、F002"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F004
     title: Resource 核心登记
     kind: FEATURE
@@ -90,7 +110,9 @@ features:
     depends_on:
       - F003
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F003"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F005
     title: BareMetal 硬件与容量
     kind: FEATURE
@@ -105,7 +127,9 @@ features:
     depends_on:
       - F004
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F004"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F006
     title: 虚拟机登记
     kind: FEATURE
@@ -123,7 +147,9 @@ features:
     depends_on:
       - F004
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F004"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F007
     title: Interface 接口管理
     kind: FEATURE
@@ -139,7 +165,9 @@ features:
     depends_on:
       - F004
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F004"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F008
     title: Network 网络管理
     kind: FEATURE
@@ -156,7 +184,9 @@ features:
     depends_on:
       - F003
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F003"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F009
     title: IP Pool 地址池
     kind: FEATURE
@@ -173,7 +203,9 @@ features:
     depends_on:
       - F008
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F008"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F010
     title: IP 地址分配与容量
     kind: FEATURE
@@ -196,7 +228,9 @@ features:
       - F008
       - F009
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F007、F008、F009"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F011
     title: Service 服务登记
     kind: FEATURE
@@ -211,7 +245,9 @@ features:
     depends_on:
       - F004
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F004"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F012
     title: Service Endpoint 监听端点
     kind: FEATURE
@@ -228,7 +264,9 @@ features:
       - F010
       - F011
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F010、F011"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F013
     title: 全局搜索与 Dashboard
     kind: FEATURE
@@ -253,7 +291,9 @@ features:
       - F010
       - F011
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F003、F004、F005、F006、F008、F009、F010、F011"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F014
     title: CSV / Excel 批量导入
     kind: FEATURE
@@ -274,7 +314,9 @@ features:
       - F005
       - F006
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F003、F004、F005、F006"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F015
     title: Audit 查询、已删除对象管理与系统功能
     kind: FEATURE
@@ -300,7 +342,9 @@ features:
       - F011
       - F012
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F002、F003、F004、F005、F006、F007、F008、F009、F010、F011、F012"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
   - id: F016
     title: 一期集成验收与交付
     kind: FEATURE
@@ -331,7 +375,9 @@ features:
       - F014
       - F015
     blocking_decisions: []
-    status: DRAFT
+    status: BLOCKED
+    blocked_reason: "依赖未 DONE：F001、F002、F003、F004、F005、F006、F007、F008、F009、F010、F011、F012、F013、F014、F015"
+    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
 decisions_required:
   - id: Q02-A
     source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -438,28 +484,10 @@ decisions_required:
     owner: Architect / Backend / Tester
 pending_changes: []
 execution:
-  mode: null
-  authorization: null
-  current_feature: null
-  current_stage: null
-  last_result: 首次完整计划已定稿待批准
-  next_action: 等待用户批准计划 revision 4
-  repair_rounds: 0
-planning_status:
-  status: DRAFT
-  plan_completeness: complete
-  counts:
-    DRAFT: 16
-    BLOCKED: 0
-    READY: 0
-    IN_PROGRESS: 0
-    IN_REVIEW: 0
-    DONE: 0
-    CANCELLED: 0
-  ready_features: []
-  blocked_draft_features:
-    BLOCKED: []
-    DRAFT:
+  mode: CONTINUOUS
+  authorization:
+    plan_revision: 4
+    feature_ids:
       - F001
       - F002
       - F003
@@ -476,3 +504,42 @@ planning_status:
       - F014
       - F015
       - F016
+    authorized_by: 用户
+    authorized_on: "2026-10-06"
+    basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
+  current_feature: null
+  current_stage: null
+  last_result: 计划 revision 4 已批准并记录 CONTINUOUS 执行授权（F001-F016）
+  next_action: 调度首个 READY Feature F001（工程与部署底座）
+  repair_rounds: 0
+planning_status:
+  status: ACCEPTED
+  plan_completeness: complete
+  counts:
+    DRAFT: 0
+    BLOCKED: 15
+    READY: 1
+    IN_PROGRESS: 0
+    IN_REVIEW: 0
+    DONE: 0
+    CANCELLED: 0
+  ready_features:
+    - F001
+  blocked_draft_features:
+    BLOCKED:
+      - F002
+      - F003
+      - F004
+      - F005
+      - F006
+      - F007
+      - F008
+      - F009
+      - F010
+      - F011
+      - F012
+      - F013
+      - F014
+      - F015
+      - F016
+    DRAFT: []
