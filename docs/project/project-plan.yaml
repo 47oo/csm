@@ -50,9 +50,9 @@ features:
       - docs/product/requirements-v3.md#31-测试
     depends_on: []
     blocking_decisions: []
-    status: IN_REVIEW
-    current_stage: MERGE
-    next_action: Merge Gate：合并已执行（5586bd9），待最终状态提交
+    status: DONE
+    current_stage: null
+    next_action: null
     layers:
       database: true
       backend: true
@@ -109,9 +109,7 @@ features:
     depends_on:
       - F001
     blocking_decisions: []
-    status: BLOCKED
-    blocked_reason: "依赖未 DONE：F001"
-    next_action: "依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）"
+    status: READY
   - id: F003
     title: Cluster 管理与持久化横切首落地
     kind: FEATURE
@@ -549,26 +547,26 @@ execution:
     authorized_by: 用户
     authorized_on: "2026-10-06"
     basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
-  current_feature: F001
-  current_stage: MERGE
-  last_result: F001 Review APPROVED WITH FOLLOW-UP（候选 83998e3）；合并已执行（Merge 5586bd9，父提交验证通过）
-  next_action: 最终状态提交（F001 DONE、解锁 F002）
+  current_feature: null
+  current_stage: null
+  last_result: F001 已 DONE（Merge 5586bd9，状态提交完成）；依赖重算后 F002 就绪
+  next_action: 调度 F002（认证、初始账号与权限横切）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
   counts:
     DRAFT: 0
-    BLOCKED: 15
-    READY: 0
+    BLOCKED: 14
+    READY: 1
     IN_PROGRESS: 0
-    IN_REVIEW: 1
-    DONE: 0
+    IN_REVIEW: 0
+    DONE: 1
     CANCELLED: 0
-  ready_features: []
+  ready_features:
+    - F002
   blocked_draft_features:
     BLOCKED:
-      - F002
       - F003
       - F004
       - F005
