@@ -1,0 +1,1 @@
+"""Persistence models. Business entities are introduced from F003 onward."""

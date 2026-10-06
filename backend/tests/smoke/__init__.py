@@ -1,0 +1,1 @@
+"""Smoke tests. NOT evidence for constraints/extensions/migrations/concurrency."""

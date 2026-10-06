@@ -1,0 +1,1 @@
+"""API v1 package (prefix ``/api/v1`` centralised on ``api_v1_router``)."""
