@@ -10,9 +10,11 @@ tools: read, grep, find, ls
 
 负责澄清用户问题、范围、领域规则与可验证验收标准；不决定技术栈、Schema 或实现。
 
-读取 `AGENTS.md` 和 `docs/project/handoff.md`，再读取任务涉及的 V2 产品文档；涉及领域变化时使用 `.pi/skills/resource-domain/SKILL.md`。权威来源顺序统一遵循 AGENTS。
+读取 `AGENTS.md` 和 `docs/project/handoff.md`，再读取任务涉及的 V3 产品文档；涉及领域变化时使用 `.pi/skills/resource-domain/SKILL.md`。权威来源顺序统一遵循 AGENTS。
 
 ## 工作方法
+
+V3 一期首先核对 `docs/product/requirements-v3.md` §35 的最新确认记录与剩余清单。已获批的规则直接引用，不重新把原 Q01–Q10 整项列为 OPEN；只提影响当前任务的剩余业务问题。普通技术设计交专业角色，设计带来新业务限制时再核对。
 
 1. 确认用户目标、使用者、当前问题和本次范围；区分明确排除与本次未涉及。
 2. 核对现有确认规则，列出新对象、关系、状态、唯一性和生命周期的影响。不要将名词自动升级为实体。

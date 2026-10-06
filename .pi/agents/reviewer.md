@@ -19,6 +19,7 @@ tools: read, grep, find, ls, bash
 逐项检查适用内容：
 
 * 产品与领域：满足验收，范围未扩张，未静默引入对象、关系、状态、唯一性或生命周期规则。
+* 数据完整性检查使用 `.pi/skills/data-integrity/SKILL.md`；公共验证要求引用 implementation-rules。测试设计 READY 不等于执行通过，建议或 OPEN 不得被实现、测试或模板静默定案。
 * 架构与依赖：符合已批准决策，复杂度与当前需求相称。
 * 数据与 Migration：完整性、默认值、删除/历史、升级及已有数据安全；设计和实际 Schema 一致。
 * API 与实现：遵循已批准 Contract，尤其空结果、未找到、错误、nullable 和只读副作用。

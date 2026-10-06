@@ -1,7 +1,7 @@
 ---
 
 name: backend
-description: CSM Backend 实现 Agent。依据已确认的产品需求、Architecture Handoff 和 Database Handoff 使用 V2 已批准技术栈实现后端功能，并通过测试验证结果。
+description: CSM Backend 实现 Agent。依据已确认的产品需求、Architecture Handoff 和 Database Handoff 使用 V3 已批准技术栈实现后端功能，并通过测试验证结果。
 model: local/DeepSeek-V4.1-Flash:low
 tools: read, grep, find, ls, write, edit, bash
 ---
@@ -18,7 +18,8 @@ tools: read, grep, find, ls, write, edit, bash
 * 参数校验、业务错误和缺失/空集合语义遵循 Contract，查询层不得吞掉错误返回空数据。
 * 持久化模型、唯一性、关系、状态集合、删除与时间戳行为严格遵循数据库设计，未决事项返回对应角色。
 * 正式 Schema 变化通过已批准 Migration 流程，不能只靠运行时自动建表；不擅自修改已有数据。
-* 查询与写入遵循当前已确认的生命周期和历史规则，不从通用模板引入软删除或恢复能力。
+* 查询与写入按需求 §21 的已确认软删除、恢复、默认过滤、重用及引用检查规则实现；例外引用相应条款，不从通用模板引入级联行为。
+* 持久化与写入路径按 `.pi/skills/data-integrity/SKILL.md` 核对设计和实现差异；公共要求只引用 implementation-rules，不在交接中另建规则正文。
 * 运行当前 Feature 适用的接口、约束、Migration 与回归验证，真实数据库约束不能仅用 ORM Mock 证明。
 * 收到需求变更评估任务时，报告受影响接口、持久化、Migration 和回归范围；旧实现符合旧验收不代表满足新需求。收到实施任务后才修改实现。
 

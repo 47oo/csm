@@ -1,0 +1,98 @@
+# V3 一期流程入口骨架；本次只更新文档，未开展 Feature 规划或授权实施。
+project:
+  name: CSM — Cluster Source Manager
+  version: V3 phase 1
+  requirements:
+    path: docs/product/requirements-v3.md
+    revision: 3
+  plan_revision: 3
+  status: DRAFT
+  approval:
+    plan_revision: null
+    feature_ids: []
+    approved_by: null
+    approved_on: null
+    basis: null
+  acceptance:
+    status: PENDING
+    evidence: []
+features: []
+decisions_required:
+  - id: Q02-A
+    source: docs/product/requirements-v3.md#352-六项业务决策confirmed
+    status: CONFIRMED
+    kind: BUSINESS_DECISION
+    affects: Cluster 及所属对象操作，待首次规划关联 Feature
+    owner: Product Manager / 用户
+  - id: Q04-A
+    source: docs/product/requirements-v3.md#352-六项业务决策confirmed
+    status: CONFIRMED
+    kind: BUSINESS_DECISION
+    affects: 地址分配与容量，待首次规划关联 Feature
+    owner: Product Manager / 用户
+  - id: Q04-B
+    source: docs/product/requirements-v3.md#352-六项业务决策confirmed
+    status: CONFIRMED
+    kind: BUSINESS_DECISION
+    affects: Pool 与 gateway 变更，待首次规划关联 Feature
+    owner: Product Manager / 用户
+  - id: Q07-A
+    source: docs/product/requirements-v3.md#352-六项业务决策confirmed
+    status: CONFIRMED
+    kind: BUSINESS_DECISION
+    affects: Audit 保留策略，待首次规划关联 Feature
+    owner: Product Manager / 用户
+  - id: Q10-A
+    source: docs/product/requirements-v3.md#352-六项业务决策confirmed
+    status: CONFIRMED
+    kind: BUSINESS_DECISION
+    affects: 字段业务定义，待首次规划关联 Feature
+    owner: Product Manager / 用户
+  - id: Q10-B
+    source: docs/product/requirements-v3.md#352-六项业务决策confirmed
+    status: CONFIRMED
+    kind: BUSINESS_DECISION
+    affects: 剩余名称规范与重用，待首次规划关联 Feature
+    owner: Product Manager / 用户
+  - id: D01
+    source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
+    status: OPEN
+    kind: DESIGN_INPUT
+    affects: 字段契约，待首次规划关联 Feature
+    owner: Architect / Database
+  - id: D02
+    source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
+    status: OPEN
+    kind: DESIGN_INPUT
+    affects: 架构及数据设计，待首次规划关联 Feature
+    owner: Architect / Database
+  - id: D03
+    source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
+    status: OPEN
+    kind: DESIGN_INPUT
+    affects: 导入模板与性能，待首次规划关联 Feature
+    owner: Architect / Backend / Tester
+pending_changes: []
+execution:
+  mode: null
+  authorization: null
+  current_feature: null
+  current_stage: null
+  last_result: V3 需求 revision 3 已按用户确认关闭六项业务问题；D01–D03 待设计，未生成完整计划
+  next_action: 按 project Prompt 开展首次规划及轻量架构评估，承接 D01–D03 专业设计输入
+  repair_rounds: 0
+planning_status:
+  status: DRAFT
+  plan_completeness: incomplete
+  counts:
+    DRAFT: 0
+    BLOCKED: 0
+    READY: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 0
+    DONE: 0
+    CANCELLED: 0
+  ready_features: []
+  blocked_draft_features:
+    BLOCKED: []
+    DRAFT: []
