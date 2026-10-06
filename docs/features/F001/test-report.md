@@ -107,40 +107,103 @@
 
 ## Test Execution
 
-> 状态：**未执行**（TEST_DESIGN 阶段，实现尚不存在）。以下为 TEST 阶段预留结构，执行时在同一文件追加，并标注执行版本、实现 commit 与 Test Design 引用版本（TD-2）。
+- **版本**：TE-1
+- **日期**：2026-10-06（UTC）
+- **角色**：Tester（TEST 模式）
+- **实现基线**：commit `85cbfdb`（feature/F001-engineering-foundation；工作区在 `db72c19` 检查点，`git diff 85cbfdb HEAD` 仅新增文档与计划字段，无实现改动）
+- **执行依据**：TD-2（本文件 Test Design）；已应用定稿采纳口径 **A1**（扩展断言忽略 PG 默认 `plpgsql`，断言 `pg_trgm` 存在、`btree_gist` 不存在）、**A3**（备份脚本容器内执行）、**A4**（备份判据 DB-D12 5 项 + 退出码）、**A5**（TD-2 为执行权威编号）
+- **结论**：`READY FOR REVIEW`
 
 ### E.0 执行环境
 
-- 待填：日期、实现 commit、Compose 镜像版本、PostgreSQL 版本、`TEST_DATABASE_URL` 来源、Docker 版本。
+| 项 | 值 |
+| --- | --- |
+| 日期 | 2026-10-06 UTC |
+| 实现 commit | `85cbfdb` |
+| Docker / Compose | Docker 29.8.0；Docker Compose v5.5.1 |
+| PostgreSQL | 16.15（`postgres:16`） |
+| Nginx | 1.27-alpine |
+| Node（镜像内构建） | node:22-alpine；宿主 Node v22.23.2 |
+| 宿主机 PG 客户端 | 无 `psql`/`pg_dump`（备份按 A3 容器内执行） |
+| Compose 测试隔离 | 项目名 `csmf001test`，入口端口 `18080`（避免与既有容器/端口冲突） |
+| 测试数据库来源 | Compose `db` 服务内独立库：`csm_owner_test`（owner `f001owner`，**非 superuser**）、`csm_manual_test`、`csm_restore_test`；均满足库名含 `test` 的 DB-D10 护栏 |
+| 测试镜像 | `docker build --target test -t csm-f001-backend-test ./backend`（BUILD_EXIT=0） |
+| 凭据 | 测试用 `.env`（git-ignored、测试后删除）注入，无真实凭据入库 |
 
 ### E.1 验收映射执行结果
 
-| 验收 | 验证项 | 结果（PASS/FAIL/BLOCKED/NOT TESTED） | 证据 |
+| 验收 | 验证项 | 结果 | 证据 |
 | --- | --- | --- | --- |
-| 1 | V1 | 待执行 | |
-| 2 | V2 | 待执行 | |
-| 3 | V3 / V3b | 待执行 | |
-| 4 | V4 | 待执行 | |
-| 5 | V5 | 待执行 | |
-| 6 | V6 | 待执行 | |
-| 7 | V8 | 待执行 | |
+| 1 全链路 Compose + Nginx 健康检查 + 前端可达 | V1 | **PASS** | `docker compose -p csmf001test up -d --build` 退出码 0；`ps -a`：`migrate` Exited(0)，`db/backend/frontend/nginx` running（backend healthy）；`curl :18080/api/v1/health` = 200 `{"status":"ok","service":"csm-backend"}`；`/api/v1/health/ready` = 200 `{"status":"ready","db":"up"}`；`GET /` = 200 返回前端 HTML（`<div id="root">` + hashed asset）；`/some/deep/path` = 200 SPA fallback；`/api/v1/does-not-exist` = 404 由 backend 返回（`{"detail":"Not Found"}`，证明 `/api/*` 未落到前端） |
+| 2 Alembic 基线真实 PG up/down/up 一致 | V2 | **PASS** | 非 superuser owner 库 `alembic upgrade head` 退出码 0 → `current` = `0001_baseline (head)`；`downgrade base` 退出码 0 → `alembic_version` 0 行、**`pg_trgm` 仍在**（DB-D4 非对称）、无业务表；再 `upgrade head` 收敛 `0001_baseline`；集成用例 `test_upgrade_downgrade_upgrade_is_consistent`/`test_upgrade_is_idempotent` PASS |
+| 3 基线显式启用 pg_trgm + 签核可查 | V3 / V3b / V8 | **PASS** | 迁移后 `pg_extension` = `{plpgsql, pg_trgm}`，**`btree_gist` 不存在**（A1/DB-D2）；扩展由 `0001_baseline.py` 执行；**以非 superuser 数据库 owner `f001owner`（rolsuper=f, rolcreatedb=t）执行 `upgrade head` 成功安装 `pg_trgm`（V3b，DB-D11 trusted 证实）**；签核见 `docs/database/f001-baseline.md` v1、`docs/features/F001/architecture.md` 最终设计定稿 |
+| 4 集成 fixture 真实 PG 可重复无残留 | V4 | **PASS** | 集成套件连续运行两次均 `10 passed`、退出码 0；两次运行后 `public` schema 无残留表（residue query: 0 rows）；会话级 `DROP SCHEMA public CASCADE`+`CREATE SCHEMA public`+`upgrade head` 生效；DB-D10 护栏**实测阻断**（见 E.2 B10） |
+| 5 备份骨架 pg_dump + 恢复冒烟 | V5 | **PASS** | A3 容器内执行：`pg_dump.sh` 退出码 0 产出 custom-format dump（`PostgreSQL custom database dump`，magic `PGDMP`）；`restore.sh <dump> csm_restore_test` 退出码 0；重复目标库无 `--force` 拒绝（退出码 1），`--force` 成功；DB-D12 5 项全部满足（见 E.3） |
+| 6 凭据经环境注入、仓库无真实凭据 | V6 | **PASS** | `git check-ignore -v .env` 命中 `.gitignore:13`；`git ls-files` 无 `.env`（仅 `.env.example`）；`.env.example` 仅 `__SET_ME__` 占位；跟踪文件密钥模式全文检索无命中；容器日志与 DB 不可达 503 响应均无连接串/口令（见 E.3） |
+| 7 D02 基础部分签核可查 | V8 | **PASS** | `architecture.md`「最终设计定稿」（Architect 2026-10-06，`READY FOR IMPLEMENTATION`，核对 `f001-baseline.md` v1 与 TD-2）、`f001-baseline.md` Database 签核 v1（DB-D1–DB-D12 DESIGN）、`project-plan.yaml` plan_revision 4 F001 已批准；软件版本/目录结构/迁移基线/扩展策略/测试基线与实现一致 |
 
 ### E.2 边界与并发结果（B1–B11）
 
-待执行。
+| 编号 | 结果 | 证据 |
+| --- | --- | --- |
+| B1 迁移循环幂等 | **PASS** | 手工循环 `upgrade→downgrade→upgrade` 在 `csm_manual_test` 每轮收敛 `0001_baseline`；集成 `test_upgrade_downgrade_upgrade_is_consistent` PASS |
+| B2 可重复 upgrade | **PASS** | 连续 `upgrade head` 第二次 no-op，退出码 0，保持单 head `0001_baseline`；集成 `test_upgrade_is_idempotent` PASS |
+| B3 扩展存在断言（A1 口径） | **PASS** | `pg_extension` 含 `pg_trgm`、不含 `btree_gist`；忽略默认 `plpgsql`；集成 `test_extension_set_matches_baseline_declaration` PASS |
+| B4 扩展回滚非对称性 | **PASS** | `downgrade base` 后 `pg_trgm` 仍存在、`alembic_version` 为空、无业务表；集成两用例 PASS；有 `f001-baseline.md` §4 依据 |
+| B5 并发提交可见性 | **PASS** | 集成 `test_committed_writes_visible_across_connections`（两条独立真实提交连接 → 新连接读到并集）、`test_uncommitted_write_is_not_visible` PASS |
+| B6 最终持久化状态 | **PASS** | 并发写后 `engine.dispose()` 重开连接复核 count=2；`committed_engine` teardown TRUNCATE（排除 `alembic_version`）+ 删除 `_f001*` 探针表；运行后无残留 |
+| B7 ready 在 DB 不可达 | **PASS** | `docker compose stop db` 后经 Nginx 请求 `/api/v1/health/ready` = **503** `{"status":"not_ready","db":"down"}`；响应无 `postgresql`/`psycopg`/口令；`start db` 恢复后 = 200 |
+| B8 health 不触库 | **PASS** | DB 停止期间 `/api/v1/health` 仍 = 200 `{"status":"ok","service":"csm-backend"}` |
+| B9 备份恢复冒烟 | **PASS** | 见 E.3 的 DB-D12 5 项 |
+| B10 凭据静态边界 | **PASS** | `.env` 命中 ignore 且未被跟踪；`.env.example` 占位；仓库检索无真实口令；日志/错误响应不泄露。**护栏实测**：`TEST_DATABASE_URL` 指向非 test 库 `csm` → `AssertionError`（退出码 1）；`TEST_DATABASE_URL == DATABASE_URL` → `AssertionError`（退出码 1） |
+| B11 非 superuser owner 安装扩展（V3b） | **PASS** | `f001owner` rolsuper=f；以该角色对 `csm_manual_test` 执行 `alembic upgrade head` 成功、`pg_trgm` 就位；集成 `test_trusted_extension_installed_by_non_superuser` 明确 **PASSED（非 skip）** |
 
 ### E.3 数据库 / 接口 / 前端 / 集成结果
 
-待执行。
+- **数据库（真实 PG，非 SQLite）**：迁移 up/down/up 一致；基线扩展集合 = `{pg_trgm}`；`downgrade` 非对称；并发提交跨连接可见；teardown 无残留。SQLite 仅 `smoke` 4 passed（不作为约束/扩展/迁移/并发证据）。
+- **V5 / B9 / DB-D12 5 项判据（恢复库 `csm_restore_test`）**：①`SELECT 1` → `1`；②`pg_extension` = `{pg_trgm, plpgsql}`；③`alembic_version` 源库与恢复库均 `0001_baseline`；④`alembic current` = `0001_baseline (head)` 且再 `upgrade head` 幂等（退出码 0）；⑤后端连恢复库 `/api/v1/health/ready` = 200 `{"status":"ready","db":"up"}`。`pg_dump.sh`/`restore.sh` 退出码分别为 0/0。
+- **接口（健康端点为运维端点，非业务 Contract）**：`/api/v1/health` 不触库（依赖被覆盖为抛错仍 200），`/api/v1/health/ready` 就绪 200 / DB 不可达 503；DB 不可达既返回正确状态又不泄露凭据。集成 `test_health.py` 3 项 PASS。
+- **前端**：镜像构建成功（多阶段 node:22 → nginx:1.27-alpine）；`GET /` = 200 返回 `index.html`；`/some/deep/path` = 200 SPA fallback；`/assets/*.js` = 200 `public, immutable`（30d），缺失 asset = 404，`/index.html` no-cache；产物 JS 引用同源相对路径 `/api/v1`；`src/api/client.ts` 无硬编码主机、无密钥。
+- **集成（真实 API，非 Mock）**：Nginx 入口 → backend `/api/v1/health`、`/api/v1/health/ready` 均真实连通（200）；失败路径（DB 停）经入口仍得 503。
+- **凭据边界日志核对**：backend 启动/请求日志无连接串或口令；全栈 `docker compose logs` 检索 `postgresql+psycopg|password|<test pw>` 无命中。
+- **测试基础设施**：`tests/smoke` 4 passed；`tests/integration` 10 passed（含 V3b 非 skip）；安全护栏实测生效；测试 DB 独立、测试后随 `down -v` 清理。
 
 ### E.4 Defects
 
-待填（格式：ID、Severity、Layer、Location、证据、期望与实际、影响、Owner、是否必须修复）。
+| ID | Severity | Layer | Location | 证据 | 期望与实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| F001-T-DUP-CT | LOW | Deploy | `deploy/nginx/nginx.conf` `location = /healthz` | `curl -D - /healthz` 返回两个 `Content-Type`（`application/octet-stream` + `text/plain`） | 期望单一 `Content-Type: text/plain`；实际重复 | 仅影响非验收要求的 `/healthz` 辅助探针；不影响验收 1 的 `/api/v1/health` | Backend | 否（可后续处理） |
+| F001-T-TESTFIX-EXT | NOTE | Test Infra | `backend/tests/conftest.py` `_recreate_public_schema` | 集成运行 2 后测试库 `pg_extension` 仅剩 `plpgsql` | 测试会话 teardown `DROP SCHEMA public CASCADE` 连带删除安装于 `public` 的 `pg_trgm`；下一会话 `upgrade head` 重建。非产品缺陷（测试库按会话重建），扩展持久性由会话内断言及 V2/B1/B4 手工循环证明 | 无（测试库行为，不污染生产语义） | 协调器 / Tester（测试基础设施） | 否 |
+
+未发现 BLOCKER / HIGH / MEDIUM 必须修复缺陷。
 
 ### E.5 未验证项
 
-待填。
+- **真实浏览器 DOM 渲染**：环境无浏览器，未执行 React 运行时渲染与页面内 `/api/v1/health` 的 DOM 断言；已以「产物 JS 引用同源 `/api/v1`」+「Nginx 入口真实连通 health 端点」佐证接线。属 TD-2 V1 判据之外的增强项，不影响 V1 PASS。
+- **T01–T41 业务用例**：F001 为 ENABLER，`api_required=false`，无业务对象/业务 API；**不适用**，不声明通过（留待承接 Feature）。
+- **Audit 备份覆盖（T36）**：F001 仅 pg_dump 骨架 + 恢复冒烟，**未验证 Audit 数据覆盖**（归 F016）。
+- **§32 整体上线验收**：不在本 Feature；容器可启动 ≠ 生产上线。
+- **F002+ 业务并发正确性、约束/索引/IPAM 锁**：V7/B5/B6 仅验证 T07/T35 的测试前提能力，非业务并发结论。
 
 ### E.6 结论
 
-待填（`READY FOR REVIEW` / `RETURN TO IMPLEMENTATION` / `TEST BLOCKED` / `PARTIAL TEST ONLY`）。
+**`READY FOR REVIEW`**。product.md 7 项验收全部 PASS（V1–V8，其中验收 3 另由 V3b 佐证），边界 B1–B11 全部 PASS，无必须修复缺陷（仅 1 项 LOW、1 项 NOTE 非阻塞）。测试使用独立 Compose 项目名/端口与独立 test 库，未在未知/生产库执行；测试后已 `docker compose -p csmf001test down -v` 清理容器与数据卷并删除测试 `.env`。
+
+> A1 修正记录：TD-2 的 V3/B3 原始文本为「含且仅含基线声明的 `pg_trgm`」。按定稿口径 A1，本次执行以「断言 `pg_trgm` 存在、`btree_gist` 不存在，忽略 PG 默认 `plpgsql`」为准（标记 **TD-2+A1**），不整体升版；其余 V/B 项按 TD-2 原文执行。
+
+---
+
+### Git 声明（只读，未改变 Git 状态）
+
+```text
+GIT: git rev-parse --short HEAD
+GIT: git branch --show-current
+GIT: git status --short
+GIT: git check-ignore -v .env
+GIT: git ls-files
+GIT: git ls-files .env
+GIT: git grep -nIE <secret-pattern> -- <paths>
+GIT: git log --oneline -8
+GIT: git show --stat 85cbfdb
+GIT: git diff --stat 85cbfdb HEAD
+```
