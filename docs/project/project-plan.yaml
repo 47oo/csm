@@ -442,17 +442,25 @@ features:
   - F004
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: architect 设计 Interface（名称唯一/parent_interface 环检测/layers/api_required）
-  current_stage: ARCHITECTURE
+  next_action: database 设计 interfaces（部分唯一/parent 触发器/迁移 0007）；并行 tester 测试设计
+  current_stage: DATABASE
   git:
     base_branch: v3
     branch: feature/F007-interface-management
     start_commit: e11fb74476d159e8905ca11fc158df2044303c22
   implementation:
     product: COMPLETE
+    architecture: COMPLETE
   evidence:
     product:
     - docs/features/F007/product.md
+    architecture:
+    - docs/features/F007/architecture.md
+  layers:
+    database: true
+    backend: true
+    frontend: true
+  api_required: true
 - id: F008
   title: Network 网络管理
   kind: FEATURE
@@ -831,9 +839,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F007
-  current_stage: ARCHITECTURE
-  last_result: F007 PRODUCT 通过（READY FOR ARCHITECT，A1–A19）
-  next_action: F007 ARCHITECTURE
+  current_stage: DATABASE
+  last_result: F007 ARCHITECTURE 通过（READY FOR DESIGN，DR-72–DR-88）
+  next_action: F007 DATABASE + TEST_DESIGN
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
