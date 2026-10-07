@@ -36,6 +36,23 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # One-shot initial ADMIN bootstrap: idempotent, runs after migrate (DR-12).
+  bootstrap:
+    build:
+      context: ./backend
+    command: ["python", "-m", "app.cli.bootstrap_admin"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://csm:change-me@db:5432/csm}
+      INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
   backend:
     build:
       context: ./backend
@@ -47,6 +64,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://csm:change-me@db:5432/csm}
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      bootstrap:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/v1/health/ready || exit 1"]

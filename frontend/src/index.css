@@ -63,3 +63,107 @@ h1 {
 .status-error {
   color: #b91c1c;
 }
+
+/* ---------- F002 登录页 / 应用壳（最小样式，不追求复杂视觉效果） ---------- */
+
+.login-main {
+  max-width: 420px;
+}
+
+.form-field {
+  margin-bottom: 1rem;
+}
+
+.form-field label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.form-field input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 1rem;
+  background-color: #ffffff;
+}
+
+.form-field input:focus {
+  border-color: #2563eb;
+  outline: 2px solid #93c5fd;
+}
+
+.form-error p {
+  margin: 0;
+}
+
+.form-error ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}
+
+button {
+  padding: 0.5rem 1.25rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #ffffff;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background-color: #f3f4f6;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.app-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.user-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.35rem;
+  white-space: nowrap;
+}
+
+.user-name {
+  font-weight: 600;
+}
+
+.user-role {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.permissions-note {
+  margin-bottom: 0.25rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.permissions {
+  margin: 0;
+}
+
+.permission-badge {
+  display: inline-block;
+  margin: 0.125rem 0.25rem 0.125rem 0;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background-color: #f9fafb;
+  color: #374151;
+  font-size: 0.8rem;
+}
