@@ -1,9 +1,9 @@
 # D01 共享约定基座 — 字段、归一化、时间与省略语义
 
 - **状态**：READY（专业设计签核）
-- **版本**：v3
-- **签核**：Architect，2026-10-08（v3 修订；v2 2026-10-07；v1 2026-10-06）
-- **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v2；docs/api/F004.md v1；docs/database/f003-cluster.md v2；docs/database/f004-resource.md v1；F004 product/architecture；F001 DR-06 / DB-D13。
+- **版本**：v4
+- **签核**：Architect，2026-10-09（v4 修订；v3 2026-10-08；v2 2026-10-07；v1 2026-10-06）
+- **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v2；docs/api/F004.md v2；docs/database/f003-cluster.md v2；docs/database/f004-resource.md v1；docs/database/f005-bare-metal.md v1；F004/F005 product/architecture；F001 DR-06 / DB-D13。
 - **覆盖**：API 与导入共用的字段格式、稳定 ID、时间、单位、nullable/PATCH 省略语义、名称归一化口径。F003 首落地签核；后续 Feature 引用本文件不重复定义；数据库列级设计仍归各 Feature Database 文档。
 
 ## 1. 稳定 ID（§4 / DB-D13）
@@ -24,6 +24,7 @@
 - *_mb = MiB，*_gb = GiB；1 GiB = 1024 MiB。不混用 MB/GB。
 - 容量/数量字段为整数；未知值存 null，不得以 0 表示未知（gpu_count/disk_gb 的 0 表示明确无该项）。
 - 通用整型上限 0..2147483647（非负项）或按各域正整数约束收窄（F005/F006 落实）；具体范围在各 Feature Database 文档。
+- **BareMetalDetail 硬件数值（F005，v4 补充）**：cpu_sockets/cpu_cores/memory_mb 为正整数或 null（1..2147483647）；gpu_count 为非负整数或 null（0..2147483647，0=明确无 GPU）；memory_mb 单位 MiB，原样存储不换算。契约见 docs/api/F004.md v2 §2.4，DB 见 database/f005-bare-metal.md DB-D46。
 
 ## 4. nullable 与 PATCH 省略语义（§4.1）
 
@@ -60,7 +61,7 @@
 
 ### 5.2 长度口径
 
-Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限，RFC 1035）**；其它对象字符/长度在各 Feature Database/Contract 依本节规则收窄（Unicode code point）。
+Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限，RFC 1035）**；**BareMetal 硬件字符串字段（manufacturer/model/serial_number/cpu_model/gpu_model）255（v4 新增，见 §5.4）**；其它对象字符/长度在各 Feature Database/Contract 依本节规则收窄（Unicode code point）。
 
 ### 5.3 Resource hostname 字符集、长度与折叠（D01 裁定，F004 I-1）
 
@@ -73,6 +74,18 @@ Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限
 - `hostname_key = ASCII_lower(btrim(hostname))`；同 Cluster `(cluster_id, hostname_key)` 部分唯一 `WHERE deleted_at IS NULL`（软删可重用、跨 Cluster 允许、恢复重检冲突）。与 Cluster code 全量唯一（含软删）口径相反，不可互换。
 
 依据 §7「去除首尾空白并统一转小写保存」「支持短主机名和 FQDN」「禁内部空白和不合法字符」，及 §35.3 D01。宽松字符集不收紧现有命名，无需 Product 核对。
+
+### 5.4 BareMetal hardware 字段口径（D01 裁定，F005 DB I-1；v4 新增）
+
+适用范围：docs/api/F004.md v2 §2.4 的 hardware 嵌套对象 9 个硬件字段。硬件字段为描述性属性、非业务名称，**不设唯一性与归一化键**。
+
+字符串口径（DR-52）：服务端 trim 首尾空白 → trim 后非空 → 禁控制字符（Unicode Cc/Cf，应用层；DB 为 ASCII backstop，沿用 F003 I-6/F004 I-4）→ 长度（Unicode code point）≤255；trim 后非空或 null；**空串/纯空白→422（不转 null）**；显式 null→清空该 nullable 子字段；区分大小写、保留展示（不折叠）。
+
+数值口径（DR-50/DB-D46）：cpu_sockets/cpu_cores/memory_mb 为正整数或 null（1..2147483647）；gpu_count 为非负整数或 null（0..2147483647，0=明确无 GPU）；未知值存 null，绝不以 0 代替。
+
+cpu_cores 语义（§8/T39）：整台裸金属物理核心总数、不含超线程；不自动探测、不做 cpu_sockets×cpu_cores 等跨字段推导。
+
+镜像：DB 列/约束见 docs/database/f005-bare-metal.md v1（DB-D46/DB-D52）；API 契约见 docs/api/F004.md v2 §2.4。本字段字典供 F014 导入复用。
 
 ## 6. 归属与引用
 
@@ -89,3 +102,4 @@ Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限
 | v1 | 2026-10-06 | 首版（F003 落地签核） | — |
 | v2 | 2026-10-07 | 明确 code_key 仅 ASCII 字母折叠、非 ASCII 原样保留；同步 §5 表与 §5.1 | F003-REV-1 |
 | v3 | 2026-10-08 | §5 表 Resource hostname 行、§5.2 长度、新增 §5.3；裁定 hostname 1–253、宽松字符集、仅 ASCII A-Z→a-z 折叠、部分唯一 | F004 DB I-1 与 Contract 定稿 |
+| v4 | 2026-10-09 | §3 追加 BareMetal 硬件数值上限引用；§5.2 追加硬件字符串长度 255；新增 §5.4 BareMetal hardware 字段口径 | F005 DB I-1 与 Contract v2 定稿 |

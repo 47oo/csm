@@ -80,3 +80,14 @@ I-2（LOW，交 Database）：detail 无时间戳裁定是否接受。
 ## 8. 结论与下一步
 
 Status READY FOR DESIGN，无 Blocking Questions。下一步：DATABASE Gate 定稿 docs/database/f005-bare-metal.md；TEST_DESIGN 核对 A1–A10；CONTRACT 定稿 docs/api/F004.md v2 并签核 D01 BareMetal 域字段契约；完成后出 READY FOR IMPLEMENTATION。
+
+
+## 9. 最终设计定稿（CONTRACT Gate）
+
+- **Status**：`READY FOR IMPLEMENTATION`
+- **签核**：Architect，2026-10-09；Contract docs/api/F004.md v2
+- **核对版本**：database/f005-bare-metal.md v1（2026-10-08，DB-D45–D52）；test-report.md TD-1（2026-10-09）；d01-conventions.md v4；D02 复用 F004 §8/F003 §8/F002 §6。
+- **交核项关闭**：DR-51 固定（非 BARE_METAL 请求含 hardware 含显式 null→422；VM 响应 hardware=null）；DR-52 固定（硬件字符串 trim 后非空或 null、≤255 code point；空/纯空白 422；无唯一性）；DR-56 固定（扩展 F004→v2，不新建 F005 Contract）；DB I-1 关闭（Contract §2.4 + D01 §5.4 镜像）；DB I-2 转 Backend 实现。
+- **验收闭合**：A1–A10 映射到 F004 v2 §2.4/§6/§8 与 DB-D45–D52、TD-1 V1–V16/B1–B29；TD-1 §8 的 10 项 OPEN 满足关闭条件（由协调器/Tester 升 TD-2 记录）。
+- **实现分工**：Database Schema 由 Backend 落地（迁移 0005 建表→约束→FK CASCADE→类型触发器→回填；ORM BareMetalDetail 属性 meta 映射列 metadata）；Backend（model/schema HardwareIn/Patch/Out、service 同事务 upsert detail、审计快照扩 hardware、响应组装 BARE_METAL 对象/VM null）；Frontend（Detail Hardware 区块 + 编辑表单，单位 MiB/GiB 标注、未知非 0、gpu_count=0 显示"明确无 GPU"、VM 不渲染）。
+- **边界（不宣称）**：T38 VM 容量/T39 VM 侧与 speed_mbps 归 F006/F007+；导入归 F014；列表级 hardware 过滤不在 F005；完整 T23/T24/T37/T38/T39 与 §32 上线验收不在本 Feature。
