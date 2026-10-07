@@ -6,7 +6,7 @@
 
 | 里程碑 | Feature | DONE / 总数 | 状态分布 |
 | --- | --- | --- | --- |
-| M1 基础与访问控制 | F001, F002 | 1 / 2 | DONE=1, IN_PROGRESS=1 |
+| M1 基础与访问控制 | F001, F002 | 1 / 2 | DONE=1, IN_REVIEW=1 |
 | M2 集群与裸金属闭环 | F003, F004, F005 | 0 / 3 | BLOCKED=3 |
 | M3 虚拟化与接口 | F006, F007 | 0 / 2 | BLOCKED=2 |
 | M4 网络与 IPAM | F008, F009, F010 | 0 / 3 | BLOCKED=3 |

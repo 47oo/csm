@@ -109,9 +109,9 @@ features:
     depends_on:
       - F001
     blocking_decisions: []
-    status: IN_PROGRESS
-    current_stage: REVIEW
-    next_action: reviewer 正式 Review（修复后候选 HEAD）
+    status: IN_REVIEW
+    current_stage: MERGE
+    next_action: Merge 已执行（f160c88），待最终状态提交
     layers:
       database: true
       backend: true
@@ -126,6 +126,7 @@ features:
       backend: COMPLETE
       frontend: COMPLETE
       test: COMPLETE
+      review: COMPLETE
     evidence:
       product:
         - docs/features/F002/product.md
@@ -143,12 +144,14 @@ features:
         - docs/features/F002/implementation.md
       test:
         - docs/features/F002/test-report.md#test-execution
+      review:
+        - docs/features/F002/review-report.md
     git:
       base_branch: v3
       branch: feature/F002-auth-permissions
       start_commit: 549b1b581789f13144ba26db6eccc67a8153c93f
-      head_commit: null
-      merge_commit: null
+      head_commit: 529feb99fe3e131451e369512c611ee98a42d4c6
+      merge_commit: f160c8848641ac46ffc7b05c17845b4c0fa8b636
   - id: F003
     title: Cluster 管理与持久化横切首落地
     kind: FEATURE
@@ -587,9 +590,9 @@ execution:
     authorized_on: "2026-10-06"
     basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
   current_feature: F002
-  current_stage: REVIEW
-  last_result: F002 修复循环第 1 轮完成：D-TE-1 FIXED（TE-2 独立复核），回归 47 passed；READY FOR REVIEW
-  next_action: reviewer 正式 Review（候选含 nginx 修复 + TE-2）
+  current_stage: MERGE
+  last_result: F002 Review APPROVED WITH FOLLOW-UP（候选 529feb9）；Merge 已执行（f160c88）
+  next_action: 最终状态提交（F002 DONE、解锁 F003）
   repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
@@ -598,8 +601,8 @@ planning_status:
     DRAFT: 0
     BLOCKED: 14
     READY: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     DONE: 1
     CANCELLED: 0
   ready_features: []
