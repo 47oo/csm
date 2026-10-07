@@ -35,4 +35,14 @@ Git 声明（只读）：git status --short、git branch --show-current、git lo
 
 ## Frontend 实现报告（FRONTEND COMPLETE）
 
-（待前端实现完成后由协调器补全）
+### 实现范围（frontend/**）
+新增 `src/api/resources.ts`（7 端点封装+类型+错误映射）、`src/pages/ResourcesPage.tsx`（列表+过滤 q/cluster/type/role/status+分页+排序+deleted 开关+三态）、`src/pages/ResourceDetailPage.tsx`（Overview 六要素+占位+编辑/软删/恢复）、`src/pages/ResourceCreatePage.tsx`、`src/components/ResourceForm.tsx`（创建/编辑双模式，cluster/resource_type 只读）。修改 `src/pages/HomePage.tsx`（导航+section）、`src/index.css`、`scripts/smoke-client.mjs`（+17 用例）。
+
+### Contract 符合
+过滤 `type`（无 resource_type 别名）与排序 `resource_type` 不对称按 §4；PATCH 仅变化字段+version；DELETE/restore version 为 Query；409 VERSION_CONFLICT→刷新不重试；409 unique_conflict→hostname 字段；422 field=cluster；404 不泄露；权限控件按 permissions 显隐（非安全边界）。
+
+### 验证证据
+`npm run typecheck` 通过；`npm run build` 通过（46 modules）；`npm run smoke:client` **43 passed**（17 基础+9 F003 回归+17 F004 新增）。
+
+### 未验证项
+浏览器组件级渲染/交互无自动化；真实后端集成待 Backend 就绪（无 Mock，无后端时按 Error 态呈现）。
