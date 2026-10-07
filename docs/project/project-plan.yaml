@@ -110,8 +110,8 @@ features:
       - F001
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: DATABASE
-    next_action: database 完成 users/user_sessions 设计；并行 tester 测试设计
+    current_stage: CONTRACT
+    next_action: tester 复核 TD-1 与数据库设计差异后，architect 定稿签核 docs/api/F002.md
     layers:
       database: true
       backend: true
@@ -120,11 +120,17 @@ features:
     implementation:
       product: COMPLETE
       architecture: COMPLETE
+      database: COMPLETE
+      test_design: COMPLETE
     evidence:
       product:
         - docs/features/F002/product.md
       architecture:
         - docs/features/F002/architecture.md
+      database:
+        - docs/database/f002-auth.md
+      test_design:
+        - docs/features/F002/test-report.md#test-design
     git:
       base_branch: v3
       branch: feature/F002-auth-permissions
@@ -569,9 +575,9 @@ execution:
     authorized_on: "2026-10-06"
     basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
   current_feature: F002
-  current_stage: DATABASE
-  last_result: F002 ARCHITECTURE Gate 通过（READY FOR DESIGN，argon2id+服务端会话+权限矩阵+错误信封）
-  next_action: database 设计 users/user_sessions，并行 tester 测试设计
+  current_stage: CONTRACT
+  last_result: F002 DATABASE 与 TEST_DESIGN Gate 通过（users/user_sessions+迁移0002；TD-1 READY）
+  next_action: tester 复核 TD-1 后 architect 定稿 F002 Contract
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
