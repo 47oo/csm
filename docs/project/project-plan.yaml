@@ -189,9 +189,9 @@ features:
   - F001
   - F002
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: TEST
-  next_action: tester 独立重测 F003-REV-1 修复（code_key ASCII-only）+ 回归
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: reviewer 重新 Review（修复后候选 HEAD）
   git:
     base_branch: v3
     branch: feature/F003-cluster-management
@@ -206,7 +206,7 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: COMPLETE
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   evidence:
     product:
@@ -223,6 +223,8 @@ features:
     - docs/features/F003/implementation.md
     frontend:
     - docs/features/F003/implementation.md
+    test:
+    - docs/features/F003/test-report.md#test-execution
   layers:
     database: true
     backend: true
@@ -698,9 +700,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F003
-  current_stage: TEST
-  last_result: F003 修复轮 1 实现完成（code_key 仅 ASCII 折叠；D01/Contract/DB v2 同步）；待独立重测
-  next_action: tester 重测 F003-REV-1 修复 + 回归后重新 Review
+  current_stage: REVIEW
+  last_result: F003 修复轮 1 重测 TE-2：F003-REV-1 FIXED（独立验证），回归 78 passed；READY FOR REVIEW
+  next_action: reviewer 重新 Review 修复后候选
   repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
@@ -710,8 +712,8 @@ planning_status:
     CANCELLED: 0
     DONE: 2
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:

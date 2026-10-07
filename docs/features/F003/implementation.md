@@ -11,7 +11,7 @@
 - 迁移 `alembic/versions/0003_clusters_audit.py`：clusters + audit_logs（列/约束/索引/触发器；down_revision=0002_users_sessions；up/down 对称）。
 - 模型：`app/models/base.py` 新增 SoftDeleteMixin；`app/models/cluster.py`（meta 映射列 metadata）；`app/models/audit_log.py`；`app/models/__init__.py`。
 - 软删过滤：`app/core/db.py` Session 上 do_orm_execute + with_loader_criteria(SoftDeleteMixin, deleted_at IS NULL, include_aliases=True)；execution_options(include_deleted=True) 绕过；对 users/audit_logs 无影响。
-- 归一化：`app/services/normalization.py`（code trim/非空/无内部空白与控制字符/≤64，code_key=upper(trim)；name trim/非空/无控制/≤255，保留内部空格大小写）。
+- 归一化：`app/services/normalization.py`（code trim/非空/无内部空白与控制字符/≤64，code_key=仅 ASCII 字母折叠（`translate`，locale 无关；v2 修复 F003-REV-1）；name trim/非空/无控制/≤255，保留内部空格大小写）。
 - 审计：`app/services/audit.py`（同 Session；operator→operator_user_id+operator_username 快照；白名单快照；JSONB none_as_null 保证无快照存 SQL NULL）。
 - Cluster Service：`app/services/cluster.py`（CRUD、列表过滤/排序/分页/模糊、全量唯一、条件 UPDATE 乐观锁、软删/恢复、引用与依赖检查注册表（空集）、Activity）。
 - 错误：`app/core/errors.py` 新增 Conflict（409，reason 枚举 + field/references/conflicts）。
@@ -20,7 +20,7 @@
 
 ### Contract 符合情况
 
-- code：trim 存展示列、code_key=upper(trim) 全量唯一（含软删）、不可改（PATCH 含 code→422 + DB 触发器 trg_clusters_code_immutable 兜底）、允许中文。
+- code：trim 存展示列、code_key 仅 ASCII 字母折叠（`translate`）全量唯一（含软删）、不可改（PATCH 含 code→422 + DB 触发器 trg_clusters_code_immutable 兜底）、允许中文。
 - name：trim/非空/无控制字符/允许内部空格与重复；PATCH 省略保持、显式 null→422、description 显式 null 清空、metadata 整值替换。
 - 列表：status/code/q AND；sort∈{code,name,status,created_at,updated_at}（code 按 code_key）；order；page/page_size 边界 422；id 升序稳定；默认含未删 ACTIVE+INACTIVE。
 - 软删可见性：deleted=exclude|include|only，include/only 需 VIEW_DELETED 否则 403；详情/Activity 已删需 ?deleted=true+VIEW_DELETED 否则 404。

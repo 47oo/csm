@@ -27,6 +27,7 @@
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
 | TD-1 | 2026-10-06 | 初版：A1–A11 映射 V1–V14，边界/并发 B1–B42，夹具/环境设计，可验证性检查（§19 占位、D01/D02、A4/A7 边界），不适用项；对 DATABASE/CONTRACT Gate 保留 6 项待复核假设（见 §8）。 |
+| TD-2 | 2026-10-07 | 依 DATABASE v2 / Contract v2 / D01 v2 对齐 F003-REV-1：`ck_clusters_code_key_matches` 表达式由 `upper(btrim(code))` 改为 `translate(btrim(code),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')`（仅 ASCII 字母折叠）。TD-1 §0/V1/A1/V10 中 `code_key=upper(btrim(code))` / `upper(trim)` 的**失效范围为「归一化表达式文本」**，验收判据（code 大小写不敏感全量唯一、软删不重用、创建后不可改）不变，并细化为「仅 ASCII 字母折叠、非 ASCII 原样」；DB 约束名对照见 TE-1「TD-2 对齐」。 |
 
 > 复核基线：`docs/features/F003/architecture.md`（ARCHITECTURE Gate，2026-10-06）。DATABASE/CONTRACT 定稿前的约束名、错误 reason、恢复重检机制均以架构草案为准，标记为待闭合。
 
@@ -253,6 +254,8 @@ TD-1 在 DATABASE/CONTRACT 定稿前引用的是架构 §4 草案约束名，与
 
 另：TD-1 V5 判据表述「软删详情 `deleted=true` 无权限返回 404」与 Contract §5 措辞冲突，Contract §6.3 明确定稿口径为「`deleted=true` 需 `VIEW_DELETED`，否则 **403**」；无参数默认详情对软删对象返回 **404**（不泄露存在性）。实现遵循 Contract §6.3；TEST 以 Contract 为准（见 Defect D-TE（NOTE））。
 
+**TD-2（2026-10-07，REV-1 修复轮）**：DATABASE v2 / Contract v2 / D01 v2 将 `ck_clusters_code_key_matches` 由 `upper(btrim(code))` 改为 `translate(btrim(code),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')`。TD-1 §0/V1/A1/V10 中 `code_key=upper(btrim(code))` / `upper(trim)` 的失效范围为「归一化表达式文本」，验收判据（大小写不敏感全量唯一）不变并细化为「仅 ASCII 字母折叠、非 ASCII 原样保留」；对应重测见 TE-2。
+
 ### 环境
 
 | 项 | 值 |
@@ -383,3 +386,112 @@ TD-1 在 DATABASE/CONTRACT 定稿前引用的是架构 §4 草案约束名，与
 - **V3b skip**：`test_trusted_extension_installed_by_non_superuser` 因测试连接角色为 superuser 而 skip（环境限制，非 F003 缺陷，承接 F001 TE-1）。
 - **§19 关联区域、CSV/Excel 导入、用户管理 UI、真实浏览器 DOM**：按 product/architecture 明确不属 F003 范围，未执行。
 - **生产/未知数据库**：未使用；所有集成/约束/迁移/并发证据均来自独立 `postgres:16` 测试库（库名含 `test`）。
+
+---
+
+## Test Execution — 修复循环第 1 轮（F003-REV-1）
+
+- **版本**：TE-2
+- **日期**：2026-10-07
+- **角色**：Tester（TEST 模式，独立重测；修复循环第 1 轮）
+- **基线提交**：`933fae4`（HEAD；修复提交 `f39e6b5`、Review `7c6cd84`、上一轮候选 `c959013`）
+- **结论**：`READY FOR REVIEW`
+- **依据**：`docs/features/F003/review-report.md`（F003-REV-1/REV-2/REV-3）；`docs/api/F003.md` v2；`docs/architecture/d01-conventions.md` v2；`docs/database/f003-cluster.md` v2；`docs/features/F003/implementation.md`；本文件 TD-2
+
+### 重测范围（受影响项 + 必要回归）
+
+本轮仅针对 F003-REV-1 修复（`code_key` 仅 ASCII 折叠）及其影响面；未变更的 A2–A9/A11 验收项以 TE-1 为历史证据、本轮不做全量重跑，但通过 R-1/R-2 全量 `pytest` 与 R-5 Compose 全链路覆盖回归。
+
+| 类型 | 项 | 说明 |
+| --- | --- | --- |
+| 受影响重测 | REV-1 `code_key` 归一化一致性；A1/A10、V1/V10/V12、B1/B34、F003-REV-1 修复回归 | 服务层 + RAW SQL + HTTP/Compose 三路径 |
+| 必要回归 | 全量真实 PG `pytest tests`；迁移 0003 up/down/up；约束/触发器（code 不可改、audit append-only、FK RESTRICT）；Compose 运行时全链路 + CSRF | 见 R-1…R-5 |
+| 文档/非阻塞复核 | F003-REV-2（DB `[:space:][:cntrl:]` backstop 已知差异）、F003-REV-3（Contract §5/§6.3 措辞） | 关闭状态核对 |
+
+### 环境
+
+| 项 | 值 |
+| --- | --- |
+| 测试镜像 | `docker build --target test -t csm-backend-f003te2 ./backend`（Python 3.12，pytest 8.4.2；源码 = HEAD `933fae4`） |
+| 独立测试库 | 独立容器 `f003te2-db`（`postgres:16`，网络 `f003te2-net`，端口 55434，库 `csm_test` / `csm_verify`） |
+| 集成库 URL | `TEST_DATABASE_URL=postgresql+psycopg://csm:change-me@f003te2-db:5432/csm_test`（DB-D10 护栏：库名含 `test`、≠ `DATABASE_URL`） |
+| Compose 全链路 | `docker compose -p f003te2`（独立项目名/卷），入口 Nginx `127.0.0.1:18098`（非默认端口） |
+| 清理 | `compose -p f003te2 down -v`；`docker rm -f f003te2-db`；`docker network rm f003te2-net`；删测试镜像；残留对象核对为空 |
+
+### 命令与输出摘要
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| R-1 | `pytest tests -v`（真实 PG，独立库） | **78 passed, 1 skipped**（skip=`test_migrations.py:101` 非 superuser 扩展，环境限制，非 F003 缺陷） |
+| R-2 | 独立校验脚本 `/work/verify.py`（服务层 + RAW SQL + ASGI 三路径） | **24 / 24 PASS**（见下） |
+| R-3 | 独立校验脚本 `/work/constraints.py`（RAW SQL 约束/触发器/FK/索引） | **31 / 31 PASS** |
+| R-4 | `alembic heads / upgrade head / downgrade 0002 / upgrade head` + `psql` 表清单 | 单一 head；down 后 `clusters`/`audit_logs` 消失、`users`/`user_sessions` 保留；re-up 恢复；`current=0003_clusters_audit (head)` |
+| R-5 | Compose 全链路 curl（登录→创建→列表→CSRF；真实运行时镜像 + Nginx） | **10 / 10 PASS** |
+
+### F003-REV-1 复核结论：**FIXED**
+
+| 判据 | 路径 | 结果 |
+| --- | --- | --- |
+| `straße` 创建成功，`code_key='STRAßE'` | 服务层 | PASS |
+| `ﬁle` 创建成功，`code_key='ﬁLE'` | 服务层 | PASS |
+| `山河3` 创建成功，`code_key='山河3'` | 服务层 | PASS |
+| `straße-http` / `ﬁle-http` / `山河3-http` POST → **201**（修复前为 500） | ASGI HTTP | PASS |
+| 上述行的库中 `code_key` 分别为 `STRAßE-HTTP` / `ﬁLE-HTTP` / `山河3-HTTP` | ASGI + raw SQL | PASS |
+| `N96P` 后 `n96p` → **409** `CONFLICT{reason:unique_conflict,field:code}` | 服务层 + HTTP + Compose | PASS |
+| 不变量 `code_key = translate(btrim(code),'a..z','A..Z')`（全表 violations=0） | RAW SQL | PASS |
+| `pg_get_constraintdef('ck_clusters_code_key_matches')` 含 `translate(`、不含 `upper(` | RAW SQL | PASS |
+| raw 插入 `Weiß`/`WEIß` 成功；`WeißX`/`WEISSX` 被 CHECK 拒；重复 key 被 UNIQUE 拒 | RAW SQL | PASS |
+| `STRASSE` 与 `Straße` 为**不同** key（`ß` 保留、不折叠为 `SS`） | RAW SQL | PASS |
+| `IntegrityError` 映射：`uq_clusters_code_key`→409 `CONFLICT`；其它 CHECK→422 `VALIDATION_ERROR`（不再 500） | 服务层单元 | PASS |
+| Compose 运行时库中 `ﬁle|ﬁLE`、`straße|STRAßE`、`山河3|山河3`、`N96P|N96P` | Compose + `psql` | PASS |
+
+结论：应用（`str.maketrans` ASCII 折叠）与 DB（`translate(btrim(code),…)`）在同一 ASCII-only 口径，且与 locale/Unicode 大小写表解耦；多码位 Unicode 合法输入不再触发 CheckViolation/500。**F003-REV-1 已修复**，修复提交仅改动归一化/约束表达式/错误映射与对应测试及 v2 设计文档（`git show --stat f39e6b5`）。
+
+### 回归结果（R-4 迁移与约束独立证据）
+
+- 约束/触发器 RAW SQL（R-3，31/31）：`ck_clusters_code_not_blank/trimmed/no_ws_control/length`、`ck_clusters_status`、`ck_clusters_version`、`ck_clusters_metadata_object`、name CHECK 均拒绝非法值；`trg_clusters_code_immutable` 拒 `UPDATE code` 与 `UPDATE code_key`、放行 name/status/deleted_at；`trg_audit_logs_append_only` 拒 `UPDATE`/`DELETE`；`fk_audit_logs_operator_user_id_users` 为 RESTRICT（`confdeltype='r'`）且 `operator_user_id` 可空；`uq_clusters_code_key` 全量唯一（索引定义**无** `WHERE deleted_at`）；五索引与两触发器存在。
+- 迁移（R-4）：`0003_clusters_audit` 单一 head，up/down/up 对称，`down_revision=0002_users_sessions`。
+- 全量 `pytest`（R-1）：78 passed / 1 skipped；含新增 F003-REV-1 回归用例（多码位 Unicode ASCII-only key、IntegrityError 映射）及约束/迁移/并发/前端机制级既有用例。
+- Compose（R-5）：真实运行时镜像经入口 Nginx 完成登录/创建/列表/CSRF，`straße`/`ﬁle`/`山河3` 均 201，`n96p` 409，跨源写 403。
+
+### F003-REV-2 / F003-REV-3 复核
+
+- **REV-2（LOW，非阻塞）→ 已作为已知差异闭合**：实测 `ck_clusters_code_no_ws_control` 定义为 `!~ '[[:space:][:cntrl:]]'`、`ck_clusters_name_no_control` 为 `!~ '[[:cntrl:]]'`（POSIX 类，locale 下仅 ASCII/有限范围），弱于应用 Unicode Cc/Cf 校验；`docs/database/f003-cluster.md` v2 §8 **I-6** 已将其记录为「DB backstop 已知差异，不阻塞」。API 路径由应用拦截，无绕过。**非实现缺陷，不再要求修复。**
+- **REV-3（NOTE，非阻塞）→ 已闭合**：`docs/api/F003.md` v2 §5 与 §6.3 措辞已统一——显式 `deleted=true` 且无 `VIEW_DELETED` → 403 `FORBIDDEN{reason:permission}`；默认视图（无参数）对软删对象 → 404（不泄露存在性）。TE-1 记录的 D-TE-F003-1 措辞冲突消除。
+
+### Defects（本轮）
+
+| ID | Severity | Layer | Location | 证据 / 期望与实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| — | — | — | — | 未发现 F003-REV-1 残留缺陷 | — | — | — |
+| D-TE-F003-2 | NOTE | 文档（实现报告） | `docs/features/F003/implementation.md` Backend 报告 | 修复提交 `f39e6b5` 未同步更新该报告，其「归一化」仍写 `code_key=upper(trim)`（v1 口径），与 D01 v2/Contract v2/DB v2/实际实现不符 | 追溯性文档陈旧，不影响运行时行为；Review 依据权威设计文档（v2）判定 | Backend / 协调器 | 否 |
+
+### 未验证项（本轮）
+
+- **未变更验收项不重复取证**：A2–A9/A11、B2/B4–B33/B35–B42 未逐一重跑，沿用 TE-1 历史 PASS；本轮通过 R-1…R-5 覆盖回归风险。
+- **B41**（软删过滤覆盖关系加载）仍 `NOT TESTED`（F003 无 ORM 关系），待 F004+ 回归。
+- **B13** 其余 4 个排序字段仍为白名单 + 映射静态核对。
+- **完整跨对象审计查询（B30）/T24/T25/T26/T40** 机制级口径不变，不声明整体通过。
+- **真实浏览器 DOM** 未执行（非 F003 必要判据）。
+- 未验证其它 collation/locale 变体；本轮 `postgres:16` 默认 locale（en_US.utf8 容器），因新口径与 locale 解耦，结果应一致但未逐一枚举。
+
+### 正式结果
+
+**`READY FOR REVIEW`**：F003-REV-1 **FIXED**，回归无 FAIL，REV-2/REV-3 关闭。D-TE-F003-2 为 NOTE 级文档陈旧，不阻塞。Merge/DONE 由协调器按 Git Workflow 判定。
+
+### Git 声明
+
+```text
+GIT: git branch --show-current
+GIT: git log --oneline -8
+GIT: git status --short
+GIT: git rev-parse --short HEAD
+GIT: git rev-parse HEAD
+GIT: git show --stat --oneline f39e6b5
+GIT: git show --stat --oneline 933fae4
+GIT: git diff --name-only c959013..HEAD
+GIT: git diff --stat c959013..HEAD
+GIT: git show f39e6b5 -- backend/app/services/normalization.py backend/alembic/versions/0003_clusters_audit.py backend/app/models/cluster.py
+```
+
+以上均为只读命令；未执行 `git add`/commit/branch/merge 或任何改变 Git 状态的操作。
