@@ -346,7 +346,8 @@ def test_constraints_indexes_triggers_exist(committed_engine):
 
 def test_clusters_migration_up_down_up(pg_engine, alembic_runner):
     head = alembic_runner.head_revision()
-    assert head == "0003_clusters_audit"
+    # F003 introduced 0003; later Features (0004+) may advance the single head.
+    assert head >= "0003_clusters_audit"
     with pg_engine.connect() as conn:
         versions = list(
             conn.execute(text("SELECT version_num FROM alembic_version")).scalars()

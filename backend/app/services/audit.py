@@ -22,6 +22,15 @@ if TYPE_CHECKING:
 # are serialised into before_data/after_data.
 AUDITABLE_FIELDS: dict[str, tuple[str, ...]] = {
     "cluster": ("code", "name", "status", "description", "metadata"),
+    "resource": (
+        "cluster_id",
+        "hostname",
+        "resource_type",
+        "role",
+        "status",
+        "description",
+        "metadata",
+    ),
 }
 
 

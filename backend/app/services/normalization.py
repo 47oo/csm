@@ -14,6 +14,14 @@ Rules:
 - ``name``: strip surrounding whitespace, non-empty, no control characters
   (Cc/Cf), length 1-255 code points; internal ordinary spaces and case are
   preserved; no uniqueness.
+- ``hostname`` (F004, D01 §5.3): strip surrounding Unicode whitespace,
+  non-empty, no internal whitespace (Unicode White_Space), no control/format
+  characters (Cc/Cf), length 1-253 code points, then fold only ASCII ``A-Z`` to
+  ``a-z`` (non-ASCII kept verbatim, locale-independent). ``hostname_key`` is the
+  corresponding internal normalisation key (redundant because the display value
+  is already trimmed and ASCII-lowered), matching the database
+  ``translate(btrim(hostname), ...)`` CHECK. ``str.lower()`` must NOT be used
+  (it maps ``İ``/``ß`` inconsistently with the database).
 """
 
 from __future__ import annotations
@@ -24,6 +32,7 @@ from app.core.errors import ValidationError
 
 CODE_MAX_LENGTH = 64
 NAME_MAX_LENGTH = 255
+HOSTNAME_MAX_LENGTH = 253
 
 
 def _control_characters(value: str) -> bool:
@@ -67,6 +76,46 @@ def code_key(code: str) -> str:
     multi-code-point case mappings (``straße`` -> ``STRAßE``, ``ﬁle`` -> ``ﬁLE``).
     """
     return code.strip().translate(_ASCII_FOLD)
+
+
+# ASCII-only lower-case folding for Resource hostnames (D01 §5.3, DB-D36).
+_ASCII_LOWER = str.maketrans(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"
+)
+
+
+def normalize_hostname(value: str) -> str:
+    """Validate and return the trimmed, ASCII-only lower ``hostname`` (D01 §5.3).
+
+    Trim -> non-empty -> no internal whitespace -> no Cc/Cf control characters ->
+    length 1-253 code points -> fold ASCII ``A-Z`` to ``a-z`` (non-ASCII code
+    points kept verbatim). Short names and FQDNs are distinct complete strings.
+    """
+    if not isinstance(value, str):
+        raise _field_error("hostname", "hostname must be a string")
+    normalized = value.strip()
+    if not normalized:
+        raise _field_error("hostname", "hostname must not be blank")
+    if len(normalized) > HOSTNAME_MAX_LENGTH:
+        raise _field_error(
+            "hostname", f"hostname must be at most {HOSTNAME_MAX_LENGTH} characters"
+        )
+    if any(ch.isspace() for ch in normalized):
+        raise _field_error("hostname", "hostname must not contain whitespace")
+    if _control_characters(normalized):
+        raise _field_error("hostname", "hostname must not contain control characters")
+    return normalized.translate(_ASCII_LOWER)
+
+
+def hostname_key(hostname: str) -> str:
+    """Return the internal key ``ASCII_lower(btrim(hostname))`` (DB-D36).
+
+    Because :func:`normalize_hostname` already returns a trimmed, ASCII-lowered
+    value, this is normally identical to the stored display value; it exists so
+    the database CHECK ``hostname_key = translate(btrim(hostname), ...)`` and the
+    application compute the key the same way. ``str.lower()`` must not be used.
+    """
+    return hostname.strip().translate(_ASCII_LOWER)
 
 
 def normalize_name(value: str) -> str:
