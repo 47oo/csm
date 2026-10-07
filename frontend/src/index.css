@@ -517,3 +517,18 @@ button:disabled {
   margin: 0.25rem 0 0;
   font-size: 0.85rem;
 }
+
+/* F006：Detail 内行内关系跳转按钮（如 VM → 宿主机），弱化为文字链接形态 */
+.link-button {
+  padding: 0.1rem 0.4rem;
+  border: none;
+  background: none;
+  font-size: 0.85rem;
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.link-button:hover:not(:disabled) {
+  background: none;
+  color: #1e40af;
+}

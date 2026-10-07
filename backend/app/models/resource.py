@@ -41,6 +41,7 @@ from app.models.cluster import Cluster
 
 if TYPE_CHECKING:
     from app.models.bare_metal_detail import BareMetalDetail
+    from app.models.virtual_machine_detail import VirtualMachineDetail
 
 
 class Resource(SoftDeleteMixin, Base):
@@ -96,6 +97,15 @@ class Resource(SoftDeleteMixin, Base):
         back_populates="resource",
         uselist=False,
         lazy="select",
+    )
+
+    # 1:1 lifecycle-bound VM detail (F006). Absent for BARE_METAL.
+    virtual_machine_detail: Mapped["VirtualMachineDetail | None"] = relationship(
+        "VirtualMachineDetail",
+        back_populates="resource",
+        uselist=False,
+        lazy="select",
+        foreign_keys="VirtualMachineDetail.resource_id",
     )
 
     __table_args__ = (

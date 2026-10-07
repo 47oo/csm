@@ -284,7 +284,13 @@ def test_detail_hardware_fields_and_single_row(role_client_factory, auth_session
     assert hw["gpu_model"] == "H100" and hw["gpu_count"] == 8
     assert hw["metadata"] == {"vendor_tag": "x"}
 
-    vm = _resource(client, c1["code"], hostname="vm1", resource_type="VIRTUAL_MACHINE")
+    vm = _resource(
+        client,
+        c1["code"],
+        hostname="vm1",
+        resource_type="VIRTUAL_MACHINE",
+        virtual_machine={"host_resource_id": created["id"]},
+    )
     with auth_session_factory() as session:
         assert _detail_rows(session, created["id"]) == 1
         assert _detail_rows(session, vm["id"]) == 0
@@ -319,7 +325,14 @@ def test_hardware_whole_object_invalid(role_client_factory):
 def test_vm_rejects_hardware_and_returns_null(role_client_factory, auth_session_factory):
     client, _, _ = role_client_factory("EDITOR")
     c1 = _cluster(client, code="C1")
-    vm = _resource(client, c1["code"], hostname="vm-null", resource_type="VIRTUAL_MACHINE")
+    host = _resource(client, c1["code"], hostname="vm-host")
+    vm = _resource(
+        client,
+        c1["code"],
+        hostname="vm-null",
+        resource_type="VIRTUAL_MACHINE",
+        virtual_machine={"host_resource_id": host["id"]},
+    )
     assert vm["hardware"] is None
 
     for bad in ({}, {"cpu_cores": 8}, None):
@@ -432,7 +445,13 @@ def test_hardware_audit_snapshots(role_client_factory, auth_session_factory):
         assert rows[1].before_data["hardware"]["cpu_cores"] == 64
         assert rows[1].after_data["hardware"]["memory_mb"] == 512
         # VM snapshots carry hardware = null
-        vm = _resource(admin, c1["code"], hostname="vm-audit", resource_type="VIRTUAL_MACHINE")
+        vm = _resource(
+            admin,
+            c1["code"],
+            hostname="vm-audit",
+            resource_type="VIRTUAL_MACHINE",
+            virtual_machine={"host_resource_id": created["id"]},
+        )
         vm_row = (
             session.execute(
                 select(AuditLog).where(AuditLog.object_id == uuid.UUID(vm["id"]))
@@ -584,8 +603,14 @@ def test_hardware_optimistic_lock_two_sessions(auth_session_factory, make_user):
 def test_list_includes_hardware_and_vm_null(role_client_factory):
     client, _, _ = role_client_factory("EDITOR")
     c1 = _cluster(client, code="C1")
-    _resource(client, c1["code"], hostname="bare", hardware={"gpu_count": 4})
-    _resource(client, c1["code"], hostname="virt", resource_type="VIRTUAL_MACHINE")
+    bare = _resource(client, c1["code"], hostname="bare", hardware={"gpu_count": 4})
+    _resource(
+        client,
+        c1["code"],
+        hostname="virt",
+        resource_type="VIRTUAL_MACHINE",
+        virtual_machine={"host_resource_id": bare["id"]},
+    )
     items = {i["hostname"]: i for i in client.get("/api/v1/resources").json()["items"]}
     assert items["bare"]["hardware"]["gpu_count"] == 4
     assert items["virt"]["hardware"] is None

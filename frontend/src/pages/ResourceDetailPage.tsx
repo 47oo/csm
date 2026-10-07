@@ -5,16 +5,23 @@ import {
   deleteResource,
   describeResourceActionError,
   getResource,
+  listResources,
   restoreResource,
   updateResource,
   type Hardware,
   type Resource,
   type ResourceActionError,
+  type ResourceListResponse,
   type UpdateResourcePayload,
+  type VirtualMachine,
 } from "../api/resources";
 import ResourceForm, { type ResourceFormValues } from "../components/ResourceForm";
 import { parseMetadataText } from "../components/ClusterForm";
 import { buildHardwarePatch, parseHardwareFormValues } from "../components/hardware";
+import {
+  buildVirtualMachinePatch,
+  parseVirtualMachineFormValues,
+} from "../components/virtualMachine";
 
 interface ResourceDetailPageProps {
   resourceId: string;
@@ -22,6 +29,8 @@ interface ResourceDetailPageProps {
   initialDeleted: boolean;
   user: User;
   onBack: () => void;
+  /** 关系跳转：打开另一资源详情（VM ↔ Host；携带 deleted 上下文）。 */
+  onOpenResource: (id: string, deleted: boolean) => void;
 }
 
 type DetailState =
@@ -44,11 +53,43 @@ function detailLoadErrorMessage(error: unknown): string {
 }
 
 /**
+ * CONFLICT reference_exists 单条引用的呈现文案（F006 DR-62：Resource 的
+ * 引用来源为未删除的虚拟机，object_type="resource"，label=VM hostname）。
+ * 未知 object_type 原样展示，不伪装成已知类型。
+ */
+function referenceItemText(reference: {
+  object_type: string;
+  label: string | null;
+}): string {
+  const typeText =
+    reference.object_type === "resource" ? "虚拟机（VM）" : reference.object_type;
+  return reference.label ? `${typeText}：${reference.label}` : typeText;
+}
+
+/**
+ * CONFLICT dependency_deleted 单条冲突的呈现文案（按 object_type 区分：
+ * F004 所属 Cluster 仍软删；F006 恢复 VM 时宿主机 Host 仍软删 / 缺失，DR-63）。
+ * 恢复均不覆盖新对象；未知 object_type 用通用文案。
+ */
+function conflictItemText(conflict: { object_type: string; object_id: string }): string {
+  if (conflict.object_type === "cluster") {
+    return `所属集群（${conflict.object_id}）仍处于已删除状态，需先恢复该集群后再恢复资源。`;
+  }
+  if (conflict.object_type === "resource") {
+    return `宿主机（Host，${conflict.object_id}）仍处于已删除状态或已不存在；需先恢复宿主机后再恢复该虚拟机（恢复不会覆盖宿主机或其上新对象）。`;
+  }
+  return `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态，需先恢复该依赖对象。`;
+}
+
+/**
  * 构造 PATCH body（Contract §6.4）：仅携带变化字段（省略 = 保持原值不重置）。
  * description 变化时：空文本 → 显式 null（清空）；metadata 整值替换。
  * cluster / resource_type 不可改（表单只读展示，不上送）。
  * hardware（F005，仅 BARE_METAL）：子字段级 exclude_unset 镜像——
  * 省略 = 保持原值；清空输入 → 显式 null（清空该子字段）；VM 不携带 hardware 键。
+ * virtual_machine（F006，仅 VIRTUAL_MACHINE）：子字段级 exclude_unset 镜像——
+ * 容量 / hypervisor 清空输入 → 显式 null；host_resource_id 变化 = 换 Host
+ * （服务端校验同 Cluster 未删除 BARE_METAL）；BARE_METAL 不携带该键。
  * 无任何变化返回 null（由调用方提示，不发起空更新）。
  */
 function buildUpdatePayload(
@@ -91,6 +132,17 @@ function buildUpdatePayload(
       });
       if (hardwarePatch !== null) {
         payload.hardware = hardwarePatch;
+        changed = true;
+      }
+    }
+  }
+  if (resource.resource_type === "VIRTUAL_MACHINE") {
+    // BARE_METAL 不携带 virtual_machine 键（互斥 422）；表单本地校验已拦截非法输入
+    const vmParsed = parseVirtualMachineFormValues(values.virtual_machine);
+    if (vmParsed.ok) {
+      const vmPatch = buildVirtualMachinePatch(resource.virtual_machine, vmParsed.fields);
+      if (vmPatch !== null) {
+        payload.virtual_machine = vmPatch;
         changed = true;
       }
     }
@@ -185,24 +237,240 @@ function HardwarePanel({ hardware }: { hardware: Hardware | null }) {
   );
 }
 
-/** F007+ 交付的 Detail 区域（Contract §9：Hardware 已随 F005 交付，其余占位）。 */
+/** F007+ 交付的 Detail 区域（Contract §9：Hardware 随 F005、Virtual Machines 随 F006 交付，其余占位）。 */
 const PLACEHOLDER_AREAS: { title: string; note: string }[] = [
   { title: "接口信息（Interfaces）", note: "网络接口明细，F007+ 提供" },
   { title: "IP 地址（IP）", note: "IP 地址与分配明细，后续 Feature 提供" },
-  { title: "虚拟机（VMs）", note: "宿主机上的虚拟机列表，后续 Feature 提供" },
   { title: "服务（Services）", note: "运行服务登记，后续 Feature 提供" },
 ];
 
 /**
- * F004 资源详情页（Contract §3/§5/§6.3–§6.6，§9 业务边界）+ F005 Hardware 区域：
+ * disk_gb 展示（Contract §2.5 / D01 §5.5）：标注 GiB 单位；0 = 明确无磁盘，
+ * 与 null=未知可区分；原样展示不换算。
+ */
+function formatDiskGb(diskGb: number): string {
+  return diskGb === 0 ? "0 GiB（明确无磁盘）" : `${diskGb} GiB`;
+}
+
+/** VM 容量 / hypervisor 字段：null → 占位，绝不以 0 代替（vcpu 同个显示）。 */
+function vmNumber(
+  value: number | null,
+  render: (value: number) => string = (n) => String(n),
+): ReactNode {
+  if (value === null) {
+    return <span className="unset">—（未知）</span>;
+  }
+  return render(value);
+}
+
+/**
+ * Virtual Machine 区域（F006，§18 A16；Contract §2.5/§3）：仅 VIRTUAL_MACHINE
+ * 渲染。展示宿主 Host（hostname + id；活跃 VM 的宿主必然未删，提供跳转；
+ * 已删 VM 的宿主可能已删，仅展示不跳转）；容量字段标注 MiB/GiB、未知显
+ * 占位非 0、disk_gb=0 显示「明确无磁盘」；hypervisor 无枚举。
+ * 不含独立 metadata 键（归 Resource 公共 metadata，DR-69）。
+ */
+function VirtualMachinePanel({
+  virtualMachine,
+  resourceDeleted,
+  onOpenResource,
+}: {
+  virtualMachine: VirtualMachine;
+  resourceDeleted: boolean;
+  onOpenResource: (id: string, deleted: boolean) => void;
+}) {
+  return (
+    <>
+      <h3 className="detail-section-title">Virtual Machine（虚拟机信息）</h3>
+      <dl className="detail-grid">
+        <dt>host（宿主机）</dt>
+        <dd>
+          <span className="mono">{virtualMachine.host.hostname}</span>
+          {!resourceDeleted && (
+            <>
+              {" "}
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => onOpenResource(virtualMachine.host_resource_id, false)}
+              >
+                查看宿主机
+              </button>
+            </>
+          )}
+        </dd>
+        <dt>host_resource_id</dt>
+        <dd className="mono">{virtualMachine.host_resource_id}</dd>
+        <dt>vcpu（vCPU 个数）</dt>
+        <dd>{vmNumber(virtualMachine.vcpu)}</dd>
+        <dt>memory_mb（内存容量）</dt>
+        <dd>{vmNumber(virtualMachine.memory_mb, formatMemoryMiB)}</dd>
+        <dt>disk_gb（磁盘容量）</dt>
+        <dd>{vmNumber(virtualMachine.disk_gb, formatDiskGb)}</dd>
+        <dt>hypervisor（虚拟化管理程序）</dt>
+        <dd>
+          {virtualMachine.hypervisor ?? <span className="unset">—（未知）</span>}
+        </dd>
+      </dl>
+    </>
+  );
+}
+
+/** Host 下 VM 列表加载状态（分页上限 100，Contract §4）。 */
+type HostVmsState =
+  | { kind: "loading" }
+  | { kind: "success"; data: ResourceListResponse }
+  | { kind: "error"; message: string };
+
+/**
+ * Virtual Machines 区域（F006，§18 A16 / DR-67）：仅 BARE_METAL 渲染。
+ * GET /resources?type=VIRTUAL_MACHINE&host_resource_id=<本资源 id>（未删除
+ * VM，默认 deleted=exclude；hostname 升序）；Loading / Empty / Error 显式
+ * 区分，错误可重试、绝不伪装成空列表；未知容量显占位非 0，
+ * disk_gb=0 显示「明确无磁盘」；分页上限 100，超出提示总数。
+ */
+function HostVirtualMachinesPanel({
+  hostId,
+  onOpenResource,
+}: {
+  hostId: string;
+  onOpenResource: (id: string, deleted: boolean) => void;
+}) {
+  const [state, setState] = useState<HostVmsState>({ kind: "loading" });
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ kind: "loading" });
+    listResources({
+      type: "VIRTUAL_MACHINE",
+      host_resource_id: hostId,
+      page_size: 100,
+      sort: "hostname",
+      order: "asc",
+    })
+      .then((data) => {
+        if (!cancelled) {
+          setState({ kind: "success", data });
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setState({
+          kind: "error",
+          message: isApiError(error)
+            ? `${error.message}（${error.code ?? `HTTP ${error.status}`}）`
+            : displayError(error),
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hostId, reloadToken]);
+
+  return (
+    <>
+      <h3 className="detail-section-title">Virtual Machines（虚拟机）</h3>
+      {state.kind === "loading" && (
+        <p className="status status-loading">正在加载该宿主机上的虚拟机…</p>
+      )}
+      {state.kind === "error" && (
+        <div className="status status-error" role="alert">
+          <p>加载虚拟机列表失败：{state.message}</p>
+          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+            重试
+          </button>
+        </div>
+      )}
+      {state.kind === "success" &&
+        (state.data.items.length === 0 ? (
+          <p className="status status-empty">
+            该宿主机上暂无未删除的虚拟机（非错误）。
+          </p>
+        ) : (
+          <>
+            {state.data.total > state.data.items.length && (
+              <p className="status status-empty">
+                虚拟机总数 {state.data.total} 台，仅显示前 {state.data.items.length} 台
+                （按 hostname 排序；列表分页上限 100）。
+              </p>
+            )}
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>hostname</th>
+                    <th>角色</th>
+                    <th>状态</th>
+                    <th>vcpu</th>
+                    <th>memory_mb</th>
+                    <th>disk_gb</th>
+                    <th>hypervisor</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.data.items.map((vm) => (
+                    <tr key={vm.id}>
+                      <td className="mono">{vm.hostname}</td>
+                      <td>{vm.role}</td>
+                      <td>
+                        <span className={`badge badge-${vm.status.toLowerCase()}`}>
+                          {vm.status}
+                        </span>
+                      </td>
+                      <td>{vmNumber(vm.virtual_machine?.vcpu ?? null)}</td>
+                      <td>
+                        {vmNumber(vm.virtual_machine?.memory_mb ?? null, (n) =>
+                          `${n} MiB`,
+                        )}
+                      </td>
+                      <td>
+                        {vmNumber(vm.virtual_machine?.disk_gb ?? null, (n) =>
+                          n === 0 ? "0 GiB（明确无磁盘）" : `${n} GiB`,
+                        )}
+                      </td>
+                      <td>
+                        {vm.virtual_machine?.hypervisor ?? (
+                          <span className="unset">—</span>
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => onOpenResource(vm.id, false)}
+                        >
+                          查看
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ))}
+    </>
+  );
+}
+
+/**
+ * F004 资源详情页（Contract §3/§5/§6.3–§6.6，§9 业务边界）+ F005 Hardware 区域
+ * + F006 Virtual Machines 区域：
  * - Overview 六要素：Hostname / Cluster / Type / Role / Status / Description
  *   （§18）；Hardware 区域仅 BARE_METAL 渲染（F005；VM 不渲染），
- *   Interfaces / IP / VMs / Services 区域占位（F007+）；
+ *   Virtual Machines 区域：VM 详情展示其 Host（F006 A16）、BARE_METAL 详情
+ *   经 host_resource_id 过滤列出其 VM（DR-67，Loading/Empty/Error）；
+ *   Interfaces / IP / Services 区域占位（F007+）；
  * - 编辑：PATCH 带 version；仅变化字段；cluster / resource_type 不可改（只读展示）；
  *   409 VERSION_CONFLICT → 提示刷新后重改（不静默重试）；
- * - 删除（软删，DELETE_OBJECT）：需确认，409 VERSION_CONFLICT / reference_exists 明确呈现；
+ * - 删除（软删，DELETE_OBJECT）：需确认，409 VERSION_CONFLICT / reference_exists
+ *   （宿主机被未删除 VM 引用，DR-62）明确呈现；
  * - 恢复（RESTORE）：需确认，带 version；409 not_deleted / unique_conflict /
- *   dependency_deleted（所属 Cluster 仍软删）明确呈现；
+ *   dependency_deleted（所属 Cluster 仍软删或宿主机 Host 仍软删 / 缺失，DR-63）
+ *   明确呈现；
  * - 操作按钮按服务端返回的 permissions 显示，隐藏不替代鉴权（服务端仍 403/404）。
  */
 export default function ResourceDetailPage({
@@ -210,6 +478,7 @@ export default function ResourceDetailPage({
   initialDeleted,
   user,
   onBack,
+  onOpenResource,
 }: ResourceDetailPageProps) {
   const canWrite = user.permissions.includes("WRITE");
   const canDelete = user.permissions.includes("DELETE_OBJECT");
@@ -411,6 +680,24 @@ export default function ResourceDetailPage({
             <HardwarePanel hardware={state.resource.hardware} />
           )}
 
+          {state.resource.resource_type === "BARE_METAL" && (
+            <HostVirtualMachinesPanel hostId={state.resource.id} onOpenResource={onOpenResource} />
+          )}
+
+          {state.resource.resource_type === "VIRTUAL_MACHINE" &&
+            (state.resource.virtual_machine !== null ? (
+              <VirtualMachinePanel
+                virtualMachine={state.resource.virtual_machine}
+                resourceDeleted={state.resource.deleted_at !== null}
+                onOpenResource={onOpenResource}
+              />
+            ) : (
+              // 防御：契约 VM 响应必含 virtual_machine（§3）；null 仅在旧版后端出现
+              <p className="status status-empty">
+                该资源为虚拟机，但服务器未返回 virtual_machine 明细（可能后端版本过旧，Contract v3+）。
+              </p>
+            ))}
+
           <h3 className="detail-section-title">系统信息</h3>
           <dl className="detail-grid">
             <dt>metadata</dt>
@@ -447,8 +734,7 @@ export default function ResourceDetailPage({
                   <ul>
                     {actionError.references.map((reference) => (
                       <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {reference.object_type}
-                        {reference.label ? `：${reference.label}` : ""}（{reference.object_id}）
+                        {referenceItemText(reference)}（{reference.object_id}）
                       </li>
                     ))}
                   </ul>
@@ -457,8 +743,7 @@ export default function ResourceDetailPage({
                   <ul>
                     {actionError.conflicts.map((conflict) => (
                       <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        所属 {conflict.object_type}（{conflict.object_id}）仍处于已删除状态，
-                        需先恢复该集群后再恢复资源。
+                        {conflictItemText(conflict)}
                       </li>
                     ))}
                   </ul>
@@ -483,7 +768,11 @@ export default function ResourceDetailPage({
             {action === "delete" ? (
               <div className="inline-confirm">
                 <span>
-                  确认软删除该资源？（不级联删除关联对象；软删后同集群 hostname 可被新资源复用）
+                  确认软删除该资源？（不级联删除关联对象；软删后同集群 hostname 可被新资源复用
+                  {state.resource.resource_type === "BARE_METAL"
+                    ? "；若仍有未删除的虚拟机（VM）引用本宿主机，将被拒绝并到引用列表）"
+                    : ""}
+                  ）
                 </span>
                 <button type="button" onClick={confirmDelete} disabled={actionBusy}>
                   {actionBusy ? "正在删除…" : "确认删除"}

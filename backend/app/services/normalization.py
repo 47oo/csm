@@ -136,6 +136,30 @@ def normalize_name(value: str) -> str:
     return normalized
 
 
+def validate_descriptive_string(field: str, value: str, *, max_length: int) -> str:
+    """Validate a trimmed, non-empty descriptive string (D01 §5.4/§5.5).
+
+    Trim surrounding whitespace -> non-empty -> no Cc/Cf control characters ->
+    length <= ``max_length`` code points. Empty / whitespace-only becomes a 422
+    ``ValidationError`` (never ``null``); explicit ``null`` is handled by the
+    caller before this function is reached. No case folding, no uniqueness.
+    Shared by BareMetal hardware strings and the VM hypervisor.
+    """
+    if not isinstance(value, str):
+        raise _field_error(field, f"{field} must be a string")
+    normalized = value.strip()
+    if not normalized:
+        raise _field_error(field, f"{field} must not be blank")
+    if len(normalized) > max_length:
+        raise _field_error(
+            field,
+            f"{field} must be at most {max_length} characters",
+        )
+    if _control_characters(normalized):
+        raise _field_error(field, f"{field} must not contain control characters")
+    return normalized
+
+
 def validate_hardware_string(field: str, value: str) -> str:
     """Validate a BareMetal hardware string field (D01 §5.4, DR-52).
 
@@ -144,16 +168,6 @@ def validate_hardware_string(field: str, value: str) -> str:
     ``ValidationError`` (never ``null``); explicit ``null`` is handled by the
     caller before this function is reached. No case folding, no uniqueness.
     """
-    if not isinstance(value, str):
-        raise _field_error(field, f"{field} must be a string")
-    normalized = value.strip()
-    if not normalized:
-        raise _field_error(field, f"{field} must not be blank")
-    if len(normalized) > HARDWARE_STRING_MAX_LENGTH:
-        raise _field_error(
-            field,
-            f"{field} must be at most {HARDWARE_STRING_MAX_LENGTH} characters",
-        )
-    if _control_characters(normalized):
-        raise _field_error(field, f"{field} must not contain control characters")
-    return normalized
+    return validate_descriptive_string(
+        field, value, max_length=HARDWARE_STRING_MAX_LENGTH
+    )

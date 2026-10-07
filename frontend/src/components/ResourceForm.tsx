@@ -15,6 +15,13 @@ import {
   type HardwareFormErrors,
   type HardwareFormValues,
 } from "./hardware";
+import VirtualMachineFields from "./VirtualMachineFields";
+import {
+  parseVirtualMachineFormValues,
+  virtualMachineFormValuesFromResource,
+  type VirtualMachineFormErrors,
+  type VirtualMachineFormValues,
+} from "./virtualMachine";
 
 /** 表单原始值（均为字符串；metadata 为 JSON 文本，提交前本地校验并解析）。 */
 export interface ResourceFormValues {
@@ -31,6 +38,12 @@ export interface ResourceFormValues {
    * VM 时不渲染输入且不提交 hardware 键）。解析 / 载荷构造见 ./hardware。
    */
   hardware: HardwareFormValues;
+  /**
+   * virtual_machine 表单原始值（F006，Contract §2.5；仅 VIRTUAL_MACHINE
+   * 使用；BARE_METAL 时不渲染输入且不提交 virtual_machine 键）。
+   * 解析 / 载荷构造见 ./virtualMachine；host 选择器见 ./VirtualMachineFields。
+   */
+  virtual_machine: VirtualMachineFormValues;
 }
 
 /** 本地校验错误（服务端 422 / 409 字段错误由 serverError.fields 呈现）。 */
@@ -40,6 +53,8 @@ interface ResourceFormLocalErrors {
   metadata?: string;
   /** hardware 字段级错误（F005；服务端点路径 hardware.<field> 映射到对应输入）。 */
   hardware?: HardwareFormErrors;
+  /** virtual_machine 字段级错误（F006；服务端点路径 virtual_machine.<field> 映射到对应输入）。 */
+  virtual_machine?: VirtualMachineFormErrors;
 }
 
 interface ResourceFormProps {
@@ -149,9 +164,14 @@ const HARDWARE_INPUT_FIELDS: {
  * - metadata 留空视为 {}，非空必须为合法 JSON 对象；
  * - hardware（F005，仅 BARE_METAL）：字符串 trim 后非空或留空（null）；整数严格
  *   校验范围（正整数 / 非负整数）；VM 时不渲染 hardware 输入且不提交 hardware 键；
+ * - virtual_machine（F006，仅 VIRTUAL_MACHINE）：宿主选择器从同集群未删除
+ *   BARE_METAL 列表选（展示 hostname）；容量 / hypervisor 整数与口径本地校验
+ *   （vcpu/memory_mb 正整数；disk_gb 非负，0 = 明确无磁盘；留空 = null 不以 0
+ *   代替）；BARE_METAL 时不渲染 virtual_machine 输入且不提交该键（互斥不共存）；
  * - 409 VERSION_CONFLICT → 明确提示刷新后重改；409 CONFLICT unique_conflict
- *   → hostname 字段级错误；422 → details.fields 字段级错误（hardware 为点路径
- *   hardware.<field>，如 hardware.cpu_cores）。
+ *   → hostname 字段级错误；422 → details.fields 字段级错误（hardware /
+ *   virtual_machine 为点路径 <对象>.<field>，如 hardware.cpu_cores、
+ *   virtual_machine.host_resource_id）。
  */
 export default function ResourceForm({
   mode,
@@ -180,9 +200,17 @@ export default function ResourceForm({
   const [hardware, setHardware] = useState<HardwareFormValues>(() =>
     hardwareFormValuesFromResource(resource?.hardware ?? null),
   );
+  // virtual_machine 表单值：edit 从 Resource.virtual_machine 初始化
+  // （BARE_METAL 为 null → 全空）；create 切换到 BARE_METAL 时保留但不渲染、
+  // 不提交。换集群时重置宿主选择（宿主必须与 VM 同 Cluster，§9）。
+  const [virtualMachine, setVirtualMachine] = useState<VirtualMachineFormValues>(() =>
+    virtualMachineFormValuesFromResource(resource?.virtual_machine ?? null),
+  );
   const [localErrors, setLocalErrors] = useState<ResourceFormLocalErrors>({});
-  // 仅 BARE_METAL 渲染 hardware 输入（edit 模式类型固定；create 随下拉切换）
+  // 仅 BARE_METAL 渲染 hardware 输入、仅 VIRTUAL_MACHINE 渲染 virtual_machine
+  // 输入（两对象互斥不共存；edit 模式类型固定；create 随下拉切换）
   const isBareMetal = resourceType === "BARE_METAL";
+  const isVirtualMachine = resourceType === "VIRTUAL_MACHINE";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -216,6 +244,14 @@ export default function ResourceForm({
         errors.hardware = hardwareErrors;
       }
     }
+    // virtual_machine（F006）：仅 VIRTUAL_MACHINE 校验（BARE_METAL 不渲染输入、
+    // 不提交 virtual_machine；宿主必选，容量 / hypervisor 口径见 ./virtualMachine）
+    if (isVirtualMachine) {
+      const vmParsed = parseVirtualMachineFormValues(virtualMachine);
+      if (!vmParsed.ok) {
+        errors.virtual_machine = vmParsed.errors;
+      }
+    }
     setLocalErrors(errors);
     if (Object.keys(errors).length > 0) {
       return;
@@ -229,6 +265,7 @@ export default function ResourceForm({
       description,
       metadata: metadataText,
       hardware,
+      virtual_machine: virtualMachine,
     });
   }
 
@@ -243,7 +280,11 @@ export default function ResourceForm({
             id="resource-cluster"
             name="cluster"
             value={cluster}
-            onChange={(event) => setCluster(event.target.value)}
+            onChange={(event) => {
+              setCluster(event.target.value);
+              // 换集群后宿主候选随集群重新加载；旧宿主不再属于新集群，重置选择
+              setVirtualMachine((prev) => ({ ...prev, host_resource_id: "" }));
+            }}
             disabled={submitting}
           >
             <option value="">请选择集群</option>
@@ -451,6 +492,25 @@ export default function ResourceForm({
             )}
           </div>
         </>
+      )}
+
+      {isVirtualMachine && (
+        <VirtualMachineFields
+          clusterId={isCreate ? cluster : (resource?.cluster.id ?? "")}
+          currentHost={
+            resource?.virtual_machine
+              ? {
+                  id: resource.virtual_machine.host_resource_id,
+                  hostname: resource.virtual_machine.host.hostname,
+                }
+              : null
+          }
+          values={virtualMachine}
+          onChange={(patch) => setVirtualMachine((prev) => ({ ...prev, ...patch }))}
+          submitting={submitting}
+          localErrors={localErrors.virtual_machine ?? {}}
+          serverFields={serverFields}
+        />
       )}
 
       {serverError && serverError.message && (

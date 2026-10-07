@@ -31,6 +31,7 @@ AUDITABLE_FIELDS: dict[str, tuple[str, ...]] = {
         "description",
         "metadata",
         "hardware",
+        "virtual_machine",
     ),
 }
 
