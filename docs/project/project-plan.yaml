@@ -381,17 +381,23 @@ features:
   - F004
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: database 设计 virtual_machine_details（双触发器/FK/迁移 0006/回填守卫）；并行 tester
-    测试设计
-  current_stage: DATABASE
+  next_action: architect 定稿 docs/api/F004.md v3（virtual_machine 嵌套）+ D01 v5 §5.5；裁定
+    I-2/I-3 与 Host 软删并发窗口
+  current_stage: CONTRACT
   implementation:
     product: COMPLETE
     architecture: COMPLETE
+    database: COMPLETE
+    test_design: COMPLETE
   evidence:
     product:
     - docs/features/F006/product.md
     architecture:
     - docs/features/F006/architecture.md
+    database:
+    - docs/database/f006-virtual-machine.md
+    test_design:
+    - docs/features/F006/test-report.md#test-design
   git:
     base_branch: v3
     branch: feature/F006-virtual-machine
@@ -800,9 +806,10 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F006
-  current_stage: DATABASE
-  last_result: F006 ARCHITECTURE 通过（READY FOR DESIGN，DR-57–DR-70）
-  next_action: F006 DATABASE + TEST_DESIGN
+  current_stage: CONTRACT
+  last_result: F006 DATABASE 与 TEST_DESIGN 通过（virtual_machine_details+0006+回填守卫；TD-1
+    READY）
+  next_action: F006 CONTRACT
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
