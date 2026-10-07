@@ -256,7 +256,15 @@ features:
   depends_on:
   - F003
   blocking_decisions: []
-  status: READY
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: 执行 PRODUCT Gate（F004 需求确认与验收映射）
+  git:
+    base_branch: v3
+    branch: feature/F004-resource-core
+    start_commit: 7b8e5df
+    head_commit: null
+    merge_commit: null
 - id: F005
   title: BareMetal 硬件与容量
   kind: FEATURE
@@ -699,10 +707,10 @@ execution:
     authorized_on: '2026-10-06'
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
-  current_feature: null
-  current_stage: null
-  last_result: F003 已 DONE（Merge 3779882）；依赖重算后 F004 就绪
-  next_action: 调度 F004（Resource 核心登记）
+  current_feature: F004
+  current_stage: PRODUCT
+  last_result: F004（Resource 核心登记）已启动，进入 PRODUCT Gate
+  next_action: product-manager 确认 F004 需求与验收映射后放行 ARCHITECTURE
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -712,11 +720,10 @@ planning_status:
     CANCELLED: 0
     DONE: 3
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F004
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED:
     - F005
