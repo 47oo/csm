@@ -454,3 +454,66 @@ button:disabled {
 .status-error > button {
   margin-top: 0.5rem;
 }
+
+/* ---------- F004 Resources（列表 / 详情 / 表单，复用 F003 风格，最小样式） ---------- */
+
+/* 资源状态徽标（IDLE / ALLOC / DOWN / UNKNOWN，Contract §2.2） */
+.badge-idle {
+  color: #047857;
+  border-color: #a7f3d0;
+  background-color: #ecfdf5;
+}
+
+.badge-alloc {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background-color: #eff6ff;
+}
+
+.badge-down {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background-color: #fef2f2;
+}
+
+.badge-unknown {
+  color: #6b7280;
+  border-color: #e5e7eb;
+  background-color: #f9fafb;
+}
+
+.detail-section-title {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.detail-section-title:first-of-type {
+  margin-top: 0;
+}
+
+/* Detail 明细区域占位（Contract §9：Hardware/Interfaces/IP/VMs/Services 归 F005+） */
+.placeholder-areas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.placeholder-box {
+  padding: 0.75rem 0.9rem;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  background-color: #f9fafb;
+  color: #6b7280;
+}
+
+.placeholder-box strong {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.placeholder-box p {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+}
