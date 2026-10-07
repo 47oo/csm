@@ -162,3 +162,115 @@ def committed_engine(pg_engine):
         for table in tables:
             if table.startswith("_f001"):
                 conn.execute(text(f'DROP TABLE IF EXISTS public."{table}"'))
+
+
+# --- F002 authentication fixtures -----------------------------------------
+# These reuse the real PostgreSQL ``committed_engine`` (no SQLite) and the
+# production ``create_app`` + ``require_permission`` dependency. Only the DB
+# dependency is overridden so routes talk to the test database.
+
+
+@pytest.fixture
+def auth_session_factory(committed_engine):
+    """Session factory bound to the real test database (commits persist)."""
+    from sqlalchemy.orm import sessionmaker
+
+    return sessionmaker(
+        bind=committed_engine,
+        autoflush=False,
+        expire_on_commit=False,
+        future=True,
+    )
+
+
+@pytest.fixture
+def auth_app(auth_session_factory):
+    """Production app with ``get_db`` overridden to the test database."""
+    from app.core.db import get_db
+    from app.main import create_app
+
+    app = create_app()
+
+    def _override():
+        session = auth_session_factory()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    app.dependency_overrides[get_db] = _override
+    try:
+        yield app
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def api_client(auth_app):
+    """ASGI test client (cookies preserved across requests)."""
+    from fastapi.testclient import TestClient
+
+    with TestClient(auth_app) as client:
+        yield client
+
+
+@pytest.fixture
+def bootstrap_admin(auth_session_factory):
+    """Run the production bootstrap CLI against the test database."""
+    from app.cli.bootstrap_admin import run as bootstrap_run
+    from app.core.config import Settings
+
+    def _run(username: str = "admin", password: str = "admin-pass-123", expect: int = 0):
+        settings = Settings(
+            _env_file=None,
+            initial_admin_username=username,
+            initial_admin_password=password,
+        )
+        code = bootstrap_run(settings=settings, session_factory=auth_session_factory)
+        assert code == expect, f"bootstrap exit code {code} != expected {expect}"
+        return settings
+
+    return _run
+
+
+@pytest.fixture
+def make_user(auth_session_factory):
+    """Factory inserting a role/status user with a real argon2id hash."""
+    from app.core.permissions import Role
+    from app.core.security import hash_password
+    from app.models.user import User, UserStatus
+    from app.services.auth import normalize_username
+
+    def _make(
+        role: str = "VIEWER",
+        status: str = "ACTIVE",
+        username: str | None = None,
+        password: str = "user-pass-123",
+    ):
+        normalized = normalize_username(username or f"{role.lower()}-user")
+        with auth_session_factory() as session:
+            user = User(
+                username=normalized,
+                password_hash=hash_password(password),
+                role=Role(role).value,
+                status=UserStatus(status).value,
+                version=1,
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            return user, password
+
+    return _make
+
+
+@pytest.fixture
+def login(api_client):
+    """POST /auth/login helper."""
+
+    def _login(username: str, password: str):
+        return api_client.post(
+            "/api/v1/auth/login", json={"username": username, "password": password}
+        )
+
+    return _login

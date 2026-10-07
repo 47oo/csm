@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     # Display timezone configuration slot; formal time contract signed in F003/D01.
     display_timezone: str = "UTC"
 
+    # --- F002 authentication (Contract §2, DR-08, DR-12) ---
+    # Absolute session lifetime in hours (no sliding renewal).
+    session_ttl_hours: int = 12
+    # One-shot bootstrap credentials, injected from the environment (never committed).
+    initial_admin_username: str = ""
+    initial_admin_password: str = ""
+    # Comma-separated extra origins accepted as same-origin for CSRF checks.
+    auth_allowed_origins: str = ""
+
     # --- Database ---
     database_url: str = "postgresql+psycopg://csm:csm@db:5432/csm"
 
@@ -58,6 +67,16 @@ class Settings(BaseSettings):
             f"-c statement_timeout={self.db_statement_timeout_ms} "
             f"-c lock_timeout={self.db_lock_timeout_ms}"
         )
+
+    @property
+    def is_production(self) -> bool:
+        """Whether the Secure cookie flag must be set (Contract §2)."""
+        return self.app_env.strip().lower() == "production"
+
+    @property
+    def auth_allowed_origins_list(self) -> list[str]:
+        """Parse ``AUTH_ALLOWED_ORIGINS`` (comma-separated) into a list."""
+        return [item.strip() for item in self.auth_allowed_origins.split(",") if item.strip()]
 
 
 @lru_cache

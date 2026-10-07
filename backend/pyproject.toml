@@ -16,6 +16,8 @@ dependencies = [
     "alembic>=1.14,<1.15",
     "psycopg[binary]>=3.2,<3.3",
     "uvicorn[standard]>=0.34,<0.35",
+    # DR-07: argon2id password hashing (PHC recommended, no bcrypt 72-byte limit).
+    "argon2-cffi>=23.1,<26",
 ]
 
 [project.optional-dependencies]

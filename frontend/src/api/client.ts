@@ -1,34 +1,147 @@
 /**
- * API 客户端（F001 工程底座）。
+ * API 客户端（F001 工程底座 + F002 认证横切扩展）。
  *
  * base path 固定为同源相对路径 /api/v1（需求 §25；架构 §1.2）：
  * 浏览器请求发往同源入口 Nginx，由其代理到 backend 服务，
  * 因此无需 CORS 配置，也不存在硬编码主机地址。
  * 本文件不含任何密钥或敏感信息。
+ *
+ * F002 扩展（Contract：docs/api/F002.md v1）：
+ * - 所有请求 credentials: "include"，携带 csm_session HttpOnly Cookie（§2）。
+ * - 非 2xx 解析统一错误信封 {"error":{code,message,details}}（§1.1）；
+ *   响应体缺失 / 非 JSON / 形状不符时回退为仅含 HTTP 状态的 ApiError，不伪造信封内容。
+ * - 401 = 尚无有效身份（§1.2）：先触发全局 401 处理器（应用壳注册，
+ *   用于清登录态回登录页），错误仍照常抛给调用方呈现。
+ * - 403 / 409 由调用方按 code / details 明确呈现；任何失败都不自动重试。
  */
 
 const API_BASE_PATH = "/api/v1";
 
-/** 非 2xx 响应时抛出的错误。 */
+/** 统一错误信封的 details（Contract §1.1：无附加信息时为 {}）。 */
+export type ApiErrorDetails = Record<string, unknown>;
+
+/** 非 2xx 响应时抛出的错误；code / details 来自统一错误信封，无法解析时为 null。 */
 export class ApiError extends Error {
   readonly status: number;
+  readonly code: string | null;
+  readonly details: ApiErrorDetails | null;
 
-  constructor(message: string, status: number) {
+  constructor(
+    message: string,
+    status: number,
+    code: string | null = null,
+    details: ApiErrorDetails | null = null,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
+    this.details = details;
   }
 }
 
-async function requestJson<T>(path: string): Promise<T> {
+/** 判断未知错误是否为 ApiError。 */
+export function isApiError(error: unknown): error is ApiError {
+  return error instanceof ApiError;
+}
+
+/** 全局 401 处理器：任意请求收到 401 时调用。 */
+type UnauthorizedHandler = () => void;
+
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+/**
+ * 注册 / 注销全局 401 处理器（传 null 注销）。
+ * 应用壳用它清登录态并回到登录页；登录接口自身收到 401（凭据错误）时
+ * 页面已在登录页，重复触发无副作用。
+ */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  unauthorizedHandler = handler;
+}
+
+/** 统一错误信封形状（Contract §1.1）。 */
+interface ErrorEnvelope {
+  code: string;
+  message: string;
+  details?: unknown;
+}
+
+/** 尝试把错误响应体解析为统一信封；失败返回 null（不抛错、不掩盖原始状态码）。 */
+async function parseErrorEnvelope(response: Response): Promise<ErrorEnvelope | null> {
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    return null;
+  }
+  if (typeof body !== "object" || body === null) {
+    return null;
+  }
+  const error = (body as { error?: unknown }).error;
+  if (typeof error !== "object" || error === null) {
+    return null;
+  }
+  const { code, message, details } = error as {
+    code?: unknown;
+    message?: unknown;
+    details?: unknown;
+  };
+  if (typeof code !== "string" || typeof message !== "string") {
+    return null;
+  }
+  return { code, message, details };
+}
+
+/** details 归一化：仅接受对象，其余（缺失 / 标量）归为 null。 */
+function toDetails(details: unknown): ApiErrorDetails | null {
+  if (typeof details === "object" && details !== null) {
+    return details as ApiErrorDetails;
+  }
+  return null;
+}
+
+/** 请求选项。 */
+export interface RequestOptions {
+  method?: "GET" | "POST";
+  /** 请求体（JSON 序列化）；undefined 表示无正文。 */
+  body?: unknown;
+}
+
+/**
+ * 发起 API 请求（同源 /api/v1 + Cookie）。
+ * - 非 2xx：解析信封后抛 ApiError；401 先触发全局处理器再抛出。
+ * - 204：返回 undefined（无正文，Contract §4.2）。
+ * - 不重试：网络错误由 fetch 直接 reject（非 ApiError），调用方按未知错误呈现；
+ *   任何失败都不自动重发（不静默重试覆盖，Contract §6）。
+ */
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(`${API_BASE_PATH}${path}`, {
-    headers: { Accept: "application/json" },
+    method: options.method ?? "GET",
+    headers: {
+      Accept: "application/json",
+      ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
+    },
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    // csm_session 为 HttpOnly Cookie（Contract §2），必须随同源请求发送
+    credentials: "include",
   });
 
   if (!response.ok) {
-    throw new ApiError(`HTTP ${response.status}`, response.status);
+    if (response.status === 401) {
+      unauthorizedHandler?.();
+    }
+    const envelope = await parseErrorEnvelope(response);
+    throw new ApiError(
+      envelope ? envelope.message : `HTTP ${response.status}`,
+      response.status,
+      envelope?.code ?? null,
+      envelope ? toDetails(envelope.details) : null,
+    );
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return (await response.json()) as T;
 }
 
@@ -40,5 +153,17 @@ export interface Health {
 
 /** 查询后端 liveness（不触库）。失败（网络错误 / 非 2xx / 非法 JSON）时 reject。 */
 export function getHealth(): Promise<Health> {
-  return requestJson<Health>("/health");
+  return request<Health>("/health");
+}
+
+/**
+ * 将任意错误转为面向用户的展示文案。
+ * ApiError 使用信封 message（后端保证不含凭据 / 账号存在性 / 堆栈，Contract §1.1），
+ * 并附错误码便于识别；其他错误（网络层等）用固定文案，不伪装成业务错误。
+ */
+export function displayError(error: unknown): string {
+  if (isApiError(error)) {
+    return error.code ? `${error.message}（${error.code}）` : error.message;
+  }
+  return "无法连接服务器，请稍后重试";
 }
