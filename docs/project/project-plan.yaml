@@ -385,6 +385,10 @@ features:
   current_stage: PRODUCT
   implementation: {}
   evidence: {}
+  git:
+    base_branch: v3
+    branch: feature/F006-virtual-machine
+    start_commit: d001fc41310fd1f07edbe3a5503e7bbb059405f2
 - id: F007
   title: Interface 接口管理
   kind: FEATURE
