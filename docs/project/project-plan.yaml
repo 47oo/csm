@@ -444,6 +444,10 @@ features:
   status: IN_PROGRESS
   next_action: product 澄清与范围确认（Interface 接口管理）
   current_stage: PRODUCT
+  git:
+    base_branch: v3
+    branch: feature/F007-interface-management
+    start_commit: e11fb74476d159e8905ca11fc158df2044303c22
 - id: F008
   title: Network 网络管理
   kind: FEATURE
