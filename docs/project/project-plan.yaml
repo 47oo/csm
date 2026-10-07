@@ -257,14 +257,19 @@ features:
   - F003
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: 执行 PRODUCT Gate（F004 需求确认与验收映射）
+  current_stage: ARCHITECTURE
+  next_action: architect 输出 F004 方案/layers/api_required（Resource 实体）
   git:
     base_branch: v3
     branch: feature/F004-resource-core
-    start_commit: 7b8e5df
+    start_commit: 7b8e5dfa794c05e28ea1054e8ac29c8fd720ce00
     head_commit: null
     merge_commit: null
+  implementation:
+    product: COMPLETE
+  evidence:
+    product:
+    - docs/features/F004/product.md
 - id: F005
   title: BareMetal 硬件与容量
   kind: FEATURE
@@ -708,9 +713,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F004
-  current_stage: PRODUCT
-  last_result: F004（Resource 核心登记）已启动，进入 PRODUCT Gate
-  next_action: product-manager 确认 F004 需求与验收映射后放行 ARCHITECTURE
+  current_stage: ARCHITECTURE
+  last_result: F004 PRODUCT Gate 通过（READY FOR ARCHITECT）
+  next_action: architect 执行 F004 架构设计（D01 Resource 域字段契约）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
