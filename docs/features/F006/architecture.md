@@ -117,3 +117,12 @@ layers.database=true、backend=true、frontend=true；api_required=true（扩展
 ## 13. 结论与下一步
 
 Status **READY FOR DESIGN**，无 Blocking Questions。下一步：DATABASE 出 docs/database/f006-virtual-machine.md；TEST_DESIGN 核对 A1–A17；CONTRACT 定稿 F004 v3 + D01 v5 §5.5、固定 DR-59/67/69/70 与 I-2/I-3；完成后出 READY FOR IMPLEMENTATION。
+## 14. 最终设计定稿（CONTRACT Gate）
+
+- **Status**：`READY FOR IMPLEMENTATION`（2026-10-09）
+- **签核**：Architect；Contract docs/api/F004.md v3；D01 d01-conventions.md v5（§3/§5.2/§5.5）
+- **核对版本**：database/f006-virtual-machine.md v1（DB-D53–D63）；test-report.md TD-1（§8 全部 12 项 OPEN 由本 Contract 闭合，TD-2 由 Tester 发布）。
+- **裁定固定**：DR-59（virtual_machine 嵌套，不新增端点）、DR-67（列表 host_resource_id 过滤）、DR-69（metadata 归 Resource，virtual_machine 不含独立 metadata 键）、DR-70（扩展 F004→v3）；I-2 hypervisor 无枚举固定；**DR-71（I-3 MEDIUM）Host 软删并发窗口采用应用层 `SELECT ... FOR UPDATE` 行级串行化，不加 DB 触发器（遵从 DB-D59）**：创建/换 Host 事务在读取宿主前锁目标 Host 行；Host 软删路径先锁 Host 行再跑引用检查（检查器只普通 SELECT，不锁 VM 行，避免死锁）；任一方先提交后另一方读到已提交结果（Host 先→创建/换 Host 422；VM 先→Host 软删 409 reference_exists）。属技术机制，Architect 在已批准边界内专业签核，非业务规则变更。
+- **实现前置**：Backend 实现须落实 DR-71 锁序；Tester 在 TEST 执行前发布 TD-2（引用 F004 v3 / D01 v5 / DB v1）。
+- **实现分工**：Backend（model/migration 0006、VirtualMachineIn/Patch/Out、validate_virtual_machine、_attach_virtual_machine、resource←VM 引用检查器、VM restore 依赖检查器、audit 白名单扩 virtual_machine、列表 host_resource_id 过滤、DR-71 锁序）；Frontend（VM 表单 host 选择器+容量/hypervisor、Detail Virtual Machines 区域与 Host 展示、BareMetal 列 VM、422 点路径映射）。
+- **边界（不宣称）**：容量超额校验明确不做（§9）；导入 F014；列表/Dashboard F013；完整 T08/T09/T19/T23/T24/T25/T38/T39 与 §32 上线验收不在本 Feature。
