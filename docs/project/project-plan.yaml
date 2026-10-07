@@ -190,8 +190,8 @@ features:
   - F002
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: DATABASE
-  next_action: database 设计 clusters/audit_logs；并行 tester 测试设计
+  current_stage: CONTRACT
+  next_action: architect 定稿 docs/api/F003.md 并解决 I-1（code 字符集契约对齐）
   git:
     base_branch: v3
     branch: feature/F003-cluster-management
@@ -201,11 +201,17 @@ features:
   implementation:
     product: COMPLETE
     architecture: COMPLETE
+    database: COMPLETE
+    test_design: COMPLETE
   evidence:
     product:
     - docs/features/F003/product.md
     architecture:
     - docs/features/F003/architecture.md
+    database:
+    - docs/database/f003-cluster.md
+    test_design:
+    - docs/features/F003/test-report.md#test-design
   layers:
     database: true
     backend: true
@@ -681,9 +687,10 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F003
-  current_stage: DATABASE
-  last_result: F003 ARCHITECTURE Gate 通过（READY FOR DESIGN，DR-17–DR-33、D01 基座+D02 审计一致性）
-  next_action: database 设计 clusters/audit_logs，并行 tester 测试设计
+  current_stage: CONTRACT
+  last_result: F003 DATABASE 与 TEST_DESIGN Gate 通过（clusters/audit_logs+0003；TD-1 READY；I-1
+    code 字符集待 Contract 对齐）
+  next_action: architect 定稿 F003 Contract（含 I-1 解决）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
