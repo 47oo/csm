@@ -190,14 +190,14 @@ features:
   - F002
   blocking_decisions: []
   status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: reviewer 重新 Review（修复后候选 HEAD）
+  current_stage: MERGE
+  next_action: Merge 已执行（3779882），待最终状态提交
   git:
     base_branch: v3
     branch: feature/F003-cluster-management
     start_commit: b34805189304c0ac6d009ce2e6cbba8bb4b20914
-    head_commit: null
-    merge_commit: null
+    head_commit: 690f781569da35538fc45b324a5fe983b36c1ff6
+    merge_commit: 3779882c6fc34bea3f8078b371997fd2ab7bb4eb
   implementation:
     product: COMPLETE
     architecture: COMPLETE
@@ -207,7 +207,7 @@ features:
     backend: COMPLETE
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F003/product.md
@@ -225,6 +225,8 @@ features:
     - docs/features/F003/implementation.md
     test:
     - docs/features/F003/test-report.md#test-execution
+    review:
+    - docs/features/F003/review-report.md
   layers:
     database: true
     backend: true
@@ -700,9 +702,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F003
-  current_stage: REVIEW
-  last_result: F003 修复轮 1 重测 TE-2：F003-REV-1 FIXED（独立验证），回归 78 passed；READY FOR REVIEW
-  next_action: reviewer 重新 Review 修复后候选
+  current_stage: MERGE
+  last_result: F003 Review APPROVED WITH FOLLOW-UP（候选 690f781，REV-1 FIXED）；Merge 已执行（3779882）
+  next_action: 最终状态提交（F003 DONE、解锁 F004）
   repair_rounds: 1
 planning_status:
   status: IN_PROGRESS

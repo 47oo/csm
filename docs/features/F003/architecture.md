@@ -5,6 +5,9 @@
 - **Basis**：requirements-v3.md revision 3（§4、§4.1、§5、§19、§21–§23、§25、§27–§28、§31、§35.2 Q02-A/Q07-A/Q10-A/Q10-B、§35.3 D01/D02）；F003 product.md（A1–A11）；F001 工程基线+DB-D1–D12；F002 错误信封/权限/操作者上下文/DR-11；docs/api/F002.md；docs/database/f002-auth.md（DB-D13 UUID 已落地，F003 沿用）；plan_revision 4 F003 条目。
 - **结论属性**：设计输入，交 DATABASE/TEST_DESIGN；Contract 草案供 CONTRACT 定稿，本阶段不放行编码。
 
+> **注记（2026-10-07，F003-REV-6）**：本文 DR-24 及各 `code_key=upper(...)` 表述已被 `docs/api/F003.md` §2.1、`docs/architecture/d01-conventions.md` v2 与 `docs/database/f003-cluster.md` v2 取代——`code_key` 采用**仅 ASCII 字母折叠**（`translate`，非 ASCII 原样保留）。本文为历史阶段记录，归一化以 D01 v2/Contract v2 为准。
+
+
 ## 1. 方案摘要
 
 ### 1.1 Cluster 实体与 API
