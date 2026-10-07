@@ -211,6 +211,9 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
           initialDeleted={section.deleted}
           user={user}
           onBack={() => setSection({ name: "resources" })}
+          onOpenResource={(id, deleted) =>
+            setSection({ name: "resource-detail", id, deleted })
+          }
         />
       )}
     </main>

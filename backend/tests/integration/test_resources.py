@@ -32,6 +32,8 @@ RESOURCE_AUDIT_KEYS = {
     "description",
     "metadata",
     "hardware",
+    # F006: audit whitelist extends with the nested virtual_machine object.
+    "virtual_machine",
 }
 
 
@@ -365,8 +367,17 @@ def test_list_filter_sort_pagination_search(role_client_factory):
     client, _, _ = role_client_factory("ADMIN")
     c1 = _cluster(client, code="N96P")
     c2 = _cluster(client, code="N96Q")
-    _resource(client, c1["code"], hostname="gpu01", resource_type="BARE_METAL", role="COMPUTE", status="IDLE")
-    _resource(client, c1["code"], hostname="login01", resource_type="VIRTUAL_MACHINE", role="LOGIN", status="ALLOC")
+    gpu01 = _resource(client, c1["code"], hostname="gpu01", resource_type="BARE_METAL", role="COMPUTE", status="IDLE")
+    _resource(
+        client,
+        c1["code"],
+        hostname="login01",
+        resource_type="VIRTUAL_MACHINE",
+        role="LOGIN",
+        status="ALLOC",
+        # F006: a VIRTUAL_MACHINE requires an undeleted same-cluster BARE_METAL host.
+        virtual_machine={"host_resource_id": gpu01["id"]},
+    )
     third = _resource(client, c2["code"], hostname="alpha")
     client.delete(f"/api/v1/resources/{third['id']}", params={"version": 1})
 

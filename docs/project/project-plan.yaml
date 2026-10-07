@@ -381,10 +381,43 @@ features:
   - F004
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: product 澄清与范围确认（VirtualMachineDetail）
-  current_stage: PRODUCT
-  implementation: {}
-  evidence: {}
+  next_action: reviewer 独立复核并出 review-report
+  current_stage: REVIEW
+  implementation:
+    product: COMPLETE
+    architecture: COMPLETE
+    database: COMPLETE
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
+    test: COMPLETE
+  evidence:
+    product:
+    - docs/features/F006/product.md
+    architecture:
+    - docs/features/F006/architecture.md
+    database:
+    - docs/database/f006-virtual-machine.md
+    test_design:
+    - docs/features/F006/test-report.md#test-design
+    contract:
+    - docs/api/F004.md
+    backend:
+    - docs/features/F006/implementation.md
+    frontend:
+    - docs/features/F006/implementation.md
+    test:
+    - docs/features/F006/test-report.md#te-1
+  git:
+    base_branch: v3
+    branch: feature/F006-virtual-machine
+    start_commit: d001fc41310fd1f07edbe3a5503e7bbb059405f2
+  layers:
+    database: true
+    backend: true
+    frontend: true
+  api_required: true
 - id: F007
   title: Interface 接口管理
   kind: FEATURE
@@ -784,9 +817,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F006
-  current_stage: PRODUCT
-  last_result: F005 DONE（merge 0771e2d）；F006 启动 PRODUCT
-  next_action: F006 PRODUCT 阶段
+  current_stage: REVIEW
+  last_result: F006 TEST PASS（183 passed/1 skipped；A1–A17 全 PASS）
+  next_action: reviewer 复核
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

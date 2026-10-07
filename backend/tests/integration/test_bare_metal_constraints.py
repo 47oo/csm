@@ -431,24 +431,30 @@ def test_no_serial_unique_and_no_extra_indexes(committed_engine):
 
 
 def test_migration_is_single_head(pg_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0005_bare_metal_details"
-    assert _alembic_versions(pg_engine) == ["0005_bare_metal_details"]
+    assert alembic_runner.head_revision() == "0006_virtual_machine_details"
+    assert _alembic_versions(pg_engine) == ["0006_virtual_machine_details"]
     assert "bare_metal_details" in _tables(pg_engine)
+    assert "virtual_machine_details" in _tables(pg_engine)
 
 
 def test_migration_up_down_up(pg_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0005_bare_metal_details"
+    assert alembic_runner.head_revision() == "0006_virtual_machine_details"
 
     alembic_runner.downgrade("0004_resources")
     remaining = _tables(pg_engine)
     assert "bare_metal_details" not in remaining
-    # 0004 objects survive the 0005 downgrade
+    assert "virtual_machine_details" not in remaining
+    # 0004 objects survive the 0005/0006 downgrade
     assert {"resources", "clusters", "audit_logs"} <= remaining
     assert _alembic_versions(pg_engine) == ["0004_resources"]
 
     alembic_runner.upgrade("head")
-    assert {"resources", "bare_metal_details"} <= _tables(pg_engine)
-    assert _alembic_versions(pg_engine) == ["0005_bare_metal_details"]
+    assert {
+        "resources",
+        "bare_metal_details",
+        "virtual_machine_details",
+    } <= _tables(pg_engine)
+    assert _alembic_versions(pg_engine) == ["0006_virtual_machine_details"]
 
 
 def test_backfill_existing_resources(pg_engine, alembic_runner):
@@ -466,6 +472,12 @@ def test_backfill_existing_resources(pg_engine, alembic_runner):
                 hostname="bf-vm",
                 hostname_key="bf-vm",
                 resource_type="VIRTUAL_MACHINE",
+            )
+            # The F006 0006 backfill guard refuses undeleted VMs (no safe
+            # host); a soft-deleted VM still exercises the 0005 backfill scope.
+            conn.execute(
+                text("UPDATE resources SET deleted_at = now() WHERE id = :id"),
+                {"id": vm},
             )
 
         alembic_runner.upgrade("head")
@@ -500,4 +512,4 @@ def test_backfill_existing_resources(pg_engine, alembic_runner):
                 text("DELETE FROM resources WHERE hostname LIKE 'bf-%'")
             )
             conn.execute(text("DELETE FROM clusters WHERE code = 'BF'"))
-        assert _alembic_versions(pg_engine) == ["0005_bare_metal_details"]
+        assert _alembic_versions(pg_engine) == ["0006_virtual_machine_details"]

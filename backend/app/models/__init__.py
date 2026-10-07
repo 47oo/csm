@@ -1,7 +1,8 @@
 """Persistence models.
 
 F002 introduces ``users`` and ``user_sessions``; F003 adds ``clusters`` and the
-``audit_logs`` trail; F004 adds ``resources``; F005 adds ``bare_metal_details``.
+``audit_logs`` trail; F004 adds ``resources``; F005 adds ``bare_metal_details``;
+F006 adds ``virtual_machine_details``.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from app.models.cluster import Cluster
 from app.models.resource import Resource
 from app.models.session import UserSession
 from app.models.user import User, UserStatus
+from app.models.virtual_machine_detail import VirtualMachineDetail
 
 __all__ = [
     "AuditLog",
@@ -24,4 +26,5 @@ __all__ = [
     "User",
     "UserSession",
     "UserStatus",
+    "VirtualMachineDetail",
 ]

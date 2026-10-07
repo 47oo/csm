@@ -31,6 +31,19 @@
  *   范围 / 未知=null）、创建 / PATCH 载荷构造语义的本地镜像。
  *   （ResourceForm.tsx 含 JSX 无法被 Node 加载，故该映射独立成纯模块。）
  *
+ * F006 追加（Contract：docs/api/F004.md v3 §2.5，前端机制级，供 V20）：
+ * - src/api/resources.ts 的 virtual_machine 嵌套载荷：POST VIRTUAL_MACHINE 必带
+ *   virtual_machine（host_resource_id 必填）、BARE_METAL 载荷不含该键（互斥
+ *   422）、PATCH 子字段级 exclude_unset（省略=保持；显式 null=清空；换 Host
+ *   携带新 host_resource_id）；响应 virtual_machine 解析（host{id,hostname} 展开、
+ *   0 与 null 可区分）；列表 host_resource_id 过滤（DR-67）；
+ * - 409 reference_exists（宿主机被未删除 VM 引用，references 含 label）/
+ *   dependency_deleted（恢复 VM 时宿主机已删，conflicts object_type=resource）
+ *   的 describeResourceActionError 语义（不静默重试）；
+ * - src/components/virtualMachine.ts（纯逻辑，无 JSX）：表单值解析（宿主非空 /
+ *   trim / 严格整数 / 范围 / disk_gb=0 与 null 可区分）、创建 / PATCH 载荷
+ *   构造语义的本地镜像。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -68,6 +81,13 @@ import {
   hardwareFormValuesFromResource,
   parseHardwareFormValues,
 } from "../src/components/hardware.ts";
+import {
+  buildVirtualMachineCreateInput,
+  buildVirtualMachinePatch,
+  emptyVirtualMachineFormValues,
+  parseVirtualMachineFormValues,
+  virtualMachineFormValuesFromResource,
+} from "../src/components/virtualMachine.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -1008,6 +1028,365 @@ await test("F005 422 VALIDATION_ERROR：hardware 点路径字段错误透传（h
   const described = describeResourceActionError(err);
   assert.equal(described.fields["hardware.cpu_cores"], "cpu_cores 必须为正整数");
   assert.equal(described.fields["hardware"], "VIRTUAL_MACHINE 不接受 hardware");
+});
+
+// ---------- F006 VirtualMachine 机制级（Contract：docs/api/F004.md v3 §2.5） ----------
+
+/** 全部未登记（null）的解析后 virtual_machine 值，供各用例展开复用。 */
+const VM_ALL_NULL = {
+  host_resource_id: "h-uuid-1",
+  vcpu: null,
+  memory_mb: null,
+  disk_gb: null,
+  hypervisor: null,
+};
+
+await test("F006 parseVirtualMachineFormValues：合法值（trim / 严格整数 / 空串=null / disk_gb=0）", async () => {
+  const parsed = parseVirtualMachineFormValues({
+    host_resource_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101",
+    vcpu: "8",
+    memory_mb: " 16384 ",
+    disk_gb: "0",
+    hypervisor: "  VMware ESXi  ",
+  });
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.fields, {
+    host_resource_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101",
+    vcpu: 8,
+    memory_mb: 16384, // 服务端同样 trim；单位 MiB 原样存储不换算
+    disk_gb: 0, // 0 = 明确无磁盘，与 null=未知可区分（A11）
+    hypervisor: "VMware ESXi", // trim 后存储
+  });
+});
+
+await test("F006 parseVirtualMachineFormValues：非法输入 → 字段级错误（未选宿主 / 0 / 负 / 非整数 / 纯空白 / 超长）", async () => {
+  const parsed = parseVirtualMachineFormValues({
+    host_resource_id: "",
+    vcpu: "0",
+    memory_mb: "-1",
+    disk_gb: "-1",
+    hypervisor: "   ",
+  });
+  assert.equal(parsed.ok, false);
+  assert.ok(parsed.errors.host_resource_id.includes("必须选择宿主机"), "未选宿主应报错（A3）");
+  assert.ok(parsed.errors.vcpu.includes("正整数"), "vcpu=0 应报正整数错误（A9）");
+  assert.ok(parsed.errors.memory_mb.includes("正整数"), "memory_mb=-1 应报正整数错误");
+  assert.ok(parsed.errors.disk_gb.includes("非负整数"), "disk_gb=-1 应报非负整数错误（A11）");
+  assert.ok(parsed.errors.hypervisor.includes("空白"), "纯空白 hypervisor 应报错（不转 null）");
+  // 超长 hypervisor 与非整数 vcpu
+  const parsed2 = parseVirtualMachineFormValues({
+    host_resource_id: "h1",
+    vcpu: "1.5",
+    memory_mb: "",
+    disk_gb: "",
+    hypervisor: "x".repeat(256),
+  });
+  assert.equal(parsed2.ok, false);
+  assert.ok(parsed2.errors.vcpu.includes("整数"), "vcpu=1.5 应报整数错误（严格整数语义）");
+  assert.ok(parsed2.errors.hypervisor.includes("255"), "hypervisor 超过 255 code point 应报错");
+});
+
+await test("F006 buildVirtualMachineCreateInput：恒携带 host_resource_id；容量仅携带已登记值；disk_gb=0 照常携带", async () => {
+  // 仅宿主（容量全部省略 → null，无默认 0）
+  assert.deepEqual(buildVirtualMachineCreateInput(VM_ALL_NULL), {
+    host_resource_id: "h-uuid-1",
+  });
+  // 全字段登记
+  assert.deepEqual(
+    buildVirtualMachineCreateInput({
+      ...VM_ALL_NULL,
+      vcpu: 8,
+      memory_mb: 1572864,
+      disk_gb: 0,
+      hypervisor: "KVM",
+    }),
+    {
+      host_resource_id: "h-uuid-1",
+      vcpu: 8,
+      memory_mb: 1572864,
+      disk_gb: 0,
+      hypervisor: "KVM",
+    },
+  );
+});
+
+await test("F006 buildVirtualMachinePatch：子字段级 exclude_unset 镜像（省略=保持；null=清空；换 Host；0≠null）", async () => {
+  const current = {
+    host_resource_id: "h-uuid-1",
+    host: { id: "h-uuid-1", hostname: "cn001" },
+    vcpu: 8,
+    memory_mb: 16384,
+    disk_gb: 0,
+    hypervisor: "KVM",
+  };
+  const sameAsCurrent = { ...VM_ALL_NULL, vcpu: 8, memory_mb: 16384, disk_gb: 0, hypervisor: "KVM" };
+  // 无变化 → null（PATCH 省略 virtual_machine 键）
+  assert.equal(buildVirtualMachinePatch(current, sameAsCurrent), null);
+  // 换 Host（同 Cluster 未删除 BARE_METAL 由服务端校验）+ 清空 hypervisor
+  const patch = buildVirtualMachinePatch(current, {
+    ...sameAsCurrent,
+    host_resource_id: "h-uuid-2",
+    hypervisor: null,
+  });
+  assert.deepEqual(patch, { host_resource_id: "h-uuid-2", hypervisor: null });
+  // 容量清空（显式 null）；disk_gb 0→null（从「明确无磁盘」回到未知）
+  const clearPatch = buildVirtualMachinePatch(current, {
+    ...VM_ALL_NULL,
+    host_resource_id: "h-uuid-1",
+  });
+  assert.deepEqual(clearPatch, { vcpu: null, memory_mb: null, disk_gb: null, hypervisor: null });
+  // disk_gb null→0（登记「明确无磁盘」）仅携带变化子字段
+  const zeroPatch = buildVirtualMachinePatch(
+    { ...current, disk_gb: null, vcpu: null, memory_mb: null, hypervisor: null },
+    sameAsCurrent,
+  );
+  assert.deepEqual(zeroPatch, { vcpu: 8, memory_mb: 16384, disk_gb: 0, hypervisor: "KVM" });
+  // current 为 null（旧版后端 / 防御）→ 按“全部未登记”比较；宿主为空时无变化 → null
+  // （表单本地校验保证实际调用时宿主非空，此处仅防御性镜像）
+  assert.equal(
+    buildVirtualMachinePatch(null, { ...VM_ALL_NULL, host_resource_id: "" }),
+    null,
+  );
+});
+
+await test("F006 virtualMachineFormValuesFromResource：null → 全空；数值 0 不丢成空串；null → 空串", async () => {
+  assert.deepEqual(virtualMachineFormValuesFromResource(null), emptyVirtualMachineFormValues());
+  const values = virtualMachineFormValuesFromResource({
+    host_resource_id: "h-uuid-1",
+    host: { id: "h-uuid-1", hostname: "cn001" },
+    vcpu: 8,
+    memory_mb: null,
+    disk_gb: 0,
+    hypervisor: null,
+  });
+  assert.equal(values.host_resource_id, "h-uuid-1");
+  assert.equal(values.vcpu, "8");
+  assert.equal(values.memory_mb, ""); // null → 空串（未登记）
+  assert.equal(values.disk_gb, "0"); // 0 不得丢成空串（与 null 可区分，A11）
+  assert.equal(values.hypervisor, "");
+});
+
+await test("F006 listResources host_resource_id 过滤（配 type=VIRTUAL_MACHINE，DR-67）；空串不发", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  await listResources({
+    cluster_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+    host_resource_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101",
+    type: "VIRTUAL_MACHINE",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/resources?cluster_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004" +
+      "&host_resource_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101&type=VIRTUAL_MACHINE",
+  );
+  // 空串 → 不发该参数
+  await listResources({ host_resource_id: "" });
+  assert.equal(calls[1].url, "/api/v1/resources");
+});
+
+await test("F006 createResource VIRTUAL_MACHINE：virtual_machine 嵌套对象进 body；响应解析 host 展开（0 与 null 可区分）", async () => {
+  respond = () =>
+    jsonResponse(201, {
+      resource: {
+        id: "r20",
+        cluster: { id: "c1", code: "N96P", name: "N96P集群" },
+        hostname: "vm001",
+        resource_type: "VIRTUAL_MACHINE",
+        role: "OTHER",
+        status: "UNKNOWN",
+        description: null,
+        metadata: {},
+        hardware: null,
+        virtual_machine: {
+          host_resource_id: "h-uuid-1",
+          host: { id: "h-uuid-1", hostname: "cn001" },
+          vcpu: 8,
+          memory_mb: 1572864,
+          disk_gb: 0,
+          hypervisor: "KVM",
+        },
+        version: 1,
+        created_at: "2026-10-09T08:00:00Z",
+        updated_at: "2026-10-09T08:00:00Z",
+        deleted_at: null,
+      },
+    });
+  const { resource } = await createResource({
+    cluster: "c1",
+    hostname: "vm001",
+    resource_type: "VIRTUAL_MACHINE",
+    virtual_machine: {
+      host_resource_id: "h-uuid-1",
+      vcpu: 8,
+      memory_mb: 1572864,
+      disk_gb: 0,
+      hypervisor: "KVM",
+    },
+  });
+  assert.equal(resource.virtual_machine.host.hostname, "cn001"); // A16：host 展开供详情展示
+  assert.equal(resource.virtual_machine.disk_gb, 0); // 0 存 0（明确无磁盘）
+  assert.equal(resource.hardware, null); // 互斥：VM 响应 hardware 恒为 null
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/resources");
+  assert.equal(calls[0].init.method, "POST");
+  const body = JSON.parse(calls[0].init.body);
+  assert.deepEqual(body, {
+    cluster: "c1",
+    hostname: "vm001",
+    resource_type: "VIRTUAL_MACHINE",
+    virtual_machine: {
+      host_resource_id: "h-uuid-1",
+      vcpu: 8,
+      memory_mb: 1572864,
+      disk_gb: 0,
+      hypervisor: "KVM",
+    },
+  });
+  assert.ok(!("hardware" in body), "VM 载荷不得携带 hardware 键（互斥，DR-51/§2.5）");
+});
+
+await test("F006 createResource VIRTUAL_MACHINE 最小载荷：仅 host_resource_id（容量省略 → null）", async () => {
+  respond = () =>
+    jsonResponse(201, {
+      resource: {
+        id: "r21",
+        cluster: { id: "c1", code: "N96P", name: "N96P集群" },
+        hostname: "vm002",
+        resource_type: "VIRTUAL_MACHINE",
+        role: "OTHER",
+        status: "UNKNOWN",
+        description: null,
+        metadata: {},
+        hardware: null,
+        virtual_machine: {
+          host_resource_id: "h-uuid-1",
+          host: { id: "h-uuid-1", hostname: "cn001" },
+          vcpu: null,
+          memory_mb: null,
+          disk_gb: null,
+          hypervisor: null,
+        },
+        version: 1,
+        created_at: "2026-10-09T08:00:00Z",
+        updated_at: "2026-10-09T08:00:00Z",
+        deleted_at: null,
+      },
+    });
+  const { resource } = await createResource({
+    cluster: "c1",
+    hostname: "vm002",
+    resource_type: "VIRTUAL_MACHINE",
+    virtual_machine: { host_resource_id: "h-uuid-1" },
+  });
+  // A8：容量省略保存 null，详情返回 null 不返回 0
+  assert.equal(resource.virtual_machine.vcpu, null);
+  assert.equal(resource.virtual_machine.memory_mb, null);
+  assert.equal(resource.virtual_machine.disk_gb, null);
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    cluster: "c1",
+    hostname: "vm002",
+    resource_type: "VIRTUAL_MACHINE",
+    virtual_machine: { host_resource_id: "h-uuid-1" },
+  });
+});
+
+await test("F006 updateResource：virtual_machine 子字段级 PATCH（换 Host + 清空容量，version 必带）", async () => {
+  respond = () => jsonResponse(200, { resource: { id: "r20", version: 4 } });
+  const { resource } = await updateResource("r20", {
+    version: 3,
+    virtual_machine: { host_resource_id: "h-uuid-2", vcpu: null, memory_mb: 16384 },
+  });
+  assert.equal(resource.version, 4);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/resources/r20");
+  assert.equal(calls[0].init.method, "PATCH");
+  // 省略子字段 = 保持原值；显式 null = 清空；换 Host = 携带新 host_resource_id
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    version: 3,
+    virtual_machine: { host_resource_id: "h-uuid-2", vcpu: null, memory_mb: 16384 },
+  });
+});
+
+await test("F006 422 VALIDATION_ERROR：virtual_machine 点路径字段错误透传（host 宿主校验 / vcpu）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: {
+          fields: [
+            {
+              field: "virtual_machine.host_resource_id",
+              message: "宿主资源不存在、已删除、非 BARE_METAL 或与虚拟机不在同一集群",
+            },
+            { field: "virtual_machine.vcpu", message: "vcpu 必须为正整数" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(
+    createResource({
+      cluster: "c1",
+      hostname: "vm003",
+      resource_type: "VIRTUAL_MACHINE",
+      virtual_machine: { host_resource_id: "bad-host", vcpu: 0 },
+    }),
+  );
+  const described = describeResourceActionError(err);
+  assert.equal(
+    described.fields["virtual_machine.host_resource_id"],
+    "宿主资源不存在、已删除、非 BARE_METAL 或与虚拟机不在同一集群",
+  );
+  assert.equal(described.fields["virtual_machine.vcpu"], "vcpu 必须为正整数");
+});
+
+await test("F006 409 CONFLICT reference_exists：宿主机被未删除 VM 引用，解析 references（含 label）；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "reference_exists",
+          references: [
+            { object_type: "resource", object_id: "vm-uuid-1", label: "vm001" },
+            { object_type: "resource", object_id: "vm-uuid-2", label: "vm002" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(deleteResource("h-uuid-1", 2));
+  const described = describeResourceActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.equal(described.references.length, 2);
+  assert.equal(described.references[0].object_type, "resource");
+  assert.equal(described.references[0].label, "vm001");
+  assert.ok(described.message.includes("虚拟机"), "提示应指向引用宿主机的虚拟机");
+  assert.ok(described.message.includes("无法删除"));
+  assert.equal(calls.length, 1); // 不自动重试（不静默重试覆盖）
+});
+
+await test("F006 409 CONFLICT dependency_deleted：恢复 VM 时宿主机已删（conflicts object_type=resource）→ Host 文案", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "resource", object_id: "h-uuid-1" }],
+        },
+      },
+    });
+  const err = await expectApiError(restoreResource("vm-uuid-1", 2));
+  const described = describeResourceActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.equal(described.conflicts.length, 1);
+  assert.equal(described.conflicts[0].object_type, "resource");
+  assert.equal(described.conflicts[0].object_id, "h-uuid-1");
+  assert.ok(described.message.includes("宿主机"), "恢复 VM 失败应提示宿主机依赖，而非集群文案");
+  assert.ok(!described.message.includes("集群仍处于已删除状态"), "不得误用 F004 集群文案");
+  assert.ok(described.message.includes("不会覆盖宿主机或其上新对象"), "应说明不覆盖新对象");
 });
 
 // 还原全局状态

@@ -1,9 +1,9 @@
 # D01 共享约定基座 — 字段、归一化、时间与省略语义
 
 - **状态**：READY（专业设计签核）
-- **版本**：v4
-- **签核**：Architect，2026-10-09（v4 修订；v3 2026-10-08；v2 2026-10-07；v1 2026-10-06）
-- **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v2；docs/api/F004.md v2；docs/database/f003-cluster.md v2；docs/database/f004-resource.md v1；docs/database/f005-bare-metal.md v1；F004/F005 product/architecture；F001 DR-06 / DB-D13。
+- **版本**：v5
+- **签核**：Architect，2026-10-09（v5 修订；v4 2026-10-09；v3 2026-10-08；v2 2026-10-07；v1 2026-10-06）
+- **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v2；docs/api/F004.md v3；docs/database/f003-cluster.md v2；docs/database/f004-resource.md v1；docs/database/f005-bare-metal.md v1；docs/database/f006-virtual-machine.md v1；F004/F005/F006 product/architecture；F001 DR-06 / DB-D13。
 - **覆盖**：API 与导入共用的字段格式、稳定 ID、时间、单位、nullable/PATCH 省略语义、名称归一化口径。F003 首落地签核；后续 Feature 引用本文件不重复定义；数据库列级设计仍归各 Feature Database 文档。
 
 ## 1. 稳定 ID（§4 / DB-D13）
@@ -24,7 +24,8 @@
 - *_mb = MiB，*_gb = GiB；1 GiB = 1024 MiB。不混用 MB/GB。
 - 容量/数量字段为整数；未知值存 null，不得以 0 表示未知（gpu_count/disk_gb 的 0 表示明确无该项）。
 - 通用整型上限 0..2147483647（非负项）或按各域正整数约束收窄（F005/F006 落实）；具体范围在各 Feature Database 文档。
-- **BareMetalDetail 硬件数值（F005，v4 补充）**：cpu_sockets/cpu_cores/memory_mb 为正整数或 null（1..2147483647）；gpu_count 为非负整数或 null（0..2147483647，0=明确无 GPU）；memory_mb 单位 MiB，原样存储不换算。契约见 docs/api/F004.md v2 §2.4，DB 见 database/f005-bare-metal.md DB-D46。
+- **BareMetalDetail 硬件数值（F005，v4 补充）**：cpu_sockets/cpu_cores/memory_mb 为正整数或 null（1..2147483647）；gpu_count 为非负整数或 null（0..2147483647，0=明确无 GPU）；memory_mb 单位 MiB，原样存储不换算。契约见 docs/api/F004.md v3 §2.4，DB 见 database/f005-bare-metal.md DB-D46。
+- **VirtualMachineDetail 容量数值（F006，v5 补充）**：vcpu/memory_mb 为正整数或 null（1..2147483647）；disk_gb 为非负整数或 null（0..2147483647，0=明确无磁盘）；memory_mb 单位 MiB、disk_gb 单位 GiB，原样存储不换算；一期不校验 VM 总 vCPU/内存是否超过 Host 容量。契约见 docs/api/F004.md v3 §2.5，DB 见 database/f006-virtual-machine.md DB-D55/DB-D56。
 
 ## 4. nullable 与 PATCH 省略语义（§4.1）
 
@@ -61,7 +62,7 @@
 
 ### 5.2 长度口径
 
-Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限，RFC 1035）**；**BareMetal 硬件字符串字段（manufacturer/model/serial_number/cpu_model/gpu_model）255（v4 新增，见 §5.4）**；其它对象字符/长度在各 Feature Database/Contract 依本节规则收窄（Unicode code point）。
+Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限，RFC 1035）**；**BareMetal 硬件字符串字段（manufacturer/model/serial_number/cpu_model/gpu_model）255（v4 新增，见 §5.4）**；**VirtualMachine hypervisor 255（v5 新增，见 §5.5）**；其它对象字符/长度在各 Feature Database/Contract 依本节规则收窄（Unicode code point）。
 
 ### 5.3 Resource hostname 字符集、长度与折叠（D01 裁定，F004 I-1）
 
@@ -87,6 +88,22 @@ cpu_cores 语义（§8/T39）：整台裸金属物理核心总数、不含超线
 
 镜像：DB 列/约束见 docs/database/f005-bare-metal.md v1（DB-D46/DB-D52）；API 契约见 docs/api/F004.md v2 §2.4。本字段字典供 F014 导入复用。
 
+### 5.5 VirtualMachine 字段口径（D01 裁定，F006 DB I-1；v5 新增）
+
+适用范围：docs/api/F004.md v3 §2.5 的 virtual_machine 嵌套对象字段（host_resource_id、vcpu、memory_mb、disk_gb、hypervisor）。VM 即 Resource（1:1），公共字段（含 metadata）沿用 Resource 口径，本节不重复定义。
+
+宿主引用 host_resource_id：必填 UUID，创建时非 null，PATCH 显式 null→422；须引用存在、未软删、resource_type=BARE_METAL 且与 VM 同 Cluster 的 Resource；违反统一 422（field="virtual_machine.host_resource_id"）。换 Host 仅限同 Cluster，写 UPDATE Audit（before/after host_resource_id）。
+
+数值口径（镜像 docs/database/f006-virtual-machine.md DB-D55）：vcpu 为正整数或 null（1..2147483647），0/负非法；memory_mb 为正整数或 null（1..2147483647）；disk_gb 为非负整数或 null（0..2147483647，0=明确无磁盘）。未知值存 null，绝不以 0 代替。memory_mb=MiB、disk_gb=GiB，原样存储不换算；1 GiB=1024 MiB。
+
+字符串口径（hypervisor，DR-64）：trim 首尾空白→trim 后非空→禁控制字符（Unicode Cc/Cf，应用层；DB 为 ASCII backstop，沿用 F003 I-6/F004 I-4）→长度（Unicode code point）≤255；trim 后非空或 null；空串/纯空白→422（不转 null）；区分大小写、保留展示（不折叠）；**一期无枚举，不得据值推导行为**。
+
+无跨字段规则：容量字段各自独立可空；不做 vcpu×memory 推导、不做与 Host 容量比较（§9/T39）。
+
+metadata：归 Resource 公共 metadata（docs/api/F004.md v3 §2.2/§3），virtual_machine 嵌套对象不接收、不暴露独立 metadata 键（I-3/DR-69）。
+
+镜像：DB 列/约束见 docs/database/f006-virtual-machine.md v1（DB-D53–D63）；API 契约见 docs/api/F004.md v3 §2.5。本字段字典供 F014 导入复用。VM 与 Host 的删除保护、恢复重检与引用检查见 §6/§21，DB 触发器与应用检查器见 f006 文档。
+
 ## 6. 归属与引用
 
 对象「所属对象」（如 Resource 的 Cluster、Pool 的 Network）在创建时必填；具体可空性按各条款。引用以稳定 UUID 表达；删除前做未删除引用检查，不隐式级联（§21）。
@@ -103,3 +120,4 @@ cpu_cores 语义（§8/T39）：整台裸金属物理核心总数、不含超线
 | v2 | 2026-10-07 | 明确 code_key 仅 ASCII 字母折叠、非 ASCII 原样保留；同步 §5 表与 §5.1 | F003-REV-1 |
 | v3 | 2026-10-08 | §5 表 Resource hostname 行、§5.2 长度、新增 §5.3；裁定 hostname 1–253、宽松字符集、仅 ASCII A-Z→a-z 折叠、部分唯一 | F004 DB I-1 与 Contract 定稿 |
 | v4 | 2026-10-09 | §3 追加 BareMetal 硬件数值上限引用；§5.2 追加硬件字符串长度 255；新增 §5.4 BareMetal hardware 字段口径 | F005 DB I-1 与 Contract v2 定稿 |
+| v5 | 2026-10-09 | §3 追加 VirtualMachineDetail 容量数值引用；§5.2 追加 hypervisor 长度 255；新增 §5.5 VirtualMachine 字段口径（host 必填/四条件、vcpu/memory_mb 正整数、disk_gb 非负且 0=明确无磁盘、MiB/GiB、hypervisor trim/≤255/无枚举、无跨字段、metadata 归 Resource） | F006 DB I-1 与 Contract v3 定稿 |

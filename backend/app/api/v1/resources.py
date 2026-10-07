@@ -32,6 +32,7 @@ from app.schemas.resource import (
     SortOrder,
     build_hardware_out,
     build_resource_out,
+    build_virtual_machine_out,
 )
 from app.services import resource as resource_service
 
@@ -63,6 +64,12 @@ def _build_out(db: Session, resources: list) -> list[ResourceOut]:
         db, [resource.cluster_id for resource in resources]
     )
     detail_map = resource_service.details_for(db, [resource.id for resource in resources])
+    vm_detail_map = resource_service.virtual_machine_details_for(
+        db, [resource.id for resource in resources]
+    )
+    host_map = resource_service.hosts_for(
+        db, [detail.host_resource_id for detail in vm_detail_map.values()]
+    )
     output: list[ResourceOut] = []
     for resource in resources:
         hardware = (
@@ -70,11 +77,19 @@ def _build_out(db: Session, resources: list) -> list[ResourceOut]:
             if resource.resource_type == "BARE_METAL"
             else None
         )
+        virtual_machine = None
+        if resource.resource_type == "VIRTUAL_MACHINE":
+            vm_detail = vm_detail_map.get(resource.id)
+            virtual_machine = build_virtual_machine_out(
+                vm_detail,
+                host_map.get(vm_detail.host_resource_id) if vm_detail else None,
+            )
         output.append(
             build_resource_out(
                 resource,
                 cluster_map[resource.cluster_id],
                 hardware=hardware,
+                virtual_machine=virtual_machine,
             )
         )
     return output
@@ -85,6 +100,7 @@ def list_resources(
     q: str | None = Query(default=None),
     cluster: str | None = Query(default=None),
     cluster_id: uuid.UUID | None = Query(default=None),
+    host_resource_id: uuid.UUID | None = Query(default=None),
     type: ResourceType | None = Query(default=None),
     role: str | None = Query(default=None),
     status: str | None = Query(default=None),
@@ -104,6 +120,7 @@ def list_resources(
         q=q,
         cluster=cluster,
         cluster_id=cluster_id,
+        host_resource_id=host_resource_id,
         resource_type=type,
         role=role,
         status=status,
@@ -133,6 +150,11 @@ def create_resource(
         if "hardware" in payload.model_fields_set
         else None
     )
+    virtual_machine = (
+        payload.virtual_machine.model_dump()
+        if payload.virtual_machine is not None
+        else None
+    )
     resource = resource_service.create_resource(
         db,
         operator,
@@ -144,6 +166,8 @@ def create_resource(
         description=payload.description,
         metadata=payload.metadata,
         hardware=hardware,
+        virtual_machine=virtual_machine,
+        virtual_machine_present="virtual_machine" in payload.model_fields_set,
     )
     return ResourceEnvelope(resource=_build_out(db, [resource])[0])
 
@@ -185,6 +209,22 @@ def update_resource(
                 "hardware", "hardware may not be null in a partial update"
             )
         hardware = payload.hardware.model_dump(exclude_unset=True)
+    virtual_machine = changes.pop("virtual_machine", None)
+    if "virtual_machine" in payload.model_fields_set:
+        if payload.virtual_machine is None:
+            raise _validation_field_error(
+                "virtual_machine",
+                "virtual_machine may not be null in a partial update",
+            )
+        virtual_machine = payload.virtual_machine.model_dump(exclude_unset=True)
+        if (
+            "host_resource_id" in virtual_machine
+            and virtual_machine["host_resource_id"] is None
+        ):
+            raise _validation_field_error(
+                "virtual_machine.host_resource_id",
+                "host_resource_id may not be null in a partial update",
+            )
     for field in _NON_NULLABLE_PATCH_FIELDS:
         if field in changes and changes[field] is None:
             raise _validation_field_error(
@@ -197,6 +237,7 @@ def update_resource(
         expected_version=payload.version,
         changes=changes,
         hardware=hardware,
+        virtual_machine=virtual_machine,
     )
     return ResourceEnvelope(resource=_build_out(db, [resource])[0])
 

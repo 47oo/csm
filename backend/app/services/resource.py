@@ -35,6 +35,12 @@ from app.models.bare_metal_detail import (
 )
 from app.models.cluster import Cluster
 from app.models.resource import Resource
+from app.models.virtual_machine_detail import (
+    INT_FIELDS as VM_INT_FIELDS,
+    NON_NEGATIVE_INT_FIELDS as VM_NON_NEGATIVE_INT_FIELDS,
+    POSITIVE_INT_FIELDS as VM_POSITIVE_INT_FIELDS,
+    VirtualMachineDetail,
+)
 from app.services import audit, normalization
 from app.services import cluster as cluster_service
 
@@ -53,6 +59,10 @@ ORDERS = ("asc", "desc")
 
 # BareMetal hardware (Contract §2.4, D01 §5.4, DB-D46).
 HARDWARE_INT_MAX = 2147483647
+
+# VirtualMachine (Contract §2.5, D01 §5.5, DB-D53..DB-D63).
+VM_INT_MAX = 2147483647
+VM_HOST_FIELD = "virtual_machine.host_resource_id"
 
 _SORT_COLUMNS = {
     "hostname": Resource.hostname_key,
@@ -170,6 +180,113 @@ def validate_hardware(hardware: dict, *, partial: bool) -> dict[str, Any]:
     return values
 
 
+def validate_virtual_machine_values(vm: Any, *, partial: bool) -> dict[str, Any]:
+    """Validate/normalise a ``virtual_machine`` object (Contract §2.5).
+
+    ``partial=False`` (create) requires ``host_resource_id`` and fills the
+    capacity/hypervisor fields with ``None``; ``partial=True`` (PATCH) keeps only
+    supplied keys so omitted sub-fields are preserved. ``host_resource_id``
+    explicit null, ``vcpu``/``memory_mb`` <= 0, ``disk_gb`` < 0 and empty /
+    whitespace-only ``hypervisor`` all raise 422 with a
+    ``virtual_machine.<field>`` path. There is no ``metadata`` key (DR-69).
+    """
+    if not isinstance(vm, dict):
+        raise _field_error("virtual_machine", "virtual_machine must be a JSON object")
+
+    values: dict[str, Any] = {}
+    if "host_resource_id" not in vm:
+        if not partial:
+            raise _field_error(VM_HOST_FIELD, "host_resource_id is required")
+    else:
+        host_id = vm["host_resource_id"]
+        if host_id is None:
+            raise _field_error(VM_HOST_FIELD, "host_resource_id must not be null")
+        if not isinstance(host_id, uuid.UUID):
+            try:
+                host_id = uuid.UUID(str(host_id))
+            except (ValueError, AttributeError, TypeError) as exc:
+                raise _field_error(
+                    VM_HOST_FIELD, "host_resource_id must be a UUID"
+                ) from exc
+        values["host_resource_id"] = host_id
+
+    for field in VM_POSITIVE_INT_FIELDS:
+        if field not in vm:
+            if not partial:
+                values[field] = None
+            continue
+        values[field] = _validate_vm_int(f"virtual_machine.{field}", vm[field], minimum=1)
+    for field in VM_NON_NEGATIVE_INT_FIELDS:
+        if field not in vm:
+            if not partial:
+                values[field] = None
+            continue
+        values[field] = _validate_vm_int(
+            f"virtual_machine.{field}", vm[field], minimum=0
+        )
+
+    if "hypervisor" not in vm:
+        if not partial:
+            values["hypervisor"] = None
+    else:
+        hypervisor = vm["hypervisor"]
+        values["hypervisor"] = (
+            None
+            if hypervisor is None
+            else normalization.validate_descriptive_string(
+                "virtual_machine.hypervisor", hypervisor, max_length=255
+            )
+        )
+    return values
+
+
+def validate_virtual_machine(
+    db: "Session", host_resource_id: uuid.UUID, *, cluster_id: uuid.UUID
+) -> Resource:
+    """Validate the VM Host and lock its row (DR-60/DR-71).
+
+    The referenced Resource must simultaneously exist, be undeleted, be
+    ``BARE_METAL`` and belong to the VM's cluster; any failure raises 422 with
+    ``field="virtual_machine.host_resource_id"`` (no sub-code). The host row is
+    locked ``FOR UPDATE`` *before* it is read so a concurrent Host soft-delete
+    (which locks the same row before its reference check) cannot interleave, and
+    vice-versa (DR-71). The lock includes soft-deleted rows so a host is seen as
+    deleted rather than missing.
+    """
+    host = (
+        db.execute(
+            select(Resource)
+            .where(Resource.id == host_resource_id)
+            .with_for_update(),
+            execution_options={"include_deleted": True},
+        )
+        .scalars()
+        .first()
+    )
+    if (
+        host is None
+        or host.deleted_at is not None
+        or host.resource_type != "BARE_METAL"
+        or host.cluster_id != cluster_id
+    ):
+        raise _field_error(
+            VM_HOST_FIELD,
+            "host must be an existing, undeleted BARE_METAL resource in the same cluster",
+        )
+    return host
+
+
+def _validate_vm_int(field: str, value: Any, *, minimum: int) -> int | None:
+    """Strict integer range check for VM capacity fields; ``bool`` is not int."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise _field_error(field, f"{field} must be an integer")
+    if value < minimum or value > VM_INT_MAX:
+        raise _field_error(field, f"{field} must be between {minimum} and {VM_INT_MAX}")
+    return value
+
+
 def _hardware_snapshot(resource: Resource) -> dict[str, Any] | None:
     """Audit snapshot for the nested ``hardware`` field (VM -> None)."""
     if resource.resource_type != "BARE_METAL":
@@ -183,11 +300,35 @@ def _hardware_snapshot(resource: Resource) -> dict[str, Any] | None:
     }
 
 
+def _virtual_machine_snapshot(resource: Resource) -> dict[str, Any] | None:
+    """Audit snapshot for the nested ``virtual_machine`` field (BARE_METAL -> None)."""
+    if resource.resource_type != "VIRTUAL_MACHINE":
+        return None
+    detail = resource.virtual_machine_detail
+    if detail is None:  # application invariant repair; normally present
+        return {
+            "host_resource_id": None,
+            "vcpu": None,
+            "memory_mb": None,
+            "disk_gb": None,
+            "hypervisor": None,
+        }
+    return {
+        "host_resource_id": str(detail.host_resource_id),
+        "vcpu": detail.vcpu,
+        "memory_mb": detail.memory_mb,
+        "disk_gb": detail.disk_gb,
+        "hypervisor": detail.hypervisor,
+    }
+
+
 def resource_snapshot(resource: Resource) -> dict[str, Any]:
     """Whitelisted snapshot handed to :mod:`app.services.audit`.
 
     ``cluster_id`` is stringified so the JSONB snapshot stays JSON-serialisable.
-    ``hardware`` is a nested object for BARE_METAL and ``null`` for VMs (F005 §8).
+    ``hardware`` is a nested object for BARE_METAL and ``null`` for VMs (F005 §8);
+    ``virtual_machine`` is a nested object for VMs and ``null`` for BARE_METAL
+    (F006 §8).
     """
     return {
         "cluster_id": str(resource.cluster_id),
@@ -198,6 +339,7 @@ def resource_snapshot(resource: Resource) -> dict[str, Any]:
         "description": resource.description,
         "metadata": resource.meta,
         "hardware": _hardware_snapshot(resource),
+        "virtual_machine": _virtual_machine_snapshot(resource),
     }
 
 
@@ -319,6 +461,62 @@ cluster_service.register_reference_checker("cluster", _undeleted_resource_refere
 cluster_service.register_dependency_checker(OBJECT_TYPE, _cluster_dependency)
 
 
+# F006 registers the first reference checker on ``resource`` itself: an undeleted
+# VIRTUAL_MACHINE blocks deletion of the BARE_METAL Host it points at (§21/DR-62).
+# A VM's own reference set is otherwise empty (its detail is not an independent
+# child). A deleted VM (Resource soft-deleted) releases the Host.
+def _undeleted_virtual_machine_references(
+    db: "Session", host_id: uuid.UUID
+) -> list[dict]:
+    rows = db.execute(
+        select(Resource.id, Resource.hostname)
+        .join(VirtualMachineDetail, VirtualMachineDetail.resource_id == Resource.id)
+        .where(
+            VirtualMachineDetail.host_resource_id == host_id,
+            Resource.deleted_at.is_(None),
+        )
+    ).all()
+    return [
+        {"object_type": "resource", "object_id": str(row.id), "label": row.hostname}
+        for row in rows
+    ]
+
+
+# F006 restore dependency: a VIRTUAL_MACHINE whose Host has since been
+# soft-deleted/missing cannot be restored (409 dependency_deleted; §21/T24/DR-63).
+def _virtual_machine_host_dependency(
+    db: "Session", resource_id: uuid.UUID
+) -> list[dict]:
+    detail = db.execute(
+        select(VirtualMachineDetail).where(
+            VirtualMachineDetail.resource_id == resource_id
+        )
+    ).scalars().first()
+    if detail is None:
+        return []
+    host = (
+        db.execute(
+            select(Resource).where(Resource.id == detail.host_resource_id),
+            execution_options={"include_deleted": True},
+        )
+        .scalars()
+        .first()
+    )
+    if host is None or host.deleted_at is not None:
+        return [
+            {"object_type": "resource", "object_id": str(detail.host_resource_id)}
+        ]
+    return []
+
+
+cluster_service.register_reference_checker(
+    OBJECT_TYPE, _undeleted_virtual_machine_references
+)
+cluster_service.register_dependency_checker(
+    OBJECT_TYPE, _virtual_machine_host_dependency
+)
+
+
 # --- reads ------------------------------------------------------------------
 
 
@@ -349,12 +547,42 @@ def details_for(
     return {row.resource_id: row for row in rows}
 
 
+def virtual_machine_details_for(
+    db: "Session", resource_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, VirtualMachineDetail]:
+    """Batch-load VM detail rows for response assembly (F006)."""
+    ids = set(resource_ids)
+    if not ids:
+        return {}
+    rows = db.execute(
+        select(VirtualMachineDetail).where(
+            VirtualMachineDetail.resource_id.in_(ids)
+        )
+    ).scalars().all()
+    return {row.resource_id: row for row in rows}
+
+
+def hosts_for(
+    db: "Session", host_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, Resource]:
+    """Batch-load host Resources (including soft-deleted) for VM responses."""
+    ids = set(host_ids)
+    if not ids:
+        return {}
+    rows = db.execute(
+        select(Resource).where(Resource.id.in_(ids)),
+        execution_options={"include_deleted": True},
+    ).scalars().all()
+    return {row.id: row for row in rows}
+
+
 def list_resources(
     db: "Session",
     *,
     q: str | None = None,
     cluster: str | None = None,
     cluster_id: uuid.UUID | None = None,
+    host_resource_id: uuid.UUID | None = None,
     resource_type: str | None = None,
     role: str | None = None,
     status: str | None = None,
@@ -387,6 +615,14 @@ def list_resources(
             filters.append(Resource.cluster_id == resolved)
     if cluster_id is not None:
         filters.append(Resource.cluster_id == cluster_id)
+    if host_resource_id is not None:
+        filters.append(
+            Resource.id.in_(
+                select(VirtualMachineDetail.resource_id).where(
+                    VirtualMachineDetail.host_resource_id == host_resource_id
+                )
+            )
+        )
     if resource_type is not None:
         filters.append(Resource.resource_type == resource_type)
     if role is not None:
@@ -476,6 +712,19 @@ def _attach_hardware(resource: Resource, values: dict[str, Any]) -> BareMetalDet
     return detail
 
 
+def _attach_virtual_machine(
+    resource: Resource, values: dict[str, Any]
+) -> VirtualMachineDetail:
+    """Attach a new 1:1 VM detail to ``resource`` (same Session)."""
+    detail = VirtualMachineDetail(
+        host_resource_id=values["host_resource_id"],
+        **{field: values[field] for field in VM_INT_FIELDS},
+        hypervisor=values["hypervisor"],
+    )
+    resource.virtual_machine_detail = detail
+    return detail
+
+
 def create_resource(
     db: "Session",
     operator: "Operator | None",
@@ -488,12 +737,16 @@ def create_resource(
     description: str | None = None,
     metadata: dict | None = None,
     hardware: dict | None = None,
+    virtual_machine: dict | None = None,
+    virtual_machine_present: bool = False,
 ) -> Resource:
     """Create a resource; same-cluster hostname is unique among undeleted rows.
 
     A BARE_METAL resource always gets its 1:1 ``bare_metal_details`` row in the
     same transaction (all-null when ``hardware`` is omitted). A VIRTUAL_MACHINE
-    request that carries ``hardware`` is rejected with 422 (DR-51).
+    request that carries ``hardware`` is rejected with 422 (DR-51); a VM must
+    carry a ``virtual_machine`` object and its Host is validated/locked first
+    (DR-60/DR-71).
     """
     resolved_cluster = _resolve_cluster(db, cluster)
     normalized_hostname = normalization.normalize_hostname(hostname)
@@ -504,12 +757,36 @@ def create_resource(
     meta = _validate_metadata({} if metadata is None else metadata)
 
     hardware_values: dict[str, Any] | None = None
+    virtual_machine_values: dict[str, Any] | None = None
+    # ``virtual_machine_present`` distinguishes omitted from explicit-null for a
+    # BARE_METAL body; a supplier object also counts as present for direct
+    # Service callers (F014 import).
+    vm_present = virtual_machine_present or virtual_machine is not None
     if resource_type == "VIRTUAL_MACHINE":
         if hardware is not None:
             raise _field_error(
                 "hardware", "hardware is only valid for BARE_METAL resources"
             )
+        if not vm_present or virtual_machine is None:
+            raise _field_error(
+                "virtual_machine",
+                "virtual_machine is required for VIRTUAL_MACHINE resources",
+            )
+        virtual_machine_values = validate_virtual_machine_values(
+            virtual_machine, partial=False
+        )
+        # Lock + validate the Host before the hostname uniqueness check.
+        validate_virtual_machine(
+            db,
+            virtual_machine_values["host_resource_id"],
+            cluster_id=resolved_cluster.id,
+        )
     else:
+        if vm_present:
+            raise _field_error(
+                "virtual_machine",
+                "virtual_machine is only valid for VIRTUAL_MACHINE resources",
+            )
         hardware_values = validate_hardware(hardware or {}, partial=False)
 
     existing = db.execute(
@@ -547,6 +824,14 @@ def create_resource(
             db.rollback()
             raise _translate_integrity_error(exc) from exc
 
+    if virtual_machine_values is not None:
+        _attach_virtual_machine(resource, virtual_machine_values)
+        try:
+            db.flush()
+        except IntegrityError as exc:
+            db.rollback()
+            raise _translate_integrity_error(exc) from exc
+
     audit.record(
         db,
         operator,
@@ -568,17 +853,39 @@ def update_resource(
     expected_version: int,
     changes: dict[str, Any],
     hardware: dict | None = None,
+    virtual_machine: dict | None = None,
 ) -> Resource:
     """Partial update with optimistic locking; cluster/resource_type immutable.
 
     ``hardware`` (when not ``None``) is a sub-field-level patch: only the supplied
     keys are applied, an explicit ``null`` clears that nullable sub-field, and a
-    non-BARE_METAL resource rejects any hardware with 422. The detail write and
-    the Resource update share one transaction.
+    non-BARE_METAL resource rejects any hardware with 422. ``virtual_machine``
+    behaves symmetrically for VM resources; when its ``host_resource_id`` changes
+    the target Host is validated and locked (DR-71) before the version check.
+    The detail write and the Resource update share one transaction.
     """
     resource = get_resource(db, resource_id)
     if resource is None:
         raise NotFound()
+
+    # VM host validation precedes the version check (Contract §2.5 order).
+    virtual_machine_values: dict[str, Any] | None = None
+    if virtual_machine is not None:
+        if resource.resource_type != "VIRTUAL_MACHINE":
+            raise _field_error(
+                "virtual_machine",
+                "virtual_machine is only valid for VIRTUAL_MACHINE resources",
+            )
+        virtual_machine_values = validate_virtual_machine_values(
+            virtual_machine, partial=True
+        )
+        if "host_resource_id" in virtual_machine_values:
+            validate_virtual_machine(
+                db,
+                virtual_machine_values["host_resource_id"],
+                cluster_id=resource.cluster_id,
+            )
+
     if resource.version != expected_version:
         raise VersionConflict(resource.version)
 
@@ -653,6 +960,25 @@ def update_resource(
             db.rollback()
             raise _translate_integrity_error(exc) from exc
 
+    if virtual_machine_values is not None:
+        vm_detail = resource.virtual_machine_detail
+        if vm_detail is None:
+            # Application invariant: a VIRTUAL_MACHINE always has a detail row
+            # (created in the same transaction; 0006 refuses pre-existing VMs).
+            raise AppError(message="virtual_machine detail is missing")
+        for field in VM_INT_FIELDS:
+            if field in virtual_machine_values:
+                setattr(vm_detail, field, virtual_machine_values[field])
+        if "hypervisor" in virtual_machine_values:
+            vm_detail.hypervisor = virtual_machine_values["hypervisor"]
+        if "host_resource_id" in virtual_machine_values:
+            vm_detail.host_resource_id = virtual_machine_values["host_resource_id"]
+        try:
+            db.flush()
+        except IntegrityError as exc:
+            db.rollback()
+            raise _translate_integrity_error(exc) from exc
+
     db.refresh(resource)
     audit.record(
         db,
@@ -674,12 +1000,23 @@ def delete_resource(
     *,
     expected_version: int,
 ) -> None:
-    """Soft delete (no cascade); blocked by undeleted references (F004: none)."""
+    """Soft delete (no cascade); blocked by undeleted references (F006: VMs).
+
+    The target row is locked ``FOR UPDATE`` before the reference check (DR-71)
+    so a concurrent VM create/rehost against this Host serialises: whichever
+    transaction commits first, the other observes it and returns 422/409 rather
+    than allowing a VM to reference a just-deleted Host.
+    """
     resource = get_resource(db, resource_id)
     if resource is None:
         raise NotFound()
     if resource.version != expected_version:
         raise VersionConflict(resource.version)
+
+    # DR-71: serialise with a concurrent VM create/rehost on this Host row.
+    db.execute(
+        select(Resource.id).where(Resource.id == resource_id).with_for_update()
+    ).first()
 
     references = cluster_service.check_references(db, OBJECT_TYPE, resource_id)
     if references:
