@@ -30,6 +30,7 @@ AUDITABLE_FIELDS: dict[str, tuple[str, ...]] = {
         "status",
         "description",
         "metadata",
+        "hardware",
     ),
 }
 

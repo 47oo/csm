@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import {
@@ -7,12 +7,14 @@ import {
   getResource,
   restoreResource,
   updateResource,
+  type Hardware,
   type Resource,
   type ResourceActionError,
   type UpdateResourcePayload,
 } from "../api/resources";
 import ResourceForm, { type ResourceFormValues } from "../components/ResourceForm";
 import { parseMetadataText } from "../components/ClusterForm";
+import { buildHardwarePatch, parseHardwareFormValues } from "../components/hardware";
 
 interface ResourceDetailPageProps {
   resourceId: string;
@@ -45,6 +47,8 @@ function detailLoadErrorMessage(error: unknown): string {
  * 构造 PATCH body（Contract §6.4）：仅携带变化字段（省略 = 保持原值不重置）。
  * description 变化时：空文本 → 显式 null（清空）；metadata 整值替换。
  * cluster / resource_type 不可改（表单只读展示，不上送）。
+ * hardware（F005，仅 BARE_METAL）：子字段级 exclude_unset 镜像——
+ * 省略 = 保持原值；清空输入 → 显式 null（清空该子字段）；VM 不携带 hardware 键。
  * 无任何变化返回 null（由调用方提示，不发起空更新）。
  */
 function buildUpdatePayload(
@@ -76,23 +80,124 @@ function buildUpdatePayload(
     payload.metadata = metadata.value;
     changed = true;
   }
+  if (resource.resource_type === "BARE_METAL") {
+    // VM 不携带 hardware 键（出现即 422，DR-51）；表单本地校验已拦截非法输入
+    const hardwareParsed = parseHardwareFormValues(values.hardware);
+    const hardwareMetadata = parseMetadataText(values.hardware.metadata);
+    if (hardwareParsed.ok && hardwareMetadata.ok) {
+      const hardwarePatch = buildHardwarePatch(resource.hardware, {
+        ...hardwareParsed.fields,
+        metadata: hardwareMetadata.value,
+      });
+      if (hardwarePatch !== null) {
+        payload.hardware = hardwarePatch;
+        changed = true;
+      }
+    }
+  }
 
   return changed ? payload : null;
 }
 
-/** F005+ 交付的 Detail 区域（Contract §9：本 Feature 仅交付 Overview，其余占位）。 */
+/** hardware 未知值占位（Contract §2.4：未知存 null，不以 0 代替）。 */
+function hardwareUnknown(): ReactNode {
+  return <span className="unset">—（未知）</span>;
+}
+
+/** 字符串字段：null / 缺失 → 占位，绝不伪装成空串。 */
+function hardwareText(value: string | null | undefined): ReactNode {
+  return value ?? hardwareUnknown();
+}
+
+/** 数值字段：null / 缺失 → 占位，绝不以 0 代替（gpu_count=0 另有专门文案）。 */
+function hardwareNumber(
+  value: number | null | undefined,
+  render: (value: number) => string = (n) => String(n),
+): ReactNode {
+  if (value === null || value === undefined) {
+    return hardwareUnknown();
+  }
+  return render(value);
+}
+
+/**
+ * memory_mb 展示：标注 MiB 单位并给出 GiB 换算（1 GiB = 1024 MiB，
+ * d01 §3；原样存储不换算，仅展示层换算）。整除用 “=”，非整除为约数用 “≈”。
+ */
+function formatMemoryMiB(memoryMb: number): string {
+  const gib = memoryMb / 1024;
+  if (Number.isInteger(gib)) {
+    return `${memoryMb} MiB（= ${gib} GiB）`;
+  }
+  const rounded = parseFloat(gib.toFixed(2));
+  const gibText = rounded > 0 ? String(rounded) : gib.toFixed(3);
+  return `${memoryMb} MiB（≈ ${gibText} GiB）`;
+}
+
+/**
+ * Hardware 区域（F005，§18；Contract §2.4/§3）：Manufacturer / Model /
+ * Serial Number / CPU Model / CPU Sockets / CPU Cores / Memory / GPU Model /
+ * GPU Count + hardware.metadata 扩展。仅 BARE_METAL 渲染（VM 不渲染，
+ * 由调用方保证）；未知子字段（null）显示占位，gpu_count=0 显示
+ * 「0（明确无 GPU）」与 null=未知可区分；cpu_cores 文案体现物理核语义。
+ */
+function HardwarePanel({ hardware }: { hardware: Hardware | null }) {
+  const metadataEmpty =
+    hardware === null || Object.keys(hardware.metadata).length === 0;
+  return (
+    <>
+      <h3 className="detail-section-title">Hardware（硬件信息）</h3>
+      <dl className="detail-grid">
+        <dt>manufacturer（厂商）</dt>
+        <dd>{hardwareText(hardware?.manufacturer)}</dd>
+        <dt>model（型号）</dt>
+        <dd>{hardwareText(hardware?.model)}</dd>
+        <dt>serial_number（序列号）</dt>
+        <dd>{hardwareText(hardware?.serial_number)}</dd>
+        <dt>cpu_model（CPU 型号）</dt>
+        <dd>{hardwareText(hardware?.cpu_model)}</dd>
+        <dt>cpu_sockets（CPU 插槽数）</dt>
+        <dd>{hardwareNumber(hardware?.cpu_sockets)}</dd>
+        <dt>cpu_cores（物理核心总数，不含超线程）</dt>
+        <dd>{hardwareNumber(hardware?.cpu_cores)}</dd>
+        <dt>memory_mb（内存容量）</dt>
+        <dd>{hardwareNumber(hardware?.memory_mb, formatMemoryMiB)}</dd>
+        <dt>gpu_model（GPU 型号）</dt>
+        <dd>{hardwareText(hardware?.gpu_model)}</dd>
+        <dt>gpu_count（GPU 数量）</dt>
+        <dd>
+          {hardwareNumber(hardware?.gpu_count, (n) =>
+            n === 0 ? "0（明确无 GPU）" : String(n),
+          )}
+        </dd>
+        <dt>hardware.metadata（厂商特有扩展）</dt>
+        <dd>
+          {metadataEmpty ? (
+            <span className="unset">—（无扩展数据）</span>
+          ) : (
+            <pre className="json-block">
+              {JSON.stringify(hardware?.metadata, null, 2)}
+            </pre>
+          )}
+        </dd>
+      </dl>
+    </>
+  );
+}
+
+/** F007+ 交付的 Detail 区域（Contract §9：Hardware 已随 F005 交付，其余占位）。 */
 const PLACEHOLDER_AREAS: { title: string; note: string }[] = [
-  { title: "硬件信息（Hardware）", note: "物理机 / 虚拟机硬件明细，F005+ 提供" },
-  { title: "接口信息（Interfaces）", note: "网络接口明细，F005+ 提供" },
+  { title: "接口信息（Interfaces）", note: "网络接口明细，F007+ 提供" },
   { title: "IP 地址（IP）", note: "IP 地址与分配明细，后续 Feature 提供" },
   { title: "虚拟机（VMs）", note: "宿主机上的虚拟机列表，后续 Feature 提供" },
   { title: "服务（Services）", note: "运行服务登记，后续 Feature 提供" },
 ];
 
 /**
- * F004 资源详情页（Contract §3/§5/§6.3–§6.6，§9 业务边界）：
+ * F004 资源详情页（Contract §3/§5/§6.3–§6.6，§9 业务边界）+ F005 Hardware 区域：
  * - Overview 六要素：Hostname / Cluster / Type / Role / Status / Description
- *   （§18）；Hardware / Interfaces / IP / VMs / Services 区域占位（F005+）；
+ *   （§18）；Hardware 区域仅 BARE_METAL 渲染（F005；VM 不渲染），
+ *   Interfaces / IP / VMs / Services 区域占位（F007+）；
  * - 编辑：PATCH 带 version；仅变化字段；cluster / resource_type 不可改（只读展示）；
  *   409 VERSION_CONFLICT → 提示刷新后重改（不静默重试）；
  * - 删除（软删，DELETE_OBJECT）：需确认，409 VERSION_CONFLICT / reference_exists 明确呈现；
@@ -301,6 +406,10 @@ export default function ResourceDetailPage({
               {state.resource.description ?? <span className="unset">未设置（null）</span>}
             </dd>
           </dl>
+
+          {state.resource.resource_type === "BARE_METAL" && (
+            <HardwarePanel hardware={state.resource.hardware} />
+          )}
 
           <h3 className="detail-section-title">系统信息</h3>
           <dl className="detail-grid">

@@ -22,6 +22,9 @@ Rules:
   is already trimmed and ASCII-lowered), matching the database
   ``translate(btrim(hostname), ...)`` CHECK. ``str.lower()`` must NOT be used
   (it maps ``İ``/``ß`` inconsistently with the database).
+- ``hardware`` string (F005, D01 §5.4): strip surrounding whitespace, non-empty
+  (empty/whitespace-only is a 422, never ``null``), no Cc/Cf, length <= 255 code
+  points, no case folding and no uniqueness.
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ from app.core.errors import ValidationError
 CODE_MAX_LENGTH = 64
 NAME_MAX_LENGTH = 255
 HOSTNAME_MAX_LENGTH = 253
+HARDWARE_STRING_MAX_LENGTH = 255
 
 
 def _control_characters(value: str) -> bool:
@@ -129,4 +133,27 @@ def normalize_name(value: str) -> str:
         raise _field_error("name", f"name must be at most {NAME_MAX_LENGTH} characters")
     if _control_characters(normalized):
         raise _field_error("name", "name must not contain control characters")
+    return normalized
+
+
+def validate_hardware_string(field: str, value: str) -> str:
+    """Validate a BareMetal hardware string field (D01 §5.4, DR-52).
+
+    Trim surrounding whitespace -> non-empty -> no Cc/Cf control characters ->
+    length <= 255 code points. Empty / whitespace-only becomes a 422
+    ``ValidationError`` (never ``null``); explicit ``null`` is handled by the
+    caller before this function is reached. No case folding, no uniqueness.
+    """
+    if not isinstance(value, str):
+        raise _field_error(field, f"{field} must be a string")
+    normalized = value.strip()
+    if not normalized:
+        raise _field_error(field, f"{field} must not be blank")
+    if len(normalized) > HARDWARE_STRING_MAX_LENGTH:
+        raise _field_error(
+            field,
+            f"{field} must be at most {HARDWARE_STRING_MAX_LENGTH} characters",
+        )
+    if _control_characters(normalized):
+        raise _field_error(field, f"{field} must not contain control characters")
     return normalized
