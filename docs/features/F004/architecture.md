@@ -163,3 +163,15 @@ Contract：docs/api/F004.md 置 READY，签核 D01 Resource 域字段 + D02 审�
 ## 9. 结论与下一步
 
 Status READY FOR DESIGN。无 Blocking Questions。下一步：DATABASE Gate 定稿 docs/database/f004-resource.md；TEST_DESIGN 核对可验证性；CONTRACT 定稿 docs/api/F004.md 并签核 D01 Resource 域字段 + D02 审计/乐观锁；完成后出 READY FOR IMPLEMENTATION。
+
+
+## 10. 最终设计定稿（CONTRACT Gate 签核）
+
+- **状态**：`READY FOR IMPLEMENTATION`
+- **签核**：Architect，2026-10-08；Contract：docs/api/F004.md v1（READY）
+- **核对版本**：requirements-v3.md revision 3；F004 product.md（A1–A13）；architecture DR-34–DR-45；docs/database/f004-resource.md v1（Database 2026-10-08）；docs/features/F004/test-report.md TD-1（Tester 2026-10-07）；d01-conventions.md v3；f003-cluster.md v2；api/F003.md v2；api/F002.md v1。
+- **DB I-1 关闭**：hostname 长度裁定 1–253（FQDN 表示上限）；字符集宽松（非空、无首尾/内部空白、无 Cc/Cf、允许 Unicode）；折叠仅 ASCII A-Z→a-z（应用/DB 同口径，禁用 str.lower()/lower()）；DB-D37 由 PROPOSED 落为 DESIGN。D01 §5.3 固化。无需 Product 核对。
+- **一致性**：A1–A13 与架构/DB-D33–D44/TD-1 逐项核对通过；hostname 部分唯一、不可改字段触发器、cluster 引用检查、CONFLICT/VERSION_CONFLICT、枚举/默认、metadata、time/省略语义一致。
+- **D01/D02 签核**：D01 Resource 域字段契约（键列/长度/字符集/部分唯一/枚举默认/422/稳定 ID/时间）与 D02 审计一致性/乐观锁部分（复用 F003 §8 / F002 §6）签核完成。
+- **实现分工**：Backend（models/resource.py、schemas/resource.py、services/resource.py、api/v1/resources.py+router；normalization.py 增 hostname 函数 ASCII-only 禁用 str.lower()；注册 cluster←resources 引用检查器；复用 audit/errors/db；迁移 0004 由 Database 设计）；Frontend（Resources 列表/详情/表单/已删恢复）；Tester（§5 A1–A13、TD-1 B1–B46）。
+- **遗留（不阻塞实现，TEST Gate 前闭合）**：F004-TD-1-01（TD-1 §0/B5 的 hostname_key 折叠方向笔误，应为小写 translate(...'ABC…','abc…')），由 Tester 升 TD-2 修正后方可执行 B5。
