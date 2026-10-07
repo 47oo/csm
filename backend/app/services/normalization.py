@@ -6,8 +6,11 @@ CSV/Excel import later (D01 §7): do not duplicate these rules elsewhere.
 Rules:
 - ``code``: strip surrounding Unicode whitespace, non-empty, no internal
   whitespace, no control characters (Unicode Cc/Cf), length 1-64 code points,
-  case and Unicode (including CJK) preserved. ``code_key = upper(code)`` is the
-  case-insensitive full-uniqueness key (internal, never exposed).
+  case and Unicode (including CJK) preserved. ``code_key`` is the
+  case-insensitive full-uniqueness key (internal, never exposed): it folds only
+  ASCII ``a-z`` to ``A-Z`` and leaves every other code point (including
+  non-ASCII letters such as ``ß`` or the ``ﬁ`` ligature) unchanged, matching the
+  locale-independent database CHECK ``translate(btrim(code), ...)``.
 - ``name``: strip surrounding whitespace, non-empty, no control characters
   (Cc/Cf), length 1-255 code points; internal ordinary spaces and case are
   preserved; no uniqueness.
@@ -48,9 +51,22 @@ def normalize_code(value: str) -> str:
     return normalized
 
 
+# ASCII-only case folding: only a-z are folded; non-ASCII code points are kept
+# verbatim so Python and PostgreSQL ``translate(btrim(code), ...)`` agree in any
+# database locale (review F003-REV-1).
+_ASCII_FOLD = str.maketrans(
+    "abcdefghijklmnopqrstuvwxyz", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+)
+
+
 def code_key(code: str) -> str:
-    """Return the normalisation key ``upper(btrim(code))`` (DB-D22)."""
-    return code.strip().upper()
+    """Return the normalisation key ``translate(btrim(code))`` (DB-D22).
+
+    Only ASCII ``a-z`` are upper-cased; non-ASCII code points are preserved,
+    matching the database CHECK constraint and avoiding locale-dependent
+    multi-code-point case mappings (``straße`` -> ``STRAßE``, ``ﬁle`` -> ``ﬁLE``).
+    """
+    return code.strip().translate(_ASCII_FOLD)
 
 
 def normalize_name(value: str) -> str:

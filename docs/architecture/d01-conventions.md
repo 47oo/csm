@@ -1,9 +1,9 @@
 # D01 共享约定基座 — 字段、归一化、时间与省略语义
 
 - **状态**：READY（专业设计签核）
-- **版本**：v1
-- **签核**：Architect，2026-10-06
-- **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v1；docs/database/f003-cluster.md v1；F001 DR-06 / DB-D13。
+- **版本**：v2
+- **签核**：Architect，2026-10-07（v2 修订；v1 签核 2026-10-06）
+- **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v2；docs/database/f003-cluster.md v2；F001 DR-06 / DB-D13。
 - **覆盖**：API 与导入共用的字段格式、稳定 ID、时间、单位、nullable/PATCH 省略语义、名称归一化口径。F003 首落地签核；后续 Feature 引用本文件不重复定义；数据库列级设计仍归各 Feature Database 文档。
 
 ## 1. 稳定 ID（§4 / DB-D13）
@@ -40,15 +40,23 @@
 
 | 对象 | 唯一范围 | 大小写 | 内部空白 | 归一化键 | 删除后复用 |
 | --- | --- | --- | --- | --- | --- |
-| Cluster code | 全局（含软删） | 不敏感 | 禁止（含内部） | code_key=upper(btrim(code))，全量唯一 | 否 |
+| Cluster code | 全局（含软删） | 仅 ASCII 字母不敏感（非 ASCII 原样） | 禁止（含内部） | code_key=ASCII_upper(btrim(code))，全量唯一 | 否 |
 | Cluster name | 无唯一 | 保留 | 允许普通空格 | 仅 trim+校验 | n/a |
 | Resource hostname | 同 Cluster（未删除） | 不敏感（存小写） | 禁止 | 小写+trim；部分唯一 WHERE deleted_at IS NULL | 是 |
 | Interface name | 同 Resource | 区分（保留） | 禁止 | trim；部分唯一 | 是 |
 | Network/IPPool/Service name | 各自作用域 | 不敏感（保留展示） | 允许单个普通空格（不自动合并） | 归一化键+部分唯一 | 是 |
 
-### 5.1 Cluster code 字符集（D01 裁定，F003 I-1）
+### 5.1 Cluster code 字符集与大小写折叠（D01 裁定，F003 I-1；v2 修订 F003-REV-1）
 
-服务端 trim 首尾空白；trim 后非空；禁止内部空白与控制字符；允许中文及其它 Unicode 字符；长度（Unicode code point）1–64；保留大小写。依据 §5 未限定 code 字符集（示例含中文候选）与 §4.1 通用规则。若后续 Product 确认 ASCII-only，改严格正则；无历史数据时成本低。
+服务端 trim 首尾空白；trim 后非空；禁止内部空白与控制字符；允许中文及其它 Unicode 字符；长度（Unicode code point）1–64；保留展示大小写。
+
+**code_key 仅对 ASCII `a-z` 折叠为 `A-Z`，其余码位原样保留**（应用与 DB 同一口径）：
+
+- 应用：对 `btrim(code)` 逐字符，仅 `[a-z]`→`[A-Z]`；不得使用 `str.upper()`（其对 ß→SS、ﬁ→FI 等多码位映射，且随 Unicode 版本变化）。
+- DB：`translate(btrim(code), 'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')`；不得使用 `upper()`（其大小写映射依赖 collation/locale）。
+- 理由：应用与 DB 完全一致，与 locale / Unicode 大小写表解耦，结果可预测。中文等无大小写字符不受影响；`ß`/`ﬁ` 等保持原样（如 `straße`→`STRAßE`，不与 `STRASSE` 折叠为同一键）。ASCII 范围的大小写不敏感唯一由 code_key 承载。
+
+依据 §5 未限定 code 字符集（示例含中文候选）与 §4.1 通用规则。若后续 Product 确认 ASCII-only，改严格正则；无历史数据时成本低。
 
 ### 5.2 长度口径
 
@@ -61,3 +69,10 @@ Cluster code 64；Cluster name 255；其它对象字符/长度在各 Feature Dat
 ## 7. 变更与引用
 
 本文件为 D01 共享约定的单一权威来源；API Contract、数据库设计与导入校验引用之，不复制发散。修改本节约定需 Architect 签核；涉及已确认业务口径时交 Product 核对。
+
+## 8. 修订记录
+
+| 版本 | 日期 | 变更 | 原因 |
+| --- | --- | --- | --- |
+| v1 | 2026-10-06 | 首版（F003 落地签核） | — |
+| v2 | 2026-10-07 | 明确 code_key 仅 ASCII 字母折叠、非 ASCII 原样保留；同步 §5 表与 §5.1 | F003-REV-1 |

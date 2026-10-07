@@ -118,6 +118,69 @@ def test_code_case_insensitive_uniqueness(role_client_factory, auth_session_fact
         assert session.execute(select(Cluster)).scalars().one().code_key == "N96P"
 
 
+def test_code_multicode_unicode_ascii_only_key(
+    role_client_factory, auth_session_factory
+):
+    """F003-REV-1: multi-code-point Unicode codes succeed; code_key folds ASCII only.
+
+    Python ``str.upper()`` maps ``ß``/``ﬁ`` to multiple/single ASCII code points
+    (``STRASSE``/``FILE``) while locale-independent PostgreSQL ``upper()`` does
+    not; the shared rule is now ASCII ``a-z`` only folding, so these are accepted
+    and store the DB-matching key.
+    """
+    client, _, _ = role_client_factory("EDITOR")
+    for raw in (" straße ", "ﬁle"):
+        resp = _create(client, code=raw, name="unicode")
+        assert resp.status_code == 201, (raw, resp.text)
+        assert resp.json()["cluster"]["code"] == raw.strip()
+
+    assert _create(client, code="山河3", name="中文").status_code == 201
+
+    with auth_session_factory() as session:
+        keys = {
+            row.code: row.code_key for row in session.execute(select(Cluster)).scalars()
+        }
+        assert keys["straße"] == "STRAßE"
+        assert keys["ﬁle"] == "ﬁLE"
+        assert keys["山河3"] == "山河3"
+
+    # ASCII folding still drives case-insensitive uniqueness.
+    assert _create(client, code="N96P", name="first").status_code == 201
+    for variant in ("n96p", "N96P", " n96p "):
+        dup = _create(client, code=variant, name="dup")
+        assert dup.status_code == 409, (variant, dup.text)
+        assert dup.json()["error"]["details"] == {
+            "reason": "unique_conflict",
+            "field": "code",
+        }
+
+
+def test_integrity_error_translation_unique_vs_check():
+    """F003-REV-1: DB integrity failures map to clean 409/422, never a 500."""
+    from sqlalchemy.exc import IntegrityError
+
+    from app.core.errors import Conflict, ValidationError
+    from app.services.cluster import _translate_integrity_error
+
+    def _error(constraint: str) -> IntegrityError:
+        class _Diag:
+            constraint_name = constraint
+
+        class _Orig:
+            diag = _Diag()
+
+        return IntegrityError("INSERT", {}, _Orig())
+
+    unique = _translate_integrity_error(_error("uq_clusters_code_key"))
+    assert isinstance(unique, Conflict)
+    assert unique.status_code == 409
+    assert unique.details == {"reason": "unique_conflict", "field": "code"}
+
+    check = _translate_integrity_error(_error("ck_clusters_code_key_matches"))
+    assert isinstance(check, ValidationError)
+    assert check.status_code == 422
+
+
 def test_code_full_unique_survives_soft_delete(role_client_factory):
     client, _, _ = role_client_factory("ADMIN")
     created = _create(client, code="N96P", name="first").json()["cluster"]

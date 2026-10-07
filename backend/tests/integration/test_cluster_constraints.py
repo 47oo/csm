@@ -125,6 +125,19 @@ def test_code_key_matches_and_format_checks(committed_engine):
     # CJK is accepted (D01 §5.1)
     with engine.begin() as conn:
         assert insert_cluster(conn, code="山河3", code_key="山河3", name="n")
+    # F003-REV-1: code_key folding is locale-independent ASCII-only translate();
+    # non-ASCII code points are preserved, not Unicode upper-cased.
+    with engine.begin() as conn:
+        assert insert_cluster(conn, code="straße", code_key="STRAßE", name="n")
+        assert insert_cluster(conn, code="ﬁle", code_key="ﬁLE", name="n")
+    _expect_violation(
+        engine,
+        "INSERT INTO clusters (code, code_key, name) VALUES ('straße', 'STRASSE', 'n')",
+    )
+    _expect_violation(
+        engine,
+        "INSERT INTO clusters (code, code_key, name) VALUES ('ﬁle', 'FILE', 'n')",
+    )
 
 
 def test_name_status_metadata_version_checks(committed_engine):

@@ -5,8 +5,10 @@ short names let the ``Base`` naming convention expand them to the
 fully-qualified names from the database design (``ck_clusters_<name>``).
 
 ``code`` is the display value (trimmed, case/structure preserved) and ``code_key``
-is the internal, non-exposed normalisation key ``upper(btrim(code))`` that
-carries case-insensitive full uniqueness (including soft-deleted rows). The
+is the internal, non-exposed normalisation key that carries case-insensitive
+full uniqueness (including soft-deleted rows). Only ASCII ``a-z`` are folded to
+``A-Z``; non-ASCII code points are kept verbatim (locale-independent, matching
+``app.services.normalization.code_key`` and the migration CHECK). The
 ``metadata`` property is named ``meta`` on the ORM class because ``metadata`` is
 reserved by SQLAlchemy's declarative machinery; the underlying column remains
 ``metadata``.
@@ -77,7 +79,10 @@ class Cluster(SoftDeleteMixin, Base):
             "char_length(code_key) BETWEEN 1 AND 64", name="code_key_length"
         ),
         CheckConstraint(
-            "code_key = upper(btrim(code))", name="code_key_matches"
+            "code_key = translate(btrim(code), "
+            "'abcdefghijklmnopqrstuvwxyz', "
+            "'ABCDEFGHIJKLMNOPQRSTUVWXYZ')",
+            name="code_key_matches",
         ),
         CheckConstraint("btrim(name) <> ''", name="name_not_blank"),
         CheckConstraint("name = btrim(name)", name="name_trimmed"),

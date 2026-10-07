@@ -14,7 +14,13 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 
-from app.core.errors import Conflict, NotFound, ValidationError, VersionConflict
+from app.core.errors import (
+    AppError,
+    Conflict,
+    NotFound,
+    ValidationError,
+    VersionConflict,
+)
 from app.models.cluster import Cluster
 from app.services import audit, normalization
 
@@ -105,6 +111,22 @@ def cluster_snapshot(cluster: Cluster) -> dict[str, Any]:
 
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _translate_integrity_error(exc: IntegrityError) -> AppError:
+    """Map an unexpected database integrity failure to a clean app error.
+
+    A ``uq_clusters_code_key`` violation is the documented concurrent-create
+    race and becomes 409 ``Conflict{unique_conflict}``. Any other CHECK/UNIQUE
+    failure means the application validation and the database constraint
+    diverged; it is surfaced as a clean 422 instead of an unhandled 500 (which
+    would leak a stack trace). The caller must have rolled back first.
+    """
+    diag = getattr(getattr(exc, "orig", None), "diag", None)
+    constraint = getattr(diag, "constraint_name", None) or ""
+    if "uq_clusters_code_key" in constraint or "uq_clusters_code_key" in str(exc):
+        return Conflict.unique_conflict("code")
+    return ValidationError(message="cluster write rejected by a database constraint")
 
 
 def _query_options(include_deleted: bool) -> dict[str, Any]:
@@ -257,9 +279,7 @@ def create_cluster(
         db.flush()
     except IntegrityError as exc:  # concurrent create lost the race on the UNIQUE
         db.rollback()
-        if "uq_clusters_code_key" in str(getattr(exc, "orig", exc)):
-            raise Conflict.unique_conflict("code") from exc
-        raise
+        raise _translate_integrity_error(exc) from exc
 
     audit.record(
         db,
@@ -303,19 +323,23 @@ def update_cluster(
     values["version"] = Cluster.version + 1
     values["updated_at"] = func.now()
 
-    result = db.execute(
-        update(Cluster)
-        .where(
-            Cluster.id == cluster_id,
-            Cluster.version == expected_version,
-            Cluster.deleted_at.is_(None),
+    try:
+        result = db.execute(
+            update(Cluster)
+            .where(
+                Cluster.id == cluster_id,
+                Cluster.version == expected_version,
+                Cluster.deleted_at.is_(None),
+            )
+            .values(**values)
         )
-        .values(**values)
-    )
-    if result.rowcount == 0:
-        _raise_update_conflict(db, cluster_id)
+        if result.rowcount == 0:
+            _raise_update_conflict(db, cluster_id)
 
-    db.flush()
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise _translate_integrity_error(exc) from exc
     db.refresh(cluster)
     audit.record(
         db,
@@ -400,23 +424,27 @@ def restore_cluster(
         raise Conflict.dependency_deleted(dependency_conflicts)
 
     before = cluster_snapshot(cluster)
-    result = db.execute(
-        update(Cluster)
-        .where(
-            Cluster.id == cluster_id,
-            Cluster.version == expected_version,
-            Cluster.deleted_at.is_not(None),
+    try:
+        result = db.execute(
+            update(Cluster)
+            .where(
+                Cluster.id == cluster_id,
+                Cluster.version == expected_version,
+                Cluster.deleted_at.is_not(None),
+            )
+            .values(
+                deleted_at=None,
+                version=Cluster.version + 1,
+                updated_at=func.now(),
+            )
         )
-        .values(
-            deleted_at=None,
-            version=Cluster.version + 1,
-            updated_at=func.now(),
-        )
-    )
-    if result.rowcount == 0:
-        _raise_update_conflict(db, cluster_id, include_deleted=True)
+        if result.rowcount == 0:
+            _raise_update_conflict(db, cluster_id, include_deleted=True)
 
-    db.flush()
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise _translate_integrity_error(exc) from exc
     db.refresh(cluster)
     audit.record(
         db,

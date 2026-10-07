@@ -91,7 +91,10 @@ def upgrade() -> None:
             name=op.f("ck_clusters_code_key_length"),
         ),
         sa.CheckConstraint(
-            "code_key = upper(btrim(code))", name=op.f("ck_clusters_code_key_matches")
+            "code_key = translate(btrim(code), "
+            "'abcdefghijklmnopqrstuvwxyz', "
+            "'ABCDEFGHIJKLMNOPQRSTUVWXYZ')",
+            name=op.f("ck_clusters_code_key_matches"),
         ),
         sa.CheckConstraint("btrim(name) <> ''", name=op.f("ck_clusters_name_not_blank")),
         sa.CheckConstraint("name = btrim(name)", name=op.f("ck_clusters_name_trimmed")),

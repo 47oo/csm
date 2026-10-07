@@ -1,6 +1,6 @@
 # F003 Cluster 管理与持久化横切首落地 — DATABASE 设计
 
-- **签核**：Database；设计版本 v1（2026-10-06）
+- **签核**：Database；设计版本 v2（2026-10-07，变更原因 F003-REV-1 归一化口径修正；v1 2026-10-06）
 - **上游依据**：requirements-v3.md revision 3（§4、§4.1、§5、§21、§22、§23、§27、§35.3 D01/D02）；docs/features/F003/product.md；docs/features/F003/architecture.md（§4、§8、DR-17–DR-33）；docs/database/f001-baseline.md v1（DB-D1–D12）；docs/database/f002-auth.md v1（DB-D13–D19）
 - **覆盖**：clusters / audit_logs 实体、约束、索引；迁移 0003_clusters_audit；四项交核裁定；Backend 可依赖保证与测试项。不覆盖 F004+ 关系表/通用部分唯一、F015 完整审计查询、docs/api/F003.md（Architect）。
 
@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | DB-D20 | clusters.id/audit_logs.id 用 PG 原生 UUID gen_random_uuid()（沿用 DB-D13） | DESIGN |
 | DB-D21 | clusters.status varchar(16)+CHECK（不用原生 ENUM） | DESIGN |
-| DB-D22 | Cluster 存展示列 code + 归一化键 code_key=upper(btrim(code))；code_key **全量唯一（无 deleted_at 谓词）** | CONFIRMED（§5/§21） |
+| DB-D22 | Cluster 存展示列 code + 归一化键 `code_key=translate(btrim(code),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')`（**仅 ASCII 字母折叠、locale 无关，非 ASCII 原样保留**）；code_key **全量唯一（无 deleted_at 谓词）** | CONFIRMED（§5/§21）+ DESIGN（v2，REV-1） |
 | DB-D23 | code 字符集按 D01：去首尾空白、非空、无空白/控制字符、char_length≤64；大小写不敏感由 code_key 承载（**不含 ASCII 限制，保留中文**——见 §8 I-1） | DESIGN（D01） |
 | DB-D24 | name 允许中文、保留展示，trim/非空/无控制字符、≤255、无唯一 | CONFIRMED（§5/§4.1） |
 | DB-D25 | metadata jsonb NOT NULL DEFAULT '{}' + jsonb_typeof='object' CHECK | DESIGN |
@@ -28,7 +28,7 @@
 | --- | --- | --- | --- | --- |
 | id | UUID | NOT NULL | gen_random_uuid() | PK pk_clusters |
 | code | varchar(64) | NOT NULL | — | 展示列(trim)；ck_clusters_code_not_blank/trimmed/no_ws_control/length |
-| code_key | varchar(64) | NOT NULL | — | ck_clusters_code_key_matches(code_key=upper(btrim(code)))+not_blank/length |
+| code_key | varchar(64) | NOT NULL | — | ck_clusters_code_key_matches(`code_key=translate(btrim(code),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')`)+not_blank/length |
 | name | varchar(255) | NOT NULL | — | ck_clusters_name_not_blank/trimmed/no_control |
 | status | varchar(16) | NOT NULL | 'ACTIVE' | ck_clusters_status IN ('ACTIVE','INACTIVE') |
 | description | text | NULL | — | |
@@ -38,6 +38,8 @@
 | deleted_at | timestamptz | NULL | — | 软删 |
 
 唯一/索引：**uq_clusters_code_key UNIQUE(code_key) 全量唯一（含软删）** 实现 §5 code 不重用 + §27 DB 兜底；ix_clusters_status；ix_clusters_deleted_at；不建 pg_trgm GIN（DB-D30）。
+
+**code_key 归一化口径（v2，REV-1）**：`code_key = translate(btrim(code), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')`。仅对 ASCII 小写字母折叠为大写，**不依赖数据库 locale / collation**，非 ASCII 码位（含中文、`ß`、`ﬁ`）原样保留。应用侧必须使用完全相同的 ASCII-only 折叠规则生成 code_key（v1 的 PG `upper()` 与 Python `str.upper()` 对多码位 Unicode 映射不一致，会触发 `ck_clusters_code_key_matches` CheckViolation，见 REV-1）。中文无大小写不受影响。
 
 code 不可改（DB-D32）：触发器 trg_clusters_code_immutable 在 NEW.code/code_key IS DISTINCT FROM OLD 时抛异常；应用层 PATCH code 仍返 422。软删/恢复仅改 deleted_at/version 不受影响。
 
@@ -71,6 +73,8 @@ append-only：DB 行级触发器 trg_audit_logs_append_only（BEFORE UPDATE OR D
 ## 5. 迁移 0003_clusters_audit
 
 revision="0003_clusters_audit"、down_revision="0002_users_sessions"；单一 head。upgrade：先建 clusters（+索引+code 不可改触发器），后建 audit_logs（FK→users 需 0002；+索引+append-only 触发器）。downgrade：逆序 drop 触发器/函数/索引/表。命名按 DB-D6，约束/触发器名显式全给（autogenerate 不识别 CHECK/触发器，手写）。新表无回填，迁移只建 Schema。
+**v2 变更（REV-1）**：`ck_clusters_code_key_matches` 表达式由 PG `upper(btrim(code))` 改为 `translate(...)`（模型 `backend/app/models/cluster.py` 与迁移 0003 同步）。F003 尚未合并/部署，`clusters` 无既有数据，无需回填。
+
 **downgrade 数据安全策略**：部署后表内已有 Cluster 与持续保留的 Audit（§22），downgrade 会破坏审计历史；生产回滚不得用 downgrade，须以 F001 全库备份恢复；downgrade 仅用于开发/测试 up/down/up。结构可逆≠数据可逆。
 
 ## 6. 数据完整性对应表
@@ -92,8 +96,8 @@ revision="0003_clusters_audit"、down_revision="0002_users_sessions"；单一 he
 
 ## 7. Backend 可依赖保证与测试项
 
-保证：code_key 全量唯一且 code 不可改；code/name trim/非空/无空白或控制字符/长度由 CHECK 保证；status 仅 ACTIVE/INACTIVE 默认 ACTIVE；metadata 必为 object 默认 {}；version ≥1 默认 1；audit 至少一方快照、action 受 CHECK、operator FK RESTRICT、UPDATE/DELETE 被触发器拒绝；audit 无 deleted_at/version 不随对象删除；0003 有真实 downgrade。
-计划测试项（真实 PG）：V-DB-8 up/down/up；V-DB-9 重复 code（含大小写/空白）与软删后重建拒绝；V-DB-10 code_key 不一致拒绝；V-DB-11 code 空/空白/控制/超长拒绝 + UPDATE code 被触发器拒绝；V-DB-12 name 空/控制/带首尾空白拒绝；V-DB-13 非法 status 拒绝 + 默认 ACTIVE；V-DB-14 非 object metadata 拒绝 + 默认 {}；V-DB-15 version 默认 1/<1 拒绝；V-DB-16 audit 非法 action/双空快照/非 object 快照拒绝 + UPDATE/DELETE 抛异常 + 有审计用户 DELETE 被 RESTRICT + TRUNCATE 可用；V-DB-17 约束/索引/触发器/函数存在断言。
+保证：code_key 全量唯一且 code 不可改；code_key 与应用同口径（**仅 ASCII 字母折叠、locale 无关**）；code/name trim/非空/无空白或控制字符/长度由 CHECK 保证；status 仅 ACTIVE/INACTIVE 默认 ACTIVE；metadata 必为 object 默认 {}；version ≥1 默认 1；audit 至少一方快照、action 受 CHECK、operator FK RESTRICT、UPDATE/DELETE 被触发器拒绝；audit 无 deleted_at/version 不随对象删除；0003 有真实 downgrade。
+计划测试项（真实 PG）：V-DB-8 up/down/up；V-DB-9 重复 code（含大小写/空白）与软删后重建拒绝；V-DB-10 code_key 不一致拒绝 + **多码位 Unicode（`ß`/`ﬁ`）按 ASCII-only 口径成功且 code_key 与 translate 一致**；V-DB-11 code 空/空白/控制/超长拒绝 + UPDATE code 被触发器拒绝；V-DB-12 name 空/控制/带首尾空白拒绝；V-DB-13 非法 status 拒绝 + 默认 ACTIVE；V-DB-14 非 object metadata 拒绝 + 默认 {}；V-DB-15 version 默认 1/<1 拒绝；V-DB-16 audit 非法 action/双空快照/非 object 快照拒绝 + UPDATE/DELETE 抛异常 + 有审计用户 DELETE 被 RESTRICT + TRUNCATE 可用；V-DB-17 约束/索引/触发器/函数存在断言 + ck_clusters_code_key_matches 使用 translate（不含 `upper(`）。
 
 ## 8. 未验证项与风险（含交核事项）
 
@@ -101,5 +105,13 @@ revision="0003_clusters_audit"、down_revision="0002_users_sessions"；单一 he
 - I-2（LOW）：code varchar(64)/name varchar(255)/operator_username varchar(64) 长度口径需 API 契约镜像。
 - I-3（LOW）：触发器受控禁用流程写入运维/迁移说明。
 - I-4（NOTE）：pg_trgm GIN 延后，F004/F013 决定。
+- **I-6（LOW，非阻塞，REV-2 已知差异）**：DB `ck_clusters_code_no_ws_control`/`ck_clusters_name_no_control` 用 `!~ '[[:space:][:cntrl:]]'`，在 PG locale（如 en_US.utf8）下仅覆盖 ASCII/有限范围，**弱于**应用对 Unicode Cc/Cf 与 `isspace()` 的校验；API 路径由应用拦截无绕过，DB 仅为 backstop，记录为已知差异，不阻塞。
 - I-5（NOTE）：软删可见性非 DB 保证，with_loader_criteria 按 Mixin 作用域注入，列 Backend 集成测试。
 - 只读签核，全部为计划验证无 PASS。
+
+## 9. 设计版本历史
+
+| 版本 | 日期 | 变更 |
+| --- | --- | --- |
+| v1 | 2026-10-06 | 初次签核（DB-D20–D32）；code_key=upper(btrim(code))。 |
+| v2 | 2026-10-07 | 依 F003-REV-1 修正 code_key 归一化为仅 ASCII 字母折叠：`translate(btrim(code),'abcdefghijklmnopqrstuvwxyz','ABCDEFGHIJKLMNOPQRSTUVWXYZ')`，locale 无关，与应用一致；同步 §1 DB-D22、§2、§5、§6、§7。依 F003-REV-2 将 DB 空白/控制字符 CHECK 记录为 ASCII 范围 backstop 已知差异（I-6）。 |
