@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
@@ -37,6 +38,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, SoftDeleteMixin
 from app.models.cluster import Cluster
+
+if TYPE_CHECKING:
+    from app.models.bare_metal_detail import BareMetalDetail
 
 
 class Resource(SoftDeleteMixin, Base):
@@ -85,6 +89,14 @@ class Resource(SoftDeleteMixin, Base):
     # ``include_deleted=True`` so a soft-deleted cluster is still shown for a
     # soft-deleted resource.
     cluster: Mapped["Cluster"] = relationship("Cluster", lazy="select")
+
+    # 1:1 lifecycle-bound hardware detail (F005). Absent for VIRTUAL_MACHINE.
+    bare_metal_detail: Mapped["BareMetalDetail | None"] = relationship(
+        "BareMetalDetail",
+        back_populates="resource",
+        uselist=False,
+        lazy="select",
+    )
 
     __table_args__ = (
         # Partial unique index, not a UniqueConstraint: soft-deleted rows must

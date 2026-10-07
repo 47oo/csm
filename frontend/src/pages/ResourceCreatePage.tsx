@@ -5,11 +5,13 @@ import { listClusters, type Cluster } from "../api/clusters";
 import {
   createResource,
   describeResourceActionError,
+  type HardwareInput,
   type Resource,
   type ResourceActionError,
 } from "../api/resources";
 import ResourceForm, { type ResourceFormValues } from "../components/ResourceForm";
 import { parseMetadataText } from "../components/ClusterForm";
+import { buildHardwareCreateInput, parseHardwareFormValues } from "../components/hardware";
 
 interface ResourceCreatePageProps {
   user: User;
@@ -25,12 +27,14 @@ type ClusterOptionsState =
   | { kind: "error"; message: string };
 
 /**
- * F004 资源创建页（Contract §6.2）：
+ * F004 资源创建页（Contract §6.2）+ F005 hardware（Contract v2 §2.4）：
  * - cluster / hostname / resource_type 必填；role 默认 OTHER、status 默认 UNKNOWN（可选）；
  * - cluster 下拉来自 GET /clusters（READ，全角色；仅未删除集群——已删集群创建必 422）；
+ * - hardware（仅 BARE_METAL）：仅携带已登记子字段（省略 → null，无默认 0）；
+ *   全部留空 → 整体省略 hardware 键；VM 不提交 hardware（出现即 422，DR-51）；
  * - 409 CONFLICT{unique_conflict} → hostname 字段级错误（软删资源不占用 hostname）；
  * - 422 VALIDATION_ERROR → details.fields 字段级错误（cluster 缺失/不存在/软删固定
- *   落 field="cluster"）；403 → 明确提示。
+ *   落 field="cluster"；hardware 为点路径 hardware.<field>）；403 → 明确提示。
  * 入口按钮已按 WRITE 隐藏；此处再显式拦截（服务端仍是权威）。
  */
 export default function ResourceCreatePage({ user, onCancel, onCreated }: ResourceCreatePageProps) {
@@ -87,6 +91,20 @@ export default function ResourceCreatePage({ user, onCancel, onCreated }: Resour
     if (!metadata.ok) {
       return; // 表单本地校验已拦截，防御性返回
     }
+    // hardware（F005）：仅 BARE_METAL 构造；全部留空 → 省略键（等效全 null）。
+    // 表单本地校验已拦截非法输入；此处再解析一次作防御。
+    let hardware: HardwareInput | undefined;
+    if (values.resource_type === "BARE_METAL") {
+      const hardwareParsed = parseHardwareFormValues(values.hardware);
+      const hardwareMetadata = parseMetadataText(values.hardware.metadata);
+      if (!hardwareParsed.ok || !hardwareMetadata.ok) {
+        return;
+      }
+      hardware = buildHardwareCreateInput({
+        ...hardwareParsed.fields,
+        metadata: hardwareMetadata.value,
+      });
+    }
     setSubmitting(true);
     setError(null);
     createResource({
@@ -97,6 +115,7 @@ export default function ResourceCreatePage({ user, onCancel, onCreated }: Resour
       status: values.status,
       ...(values.description.trim() === "" ? {} : { description: values.description }),
       ...(values.metadata.trim() === "" ? {} : { metadata: metadata.value }),
+      ...(hardware !== undefined ? { hardware } : {}),
     })
       .then(({ resource }) => {
         onCreated(resource); // 201 Success → 跳转详情

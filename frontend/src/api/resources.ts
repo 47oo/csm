@@ -1,5 +1,5 @@
 /**
- * Resource API（F004，Contract：docs/api/F004.md v1，READY）。
+ * Resource API（F004，Contract：docs/api/F004.md v2，READY）。
  *
  * 端点（Contract §6）：
  * - GET    /resources                          列表（分页/排序/过滤/模糊/软删可见性，§4/§5）
@@ -15,6 +15,11 @@
  *   （无 resource_type 别名）；排序字段名则为 resource_type，两者不可互换。
  * - PATCH 仅携带变化字段（JSON.stringify 丢弃 undefined 属性；
  *   省略 = 保持原值不重置，Contract §6.4）；description 显式 null = 清空。
+ * - BareMetal hardware（F005，Contract v2 §2.4）：hardware 仅适用于
+ *   BARE_METAL；VM 请求体出现 hardware（含显式 null）→ 422（DR-51），
+ *   因此 VM 载荷绝不携带 hardware 键；响应 hardware：BARE_METAL = 对象、
+ *   VIRTUAL_MACHINE = null。未知子字段为 null，绝不以 0 代替
+ *   （gpu_count=0 = 明确无 GPU，与 null=未知可区分）。不新增独立端点。
  * - 409 CONFLICT / VERSION_CONFLICT 的页面呈现语义见 describeResourceActionError；
  *   任何写失败都不自动重试（Contract §7）。
  * - 本文件 import 显式带 .ts 扩展名：scripts/smoke-client.mjs 以 Node
@@ -58,6 +63,64 @@ export interface ResourceClusterRef {
   name: string;
 }
 
+/**
+ * BareMetal hardware 嵌套对象（Contract §2.4，v2 新增；仅 BARE_METAL）。
+ *
+ * 9 个硬件字段全部 nullable：未知 / 未登记 = null，绝不以 0 代替
+ * （gpu_count=0 表示明确无 GPU，与 null=未知语义不同且可区分）；
+ * cpu_cores 为整机物理核心总数（不含超线程，无跨字段推导）；
+ * memory_mb 单位 MiB，原样存储不换算（1 GiB = 1024 MiB）；
+ * 字符串为服务端 trim 后的展示值（≤255 code point，无唯一性 / 归一化键）。
+ */
+export interface Hardware {
+  manufacturer: string | null;
+  model: string | null;
+  serial_number: string | null;
+  cpu_model: string | null;
+  /** CPU 插槽数，正整数或 null。 */
+  cpu_sockets: number | null;
+  /** 整机物理核心总数（不含超线程），正整数或 null。 */
+  cpu_cores: number | null;
+  /** 内存容量，单位 MiB，正整数或 null。 */
+  memory_mb: number | null;
+  gpu_model: string | null;
+  /** GPU 数量，非负整数或 null；0 = 明确无 GPU，null = 未知。 */
+  gpu_count: number | null;
+  /** 厂商特有 / 低频扩展（JSONB，整值替换；区别于 Resource.metadata）。 */
+  metadata: Record<string, unknown>;
+}
+
+/** POST hardware 输入（Contract §2.4）：仅携带已登记子字段——
+ * 省略子字段 → null（无默认 0）；服务端为最终权威（trim / 范围 / 422）。 */
+export interface HardwareInput {
+  manufacturer?: string;
+  model?: string;
+  serial_number?: string;
+  cpu_model?: string;
+  cpu_sockets?: number;
+  cpu_cores?: number;
+  memory_mb?: number;
+  gpu_model?: string;
+  gpu_count?: number;
+  metadata?: Record<string, unknown>;
+}
+
+/** PATCH hardware 输入（Contract §2.4）：子字段级 exclude_unset——
+ * 省略子字段 = 保持原值；显式 null = 清空该 nullable 子字段；
+ * metadata 为整值替换（非 null）；hardware 整体不可显式 null（422）。 */
+export interface HardwarePatch {
+  manufacturer?: string | null;
+  model?: string | null;
+  serial_number?: string | null;
+  cpu_model?: string | null;
+  cpu_sockets?: number | null;
+  cpu_cores?: number | null;
+  memory_mb?: number | null;
+  gpu_model?: string | null;
+  gpu_count?: number | null;
+  metadata?: Record<string, unknown>;
+}
+
 /** Resource 响应对象（Contract §3）。hostname 为归一化小写展示值；hostname_key 不暴露。 */
 export interface Resource {
   id: string;
@@ -68,6 +131,11 @@ export interface Resource {
   status: ResourceStatus;
   description: string | null;
   metadata: Record<string, unknown>;
+  /**
+   * hardware（Contract §3，v2 新增）：BARE_METAL = Hardware 对象
+   * （未登记子字段为 null）；VIRTUAL_MACHINE 恒为 null。
+   */
+  hardware: Hardware | null;
   version: number;
   created_at: string;
   updated_at: string;
@@ -174,6 +242,12 @@ export interface CreateResourcePayload {
   status?: ResourceStatus;
   description?: string | null;
   metadata?: Record<string, unknown>;
+  /**
+   * hardware（可选；仅 BARE_METAL，Contract §2.4）：整体省略 → 全 null
+   * （metadata={}）。VM 载荷不得携带本键（出现即 422，DR-51），
+   * 构造方对 VIRTUAL_MACHINE 必须省略该属性（undefined 经 JSON.stringify 丢弃）。
+   */
+  hardware?: HardwareInput;
 }
 
 /** 创建：POST /api/v1/resources（WRITE）；201；同 Cluster hostname 冲突 409 CONFLICT{unique_conflict}。 */
@@ -209,6 +283,12 @@ export interface UpdateResourcePayload {
   status?: ResourceStatus;
   description?: string | null;
   metadata?: Record<string, unknown>;
+  /**
+   * hardware（可选；仅 BARE_METAL，Contract §2.4）：子字段级 exclude_unset
+   * （省略子字段 = 保持原值；显式 null = 清空该 nullable 子字段）；
+   * VM 载荷不得携带本键（出现即 422，DR-51）。
+   */
+  hardware?: HardwarePatch;
 }
 
 /** 部分更新：PATCH /api/v1/resources/{id}（WRITE）；成功 200，version+1。 */

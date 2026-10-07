@@ -23,6 +23,14 @@
  *   conflicts）/ VERSION_CONFLICT（→ 刷新后重改，不静默重试）/ 422 / 404 / 403
  *   的 describeResourceActionError 语义。
  *
+ * F005 追加（Contract：docs/api/F004.md v2 §2.4，前端机制级）：
+ * - src/api/resources.ts 的 hardware 嵌套载荷：POST BARE_METAL 仅携带已登记
+ *   子字段、VM 载荷不含 hardware 键（DR-51）、PATCH 子字段级 exclude_unset
+ *   （省略=保持；显式 null=清空）；响应 hardware 解析（0 与 null 可区分）；
+ * - src/components/hardware.ts（纯逻辑，无 JSX）：表单值解析（trim / 严格整数 /
+ *   范围 / 未知=null）、创建 / PATCH 载荷构造语义的本地镜像。
+ *   （ResourceForm.tsx 含 JSX 无法被 Node 加载，故该映射独立成纯模块。）
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -53,6 +61,13 @@ import {
   restoreResource,
   updateResource,
 } from "../src/api/resources.ts";
+import {
+  buildHardwareCreateInput,
+  buildHardwarePatch,
+  emptyHardwareFormValues,
+  hardwareFormValuesFromResource,
+  parseHardwareFormValues,
+} from "../src/components/hardware.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -705,6 +720,294 @@ await test("F004 网络层错误（fetch reject）：不伪装成业务结果", 
   respond = () => Promise.reject(new TypeError("Failed to fetch"));
   await assert.rejects(listResources(), TypeError);
   assert.equal(calls.length, 1); // 失败不重发
+});
+
+// ---------- F005 BareMetal hardware 机制级（Contract：docs/api/F004.md v2 §2.4） ----------
+
+/** 全部未登记（null / {}）的解析后 hardware 值，供各用例展开复用。 */
+const HARDWARE_ALL_NULL = {
+  manufacturer: null,
+  model: null,
+  serial_number: null,
+  cpu_model: null,
+  cpu_sockets: null,
+  cpu_cores: null,
+  memory_mb: null,
+  gpu_model: null,
+  gpu_count: null,
+  metadata: {},
+};
+
+await test("F005 parseHardwareFormValues：合法值（trim / 严格整数 / 空串=null / gpu_count=0）", async () => {
+  const parsed = parseHardwareFormValues({
+    manufacturer: "  Dell  ",
+    model: "PowerEdge R760",
+    serial_number: "JH1234567X",
+    cpu_model: "AMD EPYC 9654",
+    cpu_sockets: "2",
+    cpu_cores: "192",
+    memory_mb: "1572864",
+    gpu_model: "",
+    gpu_count: "0",
+    metadata: "", // metadata 文本由调用方经 parseMetadataText 另行解析（本函数只处理 9 字段）
+  });
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.fields, {
+    manufacturer: "Dell", // 服务端同样 trim 后存储
+    model: "PowerEdge R760",
+    serial_number: "JH1234567X",
+    cpu_model: "AMD EPYC 9654",
+    cpu_sockets: 2,
+    cpu_cores: 192,
+    memory_mb: 1572864,
+    gpu_model: null, // 空串 = 未登记（null，不以 0 代替）
+    gpu_count: 0, // 0 = 明确无 GPU，与 null=未知可区分（A2）
+  });
+});
+
+await test("F005 parseHardwareFormValues：非法输入 → 字段级错误（纯空白 / 超长 / 非整数 / 越界）", async () => {
+  const parsed = parseHardwareFormValues({
+    manufacturer: "   ",
+    model: "x".repeat(256),
+    serial_number: "JH1",
+    cpu_model: "EPYC",
+    cpu_sockets: "0",
+    cpu_cores: "1.5",
+    memory_mb: "-1",
+    gpu_model: "H100",
+    gpu_count: "-1",
+    metadata: "",
+  });
+  assert.equal(parsed.ok, false);
+  assert.ok(parsed.errors.manufacturer.includes("空白"), "纯空白字符串应报错（不转 null）");
+  assert.ok(parsed.errors.model.includes("255"), "超过 255 code point 应报错");
+  assert.ok(parsed.errors.cpu_sockets.includes("正整数"), "cpu_sockets=0 应报正整数错误");
+  assert.ok(parsed.errors.cpu_cores.includes("整数"), "cpu_cores=1.5 应报整数错误");
+  assert.ok(parsed.errors.memory_mb.includes("正整数"), "memory_mb=-1 应报正整数错误");
+  assert.ok(parsed.errors.gpu_count.includes("非负整数"), "gpu_count=-1 应报非负整数错误");
+});
+
+await test("F005 buildHardwareCreateInput：仅携带已登记子字段；全空 → undefined；gpu_count=0 照常携带", async () => {
+  const input = buildHardwareCreateInput({
+    ...HARDWARE_ALL_NULL,
+    serial_number: "JH1234567X",
+    gpu_count: 0,
+  });
+  assert.deepEqual(input, { serial_number: "JH1234567X", gpu_count: 0 });
+  // 全部留空 → 整体省略 hardware 键（等效全 null，Contract §2.4）
+  assert.equal(buildHardwareCreateInput(HARDWARE_ALL_NULL), undefined);
+  // 仅 metadata 有内容 → hardware 键仍需携带
+  const withMetadata = buildHardwareCreateInput({
+    ...HARDWARE_ALL_NULL,
+    metadata: { psu: "2000W" },
+  });
+  assert.deepEqual(withMetadata, { metadata: { psu: "2000W" } });
+});
+
+await test("F005 buildHardwarePatch：子字段级 exclude_unset 镜像（省略=保持；null=清空；0≠null；metadata 整值替换）", async () => {
+  const current = {
+    manufacturer: "Dell",
+    model: null,
+    serial_number: "JH1234567X",
+    cpu_model: "AMD EPYC 9654",
+    cpu_sockets: 2,
+    cpu_cores: 192,
+    memory_mb: 1572864,
+    gpu_model: null,
+    gpu_count: null,
+    metadata: { psu: "2000W" },
+  };
+  const sameAsCurrent = {
+    ...HARDWARE_ALL_NULL,
+    manufacturer: "Dell",
+    serial_number: "JH1234567X",
+    cpu_model: "AMD EPYC 9654",
+    cpu_sockets: 2,
+    cpu_cores: 192,
+    memory_mb: 1572864,
+    metadata: { psu: "2000W" },
+  };
+  // 无变化 → null（PATCH 省略 hardware 键）
+  assert.equal(buildHardwarePatch(current, sameAsCurrent), null);
+  // manufacturer 清空（显式 null）、gpu_count null→0（明确无 GPU）
+  const patch = buildHardwarePatch(current, {
+    ...sameAsCurrent,
+    manufacturer: null,
+    gpu_count: 0,
+  });
+  assert.deepEqual(patch, { manufacturer: null, gpu_count: 0 });
+  // gpu_count 0→null（从“明确无 GPU”回到未知）；其余保持
+  const withZero = { ...current, gpu_count: 0 };
+  const patchZeroToNull = buildHardwarePatch(withZero, sameAsCurrent);
+  assert.deepEqual(patchZeroToNull, { gpu_count: null });
+  // metadata 整值替换（变化才携带，非 null）
+  const patchMetadata = buildHardwarePatch(current, {
+    ...sameAsCurrent,
+    metadata: { rack: "R42" },
+  });
+  assert.deepEqual(patchMetadata, { metadata: { rack: "R42" } });
+  // current 为 null（旧版后端响应 / 防御）→ 按“全部未登记”比较，无变化 → null
+  assert.equal(buildHardwarePatch(null, HARDWARE_ALL_NULL), null);
+});
+
+await test("F005 hardwareFormValuesFromResource：null → 全空；数值 / metadata 字符串化；空 metadata → 空文本", async () => {
+  assert.deepEqual(hardwareFormValuesFromResource(null), emptyHardwareFormValues());
+  const values = hardwareFormValuesFromResource({
+    manufacturer: "Dell",
+    model: null,
+    serial_number: "JH1234567X",
+    cpu_model: "AMD EPYC 9654",
+    cpu_sockets: 2,
+    cpu_cores: 192,
+    memory_mb: 1572864,
+    gpu_model: null,
+    gpu_count: 0,
+    metadata: { psu: "2000W" },
+  });
+  assert.equal(values.manufacturer, "Dell");
+  assert.equal(values.model, ""); // null → 空串（表单未登记）
+  assert.equal(values.gpu_count, "0"); // 0 不得丢成空串（与 null 可区分）
+  assert.equal(values.memory_mb, "1572864");
+  assert.deepEqual(JSON.parse(values.metadata), { psu: "2000W" });
+  // metadata 为空对象 → 空文本（不显示 "{}" 噪音）
+  const emptyMetadata = hardwareFormValuesFromResource(HARDWARE_ALL_NULL);
+  assert.equal(emptyMetadata.metadata, "");
+});
+
+await test("F005 createResource BARE_METAL：hardware 嵌套对象进 body；响应解析 hardware（0 与 null 可区分）", async () => {
+  respond = () =>
+    jsonResponse(201, {
+      resource: {
+        id: "r9",
+        cluster: { id: "c1", code: "N96P", name: "N96P集群" },
+        hostname: "cn009",
+        resource_type: "BARE_METAL",
+        role: "OTHER",
+        status: "UNKNOWN",
+        description: null,
+        metadata: {},
+        hardware: {
+          manufacturer: "Dell",
+          model: null,
+          serial_number: "JH1234567X",
+          cpu_model: "AMD EPYC 9654",
+          cpu_sockets: 2,
+          cpu_cores: 192,
+          memory_mb: 1572864,
+          gpu_model: null,
+          gpu_count: 0,
+          metadata: {},
+        },
+        version: 1,
+        created_at: "2026-10-09T08:00:00Z",
+        updated_at: "2026-10-09T08:00:00Z",
+        deleted_at: null,
+      },
+    });
+  const { resource } = await createResource({
+    cluster: "c1",
+    hostname: "cn009",
+    resource_type: "BARE_METAL",
+    hardware: {
+      manufacturer: "Dell",
+      serial_number: "JH1234567X",
+      cpu_model: "AMD EPYC 9654",
+      cpu_sockets: 2,
+      cpu_cores: 192,
+      memory_mb: 1572864,
+      gpu_count: 0,
+    },
+  });
+  assert.equal(resource.hardware.cpu_cores, 192);
+  assert.equal(resource.hardware.gpu_count, 0); // A2：0 存 0
+  assert.equal(resource.hardware.gpu_model, null); // A1：未登记返回 null 不返回 0
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/resources");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    cluster: "c1",
+    hostname: "cn009",
+    resource_type: "BARE_METAL",
+    hardware: {
+      manufacturer: "Dell",
+      serial_number: "JH1234567X",
+      cpu_model: "AMD EPYC 9654",
+      cpu_sockets: 2,
+      cpu_cores: 192,
+      memory_mb: 1572864,
+      gpu_count: 0,
+    },
+  });
+});
+
+await test("F005 createResource VIRTUAL_MACHINE：载荷不含 hardware 键（出现即 422，DR-51）；响应 hardware=null", async () => {
+  respond = () =>
+    jsonResponse(201, {
+      resource: {
+        id: "r10",
+        cluster: { id: "c1", code: "N96P", name: "N96P集群" },
+        hostname: "vm001",
+        resource_type: "VIRTUAL_MACHINE",
+        role: "OTHER",
+        status: "UNKNOWN",
+        description: null,
+        metadata: {},
+        hardware: null,
+        version: 1,
+        created_at: "2026-10-09T08:00:00Z",
+        updated_at: "2026-10-09T08:00:00Z",
+        deleted_at: null,
+      },
+    });
+  const { resource } = await createResource({
+    cluster: "c1",
+    hostname: "vm001",
+    resource_type: "VIRTUAL_MACHINE",
+    // 页面对 VIRTUAL_MACHINE 不设置 hardware（undefined 经 JSON.stringify 丢弃）
+    hardware: undefined,
+  });
+  assert.equal(resource.hardware, null);
+  const body = JSON.parse(calls[0].init.body);
+  assert.ok(!("hardware" in body), "VM 载荷不得携带 hardware 键（DR-51）");
+});
+
+await test("F005 updateResource：hardware 子字段级 PATCH（version + 变化子字段，含显式 null 清空）", async () => {
+  respond = () => jsonResponse(200, { resource: { id: "r9", version: 4 } });
+  const { resource } = await updateResource("r9", {
+    version: 3,
+    hardware: { manufacturer: null, gpu_count: 0, memory_mb: 1572864 },
+  });
+  assert.equal(resource.version, 4);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/resources/r9");
+  assert.equal(calls[0].init.method, "PATCH");
+  // 省略子字段 = 保持原值；显式 null = 清空（Contract §2.4/§6.4）
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    version: 3,
+    hardware: { manufacturer: null, gpu_count: 0, memory_mb: 1572864 },
+  });
+});
+
+await test("F005 422 VALIDATION_ERROR：hardware 点路径字段错误透传（hardware.cpu_cores / hardware）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: {
+          fields: [
+            { field: "hardware.cpu_cores", message: "cpu_cores 必须为正整数" },
+            { field: "hardware", message: "VIRTUAL_MACHINE 不接受 hardware" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(
+    createResource({ cluster: "c1", hostname: "cn001", resource_type: "BARE_METAL" }),
+  );
+  const described = describeResourceActionError(err);
+  assert.equal(described.fields["hardware.cpu_cores"], "cpu_cores 必须为正整数");
+  assert.equal(described.fields["hardware"], "VIRTUAL_MACHINE 不接受 hardware");
 });
 
 // 还原全局状态

@@ -31,6 +31,7 @@ RESOURCE_AUDIT_KEYS = {
     "status",
     "description",
     "metadata",
+    "hardware",
 }
 
 

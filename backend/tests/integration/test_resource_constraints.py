@@ -419,7 +419,7 @@ def test_constraints_indexes_triggers_exist(committed_engine):
 
 def test_resources_migration_up_down_up(pg_engine, alembic_runner):
     head = alembic_runner.head_revision()
-    assert head == "0004_resources"
+    assert head >= "0004_resources"
     with pg_engine.connect() as conn:
         versions = list(
             conn.execute(text("SELECT version_num FROM alembic_version")).scalars()

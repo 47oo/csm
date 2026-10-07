@@ -30,6 +30,7 @@ from app.schemas.resource import (
     ResourceUpdateRequest,
     SortField,
     SortOrder,
+    build_hardware_out,
     build_resource_out,
 )
 from app.services import resource as resource_service
@@ -61,10 +62,22 @@ def _build_out(db: Session, resources: list) -> list[ResourceOut]:
     cluster_map = resource_service.clusters_for(
         db, [resource.cluster_id for resource in resources]
     )
-    return [
-        build_resource_out(resource, cluster_map[resource.cluster_id])
-        for resource in resources
-    ]
+    detail_map = resource_service.details_for(db, [resource.id for resource in resources])
+    output: list[ResourceOut] = []
+    for resource in resources:
+        hardware = (
+            build_hardware_out(detail_map.get(resource.id))
+            if resource.resource_type == "BARE_METAL"
+            else None
+        )
+        output.append(
+            build_resource_out(
+                resource,
+                cluster_map[resource.cluster_id],
+                hardware=hardware,
+            )
+        )
+    return output
 
 
 @router.get("", response_model=ResourceListResponse)
@@ -115,6 +128,11 @@ def create_resource(
     db: Session = Depends(get_db),
 ) -> ResourceEnvelope:
     """Create a resource (201) and write a CREATE audit row."""
+    hardware = (
+        payload.hardware.model_dump()
+        if "hardware" in payload.model_fields_set
+        else None
+    )
     resource = resource_service.create_resource(
         db,
         operator,
@@ -125,6 +143,7 @@ def create_resource(
         status=payload.status,
         description=payload.description,
         metadata=payload.metadata,
+        hardware=hardware,
     )
     return ResourceEnvelope(resource=_build_out(db, [resource])[0])
 
@@ -159,6 +178,13 @@ def update_resource(
     resource_uuid = _parse_uuid(resource_id)
     changes = payload.model_dump(exclude_unset=True)
     changes.pop("version", None)
+    hardware = changes.pop("hardware", None)
+    if "hardware" in payload.model_fields_set:
+        if payload.hardware is None:
+            raise _validation_field_error(
+                "hardware", "hardware may not be null in a partial update"
+            )
+        hardware = payload.hardware.model_dump(exclude_unset=True)
     for field in _NON_NULLABLE_PATCH_FIELDS:
         if field in changes and changes[field] is None:
             raise _validation_field_error(
@@ -170,6 +196,7 @@ def update_resource(
         resource_uuid,
         expected_version=payload.version,
         changes=changes,
+        hardware=hardware,
     )
     return ResourceEnvelope(resource=_build_out(db, [resource])[0])
 

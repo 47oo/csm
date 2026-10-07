@@ -1,9 +1,10 @@
-"""Resource business service (Contract §4–§9, DR-34..DR-45).
+"""Resource business service (Contract §4–§9, DR-34..DR-45; F005 hardware §2.4).
 
 All Resource rules live here: cluster resolution, hostname normalisation, list
 filtering/sorting/pagination, optimistic-lock conditional UPDATE, soft delete /
-restore, uniqueness re-checks, the cluster reference/dependency checkers and the
-audit trail (same Session, same commit). Routes only translate HTTP.
+restore, uniqueness re-checks, the cluster reference/dependency checkers, the
+BareMetal ``hardware`` 1:1 detail upsert (same transaction) and the audit trail
+(same Session, same commit). Routes only translate HTTP.
 
 Soft-delete semantics (Contract §5): the Session-level ``with_loader_criteria``
 filter hides ``deleted_at IS NOT NULL`` rows by default; callers opt in with
@@ -25,6 +26,13 @@ from app.core.errors import (
     ValidationError,
     VersionConflict,
 )
+from app.models.bare_metal_detail import (
+    INT_FIELDS,
+    NON_NEGATIVE_INT_FIELDS,
+    POSITIVE_INT_FIELDS,
+    STRING_FIELDS,
+    BareMetalDetail,
+)
 from app.models.cluster import Cluster
 from app.models.resource import Resource
 from app.services import audit, normalization
@@ -42,6 +50,9 @@ VALID_STATUSES = ("IDLE", "ALLOC", "DOWN", "UNKNOWN")
 DELETED_MODES = ("exclude", "include", "only")
 SORT_FIELDS = ("hostname", "resource_type", "role", "status", "created_at", "updated_at")
 ORDERS = ("asc", "desc")
+
+# BareMetal hardware (Contract §2.4, D01 §5.4, DB-D46).
+HARDWARE_INT_MAX = 2147483647
 
 _SORT_COLUMNS = {
     "hostname": Resource.hostname_key,
@@ -91,10 +102,92 @@ def _validate_metadata(metadata: Any) -> dict:
     return metadata
 
 
+def _validate_hardware_int(field: str, value: Any, *, minimum: int) -> int | None:
+    """Strict integer range check; ``bool`` is not an ``int`` here."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise _field_error(field, f"{field} must be an integer")
+    if value < minimum or value > HARDWARE_INT_MAX:
+        raise _field_error(
+            field, f"{field} must be between {minimum} and {HARDWARE_INT_MAX}"
+        )
+    return value
+
+
+def validate_hardware(hardware: dict, *, partial: bool) -> dict[str, Any]:
+    """Validate/normalise a hardware object.
+
+    ``partial=False`` (create) fills every absent field with ``None`` and an
+    absent ``metadata`` with ``{}``; ``partial=True`` (PATCH) keeps only the keys
+    the caller actually supplied, so omitted sub-fields are preserved. Empty
+    strings/whitespace, ``cpu_sockets``/``cpu_cores``/``memory_mb`` <= 0 and
+    ``gpu_count`` < 0 all raise 422 ``VALIDATION_ERROR`` with a
+    ``hardware.<field>`` path.
+    """
+    if not isinstance(hardware, dict):
+        raise _field_error("hardware", "hardware must be a JSON object")
+
+    values: dict[str, Any] = {}
+    for field in STRING_FIELDS:
+        if field not in hardware:
+            if not partial:
+                values[field] = None
+            continue
+        value = hardware[field]
+        values[field] = (
+            None
+            if value is None
+            else normalization.validate_hardware_string(f"hardware.{field}", value)
+        )
+    for field in POSITIVE_INT_FIELDS:
+        if field not in hardware:
+            if not partial:
+                values[field] = None
+            continue
+        values[field] = _validate_hardware_int(
+            f"hardware.{field}", hardware[field], minimum=1
+        )
+    for field in NON_NEGATIVE_INT_FIELDS:
+        if field not in hardware:
+            if not partial:
+                values[field] = None
+            continue
+        values[field] = _validate_hardware_int(
+            f"hardware.{field}", hardware[field], minimum=0
+        )
+
+    if "metadata" not in hardware:
+        if not partial:
+            values["metadata"] = {}
+    else:
+        metadata = hardware["metadata"]
+        if not isinstance(metadata, dict):
+            raise _field_error(
+                "hardware.metadata", "hardware.metadata must be a JSON object"
+            )
+        values["metadata"] = metadata
+    return values
+
+
+def _hardware_snapshot(resource: Resource) -> dict[str, Any] | None:
+    """Audit snapshot for the nested ``hardware`` field (VM -> None)."""
+    if resource.resource_type != "BARE_METAL":
+        return None
+    detail = resource.bare_metal_detail
+    if detail is None:
+        return {**{field: None for field in STRING_FIELDS + INT_FIELDS}, "metadata": {}}
+    return {
+        **{field: getattr(detail, field) for field in STRING_FIELDS + INT_FIELDS},
+        "metadata": detail.meta,
+    }
+
+
 def resource_snapshot(resource: Resource) -> dict[str, Any]:
     """Whitelisted snapshot handed to :mod:`app.services.audit`.
 
     ``cluster_id`` is stringified so the JSONB snapshot stays JSON-serialisable.
+    ``hardware`` is a nested object for BARE_METAL and ``null`` for VMs (F005 §8).
     """
     return {
         "cluster_id": str(resource.cluster_id),
@@ -104,6 +197,7 @@ def resource_snapshot(resource: Resource) -> dict[str, Any]:
         "status": resource.status,
         "description": resource.description,
         "metadata": resource.meta,
+        "hardware": _hardware_snapshot(resource),
     }
 
 
@@ -242,6 +336,19 @@ def clusters_for(
     return {row.id: row for row in rows}
 
 
+def details_for(
+    db: "Session", resource_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, BareMetalDetail]:
+    """Batch-load hardware detail rows for response assembly (F005)."""
+    ids = set(resource_ids)
+    if not ids:
+        return {}
+    rows = db.execute(
+        select(BareMetalDetail).where(BareMetalDetail.resource_id.in_(ids))
+    ).scalars().all()
+    return {row.resource_id: row for row in rows}
+
+
 def list_resources(
     db: "Session",
     *,
@@ -359,6 +466,16 @@ def list_activity(
 # --- writes -----------------------------------------------------------------
 
 
+def _attach_hardware(resource: Resource, values: dict[str, Any]) -> BareMetalDetail:
+    """Attach a new 1:1 hardware detail to ``resource`` (same Session)."""
+    detail = BareMetalDetail(
+        meta=values["metadata"],
+        **{field: values[field] for field in STRING_FIELDS + INT_FIELDS},
+    )
+    resource.bare_metal_detail = detail
+    return detail
+
+
 def create_resource(
     db: "Session",
     operator: "Operator | None",
@@ -370,8 +487,14 @@ def create_resource(
     status: str = "UNKNOWN",
     description: str | None = None,
     metadata: dict | None = None,
+    hardware: dict | None = None,
 ) -> Resource:
-    """Create a resource; same-cluster hostname is unique among undeleted rows."""
+    """Create a resource; same-cluster hostname is unique among undeleted rows.
+
+    A BARE_METAL resource always gets its 1:1 ``bare_metal_details`` row in the
+    same transaction (all-null when ``hardware`` is omitted). A VIRTUAL_MACHINE
+    request that carries ``hardware`` is rejected with 422 (DR-51).
+    """
     resolved_cluster = _resolve_cluster(db, cluster)
     normalized_hostname = normalization.normalize_hostname(hostname)
     key = normalization.hostname_key(normalized_hostname)
@@ -379,6 +502,15 @@ def create_resource(
     _validate_role(role)
     _validate_status(status)
     meta = _validate_metadata({} if metadata is None else metadata)
+
+    hardware_values: dict[str, Any] | None = None
+    if resource_type == "VIRTUAL_MACHINE":
+        if hardware is not None:
+            raise _field_error(
+                "hardware", "hardware is only valid for BARE_METAL resources"
+            )
+    else:
+        hardware_values = validate_hardware(hardware or {}, partial=False)
 
     existing = db.execute(
         select(Resource.id).where(
@@ -407,6 +539,14 @@ def create_resource(
         db.rollback()
         raise _translate_integrity_error(exc) from exc
 
+    if hardware_values is not None:
+        _attach_hardware(resource, hardware_values)
+        try:
+            db.flush()
+        except IntegrityError as exc:
+            db.rollback()
+            raise _translate_integrity_error(exc) from exc
+
     audit.record(
         db,
         operator,
@@ -427,13 +567,28 @@ def update_resource(
     *,
     expected_version: int,
     changes: dict[str, Any],
+    hardware: dict | None = None,
 ) -> Resource:
-    """Partial update with optimistic locking; cluster/resource_type immutable."""
+    """Partial update with optimistic locking; cluster/resource_type immutable.
+
+    ``hardware`` (when not ``None``) is a sub-field-level patch: only the supplied
+    keys are applied, an explicit ``null`` clears that nullable sub-field, and a
+    non-BARE_METAL resource rejects any hardware with 422. The detail write and
+    the Resource update share one transaction.
+    """
     resource = get_resource(db, resource_id)
     if resource is None:
         raise NotFound()
     if resource.version != expected_version:
         raise VersionConflict(resource.version)
+
+    hardware_values: dict[str, Any] | None = None
+    if hardware is not None:
+        if resource.resource_type != "BARE_METAL":
+            raise _field_error(
+                "hardware", "hardware is only valid for BARE_METAL resources"
+            )
+        hardware_values = validate_hardware(hardware, partial=True)
 
     values: dict[str, Any] = {}
     if "hostname" in changes:
@@ -481,6 +636,23 @@ def update_resource(
     except IntegrityError as exc:
         db.rollback()
         raise _translate_integrity_error(exc) from exc
+
+    if hardware_values is not None:
+        detail = resource.bare_metal_detail
+        if detail is None:  # application invariant repair; normally present
+            detail = BareMetalDetail(meta={})
+            resource.bare_metal_detail = detail
+        for field in STRING_FIELDS + INT_FIELDS:
+            if field in hardware_values:
+                setattr(detail, field, hardware_values[field])
+        if "metadata" in hardware_values:
+            detail.meta = hardware_values["metadata"]
+        try:
+            db.flush()
+        except IntegrityError as exc:
+            db.rollback()
+            raise _translate_integrity_error(exc) from exc
+
     db.refresh(resource)
     audit.record(
         db,
