@@ -190,14 +190,19 @@ features:
   - F002
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: 执行 PRODUCT Gate（F003 需求确认与验收映射）
+  current_stage: ARCHITECTURE
+  next_action: architect 输出 F003 方案/layers/api_required（Cluster + 持久化横切）
   git:
     base_branch: v3
     branch: feature/F003-cluster-management
     start_commit: b34805189304c0ac6d009ce2e6cbba8bb4b20914
     head_commit: null
     merge_commit: null
+  implementation:
+    product: COMPLETE
+  evidence:
+    product:
+    - docs/features/F003/product.md
 - id: F004
   title: Resource 核心登记
   kind: FEATURE
@@ -668,9 +673,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F003
-  current_stage: PRODUCT
-  last_result: F003（Cluster 管理与持久化横切首落地）已启动，进入 PRODUCT Gate
-  next_action: product-manager 确认 F003 需求与验收映射后放行 ARCHITECTURE
+  current_stage: ARCHITECTURE
+  last_result: F003 PRODUCT Gate 通过（READY FOR ARCHITECT）
+  next_action: architect 执行 F003 架构设计（D01/D02 基座）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
