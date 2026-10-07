@@ -6,39 +6,42 @@
 
 ## Test Design
 
-- **版本**：TD-1（当前）
-- **日期**：2026-10-09
+- **版本**：TD-2（当前）；TD-1（2026-10-09）
+- **日期**：TD-2 2026-10-09；TD-1 2026-10-09
 - **角色**：Tester（TEST_DESIGN 模式）
 - **结论**：`TEST DESIGN READY`
+- **TD-2 变更（2026-10-09）**：DATABASE Gate（`docs/database/f005-bare-metal.md` v1，2026-10-08）、CONTRACT Gate（`docs/api/F004.md` v2，2026-10-09，含 §2.4 hardware 字段契约与 §8 审计白名单）与 `d01-conventions.md` v4（§3/§5.2/§5.4）已定稿。
+  1. 依据定稿 Contract v2 §2.4/§6/§8、DB v1（DB-D45–D52）、D01 v4、实现记录，关闭 TD-1 §8 全部 10 项 OPEN 复核项（见 §8-A）。
+  2. 修正 **F005-TD-1-01（文档缺陷，LOW）**：TD-1 §5 将 FK 约束名写作 `fk_bare_metal_details_resource_id`，定稿 DB v1 为 `fk_bare_metal_details_resource_id_resources`；TD-2 已改正，验收判据（`ON DELETE CASCADE`/`confdeltype='c'`）不变。
 - **依据**：
   - `docs/product/requirements-v3.md` revision 3（§4.1、§8、§18、§21、§22、§23、§26、§27、§31 T38/T39、§32、§35.2 Q10-A、§35.3 D01）
   - `docs/features/F005/product.md`（PRODUCT；A1–A10 与边界）
-  - `docs/features/F005/architecture.md`（ARCHITECTURE `READY FOR DESIGN`；§1 方案、§3 API 草案、§4 Schema 草案、§5 验证策略、§6 DR-46–DR-56、§7 交核项、§8 交 Tester）
+  - `docs/features/F005/architecture.md` §9（CONTRACT Gate `READY FOR IMPLEMENTATION`，2026-10-09；DR-46–DR-56）
+  - `docs/database/f005-bare-metal.md` v1（DB-D45–D52；表/约束/触发器/迁移 0005/回填）
+  - `docs/features/F005/implementation.md`（BACKEND + FRONTEND COMPLETE，2026-10-09）
   - `docs/features/F004/test-report.md`（TD-2/TE-1：fixture 模式、机制级口径、真实 PG/Compose 环境证据）
-  - `docs/architecture/d01-conventions.md` v3（§1 稳定 ID、§2 时间、§3 单位与数值、§4 nullable/PATCH 省略、§5 归一化）
+  - `docs/architecture/d01-conventions.md` v4（§3 数值上限、§5.2 长度 255、§5.4 BareMetal hardware 口径）
   - `docs/database/f004-resource.md` v1（resources 表、约束、迁移 0004，作为 0005 的 down_revision 基座）
-  - `docs/api/F004.md` v1（F005 将扩展为 v2；当前尚未含 hardware）
-  - `docs/project/project-plan.yaml` plan_revision 4，F005 条目（`status=IN_PROGRESS`、`current_stage=DATABASE`、`next_action` 含「并行 tester 测试设计」）
+  - `docs/api/F004.md` v2（READY，Architect 2026-10-09；§2.4 hardware、§3 响应、§6 POST/PATCH、§8 审计白名单）
+  - `docs/project/project-plan.yaml` plan_revision 4，F005 条目（`status=IN_PROGRESS`、`current_stage=TEST`）
   - `docs/project/handoff.md`、`docs/project/implementation-rules.md`、`AGENTS.md`、`.pi/skills/data-integrity/SKILL.md`
-- **状态属性**：READY 仅表示 A1–A10 可映射到可观察判据、边界/并发场景可执行、夹具与可验证性已核对；**不表示测试已运行、不批准实现或合并，也不表示 T38/T39 完整通过**（T38 的 VM 容量、T39 的 VM 侧与 speed_mbps 分别归 F006/F007+，见 §6）。
-- **前置状态说明（CONFIRMED 边界内待定稿）**：
-  - DATABASE Gate（`docs/database/f005-bare-metal.md`）**尚未定稿**（`docs/database/` 当前仅有 f001–f004）。
-  - CONTRACT Gate（`docs/api/F004.md` v2 增量）**尚未定稿**（当前 v1 无 `hardware`）。
-  - 因此本 TD-1 以 `architecture.md` §3/§4 草案与 DR-46–DR-56（多为 PROPOSED）为设计输入核对可验证性。TEST 执行前必须以两 Gate 定稿逐项核对；差异处升 TD-2 并注明失效范围（见 §8 OPEN）。
+- **状态属性**：TD-2 READY 仅表示 A1–A10 可映射到可观察判据、边界/并发场景可执行、夹具与可验证性已与定稿 Contract/DB/D01 逐项核对；**不批准实现或合并，TD-2 本身不填充执行 PASS，也不表示 T38/T39 完整通过**（T38 的 VM 容量、T39 的 VM 侧与 speed_mbps 分别归 F006/F007+，见 §6）。执行结果见本文件 TE-1。
+- **TD-1 生效范围**：A1–A10 映射、V1–V16、B1–B29、夹具/环境设计、可验证性检查在本轮仍有效（除 F005-TD-1-01 的 FK 名文本）；TD-1「对 DATABASE/CONTRACT 草案保留假设」不再作为执行依据，TEST 以定稿 Contract/DB/D01 为准。
 
 ### 版本记录
 
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
 | TD-1 | 2026-10-09 | 初版：A1–A10 映射 V1–V16，边界/并发 B1–B29，夹具/环境设计，可验证性检查，不适用项；对 DATABASE/CONTRACT 保留 10 项待复核假设（见 §8）。 |
+| TD-2 | 2026-10-09 | 依据 DATABASE v1 / CONTRACT v2 / D01 v4 关闭 §8 全部 10 项 OPEN；修正 F005-TD-1-01（FK 约束名）；验收判据不变。 |
 
-> 复核基线：`docs/features/F005/architecture.md`（ARCHITECTURE Gate，2026-10-08，DR-46–DR-56）。DATABASE/CONTRACT 定稿前的表名、约束名、错误 reason、`hardware` 嵌套结构、字符串长度与 `metadata` 暴露方式均以架构草案为准，标记为待闭合。
+> 复核基线（TD-2）：`docs/api/F004.md` v2（CONTRACT Gate，2026-10-09）、`docs/database/f005-bare-metal.md` v1（2026-10-08，DB-D45–D52）、`docs/architecture/d01-conventions.md` v4。表名/约束名/FK/`hardware` 嵌套结构/错误语义/字符串长度/`metadata` 暴露均已按定稿核对（见 §8-A），不再保留「草案待闭合」假设。
 
 ---
 
 ### 0. 数据完整性对应表（F005 范围）
 
-仅列 F005 已确认且在实现后需验证的完整性/持久化项；方法依据 `.pi/skills/data-integrity/SKILL.md`。数据库列/约束以架构草案 §4 为准（待 DATABASE Gate 定稿核对）。
+仅列 F005 已确认且在实现后需验证的完整性/持久化项；方法依据 `.pi/skills/data-integrity/SKILL.md`。数据库列/约束以 `docs/database/f005-bare-metal.md` v1 定稿（DB-D45–D52）为准（TD-2 已核对）。
 
 | 规则依据及版本 | 作用域/写入入口 | 数据库保证（草案，待 DB Gate） | 业务层保证 | 并发/生命周期边界 | 验证与证据 |
 | --- | --- | --- | --- | --- | --- |
@@ -185,21 +188,23 @@
 
 ---
 
-## 5. 范围与前置核对（交 DATABASE/CONTRACT 定稿）
+## 5. 范围与前置核对（TD-2：DATABASE/CONTRACT 已定稿）
 
-| 项 | TD-1 假设（据 architecture.md 草案） | 待定稿核对 |
+> **TD-2 状态：全部核对完成。** 下表各项已与定稿 `docs/api/F004.md` v2 §2.4/§3/§6/§8、`docs/database/f005-bare-metal.md` v1、`d01-conventions.md` v4 及实现记录逐项核对；无判据差异（除 F005-TD-1-01 FK 名文本笔误，已于 TD-2 修正）。保留原「待定稿核对」列以记录 TD-1 假设与定稿的对应关系。
+
+| 项 | TD-1 假设（据 architecture.md 草案） | 定稿核对结论 |
 | --- | --- | --- |
-| 表名/列名/约束名 | `bare_metal_details`；`pk_bare_metal_details`、`fk_bare_metal_details_resource_id`、范围 CHECK、`metadata` object CHECK | `docs/database/f005-bare-metal.md` 定稿确认名称/类型/可空性；不一致升 TD-2 |
-| `hardware` 嵌套结构 | POST/PATCH 请求与响应含 `hardware` 对象；BARE_METAL 对象、VM `null`（DR-47，PROPOSED） | `docs/api/F004.md` v2 确认字段位置、VM `null` vs 省略、整体 null 语义 |
-| PATCH 子字段语义 | `exclude_unset`：省略保持、显式 null 清空 nullable、整体 null/非对象/未知键 422 | Contract 确认与 F004 `metadata` 整值替换的差异 |
-| 错误 reason / code | 422 `VALIDATION_ERROR`（范围/类型/非对象/未知键/字符串）；复用 F004 `CONFLICT`/`VERSION_CONFLICT`；SN 无 `unique_conflict` | Contract 确认 `field` 命名（`hardware.cpu_cores` 等）与 reason 枚举 |
-| 字符串长度与空值 | trim 非空或 null；长度 ≤255 code point（DR-52，PROPOSED）；空/纯空白 → 422 | Database/Contract 确认长度与「空串→null vs 422」；影响 B12 |
-| `metadata` 暴露方式 | `hardware.metadata` JSONB object，默认 `{}`（架构 §1.4/§4） | Contract 确认请求/响应是否暴露、整值替换语义；影响 B19 |
-| detail 时间戳列 | 不设 `deleted_at/version`；`created_at` 可选交 Database（架构 §4，若加不改无软删/无 version） | Database 定稿确认；影响 V13/B29 |
-| CASCADE / 类型匹配 | FK `ON DELETE CASCADE`；「BARE_METAL 必有、VM 必无」由应用保证；类型匹配触发器待 Database 裁定 | Database 定稿确认 FK `confdeltype` 与是否加触发器；影响 V9/V13/B15/B25 |
-| 迁移 0005 | `0005_bare_metal_details`，`down_revision=0004_resources`，单一 head；回填 `INSERT ... SELECT WHERE resource_type='BARE_METAL'` | Database 定稿确认；影响 V14/B26/B27 |
-| 数值 CHECK 上限 | `cpu_sockets/cpu_cores/memory_mb` 1..2147483647；`gpu_count` 0..2147483647 | Database 定稿确认；影响 B8 |
-| 乐观锁/审计白名单 | 硬件变更并入 Resource CREATE/UPDATE 审计快照，白名单扩 `hardware`；权限随 Resource WRITE/READ | Contract v2 确认快照结构与权限映射；影响 V8/B20/B21 |
+| 表名/列名/约束名 | `bare_metal_details`；`pk_bare_metal_details`、`fk_bare_metal_details_resource_id`、范围 CHECK、`metadata` object CHECK | **CLOSED（DB v1 §2/DB-D46/47/48）**：`pk_bare_metal_details`、FK 实际名 `fk_bare_metal_details_resource_id_resources`、5 个 `ck_*_format`、4 个 `ck_*_range`、`ck_bare_metal_details_metadata_object`；均与迁移 0005 一致（F005-TD-1-01 修正 FK 名） |
+| `hardware` 嵌套结构 | POST/PATCH 请求与响应含 `hardware` 对象；BARE_METAL 对象、VM `null`（DR-47，PROPOSED） | **CLOSED（Contract v2 §2.4/§3）**：BARE_METAL 响应=对象、VM=`null`；请求含 `hardware` 仅对 BARE_METAL 有效 |
+| PATCH 子字段语义 | `exclude_unset`：省略保持、显式 null 清空 nullable、整体 null/非对象/未知键 422 | **CLOSED（Contract v2 §2.4）**：硬件子字段级 exclude_unset；与 Resource `metadata` 整值替换分开 |
+| 错误 reason / code | 422 `VALIDATION_ERROR`（范围/类型/非对象/未知键/字符串）；复用 F004 `CONFLICT`/`VERSION_CONFLICT`；SN 无 `unique_conflict` | **CLOSED（Contract v2 §1.2/§2.4）**：`fields[].field` 点路径（`hardware.cpu_cores` 等）；无 SN `unique_conflict` |
+| 字符串长度与空值 | trim 非空或 null；长度 ≤255 code point（DR-52，PROPOSED）；空/纯空白 → 422 | **CLOSED（Contract v2 §2.4；D01 v4 §5.4；DB-D46）**：≤255 code point；空/纯空白→422（不转 null）；DB 非空+已 trim backstop |
+| `metadata` 暴露方式 | `hardware.metadata` JSONB object，默认 `{}`（架构 §1.4/§4） | **CLOSED（Contract v2 §2.4；DB-D47）**：请求/响应暴露 `hardware.metadata`，整值替换；DB `NOT NULL DEFAULT '{}'` + object CHECK |
+| detail 时间戳列 | 不设 `deleted_at/version`；`created_at` 可选交 Database（架构 §4，若加不改无软删/无 version） | **CLOSED（DB-D48）**：`deleted_at/version/created_at/updated_at` 全不设 |
+| CASCADE / 类型匹配 | FK `ON DELETE CASCADE`；「BARE_METAL 必有、VM 必无」由应用保证；类型匹配触发器待 Database 裁定 | **CLOSED（DB-D49；DB v1 §3.2/§3.3）**：FK `confdeltype='c'`；新增 `trg_bare_metal_details_type_match` 禁止 VM 行；「BARE_METAL 必有」仍由应用保证 |
+| 迁移 0005 | `0005_bare_metal_details`，`down_revision=0004_resources`，单一 head；回填 `INSERT ... SELECT WHERE resource_type='BARE_METAL'` | **CLOSED（DB-D51；0005 迁移文件）**：单一 head；回填 SQL 与 TD-1 假设一致 |
+| 数值 CHECK 上限 | `cpu_sockets/cpu_cores/memory_mb` 1..2147483647；`gpu_count` 0..2147483647 | **CLOSED（DB-D46；Contract v2 §2.4）**：与迁移 CHECK 一致 |
+| 乐观锁/审计白名单 | 硬件变更并入 Resource CREATE/UPDATE 审计快照，白名单扩 `hardware`；权限随 Resource WRITE/READ | **CLOSED（Contract v2 §8/§1.3）**：快照白名单扩 `hardware`（VM 为 null）；权限随 Resource WRITE/READ |
 
 ---
 
@@ -222,37 +227,176 @@
 | 项 | 评估 | 处理 |
 | --- | --- | --- |
 | V1–V13、B1–B25/B28/B29（真实 PG + 后端集成） | Docker/Compose 可用（F001–F004 已证）；**可执行** | 无 PG 时相关项 BLOCKED，不降验收 |
-| V14/B26/B27 迁移（0005 定稿） | 依赖 DATABASE Gate | 未定稿 → BLOCKED，不降验收 |
+| V14/B26/B27 迁移（0005 定稿） | DATABASE Gate v1 已定稿 | TE-1 已实际执行（真实 PG up/down/up + 回填）；结果见 TE-1 |
 | B22/B23 并发与回滚 | 需真实并发提交 fixture | 复用 `committed_engine`；断言最终持久化与 `current_version` |
 | B25 物理 CASCADE | API 无物理删除路径 | raw SQL 机制级验证 FK `confdeltype='c'`，报告显式标注 |
 | V15 前端 | 构建 + client 机制级 | 若真实前后端集成要求，经入口 Nginx 验证；CSRF 端口风险承 F004 TE-1 |
-| DATABASE/CONTRACT v2 未定稿 | **MEDIUM**：表名/约束名/`hardware` 结构/reason/字符串长度/`metadata` 暴露可能微调 | TEST 执行前逐项核对 §5；差异升 TD-2 并注明失效范围 |
-| 字符串长度/空串语义（DR-52 PROPOSED） | **LOW**：空串→null 还是 422 影响 B12 | 以 Contract 定稿为准；B12 判据按定稿调整 |
-| `created_at` 是否加入 detail | **LOW**：Database 可选裁定 | 以 Database 定稿为准；若加不影响无软删/无 version 边界 |
+| DATABASE/CONTRACT 定稿状态 | **已解除**：DB v1 / Contract v2 / D01 v4 均已定稿并经 TD-2 逐项核对 | 风险关闭；差异仅 F005-TD-1-01 FK 名文本，已修正 |
+| 字符串长度/空串语义（DR-52 定稿） | **已解除**：Contract v2 §2.4 + D01 v4 §5.4 固定空/纯空白→422（不转 null）、≤255 code point | B12 按定稿执行（TE-1） |
+| `created_at` 是否加入 detail | **已解除**：DB-D48 明确不设任何时间戳列 | V13/B29 按“无时间戳列”执行（TE-1） |
 
 ---
 
-## 8. OPEN 复核项（TD-1 提出，待 DATABASE/CONTRACT 定稿关闭）
+## 8. OPEN 复核项（TD-1 提出，TD-2 全部关闭）
 
-> **TD-1 状态：全部 OPEN。** DATABASE Gate（`docs/database/f005-bare-metal.md`）与 CONTRACT Gate（`docs/api/F004.md` v2）尚未定稿。下表各假设在 TEST 执行前须逐项与定稿核对；差异处升 TD-2 并注明失效范围。
+> **TD-2（2026-10-09）状态：全部 CLOSED。** DATABASE Gate（`docs/database/f005-bare-metal.md` v1）、CONTRACT Gate（`docs/api/F004.md` v2）与 D01 v4 已定稿；下表各假设逐项与定稿核对，无判据差异（除 F005-TD-1-01 FK 名文本，已于 TD-2 修正）。TD-1 的「待定稿假设」不再作为执行依据，TEST 以定稿 Contract/DB/D01 为准。
 
-| # | TD-1 假设 | 状态 | 待定稿核对（依据 / 影响） |
+### 8-A. OPEN 关闭记录
+
+| # | TD-1 假设 | 状态 | 定稿核对（依据 / 影响） |
 | --- | --- | --- | --- |
-| 1 | 表 `bare_metal_details` 列/约束名/FK（§0/V13/B5–B8/B19/B25/B29） | OPEN | Database 定稿；不一致则升 TD-2 |
-| 2 | 9 字段全部 nullable、未知存 null 不写 0；`gpu_count=0` 语义（A1–A3） | OPEN | Database/Contract 确认 |
-| 3 | 数值 CHECK 上限（1..2147483647 / 0..2147483647）（B8） | OPEN | Database 定稿确认 |
-| 4 | 字符串 trim 非空 ≤255、空/纯空白 422 vs null（DR-52，B12） | OPEN | Contract（字符串长度）确认 |
-| 5 | `hardware` 嵌套结构、VM `null`、整体 null→422（DR-47/DR-51，A7/V12/B13/B14/B18） | OPEN | Contract v2 确认 |
-| 6 | PATCH 子字段 `exclude_unset` 语义（V16/B16/B17） | OPEN | Contract v2 确认 |
-| 7 | `metadata` JSONB object、默认 `{}`、整值替换与请求暴露（B19） | OPEN | Database/Contract 确认 |
-| 8 | detail 无 `deleted_at/version`；`created_at` 可选（V13/B29） | OPEN | Database 定稿确认 |
-| 9 | 迁移 `0005_bare_metal_details` 单 head、回填 `WHERE resource_type='BARE_METAL'`（V14/B26/B27） | OPEN | Database 定稿确认 |
-| 10 | 硬件变更并入 Resource 审计快照、白名单扩 `hardware`、权限随 Resource（V8/B20/B21） | OPEN | Contract v2 确认 |
+| 1 | 表 `bare_metal_details` 列/约束名/FK（§0/V13/B5–B8/B19/B25/B29） | **CLOSED** | DB v1 §2 + 0005 迁移：`pk_bare_metal_details`、`fk_bare_metal_details_resource_id_resources`、5 `ck_*_format`、4 `ck_*_range`、`ck_bare_metal_details_metadata_object`；FK 名修正（F005-TD-1-01） |
+| 2 | 9 字段全部 nullable、未知存 null 不写 0；`gpu_count=0` 语义（A1–A3） | **CLOSED** | DB-D46/DB-D49；Contract v2 §2.4；9 列 nullable，未知 null，`gpu_count=0` 接受且可区分 |
+| 3 | 数值 CHECK 上限（1..2147483647 / 0..2147483647）（B8） | **CLOSED** | DB-D46；0005 CHECK 逐字一致 |
+| 4 | 字符串 trim 非空 ≤255、空/纯空白 422 vs null（DR-52，B12） | **CLOSED** | Contract v2 §2.4；D01 v4 §5.4：≤255 code point，空/纯空白→422（不转 null）；DB 为 backstop |
+| 5 | `hardware` 嵌套结构、VM `null`、整体 null→422（DR-47/DR-51，A7/V12/B13/B14/B18） | **CLOSED** | Contract v2 §2.4/§3/§6：BARE_METAL 对象、VM `null`；VM 请求含 hardware→422；整体 null/非对象/未知键→422 |
+| 6 | PATCH 子字段 `exclude_unset` 语义（V16/B16/B17） | **CLOSED** | Contract v2 §2.4/§6.4：子字段级省略=保持、显式 null=清空 |
+| 7 | `metadata` JSONB object、默认 `{}`、整值替换与请求暴露（B19） | **CLOSED** | DB-D47；Contract v2 §2.4：`hardware.metadata` 暴露、整值替换、默认 `{}`、object CHECK |
+| 8 | detail 无 `deleted_at/version`；`created_at` 可选（V13/B29） | **CLOSED** | DB-D48：`deleted_at/version/created_at/updated_at` 全不设 |
+| 9 | 迁移 `0005_bare_metal_details` 单 head、回填 `WHERE resource_type='BARE_METAL'`（V14/B26/B27） | **CLOSED** | DB-D51；0005 迁移：单一 head、回填 SQL 一致；TE-1 实际验证 |
+| 10 | 硬件变更并入 Resource 审计快照、白名单扩 `hardware`、权限随 Resource（V8/B20/B21） | **CLOSED** | Contract v2 §8/§1.3：快照白名单扩 `hardware`（VM=null）；硬件读写随 Resource WRITE/READ |
 
-TD-1 的 OPEN 项须由 TD-2（DATABASE/CONTRACT 定稿后）关闭；在关闭前不得以 TD-1 假设作为定稿依据，不得进入 TEST 执行并声明验收通过。
+TD-1 未闭合项已由 TD-2 关闭；实现与 Contract 未发生导致判据差异的后续变更。
 
 ---
 
 ## Test Execution
 
-（预留：TEST 阶段在同一文件追加执行版本、环境、V1–V16/B1–B29 结果、A1–A10 结论、Defects 与未验证项。当前尚未执行，不填充执行 PASS。）
+- **版本**：TE-1
+- **日期**：2026-10-09
+- **角色**：Tester（TEST 模式）
+- **结论**：`READY FOR REVIEW`
+- **执行基线**：Contract `docs/api/F004.md` v2（2026-10-09）、DATABASE `docs/database/f005-bare-metal.md` v1（2026-10-08）、D01 `d01-conventions.md` v4、architecture §9 `READY FOR IMPLEMENTATION`、implementation.md（BACKEND + FRONTEND COMPLETE）；TD-2（含 F005-TD-1-01 修正）。
+- **代码基线**：`feature/F005-baremetal-hardware`，HEAD `8f5dabe`（backend/frontend COMPLETE 检查点），起始工作区干净。
+- **独立性声明**：Backend pytest 由 Tester 独立重跑（不复用实现者数字）；迁移、约束、结构化查询由 Tester 在独立库（`csm_verify`/`csm_test`）以 raw SQL / Alembic 直接执行；Compose 集成由 Tester 经入口 Nginx `127.0.0.1:18098` 独立 curl。
+
+### 环境
+
+| 项 | 值 |
+| --- | --- |
+| 后端测试镜像 | `docker build --target test -t csm-backend-f005te1 ./backend`（Python 3.12.15，pytest 8.4.2） |
+| 数据库 | 独立容器 `f005te1-db`（`postgres:16`），网络 `f005te1-net`；测试库 `csm_test`、独立验证库 `csm_verify` |
+| 集成（后端） | `TEST_DATABASE_URL=postgresql+psycopg://csm:change-me@f005te1-db:5432/csm_test`（DB-D10 护栏：库名含 `test`、≠ `DATABASE_URL`） |
+| 前端 | Node v22.23.2 / npm 12.0.2；`npm run typecheck`、`npm run build`、`npm run smoke:client` |
+| Compose 全链路 | `docker compose -p f005te1`（独立项目名/卷），入口 Nginx `127.0.0.1:18098`（非默认端口；`deploy/nginx/nginx.conf` 保留 `Host` 端口以使同源 CSRF 生效） |
+| 清理 | `compose -p f005te1 down -v`、`docker rm -f f005te1-db`、`docker network rm f005te1-net`、删临时镜像 `csm-backend-f005te1`、`f005te1-*`；残留检查无 f005 容器/网络/镜像 |
+
+### 实际执行命令与输出摘要
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| 1 | `pytest tests -q`（真实 PG `csm_test`） | **151 passed, 1 skipped**（skip=`test_migrations.py:101` 非 superuser 扩展假设：连接角色 `csm` 为 superuser 的环境限制，非 F005 缺陷；与 F004 基线相同） |
+| 2 | `pytest tests/integration/test_bare_metal.py tests/integration/test_bare_metal_constraints.py -v` | **32 passed**（19 API + 13 constraint/migration F005 专属用例，逐条 PASS） |
+| 3 | 独立库 `csm_verify`：`alembic heads` / `upgrade head` / `current` | `0005_bare_metal_details (head)` 单一 head；升级 0001→0005 全部 Running；`current` = `0005_bare_metal_details (head)` |
+| 4 | 独立 `downgrade 0004_resources`→`upgrade head` + 预置 BARE_METAL/VM 回填 | down 后 `bare_metal_details` 及触发器函数消失、0004 对象（resources/clusters/audit_logs/users/user_sessions）保留；up 后 BARE_METAL 得全 null detail 行（`metadata={}`）、VM 无行；重复 `upgrade head` 幂等（detail 计数保持 1） |
+| 5 | 独立 raw SQL 结构/约束探测（`csm_verify`/`csm_test`） | 11 列（`resource_id` PK + 9 硬件 nullable + `metadata` NOT NULL DEFAULT `'{}'`，无时间戳）；约束集 12 项；仅 PK 索引；PK+FK `confdeltype='c'`；类型触发器拒 VM/不存在资源；负例 CHECK/manufacturer untrimmed/metadata array 均拒；物理 DELETE 级联；`gpu_count=0` vs NULL 可区分 |
+| 6 | 结构化查询（`csm_test` raw SQL） | `WHERE cpu_cores>=64 ORDER BY memory_mb DESC`、`count/avg/sum` 均正确；含非空 `metadata` 行不破坏结构化查询；9 字段为 varchar/integer 列、仅 `metadata` 为 jsonb |
+| 7 | `npm run typecheck` / `npm run build` / `npm run smoke:client` | typecheck 0 错误；build 通过（47 modules）；smoke **52 passed, 0 failed**（F005 新增 9 项） |
+| 8 | Compose/Nginx 全链路 curl（18098） | 登录→建 Cluster→建 BARE_METAL（硬件）→省略/null→VM→PATCH→错误语义→activity；状态码与错误信封符合 Contract（详见下） |
+| 9 | `python3 scripts/validate_project_state.py` | `PROJECT STATE VALID`（结构校验；批准/Git 证据另行核对，非本报告结论） |
+
+### V1–V16 执行结果（TD-2 → TE-1）
+
+| 验证项 | 结果 | 证据 / 说明 |
+| --- | --- | --- |
+| V1 省略/null → null | **PASS** | 用例 1/2/8；POST 省略 `hardware` 与显式各子字段 `null` 均 201，响应 9 字段全 `null`、`metadata={}`；raw DB 各列 `IS NULL`（非 0） |
+| V2 gpu_count 0 vs null | **PASS** | 用例 2/5/8；`gpu_count=0`→201 存/返回 `0`；不传→`null`；raw `=0` vs `IS NULL` 可区分；前端 0 显示「明确无 GPU」、null 显示占位 |
+| V3 数值范围 422 | **PASS** | 用例 2/5/8；`cpu_sockets/cpu_cores/memory_mb∈{0,-1,-100}`、`gpu_count=-1`→422 `VALIDATION_ERROR`；正例（`cpu_cores=2147483647`、`gpu_count=0`）201；raw CHECK 拒越界 |
+| V4 MiB 单位一致 | **PASS** | 用例 2/5/8；`memory_mb=1572864` 原样存/返回（无 ×1000/÷1024）；前端 `1572864 MiB（= 1536 GiB）`（1 GiB=1024 MiB） |
+| V5 cpu_cores 物理核 + 静态 | **PASS** | 用例 2/8；`cpu_sockets=2,cpu_cores=192` 存/返回 192；`cpu_cores=384` 亦被接受（无 sockets×cores 推导）；源码核对无主机探测/自动计算、无派生列 |
+| V6 SN 无唯一 | **PASS** | 用例 2/5/8；两 BARE_METAL 同 SN 均 201；PATCH SN 无 409；`pg_indexes` 无 SN unique 索引 |
+| V7 响应字段 + 前端区域 | **PASS** | 用例 2/5/7/8；`hardware` 含 CPU（cpu_model/sockets/cores）、Memory（memory_mb）、GPU（gpu_model/count）、Manufacturer/Model/SN；前端 HardwarePanel 仅 BARE_METAL 渲染、未知「—（未知）」 |
+| V8 审计 + 权限 | **PASS** | 用例 2/8；CREATE/UPDATE/DELETE/RESTORE 各一行 audit，快照含 `hardware`；VIEWER 读 200/写 403 `FORBIDDEN{permission}`、EDITOR 写 200、未认证 401；服务端强制（跨源写 403 `csrf`） |
+| V9 生命周期 + V13 CASCADE 机制级 | **PASS** | 用例 2/5/8；路由清单无 `.../hardware`、`/bare-metal-details`（404）；软删后默认 404、`deleted=true` 可见、restore 后硬件不变；raw 物理 DELETE 级联（`confdeltype='c'`）；**物理级联为机制级**（API 无物理删除路径） |
+| V10 结构化查询 + V13 列/约束 | **PASS** | 用例 5/6；`WHERE/ORDER BY/count/avg/sum` 可用；9 字段为结构化列而非 JSONB；`metadata` object CHECK 且不破坏结构化查询；未新增列表级 hardware 过滤参数（I-1） |
+| V12 VM 拒绝 hardware | **PASS** | 用例 2/8；VM POST/PATCH 含 `hardware`（含显式 `null`）→422（不静默忽略，DR-51）；VM 响应 `hardware=null`；raw 无 VM detail 行（触发器 AND 应用双保证） |
+| V13 DB 约束/列集合 | **PASS** | 用例 2/5；`resource_id` 为 PK+FK `ON DELETE CASCADE`（`confdeltype='c'`）；9 列 nullable；4 范围 CHECK + 5 格式 CHECK + object CHECK；无 `deleted_at/version/created_at/updated_at`；仅 PK 索引 |
+| V14 迁移 0005 up/down/up + 回填 | **PASS** | 用例 3/4；`alembic heads` 单一 `0005_bare_metal_details`；down 后表/触发器/函数消失且 0004 对象保留；re-up 集合一致；回填每个既有 BARE_METAL 得全 null 行、VM 无行、重复 up 不重复 |
+| V15 Hardware 区域与状态 + 集成 | **PASS**（构建+机制级+入口集成） | 用例 7/8；typecheck/build 通过；smoke 52/52；经入口 Nginx 真实 API 往返（创建/读取/编辑/错误）；Loading/Success/Empty/Error 与未知占位经源码核对；真实浏览器 DOM 非本 Feature 必要判据 |
+| V16 PATCH 子字段语义 | **PASS** | 用例 2/8；PATCH 仅含子字段时其余保持原值；显式 `null` 清空该 nullable 子字段；`hardware` 整体 `null`/非对象/含未知键 →422；metadata 整值替换 |
+
+### B1–B29 执行结果
+
+| 编号 | 结果 | 证据摘要 |
+| --- | --- | --- |
+| B1 hardware 省略 | PASS | 用例 2/5/8；恰一行、9 列全 `IS NULL`/`metadata={}`、响应全 null |
+| B2 各字段显式 null | PASS | 用例 2/5；对应列 `IS NULL`、响应 null（非 0） |
+| B3 部分登记其余未知 | PASS | 用例 2；已登记落值、其余 `IS NULL` |
+| B4 gpu_count=0 vs null | PASS | 用例 2/5/8；存/返回可区分 |
+| B5 正整数非正值拒绝 | PASS | 用例 2/5；API 422 + raw CHECK 拒 0/负 |
+| B6 gpu_count 负值/零边界 | PASS | 用例 2/5；`-1`→422、`0`→201；raw `-1` 被 CHECK 拒 |
+| B7 非整数/类型错误 | PASS | 用例 2；`"192"`/`true`/`1.5`/`[]`/`{}` →422（严格整数，不静默转换） |
+| B8 数值上限 | PASS | 用例 2/5；`2147483647` 接受、`2147483648`→422；raw CHECK 上限内 |
+| B9 memory_mb MiB 一致 | PASS | 用例 2/5/8；`1572864` 原样；展示 `1536 GiB` 等价 |
+| B10 cpu_cores 物理核 | PASS | 用例 2/8；192 存 192；384 亦接受（无推导）；静态无 HT 计数 |
+| B11 SN 可重复 | PASS | 用例 2/5/8；同 SN 均成功；无 unique 索引 |
+| B12 字符串 trim/空/超长 | PASS | 用例 2/5；`"  Dell  "`→`Dell`；`""`/纯空白/256 字符→422；255 字符→201；raw 未 trim/空/超长被 CHECK 拒 |
+| B13 hardware 整体非法 | PASS | 用例 2/8；`[]`/`"x"`/`null`/`{unknown_key:1}` →422 |
+| B14 VM 提交 hardware | PASS | 用例 2/5/8；POST/PATCH→422；详情 `hardware=null`；raw VM 无 detail 行 |
+| B15 BARE_METAL 行存在性 | PASS | 用例 2/5；每个 BARE_METAL 恰一行（PK），VM 无行 |
+| B16 PATCH 子字段省略保持 | PASS | 用例 2/8；PATCH 仅 `gpu_count` 后其它子字段保持 |
+| B17 PATCH 显式 null 清空 | PASS | 用例 2/8；`manufacturer:null` 后该列为 NULL，其余保持 |
+| B18 PATCH hardware 整体 null/非对象 | PASS | 用例 2/8；422；库值不变（hardware 不可清空） |
+| B19 metadata JSONB object | PASS | 用例 2/5；raw `[]`/`"x"`/`null`/`1` 被 CHECK 拒；合法 object 存储；整值替换（旧键消失） |
+| B20 硬件变更审计 | PASS | 用例 2/8；CREATE 快照含硬件；UPDATE `before/after` 含硬件字段；`object_type="resource"`、object_id=Resource UUID；VM 快照 `hardware=null` |
+| B21 权限矩阵（硬件随 Resource） | PASS | 用例 2/8；VIEWER 读 200/写 403 `permission`；EDITOR 写 201/200；未认证 401；服务端强制 |
+| B22 乐观锁并发（真提交） | PASS | 用例 2；两独立会话同 version，一方 200 且 `version+1`、另一方 409 `VERSION_CONFLICT{current_version:2}`；最终库值来自成功方 |
+| B23 硬件变更同事务回滚 | PASS | 用例 2；注入 audit 失败后明细列变更与 audit 同事务双回滚，持久状态断言为旧值 |
+| B24 生命周期随 Resource | PASS | 用例 2/8；软删后详情默认 404、`deleted=true` 可见、restore 后数据不变；路由清单无独立端点；Resource 删除始终成功 |
+| B25 FK CASCADE（机制级） | PASS | 用例 2/5；raw 物理 `DELETE` 后 detail 行级联删除；软删不删行 |
+| B26 迁移 up/down/up | PASS | 用例 3/4；单一 head、各步 0、down 与 re-up 对象集合一致 |
+| B27 迁移回填断言 | PASS | 用例 4；预置 BARE_METAL 得全 null 行、VM 无行、再次 up 不重复 |
+| B28 结构化列查询/排序/统计 | PASS | 用例 6；`WHERE/ORDER BY/count/avg/sum` 正确；含 `metadata` 行不破坏；9 字段在结构化列 |
+| B29 detail 列集合与时间戳裁定 | PASS | 用例 5；无 `deleted_at/version/created_at/updated_at`；`metadata NOT NULL DEFAULT '{}'` |
+
+### 数据库 / 接口 / 前端 / 集成结果
+
+- **数据库（真实 PG，`csm_verify` raw SQL + `csm_test` pytest）**：`bare_metal_details` 列/约束/触发器与 DB v1 逐项一致；FK `ON DELETE CASCADE`（`confdeltype='c'`）；类型触发器 `trg_bare_metal_details_type_match` 拒 VM 与不存在资源；范围/格式/JSONB object CHECK 生效；`gpu_count=0` 与 `null` 可区分；仅 PK 索引、无 SN unique；迁移 0005 对称可逆、单一 head、回填正确且幂等。**PASS**
+- **接口（ASGI + 全链路 Nginx 18098）**：POST/PATCH 硬件响应内容、类型、nullable、业务边界、非法输入、错误语义符合 Contract；`VALIDATION_ERROR`（`hardware`/`hardware.<field>`）/`FORBIDDEN{permission|csrf}`/`AUTH_REQUIRED`；字符串 trim（`  Dell  `→`Dell`）、严格整数、范围 422；VM 提交 hardware→422 且响应 null；未认证 401。只读端点无业务写副作用。**PASS**
+- **前端**：typecheck/build 通过；client 机制级 52 项通过；HardwarePanel 仅 BARE_METAL、未知占位、`gpu_count=0`「明确无 GPU」、MiB/GiB 标注、表单子字段级 PATCH 经源码与 smoke 核对。真实浏览器 DOM 非本 Feature 必要判据。**PASS**
+- **集成（Compose 经入口 Nginx）**：`migrate`/`bootstrap` Exited(0)，`alembic_version=0005_bare_metal_details`，backend healthy；登录→建 Cluster→建 BARE_METAL（硬件）→省略/null→VM 拒绝→PATCH 子字段→activity 快照全链路符合 Contract；VIEWER 读 200/写 403、EDITOR 写 200 经真实 HTTP 与 audit operator 核对。**PASS**
+
+### 验收映射 A1–A10 结论
+
+| # | 结论 | 证据 |
+| --- | --- | --- |
+| A1 | **PASS** | V1/V16/V13；B1–B3 |
+| A2 | **PASS**（前端展示 + 后端/DB） | V2/V15；B4 |
+| A3 | **PASS** | V3；B5–B8 |
+| A4 | **PASS** | V4/V15；B9 |
+| A5 | **PASS** | V5；B10 |
+| A6 | **PASS** | V6；B11 |
+| A7 | **PASS**（后端 + 前端机制级） | V7/V15 |
+| A8 | **PASS**（端到端审计 + 权限） | V8/V11；B20/B21 |
+| A9 | **PASS**（端到端软删/恢复 + 物理 CASCADE 机制级） | V9/V13；B24/B25 |
+| A10 | **PASS**（数据层结构化查询；列表级过滤不在范围） | V10/V13；B28 |
+
+### Defects
+
+| ID | Severity | Layer | Location | 证据 / 期望与实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F005-TD-1-01 | LOW（已关闭） | 文档（Test Design） | `test-report.md` TD-1 §5 | TD-1 将 FK 约束名写作 `fk_bare_metal_details_resource_id`，DB v1 定稿为 `fk_bare_metal_details_resource_id_resources`；TD-2 已改正，验收判据（`ON DELETE CASCADE`/`confdeltype='c'`）不变 | 仅文档笔误，无实现影响 | Tester | 是（已在 TD-2 修复） |
+
+未发现新的实现缺陷。
+
+### 未验证项与口径声明
+
+- **B25 物理 FK CASCADE 为机制级**：API 无物理删除 Resource 路径（删除为软删），CASCADE 仅经 raw SQL 物理 `DELETE` 验证；软删随 Resource 隐藏/恢复为端到端。不得表述为独立端到端。
+- **B23 审计回滚**：以 monkeypatch 注入 audit 失败制造同事务失败，断言最终持久化；非真实进程崩溃注入。
+- **真实浏览器 DOM 渲染**：未自动化；前端以 typecheck + build + client 机制级 + 入口 Nginx 真实 API 集成为准（同 F001–F004）。
+- **A2/A7 前端展示**：以 smoke 机制级 + 源码核对为准，未做真实浏览器 E2E。
+- **数据完整性映射**：`.pi/skills/data-integrity/SKILL.md` 对应表全部适用项已在 §0 与本节覆盖；Unicode Cc/Cf 仅应用层保证、DB 为 ASCII backstop（DB I-3 已知差异，非本 Feature 缺陷）。
+- **完整 T38/T39/T37/T23/T24/T25/T26**：F005 仅承载硬件侧（T38 硬件字段、T39 cpu_cores 物理核）与 BareMetalDetail 子集；VM 容量/Host 校验、VM 侧与 speed_mbps、Interface/Network/Pool、跨 Feature 权限/审计回归归 F006/F007+/上线验收。**不声明上述条款完整通过**。
+- **导入（§24）**：硬件字段导入与单位一致性归 F014；F005 仅固化校验与 MiB 口径。
+- **列表级 hardware 过滤/排序**：不在已批准 F005 范围（I-1）；A10 仅数据层。
+- **完整 §31 跨功能回归与 §32 上线验收**：不在本 Feature；Feature 通过 ≠ 上线授权。
+
+---
+
+### Git 声明
+
+```text
+GIT: NONE
+```
+
+本次活动（TD-2 文档更新 + TE-1 独立测试执行）仅写入 `docs/features/F005/test-report.md`，未修改 backend/frontend 业务实现，未暂存/提交/切换分支。`feature/F005-baremetal-hardware` 工作区在本次开始前 `git status --short` 为空，结束时仅该报告文件为 modified。
