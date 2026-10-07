@@ -190,8 +190,9 @@ features:
   - F002
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: REVIEW
-  next_action: reviewer 正式 Review（候选 HEAD）
+  current_stage: IMPLEMENTATION
+  next_action: 修复 F003-REV-1（code_key 归一化对齐：仅 ASCII 折叠；迁移 CHECK 与错误映射）；Database/Architect
+    对齐口径后重测重审
   git:
     base_branch: v3
     branch: feature/F003-cluster-management
@@ -206,7 +207,8 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: COMPLETE
-    test: COMPLETE
+    test: PENDING
+    review: PENDING
   evidence:
     product:
     - docs/features/F003/product.md
@@ -222,8 +224,6 @@ features:
     - docs/features/F003/implementation.md
     frontend:
     - docs/features/F003/implementation.md
-    test:
-    - docs/features/F003/test-report.md#test-execution
   layers:
     database: true
     backend: true
@@ -699,10 +699,12 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F003
-  current_stage: REVIEW
-  last_result: F003 TEST TE-1（READY FOR REVIEW，A1–A11 全 PASS，无缺陷）
-  next_action: reviewer 正式 Review 后进入 Merge Gate
-  repair_rounds: 0
+  current_stage: IMPLEMENTATION
+  last_result: F003 Review CHANGES REQUIRED（F003-REV-1 MEDIUM：code_key 归一化不一致致合法 Unicode
+    code 触发 500）
+  next_action: 修复循环第 1 轮：backend 修 code_key（仅 ASCII 折叠）+ 迁移 CHECK + IntegrityError
+    映射；architect/database 更新 D01/Contract/Database 口径；重测重审
+  repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
