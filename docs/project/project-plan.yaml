@@ -204,6 +204,7 @@ features:
     database: COMPLETE
     test_design: COMPLETE
     contract: COMPLETE
+    backend: COMPLETE
   evidence:
     product:
     - docs/features/F003/product.md
@@ -215,6 +216,8 @@ features:
     - docs/features/F003/test-report.md#test-design
     contract:
     - docs/api/F003.md
+    backend:
+    - docs/features/F003/implementation.md
   layers:
     database: true
     backend: true
@@ -691,7 +694,7 @@ execution:
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F003
   current_stage: IMPLEMENTATION
-  last_result: F003 CONTRACT Gate 定稿（READY FOR IMPLEMENTATION，I-1 已裁定，D01 基座+D02 审计一致性签核）
+  last_result: F003 后端实现完成（BACKEND COMPLETE，76 passed）；前端实现进行中
   next_action: backend 与 frontend 并行实现后交 TEST
   repair_rounds: 0
 planning_status:
