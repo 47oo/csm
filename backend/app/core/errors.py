@@ -87,6 +87,39 @@ class VersionConflict(AppError):
         super().__init__(details={"current_version": int(current_version)})
 
 
+class Conflict(AppError):
+    """409: semantic conflict — uniqueness / references / restore (F003 §1.2).
+
+    ``details.reason`` is one of ``unique_conflict``, ``reference_exists``,
+    ``not_deleted`` or ``dependency_deleted``.
+    """
+
+    status_code = 409
+    code = "CONFLICT"
+    default_message = "Conflict"
+
+    def __init__(self, reason: str, **extra: object) -> None:
+        details: dict[str, object] = {"reason": reason}
+        details.update(extra)
+        super().__init__(details=details)
+
+    @classmethod
+    def unique_conflict(cls, field: str) -> "Conflict":
+        return cls("unique_conflict", field=field)
+
+    @classmethod
+    def reference_exists(cls, references: list[dict]) -> "Conflict":
+        return cls("reference_exists", references=references)
+
+    @classmethod
+    def not_deleted(cls) -> "Conflict":
+        return cls("not_deleted")
+
+    @classmethod
+    def dependency_deleted(cls, conflicts: list[dict]) -> "Conflict":
+        return cls("dependency_deleted", conflicts=conflicts)
+
+
 class NotFound(AppError):
     """404: target resource/path does not exist."""
 

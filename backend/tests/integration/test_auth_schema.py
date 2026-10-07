@@ -278,7 +278,10 @@ def test_remaining_check_constraints(committed_engine):
 
 def test_migration_0002_is_reversible(pg_engine, alembic_runner):
     head = alembic_runner.head_revision()
-    assert head == "0002_users_sessions"
+    with pg_engine.connect() as conn:
+        assert list(
+            conn.execute(text("SELECT version_num FROM alembic_version")).scalars()
+        ) == [head]
     alembic_runner.upgrade("head")
 
     def table_names() -> set[str]:
