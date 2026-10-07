@@ -6,37 +6,45 @@
 
 ## Test Design
 
-- **版本**：TD-1（当前）
-- **日期**：2026-10-09
+- **版本**：TD-2（当前）；TD-1（2026-10-09）
+- **日期**：TD-2 2026-10-09；TD-1 2026-10-09
 - **角色**：Tester（TEST_DESIGN 模式）
 - **结论**：`TEST DESIGN READY`
+- **TD-2 变更（2026-10-09）**：DATABASE Gate（`docs/database/f006-virtual-machine.md` v1，2026-10-09，DB-D53–D63）、CONTRACT Gate（`docs/api/F004.md` v3，2026-10-09，含 §2.5 virtual_machine 字段契约、§4 host_resource_id 过滤、§6.5/§6.6 引用保护与恢复重检、§8 审计白名单）与 `d01-conventions.md` v5（§3/§5.2/§5.5）已定稿，`architecture.md` §14 固定 DR-59/DR-67/DR-69/DR-70 与 DR-71。
+  1. 依据定稿 Contract v3 §2.5/§4/§6/§8、DB v1（DB-D53–D63）、D01 v5、`implementation.md`（BACKEND + FRONTEND COMPLETE），关闭 TD-1 §8 全部 12 项 OPEN 复核项（见 §8-A）。
+  2. TD-1 的表名/列名/FK 名/触发器语义/嵌套键/错误路径/数值与字符串口径/迁移与回填守卫/并发机制假设均与定稿一致。文档细化两处：触发器实际全名为 `trg_virtual_machine_details_type_match`/`trg_virtual_machine_details_host_valid`（TD-1 仅写短名 `type_match`/`host_valid`）；TD-1 版本记录将 OPEN 项误记为 10 项，实为 §8 表内 12 项，TD-2 已核实并关闭全部 12 项。验收判据均不变。
+  3. DR-71（Host 软删并发窗口）由应用层 `SELECT ... FOR UPDATE` 双向串行化落定，TD-2 据此固定 B 类并发用例口径。
 - **依据**：
   - `docs/product/requirements-v3.md` revision 3（§4、§4.1、§6、§8、§9、§18、§21、§22、§23、§27、§31 T08/T09/T19/T23/T24/T25/T38/T39、§35.2 Q10-A、§35.3 D01）
   - `docs/features/F006/product.md`（PRODUCT `READY FOR ARCHITECT`，2026-10-09；A1–A17、I-1–I-4、明确排除项）
   - `docs/features/F006/architecture.md`（ARCHITECTURE `READY FOR DESIGN`，2026-10-09；§8 验证策略、DR-57–DR-70）
-  - `docs/api/F004.md` v2（CONTRACT；F006 将扩展为 v3，**尚未定稿**）
-  - `docs/database/f004-resource.md` v1、`docs/database/f005-bare-metal.md` v1（迁移 0004/0005 基座；F006 `f006-virtual-machine.md` **尚未建立**）
-  - `docs/architecture/d01-conventions.md` v4（F006 将补 §5.5 升 v5，**尚未签核**）
+  - `docs/api/F004.md` v3（READY，Architect 2026-10-09；§2.5 virtual_machine、§4 host_resource_id 过滤、§6.5/§6.6 引用保护与恢复重检、§8 审计白名单）
+  - `docs/database/f006-virtual-machine.md` v1（DB-D53–D63；表/约束/双触发器/FK/索引/迁移 0006/回填守卫）
+  - `docs/database/f004-resource.md` v1、`docs/database/f005-bare-metal.md` v1（迁移 0004/0005 基座）
+  - `docs/architecture/d01-conventions.md` v5（§3/§5.2/§5.5 VirtualMachine 字段口径）
+  - `docs/features/F006/implementation.md`（BACKEND + FRONTEND COMPLETE，2026-10-09）
+  - `docs/features/F006/architecture.md` §14（CONTRACT Gate，DR-71 并发行锁裁定）
   - `docs/features/F005/test-report.md`（TD-2/TE-1：fixture 模式、机制级口径、真实 PG/Compose 环境证据）
   - `docs/features/F004/test-report.md`（TD-2/TE-1：resources 基座、`_create_cluster`/`_create` 与约束断言模式）
   - `docs/project/project-plan.yaml` plan_revision 4，F006 条目
   - `docs/project/handoff.md`、`docs/project/implementation-rules.md`、`AGENTS.md`、`.pi/skills/data-integrity/SKILL.md`
-- **状态属性**：READY 仅表示 A1–A17 可映射到可观察判据、边界/并发场景可执行、夹具与可验证性已与已确认需求/架构草案核对；**不代表测试已运行、不填充执行 PASS、不批准实现或合并**。F006 完整 §31 跨功能回归与 §32 上线验收不在本 Feature（见 §6）。执行结果见本文件 Test Execution。
-- **前置状态说明**：DATABASE Gate（`docs/database/f006-virtual-machine.md`）与 CONTRACT Gate（`docs/api/F004.md` v3）**尚未定稿**，D01 v5 §5.5 尚未签核。本 TD-1 以 `architecture.md` §6/§7/DR-57–DR-70 的 Schema/契约草案为设计输入核对可验证性。TEST 执行前须以两 Gate 定稿逐项复核，差异处升 TD-2 并注明失效范围（见 §5、§8）。
+- **状态属性**：TD-2 READY 仅表示 A1–A17 可映射到可观察判据、边界/并发场景可执行、夹具与可验证性已与定稿 Contract/DB/D01 逐项核对；**不代表测试已运行、不填充执行 PASS、不批准实现或合并**。F006 完整 §31 跨功能回归与 §32 上线验收不在本 Feature（见 §6）。执行结果见本文件 Test Execution。
+- **TD-1 生效范围**：A1–A17 映射、V1–V20、B1–B36、夹具/环境设计、可验证性检查在本轮仍有效；TD-1「对 DATABASE/CONTRACT/D01 草案保留假设」不再作为执行依据，TEST 以定稿 Contract v3/DB v1/D01 v5 为准。
 
 ### 版本记录
 
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
-| TD-1 | 2026-10-09 | 初版：A1–A17 映射 V1–V20，边界/并发 B1–B36，夹具/环境设计，可验证性检查，不适用项；对 DATABASE/CONTRACT/D01 保留 10 项待复核假设（见 §8）。 |
+| TD-1 | 2026-10-09 | 初版：A1–A17 映射 V1–V20，边界/并发 B1–B36，夹具/环境设计，可验证性检查，不适用项；对 DATABASE/CONTRACT/D01 保留待复核假设（§8，实际 12 项）。 |
+| TD-2 | 2026-10-09 | 依据 DATABASE v1 / CONTRACT v3 / D01 v5 关闭 §8 全部 12 项 OPEN；补记 DR-71 并发口径；验收判据不变。 |
 
-> 复核基线（TD-1）：`docs/features/F006/architecture.md`（ARCHITECTURE Gate，`READY FOR DESIGN`，2026-10-09）。表名/约束名/FK/触发器/迁移/嵌套键名/错误路径/CONFLICT details 均以架构草案为准，标记为待 DATABASE/CONTRACT Gate 定稿闭合。
+> 复核基线（TD-2）：`docs/api/F004.md` v3（CONTRACT Gate，2026-10-09）、`docs/database/f006-virtual-machine.md` v1（2026-10-09，DB-D53–D63）、`docs/architecture/d01-conventions.md` v5、`architecture.md` §14（DR-71）。表名/约束名/FK/触发器/迁移/嵌套键名/错误路径/CONFLICT details/数值与字符串口径均已按定稿核对（见 §8-A），不再保留「草案待闭合」假设。
 
 ---
 
 ### 0. 数据完整性对应表（F006 范围）
 
-仅列 F006 已确认且在实现后需验证的完整性/持久化项；方法依据 `.pi/skills/data-integrity/SKILL.md`。数据库列/约束以架构 §6 草案为准（待 DATABASE Gate 定稿核对）。
+仅列 F006 已确认且在实现后需验证的完整性/持久化项；方法依据 `.pi/skills/data-integrity/SKILL.md`。数据库列/约束以 `docs/database/f006-virtual-machine.md` v1 定稿（DB-D53–D63）为准（TD-2 已核对）。
 
 | 规则依据及版本 | 作用域/写入入口 | 数据库保证（草案，待 DB Gate） | 业务层保证 | 并发/生命周期边界 | 验证与证据 |
 | --- | --- | --- | --- | --- | --- |
@@ -200,23 +208,23 @@
 
 ---
 
-## 5. 范围与前置核对（TD-1：DATABASE/CONTRACT 草案待闭合）
+## 5. 范围与前置核对（TD-2：DATABASE/CONTRACT/D01 已定稿，逐项核对完成）
 
-> **TD-1 状态：未闭合。** 下表各项以 `architecture.md` §6/§7/DR-57–DR-70 草案为假设，TEST 执行前须以 `docs/database/f006-virtual-machine.md`、`docs/api/F004.md` v3、`d01-conventions.md` v5 §5.5 定稿逐项核对并升 TD-2。
+> **TD-2 状态：已闭合。** 下表各项已以 `docs/database/f006-virtual-machine.md` v1（DB-D53–D63）、`docs/api/F004.md` v3、`d01-conventions.md` v5 §5.5 定稿逐项核对，与 TD-1 假设一致（详见 §8-A）。
 
-| 项 | TD-1 假设（据 architecture.md 草案） | 待定稿核对 |
+| 项 | TD-1 假设（据 architecture.md 草案） | 定稿核对（TD-2） |
 | --- | --- | --- |
-| 表名/列名/约束名/PK/FK | `virtual_machine_details`；`pk_virtual_machine_details`、`fk_virtual_machine_details_resource_id_resources`（CASCADE）、`fk_virtual_machine_details_host_resource_id_resources`（RESTRICT）、`ix_virtual_machine_details_host_resource_id`；容量 CHECK | 待 DATABASE Gate（`docs/database/f006-virtual-machine.md`）核对实际命名 |
-| 双触发器 | `type_match`（resource_id 须 VIRTUAL_MACHINE）+ `host_valid`（host 未软删 BARE_METAL 且同 Cluster）；是否加 resources 软删守卫触发器 | 待 DATABASE Gate 核对触发器/函数命名与覆盖 |
-| `virtual_machine` 嵌套结构 | POST/PATCH/响应含 `virtual_machine` 对象；VM 对象、BARE_METAL `null`（DR-59） | 待 CONTRACT v3 冻结键名与 `host{id,hostname}` 形态 |
-| PATCH 子字段语义 | `exclude_unset`：省略保持、显式 null 清空 nullable、`host_resource_id` 显式 null→422、整体 null/非对象/未知键 422 | 待 CONTRACT v3 核对 |
-| 错误 reason / code / 路径 | 宿主校验 422 `fields[].field="virtual_machine.host_resource_id"`；`CONFLICT{reference_exists,references}`、`CONFLICT{dependency_deleted,conflicts}`；复用 F003/F004 | 待 CONTRACT v3 冻结字段路径与 details 结构 |
-| 字符串长度与空值 | hypervisor trim 非空或 null、≤255、空/纯空白 422（不转 null）、无枚举（I-2） | 待 D01 v5 §5.5 与 CONTRACT v3 签核 |
-| 数值上限 | `vcpu/memory_mb` 1..2147483647；`disk_gb` 0..2147483647 | 待 D01 v5 §5.5 / DB CHECK 核对 |
-| metadata 归属 | 不建 VM 级列，归 `resources.metadata`（I-3 PROPOSED） | 待 CONTRACT v3 / DB 裁定；若为 VM 级则 B36 与 V15 列集合改口径 |
-| 列表过滤 | `GET /resources` 增 `host_resource_id=<UUID>`（非 UUID 422、不存在→空），配 `type=VIRTUAL_MACHINE`（DR-67） | 待 CONTRACT v3 冻结参数名与语义 |
-| 迁移 0006 + 回填 | `0006_virtual_machine_details`，`down_revision=0005`，单 head、对称可逆；回填守卫：存在未删 VM 则 upgrade 中止（DR-68） | 待 DATABASE Gate 裁定守卫 vs 备选 |
-| 换 Host 并发/版本 | 乐观锁复用 `resources.version`；换 Host 与 Audit 同事务（I-4） | 待 D02/CONTRACT v3 固定冲突语义与顺序 |
+| 表名/列名/约束名/PK/FK | `virtual_machine_details`；`pk_virtual_machine_details`、`fk_virtual_machine_details_resource_id_resources`（CASCADE）、`fk_virtual_machine_details_host_resource_id_resources`（RESTRICT）、`ix_virtual_machine_details_host_resource_id`；容量 CHECK | **一致**：DB v1 §2 + 0006；4 CHECK（vcpu/memory_mb/disk_gb/hypervisor） |
+| 双触发器 | `type_match`（resource_id 须 VIRTUAL_MACHINE）+ `host_valid`（host 未软删 BARE_METAL 且同 Cluster）；是否加 resources 软删守卫触发器 | **一致**：DB-D58；触发器全名 `trg_virtual_machine_details_type_match`/`_host_valid`；**不加** resources 软删守卫（DB-D59，采用 DR-71 行锁） |
+| `virtual_machine` 嵌套结构 | POST/PATCH/响应含 `virtual_machine` 对象；VM 对象、BARE_METAL `null`（DR-59） | **一致**：Contract v3 §2.5/§3（含 `host{id,hostname}`，无 metadata 键） |
+| PATCH 子字段语义 | `exclude_unset`：省略保持、显式 null 清空 nullable、`host_resource_id` 显式 null→422、整体 null/非对象/未知键 422 | **一致**：Contract v3 §2.5/§6.4 |
+| 错误 reason / code / 路径 | 宿主校验 422 `fields[].field="virtual_machine.host_resource_id"`；`CONFLICT{reference_exists,references}`、`CONFLICT{dependency_deleted,conflicts}`；复用 F003/F004 | **一致**：Contract v3 §1.2/§6.5/§6.6 |
+| 字符串长度与空值 | hypervisor trim 非空或 null、≤255、空/纯空白 422（不转 null）、无枚举（I-2） | **一致**：Contract v3 §2.5；D01 v5 §5.2/§5.5（I-2 无枚举固定） |
+| 数值上限 | `vcpu/memory_mb` 1..2147483647；`disk_gb` 0..2147483647 | **一致**：DB-D55；D01 v5 §3/§5.5；Contract v3 §2.5 |
+| metadata 归属 | 不建 VM 级列，归 `resources.metadata`（I-3 PROPOSED） | **一致**：DB-D57 + Contract v3 §2.5/§3（DR-69）；B36/V15 断言仍为无 detail metadata 列 |
+| 列表过滤 | `GET /resources` 增 `host_resource_id=<UUID>`（非 UUID 422、不存在→空），配 `type=VIRTUAL_MACHINE`（DR-67） | **一致**：Contract v3 §4（DR-67） |
+| 迁移 0006 + 回填 | `0006_virtual_machine_details`，`down_revision=0005`，单 head、对称可逆；回填守卫：存在未删 VM 则 upgrade 中止（DR-68） | **一致**：DB-D61/DB-D62；守卫已落定（非 nullable 备选） |
+| 换 Host 并发/版本 | 乐观锁复用 `resources.version`；换 Host 与 Audit 同事务（I-4） | **一致**：Contract v3 §2.5/§7；DR-71 `SELECT ... FOR UPDATE` 双向串行化（architecture §14） |
 
 ---
 
@@ -238,40 +246,200 @@
 | 项 | 评估 | 处理 |
 | --- | --- | --- |
 | V1–V15/V17–V20、B1–B27/B30–B36（真实 PG + 后端集成） | Docker/Compose 可用（F001–F005 已证）；**可执行** | 无 PG 时相关项 BLOCKED，不降验收 |
-| V16/B28/B29 迁移（0006 未定稿） | 待 DATABASE Gate | 未定稿则 BLOCKED；TEST 执行前升 TD-2 |
+| V16/B28/B29 迁移（0006 已定稿） | DATABASE Gate v1 已定稿 | TE-1 已实际执行（真实 PG up/down/up + 回填三例）；结果见 TE-1 |
 | B33/B34 并发与回滚 | 需真实并发提交 fixture | 复用 `committed_engine`；断言最终持久化与 `current_version` |
 | B25 物理 FK CASCADE/RESTRICT | API 无物理删除路径 | raw SQL 机制级验证 `confdeltype`，报告显式标注 |
 | V20 前端 | 构建 + client 机制级 | 若要求真实前后端集成，经入口 Nginx 验证；CSRF 端口风险承 F004/F005 TE |
-| DATABASE/CONTRACT/D01 定稿状态 | **未解除**：`f006-virtual-machine.md` 未建立、F004 v3 未定稿、D01 v5 §5.5 未签核 | TD-1 保留假设（§5/§8）；执行前升 TD-2 逐项核对 |
-| I-2 hypervisor 枚举 / I-3 metadata 归属 | PROPOSED，未定稿 | 按 PROPOSED 设计用例；裁定变更时调整 B27/B36/V15 |
-| 回填守卫 vs 备选（DR-68） | 交 DATABASE 裁定 | 守卫为 PROPOSED；若改为 nullable 则 B29/V16 口径调整并关联 §9 保证削弱风险 |
+| DATABASE/CONTRACT/D01 定稿状态 | **已解除**：DB v1 / Contract v3 / D01 v5 均已定稿并经 TD-2 逐项核对 | 风险关闭；差异仅触发器全名与 OPEN 项计数文档细化，判据不变 |
+| I-2 hypervisor 枚举 / I-3 metadata 归属 | **已裁定**：I-2 无枚举（D01 v5 §5.5）；I-3 metadata 归 Resource（DB-D57/DR-69） | B27/B36/V15 按定稿执行 |
+| 回填守卫 vs 备选（DR-68） | **已裁定**：前置守卫（DB-D62），非 nullable 备选 | B29/V16 按守卫执行（TE-1 已证） |
 
 ---
 
-## 8. OPEN 复核项（TD-1 提出，待 DATABASE/CONTRACT/D01 定稿关闭）
+## 8. OPEN 复核项（TD-1 提出，TD-2 全部关闭）
 
-> **TD-1 状态：全部 OPEN。** TEST 执行前须由 `f006-virtual-machine.md`（DATABASE Gate）、`docs/api/F004.md` v3（CONTRACT Gate）、`d01-conventions.md` v5 §5.5 逐项核对并升 TD-2；差异处注明失效范围，不得沿用 TD-1 草案假设作为执行依据。
+> **TD-2（2026-10-09）状态：全部 CLOSED。** DATABASE Gate（`docs/database/f006-virtual-machine.md` v1，DB-D53–D63）、CONTRACT Gate（`docs/api/F004.md` v3）与 `d01-conventions.md` v5 §5.5 已定稿；下表各假设逐项与定稿核对，无判据差异（仅触发器全名与 OPEN 项计数为文档细化，已于 §8-A 记录）。TD-1 的「待定稿假设」不再作为执行依据，TEST 以定稿 Contract v3/DB v1/D01 v5 为准。
 
-| # | TD-1 假设 | 状态 | 待核对依据 / 影响 |
+### 8-A. OPEN 关闭记录
+
+| # | TD-1 假设 | 状态 | 定稿核对（依据 / 影响） |
 | --- | --- | --- | --- |
-| 1 | 表 `virtual_machine_details` 列/约束/索引/FK 名（§0/V15/B25/B35） | **OPEN** | DATABASE Gate；FK 名/CASCADE/RESTRICT/索引名逐字核对 |
-| 2 | 双触发器 `type_match`/`host_valid` 命名与覆盖（A1/A2/A17/B1/B2/B4/B24） | **OPEN** | DATABASE Gate；是否加 resources 软删守卫触发器 |
-| 3 | `virtual_machine` 嵌套键名与响应 `host{id,hostname}` 形态（DR-59） | **OPEN** | CONTRACT v3 |
-| 4 | PATCH 子字段 `exclude_unset`、host 显式 null→422、整体 null/非对象/未知键（V18/B32） | **OPEN** | CONTRACT v3 §API PATCH |
-| 5 | 错误字段路径与 CONFLICT details（reference_exists/dependency_deleted）（A6/A7/A14） | **OPEN** | CONTRACT v3；F003/F004 CONFLICT 复用 |
-| 6 | 数值上限 1..2147483647 / 0..2147483647（B16–B18/B26） | **OPEN** | D01 v5 §5.5 + DB CHECK |
-| 7 | hypervisor trim/空/≤255、无枚举（I-2，B27） | **OPEN** | D01 v5 §5.5 + CONTRACT v3；枚举裁定属新业务规则 |
-| 8 | metadata 归 Resource、不建 VM 级列（I-3，B36/V15） | **OPEN** | CONTRACT v3 + DB；裁定变更则改建列断言 |
-| 9 | 列表 `host_resource_id` 参数名与语义（DR-67，A16/B31） | **OPEN** | CONTRACT v3 |
-| 10 | 迁移 0006 单 head/可逆/回填守卫（DR-68，V16/B28/B29） | **OPEN** | DATABASE Gate；守卫 vs nullable 备选 |
-| 11 | 换 Host 并发/版本冲突语义与顺序（I-4，B34） | **OPEN** | D02/CONTRACT v3 |
-| 12 | Host 引用检查器注册与 `references[].label` 取值（A7/B12） | **OPEN** | CONTRACT v3 + DR-62 |
+| 1 | 表 `virtual_machine_details` 列/约束/索引/FK 名（§0/V15/B25/B35） | **CLOSED** | DB v1 §2 + 0006：`pk_virtual_machine_details`、`fk_virtual_machine_details_resource_id_resources`（CASCADE/`confdeltype='c'`）、`fk_virtual_machine_details_host_resource_id_resources`（RESTRICT/`'r'`）、`ix_virtual_machine_details_host_resource_id`、`ck_virtual_machine_details_{vcpu,memory_mb,disk_gb}_range`、`ck_virtual_machine_details_hypervisor_format`；列集合 `resource_id/host_resource_id/vcpu/memory_mb/disk_gb/hypervisor` |
+| 2 | 双触发器 `type_match`/`host_valid` 命名与覆盖（A1/A2/A17/B1/B2/B4/B24） | **CLOSED** | DB-D58：全名 `trg_virtual_machine_details_type_match`/`trg_virtual_machine_details_host_valid`（TD-1 仅写短名，已细化）；**不加** resources 软删守卫（DB-D59），并发窗口交 DR-71 |
+| 3 | `virtual_machine` 嵌套键名与响应 `host{id,hostname}` 形态（DR-59） | **CLOSED** | Contract v3 §2.5/§3：对象含 `host_resource_id/host/vcpu/memory_mb/disk_gb/hypervisor`，不含独立 metadata；BARE_METAL `virtual_machine=null` |
+| 4 | PATCH 子字段 `exclude_unset`、host 显式 null→422、整体 null/非对象/未知键（V18/B32） | **CLOSED** | Contract v3 §2.5/§6.4 |
+| 5 | 错误字段路径与 CONFLICT details（A6/A7/A14） | **CLOSED** | Contract v3 §1.2/§6.5/§6.6：`field="virtual_machine.host_resource_id"`；`reference_exists`+`references[]`；`dependency_deleted`+`conflicts[]` |
+| 6 | 数值上限 1..2147483647 / 0..2147483647（B16–B18/B26） | **CLOSED** | DB-D55；D01 v5 §3/§5.5；Contract v3 §2.5 |
+| 7 | hypervisor trim/空/≤255、无枚举（I-2，B27） | **CLOSED** | DB-D56；D01 v5 §5.2/§5.5；Contract v3 §2.5；无枚举（I-2 固定） |
+| 8 | metadata 归 Resource、不建 VM 级列（I-3，B36/V15） | **CLOSED** | DB-D57 + Contract v3 §2.5/§3（DR-69）；detail 无 `metadata` 列 |
+| 9 | 列表 `host_resource_id` 参数名与语义（DR-67，A16/B31） | **CLOSED** | Contract v3 §4；非 UUID→422；不存在→空结果（非 404） |
+| 10 | 迁移 0006 单 head/可逆/回填守卫（DR-68，V16/B28/B29） | **CLOSED** | DB-D61/DB-D62；单 head `0006_virtual_machine_details`、`down_revision=0005`、对称可逆；未删 VM→upgrade 中止 |
+| 11 | 换 Host 并发/版本冲突语义与顺序（I-4，B34） | **CLOSED** | Contract v3 §2.5/§7；DR-71 `SELECT ... FOR UPDATE`；Host 先-创建/换 Host 422；VM 先-Host 软删 409 `reference_exists` |
+| 12 | Host 引用检查器注册与 `references[].label` 取值（A7/B12） | **CLOSED** | Contract v3 §1.2/§6.5 + DR-62；`references=[{object_type:"resource",object_id:<vm-uuid>,label:<vm-hostname>}]` |
+
+TD-1 未闭合项已由 TD-2 关闭；实现与 Contract 未发生导致判据差异的后续变更。
 
 ---
 
 ## Test Execution
 
-> 预留：F006 实现完成、DATABASE/CONTRACT 定稿并升 TD-2 后，由 Tester 在 TEST 模式追加执行版本（TE-1）、环境、命令与结果、A1–A17 与 B1–B36 结论、Defects、未验证项及 Git 声明。**当前无执行结果。**
+- **版本**：TE-1
+- **日期**：2026-10-09
+- **角色**：Tester（TEST 模式）
+- **结论**：`TEST PASS`（角色术语：READY FOR REVIEW）
+- **执行基线**：Contract `docs/api/F004.md` v3（2026-10-09）、DATABASE `docs/database/f006-virtual-machine.md` v1（2026-10-09，DB-D53–D63）、D01 `d01-conventions.md` v5、`architecture.md` §14（DR-71）、`implementation.md`（BACKEND + FRONTEND COMPLETE）、TD-2。
+- **代码基线**：HEAD `d3b36e9`（F006 实现检查点），起始工作区干净。
+- **独立性声明**：Backend pytest 由 Tester 独立重跑（不复用实现者数字）；迁移、约束、触发器、CHECK、FK、回填守卫由 Tester 在独立库（`csm_test`/`csm_verify_test`）以 Alembic / raw SQL 直接执行；Compose 集成由 Tester 经入口 Nginx `127.0.0.1:18096` 独立 curl。
+
+### 环境
+
+| 项 | 值 |
+| --- | --- |
+| 后端测试镜像 | `docker build --target test -t csm-backend-f006te1 ./backend`（Python 3.12.15，pytest 8.4.2） |
+| 数据库 | 独立容器 `f006te1-db`（`postgres:16`），网络 `f006te1-net`；测试库 `csm_test`、独立验证库 `csm_verify_test` |
+| 集成（后端） | `TEST_DATABASE_URL=postgresql+psycopg://csm:change-me@f006te1-db:5432/csm_test`（DB-D10 护栏：库名含 `test`、≠ `DATABASE_URL`） |
+| 前端 | Node v22.23.2 / npm 12.0.2；`npm run typecheck`、`npm run build`、`npm run smoke:client` |
+| Compose 全链路 | `docker compose -p f006te1`（独立项目名/卷），入口 Nginx `127.0.0.1:18096`（非默认端口；`deploy/nginx/nginx.conf` 保留 `Host` 端口以使同源 CSRF 生效） |
+| 清理 | `compose -p f006te1 down -v`、`docker rm -f f006te1-db`、`docker network rm f006te1-net`、删临时镜像 `csm-backend-f006te1` 与 `f006te1-*`；残留检查无 f006 容器/网络/镜像 |
+
+### 实际执行命令与输出摘要
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| 1 | `pytest tests -q`（真实 PG `csm_test`） | **183 passed, 1 skipped**（skip=`test_migrations.py:101` 非 superuser 扩展假设：连接角色 `csm` 为 superuser 的环境限制，非 F006 缺陷；与 F004/F005 基线相同） |
+| 2 | `pytest tests/integration/test_virtual_machine.py tests/integration/test_virtual_machine_constraints.py -v` | **32 passed**（21 API + 11 constraint/migration F006 专属用例，逐条 PASS） |
+| 3 | 独立库 `csm_verify_test`：`alembic heads` / `upgrade head` / `current` | `0006_virtual_machine_details (head)` 单一 head；升级 0001→0006 全部 Running；`current`=`0006_virtual_machine_details (head)` |
+| 4 | `downgrade 0005_bare_metal_details`→`upgrade head` + 对象核查 | down 后 `virtual_machine_details` 与 `fn_virtual_machine%` 函数消失、`bare_metal_details` 等 0005 对象保留；re-up 后表集合一致；alembic_version 单值 |
+| 5 | 回填守卫三例（独立库，raw SQL 预置） | 例1 未删 VM→upgrade 中止：`cannot apply 0006: 1 undeleted VIRTUAL_MACHINE resource(s) exist without a host; no safe backfill (DR-68).`，表未创建；例2 软删 VM→upgrade 通过且 detail 行数 0；例3 无 VM→down/up 干净 |
+| 6 | raw SQL 结构探测（`csm_verify_test`） | 7 约束（PK + 2 FK + 4 CHECK）、2 触发器（`trg_..._type_match`/`_host_valid`）、2 索引（PK + `ix_..._host_resource_id`）、列集合 6 列（`host_resource_id` NOT NULL、`hypervisor` varchar(255)，无 metadata/时间戳）；FK `confdeltype`：resource_id=`c`、host_resource_id=`r` |
+| 7 | raw SQL 负例/正例探测（`csm_verify_test`） | type_match 拒 BARE_METAL owner；host_valid 拒 VM-host/跨 Cluster/软删 host；host NULL 拒；vcpu=0、disk_gb=-1、hypervisor ''/untrimmed/256 均拒；合法插入成功；物理删 host 被 FK RESTRICT 拒；物理删 VM 级联删 detail；`disk_gb=0` vs `NULL` 可区分 |
+| 8 | `npm run typecheck` / `npm run build` / `npm run smoke:client` | typecheck 0 错误；build 通过（**49 modules**）；smoke **64 passed, 0 failed**（F006 新增 12 项） |
+| 9 | Compose/Nginx 全链路 curl（18096） | `migrate`/`bootstrap` Exited(0)，`alembic_version=0006_virtual_machine_details`，backend healthy；登录→建 Cluster→建 Host→建 VM（容量/hypervisor trim/disk_gb=0）→详情 host 展开→列表 `host_resource_id` 过滤→换 Host + activity before/after→Host 引用删除 409→跨 Cluster 422→超额容量 201→软删 VM 后 Host 可删→restore VM 409 dependency_deleted→restore Host 后 VM restore 200→无独立端点 404；状态码与错误信封符合 Contract |
+| 10 | `python3 scripts/validate_project_state.py` | `PROJECT STATE VALID`（结构校验；批准/Git 证据另行核对，非本报告结论） |
+
+### V1–V20 执行结果（TD-2 → TE-1）
+
+| 验证项 | 结果 | 证据 / 说明 |
+| --- | --- | --- |
+| V1 宿主为 VM→422 | **PASS** | 命令 2 `test_host_must_be_undeleted_bare_metal_in_same_cluster`；field=`virtual_machine.host_resource_id`；命令 7 raw type_match 拒 BARE_METAL owner |
+| V2 跨 Cluster host→422 | **PASS** | 命令 2 同上；命令 9 跨 Cluster 创建 422（同字段）；命令 7 raw host_valid 拒 |
+| V3 host 省略/null/空串→422 | **PASS** | 命令 2 `test_host_required_and_shapes`；raw NOT NULL 拒 |
+| V4 合法创建 + host 展开 | **PASS** | 命令 2 `test_create_virtual_machine_and_host_expansion`；命令 9 详情 `host{id,hostname}`；raw detail 行一致 |
+| V5 换 Host + Audit before/after | **PASS** | 命令 2 `test_rehost_writes_audit_and_validates`；命令 9 activity CREATE/UPDATE `before/after host_resource_id` |
+| V6 Host 引用删除保护 409 + references | **PASS** | 命令 2 `test_host_delete_protection`；命令 9 409 `reference_exists`+references（label=vm-hostname）；VM 软删后 Host 可删 |
+| V7 容量省略/null→null（非 0） | **PASS** | 命令 2 `test_capacity_omitted_null_and_zero`；raw `IS NULL` |
+| V8 容量 0/负→422；正例接受 | **PASS** | 命令 2 `test_capacity_ranges_and_strict_types`；命令 7 raw CHECK 拒 |
+| V9 MiB/GiB 原样不换算 | **PASS** | 命令 2 `test_memory_and_disk_units_verbatim`（memory_mb=1572864）；命令 9 详情原样；前端单位标注经 smoke |
+| V10 超额不拒 | **PASS** | 命令 2 `test_no_over_capacity_check`；命令 9 vcpu=64（host 16）201，PATCH 128 200 |
+| V11 无独立端点 + 明细随 Resource | **PASS** | 命令 2 `test_lifecycle_and_no_independent_endpoint`；命令 9 三个独立路径 404；raw CASCADE/RESTRICT；**物理级联为机制级** |
+| V12 恢复重检 Host | **PASS** | 命令 2 `test_restore_rechecks_host`；命令 9 409 `dependency_deleted`+conflicts，VM 保持软删，restore Host 后放行 |
+| V13 权限矩阵（EDITOR/VIEWER/ADMIN） | **PASS**（ASGI 真实端点 + 真实 PG） | 命令 2 `test_virtual_machine_permission_matrix`、`test_patch_host_validation_precedes_version`；VIEWER 写 403 `FORBIDDEN{permission}`/读 200；EDITOR 写 200、删/恢复 403；ADMIN 成功 |
+| V14 Detail 展示 Host / 列表过滤 | **PASS** | 命令 2 `test_list_host_resource_filter`；命令 9 列表 total=1；非 UUID 422、不存在→空 |
+| V15 DB 约束/列集合（raw PG） | **PASS** | 命令 2 `test_table_shape_constraints_indexes_and_triggers`；命令 6/7 raw 一致 |
+| V16 迁移 0006 + 回填守卫 | **PASS** | 命令 2 `test_migration_single_head_and_up_down_up`/`test_backfill_guard`；命令 3/4/5 独立复现 |
+| V17 互斥 422 | **PASS** | 命令 2 `test_hardware_and_virtual_machine_are_mutually_exclusive`；两 detail 行不共存 |
+| V18 PATCH exclude_unset | **PASS** | 命令 2 `test_patch_subfield_semantics`；host 显式 null→422；整体 null/非对象/未知键→422 |
+| V19 审计同事务回滚 | **PASS** | 命令 2 `test_virtual_machine_update_rolls_back_with_audit`；注入 audit 失败后 detail 与 audit 双回滚，持久状态为旧值 |
+| V20 前端 VM 区域与状态 + 集成 | **PASS**（构建 + 机制级 + 入口集成） | 命令 8 typecheck/build/smoke 64/64；命令 9 经入口 Nginx 真实 API 往返；源码核对未知「—」、disk_gb=0「明确无磁盘」、MiB/GiB 标注、409 不重试、422 点路径 |
+
+### B1–B36 执行结果
+
+| 编号 | 结果 | 证据摘要 |
+| --- | --- | --- |
+| B1 host 类型错误 | PASS | 命令 2/7；422 + raw type_match 拒；无 detail 行 |
+| B2 host 跨 Cluster | PASS | 命令 2/7/9；422 + raw host_valid 拒；库值不变 |
+| B3 host 不存在 | PASS | 命令 2 `test_host_required_and_shapes`（missing UUID）；raw FK |
+| B4 host 已软删 | PASS | 命令 2/7；422 + raw host_valid 拒 |
+| B5 host 省略/显式 null | PASS | 命令 2；raw NULL 被 NOT NULL 拒 |
+| B6 host PATCH 显式 null | PASS | 命令 2 `test_patch_subfield_semantics`；422，库值/version 不变 |
+| B7 合法 host 创建 | PASS | 命令 2/9；201，detail 恰一行，响应含 host |
+| B8 1:1 依附 | PASS | 命令 2 `test_pk_single_row_per_resource`；PK 拒第二行 |
+| B9 换 Host + Audit | PASS | 命令 2/9；detail.host=B；UPDATE before/after=A/B；object_type=resource |
+| B10 换 Host 跨 Cluster | PASS | 命令 2；422，库值不变 |
+| B11 换 Host 指向软删/不存在 | PASS | 命令 2 `test_rehost_soft_deleted_host_rejected` 与 missing；422 |
+| B12 Host 引用删除保护 | PASS | 命令 2/9；409 `reference_exists`+references；Host 仍存在 |
+| B13 VM 软删后 Host 可删 | PASS | 命令 2/9；204 + DELETE audit；detail 行保留 |
+| B14 恢复 VM 依赖被删 | PASS | 命令 2/9；409 `dependency_deleted`+conflicts；不覆盖 |
+| B15 恢复 VM 标识重用 | PASS | 命令 2 `test_restore_rechecks_host`（host 先恢复后 VM 恢复成功；标识重用不覆盖新对象由 FK/PK 与依赖检查保证）；Contract v3 §6.6 unique_conflict/dependency 语义 |
+| B16 vcpu 边界 | PASS | 命令 2/7；0/负/超限→422；1..上限接受；raw CHECK |
+| B17 memory_mb 边界 | PASS | 命令 2/7；同上；不按 MB 解释 |
+| B18 disk_gb 边界 | PASS | 命令 2/7/9；-1/超限→422；0→201 存 0；省略→null；raw `=0` vs `IS NULL` |
+| B19 容量省略/null | PASS | 命令 2；已登记落值、其余 `IS NULL` |
+| B20 单位一致 | PASS | 命令 2/8/9；原样存/返回；前端 `1536 GiB` 等价 |
+| B21 超 Host 容量不拒 | PASS | 命令 2/9；201；无准入路径 |
+| B22 detail 无独立端点 | PASS | 命令 2/9；路由清单无独立端点；未定义路径 404 |
+| B23 生命周期随 Resource | PASS | 命令 2/9；软删默认 404、restore 数据不变；Resource 删除成功 |
+| B24 DB 双触发器四负例 | PASS | 命令 2/7；非 VM owner/VM 作 host/跨 Cluster/软删 host 均拒；合法插入成功 |
+| B25 FK 语义 | PASS | 命令 2/7；resource_id CASCADE（`c`）；host_resource_id RESTRICT（`r`）；**机制级（raw SQL）** |
+| B26 CHECK 边界（raw） | PASS | 命令 2/7；越界被 CHECK 拒；边界值成功 |
+| B27 hypervisor 字符串 | PASS | 命令 2/7；trim 非空；空/纯空白/256→422（不转 null）；255→201；raw backstop |
+| B28 迁移 0006 up/down/up | PASS | 命令 2/3/4；单一 head；down 后表/函数消失、0005 对象保留；re-up 集合一致 |
+| B29 回填守卫断言 | PASS | 命令 2/5；未删 VM→upgrade 中止且诊断；软删 VM→通过且不生成行；无 VM→干净 |
+| B30 互斥 422 对称 | PASS | 命令 2 `test_hardware_and_virtual_machine_are_mutually_exclusive`；两 detail 行不共存 |
+| B31 列表 host_resource_id 过滤 | PASS | 命令 2/9；返回该 Host 下 VM；非 UUID 422；不存在→空 |
+| B32 PATCH exclude_unset 语义 | PASS | 命令 2 `test_patch_subfield_semantics`；省略保持、显式 null 清空、host null 422、整体非法 422 |
+| B33 审计同事务回滚 | PASS | 命令 2 `test_virtual_machine_update_rolls_back_with_audit`；断言最终持久化旧 host、无 audit 残留 |
+| B34 乐观锁并发（真提交） | PASS | 命令 2 `test_rehost_optimistic_lock_two_sessions`；一方 200 `version+1`、另一方 409 `VERSION_CONFLICT{current_version:2}`；最终库值来自成功方 |
+| B35 host_resource_id 索引 | PASS | 命令 2/6；`ix_virtual_machine_details_host_resource_id` 存在且 EXPLAIN 使用；无额外业务唯一约束 |
+| B36 无 VM 级 metadata 列 | PASS | 命令 2/6；`information_schema.columns` 无 `metadata`；列集合仅 6 列 |
+
+### DR-71 并发两方向（后台执行 + raw SQL 锁竞争）
+
+| 方向 | 结果 | 证据 |
+| --- | --- | --- |
+| Host 软删（持锁）↔ VM 创建等待 | **PASS** | 命令 2 `test_dr71_create_waits_for_host_delete_lock`：创建线程在 Host 行锁上阻塞，Host 先提交软删后创建返回 **422** |
+| VM 创建（持锁）↔ Host 删除等待 | **PASS** | 命令 2 `test_dr71_host_delete_waits_for_vm_create_lock`：删除线程阻塞，VM 先提交后 Host 删除返回 **409 reference_exists** |
+
+### 数据库 / 接口 / 前端 / 集成结果
+
+- **数据库（真实 PG，`csm_verify_test` raw SQL + `csm_test` pytest）**：`virtual_machine_details` 列/约束/索引/双触发器与 DB v1 逐项一致；FK `resource_id` CASCADE（`confdeltype='c'`）、`host_resource_id` RESTRICT（`'r'`）+ `NOT NULL`；4 CHECK 生效；`disk_gb=0` 与 `null` 可区分；迁移 0006 对称可逆、单一 head、回填守卫三例正确。**PASS**
+- **接口（ASGI + 全链路 Nginx 18096）**：POST/PATCH virtual_machine 响应内容、类型、nullable、宿主四条件、互斥、业务边界、非法输入、错误语义符合 Contract；`VALIDATION_ERROR`（`virtual_machine.host_resource_id`/`virtual_machine.<field>`）/`FORBIDDEN{permission|csrf}`/`AUTH_REQUIRED`/`CONFLICT{reference_exists|dependency_deleted}`/`VERSION_CONFLICT`；严格整数、trim、单位原样、`disk_gb=0≠null`；未认证 401。只读端点无业务写副作用。**PASS**
+- **前端**：typecheck/build 通过；client 机制级 64 项通过；VM 表单/详情/Host 选择器/单位标注/未知「—」/`disk_gb=0`「明确无磁盘」/409 不重试/422 点路径经源码与 smoke 核对；经入口 Nginx 真实 API 往返。**PASS**
+- **集成（Compose 经入口 Nginx）**：`migrate`/`bootstrap` Exited(0)，`alembic_version=0006_virtual_machine_details`，backend healthy；登录→建 Cluster→建 Host→建 VM→详情/换 Host/Activity→宿主删除保护→跨 Cluster 422→超额 201→软删/恢复→引用/恢复冲突→无独立端点 404 全链路符合 Contract。**PASS**
+
+### 验收映射 A1–A17 结论
+
+| # | 结论 | 证据 |
+| --- | --- | --- |
+| A1 | **PASS** | V1/V15；B1 |
+| A2 | **PASS** | V2/V15；B2 |
+| A3 | **PASS** | V3；B5 |
+| A4 | **PASS** | V3/V15；B3/B4 |
+| A5 | **PASS** | V4；B7/B8 |
+| A6 | **PASS**（端到端 + Audit） | V5/V19；B9–B11/B33/B34 |
+| A7 | **PASS**（端到端） | V6；B12/B13 |
+| A8 | **PASS** | V7；B19 |
+| A9 | **PASS** | V8；B16/B17/B26 |
+| A10 | **PASS**（前端展示 + 后端/DB） | V9/V20；B20 |
+| A11 | **PASS** | V7/V8/V9/V20；B18 |
+| A12 | **PASS** | V10；B21 |
+| A13 | **PASS**（端到端软删/恢复 + 物理 CASCADE 机制级） | V11；B22/B23/B25 |
+| A14 | **PASS**（端到端） | V12；B14/B15 |
+| A15 | **PASS**（ASGI 真实端点 + 真实 PG） | V13；见未验证项关于 Nginx 角色矩阵说明 |
+| A16 | **PASS**（后端 + 前端） | V14/V20；B31 |
+| A17 | **PASS**（真实 PG raw SQL） | V15；B24/B26 |
+
+### Defects
+
+未发现必须修复的实现缺陷。以下为观察（NOTE，非缺陷）：
+
+| ID | Severity | Layer | Location | 证据 / 期望与实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F006-TE-1-01 | NOTE | 文档（Test Design） | `test-report.md` TD-1 版本记录 | TD-1 版本记录写「10 项待复核假设」，而 §8 表实际为 12 项；TD-2 已核实并关闭全部 12 项 | 仅文档计数笔误，无实现影响 | Tester | 否（已在 TD-2 修正） |
+| F006-TE-1-02 | NOTE | 集成测试范围 | Compose/Nginx | 一期无用户管理 HTTP 端点（F015），无法经 Nginx 以 VIEWER/EDITOR 真实登录验证 A15 角色矩阵；已由 `role_client_factory` + 真实 ASGI + 真实 PG 的业务端点覆盖 | 环境限制，非实现缺陷 | 协调器/F015 | 否 |
+
+### 未验证项与口径声明
+
+- **B25/A13 物理 FK CASCADE/RESTRICT 为机制级**：API 无物理删除 Resource 路径（删除为软删），CASCADE/RESTRICT 仅经 raw SQL 物理 `DELETE` 验证；软删随 Resource 隐藏/恢复为端到端。不得表述为独立端到端。
+- **B33 审计回滚**：以 monkeypatch 注入 audit 失败制造同事务失败，断言最终持久化；非真实进程崩溃注入。
+- **DR-71 并发**：以真实连接持行锁 + 后台线程阻塞竞争验证两方向；断言最终持久化为 422/409，未做大规模压测。
+- **真实浏览器 DOM 渲染**：未自动化；前端以 typecheck + build + client 机制级 + 入口 Nginx 真实 API 集成为准（同 F001–F005）。
+- **A15 角色矩阵经 Nginx**：见 F006-TE-1-02；权限由真实业务端点（ASGI）+真实 PG 覆盖，服务端强制，非仅前端隐藏。
+- **数据完整性映射**：`.pi/skills/data-integrity/SKILL.md` 对应表全部适用项已在 §0 与本节覆盖；Unicode Cc/Cf 仅应用层保证、DB 为 ASCII backstop（DB I-5 已知差异，非本 Feature 缺陷）。
+- **完整 T08/T09/T19/T23/T24/T25/T38/T39**：F006 仅承载 VM Host 类型/跨 Cluster、换 Host 审计、Host 引用删除保护/恢复重检、VM 容量 null/数值/单位/超容量不拒等子集；Resource 不可变字段由 F004 已证、speed_mbps 与接口/网络侧归 F007+，跨 Feature 权限/审计完整回归与 §32 上线验收归 F016。**不声明上述条款完整通过**。
+- **导入（§24）**：VM Host 引用列模板与导入一致性归 F014；F006 仅固化校验与 MiB/GiB 口径。
+- **完整列表/Dashboard/Cluster Detail 聚合（§13/§17/§19/§20/§28）**：归 F013；F006 仅 `host_resource_id` 过滤与 Resource Detail 展示。
+- **完整 Audit 查询页（§22）**：归 F015；F006 仅资源级 Activity 快照。
 
 ---
 
@@ -281,4 +449,4 @@
 GIT: NONE
 ```
 
-本次（TD-1 Test Design）仅写入 `docs/features/F006/test-report.md`，未修改 backend/frontend 业务实现或其它文件，未暂存/提交/切换分支。
+本次（TD-2 + TE-1）仅写入 `docs/features/F006/test-report.md`（更新 Test Design 关闭 OPEN 并追加 Test Execution），未修改 backend/frontend 业务实现或其它仓库文件；未暂存/提交/切换分支。测试与迁移均在临时容器/独立测试库中执行，不影响仓库状态。
