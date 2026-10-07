@@ -2,10 +2,14 @@ import { useState } from "react";
 import { logout, type User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import type { Cluster } from "../api/clusters";
+import type { Resource } from "../api/resources";
 import HealthPanel from "../components/HealthPanel";
 import ClustersPage from "./ClustersPage";
 import ClusterCreatePage from "./ClusterCreatePage";
 import ClusterDetailPage from "./ClusterDetailPage";
+import ResourcesPage from "./ResourcesPage";
+import ResourceCreatePage from "./ResourceCreatePage";
+import ResourceDetailPage from "./ResourceDetailPage";
 
 interface HomePageProps {
   user: User;
@@ -18,14 +22,18 @@ type Section =
   | { name: "overview" }
   | { name: "clusters" }
   | { name: "cluster-create" }
-  | { name: "cluster-detail"; id: string; deleted: boolean };
+  | { name: "cluster-detail"; id: string; deleted: boolean }
+  | { name: "resources" }
+  | { name: "resource-create" }
+  | { name: "resource-detail"; id: string; deleted: boolean };
 
 /**
- * F002 已登录视图 + F003 导航壳（架构 §1.8，不追求复杂视觉效果）：
- * 概览（当前用户 + 后端健康）/ Clusters（列表 / 新建 / 详情）。
- * Clusters 入口对全部已登录角色可见（READ 全角色）；写 / 删 / 恢复 /
- * 已删可见性仅按服务端返回的 permissions 显示对应控件——隐藏不替代鉴权，
- * 服务端仍按 §23 矩阵执行（越权请求 403 由页面明确呈现）。
+ * F002 已登录视图 + F003/F004 导航壳（架构 §1.8，不追求复杂视觉效果）：
+ * 概览（当前用户 + 后端健康）/ Clusters（列表 / 新建 / 详情）/ Resources
+ * （列表 / 新建 / 详情）。Clusters / Resources 入口对全部已登录角色可见
+ * （READ 全角色）；写 / 删 / 恢复 / 已删可见性仅按服务端返回的 permissions
+ * 显示对应控件——隐藏不替代鉴权，服务端仍按 §23 矩阵执行（越权请求 403
+ * 由页面明确呈现）。
  */
 export default function HomePage({ user, onLoggedOut }: HomePageProps) {
   const [section, setSection] = useState<Section>({ name: "overview" });
@@ -55,10 +63,18 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
     }
   }
 
-  const inClusters = section.name !== "overview";
+  const inClusters =
+    section.name === "clusters" ||
+    section.name === "cluster-create" ||
+    section.name === "cluster-detail";
+  const inResources =
+    section.name === "resources" ||
+    section.name === "resource-create" ||
+    section.name === "resource-detail";
+  const wide = inClusters || inResources;
 
   return (
-    <main className={inClusters ? "main-wide" : undefined}>
+    <main className={wide ? "main-wide" : undefined}>
       <header className="app-header">
         <div>
           <h1>CSM</h1>
@@ -93,6 +109,13 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
           onClick={() => setSection({ name: "clusters" })}
         >
           Clusters
+        </button>
+        <button
+          type="button"
+          className={inResources ? "nav-link nav-link-active" : "nav-link"}
+          onClick={() => setSection({ name: "resources" })}
+        >
+          Resources
         </button>
       </nav>
 
@@ -154,6 +177,40 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
           initialDeleted={section.deleted}
           user={user}
           onBack={() => setSection({ name: "clusters" })}
+        />
+      )}
+
+      {section.name === "resources" && (
+        <ResourcesPage
+          user={user}
+          onOpenResource={(resource: Resource) =>
+            setSection({
+              name: "resource-detail",
+              id: resource.id,
+              deleted: resource.deleted_at !== null,
+            })
+          }
+          onCreate={() => setSection({ name: "resource-create" })}
+        />
+      )}
+
+      {section.name === "resource-create" && (
+        <ResourceCreatePage
+          user={user}
+          onCancel={() => setSection({ name: "resources" })}
+          onCreated={(resource) =>
+            setSection({ name: "resource-detail", id: resource.id, deleted: false })
+          }
+        />
+      )}
+
+      {section.name === "resource-detail" && (
+        <ResourceDetailPage
+          key={section.id}
+          resourceId={section.id}
+          initialDeleted={section.deleted}
+          user={user}
+          onBack={() => setSection({ name: "resources" })}
         />
       )}
     </main>
