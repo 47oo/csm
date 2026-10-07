@@ -313,17 +313,87 @@ GIT: git branch --show-current
 
 ---
 
-### Git 声明
+## Test Execution — 修复循环第 1 轮
+
+### TE-2 版本记录（修复轮次 1 重测）
+
+- **版本**：TE-2
+- **日期**：2026-10-07
+- **角色**：Tester（TEST 模式，独立重测，未复制 Backend 结果）
+- **结论**：`READY FOR REVIEW`
+- **被测版本**：分支 `feature/F002-auth-permissions`，`git rev-parse --short HEAD` = `f66562d`；被测修复为**工作区未提交修改** `M deploy/nginx/nginx.conf`（新增 `map $http_host $csm_host` + `/api/`、`/` 的 `proxy_set_header Host/X-Forwarded-Host $csm_host`）。`git status --short` 仅此一项，后端 `backend/app/core/csrf.py` 与其余源文件未改动，确认修复边界未扩及业务实现。
+- **依据**：TE-1；TD-2（B17）；`docs/api/F002.md` v1 §2.1（同源校验口径）；`docs/features/F002/architecture.md`（最终设计定稿）；Backend 修复交接（D-TE-1）。
+- **范围声明**：本轮只重测受影响项 **D-TE-1（B17 入口非默认端口同源写）** 及相关回归；A4/A6 仍为机制级证据，不构成完整 T25/T26 通过。
+
+#### 重测范围与逐项结论
+
+| # | 重测项 | 判据（Contract §2.1） | 结果 |
+| --- | --- | --- | --- |
+| 1 | 非默认端口同源写（D-TE-1 本体）：入口 `:18081`，带会话 Cookie 的 `POST /auth/logout` + `Origin: http://localhost:18081` | 同源放行 | **PASS / FIXED**（204） |
+| 2 | 非默认端口异源 Origin `http://evil.example.com` | 拒绝 403 csrf | **PASS**（403，`details.reason=csrf`） |
+| 3 | 非默认端口 `Sec-Fetch-Site: cross-site` | 拒绝 403 csrf | **PASS**（403 csrf） |
+| 4 | 非默认端口 `Sec-Fetch-Site: same-origin` | 放行 | **PASS**（204） |
+| 5 | 非默认端口无 Origin/Sec-Fetch-Site（非浏览器客户端） | 放行 | **PASS**（204） |
+| 6 | 负向对照：Origin 端口不符 `localhost:9999` | 拒绝（证明比较对端口敏感） | **PASS**（403 csrf） |
+| 7 | 负向对照：Origin 无端口 `http://localhost` 访问 `:18081`（旧缺陷行为） | 拒绝 | **PASS**（403 csrf，符合预期，证明分析正确） |
+| 8 | 默认端口 `:80` 同源 `Origin: http://localhost` | 放行 | **PASS**（204，行为不变） |
+| 9 | 默认端口 `:80` 异源 | 拒绝 403 csrf | **PASS**（403） |
+| 10 | 入口回归：`/healthz`=200、前端 `/`=200、SPA fallback `/login`=200、`/auth/me` 携带 Cookie=200 | 正常 | **PASS** |
+
+**D-TE-1 复核结论：FIXED。** 入口 Nginx 现以 `$csm_host`（=`$http_host`，保留客户端 Host 含端口）转发，后端 CSRF 守卫将 `Origin` authority 与含端口的 `Host` 比较，非默认端口同源写请求由 TE-1 的 403 变为 204；异源/`cross-site` 仍 403；负向对照（端口不符、缺端口）仍 403，安全性未削弱。
+
+#### B17 判据说明（是否升 TD）
+
+Contract §2.1 与 TD-2 B17 的判据本身未改变（存在 Origin → authority 须等于请求 Host；`Sec-Fetch-Site` 须 same-origin；皆缺放行）。本轮修复是使**入口部署**符合既有判据，而非变更判据；因此**不升 TD，保留 TD-2**，仅在 TE-2 明确 B17 证据必须覆盖入口非默认端口场景（TE-1 仅覆盖 ASGI 应用层，入口端口场景为本轮补入的 B17 证据）。
+
+#### 回归结果
+
+| 项 | 命令 | 结果 |
+| --- | --- | --- |
+| 后端全量（真实 PG，独立测试库 `csm_test`，独立容器/网络） | `docker build --target test -t csm-backend-f002te2:latest ./backend` → `pytest tests -v`（`TEST_DATABASE_URL` 指向新建 `postgres:16` 容器） | **47 passed, 1 skipped, 1 warning**（skip = F001 V3b 非 superuser 扩展，环境限制，同 TE-1） |
+| 前端机制级 | `npm run smoke:client`（宿主 Node 22.23.2） | **10 passed, 0 failed** |
+| Compose 全链路（非默认端口 `:18081`） | `docker compose -p f002te2 up -d --build` | `db→migrate(exit 0)→bootstrap(exit 0)→backend(healthy)→nginx`；healthz 200 |
+| Compose 默认端口（`:80`，仅重建 nginx） | `docker compose -p f002te2 up -d --no-deps nginx`（`NGINX_HTTP_PORT=80`） | nginx 启动、healthz 200、默认端口行为不变 |
+
+#### 执行命令与输出摘要（独立执行）
+
+| # | 命令（摘要） | 输出摘要 |
+| --- | --- | --- |
+| 1 | 独立 `postgres:16` 容器 `csm_test` + `docker run … pytest tests -v` | 47 passed, 1 skipped |
+| 2 | `npm run smoke:client` | 10 passed, 0 failed |
+| 3 | `docker compose -p f002te2 up -d --build`（`NGINX_HTTP_PORT=18081`、`INITIAL_ADMIN_USERNAME=opsadmin`） | 各服务 0/healthy |
+| 4 | `curl` 登录 → Cookie；上述 10 项 curl 探针 | 探针 1/4/5/8 =204；2/3/6/7/9 =403 csrf；入口回归全 200 |
+| 5 | `docker compose -p f002te2 down -v` + 删除自建 db/网络 | 测试资源已清理，无遗留 |
+
+#### 数据库 / 接口 / 前端 / 集成结果（本轮）
+
+- **数据库**：本轮无 Schema/迁移变更；后端全量含真实 PG 约束/迁移用例，47 passed 覆盖 B15–B21/V9 回归。
+- **接口/集成**：经入口 Nginx（`:18081` 与 `:80`）login→Cookie→logout/me 全链路；`/auth/me` 只读无写副作用；错误语义与 Contract §2.1 一致。
+- **前端**：本轮修复不触及前端；`npm run smoke:client` 10/10 作为回归。
+
+#### Defects
+
+| ID | Severity | Layer | Location | 状态 | Owner |
+| --- | --- | --- | --- | --- | --- |
+| D-TE-1 | MEDIUM | 部署/集成（F002 CSRF × F001 入口 Nginx） | `deploy/nginx/nginx.conf`（修复：`map $http_host $csm_host` + `Host/X-Forwarded-Host $csm_host`） | **FIXED（TE-2 独立复核）** | Backend（已完成） |
+
+无新发现缺陷；无仍存在的必须修复问题。
+
+#### 未验证 / 边界项（本轮新增）
+
+- 修复文件在 TE-2 时**尚未提交**（工作区 `M deploy/nginx/nginx.conf`）；提交后 Review 基线应对该文件执行 `git diff HEAD` 核对与本轮被测内容一致。
+- 生产 TLS 入口（HTTPS/443）下的同源行为未端到端验证；本轮以 HTTP 默认/非默认端口覆盖（本期无 TLS 入口要求）。
+- TE-1 既有未验证项（完整 T25/T26、真实业务端到端、登录限流 NOT_REQUIRED、B2 耗时不作统计测量、浏览器 DOM、生产 `Secure` 仅 ASGI 验证）继续有效，未因本轮修复改变。
+
+### Git 声明（TE-2，只读）
 
 ```text
 GIT: git status --short
-GIT: git rev-parse --short HEAD
-GIT: git rev-parse --short 4ce9841
-GIT: git diff --stat 4ce9841..HEAD
-GIT: git diff --stat 4ce9841..HEAD -- backend frontend compose.yaml .env.example
-GIT: git ls-files
-GIT: git check-ignore -v .env
-GIT: git grep -n -Ei '...'
-GIT: git log --oneline -5
 GIT: git branch --show-current
+GIT: git rev-parse --short HEAD
+GIT: git log --oneline -8
+GIT: git diff --stat
+GIT: git diff deploy/nginx/nginx.conf
 ```
+
+以上均为只读命令；本轮未执行 `git add`/commit/branch/merge，测试自建容器与网络已清理，工作区仅保留 Backend 的 `deploy/nginx/nginx.conf` 修复修改。
