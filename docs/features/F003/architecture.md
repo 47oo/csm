@@ -148,3 +148,25 @@ A1 code 大小写重复/软删后重建均 409、PATCH code 422、code_key=upper
 交 Tester：audit 同事务回滚、乐观锁真并发、软删默认过滤、名称/code 归一化可执行用例与 fixture。
 交 CONTRACT：docs/api/F003.md 置 READY，签核 D01 基座+D02 审计一致性。
 其它：code 字符集/长度与 name 上限属 D01 专业设计；若影响既有命名兼容性需 Product 核对（§35 D01）。§19 关联区域随 F004+ 接入，F003 不宣称完整 §19。
+
+## 9. 最终设计定稿（CONTRACT Gate，2026-10-06）
+
+- **结论**：`READY FOR IMPLEMENTATION`。
+- **签核**：Architect；Contract `docs/api/F003.md` v1；D01 基座 `docs/architecture/d01-conventions.md` v1；D02 审计一致性部分 v1。
+- **核对版本**：需求 revision 3；product.md（2026-10-06）；database/f003-cluster.md v1；test-report.md TD-1；F002.md v1。
+
+### 9.1 I-1 裁定（code 字符集，取代 DR-24）
+
+采纳 Database DB-D23 宽松规则：服务端 trim→非空→禁内部空白与控制字符→Unicode code point ≤64→保留大小写/中文；大小写不敏感由 code_key=upper(btrim(code)) 承载；code_key 全量唯一；code 创建后不可改。依据 §5 未限定 code 字符集且示例含中文候选，§4.1 通用名称规则；属 §35.3 D01 专业设计输入，无需 Product 裁定。原 ASCII 正则与 ck_clusters_code_key_format 描述失效，改为 ck_clusters_code_*（与 Database v1 一致）。
+
+### 9.2 一致性核对
+
+需求 A1–A11 ↔ 架构 ↔ Database v1（DB-D20–D32）↔ TD-1 全部一致：code_key 全量唯一、audit append-only 触发器（trg_audit_logs_append_only）、软删过滤（ORM 语义）、乐观锁、CONFLICT/VERSION_CONFLICT、名称长度。TD-1 三处旧约束名与 members.version 拼写为草案遗留，TEST 前升 TD-2 对齐，不影响实现。
+
+### 9.3 DR 状态更新
+
+DR-24 由 9.1 取代（CONFIRMED）；DR-26 补充 PATCH version 必填（body）、DELETE/restore version 必填（query）；DR-29 确认 CONFLICT(409, reason∈{unique_conflict,reference_exists,not_deleted,dependency_deleted}) + 复用 F002 VERSION_CONFLICT；其余 DR-17/18/19/20/21/22/23/25/27/28/30/31/32/33 维持，实现以 docs/api/F003.md v1 为准。
+
+### 9.4 实现层与残留
+
+database=true（设计 v1 完成，实现由 Backend）/backend=true/frontend=true/api_required=true。残留：R-1 code 字符集后续可能收紧；R-3 恢复冲突与完整审计为机制级/跨 Feature；建议协调器将 CONFLICT 交叉引用登记 F002 §1.2（N-1）。
