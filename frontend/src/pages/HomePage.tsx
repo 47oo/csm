@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { logout, type User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
+import type { Cluster } from "../api/clusters";
 import HealthPanel from "../components/HealthPanel";
+import ClustersPage from "./ClustersPage";
+import ClusterCreatePage from "./ClusterCreatePage";
+import ClusterDetailPage from "./ClusterDetailPage";
 
 interface HomePageProps {
   user: User;
@@ -9,12 +13,22 @@ interface HomePageProps {
   onLoggedOut: () => void;
 }
 
+/** 已登录后的内容区（最小状态切换，不引入路由库 / 状态管理库）。 */
+type Section =
+  | { name: "overview" }
+  | { name: "clusters" }
+  | { name: "cluster-create" }
+  | { name: "cluster-detail"; id: string; deleted: boolean };
+
 /**
- * F002 已登录视图（最小应用壳，不追求复杂视觉效果）：
- * 当前用户信息 + 登出按钮 + F001 后端健康状态展示。
- * permissions 仅展示服务端返回值（前端不复制权限矩阵，不作为安全边界）。
+ * F002 已登录视图 + F003 导航壳（架构 §1.8，不追求复杂视觉效果）：
+ * 概览（当前用户 + 后端健康）/ Clusters（列表 / 新建 / 详情）。
+ * Clusters 入口对全部已登录角色可见（READ 全角色）；写 / 删 / 恢复 /
+ * 已删可见性仅按服务端返回的 permissions 显示对应控件——隐藏不替代鉴权，
+ * 服务端仍按 §23 矩阵执行（越权请求 403 由页面明确呈现）。
  */
 export default function HomePage({ user, onLoggedOut }: HomePageProps) {
+  const [section, setSection] = useState<Section>({ name: "overview" });
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
@@ -41,8 +55,10 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
     }
   }
 
+  const inClusters = section.name !== "overview";
+
   return (
-    <main>
+    <main className={inClusters ? "main-wide" : undefined}>
       <header className="app-header">
         <div>
           <h1>CSM</h1>
@@ -63,28 +79,83 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
         </p>
       )}
 
-      <section className="panel">
-        <h2>当前用户</h2>
-        <p className="status">
-          用户名：{user.username}　角色：{user.role}　状态：{user.status}
-        </p>
-        <p className="permissions-note">
-          权限（由服务端按角色返回，仅用于界面显示，不构成安全边界）：
-        </p>
-        <p className="permissions">
-          {user.permissions.length > 0 ? (
-            user.permissions.map((permission) => (
-              <span key={permission} className="permission-badge">
-                {permission}
-              </span>
-            ))
-          ) : (
-            <span className="permission-badge">无</span>
-          )}
-        </p>
-      </section>
+      <nav className="app-nav" aria-label="主导航">
+        <button
+          type="button"
+          className={section.name === "overview" ? "nav-link nav-link-active" : "nav-link"}
+          onClick={() => setSection({ name: "overview" })}
+        >
+          概览
+        </button>
+        <button
+          type="button"
+          className={inClusters ? "nav-link nav-link-active" : "nav-link"}
+          onClick={() => setSection({ name: "clusters" })}
+        >
+          Clusters
+        </button>
+      </nav>
 
-      <HealthPanel />
+      {section.name === "overview" && (
+        <>
+          <section className="panel">
+            <h2>当前用户</h2>
+            <p className="status">
+              用户名：{user.username}　角色：{user.role}　状态：{user.status}
+            </p>
+            <p className="permissions-note">
+              权限（由服务端按角色返回，仅用于界面显示，不构成安全边界）：
+            </p>
+            <p className="permissions">
+              {user.permissions.length > 0 ? (
+                user.permissions.map((permission) => (
+                  <span key={permission} className="permission-badge">
+                    {permission}
+                  </span>
+                ))
+              ) : (
+                <span className="permission-badge">无</span>
+              )}
+            </p>
+          </section>
+
+          <HealthPanel />
+        </>
+      )}
+
+      {section.name === "clusters" && (
+        <ClustersPage
+          user={user}
+          onOpenCluster={(cluster: Cluster) =>
+            setSection({
+              name: "cluster-detail",
+              id: cluster.id,
+              deleted: cluster.deleted_at !== null,
+            })
+          }
+          onCreate={() => setSection({ name: "cluster-create" })}
+        />
+      )}
+
+      {section.name === "cluster-create" && (
+        <ClusterCreatePage
+          user={user}
+          onCancel={() => setSection({ name: "clusters" })}
+          onCreated={(cluster) =>
+            setSection({ name: "cluster-detail", id: cluster.id, deleted: false })
+          }
+        />
+      )}
+
+      {section.name === "cluster-detail" && (
+        <ClusterDetailPage
+          key={section.id}
+          clusterId={section.id}
+          initialDeleted={section.deleted}
+          user={user}
+          onBack={() => setSection({ name: "clusters" })}
+        />
+      )}
     </main>
   );
 }

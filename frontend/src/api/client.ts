@@ -13,6 +13,10 @@
  * - 401 = 尚无有效身份（§1.2）：先触发全局 401 处理器（应用壳注册，
  *   用于清登录态回登录页），错误仍照常抛给调用方呈现。
  * - 403 / 409 由调用方按 code / details 明确呈现；任何失败都不自动重试。
+ *
+ * F003 扩展（Contract：docs/api/F003.md v1）：
+ * - method 增加 PATCH / DELETE（Cluster 部分更新 / 软删；仍同源携带 Cookie，不重试）。
+ * - envelopeFieldErrors：提取 422 VALIDATION_ERROR 的 details.fields 字段级错误。
  */
 
 const API_BASE_PATH = "/api/v1";
@@ -102,7 +106,7 @@ function toDetails(details: unknown): ApiErrorDetails | null {
 
 /** 请求选项。 */
 export interface RequestOptions {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   /** 请求体（JSON 序列化）；undefined 表示无正文。 */
   body?: unknown;
 }
@@ -166,4 +170,30 @@ export function displayError(error: unknown): string {
     return error.code ? `${error.message}（${error.code}）` : error.message;
   }
   return "无法连接服务器，请稍后重试";
+}
+
+/**
+ * 从 422 VALIDATION_ERROR 信封的 details.fields 提取字段级错误
+ * （F002/F003 Contract §1.2：{"fields":[{"field":str,"message":str}]}）。
+ * 形状不符 / 缺失时返回空对象，不伪造内容。
+ */
+export function envelopeFieldErrors(details: ApiErrorDetails | null): Record<string, string> {
+  if (details === null) {
+    return {};
+  }
+  const fields = details["fields"];
+  if (!Array.isArray(fields)) {
+    return {};
+  }
+  const result: Record<string, string> = {};
+  for (const item of fields) {
+    if (typeof item !== "object" || item === null) {
+      continue;
+    }
+    const { field, message } = item as { field?: unknown; message?: unknown };
+    if (typeof field === "string" && typeof message === "string") {
+      result[field] = message;
+    }
+  }
+  return result;
 }

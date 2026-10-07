@@ -8,8 +8,16 @@
  * - 401 触发全局处理器（清登录态回登录页），403/409 携带 code/details 明确呈现；
  * - 任何失败都不自动重试（每个用例断言 fetch 恰好调用一次）。
  *
+ * F003 追加（对应 docs/features/F003/test-report.md TD-1 V14 前端机制级）：
+ * - src/api/clusters.ts 的 URL / method / body 构造（Contract §6：
+ *   列表查询串、POST 201 信封、PATCH 仅携带变化字段、DELETE/restore 的
+ *   version Query 参数）；
+ * - 409 CONFLICT（unique_conflict → 字段级错误）/ VERSION_CONFLICT
+ *   （→ 刷新后重改，不静默重试）/ 422 / 404 / 403 的 describeClusterActionError 语义。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
- * 直接加载 src/api/client.ts，无需新增测试框架；仅替换 globalThis.fetch 为受控响应）。
+ * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
+ * 仅替换 globalThis.fetch 为受控响应）。
  */
 import assert from "node:assert/strict";
 import {
@@ -18,6 +26,15 @@ import {
   request,
   setUnauthorizedHandler,
 } from "../src/api/client.ts";
+import {
+  createCluster,
+  deleteCluster,
+  describeClusterActionError,
+  getCluster,
+  listClusters,
+  restoreCluster,
+  updateCluster,
+} from "../src/api/clusters.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -199,6 +216,200 @@ await test("信封形状不符（缺 code）：回退、不伪造信封内容", 
   assert.equal(err.status, 500);
   assert.equal(err.code, null);
   assert.equal(err.message, "HTTP 500");
+});
+
+// ---------- F003 Cluster API 机制级（Contract：docs/api/F003.md v1） ----------
+
+await test("F003 listClusters 默认：GET /api/v1/clusters，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listClusters();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/clusters");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F003 listClusters 组合查询：q/code/status/deleted/page/page_size/sort/order（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listClusters({
+    q: "gpu",
+    code: "N96P",
+    status: "ACTIVE",
+    deleted: "only",
+    page: 2,
+    page_size: 50,
+    sort: "code",
+    order: "asc",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/clusters?q=gpu&code=N96P&status=ACTIVE&deleted=only&page=2&page_size=50&sort=code&order=asc",
+  );
+});
+
+await test("F003 listClusters 空串过滤项不发（q=''/code=''），status 省略不发", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  await listClusters({ q: "", code: "" });
+  assert.equal(calls[0].url, "/api/v1/clusters");
+});
+
+await test("F003 createCluster：POST /clusters + JSON body；201 解析 {cluster}", async () => {
+  respond = () => jsonResponse(201, { cluster: { id: "c1", code: "N96P", version: 1 } });
+  const { cluster } = await createCluster({ code: "N96P", name: "N96P集群" });
+  assert.equal(cluster.id, "c1");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/clusters");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { code: "N96P", name: "N96P集群" });
+});
+
+await test("F003 getCluster：已删对象显式 ?deleted=true；默认不带", async () => {
+  respond = () => jsonResponse(200, { cluster: { id: "c1", deleted_at: "2026-10-06T12:00:00+00:00" } });
+  await getCluster("c1", { deleted: true });
+  await getCluster("c1");
+  assert.equal(calls[0].url, "/api/v1/clusters/c1?deleted=true");
+  assert.equal(calls[1].url, "/api/v1/clusters/c1");
+});
+
+await test("F003 updateCluster：PATCH 且仅携带变化字段（省略 = 不重置，Contract §6.4）", async () => {
+  respond = () => jsonResponse(200, { cluster: { id: "c1", version: 4 } });
+  const { cluster } = await updateCluster("c1", { version: 3, name: "新名称" });
+  assert.equal(cluster.version, 4);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/clusters/c1");
+  assert.equal(calls[0].init.method, "PATCH");
+  // body 只含 version + 变化字段，杂散字段（status/description/metadata）不出现
+  assert.deepEqual(JSON.parse(calls[0].init.body), { version: 3, name: "新名称" });
+});
+
+await test("F003 updateCluster：description 显式 null = 清空", async () => {
+  respond = () => jsonResponse(200, { cluster: { id: "c1" } });
+  await updateCluster("c1", { version: 3, description: null });
+  assert.deepEqual(JSON.parse(calls[0].init.body), { version: 3, description: null });
+});
+
+await test("F003 deleteCluster：DELETE + version 为 Query 参数；204 → undefined", async () => {
+  respond = () => new Response(null, { status: 204 });
+  const result = await deleteCluster("c1", 5);
+  assert.equal(result, undefined);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/clusters/c1?version=5");
+  assert.equal(calls[0].init.method, "DELETE");
+});
+
+await test("F003 restoreCluster：POST /{id}/restore + version Query 参数", async () => {
+  respond = () => jsonResponse(200, { cluster: { id: "c1", deleted_at: null, version: 7 } });
+  const { cluster } = await restoreCluster("c1", 6);
+  assert.equal(cluster.deleted_at, null);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/clusters/c1/restore?version=6");
+  assert.equal(calls[0].init.method, "POST");
+});
+
+await test("F003 409 CONFLICT unique_conflict：落到 code 字段级错误；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "unique_conflict", field: "code" },
+      },
+    });
+  const err = await expectApiError(createCluster({ code: "n96p", name: "x" }));
+  assert.equal(err.status, 409);
+  assert.equal(err.code, "CONFLICT");
+  assert.equal(err.details.reason, "unique_conflict");
+  const described = describeClusterActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.ok(described.fields.code, "unique_conflict 应落到 code 字段错误");
+  assert.ok(described.fields.code.includes("不可复用"));
+  assert.equal(calls.length, 1); // 不自动重试
+});
+
+await test("F003 409 VERSION_CONFLICT：标记刷新后重改、携带 current_version；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "Version conflict",
+        details: { current_version: 9 },
+      },
+    });
+  const err = await expectApiError(updateCluster("c1", { version: 3, name: "x" }));
+  assert.equal(err.details.current_version, 9);
+  const described = describeClusterActionError(err);
+  assert.equal(described.versionConflict, true);
+  assert.equal(described.currentVersion, 9);
+  assert.ok(described.message.includes("刷新"), "应提示刷新后重改");
+  assert.ok(described.message.includes("不会自动重试"));
+  assert.equal(calls.length, 1); // 不静默重试覆盖
+});
+
+await test("F003 409 CONFLICT reference_exists：展示引用语义", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "reference_exists",
+          references: [{ object_type: "resource", object_id: "r1", label: "gpu01" }],
+        },
+      },
+    });
+  const err = await expectApiError(deleteCluster("c1", 2));
+  const described = describeClusterActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.equal(described.references.length, 1);
+  assert.equal(described.references[0].object_type, "resource");
+  assert.ok(described.message.includes("无法删除"));
+});
+
+await test("F003 409 CONFLICT not_deleted：恢复未删对象的明确文案", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: { code: "CONFLICT", message: "Conflict", details: { reason: "not_deleted" } },
+    });
+  const err = await expectApiError(restoreCluster("c1", 2));
+  const described = describeClusterActionError(err);
+  assert.ok(described.message.includes("未处于已删除状态"));
+  assert.ok(described.message.includes("CONFLICT/not_deleted"));
+});
+
+await test("F003 422 VALIDATION_ERROR：details.fields 透传为字段级错误", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: { fields: [{ field: "code", message: "code 不能含内部空白" }] },
+      },
+    });
+  const err = await expectApiError(createCluster({ code: "a b", name: "x" }));
+  const described = describeClusterActionError(err);
+  assert.equal(described.fields.code, "code 不能含内部空白");
+});
+
+await test("F003 404 / 403：明确文案（不泄露存在性 / 权限不足）", async () => {
+  respond = () =>
+    jsonResponse(404, { error: { code: "NOT_FOUND", message: "Not found", details: {} } });
+  const notFound = await expectApiError(getCluster("c1"));
+  assert.ok(describeClusterActionError(notFound).message.includes("不存在"));
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "Forbidden", details: { reason: "permission" } },
+    });
+  const forbidden = await expectApiError(deleteCluster("c1", 1));
+  assert.ok(describeClusterActionError(forbidden).message.includes("权限"));
+});
+
+await test("F003 网络层错误（fetch reject）：不伪装成业务结果", async () => {
+  respond = () => Promise.reject(new TypeError("Failed to fetch"));
+  await assert.rejects(listClusters(), TypeError);
+  assert.equal(calls.length, 1); // 失败不重发
 });
 
 // 还原全局状态
