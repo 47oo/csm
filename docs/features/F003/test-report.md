@@ -233,4 +233,153 @@
 
 ## Test Execution
 
-（预留：TEST 阶段在本节追加执行环境、验收映射结果、数据库/接口/前端/集成结果、Defects 与未验证项；TEST_DESIGN 不填充执行 PASS。）
+- **版本**：TE-1
+- **日期**：2026-10-07
+- **角色**：Tester（TEST 模式，独立执行）
+- **基线提交**：`6615eff`（HEAD；backend `ca00d47`/`0a1d303`、frontend `9ce1ee1`、CONTRACT `75ba32f`）
+- **结论**：`READY FOR REVIEW`
+- **依据**：TD-1（本文件 Test Design）；`docs/api/F003.md` v1（Contract 定稿）；`docs/database/f003-cluster.md` v1；`docs/features/F003/architecture.md` §9（READY FOR IMPLEMENTATION，I-1 裁定）；`docs/features/F003/implementation.md`；`docs/project/implementation-rules.md`
+
+### TD-2 对齐（architecture §9.2；仅测试侧口径修订，不改业务实现）
+
+TD-1 在 DATABASE/CONTRACT 定稿前引用的是架构 §4 草案约束名，与 `docs/database/f003-cluster.md` v1 实际名称不一致；TEST 以实际名称（下方 V12/B 逐项）核对，TD-1 旧名**失效范围**为「名称文本」，验收判据（约束行为）不变：
+
+| TD-1 旧名（草案） | 实际名称（DB v1） | 说明 |
+| --- | --- | --- |
+| `ck_clusters_code_key_format` | 不存在（I-1 已移除） | ASCII 正则被 D01 宽松字符集取代；实际为 `ck_clusters_code_key_not_blank` / `ck_clusters_code_key_length` / `ck_clusters_code_key_matches` |
+| `ck_clusters_metadata_is_object` | `ck_clusters_metadata_object` | 行为一致（`jsonb_typeof='object'`） |
+| `ck_audit_logs_has_data` | `ck_audit_logs_at_least_one_snapshot` | 行为一致（before/after 至少一方非空） |
+| `members.version`（TD-1 §0 笔误） | `clusters.version` + `ck_clusters_version` | F003 无 members 表 |
+
+另：TD-1 V5 判据表述「软删详情 `deleted=true` 无权限返回 404」与 Contract §5 措辞冲突，Contract §6.3 明确定稿口径为「`deleted=true` 需 `VIEW_DELETED`，否则 **403**」；无参数默认详情对软删对象返回 **404**（不泄露存在性）。实现遵循 Contract §6.3；TEST 以 Contract 为准（见 Defect D-TE（NOTE））。
+
+### 环境
+
+| 项 | 值 |
+| --- | --- |
+| 后端镜像 | `docker build --target test ./backend`（Python 3.12，pytest 8.4.2） |
+| 数据库 | 独立容器 `f003-test-db`（`postgres:16`，网络 `f003-test-net`，端口 55433，测试库 `csm_test`/`csm_verify`） |
+| 集成 | `TEST_DATABASE_URL=postgresql+psycopg://csm:change-me@f003-test-db:5432/csm_test`（DB-D10 护栏：库名含 `test`、≠ `DATABASE_URL`） |
+| 前端 | Node v22.23.2 / npm 12.0.2；`npm run build`、`npm run smoke:client` |
+| Compose 全链路 | `docker compose -p f003test`（独立项目名/卷），入口 Nginx `127.0.0.1:18099`（非默认端口，验证同源 CSRF 端口保留） |
+| 清理 | `compose -p f003test down -v`、`docker rm -f f003-test-db`、`docker network rm f003-test-net`、删临时镜像；工作区 `git status --short` 为空 |
+
+### 实际执行的命令与输出摘要
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| 1 | `docker build --target test -t csm-backend-test:f003 ./backend` | 成功（层缓存命中，源码与 HEAD 一致） |
+| 2 | `docker run … pytest tests -v`（真实 PG） | **76 passed, 1 skipped**（skip=`test_trusted_extension_installed_by_non_superuser`，连接角色为 superuser，环境限制，非 F003 缺陷） |
+| 3 | 独立库 `alembic upgrade head` / `alembic heads` | `0003_clusters_audit (head)`，单一 head |
+| 4 | 自研独立校验脚本（raw SQL + 两条真实连接真实提交） | **21 / 21 PASS**（见 B34/B36–B39/B31/B27） |
+| 5 | `alembic upgrade head → downgrade 0002 → upgrade head → downgrade base` | 各步 0；down 后 `clusters`/`audit_logs` 消失、`users`/`user_sessions` 保留；re-up 后对象集合逐项一致（表 5、索引 15、非内部触发器 2、约束集合相同）；`alembic_version` 随步骤回退/前进 |
+| 6 | `npm run build`（tsc --noEmit + vite build） / `npm run smoke:client` | build 成功；smoke **26 passed, 0 failed** |
+| 7 | Compose 全链路 curl（登录→创建→列表→PATCH→DELETE→include/only→restore→activity；VIEWER/EDITOR 权限；CSRF 跨源） | 全部符合 Contract（详见 A 映射） |
+| 8 | `python3 scripts/validate_project_state.py` | `PROJECT STATE VALID`（结构校验；批准/证据另行核对） |
+
+### V1–V14 执行结果（TD-1 → TE-1）
+
+| 验证项 | 结果 | 证据 / 说明 |
+| --- | --- | --- |
+| V1 code 规则 + V12 DB 约束 | **PASS** | 用例 2、4、5、7；`N96P` vs `n96p`/` N96P ` → 409 `CONFLICT{unique_conflict,field:code}`；软删后重建同 code → 409；PATCH `code`/只读字段 → 422；`uq_clusters_code_key` 全量唯一 |
+| V2 name 规则 | **PASS** | 用例 2；中文/重名成功、trim 落库、空/控制字符 422（API）+ raw CHECK 拒绝 |
+| V3 status 规则 | **PASS** | 用例 2；省略默认 ACTIVE、切换仅 `status/version/updated_at`、INACTIVE 仍可 PATCH/DELETE |
+| V4 列表契约 | **PASS** | 用例 2、7；默认含 ACTIVE+INACTIVE 未删、过滤/组合/排序/分页/模糊、非法参数 422 |
+| V5 软删可见性 | **PASS**（口径按 Contract §6.3） | 用例 2、7；默认隐藏、include/only 越权 403、ADMIN 200、软删详情无 `deleted` 参数 → 404（不泄露）、显式 `deleted=true` 无权限 → 403 |
+| V6 恢复语义 | **PASS**（冲突路径机制级） | 用例 2、7；ADMIN 恢复 200 + RESTORE audit、`not_deleted` 409；`unique_conflict`/`dependency_deleted` 经注册检查器机制级（B23/B24），非自然端到端 |
+| V7 Audit/Activity | **PASS**（完整跨对象审计为 NOT_REQUIRED） | 用例 2、4；四 action 各一行、同事务回滚不留痕、白名单无敏感键、Activity 全角色且按对象隔离；完整跨对象审计端点未交付（B30） |
+| V8 端到端乐观锁 | **PASS** | 用例 2、4；两条真实连接同 version 并发提交，一方成功一方 409 `VERSION_CONFLICT{current_version}`，最终库值来自成功方 |
+| V9 稳定 ID | **PASS** | 用例 2；改名后 `id`/`created_at` 不变、`audit_logs.object_id` 恒等 UUID |
+| V10 归一化/ID 基座 | **PASS** | `app/services/normalization.py` 单一实现；`gen_random_uuid()` 默认；无 pgcrypto/uuid-ossp |
+| V11 签核核对 | **PASS**（文档） | `docs/api/F003.md` v1 + `docs/database/f003-cluster.md` v1 + architecture §9 记录 D01/D02；与实现一致 |
+| V12 Schema/约束/索引/迁移 | **PASS** | 用例 4、5；约束/索引/触发器名称与 DB v1 一致，非法值被拒，FK `confdeltype='r'` |
+| V13 迁移 up/down/up | **PASS** | 用例 5；对称可逆、单一 head、对象集合一致 |
+| V14 Cluster 页面基线 | **PASS** | 用例 6；build + client 机制级 26 项；源码核对 Loading/Success/Empty/Error、过滤/搜索、`version` 随表单、409 不静默重试、`canViewDeleted`/`canRestore` 门控 |
+
+### B1–B42 执行结果
+
+| 编号 | 结果 | 证据摘要 |
+| --- | --- | --- |
+| B1 code 大小写/空白重复 | PASS | 用例 2、7；`n96p`/`N96P`/` N96P ` → 409 unique_conflict；`code_key='N96P'` |
+| B2 软删后重建同 code | PASS | 用例 2、4；软删行仍占 key，重建 409 |
+| B3 PATCH code 不可变 | PASS | 用例 2、4、7；API 422 + DB 触发器拒绝，库值/version 不变 |
+| B4 name 中文 + 重名 | PASS | 用例 2；同 name 多次创建成功，无唯一冲突 |
+| B5 name trim 保留 | PASS | 用例 2；`  N96P集群  ` → `N96P集群` |
+| B6 name 空/纯空白 | PASS | 用例 2、4；API 422 + raw CHECK 拒绝 |
+| B7 name 控制字符 | PASS | 用例 2、4；`\x00`/`\n`/`\x1f` → 422 + raw CHECK 拒绝 |
+| B8 status 默认 ACTIVE | PASS | 用例 2、4、7；响应与库默认均 ACTIVE |
+| B9 status 切换不级联、INACTIVE 可维护 | PASS | 用例 2；切换仅动 `status/version/updated_at`；INACTIVE 下 PATCH/DELETE 成功 |
+| B10 默认列表含 ACTIVE+INACTIVE 未删 | PASS | 用例 2、7；默认 total 排除软删 |
+| B11 status 过滤 | PASS | 用例 2；`status=INACTIVE`/`ACTIVE` 正确，非法枚举 422 |
+| B12 组合过滤 | PASS | 用例 2、7；`q`+`status` AND 生效 |
+| B13 排序白名单与 order | PASS（部分字段静态核对） | 用例 2；`sort=code` asc/desc 端到端；其余 4 字段由 `Literal` 白名单 + `_SORT_COLUMNS` 映射，未逐字段单独排序断言 |
+| B14 非法排序 422 | PASS | 用例 2；`sort=id`/`;DROP`、`order=random` → 422，无 500/注入 |
+| B15 分页边界 | PASS | 用例 2；缺省 1/20，1..100 接受，0/101 等 → 422，`total` 准确 |
+| B16 模糊搜索 q | PASS | 用例 2、7；`q=gpu07` 命中 `gpu0701/0702`，不匹配项排除（ILIKE，未用 pg_trgm，符合 DB-D30） |
+| B17 软删默认隐藏 | PASS | 用例 2、7 |
+| B18 include/only 越权 | PASS | 用例 2、7；VIEWER/EDITOR → 403 `FORBIDDEN{reason:permission}` |
+| B19 include/only 授权 | PASS | 用例 2、7；ADMIN include=未删+已删、only=仅已删 |
+| B20 已删详情可见性 | PASS | 用例 2、7；无参数 → 404 不泄露；`deleted=true` 无权限 → 403（Contract §6.3）；ADMIN → 200 |
+| B21 ADMIN 恢复成功 | PASS | 用例 2、7；200、`deleted_at=null`、`version+1`、RESTORE audit |
+| B22 恢复 not_deleted | PASS | 用例 2、7；409 `CONFLICT{reason:not_deleted}` |
+| B23 恢复 unique_conflict（机制级） | PASS（机制级） | 用例 2；注册检查器注入使重检报告冲突 → 409、目标保持软删；**Cluster 全量唯一无自然路径** |
+| B24 恢复 dependency_deleted（机制级） | PASS（机制级） | 用例 2；注册依赖检查器 → 409、目标不恢复；F003 引用集为空，F004+ 注册 |
+| B25 恢复不级联 | PASS | `restore_cluster` 仅条件 UPDATE 目标行；无级联语句（源码核对） |
+| B26 Audit 四 action | PASS | 用例 2；恰 CREATE/UPDATE/DELETE/RESTORE，CREATE 无 before、DELETE 无 after |
+| B27 强制失败回滚不留 audit | PASS | 用例 2、4；注入非法 action，业务与 audit 同事务双回滚 |
+| B28 Activity 全角色 + 隔离 | PASS | 用例 2、7；三角色 200、按 `(object_type,object_id)` 且按 `created_at` 排序 |
+| B29 Audit 无敏感字段 | PASS | 用例 2；白名单仅 cluster 业务字段，无 password/token/secret |
+| B30 完整审计限 ADMIN | **NOT_REQUIRED**（机制级） | 无完整跨对象审计端点（归 F015/F016）；`AUDIT_READ` 在权限矩阵中 ADMIN-only（F002 §3） |
+| B31 乐观锁两会话并发 | PASS | 用例 4；两条真实连接真实提交，一方 200 一方 409，无丢失更新 |
+| B32 无静默重试覆盖 | PASS | 用例 6；client 对 409 明确呈现、fetch 仅调用一次 |
+| B33 改名 id 不变 | PASS | 用例 2；`id`/`created_at` 不变、`version` 递增 |
+| B34 DB code_key 全量唯一 | PASS | 用例 4、5；软删行占位、索引定义无 `deleted_at` 谓词、`ck_clusters_code_key_matches` 拒绝不一致 |
+| B35 全量唯一 vs 部分唯一 | PASS | 仅建 Cluster 全量唯一；未误建部分唯一；通用部分唯一属 F004+ 未实现 |
+| B36 metadata object CHECK | PASS | 用例 4、5；`[]`/`"x"`/`null` 被 `ck_clusters_metadata_object` 拒；`{}`/对象通过 |
+| B37 audit action CHECK | PASS | 用例 4、5；`PURGE`/`delete` 被 `ck_audit_logs_action` 拒；四合法 action 通过 |
+| B38 audit FK RESTRICT + append-only | PASS | 用例 4、5；持有审计的 user DELETE 被拒（`confdeltype='r'`）、UPDATE/DELETE 触发 `restrict_violation`、`operator_user_id` 可空 |
+| B39 其余 CHECK | PASS | 用例 4、5；`status='BOGUS'`、`version=0`、空/带首尾空白 name 均被拒 |
+| B40 迁移 up/down/up | PASS | 用例 5；各步 0、对象集合对称、单一 head |
+| B41 软删过滤覆盖关系加载 | **NOT TESTED**（无适用对象） | F003 无 ORM 关系；`with_loader_criteria(include_aliases=True)` 已注册，关系加载传播待 F004+ 有真实关系时回归；非 FAIL |
+| B42 迁移顺序与依赖 | PASS | `0003` `down_revision=0002_users_sessions`；先建 `clusters` 后 `audit_logs`（FK→`users`） |
+
+### 验收映射 A1–A11
+
+| # | 结论 | 证据 |
+| --- | --- | --- |
+| A1 code 大小写不敏感唯一、软删不重用、创建后不可改 | **PASS** | V1/V12、B1–B3/B34；用例 2、4、7 |
+| A2 name 中文/可改/不唯一/trim/空与控制字符拒绝 | **PASS** | V2、B4–B7；用例 2、4 |
+| A3 status 默认 ACTIVE、可切换、不级联、INACTIVE 可维护 | **PASS** | V3、B8/B9；用例 2、7 |
+| A4 默认列表含停用、过滤/排序/分页/模糊 | **PASS** | V4、B10–B16；用例 2、7 |
+| A5 默认隐藏软删、ADMIN 可见、EDITOR/VIEWER 不可见 | **PASS** | V5、B17–B20；用例 2、7 |
+| A6 ADMIN 恢复、冲突不覆盖、不级联 | **PASS**（`unique_conflict`/`dependency_deleted` 机制级，B23/B24） | V6、B21–B25；用例 2、7 |
+| A7 四 action 同事务 Audit、Activity 全角色、完整 Audit 限 ADMIN、不记敏感 | **PASS**（完整跨对象审计 NOT_REQUIRED） | V7、B26–B30；用例 2、4 |
+| A8 过期版本 409、无静默覆盖/重试 | **PASS** | V8、B31/B32；用例 2、4、7 |
+| A9 code/name 变更不改身份、稳定 ID | **PASS** | V9、B33；用例 2 |
+| A10 归一化与稳定 ID 固化为共享契约 | **PASS** | V10；`normalization.py` 单一实现、`gen_random_uuid()`、无 pgcrypto/uuid-ossp；D01 §5.1 口径一致 |
+| A11 D01/D02 在本 Feature CONTRACT 签核 | **PASS** | V11；`docs/api/F003.md` v1 + `docs/database/f003-cluster.md` v1 + architecture §9 |
+
+### 数据库 / 接口 / 前端 / 集成结果
+
+- **数据库（真实 PG）**：约束/索引/触发器/函数与 DB v1 逐项一致；`uq_clusters_code_key` 全量唯一（索引定义无 `deleted_at`）；`trg_clusters_code_immutable`、`trg_audit_logs_append_only` 生效；`fk_audit_logs_operator_user_id_users` RESTRICT；`gen_random_uuid()` 默认；迁移 0003 对称可逆、单一 head；F003 空表 drop 数据安全策略已在 DB v1 §5 记录。**PASS**
+- **接口（ASGI + 全链路 Nginx）**：7 端点响应内容、类型、nullable、业务边界、非法输入、错误语义均符合 Contract；错误信封 `CONFLICT`（reason 枚举 4 项齐全）/`VERSION_CONFLICT`/`VALIDATION_ERROR`/`FORBIDDEN`/`NOT_FOUND`/`AUTH_REQUIRED`；只读端点（列表/详情/activity）无业务写副作用（`activity` 只读、无审计修改入口）。**PASS**
+- **前端**：`npm run build` 通过；client 机制级 26 项通过；V14 状态/交互/错误/未知值处理经源码核对。真实浏览器 DOM 非本 Feature 必要判据。**PASS**
+- **集成（Compose 经入口 Nginx，端口 18099）**：登录→创建（含 CJK code/name trim）→列表→PATCH→DELETE→ADMIN include/only→restore→activity 全链路 200/201/204；非 ADMIN 软删可见性 403、详情默认 404；EDITOR 写 201、VIEWER 写 403、EDITOR restore 403；跨源 CSRF 写 403；未认证 401。**PASS**
+
+### Defects
+
+| ID | Severity | Layer | Location | 证据 / 期望与实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| D-TE-F003-1 | NOTE | Contract 文档 | `docs/api/F003.md` §5 vs §6.3；本文件 TD-1 V5 | TD-1 V5 写「无权限 `deleted=true` 返回 404」，Contract §6.3 定稿为 403；实现在显式 `deleted=true` 且无权限时返回 403、默认详情返回 404（不泄露）。Contract 为权威，实现一致 | 文档内部措辞不一致，无实现缺陷 | Architect | 否 |
+
+未发现 BLOCKER/HIGH/MEDIUM/LOW 实现缺陷。
+
+### 未验证项与边界（不声称完整通过）
+
+- **A4/A6/T24/T25/T26 机制级口径**：`unique_conflict`/`dependency_deleted` 恢复冲突因 Cluster 全量唯一且 F003 引用集为空，仅经注册检查器机制级验证（B23/B24），**不表述为完整 T24/T25/T26 通过**；完整跨 Feature 回归归 F004+ / 上线验收。
+- **完整跨对象审计查询**：B30 `NOT_REQUIRED`（未交付，归 F015/F016）；`AUDIT_READ` ADMIN-only 仅矩阵级验证。
+- **B41**：F003 无 ORM 关系，`with_loader_criteria` 关系加载传播 `NOT TESTED`，待 F004+ 有真实关系回归。
+- **B13 其余排序字段**：仅 `code` 端到端排序断言，其余 4 字段为白名单 + 映射静态核对。
+- **V3b skip**：`test_trusted_extension_installed_by_non_superuser` 因测试连接角色为 superuser 而 skip（环境限制，非 F003 缺陷，承接 F001 TE-1）。
+- **§19 关联区域、CSV/Excel 导入、用户管理 UI、真实浏览器 DOM**：按 product/architecture 明确不属 F003 范围，未执行。
+- **生产/未知数据库**：未使用；所有集成/约束/迁移/并发证据均来自独立 `postgres:16` 测试库（库名含 `test`）。
