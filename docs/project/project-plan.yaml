@@ -110,8 +110,8 @@ features:
       - F001
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: IMPLEMENTATION
-    next_action: backend 与 frontend 并行实现（文件所有权已划定）
+    current_stage: TEST
+    next_action: tester 独立执行 TD-2 验证项（含 Compose 全链路登录冒烟）
     layers:
       database: true
       backend: true
@@ -123,6 +123,8 @@ features:
       database: COMPLETE
       test_design: COMPLETE
       contract: COMPLETE
+      backend: COMPLETE
+      frontend: COMPLETE
     evidence:
       product:
         - docs/features/F002/product.md
@@ -134,6 +136,10 @@ features:
         - docs/features/F002/test-report.md#test-design
       contract:
         - docs/api/F002.md
+      backend:
+        - docs/features/F002/implementation.md
+      frontend:
+        - docs/features/F002/implementation.md
     git:
       base_branch: v3
       branch: feature/F002-auth-permissions
@@ -578,9 +584,9 @@ execution:
     authorized_on: "2026-10-06"
     basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
   current_feature: F002
-  current_stage: IMPLEMENTATION
-  last_result: F002 CONTRACT Gate 定稿（READY FOR IMPLEMENTATION，Contract READY，D02 认证部分签核）
-  next_action: backend 与 frontend 并行实现后交 TEST
+  current_stage: TEST
+  last_result: F002 实现完成（backend/frontend COMPLETE）
+  next_action: tester 独立执行测试（Compose 全链路登录为关键补验项）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
