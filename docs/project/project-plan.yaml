@@ -189,7 +189,47 @@ features:
   - F001
   - F002
   blocking_decisions: []
-  status: READY
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: reviewer 重新 Review（修复后候选 HEAD）
+  git:
+    base_branch: v3
+    branch: feature/F003-cluster-management
+    start_commit: b34805189304c0ac6d009ce2e6cbba8bb4b20914
+    head_commit: null
+    merge_commit: null
+  implementation:
+    product: COMPLETE
+    architecture: COMPLETE
+    database: COMPLETE
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
+    test: COMPLETE
+    review: PENDING
+  evidence:
+    product:
+    - docs/features/F003/product.md
+    architecture:
+    - docs/features/F003/architecture.md
+    database:
+    - docs/database/f003-cluster.md
+    test_design:
+    - docs/features/F003/test-report.md#test-design
+    contract:
+    - docs/api/F003.md
+    backend:
+    - docs/features/F003/implementation.md
+    frontend:
+    - docs/features/F003/implementation.md
+    test:
+    - docs/features/F003/test-report.md#test-execution
+  layers:
+    database: true
+    backend: true
+    frontend: true
+  api_required: true
 - id: F004
   title: Resource 核心登记
   kind: FEATURE
@@ -659,11 +699,11 @@ execution:
     authorized_on: '2026-10-06'
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
-  current_feature: null
-  current_stage: null
-  last_result: F002 已 DONE（Merge f160c88）；依赖重算后 F003 就绪
-  next_action: 调度 F003（Cluster 管理与持久化横切首落地）
-  repair_rounds: 0
+  current_feature: F003
+  current_stage: REVIEW
+  last_result: F003 修复轮 1 重测 TE-2：F003-REV-1 FIXED（独立验证），回归 78 passed；READY FOR REVIEW
+  next_action: reviewer 重新 Review 修复后候选
+  repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
@@ -673,10 +713,9 @@ planning_status:
     DONE: 2
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F003
+    IN_REVIEW: 1
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED:
     - F004
