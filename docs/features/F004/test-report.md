@@ -6,10 +6,14 @@
 
 ## Test Design
 
-- **版本**：TD-1
-- **日期**：2026-10-07
+- **版本**：TD-2（当前）；TD-1（2026-10-07）
+- **日期**：TD-2 2026-10-08；TD-1 2026-10-07
 - **角色**：Tester（TEST_DESIGN 模式）
 - **结论**：`TEST DESIGN READY`
+- **TD-2 变更（2026-10-08）**：DATABASE Gate（`docs/database/f004-resource.md` v1，2026-10-08）与 CONTRACT Gate（`docs/api/F004.md` v1，2026-10-08）已定稿，`d01-conventions.md` 升至 v3（§5.3）。
+  1. 修正 **F004-TD-1-01（文档缺陷，LOW）**：TD-1 §0 对应表与 §2/B5 的 `hostname_key` 折叠方向笔误，原写作 `translate(btrim(hostname),'abc…','ABC…')`（大写方向），与 DB-D36/Contract §2.1/D01 §5.3 的**小写**口径 `translate(btrim(hostname),'ABC…','abc…')` 相反。TD-2 已改为小写方向；TD-1 该两处的表达式文本失效，验收判据（ASCII-only 小写折叠、非 ASCII 原样、部分唯一）不变。
+  2. 关闭 TD-1 §8 全部 6 项 OPEN 复核项（DATABASE/CONTRACT 已定稿，见 §8-A）。
+- **TD-1 生效范围**：A1–A13 映射、B1–B46 场景、夹具/环境设计、可验证性检查在本轮仍有效（除上述表达式文本笔误）；TD-1 标记为「对 DATABASE/CONTRACT 草案保留假设」，§8 待闭合项由 TD-2 关闭，不复用 TD-1 的草案假设作为定稿依据。
 - **依据**：
   - `docs/product/requirements-v3.md` revision 3（§4、§4.1、§6、§7、§18、§21、§22、§23、§25、§27、§28、§31、§33）
   - `docs/features/F004/product.md`（READY FOR ARCHITECT；A1–A13 与边界）
@@ -27,6 +31,7 @@
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
 | TD-1 | 2026-10-07 | 初版：A1–A13 映射 V1–V15，边界/并发 B1–B46，夹具/环境设计，可验证性检查（A12/A13、引用集为空、D01/D02），不适用项；对 DATABASE/CONTRACT Gate 保留 6 项待复核假设（见 §8）。 |
+| TD-2 | 2026-10-08 | 修正 F004-TD-1-01（§0/B5 `hostname_key` 折叠方向改为小写 `translate(btrim(hostname),'ABC…','abc…')`）；依据 DATABASE v1 / CONTRACT v1 / D01 v3 关闭 §8 全部 OPEN 项；验收判据不变。 |
 
 > 复核基线：`docs/features/F004/architecture.md`（ARCHITECTURE Gate，2026-10-07）。DATABASE/CONTRACT 定稿前的约束名、错误 reason、恢复冲突与引用检查机制均以架构草案为准，标记为待闭合。
 
@@ -38,7 +43,7 @@
 
 | 规则依据及版本 | 作用域/写入入口 | 数据库保证（草案，待 DB Gate） | 业务层保证 | 并发/生命周期边界 | 验证与证据 |
 | --- | --- | --- | --- | --- | --- |
-| §7 / §4.1 / §27（hostname 同 Cluster 唯一、跨 Cluster 允许、软删可重用、归一化共用） | POST/PATCH `/resources`、未来导入(F014) | `resources.hostname_key` + `uq_resources_cluster_id_hostname_key` **部分唯一 (cluster_id, hostname_key) WHERE deleted_at IS NULL**；`ck_resources_hostname_key_matches`（`translate(btrim(hostname),'abc…','ABC…')`） | `normalization.py` hostname 归一化键（btrim→非空→禁内部空白/控制→ASCII-only 小写）；冲突 409 `unique_conflict` | 并发同名由部分唯一索引兜底；软删释放该键；跨 Cluster 不受约束；短名/FQDN 按完整字符串 | V1/V3/V13、B1–B9/B37–B39；计划验证 |
+| §7 / §4.1 / §27（hostname 同 Cluster 唯一、跨 Cluster 允许、软删可重用、归一化共用） | POST/PATCH `/resources`、未来导入(F014) | `resources.hostname_key` + `uq_resources_cluster_id_hostname_key` **部分唯一 (cluster_id, hostname_key) WHERE deleted_at IS NULL**；`ck_resources_hostname_key_matches`（`translate(btrim(hostname),'ABC…','abc…')`） | `normalization.py` hostname 归一化键（btrim→非空→禁内部空白/控制→ASCII-only 小写）；冲突 409 `unique_conflict` | 并发同名由部分唯一索引兜底；软删释放该键；跨 Cluster 不受约束；短名/FQDN 按完整字符串 | V1/V3/V13、B1–B9/B37–B39；计划验证 |
 | §4.1 / §6（所属 Cluster 创建必填；cluster 有效） | POST `/resources` | `fk_resources_cluster_id_clusters ON DELETE RESTRICT` | 前置校验存在且未软删，否则 422 `field:cluster` | Cluster 软删不删 Resource 行；FK 防止悬空引用 | V6、B16/B17/B40；计划验证 |
 | §6（创建后不可改 cluster / resource_type；稳定 ID） | PATCH `/resources/{id}` | `trg_resources_immutable_fields`（BEFORE UPDATE，cluster_id/resource_type 变更抛错） | PATCH 含 cluster/cluster_id/resource_type/只读字段 → 422 | 软删/恢复不受影响；改名不改 id | V5/V9、B13/B14/B15/B46；计划验证 |
 | §6（resource_type 枚举、role/status 枚举与默认、显式 null 拒绝、可扩展） | POST/PATCH `/resources` | `ck_resources_resource_type`、`ck_resources_role`、`ck_resources_status`；列 `DEFAULT 'OTHER'` / `'UNKNOWN'` | 省略默认；role/status 显式 null → 422；枚举非法 → 422 | 枚举扩展走迁移；一期不新增类型 | V4、B10–B12；计划验证 |
@@ -81,7 +86,7 @@
 | B2 | 同 Cluster 大小写/首尾空白变体重复 | C1 建 `cn001`；分别建 `CN001`、` cn001 `、`Cn001` | 均 409；`hostname_key='cn001'` |
 | B3 | 跨 Cluster 同名允许 | C1 建 `cn001`；C2 建 `cn001` | 均 201；两行 `hostname_key` 相同但 `cluster_id` 不同 |
 | B4 | 软删后重建同 hostname | C1 软删 `cn001` 后 POST `cn001`（含 `CN001` 变体） | 201；旧行保留 `deleted_at`、新行独立 id |
-| B5 | 归一化落库一致 | 分别建 `CN001`、` cn001 ` | 落库 `hostname='cn001'`；`hostname_key=translate(btrim(hostname),'a..z','A..Z')` 不变量 violations=0 |
+| B5 | 归一化落库一致 | 分别建 `CN001`、` cn001 ` | 落库 `hostname='cn001'`；`hostname_key=translate(btrim(hostname),'A..Z','a..z')` 不变量 violations=0 |
 | B6 | 非 ASCII 原样（ASCII-only 折叠） | 建 `straße`、`ﬁle`、`山河3`；对比 `STRASSE`/`STRAßE` | `straße`/`ﬁle`/`山河3` 建成功；`STRAßE` 与 `straße` 同 key；`STRASSE` 为不同 key（`ß` 不折叠为 `SS`）；无 500 |
 | B7 | hostname 长度边界 | 建 1 字符、253 字符、254 字符（长度上限 PROPOSED，待 DB 定稿） | 1/253 成功（或按定稿上限）；超出 → 422；raw SQL 超长被 CHECK/列长拒绝 |
 | B8 | hostname 空/空白/内部空白/控制字符 | POST `""`、`"   "`、`"c n001"`、`"c\tn001"`、`"bad\x00name"`、`"a\nb"` | 均 422（业务层）+ raw SQL 直插被 CHECK 拒绝 |
@@ -236,24 +241,166 @@
 
 ---
 
-## 8. OPEN 复核项（TD-1 → 待 DATABASE/CONTRACT 定稿闭合）
+## 8. OPEN 复核项（TD-1 提出，TD-2 全部关闭）
 
-| # | TD-1 假设 | 状态 | 依据 / 影响 |
+> **TD-2（2026-10-08）状态：全部 CLOSED。** DATABASE Gate（`docs/database/f004-resource.md` v1）与 CONTRACT Gate（`docs/api/F004.md` v1）已定稿，`d01-conventions.md` 升至 v3；下表各假设逐项与定稿核对，无判据差异（除 F004-TD-1-01 表达式文本笔误，已于 TD-2 修正）。TD-1 的「待定稿假设」不再作为执行依据，TEST 以定稿 Contract/DB/D01 为准。
+
+| # | TD-1 假设 | 状态 | 定稿核对（依据 / 影响） |
 | --- | --- | --- | --- |
-| 1 | `resources` 列、约束名、索引、触发器（§0/V13/B12–B14/B37–B43） | OPEN（待 DATABASE） | architecture §4 草案；定稿后核对，差异升 TD-2 |
-| 2 | hostname 长度（253 vs 255）与字符集、ASCII-only 折叠 | OPEN（待 DATABASE/Product §35.3 D01） | architecture §4.1/DR-35；影响 B6/B7 判据 |
-| 3 | 部分唯一 `WHERE deleted_at IS NULL` 与查询覆盖 | OPEN（待 DATABASE） | DR-36；确认非全量唯一、无 F003 误用 |
-| 4 | 迁移 `0004_resources` 对称可逆与单 head | OPEN（待 DATABASE） | DR-43；空表 drop 数据安全策略 |
-| 5 | `CONFLICT` reason 枚举、cluster 归属 422 语义、`VERSION_CONFLICT` 复用 | OPEN（待 CONTRACT） | DR-39/DR-41；错误语义端到端判据（V6/V9/V10） |
-| 6 | 恢复端点路径/方法/必带 version；type 查询参数命名 | OPEN（待 CONTRACT） | DR-41；B25/B28 |
+| 1 | `resources` 列、约束名、索引、触发器（§0/V13/B12–B14/B37–B43） | **CLOSED**（DATABASE v1 §2–§4 完全一致） | 列/CHECK/索引名与 `0004_resources.py` 逐项一致；`trg_resources_immutable_fields` 存在 |
+| 2 | hostname 长度与字符集、ASCII-only 折叠 | **CLOSED**（DB-D36/D37；Contract §2.1；D01 v3 §5.3） | 长度 1–253（Unicode code point）、宽松字符集、仅 ASCII A-Z→a-z 折叠（禁用 str.lower()/lower()）；B6/B7 判据按此执行 |
+| 3 | 部分唯一 `WHERE deleted_at IS NULL` 与查询覆盖 | **CLOSED**（DB-D38；Contract §2.1） | `uq_resources_cluster_id_hostname_key` 部分唯一；与 F003 全量唯一相反；B37/B38 按此断言 |
+| 4 | 迁移 `0004_resources` 对称可逆与单 head | **CLOSED**（DB-D42；DB §5） | `revision=0004_resources`、`down_revision=0003_clusters_audit`、单一 head；B44 按此执行 |
+| 5 | `CONFLICT` reason 枚举、cluster 归属 422 语义、`VERSION_CONFLICT` 复用 | **CLOSED**（Contract §1.2/§6.2/§7） | reason 枚举 `unique_conflict`/`not_deleted`/`dependency_deleted`/`reference_exists`；cluster 缺失/不存在/软删统一 422 `field:cluster`；VERSION_CONFLICT{current_version} 复用 |
+| 6 | 恢复端点路径/方法/必带 version；type 查询参数命名 | **CLOSED**（Contract §6.6/§4） | `POST /api/v1/resources/{id}/restore`，version 必填；查询参数规范名 `type`，无 `resource_type` 别名 |
 
-上述未闭合项不影响 READY 结论（方案可验证、判据可观察）；TEST 执行前必须逐项关闭并核对定稿差异，若实现或 Contract 变更导致判据差异，升 TD-2 并注明 TD-1 失效范围。
+TD-1 未闭合项已由 TD-2 关闭；若实现或 Contract 后续变更导致判据差异，须再升 TD-3 并注明失效范围。
 
 ---
 
 ## Test Execution
 
-（预留：TEST 阶段在同一文件追加执行结果，记录版本、环境、命令、A1–A13/B1–B46 结果、Defects 与未验证项。TEST_DESIGN 阶段不填充执行 PASS。）
+- **版本**：TE-1
+- **日期**：2026-10-08
+- **角色**：Tester（TEST 模式）
+- **结论**：`READY FOR REVIEW`
+- **执行基线**：Contract `docs/api/F004.md` v1（2026-10-08）、DATABASE `docs/database/f004-resource.md` v1（2026-10-08）、D01 v3（§5.3）、architecture §10 `READY FOR IMPLEMENTATION`；TD-2（含 F004-TD-1-01 修正）。
+- **代码基线**：`feature/F004-resource-core`，HEAD `f18485c`（backend/frontend COMPLETE 检查点）。
+
+### 环境
+
+| 项 | 值 |
+| --- | --- |
+| 后端测试镜像 | `docker build --target test -t csm-backend-f004te1 ./backend`（Python 3.12，pytest 8.4.2） |
+| 数据库 | 独立容器 `f004te1-db`（`postgres:16.15`，网络 `f004te1-net`，端口 55434）；测试库 `csm_test`、独立验证库 `csm_verify` |
+| 集成 | `TEST_DATABASE_URL=postgresql+psycopg://csm:change-me@f004te1-db:5432/csm_test`（DB-D10 护栏：库名含 `test`、≠ `DATABASE_URL`） |
+| 前端 | Node v22.23.2 / npm 12.0.2；`npm run typecheck`、`npm run build`、`npm run smoke:client` |
+| Compose 全链路 | `docker compose -p f004te1`（独立项目名/卷），入口 Nginx `127.0.0.1:18097`（非默认端口） |
+| 清理 | `compose -p f004te1 down -v`、`docker rm -f f004te1-db`、`docker network rm f004te1-net`、删临时镜像；残留检查无 f004 容器/网络 |
+
+### 实际执行的命令与输出摘要（独立执行，未复用开发者结果）
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| 1 | `docker run … pytest tests -v`（真实 PG，`csm_test`） | **119 passed, 1 skipped**（skip=`test_trusted_extension_installed_by_non_superuser`：连接角色为 superuser 的环境限制，非 F004 缺陷） |
+| 2 | `pytest tests/integration/test_resources.py tests/integration/test_resource_constraints.py -q` | **41 passed**（F004 专属用例） |
+| 3 | 独立库 `alembic heads` / `upgrade head` / `downgrade 0003_clusters_audit` / `upgrade head` | `0004_resources (head)` 单一 head；up 建 resources；down 后 resources 及约束/索引/触发器消失、F003 对象（users/user_sessions/clusters/audit_logs）保留；re-up 恢复 |
+| 4 | 独立 raw SQL + 真双连接并发脚本（Tester 编写，`csm_verify`） | **29 / 29 PASS**（约束/部分唯一谓词/触发器/FK/默认值/归一化方向/B38 真并发） |
+| 5 | `npm run typecheck` / `npm run build` / `npm run smoke:client` | typecheck 通过；build 通过（46 modules）；smoke **43 passed, 0 failed** |
+| 6 | Compose 全链路 curl（Nginx 18097：登录→CSRF→创建 Cluster/Resource→归一化→重复 409→跨 Cluster→cluster 引用检查→软删释放→activity） | 状态码与错误信封符合 Contract |
+| 7 | `python3 scripts/validate_project_state.py` | `PROJECT STATE VALID`（结构校验；批准/Git 证据另行核对，非本报告结论） |
+
+### V1–V15 执行结果（TD-2 → TE-1）
+
+| 验证项 | 结果 | 证据 / 说明 |
+| --- | --- | --- |
+| V1 hostname 唯一 + V13 DB 约束 | **PASS** | 用例 1/2/4；同 Cluster 精确/大小写/空白变体 → 409 `CONFLICT{unique_conflict,field:hostname}`；跨 Cluster 201；部分唯一谓词含 `deleted_at IS NULL` |
+| V2 软删复用 | **PASS** | 用例 2/4；软删后重建 201、旧行保留 `deleted_at`、新行独立 id；raw 软删行不参与部分唯一 |
+| V3 归一化 + 静态单一实现 | **PASS** | 用例 1/2/4；`CN001`/` cn001 ` 落库 `cn001`；`normalization.py` 与 DB `translate(btrim(...),'A–Z','a–z')` 一致；非 ASCII 原样 |
+| V4 默认与显式 null | **PASS** | 用例 1/2；省略 role/status 默认 OTHER/UNKNOWN（响应与库）；显式 null → 422；PATCH 省略不重置 |
+| V5 不可改字段 + V13 触发器 | **PASS** | 用例 1/2/4/6；PATCH cluster/cluster_id/resource_type/只读 → 422；raw UPDATE cluster_id/resource_type 被触发器拒；库值/version 不变 |
+| V6 cluster 归属 + hostname 校验 | **PASS** | 用例 2/4/6；缺失/不存在/软删 → 422 `field:cluster`；空/内部空白/控制字符/超长 → 422；raw 直插被 CHECK 拒 |
+| V7 列表契约 | **PASS**（代表性子集） | 用例 2/6；组合过滤 AND、`cluster_id`、`q`、`sort`+`order`、分页与 `total`；非法参数 422（B18/B20 为代表性而非全字段组合穷举） |
+| V8 Detail Overview + V15 前端 | **PASS**（DOM 非自动化） | 用例 1/2/5/6；响应含嵌套 `cluster{id,code,name}` 与六要素；前端 build + client 机制级状态/交互核对 |
+| V9 软删/恢复 + V13 | **PASS** | 用例 2/4/6；默认隐藏、include/only 越权 403、软删详情默认 404、ADMIN 200；restore `not_deleted`/`unique_conflict`/`dependency_deleted` 均 409 且不覆盖 |
+| V10 Audit/Activity | **PASS** | 用例 1/2/6；四 action 各一行、白名单快照、同事务回滚不留痕；Activity 全角色 200、按对象隔离、升序 |
+| V11 权限矩阵 | **PASS** | 用例 1/2；VIEWER 只读、EDITOR 增改不删/恢复、ADMIN 删/恢复/查看已删；未认证 401；服务端强制 |
+| V12 基础搜索 | **PASS**（限定范围） | 用例 2/6；`?q=CN00` ILIKE 命中 `cn001`；静态确认 resources 无 pg_trgm/GIN 索引；完整模糊/全局搜索归 F013 |
+| V13 数据层 | **PASS** | 用例 1/2/3/4；约束/索引/触发器/部分唯一/FK RESTRICT/`gen_random_uuid()`；迁移 up/down/up |
+| V14 D01/D02 签核核对 | **PASS**（文档） | Contract v1 + DB v1 + D01 v3 §5.3 记录 D01 Resource 域与 D02；实现与 DB `translate` 小写口径一致 |
+| V15 Resources 页面基线 | **PASS**（构建+机制级） | 用例 5；Loading/Success/Empty/Error 显式区分、`version` 随表单、409 不静默重试（fetch 一次）、ADMIN 已删开关门控；真实浏览器 DOM 非必要判据 |
+
+### B1–B46 执行结果
+
+| 编号 | 结果 | 证据摘要 |
+| --- | --- | --- |
+| B1 同 Cluster 精确重复 | PASS | 用例 1/2/4；409 unique_conflict，库中一行 |
+| B2 大小写/空白变体重复 | PASS | 用例 2/4；`CN001`/` cn001 `/`Cn001` 均 409，`hostname_key='cn001'` |
+| B3 跨 Cluster 同名 | PASS | 用例 2/4/6；均 201，key 同、cluster_id 异 |
+| B4 软删后重建 | PASS | 用例 2/4；旧行保留、新行独立 id |
+| B5 归一化落库一致 | PASS（TD-2 修正后） | 用例 2/4；落库小写；DB `translate(btrim(...),'A–Z','a–z')` 与 `ck_resources_hostname_key_matches` 方向一致（raw 断言） |
+| B6 非 ASCII 原样（ASCII-only 折叠） | PASS | 用例 2/4；`straße`/`ﬁle`/`山河3` 建成功；`STRAßE` 与 `straße` 同 key；`STRASSE` 不同 key；无 500 |
+| B7 hostname 长度边界 | PASS | 用例 2/4；253 通过、254 拒（API 422 + DB 列/CHECK） |
+| B8 空/空白/内部空白/控制字符 | PASS | 用例 2/4；API 422 + raw CHECK 拒 |
+| B9 短名与 FQDN | PASS | 用例 2；`cn001` 与 `cn001.example.com` 均成功且不合并 |
+| B10 role/status 默认 | PASS | 用例 2/4；OTHER/UNKNOWN |
+| B11 role/status 显式 null | PASS | 用例 1/2；422 VALIDATION_ERROR，库值不变 |
+| B12 枚举非法 | PASS | 用例 2/4；API 422 + raw CHECK 拒 |
+| B13 cluster 不可改 | PASS | 用例 1/2/4；API 422 + 触发器拒，库值/version 不变 |
+| B14 resource_type 不可改 | PASS | 用例 2/4；API 422 + 触发器拒 |
+| B15 只读字段拒绝 | PASS | 用例 2；id/created_at/deleted_at 等 422 |
+| B16 cluster 缺失/不存在/软删 | PASS | 用例 2/4/6；统一 422 `field:cluster` |
+| B17 cluster 引用形式 | PASS | 用例 2；UUID 与 code（大小写变体）解析同一 uuid；非法 422 |
+| B18 组合过滤 | PASS（代表性子集） | 用例 2/6；`cluster+type+role+status` AND 交集、`cluster_id` 同义 |
+| B19 分页边界 | PASS | 用例 2；缺省 1/20、1..100、0/101/非法 422、total 准确 |
+| B20 排序白名单与非法 | PASS（部分字段静态核对） | 用例 2；`hostname` asc/desc 端到端；其余白名单由 `Literal`+映射保证；`sort=id`/`order=random` 422，无 500/注入 |
+| B21 模糊搜索 q | PASS | 用例 2/6；ILIKE 大小写不敏感；未引入 pg_trgm/GIN（用例 1 静态） |
+| B22 非法 deleted/type 查询值 | PASS | 用例 2；422 VALIDATION_ERROR |
+| B23 软删默认隐藏 | PASS | 用例 2/6；默认仅未删；软删无参数详情 404 |
+| B24 include/only 越权与授权 | PASS | 用例 2/6；非 ADMIN 403 permission；ADMIN include/only 200；无权限 `deleted=true` 403 |
+| B25 ADMIN 恢复成功 | PASS | 用例 2；200、deleted_at=null、version+1、RESTORE audit |
+| B26 恢复 not_deleted | PASS | 用例 2；409 not_deleted |
+| B27 恢复 unique_conflict（自然路径） | PASS | 用例 2；软删→重建→restore 旧对象 409、旧对象保持软删 |
+| B28 恢复 dependency_deleted（自然路径） | PASS | 用例 2；软删 Resource→删 Cluster→restore 409 `dependency_deleted` + `conflicts:[{object_type:cluster,object_id}]`；**自然端到端可达** |
+| B29 恢复不级联 | PASS | 用例 2；仅目标恢复，其它软删对象不变 |
+| B30 Audit 四 action | PASS | 用例 1/2/6；恰 CREATE/UPDATE/DELETE/RESTORE，CREATE 无 before、DELETE 无 after |
+| B31 强制失败回滚不留 audit | PASS | 用例 1/2；注入非法 action，业务与 audit 同事务双回滚 |
+| B32 Activity 全角色 + 隔离 + 排序 | PASS | 用例 2/6；VIEWER/EDITOR/ADMIN 200、按 `(object_type,object_id)`、升序 |
+| B33 Audit 无敏感字段 | PASS | 用例 2；白名单 7 字段，无 password/token/secret |
+| B34 Audit 快照可序列化 | PASS | 用例 2；JSON 可序列化，metadata 对象保留 |
+| B35 乐观锁两会话并发 | PASS | 用例 1/2；两条真实连接，一方 200 version+1、另一方 409 `VERSION_CONFLICT{current_version}`，最终库值来自成功方 |
+| B36 前端无静默重试覆盖 | PASS | 用例 5；client 对 409 明确呈现、fetch 仅一次 |
+| B37 部分唯一索引 WHERE 谓词 | PASS | 用例 1/4；`pg_indexes` 含 `UNIQUE` + `deleted_at IS NULL`；未删重复拒、软删行不参与 |
+| B38 并发同 hostname 创建 | PASS（真双连接） | 用例 4（Tester 独立）；两条独立连接并发 INSERT 仅一方成功、另一方 `uq_...` 违反；service 级并发创建败方映射 409 `unique_conflict`；最终未删行仅 1 条 |
+| B39 hostname_key CHECK 一致性 | PASS | 用例 1/4；raw 不一致被拒；`pg_get_constraintdef` 含 `translate(`、不含 `lower(`；折叠方向为 `'A–Z'→'a–z'` |
+| B40 cluster FK RESTRICT + 引用检查 | PASS（Resource 自身引用集为空为机制级） | 用例 1/2/4/6；raw 物理 DELETE 被 FK RESTRICT 拒（`confdeltype='r'`）；API `DELETE /clusters/{id}` 有未删 Resource → 409 `reference_exists` + references；**Resource 自身被引用集为空，Resource `reference_exists` 无自然路径，仅删除始终成功（机制级）** |
+| B41 引用检查边界（无未删 Resource 可删） | PASS | 用例 2/6；Resource 全部软删后 `DELETE /clusters/{id}` 204；软删不阻止 |
+| B42 metadata object CHECK + 整值替换 | PASS | 用例 1/2/4；raw `[]`/`"x"` 被拒；PATCH 整值替换；显式 null 422 |
+| B43 version CHECK + 稳定 ID | PASS | 用例 2/4；raw version=0 拒；改名后 id/created_at 不变、version 递增、audit object_id 恒等 |
+| B44 迁移 0004 up/down/up | PASS | 用例 1/3；各步 0、单一 head、down 后 resources 消失且 F003 对象保留、re-up 恢复 |
+| B45 软删过滤覆盖关系加载 | PASS | 用例 1（`test_resource_constraints`）；软删 Cluster 经 relationship 加载为 None、`cluster_id` 保留（F003 B41 遗留回归） |
+| B46 改名不改身份 | PASS | 用例 2；id/created_at 不变、version 递增 |
+
+### 数据库 / 接口 / 前端 / 集成结果
+
+- **数据库（真实 PG，`csm_verify` raw SQL + `csm_test` pytest）**：`resources` 列/约束/索引/触发器与 DB v1 逐项一致；部分唯一 `uq_resources_cluster_id_hostname_key`（`WHERE deleted_at IS NULL`）；`ck_resources_hostname_key_matches`/`ck_resources_hostname_ascii_lower` 经 `translate` 小写折叠（无 `lower()`）；`trg_resources_immutable_fields` 生效；`fk_resources_cluster_id_clusters` RESTRICT（`confdeltype='r'`）；`gen_random_uuid()` 默认；迁移 0004 对称可逆、单一 head。**PASS**
+- **接口（ASGI + 全链路 Nginx 18097）**：7 端点响应内容、类型、nullable、业务边界、非法输入、错误语义符合 Contract；错误信封 `CONFLICT`/`VERSION_CONFLICT`/`VALIDATION_ERROR`/`FORBIDDEN`/`NOT_FOUND`/`AUTH_REQUIRED`；`hostname` 归一化（` CN001 `→`cn001`）、cluster 引用检查（409 reference_exists 含 references、软删后放行）、不可改字段 422、CSRF 跨源 403、未认证 401。只读端点无业务写副作用。**PASS**
+- **前端**：typecheck/build 通过；client 机制级 43 项通过；V15 状态/交互/错误/未知值经源码核对。真实浏览器 DOM 非本 Feature 必要判据。**PASS**
+- **集成（Compose 经入口 Nginx）**：`migrate`/`bootstrap` Exited(0)，`alembic_version=0004_resources`；登录→创建→归一化→重复 409→跨 Cluster→引用检查→软删释放→activity 全链路符合 Contract。**PASS**
+
+### 验收映射 A1–A13 结论
+
+| # | 结论 | 证据 |
+| --- | --- | --- |
+| A1 | **PASS** | V1/V13 |
+| A2 | **PASS** | V2/V13 |
+| A3 | **PASS**（导入执行归 F014） | V3/V14 |
+| A4 | **PASS** | V4 |
+| A5 | **PASS** | V5/V13 |
+| A6 | **PASS** | V6 |
+| A7 | **PASS** | V7/V15（B18/B20 为代表性） |
+| A8 | **PASS**（后端 + 前端机制级） | V8/V15 |
+| A9 | **PASS** | V9/V13/V15 |
+| A10 | **PASS**（完整跨对象审计归 F015/F016） | V10/V15 |
+| A11 | **PASS**（完整 T25 跨 Feature 回归不在本 Feature） | V11/V15 |
+| A12 | **PASS**（仅基础 ILIKE；完整模糊/pg_trgm 归 F013） | V12 |
+| A13 | **PASS** | V14/V13 |
+
+### Defects
+
+| ID | Severity | Layer | Location | 证据 / 期望与实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F004-TD-1-01 | LOW（已关闭） | 文档（Test Design） | `test-report.md` TD-1 §0/B5 | TD-1 将 `hostname_key` 折叠方向写作 `translate(btrim(hostname),'abc…','ABC…')`（大写），与 DB-D36/Contract §2.1/D01 §5.3 的小写口径相反；TD-2 改为 `translate(btrim(hostname),'A–Z','a–z')`（小写方向），验收判据不变 | 仅文档笔误，无实现影响 | Tester | 是（已在 TD-2 修复） |
+
+未发现新的实现缺陷。
+
+### 未验证项与口径声明
+
+- **Resource 自身引用集为空（机制级）**：F004 无对象引用 Resource（Interface/VM/Service 归 F007–F012），`DELETE /resources/{id}` 的 `reference_exists` 无自然端到端路径，仅验证“删除始终成功”；不得表述为完整 T23/T24 通过。首个反向检查器 `cluster←resources` 为自然端到端 PASS。
+- **完整 T37/T38/T39/T25/T26**：F004 仅覆盖 Resource 子集（默认值/显式 null、权限矩阵、版本冲突/审计）；Interface/Network/Pool 部分与硬件单位/容量、跨 Feature 权限/审计回归归后续 Feature / 上线验收，本报告不声明完整通过。
+- **B18/B20 为代表性子集**：组合过滤与排序未做全字段组合穷举；白名单其余字段由类型约束与映射保证，标注为部分字段静态核对。
+- **真实浏览器 DOM 渲染**：未自动化，前端以构建 + client 机制级 + 入口真实 API 集成为准（同 F001–F003）。
+- **跨功能回归（§31）与上线验收（§32）**：不在本 Feature 范围。
 
 ---
 
@@ -263,4 +410,4 @@
 GIT: NONE
 ```
 
-本次仅为 TEST_DESIGN 只读核对与新建测试报告文件（`docs/features/F004/test-report.md`）；未执行任何 Git 命令、未提交、未切换分支。
+本次活动（TD-2 文档修正 + TE-1 独立测试执行）仅写入 `docs/features/F004/test-report.md`，未修改业务实现、未暂存/提交/切换分支。`feature/F004-resource-core` 工作区在本次开始前 `git status --short` 为空。
