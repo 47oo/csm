@@ -6,7 +6,7 @@
 
 ## Test Design
 
-- **版本**：TD-1
+- **版本**：TD-2
 - **日期**：2026-10-06
 - **角色**：Tester（TEST_DESIGN 模式）
 - **结论**：`TEST DESIGN READY`
@@ -14,32 +14,36 @@
   - `docs/product/requirements-v3.md` revision 3（§21–§23、§25–§27、§29–§31、§35.2/§35.3 D02）
   - `docs/features/F002/product.md`（READY FOR ARCHITECT；A1–A7 与边界）
   - `docs/features/F002/architecture.md`（READY FOR DESIGN；§1 方案、§5 表草案、§6 验证策略、§7 交 Tester 事项、R1/R2/R3）
+  - `docs/database/f002-auth.md` v1（**DATABASE Gate 定稿**；DB-D13–DB-D19、§3/§4 表与约束、§5 迁移 0002、§7 计划测试项 V-DB-1–V-DB-7）
   - `docs/features/F001/test-report.md`（TD-2/TE-1 基线与 fixture 约定：DB-D10 独立测试库 + 安全护栏、会话级重建 schema、函数级 savepoint、并发真实提交）
-  - `docs/database/f001-baseline.md` v1（DB-D4/D5/D8/D10/D11）
-  - `docs/project/project-plan.yaml` plan_revision 4，F002 条目（已批准，IN_PROGRESS，current_stage=DATABASE）
+  - `docs/database/f001-baseline.md` v1（DB-D4/D5/D6/D7/D8/D10/D11）
+  - `docs/project/project-plan.yaml` plan_revision 4，F002 条目（已批准，IN_PROGRESS）
   - `docs/project/implementation-rules.md`（验证与交付）、`AGENTS.md`（数据安全、Git）、`.pi/skills/data-integrity/SKILL.md`
 - **状态属性**：READY 仅表示 A1–A7 可映射到可观察判据、边界场景可执行；**不表示测试已运行、不批准实现或合并、不表示 T25/T26 完整通过**。F002 为请求级横切，完整 T25/T26 回归归 F003。
-- **前置状态说明**：F002 Database 设计仍在 DATABASE Gate 进行中，本 TD-1 依据 `architecture.md` §1.1/§1.4/§1.6/§5 的 PROPOSED（D02 认证部分、DR-07–DR-16）起草。TEST 执行前必须与 DATABASE Gate 定稿、CONTRACT Gate 定稿（`docs/api/F002.md`）逐项复核；若约束名、列名、错误码或版本机制定稿与本文判据不同，TD-1 升版并注明失效范围（见 §8 OPEN）。
+- **前置状态说明**：DATABASE Gate 已定稿 `docs/database/f002-auth.md` v1，本 TD-2 已据此复核 V/B 判据（数据库层约束、UUID 默认、FK RESTRICT、索引与迁移可逆性均由 DB-D13–DB-D19 关闭，见 §8）。CONTRACT Gate（`docs/api/F002.md`，错误码/CSRF/bootstrap CLI 形态）尚未定稿；TEST 执行前仍须以 CONTRACT 定稿逐项核对，差异处再升 TD 版本。
 
 ### 版本记录
 
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
-| TD-1 | 2026-10-06 | 初版：A1–A7 映射 V1–V9，边界 B1–B17，夹具/环境设计，T25/T26 子集映射，不适用项；对 DATABASE/CONTRACT Gate 保留 5 项待复核假设。 |
+| TD-1 | 2026-10-06 | 初版：A1–A7 映射 V1–V9，边界 B1–B17，夹具/环境设计，T25/T26 子集映射，不适用项；对 DATABASE/CONTRACT Gate 保留 5 项待复核假设（依赖 architecture.md §5 表草案）。 |
+| TD-2 | 2026-10-06 | 对照 DATABASE Gate 定稿 `docs/database/f002-auth.md` v1 复核并升级。关闭 TD-1 §8 第 1、2 项（DB-D13 UUID 原生 gen_random_uuid、DB-D14 username 单列归一化 + UNIQUE + CHECK、DB-D15 role/status varchar+CHECK、DB-D16 FK RESTRICT + 显式索引、DB-D17 迁移 0002 对称可逆、其他 CHECK 名称）；同步 §0 完整性表、V9、B15/B16，新增 B18–B21（UUID 默认、FK RESTRICT、索引/唯一约束存在、其余 CHECK 与迁移 up/down/up）；§8 第 3–5 项（错误码、CSRF、bootstrap CLI 调用形态）仍待 CONTRACT。第 1、2 项旧判据失效，以本版为准。 |
+
+> 复核基线：`docs/database/f002-auth.md` v1（2026-10-06，DATABASE 签核）；TD-1 对 DATABASE Gate 的 PROPOSED 假设已由 DB-D13–DB-D19 关闭。TD-1 的 DB 层预期（未命名约束、`gen_random_uuid()` 待定、username 归一化键列假设）被本节取代。
 
 ### 0. 数据完整性对应表（F002 范围）
 
-仅列 F002 已确认且在实现后需验证的认证/权限/持久化项；业务对象约束留待 F003+。方法依据 `.pi/skills/data-integrity/SKILL.md`。数据库列为 `architecture.md` §5 草案（待 DATABASE Gate 签核）。
+仅列 F002 已确认且在实现后需验证的认证/权限/持久化项；业务对象约束留待 F003+。方法依据 `.pi/skills/data-integrity/SKILL.md`。数据库列以 DATABASE Gate 定稿 `docs/database/f002-auth.md` v1（DB-D13–DB-D19）为准，列名/约束名与 §3/§4 一致。
 
-| 规则依据及版本 | 作用域/写入入口 | 数据库保证 | 业务层保证 | 并发/生命周期边界 | 验证与证据 |
+| 规则依据及版本 | 作用域/写入入口 | 数据库保证（DB-Dx） | 业务层保证 | 并发/生命周期边界 | 验证与证据 |
 | --- | --- | --- | --- | --- | --- |
-| §23 revision 3（角色枚举与权限矩阵，服务端执行） | `require_permission` 依赖；`users.role` | `role varchar(16)+CHECK`（草案）拒绝非法值 | `ROLE_PERMISSIONS` 显式 frozenset；未认证 401 / 越权 403 | 无继承隐式授权 | V4/B11/B15；计划验证 |
-| §23 / §21（账号停用保留操作者身份，不软删） | `users.status`、会话解析 | `status varchar(16) DEFAULT 'ACTIVE'+CHECK`；**无 deleted_at** | 每次请求 join users 校验 `status='ACTIVE'`；停用即 401 | 停用不删行、旧审计操作者保留 | V8/B3；计划验证 |
-| DR-14（username 归一化小写、大小写不敏感唯一） | 登录/bootstrap/用户创建 | `username varchar(64) NOT NULL UNIQUE` | 服务层归一化后比较 | 停用账号仍占唯一名 | B16；计划验证 |
-| §23 / DR-08（服务端不透明会话，令牌仅存哈希） | 登录创建会话；Cookie | `user_sessions.token_hash varchar(64) UNIQUE`（SHA-256 hex）；`FK→users.id` | 请求时哈希查询 + 过期判定 | 登出删除行；过期惰性判定，不预建清理 | V8/B4/B5/B6；计划验证 |
-| §22 / §30（密码、令牌不记录不展示；真实凭据不入仓） | 日志 Filter；响应 Schema；`.env` | N/A | `SENSITIVE_FIELDS` 脱敏；auth 端点不记录请求体；响应不含 `password_hash` | 错误日志脱敏后输出 | V5/B12；计划验证 |
-| §26 / §27（真实 PG 验证；新表 Migration 可逆） | Alembic Migration `users`/`user_sessions` | up/down/up；CHECK 生效 | N/A | 新表无历史数据，downgrade 对称 drop | V9；计划验证 |
-| DR-12（bootstrap 幂等、迁移不写业务数据） | 一次性 CLI `app.cli.bootstrap_admin` | `username` UNIQUE 兜底并发 | 事务内“存在任何用户→no-op”；空表缺凭据非零退出 | 并发 bootstrap 唯一性由约束兜底 | V2/B7/B8/B9；计划验证 |
+| §23 revision 3（角色枚举与权限矩阵，服务端执行） | `require_permission` 依赖；`users.role` | `role varchar(16) NOT NULL` + `ck_users_role: role IN ('VIEWER','EDITOR','ADMIN')`（DB-D15）拒绝非法值 | `ROLE_PERMISSIONS` 显式 frozenset；未认证 401 / 越权 403 | 无继承隐式授权 | V4/B11/B15；计划验证 |
+| §23 / §21（账号停用保留操作者身份，不软删） | `users.status`、会话解析 | `status varchar(16) DEFAULT 'ACTIVE'` + `ck_users_status: status IN ('ACTIVE','DISABLED')`（DB-D15）；**无 deleted_at**；`fk_user_sessions_user_id_users ON DELETE RESTRICT`（DB-D16） | 每次请求 join users 校验 `status='ACTIVE'`；停用即 401；停用时显式删会话 | 停用不删行、旧审计操作者保留；带会话用户删除被 RESTRICT 拒绝 | V8/B3/B19；计划验证 |
+| DR-14（username 归一化小写、大小写不敏感唯一） | 登录/bootstrap/用户创建 | **单列**已归一化（小写、去首尾空白）值 + `uq_users_username`（DB-D14）；`ck_users_username_format: username ~ '^[a-z0-9._-]{3,64}$'`；不用 citext、无独立归一化键列 | 服务层归一化后比较 | 停用账号仍占唯一名 | B16；计划验证 |
+| §23 / DR-08（服务端不透明会话，令牌仅存哈希） | 登录创建会话；Cookie | `user_sessions.token_hash varchar(64) NOT NULL` + `uq_user_sessions_token_hash` + `ck_user_sessions_token_hash_format: ^[0-9a-f]{64}$`（SHA-256 hex）；`fk_user_sessions_user_id_users`（DB-D16） | 请求时哈希查询 + 过期判定 | 登出删除行；`ck_user_sessions_expires_after_created: expires_at > created_at`；过期惰性判定，不预建清理（DB-D18） | V8/B4/B5/B6/B18/B21；计划验证 |
+| §22 / §30（密码、令牌不记录不展示；真实凭据不入仓） | 日志 Filter；响应 Schema；`.env` | 仅存 `password_hash`/`token_hash`；`ck_users_password_hash_nonempty: length(btrim(password_hash)) > 0` | `SENSITIVE_FIELDS` 脱敏；auth 端点不记录请求体；响应不含 `password_hash` | 错误日志脱敏后输出 | V5/B12/B21；计划验证 |
+| §26 / §27（真实 PG 验证；新表 Migration 可逆） | Alembic 迁移 0002_users_sessions（DB-D17） | up/down 对称（先 users 后 user_sessions，downgrade 逆序 drop）；约束显式命名，CHECK 生效 | N/A | 新表无历史数据，downgrade 对称 drop；单一 head | V9/B20/B21；计划验证 |
+| DR-12（bootstrap 幂等、迁移不写业务数据） | 应用侧一次性 CLI `python -m app.cli.bootstrap_admin`（**非迁移**） | `uq_users_username` 兜底并发 | 事务内“存在任何用户（含停用）→ no-op”；空表缺凭据非零退出 | 并发 bootstrap 唯一性由约束兜底 | V2/B7/B8/B9；计划验证 |
 
 ### 1. 验收映射（product.md A1–A7 → 验证项）
 
@@ -55,7 +59,7 @@
 | A6 过期版本编辑被 409 语义拒绝，返回可识别冲突信号；无静默重试覆盖 | **V6** 版本冲突机制级 | 真实 PG + 后端集成 + 前端机制级 | PASS：错误信封对过期版本返回 409 `VERSION_CONFLICT` 且 `details.current_version` 可识别；机制级路径可复现（测试挂载抛出版本冲突的路由，或对 `users.version` 的真实条件更新）；前端 client 收到 409 时**不自动重试**并明确呈现冲突。业务端到端（真实业务对象过期编辑）归 F003/T26。FAIL：过期版本被静默覆盖或返回 2xx、无 `current_version`、客户端自动重试 |
 | A7 T25/T26 认证与权限部分有可执行用例映射；完整回归 F003 后通过 | **V7** T25/T26 子集映射 | 文档 + 后端集成 | PASS：§5 子集映射表存在，F002 内断言可执行且分别归 V4/V5/V6/B11；明确列出留待 F003 的断言。FAIL：无映射、把完整 T25/T26 通过记入 F002 |
 | （A1/A4 支撑）会话生命周期与 Cookie 属性 | **V8** 会话/Cookie | 真实 PG + 后端集成 + Compose | PASS：Cookie 含 `HttpOnly`、`SameSite=Lax`、`Path=/`（生产 `Secure`）；令牌不出现在响应体；过期会话 401；登出后原 Cookie 立即 401。判据详见 B4/B5/B6。FAIL：缺 HttpOnly/SameSite、登出后仍可用、令牌出现在 body |
-| （数据层支撑 A2/A4） | **V9** Schema / 约束 / Migration | 真实 PG | PASS：`alembic upgrade head` → `users`/`user_sessions` 建表；`users.role`/`status` CHECK 拒绝非法值（B15）；`username`、`token_hash` UNIQUE 生效；`downgrade base` 对称可逆（新表无历史数据）；`upgrade head` 收敛。FAIL：约束缺失或未生效、downgrade 残留表、CHECK 允许非法枚举 |
+| （数据层支撑 A2/A4） | **V9** Schema / 约束 / Migration | 真实 PG | PASS：`alembic upgrade head` → `users`/`user_sessions` 建表（DB-D17）；`id` server_default `gen_random_uuid()` 自动生成 UUID；`ck_users_role`/`ck_users_status`/`ck_users_version`/`ck_users_username_format`/`ck_users_password_hash_nonempty`/`ck_user_sessions_token_hash_format`/`ck_user_sessions_expires_after_created` 名称与行为均与 DATABASE 定稿一致且拒绝非法值（B15/B18/B21）；`uq_users_username`、`uq_user_sessions_token_hash` UNIQUE 生效；`fk_user_sessions_user_id_users ON DELETE RESTRICT` 拒绝删除带会话用户（B19）；`ix_user_sessions_user_id`、`ix_user_sessions_expires_at` 存在（B20）；`downgrade 0001_baseline` 对称可逆（新表无历史数据）→`upgrade head` 收敛。FAIL：约束/索引缺失或名称不符、downgrade 残留表、CHECK 允许非法枚举、UUID 未自动生成、FK 误用 CASCADE |
 
 ### 2. 边界与并发场景（B 编号，TEST 阶段执行）
 
@@ -75,11 +79,15 @@
 | B12 | 敏感内容扫描（响应 + 日志） | 触发登录成功/失败、`/auth/me`、bootstrap 缺凭据等路径，收集响应体与后端日志 | 响应体、错误信封、容器日志（`docker compose logs`）均无密码、`password_hash`、令牌明文字符串；日志无 `Set-Cookie` 值、无请求体凭据；bootstrap 失败提示不含凭据值 |
 | B13 | 无注册端点 | 遍历 `app.routes` 与 OpenAPI；请求候选注册路径 | 无 register/signup/创建用户匿名路由；`/api/v1/auth/register` 非 2xx（404/405）；无 `POST /api/v1/users` 匿名创建入口 |
 | B14 | 版本冲突机制级 | 经测试挂载的生产版本冲突抛出点（或对 `users.version` 条件更新）提交过期 version | 返回 409 `VERSION_CONFLICT` + `current_version`；数据库未被过期写入覆盖（当前值保持）；前端 client 对 409 不自动重试（机制级用例，业务端到端归 F003） |
-| B15 | users CHECK 拒绝非法角色/状态（DB 层） | 以 raw SQL 直插 `role='SUPERUSER'`、`status='BOGUS'` 及非法枚举值 | 真实 PG 抛 `IntegrityError`（CHECK 约束）；合法 `VIEWER/EDITOR/ADMIN`、`ACTIVE/...` 通过；约束名与 DATABASE Gate 定稿一致 |
-| B16 | username 归一化与唯一性 | 创建用户名含大小写/首尾空白变体（`Admin`、` admin `）；重复创建 | 服务层归一化为小写并去空白后比较；大小写不敏感重复被拒（DB UNIQUE 兜底）；停用账号仍占用其用户名 |
+| B15 | users CHECK 拒绝非法角色/状态/版本（DB 层） | 以 raw SQL 直插 `role='SUPERUSER'`、`status='BOGUS'`、`version=0`；另试合法枚举 | 真实 PG 抛 `IntegrityError`（CHECK `ck_users_role`/`ck_users_status`/`ck_users_version`）；合法 `VIEWER/EDITOR/ADMIN`、`ACTIVE/DISABLED`、`version>=1` 通过；约束名与 DATABASE 定稿（DB-D15）一致 |
+| B16 | username 归一化与唯一性（DB-D14） | 创建用户名含大小写/首尾空白变体（`Admin`、` admin `）；直插大写/短于 3/非法字符/重复用户名 | 服务层归一化为小写并去空白后比较；大小写不敏感重复被 `uq_users_username` 拒；**单列归一化，无独立归一化键列**；绕过应用直插 `'Admin'`、`'ab'`、`'bad name'` 均被 `ck_users_username_format` 拒绝；停用账号仍占用其用户名 |
 | B17 | CSRF 同源校验（PROPOSED 纵深） | 携带 Cookie 的不安全方法（POST login/logout）分别带/不带同源 `Origin`/`Sec-Fetch-Site` | 按 CONTRACT 定稿：异源不安全请求被拒；同源正常。**PROPOSED**，若 CONTRACT 未签核则记 NOT_TESTED 并说明 |
+| B18 | UUID 主键默认生成（DB-D13） | 不显式传 `id` 插入 `users`/`user_sessions`（ORM 与 raw SQL 各一次） | 两表 `id` 均为合法 UUID（version 4）；`server_default = gen_random_uuid()`；无 `pgcrypto`/`uuid-ossp` 扩展依赖（断言 `pg_extension` 无二者，依据 f001-baseline §3）；F003 沿用形态（记录至 D01 约定，F002 仅核对不回归） |
+| B19 | FK ON DELETE RESTRICT（DB-D16） | 对有会话用户的 `users` 行执行 `DELETE`（raw SQL）；再删无会话用户 | 前者抛 `IntegrityError`/`ForeignKeyViolation`（`fk_user_sessions_user_id_users ON DELETE RESTRICT`），会话行与用户行均保留（不静默丟弃历史身份）；后者成功；**不得为 CASCADE** |
+| B20 | 索引与唯一约束存在断言（DB-D16/DB-D17） | 查询 `pg_indexes`/`pg_constraint` 与 SQLAlchemy `inspector` | 存在 `ix_user_sessions_user_id`、`ix_user_sessions_expires_at`、`uq_users_username`、`uq_user_sessions_token_hash`、`pk_users`/`pk_user_sessions`；名称与 DB-D6 命名一致；重复 `token_hash` 插入被 `uq_user_sessions_token_hash` 拒绝 |
+| B21 | 其余 CHECK 与迁移可逆性（DB-D17） | ①raw SQL 直插 `token_hash` 非 64 hex、`expires_at <= created_at`、空 `password_hash`；②`alembic downgrade 0001_baseline` 后再 `upgrade head` | ①依次被 `ck_user_sessions_token_hash_format`、`ck_user_sessions_expires_after_created`、`ck_users_password_hash_nonempty` 拒绝；②downgrade 后 `users`/`user_sessions` 与索引均不存在，upgrade 后重建收敛，单一 head，行为对称（新表无数据） |
 
-并发说明：B9 与 B14 需真实并发/真实提交，使用 `committed_engine`（F001 fixture）而非 savepoint 回滚；断言最终持久化状态，不仅“未抛异常”。B15 必须在真实 PostgreSQL 执行（SQLite 不作 CHECK 证据）。
+并发说明：B9 与 B14 需真实并发/真实提交，使用 `committed_engine`（F001 fixture）而非 savepoint 回滚；断言最终持久化状态，不仅“未抛异常”。B15/B18/B19/B20/B21 必须在真实 PostgreSQL 执行（SQLite 不作 CHECK/UUID 默认/FK/索引证据）。
 
 ### 3. 夹具 / 环境设计
 
@@ -112,8 +120,10 @@
 | A6 机制级 | 可验证（限定口径） | 409 信封 + 异常映射 + 无自动重试可验证；**真实业务过期编辑端到端归 F003/T26** |
 | A7 映射 | 可验证 | 见 §5 |
 | 权限矩阵 | 可验证（R1） | 测试挂载生产依赖路由；真实路径 F003。此口径为 MEDIUM 风险，须在 Test Report 显式标注证据边界 |
-| bootstrap 并发 | 可验证 | `committed_engine` 真实并发提交 + UNIQUE 兜底断言 |
-| users CHECK（DB 层） | 可验证 | 真实 PG raw SQL 断言 IntegrityError |
+| bootstrap 并发 | 可验证 | `committed_engine` 真实并发提交 + `uq_users_username` 兜底断言 |
+| users/user_sessions CHECK（DB 层） | 可验证（DB 定稿） | 真实 PG raw SQL 断言 `ck_users_role`/`ck_users_status`/`ck_users_version`/`ck_users_username_format`/`ck_users_password_hash_nonempty`/`ck_user_sessions_token_hash_format`/`ck_user_sessions_expires_after_created` 拒绝非法值 |
+| UUID 默认 / FK RESTRICT / 索引（DB 层） | 可验证（DB 定稿） | `gen_random_uuid()` 自动生成 UUID；`ON DELETE RESTRICT` 拒绝删除带会话用户；`ix_user_sessions_user_id`/`ix_user_sessions_expires_at` 与唯一约束存在断言；均在真实 PG |
+| 迁移 0002 可逆性 | 可验证（DB 定稿） | 真库 up/down/up 对称，单一 head；新表无历史数据 |
 
 口径明确记录：**A4/A6 在 F002 只验证机制级**；不将测试挂载路由或机制用例视为业务端到端通过。等价地，F002 Test Report 不得将 T25/T26 标为整体 PASS。
 
@@ -148,21 +158,23 @@
 | R2 CSRF 残余 / 无登录限流 | LOW；PROPOSED 纵深 | B17 依赖 CONTRACT；限流 NOT_REQUIRED 并记录 |
 | R3 argon2-cffi 依赖锁定 | LOW | 由实现报告/Review 核对依赖锁定；Tester 检查可导入与哈希参数可升级（PHC 串） |
 
-### 8. OPEN（交 DATABASE / CONTRACT Gate 复核，TD-1 假设）
+### 8. OPEN 复核结果（对照 TD-1 §8 ↔ DATABASE Gate / CONTRACT Gate）
 
-1. **约束与列定稿**：`users.role/status` 的 `varchar+CHECK` 及 `ck_` 命名、`users.username UNIQUE`、`user_sessions.token_hash UNIQUE`/FK 删除行为，以 DATABASE Gate 定稿为准；B15/V9 判据随之核对。
-2. **users.id UUID 形态**：与 D01/F003 稳定 ID 对齐；若变更，B1/B5 断言相应调整。
-3. **错误码定稿**：`AUTH_REQUIRED`/`AUTH_INVALID_CREDENTIALS`/`FORBIDDEN`/`VERSION_CONFLICT` 及 `details.current_version` 以 `docs/api/F002.md` 为准；与本文差异则升 TD 版本。
-4. **CSRF 口径**：Origin/Sec-Fetch-Site 校验是否为 CONTRACT 强制项，决定 B17 执行或 NOT_TESTED。
-5. **bootstrap CLI 接口**：一次性 CLI 的调用形态（函数入口 vs subprocess）与退出码约定，影响 V2/B8 fixture 实现方式。
+| # | TD-1 假设 | TD-2 结论 | 依据 |
+| --- | --- | --- | --- |
+| 1 | 约束与列定稿（`varchar+CHECK`、`ck_` 命名、`username`/`token_hash` UNIQUE、FK 删除行为） | **CLOSED（DATABASE）** | `docs/database/f002-auth.md` §3/§4：DB-D15（varchar+CHECK，名称 `ck_users_role`/`ck_users_status` 等）、DB-D14（`uq_users_username` + `ck_users_username_format`）、`uq_user_sessions_token_hash`、DB-D16（FK RESTRICT）；V9/B15/B16/B18–B21 已按定稿更新 |
+| 2 | users.id UUID 形态与 D01/F003 对齐 | **CLOSED（DATABASE）** | DB-D13：PG 原生 UUID + `gen_random_uuid()`，F003 沿用；B18 核对（含 F003 对齐仅记录，不在 F002 回归） |
+| 3 | 错误码定稿（`AUTH_REQUIRED`/`AUTH_INVALID_CREDENTIALS`/`FORBIDDEN`/`VERSION_CONFLICT`/`VALIDATION_ERROR`/`NOT_FOUND`/`INTERNAL_ERROR`、`details.current_version`） | **OPEN（待 CONTRACT）** | `architecture.md` §1.6/DR-10 仍为 PROPOSED；TD-2 暂按草案口径写 V6/B10/B14；`docs/api/F002.md` 定稿后逐项核对，差异则升 TD-3 |
+| 4 | CSRF 口径（Origin/Sec-Fetch-Site 是否强制） | **OPEN（待 CONTRACT）** | `architecture.md` §1.1/DR-08 仍为 PROPOSED 纵深；B17 视 CONTRACT 定稿执行，否则 NOT_TESTED |
+| 5 | bootstrap CLI 调用形态与退出码 | **部分 CLOSED / 部分 OPEN** | DATABASE 已确认 bootstrap 为**应用侧 CLI、非迁移**（DB-D17/DR-12，迁移只建 Schema）；但 CLI 函数入口 vs subprocess、退出码约定仍待 CONTRACT/实现核对，影响 V2/B8 fixture 实现方式 |
 
-上述不影响 READY 结论（方案可验证）；TEST 执行前必须逐项关闭，并核对 DATABASE/CONTRACT 定稿差异。
+TD-1 对 DATABASE Gate 的 5 项假设中第 1、2 项已由 `docs/database/f002-auth.md` v1 关闭，旧预期（未命名约束、UUID 形态待定、username 归一化键列）失效；第 3–4 项与第 5 项细化部分仍待 CONTRACT Gate 定稿。上述未关闭项不影响 READY 结论（方案可验证）；TEST 执行前必须逐项关闭并核对 CONTRACT 定稿差异。
 
 ---
 
 ## Test Execution
 
-*（预留：待 F002 DATABASE/CONTRACT Gate 定稿、实现完成且本 TD-1 与最终设计核对后，追加 TEST 阶段版本、环境、验收映射执行结果、B1–B17 结果、Defects 与未验证项。）*
+*（预留：待 F002 CONTRACT Gate 定稿、实现完成且本 TD-2 与最终 Contract 核对后，追加 TEST 阶段版本、环境、验收映射执行结果、B1–B21 结果、Defects 与未验证项。DATABASE Gate 已定稿，§8 第 1、2 项关闭。）*
 
 ---
 

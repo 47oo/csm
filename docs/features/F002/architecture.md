@@ -133,3 +133,50 @@ DR-14 登录标识字符集与 SESSION_TTL 默认值属 D02 专业签核（需�
 2. DATABASE Gate：§5 表设计+§7 Database 事项签核。
 3. TEST_DESIGN Gate：A1–A7 用例可执行性、R1/A6 口径。
 4. 二者完成后 CONTRACT Gate 定稿签核 docs/api/F002.md → READY FOR IMPLEMENTATION。
+
+## 最终设计定稿（CONTRACT Gate）
+
+- 签核者：Architect；日期：2026-10-06；设计结论：`READY FOR IMPLEMENTATION`
+- 核对的 Database Design：`docs/database/f002-auth.md` v1（DB-D13–DB-D19）
+- 核对的 Test Design：`docs/features/F002/test-report.md` TD-2（V1–V9 / B1–B21）
+- 上游依据：requirements-v3.md revision 3；F002 product.md（A1–A7）；plan_revision 4（已批准）
+- 覆盖范围：F002 请求级横切——认证机制、初始 ADMIN 引导、权限矩阵执行、操作者上下文、401/403/409 与统一错误信封、敏感字段处理、最小登录前端；users/user_sessions Schema 与迁移 0002。
+
+### Contract
+
+`docs/api/F002.md` v1 = **READY**（Endpoint /api/v1/auth/login|logout|me、Request/Response Schema、错误语义与统一信封、Cookie 属性、权限矩阵引用、无注册端点、401/403/409 边界）。签核：Architect，2026-10-06。
+
+### 一致性核对（摘要）
+
+- A1–A7 ↔ DR-07–DR-16 ↔ DB-D13–D19 ↔ TD-2 V/B 全部一致。
+- UUID PK：DB-D13 先行落地 PG gen_random_uuid()，F003 起业务主键沿用。
+- username：DR-14 ↔ DB-D14 单列归一化 + UNIQUE + ck_users_username_format。
+- role/status：varchar + CHECK（DB-D15）。
+- FK：DB-D16 ON DELETE RESTRICT + 显式索引，符合 §21。
+- 迁移：DB-D17 up/down 对称、单一 head、真库 up/down/up。
+- bootstrap：应用侧 CLI（DR-12/DB-D17），CLI 形态本期定稿。
+- 错误码：本 Gate 定稿（AUTH_REQUIRED / AUTH_INVALID_CREDENTIALS / FORBIDDEN / VERSION_CONFLICT / VALIDATION_ERROR / NOT_FOUND / INTERNAL_ERROR）。
+- CSRF：SameSite=Lax（主）+ 不安全方法同源校验（纵深），本期实现；TD-2 B17 转可执行，TD-2 不升版。
+- A4/A6 维持机制级口径，真实业务端点归 F003。
+- 停用账号既有会话返回 AUTH_REQUIRED；登录停用账号为 AUTH_INVALID_CREDENTIALS。
+
+### D02 认证部分签核
+
+认证机制（argon2id + 服务端不透明会话 + 令牌仅存 SHA-256 哈希）、初始账号（一次性 CLI 幂等引导）、版本冲突与错误语义（整数 version + 409 VERSION_CONFLICT + 统一信封）、敏感字段处理（响应排除 password_hash、日志脱敏）、乐观锁版本列（users.version）——**签核完成**。连接池沿用 F001 DB-D8（DR-16）。
+
+### D01 稳定 ID 协调义务
+
+F002 首次落地 PG 原生 UUID 稳定 ID 形态（DB-D13）。**F003 起业务对象主键须沿用该形态**并写入 D01 共享约定；操作者 user_id 须与 F003 Audit 对齐。建议将「稳定 ID = PG UUID（gen_random_uuid()，不启用 pgcrypto/uuid-ossp）」作为 D01 已定输入纳入 F003 设计。
+
+### 实现范围
+
+- **Backend**：users/user_sessions 模型与迁移 0002；argon2id 哈希；会话服务；require_permission 依赖与操作者上下文；统一错误处理器与错误码；日志脱敏 Filter；同源（CSRF）守卫；bootstrap CLI；Compose bootstrap 服务；Settings（SESSION_TTL_HOURS、INITIAL_ADMIN_*、AUTH_ALLOWED_ORIGINS、APP_ENV 控制 Secure Cookie）；认证测试夹具。
+- **Frontend**：登录页；启动 GET /auth/me 恢复登录态；client.ts 扩展（credentials、错误信封解析、401 清态回登录页、403/409 明确呈现、不静默重试）；登出。
+
+### bootstrap CLI 形态（定稿）
+
+入口 `app/cli/bootstrap_admin.py`，函数 `run(settings=None) -> int`，`main()` 包装 `raise SystemExit(main())`；CLI `python -m app.cli.bootstrap_admin`；Compose 一次性服务 `bootstrap`（depends_on migrate completed；backend depends_on bootstrap completed）。退出码：0 创建或幂等 no-op；2 空表且凭据缺失/空白（stderr 提示不写行）；1 其它错误。幂等顺序：先判「存在任何用户→no-op exit 0」再校验凭据；并发以 uq_users_username 兜底。
+
+### 边界
+
+不实现业务对象端点与完整 T25/T26 回归（F003）、Audit 写路径（F003）、用户管理 UI（F015）、登录限流（本期 NOT_REQUIRED）；Feature 通过 ≠ §32 上线授权。
