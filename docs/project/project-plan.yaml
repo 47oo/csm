@@ -110,8 +110,8 @@ features:
       - F001
     blocking_decisions: []
     status: IN_PROGRESS
-    current_stage: TEST
-    next_action: tester 独立执行 TD-2 验证项（含 Compose 全链路登录冒烟）
+    current_stage: IMPLEMENTATION
+    next_action: backend 修复 D-TE-1（入口 Nginx Host 端口透传）后重测
     layers:
       database: true
       backend: true
@@ -584,10 +584,10 @@ execution:
     authorized_on: "2026-10-06"
     basis: "用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016 全部 16 个 Feature）；发现问题按推荐修正后继续执行。"
   current_feature: F002
-  current_stage: TEST
-  last_result: F002 实现完成（backend/frontend COMPLETE）
-  next_action: tester 独立执行测试（Compose 全链路登录为关键补验项）
-  repair_rounds: 0
+  current_stage: IMPLEMENTATION
+  last_result: F002 TEST TE-1 通过（READY FOR REVIEW，V/B 全 PASS），发现 D-TE-1 MEDIUM（非默认端口下 CSRF 同源误拒）
+  next_action: 修复循环第 1 轮——backend 修复 D-TE-1 后由 tester 重测受影响项
+  repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete

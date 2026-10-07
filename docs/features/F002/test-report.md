@@ -174,12 +174,156 @@ TD-1 对 DATABASE Gate 的 5 项假设中第 1、2 项已由 `docs/database/f002
 
 ## Test Execution
 
-*（预留：待 F002 CONTRACT Gate 定稿、实现完成且本 TD-2 与最终 Contract 核对后，追加 TEST 阶段版本、环境、验收映射执行结果、B1–B21 结果、Defects 与未验证项。DATABASE Gate 已定稿，§8 第 1、2 项关闭。）*
+### TE-1 版本记录
+
+- **版本**：TE-1
+- **日期**：2026-10-07
+- **角色**：Tester（TEST 模式，独立执行）
+- **结论**：`READY FOR REVIEW`
+- **被测版本**：`git rev-parse --short HEAD` = `30feb0f`（实现提交 `4ce9841`；`git diff --stat 4ce9841..HEAD -- backend frontend compose.yaml .env.example` 为空，被测代码与实现提交一致）
+- **依据**：TD-2；`docs/api/F002.md` v1（CONTRACT READY）；`docs/features/F002/architecture.md`（最终设计定稿）；`docs/database/f002-auth.md` v1（DB-D13–DB-D19）；`docs/features/F002/implementation.md`。TD-2 §8 第 3–5 项已由 CONTRACT 定稿关闭（错误码 7 项、CSRF 同源校验、bootstrap CLI 形态与退出码），本版按定稿口径执行 B17。
+- **范围声明**：A4/A6 仍为机制级证据（测试挂载生产 `require_permission` 依赖路由、409 信封机制），**不构成完整 T25/T26 通过**；真实业务端点与端到端乐观锁归 F003。
+
+### 环境
+
+| 项 | 值 |
+| --- | --- |
+| Docker / Compose | 29.8.0 / v5.5.1（可用） |
+| Node / npm | v22.23.2 / 12.0.2 |
+| 宿主 psql / pg_dump | 不存在（符合预期，本 Feature 不依赖） |
+| 后端测试镜像 | `backend/Dockerfile` target `test` 构建自被测源（Python 3.12.15、pytest 8.4.2、httpx、argon2-cffi） |
+| 真实 PostgreSQL（集成） | `postgres:16.15`，独立库 `csm_test`（DB-D10 护栏：库名含 `test`、`TEST_DATABASE_URL != DATABASE_URL`） |
+| 真实 PostgreSQL（CLI/并发/迁移探针） | 同上，独立库 `csm_cli_test`、`csm_conc_test` |
+| Compose 全链路 | 独立项目名 `f002te`、入口端口 `18080`、`postgres:16`、`APP_ENV=development`；结束 `docker compose -p f002te down -v` 清理 |
+| 未执行环境 | 生产/未知数据库（未使用）；本机 venv（宿主不可用，改用容器） |
+
+### 执行命令与输出摘要（独立执行，未复制开发者结果）
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| 1 | `docker build --target test -t csm-backend-f002te:latest ./backend` | 构建成功 |
+| 2 | `pytest tests -v`（容器内、真实 PG `csm_test`） | **47 passed, 1 skipped, 1 warning**（skip = F001 V3b 非 superuser 扩展，环境限制） |
+| 3 | `python -m app.cli.bootstrap_admin` 真实 CLI（缺凭据 / 正常 / 重复 / 不可达） | 退出码 **2 / 0 / 0 / 1**；缺凭据无写行；重复 no-op |
+| 4 | 两个并发 CLI 进程（`csm_conc_test`，真实提交） | 两进程均 exit 0，最终 `users` 恰 1 行 ADMIN；重跑稳定 no-op |
+| 5 | `psql` 直插非法值（raw SQL，非 SQLAlchemy） | role/version/username/token_hash/expires/password_hash 均被对应 CHECK 拒绝；UUID 自动生成；FK RESTRICT 拒绝删除带会话用户（`confdeltype='r'`，两行保留）；DISABLED 账号仍占 `uq_users_username` |
+| 6 | `alembic downgrade 0001_baseline` → `upgrade head`；`alembic heads` | 对称可逆、单一 head `0002_users_sessions` |
+| 7 | 静态：`git ls-files` / `git check-ignore` / `git grep` | 无跟踪 `.env`（已被忽略）；无真实初始凭据/hardcoded 密码（仅测试夹具口令） |
+| 8 | `docker compose -p f002te up -d --build`（18080） | `db→migrate(exit 0)→bootstrap(exit 0, created opsadmin)→backend(healthy)→nginx` |
+| 9 | 经入口 Nginx：login→/auth/me→logout→/auth/me；错误/注册/CSRF 探针 | 见 A/V/B 映射与 D-TE-1 |
+| 10 | `docker compose -p f002te exec backend python -m app.cli.bootstrap_admin` | 已有用户 → no-op exit 0，用户数不变（幂等，且先于凭据校验） |
+| 11 | Compose 日志敏感扫描 `docker compose logs` | 无密码/口令/`password_hash`/argon2 串/`Set-Cookie` 值/`csm_session` 明文 |
+| 12 | 前端 `npm run smoke:client`（宿主 Node 22） | **10 passed, 0 failed**（401 清态、403/409 呈现且不重试、204、信封回退） |
+
+### 验收映射（A1–A7）
+
+| 验收 | 结果 | 证据 |
+| --- | --- | --- |
+| A1 初始 ADMIN 登录成功、错误凭据鉴权失败、响应/日志无凭据明文 | **PASS** | 集成 `test_login_success_creates_session`/`test_login_failures_are_indistinct`；Compose 入口 login 200 + Cookie，错误口令/未知用户均 401 `AUTH_INVALID_CREDENTIALS`，无 5xx；日志扫描无凭据 |
+| A2 干净环境唯一首个 ADMIN、重复不重复创建、仓库无真实凭据 | **PASS** | CLI 退出码 2/0/0/1；两个并发进程 → 1 ADMIN；Compose bootstrap exit 0；静态检查无跟踪 `.env`、无真实凭据 |
+| A3 无自行注册路径 | **PASS** | `app.routes`/OpenAPI 无 register/signup；`POST /auth/register`→404、`/signup`→404 |
+| A4 受保护端点服务端鉴权（未认证 401、越权 403） | **PASS（机制级，R1）** | 生产 `require_permission` 依赖挂载测试路由：未认证 401 `AUTH_REQUIRED`；§23 六行 × VIEWER/EDITOR/ADMIN 逐格断言；越权 403 `FORBIDDEN{reason:permission}`。真实业务端点归 F003 |
+| A5 日志与响应无密码/令牌明文 | **PASS** | 集成响应体扫描 + caplog；Compose 容器日志扫描；令牌仅出现在 `Set-Cookie`，不出现在 JSON |
+| A6 过期版本 409 语义、无静默重试覆盖 | **PASS（机制级）** | 409 `VERSION_CONFLICT` + `details.current_version`（整数）；前端 client 对 409 明确呈现且不重试（smoke 用例）。业务端到端归 F003/T26 |
+| A7 T25/T26 认证/权限子集有可执行映射 | **PASS** | TD-2 §5 映射表；F002 内断言分别落 V4/V5/V6/B11，明确列留待 F003 项；**不宣称完整 T25/T26** |
+
+### 验证项 V1–V9 结果
+
+| 验证项 | 结果 | 证据 |
+| --- | --- | --- |
+| V1 登录流程 | PASS | 集成 + Compose 入口：200、`user{id,username,role,status,permissions}`、`expires_at` 与 DB 会话行一致；错误密码 401 非 5xx；无明文 |
+| V2 bootstrap 幂等 + V9 迁移 | PASS | CLI 退出码、并发唯一、Compose 一次性服务、迁移 up/down/up（见 B7–B9/B20/B21） |
+| V3 无注册端点 | PASS | 路由/OpenAPI 清单 + 404 |
+| V4 鉴权执行 | PASS（机制级） | B11 六行 × 三角色 |
+| V5 敏感内容扫描 | PASS | 响应 + caplog + Compose 日志 |
+| V6 版本冲突机制级 | PASS | B14 |
+| V7 T25/T26 子集映射 | PASS | §5 映射 |
+| V8 会话/Cookie | PASS | B4–B6；Compose 入口 Cookie 属性；生产 `Secure` 由集成用例证明 |
+| V9 Schema/约束/迁移 | PASS | B15–B21（真实 PG，raw SQL 复核） |
+
+### 边界场景 B1–B21 结果
+
+| 编号 | 结果 | 证据摘要 |
+| --- | --- | --- |
+| B1 登录成功 | PASS | 200；`Set-Cookie csm_session`；DB 1 条会话，`token_hash`=SHA-256(Cookie)、64 hex，token_hash≠明文；`expires_at` 一致 |
+| B2 登录失败不可区分 | PASS | 错误口令与未知用户 body 完全相同（401 `AUTH_INVALID_CREDENTIALS`，`details={}`），无会话写入。**说明**：耗时以未知用户 dummy-hash 机制均衡，未做统计显著性测量 |
+| B3 停用账号登录与即时失效 | PASS | 持旧会话 `/auth/me`→401 `AUTH_REQUIRED`；再登录→401 `AUTH_INVALID_CREDENTIALS`；用户行保留（无 `deleted_at`） |
+| B4 会话过期、不滑动续期 | PASS | 将 `expires_at` 置过去→401 `AUTH_REQUIRED`；`/auth/me` 前后 `expires_at` 不变 |
+| B5 登出即时失效 | PASS | logout 204 + `Max-Age=0`；会话行删除；后续 `/auth/me` 401；无 Cookie 调 logout 401 |
+| B6 Cookie 属性 | PASS | `HttpOnly; SameSite=lax; Path=/`；development 无 `Secure`、`APP_ENV=production` 含 `Secure`（集成）；令牌不出现在 body；名 `csm_session` |
+| B7 bootstrap 重复 no-op | PASS | 二次运行 exit 0，行数与内容不变 |
+| B8 空表缺凭据 | PASS | CLI exit 2、stderr 明确提示、`users` 仍 0 行、无默认凭据 |
+| B9 并发 bootstrap 唯一性 | PASS | 两独立进程并发，均 exit 0，最终恰 1 ADMIN；重跑稳定 |
+| B10 401/403/409 错误信封 | PASS | `{"error":{code,message,details}}`；401 `AUTH_REQUIRED`/`AUTH_INVALID_CREDENTIALS`、403 `FORBIDDEN`、409 `VERSION_CONFLICT`（`details.current_version` 整数）、404 `NOT_FOUND`、405 `METHOD_NOT_ALLOWED`、422 `VALIDATION_ERROR`、500 `INTERNAL_ERROR`（无堆栈/凭据） |
+| B11 权限矩阵 × 角色 | PASS（R1 机制级） | §23 六行 × 三角色逐格断言，未认证 401 先于 403；测试路由复用生产依赖工厂 |
+| B12 敏感内容扫描 | PASS | 响应、caplog、Compose 容器日志均无密码/令牌/`Set-Cookie` 值 |
+| B13 无注册端点 | PASS | 路由 + OpenAPI + 候选路径 404 |
+| B14 版本冲突机制级 | PASS | 409 + `current_version`；过期写入不覆盖；前端不自动重试 |
+| B15 users CHECK（DB 层） | PASS | raw SQL 拒绝 `role='SUPERUSER'`、`version=0`（集成含 `status='BOGUS'`）；约束名与 DB-D15 一致 |
+| B16 username 归一化与唯一 | PASS | 服务层 `'  Admin  '`→`admin`；raw SQL 拒绝 `'Admin'`/`'ab'`/`'bad name'`；重复被 `uq_users_username` 拒；停用账号仍占名 |
+| B17 CSRF 同源校验 | PASS（应用层）；入口非默认端口见 D-TE-1 | ASGI：异源 `Origin`/`Sec-Fetch-Site: cross-site` → 403 `{reason:csrf}`；`Sec-Fetch-Site: same-origin`、`AUTH_ALLOWED_ORIGINS` 放行。Compose 入口 18080：异源 403；同源 `Origin: http://localhost:18080` 亦 403（D-TE-1） |
+| B18 UUID 主键默认生成 | PASS | raw SQL 不传 id 两表均得合法 UUID v4；`pg_extension` 仅 `pg_trgm`,`plpgsql`，无 `pgcrypto`/`uuid-ossp` |
+| B19 FK ON DELETE RESTRICT | PASS | 删除带会话用户抛 FK 违规，用户/会话行均保留；无会话用户可删；`confdeltype='r'`（非 CASCADE） |
+| B20 索引与唯一约束存在 | PASS | 目录核对：`pk_users`/`uq_users_username`/五个 `ck_users_*`/`pk_user_sessions`/`uq_user_sessions_token_hash`/`fk_user_sessions_user_id_users`/两个 `ck_user_sessions_*`；`ix_user_sessions_user_id`、`ix_user_sessions_expires_at`；重复 `token_hash` 被拒 |
+| B21 其余 CHECK 与迁移可逆 | PASS | 非 64-hex `token_hash`、`expires_at<=created_at`、空 `password_hash` 均被拒；`downgrade 0001_baseline` 后两表与索引消失、`upgrade` 重建、单一 head |
+
+### 数据库层核对（对照 DB-D13–D19）
+
+- 约束名、FK 删除行为、索引、UUID 默认、迁移 up/down/up 与 `docs/database/f002-auth.md` v1 逐项一致（raw SQL 与 `pg_constraint`/`pg_indexes` 独立核对，非仅 ORM）。
+- 无历史数据：迁移 0002 为新表，`downgrade` 对称 drop 可接受（DB-D7）。
+- 真实 PostgreSQL 执行（SQLite/Mock 未作为约束证据）。
+
+### 接口 / 前端 / 集成结果
+
+- **接口**：经入口 Nginx `/api/v1/*` 全链路（login `/auth/me` logout）返回内容、类型、业务边界与错误语义符合 Contract §1/§4；只读 `/auth/me` 无写副作用；无注册入口。
+- **前端**：构建产物经入口 200、SPA fallback `/login` 200、asset 200；client 对 401 清态、403/409 明确呈现、无静默重试（`npm run smoke:client` 10/10）。真实 API 集成经入口 Nginx 验证，未以 Mock 代替。
+- **Compose**：`db→migrate→bootstrap→backend→nginx` 链路按 `depends_on` 条件依次完成；bootstrap 幂等；入口健康 `/healthz` 200、后端 `health/ready` 200。
+
+### Defects
+
+| ID | Severity | Layer | Location | 证据 / 复现 | 期望 vs 实际 | 影响 | Owner | 是否必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D-TE-1 | MEDIUM | 部署/集成（F002 CSRF × F001 入口 Nginx） | `deploy/nginx/nginx.conf`（`proxy_set_header Host $host`）+ `backend/app/core/csrf.py` `_is_same_origin` | Compose 项目 `f002te` 端口 18080：login 成功后 `POST /api/v1/auth/logout` + `Cookie` + `Origin: http://localhost:18080` → `403 FORBIDDEN{"reason":"csrf"}`；后端实际看到 `Host: localhost`（无端口）。对照：显式 `Host: localhost` + `Origin: http://localhost` → 204 | 同源不安全请求应放行；非默认入口端口下被拒 | 当 `NGINX_HTTP_PORT != 80`（F001 架构标注“主机 80（可配置）”）时，浏览器同源写请求（logout 及 F003+ 写端点）会被 CSRF 纵深守卫误拒；默认 80/443 部署不受影响；不构成跨站放行（安全性未削弱） | Backend（CSRF Host 处理）/ 协调器（Nginx `Host` 传递，可用 `$http_host` 或改用 `X-Forwarded-Host`） | 否（不阻塞默认部署验收；缓解：设置 `AUTH_ALLOWED_ORIGINS=http://<host>:<port>`。建议随本 Feature 或紧随修复并补集成用例） |
+
+### 未验证 / 边界项
+
+- **完整 T25/T26**：不在 F002 范围，未声称通过；A4/A6 为机制级。
+- **真实业务对象过期编辑端到端、Audit 写路径、持久化横切**：归 F003/F016。
+- **登录限流**：本期 NOT_REQUIRED（§29 无 Redis），未实现未测。
+- **B2 耗时等同**：以 dummy-hash 机制保证，未做统计测量。
+- **F001 V3b（非 superuser 扩展安装）**：测试 PG 角色为 superuser，1 skipped（F001 既有环境限制，非 F002 回归）。
+- **前端真实浏览器 DOM 渲染**：非 F002 必要判据；以构建 + client 机制级 + 真实 API 集成覆盖。
+- **生产 `Secure` Cookie 仅经 ASGI 集成用例验证**，未在 TLS 入口端到端验证（本期无 TLS 入口要求）。
+
+### Git 声明（TE-1）
+
+```text
+GIT: git status --short
+GIT: git rev-parse --short HEAD
+GIT: git rev-parse --short 4ce9841
+GIT: git diff --stat 4ce9841..HEAD
+GIT: git diff --stat 4ce9841..HEAD -- backend frontend compose.yaml .env.example
+GIT: git ls-files
+GIT: git check-ignore -v .env
+GIT: git grep -n -Ei '...'
+GIT: git log --oneline -5
+GIT: git branch --show-current
+```
+
+以上均为只读命令；未执行 `git add`/commit/branch/merge，工作区在测试期间保持干净。
 
 ---
 
 ### Git 声明
 
 ```text
-GIT: NONE
+GIT: git status --short
+GIT: git rev-parse --short HEAD
+GIT: git rev-parse --short 4ce9841
+GIT: git diff --stat 4ce9841..HEAD
+GIT: git diff --stat 4ce9841..HEAD -- backend frontend compose.yaml .env.example
+GIT: git ls-files
+GIT: git check-ignore -v .env
+GIT: git grep -n -Ei '...'
+GIT: git log --oneline -5
+GIT: git branch --show-current
 ```
