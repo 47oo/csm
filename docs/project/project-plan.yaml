@@ -190,8 +190,8 @@ features:
   - F002
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: backend 与 frontend 并行实现（Cluster + 持久化横切基座）
+  current_stage: TEST
+  next_action: tester 独立执行 TD-2 验证项（含 Compose 全链路 Cluster API）
   git:
     base_branch: v3
     branch: feature/F003-cluster-management
@@ -205,6 +205,7 @@ features:
     test_design: COMPLETE
     contract: COMPLETE
     backend: COMPLETE
+    frontend: COMPLETE
   evidence:
     product:
     - docs/features/F003/product.md
@@ -217,6 +218,8 @@ features:
     contract:
     - docs/api/F003.md
     backend:
+    - docs/features/F003/implementation.md
+    frontend:
     - docs/features/F003/implementation.md
   layers:
     database: true
@@ -693,9 +696,10 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F003
-  current_stage: IMPLEMENTATION
-  last_result: F003 后端实现完成（BACKEND COMPLETE，76 passed）；前端实现进行中
-  next_action: backend 与 frontend 并行实现后交 TEST
+  current_stage: TEST
+  last_result: F003 实现完成（backend/frontend COMPLETE；backend 76 passed，frontend smoke
+    26/26）
+  next_action: tester 独立执行测试（Compose 全链路为关键补验项）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
