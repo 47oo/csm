@@ -112,3 +112,12 @@ layers.database=true、backend=true、frontend=true、api_required=true。
 
 ## 11. 结论与下一步
 无 Blocking Questions。Status **READY FOR DESIGN**。下一步：DATABASE 出 docs/database/f008-network.md（排除约束/部分唯一/依赖检查器/迁移 0008）；TEST_DESIGN 核对 A1–A22；CONTRACT 定稿 docs/api/F008.md + D01 v7 §5.7 并签核 DR-90/92/93/96/97/98/101，完成后出 READY FOR IMPLEMENTATION。
+## 12. 最终设计定稿（CONTRACT Gate）
+
+- **Status**：`READY FOR IMPLEMENTATION`（2026-10-09）
+- **签核**：Architect；Contract docs/api/F008.md v1；D01 d01-conventions.md v7（§3/§5.2/§5.7）
+- **核对版本**：database/f008-network.md v1（DB-D80–D94）；test-report.md TD-1（§8 OPEN-1–15 由本 Contract 闭合，TD-2 由 Tester 发布）。
+- **裁定固定**：DR-90（name 1–255，仅 ASCII 折叠）、DR-92（CIDR 排他约束 + btree_gist）、DR-93（gateway 取值域）、DR-96（有未删 Pool/IP 禁改 cidr/cluster + 引用检查器 + FOR UPDATE）、DR-97（独立 /api/v1/networks + 新建 docs/api/F008.md）、DR-98（新增 CONFLICT reason range_overlap）、DR-101（D01 v7 §5.7）；metadata 归 Network 自有；恢复错误码 name 优先。
+- **实现前置**：Backend 必须按 DR-96 实现引用检查器注册表（初始空集）+ networks 行 FOR UPDATE；F009/F010 创建子对象须取同 Network 行锁（跨 Feature 协议）。
+- **实现分工**：Backend（model/migration 0008、schemas、service name_key/cidr/gateway/重叠/引用检查器/锁序、audit 白名单扩 network、api/v1/networks 7 端点）；Frontend（Networks 区域、创建/编辑表单 cluster 选择器 + cidr/gateway 校验 + status/auto_allocate、422 点路径、已删开关与 ADMIN 恢复）。
+- **边界（不宣称）**：IPPool F009、IP 分配/容量 F010/F013、导入 F014、完整 Audit F015；I-3（禁用范围建网）属新业务限定须用户裁定。
