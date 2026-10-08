@@ -442,8 +442,8 @@ features:
   - F004
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: tester 执行 TD-2/TE-1（真实 PG + 迁移/触发/DR-85 并发 + Compose 集成）
-  current_stage: TEST
+  next_action: reviewer 独立复核并出 review-report
+  current_stage: REVIEW
   git:
     base_branch: v3
     branch: feature/F007-interface-management
@@ -456,6 +456,7 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: COMPLETE
+    test: COMPLETE
   evidence:
     product:
     - docs/features/F007/product.md
@@ -471,6 +472,8 @@ features:
     - docs/features/F007/implementation.md
     frontend:
     - docs/features/F007/implementation.md
+    test:
+    - docs/features/F007/test-report.md#te-1
   layers:
     database: true
     backend: true
@@ -854,10 +857,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F007
-  current_stage: TEST
-  last_result: F007 IMPLEMENTATION 完成（backend 217 passed/1 skipped；frontend typecheck+build+smoke
-    86 passed）
-  next_action: tester 执行测试并写 TE-1
+  current_stage: REVIEW
+  last_result: F007 TEST PASS（217 passed/1 skipped；A1–A19 全 PASS）
+  next_action: reviewer 复核
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
