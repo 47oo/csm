@@ -33,6 +33,18 @@ AUDITABLE_FIELDS: dict[str, tuple[str, ...]] = {
         "hardware",
         "virtual_machine",
     ),
+    "interface": (
+        "resource_id",
+        "name",
+        "interface_type",
+        "mac_address",
+        "speed_mbps",
+        "mtu",
+        "parent_interface_id",
+        "enabled",
+        "description",
+        "metadata",
+    ),
 }
 
 

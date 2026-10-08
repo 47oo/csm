@@ -44,6 +44,20 @@
  *   trim / 严格整数 / 范围 / disk_gb=0 与 null 可区分）、创建 / PATCH 载荷
  *   构造语义的本地镜像。
  *
+ * F007 追加（Contract：docs/api/F007.md v1，前端机制级，供 V19 数据侧）：
+ * - src/api/interfaces.ts 的 URL / method / body 构造（Contract §6：列表查询串
+ *   （resource_id / interface_type / enabled / q / parent_interface_id / deleted）、
+ *   POST 201 信封、PATCH 仅携带变化字段、DELETE / restore 的 version Query、
+ *   activity）；
+ * - 409 CONFLICT（unique_conflict field="name" → 字段级错误；reference_exists
+ *   → references（子接口 / IP）；dependency_deleted → conflicts（resource /
+ *   interface））/ VERSION_CONFLICT（→ 刷新后重改，不静默重试）/ 422 / 404 /
+ *   403 的 describeInterfaceActionError 语义；
+ * - src/components/interfaceForm.ts（纯逻辑，无 JSX）：表单值解析（name trim /
+ *   禁内部空白与控制字符 / ≤64、mac trim / ≤64、speed/mtu 正整数、未知=null）、
+ *   创建 / PATCH 载荷构造语义的本地镜像（exclude_unset；显式 null=清空；
+ *   parent_interface id 提取）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -88,6 +102,23 @@ import {
   parseVirtualMachineFormValues,
   virtualMachineFormValuesFromResource,
 } from "../src/components/virtualMachine.ts";
+import {
+  createInterface,
+  deleteInterface,
+  describeInterfaceActionError,
+  getInterface,
+  getInterfaceActivity,
+  listInterfaces,
+  restoreInterface,
+  updateInterface,
+} from "../src/api/interfaces.ts";
+import {
+  buildInterfaceCreateInput,
+  buildInterfacePatch,
+  emptyInterfaceFormValues,
+  interfaceFormValuesFromInterface,
+  parseInterfaceFormValues,
+} from "../src/components/interfaceForm.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -1387,6 +1418,470 @@ await test("F006 409 CONFLICT dependency_deleted：恢复 VM 时宿主机已删�
   assert.ok(described.message.includes("宿主机"), "恢复 VM 失败应提示宿主机依赖，而非集群文案");
   assert.ok(!described.message.includes("集群仍处于已删除状态"), "不得误用 F004 集群文案");
   assert.ok(described.message.includes("不会覆盖宿主机或其上新对象"), "应说明不覆盖新对象");
+});
+
+// ---------- F007 Interface 机制级（Contract：docs/api/F007.md v1） ----------
+
+/** Interface 响应夹具（Contract §3：parent_interface 展开 / null 可区分）。 */
+const ifaceFixture = {
+  id: "a1b2c3d4-0000-4000-8000-0000000000f1",
+  resource: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101", hostname: "node001" },
+  name: "eth0",
+  interface_type: "PHYSICAL",
+  mac_address: "AA:BB:CC:DD:EE:FF",
+  speed_mbps: 25000,
+  mtu: 9000,
+  parent_interface: null,
+  enabled: true,
+  description: "主网卡",
+  metadata: { pci_slot: "3" },
+  version: 3,
+  created_at: "2026-10-09T12:00:00+00:00",
+  updated_at: "2026-10-09T12:00:00+00:00",
+  deleted_at: null,
+};
+
+await test("F007 listInterfaces：默认 GET /api/v1/interfaces，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listInterfaces();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/interfaces");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F007 listInterfaces resource_id 过滤（V19 数据侧：Resource Detail Interfaces 区域）；空串不发", async () => {
+  respond = () => jsonResponse(200, { items: [ifaceFixture], page: 1, page_size: 100, total: 1 });
+  const data = await listInterfaces({
+    resource_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101",
+    page_size: 100,
+    sort: "created_at",
+    order: "desc",
+  });
+  assert.equal(data.items.length, 1);
+  assert.equal(data.items[0].name, "eth0");
+  assert.equal(data.items[0].speed_mbps, 25000);
+  assert.equal(data.items[0].mtu, 9000);
+  assert.equal(data.items[0].parent_interface, null);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/interfaces?resource_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101" +
+      "&page_size=100&sort=created_at&order=desc",
+  );
+  // 空串 → 不发该参数（同 F004 约定）
+  await listInterfaces({ resource_id: "" });
+  assert.equal(calls[1].url, "/api/v1/interfaces");
+});
+
+await test("F007 listInterfaces 组合查询：interface_type/enabled/q/parent_interface_id/deleted（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listInterfaces({
+    q: "eth",
+    interface_type: "PHYSICAL",
+    enabled: true,
+    parent_interface_id: "a1b2c3d4-0000-4000-8000-0000000000f0",
+    deleted: "include",
+    page: 2,
+    page_size: 50,
+    sort: "name",
+    order: "asc",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/interfaces?q=eth&interface_type=PHYSICAL&enabled=true" +
+      "&parent_interface_id=a1b2c3d4-0000-4000-8000-0000000000f0" +
+      "&deleted=include&page=2&page_size=50&sort=name&order=asc",
+  );
+});
+
+await test("F007 createInterface：POST body（resource/name 必带，可空仅携带已登记值）；响应解析（parent 展开 / null 可区分）", async () => {
+  respond = () => jsonResponse(201, { interface: ifaceFixture });
+  const { interface: created } = await createInterface({
+    resource: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101",
+    name: "eth0",
+    interface_type: "PHYSICAL",
+    mac_address: "AA:BB:CC:DD:EE:FF",
+    speed_mbps: 25000,
+    mtu: 9000,
+    enabled: true,
+    description: "主网卡",
+    metadata: { pci_slot: "3" },
+  });
+  assert.equal(created.id, ifaceFixture.id);
+  assert.equal(created.resource.hostname, "node001");
+  assert.equal(created.parent_interface, null);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/interfaces");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    resource: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101",
+    name: "eth0",
+    interface_type: "PHYSICAL",
+    mac_address: "AA:BB:CC:DD:EE:FF",
+    speed_mbps: 25000,
+    mtu: 9000,
+    enabled: true,
+    description: "主网卡",
+    metadata: { pci_slot: "3" },
+  });
+});
+
+await test("F007 createInterface 最小载荷：仅 resource + name（其余省略 → 服务端默认）", async () => {
+  respond = () => jsonResponse(201, { interface: { ...ifaceFixture, name: "bond0", interface_type: "OTHER" } });
+  await createInterface({ resource: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101", name: "bond0" });
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    resource: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101",
+    name: "bond0",
+  });
+});
+
+await test("F007 getInterface：详情 + ?deleted=true（已删需 VIEW_DELETED）", async () => {
+  respond = () => jsonResponse(200, { interface: ifaceFixture });
+  await getInterface(ifaceFixture.id);
+  assert.equal(calls[0].url, `/api/v1/interfaces/${ifaceFixture.id}`);
+  await getInterface(ifaceFixture.id, { deleted: true });
+  assert.equal(calls[1].url, `/api/v1/interfaces/${ifaceFixture.id}?deleted=true`);
+});
+
+await test("F007 updateInterface：PATCH 仅携带变化字段（version 必带，Contract §6.4）", async () => {
+  respond = () => jsonResponse(200, { interface: { ...ifaceFixture, version: 4, mtu: 1500 } });
+  await updateInterface(ifaceFixture.id, { version: 3, mtu: 1500 });
+  assert.equal(calls[0].init.method, "PATCH");
+  assert.equal(calls[0].url, `/api/v1/interfaces/${ifaceFixture.id}`);
+  assert.deepEqual(JSON.parse(calls[0].init.body), { version: 3, mtu: 1500 });
+});
+
+await test("F007 deleteInterface / restoreInterface：version 为 Query 参数（Contract §6.5/§6.6）", async () => {
+  respond = () => new Response(null, { status: 204 });
+  await deleteInterface(ifaceFixture.id, 3);
+  assert.equal(calls[0].init.method, "DELETE");
+  assert.equal(calls[0].url, `/api/v1/interfaces/${ifaceFixture.id}?version=3`);
+  respond = () => jsonResponse(200, { interface: { ...ifaceFixture, version: 4, deleted_at: null } });
+  await restoreInterface(ifaceFixture.id, 3);
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[1].url, `/api/v1/interfaces/${ifaceFixture.id}/restore?version=3`);
+});
+
+await test("F007 getInterfaceActivity：URL + deleted/page 查询参数（VIEW_ACTIVITY 全角色）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  await getInterfaceActivity(ifaceFixture.id, { page: 1, page_size: 20 });
+  assert.equal(calls[0].url, `/api/v1/interfaces/${ifaceFixture.id}/activity?page=1&page_size=20`);
+  await getInterfaceActivity(ifaceFixture.id, { deleted: true });
+  assert.equal(calls[1].url, `/api/v1/interfaces/${ifaceFixture.id}/activity?deleted=true`);
+});
+
+await test("F007 409 VERSION_CONFLICT：可识别冲突信号（刷新后重改），不静默重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "数据已被他人修改",
+        details: { current_version: 7 },
+      },
+    });
+  const err = await expectApiError(updateInterface(ifaceFixture.id, { version: 6, mtu: 1500 }));
+  const described = describeInterfaceActionError(err);
+  assert.equal(described.versionConflict, true);
+  assert.equal(described.currentVersion, 7);
+  assert.ok(described.message.includes("不会自动重试"));
+  assert.equal(calls.length, 1); // 不重试（不静默重试覆盖）
+});
+
+await test('F007 409 CONFLICT unique_conflict（field="name"）→ name 字段级错误（同资源内唯一，区分大小写）', async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "unique_conflict", field: "name" },
+      },
+    });
+  const err = await expectApiError(
+    createInterface({ resource: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101", name: "eth0" }),
+  );
+  const described = describeInterfaceActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.ok(described.fields.name, "unique_conflict 应落为 name 字段级错误");
+  assert.ok(described.fields.name.includes("区分大小写"));
+  assert.ok(described.message.includes("name 冲突"));
+});
+
+await test("F007 409 CONFLICT reference_exists：删除被未删子接口引用 → references（含 label）；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "reference_exists",
+          references: [
+            { object_type: "interface", object_id: "a1b2c3d4-0000-4000-8000-0000000000f2", label: "eth0.100" },
+            { object_type: "ip_address", object_id: "c1d2e3f4-0000-4000-8000-0000000000f1", label: "10.0.0.1" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(deleteInterface(ifaceFixture.id, 3));
+  const described = describeInterfaceActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.equal(described.references.length, 2);
+  assert.equal(described.references[0].object_type, "interface");
+  assert.equal(described.references[0].label, "eth0.100");
+  assert.ok(described.message.includes("无法删除"));
+  assert.equal(calls.length, 1); // 不自动重试
+});
+
+await test("F007 409 CONFLICT dependency_deleted：恢复时父接口仍删（object_type=interface）→ 父接口文案，不覆盖新对象", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "interface", object_id: "a1b2c3d4-0000-4000-8000-0000000000f0" }],
+        },
+      },
+    });
+  const err = await expectApiError(restoreInterface(ifaceFixture.id, 3));
+  const described = describeInterfaceActionError(err);
+  assert.equal(described.conflicts.length, 1);
+  assert.equal(described.conflicts[0].object_type, "interface");
+  assert.ok(described.message.includes("父接口"), "应提示父接口依赖，而非所属资源文案");
+  assert.ok(!described.message.includes("所属资源"), "不得误用 resource 文案");
+  assert.ok(described.message.includes("不会覆盖父接口或其上新对象"));
+});
+
+await test("F007 409 CONFLICT dependency_deleted：恢复时所属 Resource 仍删（object_type=resource）→ 资源文案", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "resource", object_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101" }],
+        },
+      },
+    });
+  const err = await expectApiError(restoreInterface(ifaceFixture.id, 3));
+  const described = describeInterfaceActionError(err);
+  assert.equal(described.conflicts[0].object_type, "resource");
+  assert.ok(described.message.includes("所属资源"));
+  assert.ok(described.message.includes("需先恢复所属资源"));
+});
+
+await test("F007 409 CONFLICT not_deleted：对未软删对象 restore 的明确文案", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: { code: "CONFLICT", message: "Conflict", details: { reason: "not_deleted" } },
+    });
+  const err = await expectApiError(restoreInterface(ifaceFixture.id, 3));
+  const described = describeInterfaceActionError(err);
+  assert.ok(described.message.includes("未处于已删除状态"));
+});
+
+await test("F007 422 VALIDATION_ERROR：顶层字段路径透传（name / parent_interface / resource，Contract §2.3）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "请求体校验失败",
+        details: {
+          fields: [
+            { field: "parent_interface", message: "父接口属于其它资源" },
+            { field: "name", message: "name 含内部空白" },
+            { field: "resource", message: "资源不存在或已删除" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(
+    createInterface({ resource: "0b9f4c6b-0000-4000-8000-00000000dead", name: "eth 0" }),
+  );
+  const described = describeInterfaceActionError(err);
+  assert.equal(described.fields.parent_interface, "父接口属于其它资源");
+  assert.equal(described.fields.name, "name 含内部空白");
+  assert.equal(described.fields.resource, "资源不存在或已删除");
+});
+
+await test("F007 403 / 404：明确文案（权限不足 / 对象不存在，不泄露存在性细节）", async () => {
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const err403 = await expectApiError(deleteInterface(ifaceFixture.id, 3));
+  const described403 = describeInterfaceActionError(err403);
+  assert.ok(described403.message.includes("没有权限"));
+  respond = () =>
+    jsonResponse(404, { error: { code: "NOT_FOUND", message: "不存在", details: {} } });
+  const err404 = await expectApiError(getInterface(ifaceFixture.id));
+  const described404 = describeInterfaceActionError(err404);
+  assert.ok(described404.message.includes("接口不存在"));
+});
+
+await test("F007 parseInterfaceFormValues：合法值（name trim / mac trim / 正整数 / 空串=null / parent 空串=根接口 null）", async () => {
+  const parsed = parseInterfaceFormValues({
+    ...emptyInterfaceFormValues(),
+    name: "  eth0  ",
+    interface_type: "VLAN",
+    mac_address: "  AA:BB:CC:DD:EE:FF  ",
+    speed_mbps: "25000",
+    mtu: "9000",
+    parent_interface: "a1b2c3d4-0000-4000-8000-0000000000f0",
+    enabled: false,
+    description: "子接口",
+  });
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.fields.name, "eth0"); // trim 后原值（不折叠大小写）
+  assert.equal(parsed.fields.mac_address, "AA:BB:CC:DD:EE:FF");
+  assert.equal(parsed.fields.speed_mbps, 25000);
+  assert.equal(parsed.fields.mtu, 9000);
+  assert.equal(parsed.fields.parent_interface, "a1b2c3d4-0000-4000-8000-0000000000f0");
+  assert.equal(parsed.fields.description, "子接口");
+  assert.equal(parsed.fields.interface_type, "VLAN");
+  assert.equal(parsed.fields.enabled, false);
+  // 可空字段空串 → null（未知不以 0 代替）
+  const emptyParsed = parseInterfaceFormValues({
+    ...emptyInterfaceFormValues(),
+    name: "eth1",
+  });
+  assert.equal(emptyParsed.ok, true);
+  assert.equal(emptyParsed.fields.mac_address, null);
+  assert.equal(emptyParsed.fields.speed_mbps, null);
+  assert.equal(emptyParsed.fields.mtu, null);
+  assert.equal(emptyParsed.fields.parent_interface, null);
+  assert.equal(emptyParsed.fields.description, null);
+  assert.equal(emptyParsed.fields.enabled, true); // 默认 true
+});
+
+await test("F007 parseInterfaceFormValues：非法输入 → 字段级错误（空名 / 内部空白 / 控制字符 / 超长 / mac 纯空白 / 0 与负整数）", async () => {
+  const cases = [
+    { values: { name: "   " }, key: "name", hint: "不能为空" },
+    { values: { name: "eth 0" }, key: "name", hint: "内部空白" },
+    { values: { name: "eth\u00000" }, key: "name", hint: "控制字符" },
+    { values: { name: "e".repeat(65) }, key: "name", hint: "长度超过" },
+    { values: { mac_address: "   " }, key: "mac_address", hint: "仅包含空白" },
+    { values: { mac_address: "a".repeat(65) }, key: "mac_address", hint: "长度超过" },
+    { values: { speed_mbps: "0" }, key: "speed_mbps", hint: "正整数" },
+    { values: { speed_mbps: "-1" }, key: "speed_mbps", hint: "正整数" },
+    { values: { speed_mbps: "1.5" }, key: "speed_mbps", hint: "整数" },
+    { values: { mtu: "0" }, key: "mtu", hint: "正整数" },
+    { values: { mtu: "2147483648" }, key: "mtu", hint: "正整数" },
+  ];
+  for (const { values, key, hint } of cases) {
+    const parsed = parseInterfaceFormValues({
+      ...emptyInterfaceFormValues(),
+      name: "eth0",
+      ...values,
+    });
+    assert.equal(parsed.ok, false, `应校验失败：${key}=${JSON.stringify(values[key])}`);
+    if (!parsed.ok) {
+      assert.ok(parsed.errors[key], `应产生 ${key} 字段错误`);
+      assert.ok(
+        parsed.errors[key].includes(hint),
+        `${key} 错误文案应含「${hint}」，实际：${parsed.errors[key]}`,
+      );
+    }
+  }
+  // 边界值合法：1 / 2147483647 / 64 字符 name
+  const boundary = parseInterfaceFormValues({
+    ...emptyInterfaceFormValues(),
+    name: "e".repeat(64),
+    speed_mbps: "1",
+    mtu: "2147483647",
+  });
+  assert.equal(boundary.ok, true);
+});
+
+await test("F007 buildInterfaceCreateInput：resource/name/type/enabled 恒携带；可空仅携带已登记值；空 metadata 省略", async () => {
+  const parsed = parseInterfaceFormValues({
+    ...emptyInterfaceFormValues(),
+    name: "eth0",
+    interface_type: "PHYSICAL",
+  });
+  assert.equal(parsed.ok, true);
+  const input = buildInterfaceCreateInput("0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101", parsed.fields, {});
+  assert.deepEqual(input, {
+    resource: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101",
+    name: "eth0",
+    interface_type: "PHYSICAL",
+    enabled: true,
+  });
+  const full = parseInterfaceFormValues({
+    ...emptyInterfaceFormValues(),
+    name: "eth0",
+    mac_address: "AA:BB:CC:DD:EE:FF",
+    speed_mbps: "25000",
+    mtu: "9000",
+    parent_interface: "a1b2c3d4-0000-4000-8000-0000000000f0",
+    description: "主网卡",
+    enabled: false,
+  });
+  assert.equal(full.ok, true);
+  const fullInput = buildInterfaceCreateInput("r-uuid", full.fields, { pci_slot: "3" });
+  assert.deepEqual(fullInput, {
+    resource: "r-uuid",
+    name: "eth0",
+    interface_type: "OTHER",
+    enabled: false,
+    mac_address: "AA:BB:CC:DD:EE:FF",
+    speed_mbps: 25000,
+    mtu: 9000,
+    parent_interface: "a1b2c3d4-0000-4000-8000-0000000000f0",
+    description: "主网卡",
+    metadata: { pci_slot: "3" },
+  });
+});
+
+await test("F007 buildInterfacePatch：exclude_unset 镜像（无变化 → null；变化才携带；显式 null=清空；version 必带）", async () => {
+  // 无变化 → null（不发起空更新）
+  const unchanged = parseInterfaceFormValues(interfaceFormValuesFromInterface(ifaceFixture));
+  assert.equal(unchanged.ok, true);
+  assert.equal(
+    buildInterfacePatch(ifaceFixture, unchanged.fields, ifaceFixture.metadata),
+    null,
+  );
+  // 变化：mtu 改值 + mac 清空（显式 null）+ parent 设置（null → UUID）
+  const changed = parseInterfaceFormValues({
+    ...interfaceFormValuesFromInterface(ifaceFixture),
+    mtu: "1500",
+    mac_address: "",
+    parent_interface: "a1b2c3d4-0000-4000-8000-0000000000f0",
+  });
+  assert.equal(changed.ok, true);
+  const patch = buildInterfacePatch(ifaceFixture, changed.fields, ifaceFixture.metadata);
+  assert.deepEqual(patch, {
+    version: 3,
+    mtu: 1500,
+    mac_address: null,
+    parent_interface: "a1b2c3d4-0000-4000-8000-0000000000f0",
+  });
+  // metadata 整值替换（变化才携带）
+  const metaChanged = buildInterfacePatch(ifaceFixture, unchanged.fields, { pci_slot: "7" });
+  assert.deepEqual(metaChanged, { version: 3, metadata: { pci_slot: "7" } });
+});
+
+await test("F007 interfaceFormValuesFromInterface：null → 空串；数值字符串化；parent 提取 id；metadata 空对象 → 空文本", async () => {
+  const values = interfaceFormValuesFromInterface({
+    ...ifaceFixture,
+    parent_interface: { id: "a1b2c3d4-0000-4000-8000-0000000000f0", name: "eth0" },
+    metadata: {},
+  });
+  assert.equal(values.name, "eth0");
+  assert.equal(values.parent_interface, "a1b2c3d4-0000-4000-8000-0000000000f0");
+  assert.equal(values.speed_mbps, "25000");
+  assert.equal(values.mtu, "9000");
+  assert.equal(values.metadata, "");
+  const nullValues = interfaceFormValuesFromInterface(null);
+  assert.deepEqual(nullValues, emptyInterfaceFormValues());
+  // 往返：初始化 → 解析 → 无变化（与 buildInterfacePatch=null 联动）
+  const roundTrip = parseInterfaceFormValues(interfaceFormValuesFromInterface(ifaceFixture));
+  assert.equal(roundTrip.ok, true);
+  assert.equal(buildInterfacePatch(ifaceFixture, roundTrip.fields, ifaceFixture.metadata), null);
 });
 
 // 还原全局状态

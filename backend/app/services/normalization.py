@@ -25,6 +25,13 @@ Rules:
 - ``hardware`` string (F005, D01 §5.4): strip surrounding whitespace, non-empty
   (empty/whitespace-only is a 422, never ``null``), no Cc/Cf, length <= 255 code
   points, no case folding and no uniqueness.
+- ``interface_name`` (F007, D01 §5.6): strip surrounding whitespace, non-empty,
+  no internal whitespace (Unicode White_Space), no Cc/Cf, length 1-64 code
+  points, case preserved; uniqueness is the (resource_id, name) partial unique
+  index, not computed here.
+- ``mac_address`` (F007, D01 §5.6): strip surrounding whitespace, non-empty
+  (empty/whitespace-only is a 422, never ``null``), no Cc/Cf, length <= 64 code
+  points, case preserved, no format regex and no uniqueness.
 """
 
 from __future__ import annotations
@@ -37,6 +44,8 @@ CODE_MAX_LENGTH = 64
 NAME_MAX_LENGTH = 255
 HOSTNAME_MAX_LENGTH = 253
 HARDWARE_STRING_MAX_LENGTH = 255
+INTERFACE_NAME_MAX_LENGTH = 64
+MAC_ADDRESS_MAX_LENGTH = 64
 
 
 def _control_characters(value: str) -> bool:
@@ -171,3 +180,56 @@ def validate_hardware_string(field: str, value: str) -> str:
     return validate_descriptive_string(
         field, value, max_length=HARDWARE_STRING_MAX_LENGTH
     )
+
+
+def normalize_interface_name(value: str) -> str:
+    """Validate and return the trimmed Interface ``name`` (D01 §5.6, DR-73).
+
+    Trim surrounding whitespace -> non-empty -> no internal whitespace (Unicode
+    White_Space) -> no Cc/Cf control characters -> length 1-64 code points.
+    Case is preserved verbatim (``eth0`` and ``ETH0`` are different names); no
+    uniqueness is applied here (the (resource_id, name) partial unique index and
+    the Service layer own that). Matches the ASCII-only database CHECK backstop
+    ``ck_interfaces_name_no_ws_control`` for the common case; Unicode Cc/Cf is
+    an application responsibility.
+    """
+    if not isinstance(value, str):
+        raise _field_error("name", "name must be a string")
+    normalized = value.strip()
+    if not normalized:
+        raise _field_error("name", "name must not be blank")
+    if any(ch.isspace() for ch in normalized):
+        raise _field_error("name", "name must not contain whitespace")
+    if _control_characters(normalized):
+        raise _field_error("name", "name must not contain control characters")
+    if len(normalized) > INTERFACE_NAME_MAX_LENGTH:
+        raise _field_error(
+            "name",
+            f"name must be at most {INTERFACE_NAME_MAX_LENGTH} characters",
+        )
+    return normalized
+
+
+def normalize_mac_address(value: str) -> str:
+    """Validate and return the trimmed Interface ``mac_address`` (D01 §5.6).
+
+    Trim surrounding whitespace -> non-empty -> no Cc/Cf control characters ->
+    length <= 64 code points. Empty / whitespace-only becomes a 422
+    ``ValidationError`` (never ``null``); explicit ``null`` is handled by the
+    caller. No format regex, case preserved, no uniqueness (DR-75).
+    """
+    if not isinstance(value, str):
+        raise _field_error("mac_address", "mac_address must be a string")
+    normalized = value.strip()
+    if not normalized:
+        raise _field_error("mac_address", "mac_address must not be blank")
+    if _control_characters(normalized):
+        raise _field_error(
+            "mac_address", "mac_address must not contain control characters"
+        )
+    if len(normalized) > MAC_ADDRESS_MAX_LENGTH:
+        raise _field_error(
+            "mac_address",
+            f"mac_address must be at most {MAC_ADDRESS_MAX_LENGTH} characters",
+        )
+    return normalized
