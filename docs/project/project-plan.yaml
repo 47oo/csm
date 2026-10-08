@@ -508,6 +508,10 @@ features:
   status: IN_PROGRESS
   next_action: product 澄清与范围确认（Network 网络管理）
   current_stage: PRODUCT
+  git:
+    base_branch: v3
+    branch: feature/F008-network-management
+    start_commit: 52666fb0f8091b770744a4dc5268b63398ee79b5
 - id: F009
   title: IP Pool 地址池
   kind: FEATURE
