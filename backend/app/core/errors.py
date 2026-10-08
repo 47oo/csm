@@ -90,8 +90,8 @@ class VersionConflict(AppError):
 class Conflict(AppError):
     """409: semantic conflict — uniqueness / references / restore (F003 §1.2).
 
-    ``details.reason`` is one of ``unique_conflict``, ``reference_exists``,
-    ``not_deleted`` or ``dependency_deleted``.
+    ``details.reason`` is one of ``unique_conflict``, ``range_overlap``,
+    ``reference_exists``, ``not_deleted`` or ``dependency_deleted``.
     """
 
     status_code = 409
@@ -114,6 +114,13 @@ class Conflict(AppError):
     @classmethod
     def not_deleted(cls) -> "Conflict":
         return cls("not_deleted")
+
+    @classmethod
+    def range_overlap(
+        cls, conflicts: list[dict], *, field: str = "cidr"
+    ) -> "Conflict":
+        """F008: same-Cluster undeleted CIDR overlap (DR-98)."""
+        return cls("range_overlap", field=field, conflicts=conflicts)
 
     @classmethod
     def dependency_deleted(cls, conflicts: list[dict]) -> "Conflict":

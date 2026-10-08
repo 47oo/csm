@@ -45,6 +45,16 @@ AUDITABLE_FIELDS: dict[str, tuple[str, ...]] = {
         "description",
         "metadata",
     ),
+    "network": (
+        "cluster_id",
+        "name",
+        "cidr",
+        "gateway",
+        "status",
+        "auto_allocate",
+        "description",
+        "metadata",
+    ),
 }
 
 

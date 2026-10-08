@@ -36,6 +36,7 @@ Rules:
 
 from __future__ import annotations
 
+import ipaddress
 import unicodedata
 
 from app.core.errors import ValidationError
@@ -46,6 +47,20 @@ HOSTNAME_MAX_LENGTH = 253
 HARDWARE_STRING_MAX_LENGTH = 255
 INTERFACE_NAME_MAX_LENGTH = 64
 MAC_ADDRESS_MAX_LENGTH = 64
+NETWORK_NAME_MAX_LENGTH = 255
+
+# §11.1 disabled gateway ranges (CONFIRMED). Kept identical to the database
+# CHECK in migration 0008 (ck_networks_gateway).
+DISABLED_GATEWAY_NETWORKS: tuple[ipaddress.IPv4Network, ...] = tuple(
+    ipaddress.ip_network(value)
+    for value in (
+        "0.0.0.0/8",
+        "127.0.0.0/8",
+        "169.254.0.0/16",
+        "224.0.0.0/4",
+        "240.0.0.0/4",
+    )
+)
 
 
 def _control_characters(value: str) -> bool:
@@ -208,6 +223,91 @@ def normalize_interface_name(value: str) -> str:
             f"name must be at most {INTERFACE_NAME_MAX_LENGTH} characters",
         )
     return normalized
+
+
+def normalize_network_name(value: str) -> str:
+    """Validate and return the trimmed Network ``name`` (D01 §5.7, DR-90).
+
+    Same shape as :func:`normalize_name`: trim -> non-empty -> no Cc/Cf control
+    characters -> length 1-255 code points. Internal ordinary spaces are allowed
+    and not collapsed; display case is preserved. The case-insensitive
+    uniqueness key is computed separately by :func:`network_name_key`.
+    """
+    return normalize_name(value)
+
+
+def network_name_key(name: str) -> str:
+    """Return the key ``ASCII_lower(btrim(name))`` (D01 §5.7, DR-90).
+
+    Only ASCII ``A-Z`` are folded to ``a-z``; every non-ASCII code point is kept
+    verbatim, matching the database CHECK ``name_key = translate(btrim(name),
+    'ABC...', 'abc...')``. ``str.lower()`` must NOT be used (locale- and
+    Unicode-version-dependent multi-code-point mappings).
+    """
+    return name.strip().translate(_ASCII_LOWER)
+
+
+def normalize_cidr(value: str) -> str:
+    """Validate and return an IPv4 CIDR in PostgreSQL ``cidr`` form (DR-91).
+
+    Requires an explicit ``/`` mask (a bare IPv4 address is not a CIDR and is
+    rejected), only IPv4, and normalises host bits to the network address
+    (``10.0.0.5/24`` -> ``10.0.0.0/24``, matching PG ``cidr`` semantics). Any
+    failure is a 422 with ``field="cidr"``.
+    """
+    if not isinstance(value, str):
+        raise _field_error("cidr", "cidr must be a string")
+    text = value.strip()
+    if not text or "/" not in text:
+        raise _field_error("cidr", "cidr must be a valid IPv4 CIDR")
+    try:
+        network = ipaddress.ip_network(text, strict=False)
+    except ValueError as exc:
+        raise _field_error("cidr", "cidr must be a valid IPv4 CIDR") from exc
+    if network.version != 4:
+        raise _field_error("cidr", "cidr must be a valid IPv4 CIDR")
+    return str(network)
+
+
+def normalize_gateway(value: str | None, cidr: str) -> str | None:
+    """Validate an optional IPv4 gateway against its CIDR (D01 §5.7, DR-93).
+
+    A non-null gateway must be a plain IPv4 address that is a *basic usable
+    address* of ``cidr`` (/0-/30 exclude network/broadcast, /31 both addresses
+    usable, /32 must have no gateway) and must not fall in a §11.1 disabled
+    range. Any violation is a 422 with ``field="gateway"``. Whether the address
+    is already an allocated IP is a F009/F010 concern (I-5).
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise _field_error("gateway", "gateway must be a valid IPv4 address")
+    text = value.strip()
+    try:
+        address = ipaddress.ip_address(text)
+    except ValueError as exc:
+        raise _field_error("gateway", "gateway must be a valid IPv4 address") from exc
+    if address.version != 4:
+        raise _field_error("gateway", "gateway must be a valid IPv4 address")
+
+    network = ipaddress.ip_network(cidr, strict=False)
+    if network.prefixlen == 32:
+        raise _field_error("gateway", "gateway must not be set for a /32 CIDR")
+    if address not in network:
+        raise _field_error("gateway", "gateway must belong to cidr")
+    if network.prefixlen <= 30 and address in (
+        network.network_address,
+        network.broadcast_address,
+    ):
+        raise _field_error(
+            "gateway", "gateway must be a usable host address of cidr"
+        )
+    for disabled in DISABLED_GATEWAY_NETWORKS:
+        if address in disabled:
+            raise _field_error(
+                "gateway", "gateway must not be in a reserved range"
+            )
+    return str(address)
 
 
 def normalize_mac_address(value: str) -> str:

@@ -43,11 +43,14 @@ def test_upgrade_downgrade_upgrade_is_consistent(pg_engine, alembic_runner):
     assert _alembic_versions(pg_engine) == []
     after_down = _extensions(pg_engine)
     assert "pg_trgm" in after_down, "pg_trgm must survive baseline downgrade (DB-D4)"
-    assert "btree_gist" not in after_down, "btree_gist is deferred to F008/F009 (DB-D2)"
+    # F008 0008 enables btree_gist and its downgrade intentionally does not drop
+    # it (same asymmetry as F001 DB-D4), so it survives a full downgrade.
+    assert "btree_gist" in after_down, "btree_gist survives the 0008 downgrade (DB-D94)"
 
     alembic_runner.upgrade("head")
     assert _alembic_versions(pg_engine) == [head]
     assert "pg_trgm" in _extensions(pg_engine)
+    assert "btree_gist" in _extensions(pg_engine)
 
 
 def test_upgrade_is_idempotent(pg_engine, alembic_runner):
@@ -59,7 +62,7 @@ def test_upgrade_is_idempotent(pg_engine, alembic_runner):
 
 
 def test_extension_set_matches_baseline_declaration(pg_engine):
-    """V3/A1: pg_trgm present, btree_gist absent; PG defaults are ignored."""
+    """V3/A1: baseline declares pg_trgm; F008 0008 additionally enables btree_gist."""
     declared = _declared_baseline_extensions()
     assert declared == {"pg_trgm"}
 
@@ -68,7 +71,8 @@ def test_extension_set_matches_baseline_declaration(pg_engine):
     # Declared baseline extensions are a subset of installed ones; the only
     # extra entries are PG default/plpgsql and pre-existing trusted extensions.
     assert declared <= present
-    assert "btree_gist" not in present, "baseline must not enable btree_gist (DB-D2)"
+    # btree_gist is enabled by migration 0008 (F008), not by the baseline (DB-D2).
+    assert "btree_gist" in present, "0008 must enable btree_gist (DB-D88)"
 
 
 def test_downgrade_non_asymmetry_is_documented(pg_engine, alembic_runner):
