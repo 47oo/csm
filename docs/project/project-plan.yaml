@@ -442,8 +442,8 @@ features:
   - F004
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: architect 定稿 docs/api/F007.md + D01 v6 §5.6；裁定 A1 错误码（409）
-  current_stage: CONTRACT
+  next_action: backend 与 frontend 并行实现（interfaces 独立端点 + DR-85 环检测锁序）
+  current_stage: IMPLEMENTATION
   git:
     base_branch: v3
     branch: feature/F007-interface-management
@@ -453,6 +453,7 @@ features:
     architecture: COMPLETE
     database: COMPLETE
     test_design: COMPLETE
+    contract: COMPLETE
   evidence:
     product:
     - docs/features/F007/product.md
@@ -462,6 +463,8 @@ features:
     - docs/database/f007-interface.md
     test_design:
     - docs/features/F007/test-report.md#test-design
+    contract:
+    - docs/api/F007.md
   layers:
     database: true
     backend: true
@@ -845,9 +848,10 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F007
-  current_stage: CONTRACT
-  last_result: F007 DATABASE 与 TEST_DESIGN 通过（interfaces+0007；TD-1 READY，OPEN-1 待裁定）
-  next_action: F007 CONTRACT
+  current_stage: IMPLEMENTATION
+  last_result: F007 CONTRACT Gate 定稿（READY FOR IMPLEMENTATION，docs/api/F007.md v1
+    + D01 v6）
+  next_action: F007 实现（backend+frontend）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

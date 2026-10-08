@@ -70,7 +70,7 @@ EDITOR 登记维护；ADMIN 删除/恢复；VIEWER 查询。
 
 | # | 验收标准 | 映射 |
 | --- | --- | --- |
-| A1 | 同 Resource 创建重名 Interface（大小写完全相同）被拒（422） | §4.1/T12 |
+| A1 | 同 Resource 创建重名 Interface（大小写完全相同）被拒（409 CONFLICT{reason:"unique_conflict",field:"name"}） | §4.1/T12 |
 | A2 | 同 Resource 内 eth0 与 ETH0 视为不同名称并存（区分大小写） | §4.1/Q10-B/T40 |
 | A3 | 名称含内部空白被拒；首尾空白 trim；空名/控制字符拒 | §4.1/T40 |
 | A4 | 软删后同名可重建；存活同名存在时创建失败 | §4.1/§21/T12/T41 |
