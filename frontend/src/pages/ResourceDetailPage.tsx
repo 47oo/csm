@@ -16,6 +16,7 @@ import {
   type VirtualMachine,
 } from "../api/resources";
 import ResourceForm, { type ResourceFormValues } from "../components/ResourceForm";
+import InterfacesPanel from "../components/InterfacesPanel";
 import { parseMetadataText } from "../components/ClusterForm";
 import { buildHardwarePatch, parseHardwareFormValues } from "../components/hardware";
 import {
@@ -237,9 +238,8 @@ function HardwarePanel({ hardware }: { hardware: Hardware | null }) {
   );
 }
 
-/** F007+ 交付的 Detail 区域（Contract §9：Hardware 随 F005、Virtual Machines 随 F006 交付，其余占位）。 */
+/** F008+ 交付的 Detail 区域（Contract §9：Hardware 随 F005、Virtual Machines 随 F006、Interfaces 随 F007 交付，其余占位）。 */
 const PLACEHOLDER_AREAS: { title: string; note: string }[] = [
-  { title: "接口信息（Interfaces）", note: "网络接口明细，F007+ 提供" },
   { title: "IP 地址（IP）", note: "IP 地址与分配明细，后续 Feature 提供" },
   { title: "服务（Services）", note: "运行服务登记，后续 Feature 提供" },
 ];
@@ -458,12 +458,14 @@ function HostVirtualMachinesPanel({
 
 /**
  * F004 资源详情页（Contract §3/§5/§6.3–§6.6，§9 业务边界）+ F005 Hardware 区域
- * + F006 Virtual Machines 区域：
+ * + F006 Virtual Machines 区域 + F007 Interfaces 区域：
  * - Overview 六要素：Hostname / Cluster / Type / Role / Status / Description
  *   （§18）；Hardware 区域仅 BARE_METAL 渲染（F005；VM 不渲染），
  *   Virtual Machines 区域：VM 详情展示其 Host（F006 A16）、BARE_METAL 详情
  *   经 host_resource_id 过滤列出其 VM（DR-67，Loading/Empty/Error）；
- *   Interfaces / IP / Services 区域占位（F007+）；
+ *   Interfaces 区域（F007，A19）：GET /api/v1/interfaces?resource_id=<id>
+ *   列出接口（name/type/mac/speed/mtu/enabled，未知「—」非 0）+ 创建/编辑/
+ *   删除/恢复（DR-84）；IP / Services 区域占位（F008+；IP/Network 聚合列归 F013）；
  * - 编辑：PATCH 带 version；仅变化字段；cluster / resource_type 不可改（只读展示）；
  *   409 VERSION_CONFLICT → 提示刷新后重改（不静默重试）；
  * - 删除（软删，DELETE_OBJECT）：需确认，409 VERSION_CONFLICT / reference_exists
@@ -697,6 +699,8 @@ export default function ResourceDetailPage({
                 该资源为虚拟机，但服务器未返回 virtual_machine 明细（可能后端版本过旧，Contract v3+）。
               </p>
             ))}
+
+          <InterfacesPanel resource={state.resource} user={user} />
 
           <h3 className="detail-section-title">系统信息</h3>
           <dl className="detail-grid">

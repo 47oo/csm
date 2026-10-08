@@ -1133,3 +1133,11 @@ def _raise_update_conflict(
     if current_version is None:
         raise NotFound()
     raise VersionConflict(int(current_version))
+
+
+# F007 registers the ``resource`` <- undeleted Interface reference checker when
+# the interface service is imported. Import it here so a process that only loaded
+# the resource service (CLI/import tooling, service-level tests) still has the
+# checker registered before any Resource delete. No cycle: the interface service
+# imports the models and sibling services, never this module.
+from app.services import interface as _interface_service  # noqa: E402,F401

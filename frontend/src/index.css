@@ -532,3 +532,17 @@ button:disabled {
   background: none;
   color: #1e40af;
 }
+
+/* ---------- F007 Interfaces（Resource Detail 区域 / 表单，复用既有风格，最小样式） ---------- */
+
+/* 复选框不占满整行（.form-field input 默认 width:100%，仅适用于文本输入） */
+.form-field input[type="checkbox"] {
+  width: auto;
+}
+
+/* enabled 开关 / 已删开关：标签与复选框同行排列 */
+.checkbox-field label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
