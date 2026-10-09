@@ -455,28 +455,33 @@ def test_gateway_boundaries(committed_engine):
         )
         insert_network(conn, cid, name="32", name_key="32", cidr="10.13.0.1/32")
 
+    # Each rejected case uses its own CIDR so the *exclusion* constraint can
+    # never be the (unknowable) reason the insert fails: the gateway CHECK must
+    # do the rejecting. Disabled-range cases put the gateway inside its own CIDR
+    # and outside the network/broadcast addresses so only the disabled guard can
+    # reject them.
     bad = [
-        ("10.10.0.0", "network address"),
-        ("10.10.0.255", "broadcast address"),
-        ("10.10.1.1", "outside cidr"),
-        ("0.0.0.0", "disabled 0.0.0.0/8"),
-        ("127.0.0.1", "disabled 127.0.0.0/8"),
-        ("169.254.5.5", "disabled 169.254.0.0/16"),
-        ("224.0.0.1", "disabled 224.0.0.0/4"),
-        ("240.0.0.1", "disabled 240.0.0.0/4"),
+        ("10.20.0.0/24", "10.20.0.0", "network address"),
+        ("10.21.0.0/24", "10.21.0.255", "broadcast address"),
+        ("10.22.0.0/24", "10.23.0.1", "outside cidr"),
+        ("0.0.0.0/8", "0.0.0.1", "disabled 0.0.0.0/8"),
+        ("127.0.0.0/8", "127.0.0.1", "disabled 127.0.0.0/8"),
+        ("169.254.0.0/16", "169.254.0.1", "disabled 169.254.0.0/16"),
+        ("224.0.0.0/4", "224.0.0.1", "disabled 224.0.0.0/4"),
+        ("240.0.0.0/4", "240.0.0.1", "disabled 240.0.0.0/4"),
     ]
-    for address, label in bad:
+    for network, address, label in bad:
         _expect_violation(
             engine,
             "INSERT INTO networks (cluster_id, name, name_key, cidr, gateway) "
-            "VALUES (:cid, :name, :name, '10.10.0.0/24', :gw)",
-            {"cid": cid, "name": label, "gw": address},
+            "VALUES (:cid, :name, :name, :cidr, :gw)",
+            {"cid": cid, "name": label, "cidr": network, "gw": address},
         )
-    # /32 must have no gateway
+    # /32 must have no gateway (own CIDR, distinct from the accepted /32 above)
     _expect_violation(
         engine,
         "INSERT INTO networks (cluster_id, name, name_key, cidr, gateway) "
-        "VALUES (:cid, 'x32', 'x32', '10.13.0.1/32', '10.13.0.1')",
+        "VALUES (:cid, 'x32', 'x32', '10.24.0.1/32', '10.24.0.1')",
         {"cid": cid},
     )
 
@@ -574,3 +579,72 @@ def test_concurrent_overlapping_insert(committed_engine):
         assert conn.execute(
             text("SELECT count(*) FROM networks WHERE cluster_id = :id"), {"id": cid}
         ).scalar_one() == 1
+
+
+def test_concurrent_restore_vs_recreate(committed_engine):
+    """B34: restoring a soft-deleted Network races a re-create of the same
+    CIDR/name; the partial unique index and exclusion constraint must let at
+    most one survive and leave no two live rows with the same name or overlap.
+    """
+    engine = committed_engine
+    cid = _seed(engine, "restore")
+    with engine.begin() as conn:
+        aid = insert_network(
+            conn, cid, name="dup", name_key="dup", cidr="10.40.0.0/24"
+        )
+        conn.execute(
+            text("UPDATE networks SET deleted_at = now() WHERE id = :id"),
+            {"id": aid},
+        )
+
+    barrier = threading.Barrier(2)
+    results: list[str] = []
+    lock = threading.Lock()
+
+    def restore() -> None:
+        try:
+            barrier.wait(timeout=10)
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "UPDATE networks SET deleted_at = NULL, version = version + 1 "
+                        "WHERE id = :id AND deleted_at IS NOT NULL"
+                    ),
+                    {"id": aid},
+                )
+            with lock:
+                results.append("restore")
+        except Exception:
+            with lock:
+                results.append("restore-error")
+
+    def recreate() -> None:
+        try:
+            barrier.wait(timeout=10)
+            with engine.begin() as conn:
+                insert_network(
+                    conn, cid, name="dup", name_key="dup", cidr="10.40.0.0/24"
+                )
+            with lock:
+                results.append("create")
+        except Exception:
+            with lock:
+                results.append("create-error")
+
+    threads = [threading.Thread(target=restore), threading.Thread(target=recreate)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+
+    winners = [r for r in results if r in ("restore", "create")]
+    assert len(winners) == 1, results
+    with engine.connect() as conn:
+        live = conn.execute(
+            text(
+                "SELECT count(*) FROM networks "
+                "WHERE cluster_id = :id AND deleted_at IS NULL"
+            ),
+            {"id": cid},
+        ).scalar_one()
+        assert live == 1

@@ -116,8 +116,8 @@ class Network(SoftDeleteMixin, Base):
         CheckConstraint(
             "gateway IS NULL OR ("
             "family(gateway) = 4 AND masklen(cidr) <= 31 AND gateway << cidr::inet "
-            "AND (masklen(cidr) = 31 OR (gateway <> network(cidr)::inet "
-            "AND gateway <> broadcast(cidr))) "
+            "AND (masklen(cidr) = 31 OR (gateway <> host(network(cidr))::inet "
+            "AND gateway <> host(broadcast(cidr))::inet)) "
             "AND NOT (gateway << '0.0.0.0/8'::inet "
             "OR gateway << '127.0.0.0/8'::inet "
             "OR gateway << '169.254.0.0/16'::inet "

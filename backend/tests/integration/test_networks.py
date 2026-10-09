@@ -561,6 +561,78 @@ def test_reference_checker_registry_empty(auth_session_factory, make_user):
         )
 
 
+def test_reference_checker_blocks_change_and_delete(
+    role_client_factory, monkeypatch
+):
+    """V9/V15/B22/B24: a registered (non-empty) reference set blocks cidr/
+    cluster changes and delete with 409 reference_exists + references[] and
+    leaves the row unchanged; dropping the reference releases the block.
+
+    F008 ships the registry with an empty set (F009/F010 append later), so a
+    test-side stub is the only way to exercise the documented 409 path end to
+    end (TD-1 §4).
+    """
+    admin, _, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="RC1")
+    c2 = _cluster(admin, code="RC2")
+    net = _network(
+        admin, c1["id"], name="refnet", cidr="10.0.0.0/24", gateway="10.0.0.1"
+    )
+
+    def stub(_db, _object_id):
+        return [
+            {
+                "object_type": "ip_pool",
+                "object_id": str(uuid.uuid4()),
+                "label": "pool-1",
+            }
+        ]
+
+    monkeypatch.setitem(
+        cluster_service._REFERENCE_CHECKERS,
+        "network",
+        cluster_service._REFERENCE_CHECKERS.get("network", []) + [stub],
+    )
+
+    # PATCH cidr (valid, non-overlapping) -> 409 reference_exists + references
+    resp = admin.patch(
+        f"/api/v1/networks/{net['id']}",
+        json={"version": 1, "cidr": "10.5.0.0/24", "gateway": None},
+    )
+    assert resp.status_code == 409, resp.text
+    details = resp.json()["error"]["details"]
+    assert details["reason"] == "reference_exists"
+    assert details["references"][0]["object_type"] == "ip_pool"
+    assert details["references"][0]["label"] == "pool-1"
+
+    # PATCH cluster -> 409 reference_exists
+    resp = admin.patch(
+        f"/api/v1/networks/{net['id']}", json={"version": 1, "cluster": c2["id"]}
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["details"]["reason"] == "reference_exists"
+
+    # DELETE -> 409; the row stays live and unchanged (no cascade/soft delete)
+    resp = admin.delete(f"/api/v1/networks/{net['id']}", params={"version": 1})
+    assert resp.status_code == 409
+    assert resp.json()["error"]["details"]["reason"] == "reference_exists"
+    live = admin.get(f"/api/v1/networks/{net['id']}")
+    assert live.status_code == 200
+    assert live.json()["network"]["version"] == 1
+    assert live.json()["network"]["deleted_at"] is None
+
+    # A non-location change is not blocked by the reference set
+    assert admin.patch(
+        f"/api/v1/networks/{net['id']}", json={"version": 1, "status": "INACTIVE"}
+    ).status_code == 200
+
+    # Removing the reference releases the block
+    monkeypatch.undo()
+    assert admin.delete(
+        f"/api/v1/networks/{net['id']}", params={"version": 2}
+    ).status_code == 204
+
+
 # --- A18/V18: audit four actions + activity + rollback ------------------------
 
 
@@ -589,9 +661,11 @@ def test_audit_four_actions_and_activity(role_client_factory, auth_session_facto
             .scalars()
             .all()
         )
-        assert [r.action for r in rows] == ["CREATE", "UPDATE", "DELETE", "RESTORE"]
+        # Contract §6.7 orders Activity by created_at then id; do not assume a
+        # semantic CREATE<UPDATE<DELETE<RESTORE order when timestamps tie.
+        assert {r.action for r in rows} == {"CREATE", "UPDATE", "DELETE", "RESTORE"}
         assert all(r.object_type == "network" for r in rows)
-        update = rows[1]
+        update = next(r for r in rows if r.action == "UPDATE")
         assert set(update.before_data) == {
             "cluster_id",
             "name",
@@ -604,17 +678,13 @@ def test_audit_four_actions_and_activity(role_client_factory, auth_session_facto
         }
         assert update.before_data["status"] == "ACTIVE"
         assert update.after_data["status"] == "INACTIVE"
-        assert rows[2].after_data is None
+        assert next(r for r in rows if r.action == "DELETE").after_data is None
+        expected_actions = [r.action for r in rows]
 
     for client in (viewer, admin):
         activity = client.get(f"/api/v1/networks/{net['id']}/activity")
         assert activity.status_code == 200, activity.text
-        assert [i["action"] for i in activity.json()["items"]] == [
-            "CREATE",
-            "UPDATE",
-            "DELETE",
-            "RESTORE",
-        ]
+        assert [i["action"] for i in activity.json()["items"]] == expected_actions
 
 
 def test_audit_rolls_back_with_the_transaction(auth_session_factory, make_user, monkeypatch):
