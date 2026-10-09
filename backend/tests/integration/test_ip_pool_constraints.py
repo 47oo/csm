@@ -671,3 +671,54 @@ def test_concurrent_overlapping_insert(committed_engine):
         assert conn.execute(
             text("SELECT count(*) FROM ip_pools WHERE network_id = :id"), {"id": nid}
         ).scalar_one() == 1
+
+def test_network_row_lock_serialises_reserved_change_and_fake_allocate(
+    committed_engine,
+):
+    """A22/DR-109: ``_lock_network`` (networks row FOR UPDATE) is mutually exclusive.
+
+    F009 takes the lock for any RESERVED/range change; F010 must take the same
+    lock for IP allocation. Here a "fake allocation" session tries to take the
+    same row lock while a RESERVED-change session holds it: the second must block
+    until the first commits, proving the serialisation domain (no partial state
+    can coexist). The real IP allocation end-to-end remains F010 (T33/T35).
+    """
+    import time
+
+    engine = committed_engine
+    _, nid = _seed(engine, "lock")
+
+    holder = engine.connect()
+    waiter = engine.connect()
+    started: list[float] = []
+    finished: list[float] = []
+    try:
+        holder_tx = holder.begin()
+        holder.execute(
+            text("SELECT id FROM networks WHERE id = :id FOR UPDATE"), {"id": nid}
+        )
+
+        def try_lock():
+            started.append(time.monotonic())
+            waiter_tx = waiter.begin()
+            try:
+                waiter.execute(
+                    text("SELECT id FROM networks WHERE id = :id FOR UPDATE"),
+                    {"id": nid},
+                )
+                finished.append(time.monotonic())
+            finally:
+                waiter_tx.rollback()
+
+        thread = threading.Thread(target=try_lock)
+        thread.start()
+        time.sleep(0.6)
+        # The second session must still be blocked while the first holds the lock.
+        assert finished == [], "second session acquired the lock while it was held"
+        holder_tx.commit()
+        thread.join(timeout=10)
+        assert finished, "second session never acquired the lock after release"
+        assert finished[0] - started[0] >= 0.3, (started, finished)
+    finally:
+        holder.close()
+        waiter.close()

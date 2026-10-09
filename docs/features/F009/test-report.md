@@ -301,3 +301,227 @@
 | OPEN-17 | 跨 Feature 协议：F010 须复用 `_lock_network` 并注册真实 `IpOccupancyProvider`；F009 空集默认不误报 | V28/A22、B37 | Architect / 跨 Feature |
 
 TD-1 结论：**`TEST DESIGN READY`** —— A1–A23 已映射到可观察判据，边界/并发场景可执行，夹具与可验证性已与 architecture §6/§9 草案建立对应；A10–A12/A22 在 F009 以占用桩断言结构与数量，真实端到端与容量明确留待 F010。**DATABASE / CONTRACT / D01 v8 尚未定稿，以上 OPEN 未经逐项核对；READY 不等于测试通过，不批准实现或合并。** 定稿后由 TD-2 关闭 §8 并固定执行判据。
+---
+
+## 9. TEST_DESIGN TD-2 — OPEN 复核关闭（依 Database v1 / Contract v1 / D01 v8）
+
+- **版本**：TD-2
+- **日期**：2026-10-09
+- **角色**：Tester（TEST_DESIGN 模式）
+- **结论**：`TEST DESIGN READY`（TD-2）。TD-1 全部假设已与定稿设计逐项核对，§8 OPEN-1…17 全部关闭；因 Database v1 设计产生的判据调整 D.3-A…G 已并入执行判据。TD-2 仍只是方案可验证声明，不代表测试通过、不批准实现或合并。
+- **上游输入**：`docs/database/f009-ip-pool.md` v1（DB-D95–D110）、`docs/api/F009.md` v1（READY，ARCHITECT 2026-10-09）、`docs/architecture/d01-conventions.md` v8 §5.8、`docs/features/F009/architecture.md`（DR-102–DR-117）、`docs/api/F002.md` §1.2.1、`docs/features/F009/implementation.md`（BACKEND+FRONTEND COMPLETE）。
+
+### 9.1 OPEN-1…17 关闭表
+
+| # | 定稿结论（依据） | 判定 |
+| --- | --- | --- |
+| OPEN-1 | 表名 `ip_pools`；列 `id uuid pk`、`network_id uuid NOT NULL`、`name varchar(255) NOT NULL`、`name_key varchar(255) NOT NULL`、`start_address/end_address inet NOT NULL`、`address_range int8range NOT NULL`（生成列 STORED）、`allocation_mode varchar(16) NOT NULL DEFAULT 'MANUAL'`、`description text NULL`、`version int NOT NULL DEFAULT 1`、`created_at/updated_at timestamptz NOT NULL now()`、`deleted_at timestamptz NULL`（Database v1 §2）。TD-1 全部假设成立。 | CLOSED |
+| OPEN-2 | 约束/索引名与 TD-1 一致：`pk_ip_pools`、`fk_ip_pools_network_id_networks`、`uq_ip_pools_network_id_name_key`、`excl_ip_pools_network_id_address_range`、`ck_ip_pools_{name_not_blank,name_trimmed,name_no_control,name_length,name_key_matches,start_address_host,end_address_host,address_order,allocation_mode,version}`、`ix_ip_pools_{network_id,allocation_mode,deleted_at}`（Database v1 §2）。 | CLOSED |
+| OPEN-3 | 排他约束固定 `EXCLUDE USING gist (network_id WITH =, address_range WITH &&) WHERE (deleted_at IS NULL)`；`address_range` 为 `int8range(...,'[]')` 生成存储列；`network_id WITH =` 依赖 btree_gist（0008 已启用，0009 不重复启用）；跨表 CIDR 包含采纳**触发器 backstop**（DB-D104）。判据并入 D.3-B/D.3-C/D.3-F。 | CLOSED |
+| OPEN-4 | `name_key = ASCII_lower(btrim(name))`，DB `translate('ABC…','abc…')`、禁 `lower()`；name 长度 1–255（`ck_ip_pools_name_key_matches` / `ck_ip_pools_name_length`；D01 v8 §5.8）。 | CLOSED |
+| OPEN-5 | 生成列表达式 `int8range(set_masklen(x,32)-'0.0.0.0'::inet, …, '[]')`；`ck_start/end_address_host`=`family=4 AND masklen=32`；不可变性以 `pg_proc.provolatile='i'` 断言。判据 = D.3-A/D.3-C。 | CLOSED |
+| OPEN-6 | 迁移 `0009_ip_pools`、`down_revision=0008_networks`、单一 head、全表新建无回填、对称可逆、不重复启用 btree_gist/pg_trgm（Database v1 §4）。判据 = D.3-F。 | CLOSED |
+| OPEN-7 | FK `network_id → networks(id) ON DELETE RESTRICT`（`confdeltype='r'`）；索引仅 3 个普通索引 + 部分唯一 + 排他；不建 pg_trgm/GIN、不建单列 B-tree（DB-D106）。 | CLOSED |
+| OPEN-8 | 软删/恢复：部分唯一与排他约束均带 `WHERE deleted_at IS NULL`；恢复置 null 重新受约束；F009 侧不建 IP 来源检查，来源历史由 F010 `ip_addresses.ip_pool_id` FK RESTRICT 承接（DB-D105/§3.6）。 | CLOSED |
+| OPEN-9 | `address_in_use` 形状固定为 Contract §1.2：`field∈{start_address,end_address,allocation_mode,gateway}`、`conflict_count`（总数）、`conflicts[{object_type:"ip_address",object_id,address,bound,interface_id,resource_id,resource_hostname}]`、`conflicts_truncated`；`CONFLICT_PREVIEW_LIMIT=100`（可配置）。 | CLOSED |
+| OPEN-10 | `range_overlap` 复用并登记至 F002 §1.2.1；`object_type:"ip_pool"`、`field∈{start_address,end_address}`、`conflicts[{object_type,object_id,label,start_address,end_address}]`；F008-REV-03 由 F002 §1.2.1 登记闭合。 | CLOSED |
+| OPEN-11 | 校验顺序固定（Contract §6）：POST 401→403→body→network→`_lock_network`→地址→name→overlap→RESERVED 占用→写+Audit；PATCH 含 version/可见性→取锁→地址→name→overlap→占用；DELETE object→version→软删；RESTORE 见 OPEN-14。判据 = V25/B41。 | CLOSED |
+| OPEN-12 | D01 v8 §5.8 已签核：name 1–255 仅 ASCII 折叠、内部普通空格不合并；start/end 单主机 IPv4 属 CIDR 且起≤止；allocation_mode 默认 MANUAL；description 无上限；不落 metadata/status/auto_allocate/容量。 | CLOSED |
+| OPEN-13 | `network` 创建必填、创建后不可改（PATCH 出现 `network`/`network_id`/`id`/`name_key`/`address_range`/`metadata`/未知字段→422，DR-107/I-2）。 | CLOSED |
+| OPEN-14 | RESTORE 错误码优先级固定（Contract §6.6）：查找(含软删 404)→`not_deleted`(409)→版本(409)→name 唯一(409)→Network 依赖 `dependency_deleted`(409)→**CIDR 包含重检 422 `VALIDATION_ERROR{field:start_address|end_address}`**→范围重叠(409)→RESERVED 占用(409)。判据 = D.3-D + 新增强化用例。 | CLOSED |
+| OPEN-15 | 列表 Query 集固定：`network_id/allocation_mode/q/deleted/page/page_size/sort/order`；`deleted∈{exclude,include,only}` 默认 exclude；`sort∈{name,start_address,end_address,allocation_mode,created_at,updated_at}`、`order∈{asc,desc}`；`q` 为 name 大小写不敏感子串（trim 后空视为未提供，不用 pg_trgm）。 | CLOSED |
+| OPEN-16 | 占用触发条件与 `field` 规则固定（Contract §6.4）：变更后 mode≠RESERVED 不拒绝；mode→RESERVED `field="allocation_mode"`；原 RESERVED 仅扩大 start→`start_address`、仅扩大 end→`end_address`；缩小/RESERVED→AUTO/MANUAL/AUTO↔MANUAL 不拒绝。 | CLOSED |
+| OPEN-17 | 跨 Feature 协议固定（Contract §7/§9）：F009 默认 `NullIpOccupancyProvider` 空集不误报；F010 必须复用 `_lock_network`（networks 行 FOR UPDATE）并注册真实 `IpOccupancyProvider`；F009 只负机制级互斥，真实占用端到端归 F010（I-5）。 | CLOSED（F010 义务保留） |
+
+### 9.2 因 Database v1 产生的判据调整（D.3-A…G，Architect CONTRACT 定稿已确认）
+
+| 编号 | 调整后判据 | 对应执行 |
+| --- | --- | --- |
+| **D.3-A** | `start/end` CHECK 为 `family=4 AND masklen=32`；带掩码/CIDR 形式被 DB CHECK **拒**，API 仍返回 422。TD-1 的「CIDR 形式→422」在 DB 层升格为 CHECK 拒绝，不再仅是 `inet` 解析。 | V-DB-90、`test_address_domain`、`test_address_validation`、独立库 raw masked insert 拒绝 |
+| **D.3-B** | CIDR 包含 DB 触发器 `trg_ip_pools_cidr_contains`（BEFORE INSERT/UPDATE）**已启用**：raw 越界直插/更新被拒；`/32` Network 内 `start=end` 通过；与 Network 改 cidr 经 `FOR KEY SHARE` 串行。 | V-DB-89、`test_cidr_contains_trigger`、独立库 raw 越界 INSERT/UPDATE 拒绝 + /32 通过 |
+| **D.3-C** | `address_range` 为 `GENERATED ALWAYS AS (...) STORED` 生成列：UPDATE start/end 重算、单地址池 `[x,x]`、闭区间 `'[]'`、`provolatile='i'`。 | V-DB-87、`test_exclusion_overlap_and_generated_column`、独立库生成列表达式/重算/`provolatile` |
+| **D.3-D** | Network cidr 变更致软删池越界的 RESTORE 固定为 **422 `VALIDATION_ERROR{field:start_address|end_address}`**；整体优先级 not_deleted→版本→name 唯一→network 依赖→CIDR 包含(422)→范围重叠→RESERVED 占用。 | Contract §6.6、`test_restore_cidr_recheck`、`test_restore_priority_precedence` |
+| **D.3-E** | 触发器对 INSERT/UPDATE（含软删 UPDATE）生效；越界幽灵池的软删被拒属预期副作用。 | 独立库 raw：Network cidr 移走后软删越界池被拒 |
+| **D.3-F** | 0009 不重复启用扩展；`pg_extension` 在 up/down/up 前后无新增（btree_gist 属 0008、pg_trgm 属 0001）。 | V-DB-82/94、`test_migration_up_down_up_and_single_head`、独立库 `pg_extension` 前后比对 |
+| **D.3-G** | F008-REV-01/02 为 F008 文档 errata，不改变 F009 判据（0008 迁移已用正确写法）；F008-REV-03（`range_overlap` 登记）已由 F002 §1.2.1 闭合。 | 静态核对 `0008_networks.py`、`docs/api/F002.md` §1.2.1 |
+
+TD-2 结论：**`TEST DESIGN READY`（TD-2）** —— OPEN-1…17 全部关闭，D.3-A…G 已并入执行判据；不批准实现或合并，测试结果见 §10。
+
+---
+
+## 10. TEST TE-1 — 独立执行
+
+- **版本**：TE-1
+- **日期**：2026-10-09
+- **角色**：Tester（TEST 模式）
+- **代码基线**：`da121db`（分支 `feature/F009-ip-pool`，工作区 clean；测试基线 HEAD=da121db）
+- **测试基线**：TD-2 固定判据 / Database v1 / Contract v1 / D01 v8 §5.8
+- **独立性声明**：Backend pytest、迁移 up/down/up、独立库 raw 结构/约束/触发器/并发、前端 typecheck/build/smoke 均由 Tester 独立重跑；未复用实现者数字。Tester 未修改任何业务实现、Schema、迁移或产品/设计文档；仅新增/强化测试代码（`test_ip_pools.py`、`test_ip_pool_constraints.py`）。任何「失败不留痕/并发」断言使用真实连接真实提交并断言**最终持久化状态**。
+
+### 10.1 环境与命令
+
+| 项 | 内容 |
+| --- | --- |
+| PG | 容器 `f002test-db`（`postgres:16`，网络 `f002test-net`），用户 `csm`，测试库 `csm_test`；独立验证库 `csm_ip_verify_test` |
+| 后端镜像 | `csm-f007-test:latest`（源码挂载 `backend:/app`，未重建） |
+| 全量后端 | `docker run --rm --network f002test-net -v "$PWD/backend:/app" -e TEST_DATABASE_URL="postgresql+psycopg://csm:change-me@f002test-db:5432/csm_test" -w /app csm-f007-test python -m pytest tests -q` |
+| F009 专属 | 同镜像 `python -m pytest tests/integration/test_ip_pools.py tests/integration/test_ip_pool_constraints.py -q` |
+| 独立库 | 独立脚本 `verify_db.py`：`DROP SCHEMA public` → `alembic upgrade head` → 结构/raw/并发核对 → `downgrade 0008` → `upgrade head`；连接 `csm_ip_verify_test` |
+| 前端 | `cd frontend && npm run typecheck && npm run build && npm run smoke:client`（Node 22） |
+
+### 10.2 执行结果（原始输出摘要）
+
+```text
+# 全量后端
+292 passed, 1 skipped, 1 warning in 100.75s
+# skip = tests/integration/test_migrations.py:105（F001 V3b：连接角色为 superuser，环境性，非 F009）
+
+# F009 专属（test_ip_pools.py 30 + test_ip_pool_constraints.py 13 = 43）
+43 passed, 1 warning in 19.38s
+
+# 独立验证库（csm_ip_verify_test）
+TOTAL 27 checks, 0 failed
+
+# 前端
+typecheck: 通过
+build: 通过（61 modules，dist 产物生成）
+smoke:client: 133 passed, 0 failed（含 F009 机制级用例）
+```
+
+> 注：实现者报告称全量 286 passed / F009 37 passed；Tester 独立基线因新增/强化测试代码高于该数（全量 292、F009 43），差异来自 Tester 新增的 A13/B13/B16/B26/A16 优先级/A22 互斥用例与独立库核对，非覆盖实现缺陷。
+
+### 10.3 验收映射 A1–A23（TE-1）
+
+| 验收 | 结果 | 证据 | 边界声明 |
+| --- | --- | --- | --- |
+| A1 名称 trim/空/控制字符/中文/内部普通空格 | **PASS** | `test_name_normalisation_and_uniqueness`（201 落库 trim；`""`/空白/`\x01`/`\u200b`/256→422 field=name；内部空格保留）、`test_name_boundaries_and_name_key`（raw CHECK 拒 `""`/空白/`x ` /` x`/控制/256，接受 255） | F009 独立 |
+| A2 同 Network 大小写不敏感重名 409；跨 Network 同名允许 | **PASS** | `test_name_normalisation_and_uniqueness`（`POOL`→409 `unique_conflict{field:name}`；跨 network 201）、`test_partial_unique_name`（raw 同 `(network_id,name_key)` 未删被拒；跨 network 允许） | F009 独立 |
+| A3 软删后同名可重建；存活同名拒；复用后旧对象恢复失败不覆盖 | **PASS** | `test_name_soft_delete_and_restore_reuse`（软删→重建 201 新 id；旧 restore→409 unique；新对象未被覆盖） | F009 独立 |
+| A4 缺 network/name/start/end→422；network 不存在/软删→422 | **PASS** | `test_network_resolution`（`None`/`""`/非 UUID/随机 UUID→422 field=network；软删 Network→422）、`test_readonly_and_unknown_fields` | F009 独立 |
+| A5 越界/非 IPv4/非法/CIDR 形式→422 | **PASS** | `test_address_validation`（`not-an-ip`/`10.0.0.1/24`/`::1`/CIDR 外→422 field=start/end）、`test_address_domain`（IPv6、带掩码 raw 拒） | F009 独立；DB backstop = D.3-A/B |
+| A6 start>end→422；start=end 允许 | **PASS** | `test_address_validation`（单地址 201、逆序 422）、`test_address_domain`（raw 逆序拒）、独立库 `/32` start=end 通过 | F009 独立 |
+| A7 同 Network 未删池闭区间重叠（含完全相同、共享端点）409 | **PASS** | `test_range_overlap_and_soft_delete_release`（contained/identical/share-start/share-end→409 `range_overlap` + conflicts 明细；相邻 201；跨 network 201；软删释放）、`test_inactive_network_pool_participates_in_overlap`、独立库 raw 排他+并发 | F009 独立 |
+| A8 mode 默认 MANUAL；按值保存；非法/null→422 | **PASS** | `test_create_defaults_and_response_shape`（省略→MANUAL）、`test_allocation_mode`（三值保存；`"active"`/`""`/`NOPE`/`null`→422）、`test_defaults_and_not_null`（raw CHECK 拒） | F009 独立 |
+| A9 mode 语义保存并暴露；F009 不实现分配 | **PASS（F009 侧）** | 响应/DB 暴露枚举（上述）；静态：F009 无自动分配入口、不据 mode 创建 IP；语义消费归 F010 | F009 独立 |
+| A10 新建/扩大 RESERVED 命中占用→409 + 数量/明细 | **PASS（桩结构/数量）** | `test_occupancy_reserved_create_and_patch`（`conflict_count=2`、`conflicts[{bound:false}]`、field=allocation_mode）、`test_occupancy_patch_expansion_field_rules`、`test_occupancy_truncation`（`conflicts_truncated=true`） | 真实 IP 端到端 **NOT TESTED / 归 F010（T33）** |
+| A11 AUTO/MANUAL→RESERVED 命中占用拒，明细 | **PASS（桩结构/数量）** | `test_occupancy_reserved_create_and_patch`（PATCH→RESERVED field=allocation_mode）、`test_occupancy_patch_expansion_field_rules` | 真实端到端 **NOT TESTED / 归 F010（T33）** |
+| A12 gateway 设已占用地址被拒（含未绑定） | **PASS（桩结构/数量）** | `test_network_gateway_occupancy_hook`（field=gateway、conflict_count=1、bound=false；空 provider 通过） | 真实端到端 **NOT TESTED / 归 F010（T33）** |
+| A13 AUTO↔MANUAL、RESERVED→AUTO/MANUAL 允许，不改已有 IP | **PASS（F009 侧）** | `test_allocation_mode_transitions`（AUTO↔MANUAL、RESERVED→AUTO/MANUAL 均 200 且仅 mode 变、不咨询占用）、`test_patch_exclude_unset_and_non_nullable`（范围/名称保持）；结构核对 F009 不触碰 IP | 真实「不改已有 IP」端到端 **NOT TESTED / 归 F010（T34）** |
+| A14 删除/缩小 Pool 成功，已分配 IP 保留 | **PASS（F009 侧）** | `test_pool_delete_registers_no_reference_checker`（池软删 204、不查 IP 来源）、`test_patch_exclude_unset_and_non_nullable`（缩小 200）、`test_fk_restrict_and_soft_delete_retention`（软删保行） | 真实 IP 保留与来源历史 **NOT TESTED / 归 F010（T34）** |
+| A15 RESERVED 恢复重检重叠/占用；AUTO/MANUAL 仅重检重叠；不自动恢复 IP | **PASS（桩）** | `test_restore_overlap_recheck`、`test_reserved_restore_rechecks_occupancy`（409 address_in_use，失败保持软删）、`test_restore_priority_precedence` | 真实占用端到端 **NOT TESTED / 归 F010** |
+| A16 恢复重检 name/Network/范围；失败不覆盖 | **PASS** | `test_name_soft_delete_and_restore_reuse`、`test_restore_dependency_deleted`、`test_restore_overlap_recheck`、`test_restore_cidr_recheck`、`test_restore_priority_precedence` | F009 独立 |
+| A17 权限矩阵 | **PASS** | `test_permission_matrix`（VIEWER POST/PATCH/DELETE 403、GET/activity 200；EDITOR POST/PATCH 201/200、DELETE/restore 403；ADMIN 全通；未认证 401；`deleted=include` 非 VIEW_DELETED→403）；服务端 `require_permission` 强制（静态） | 真实 ASGI + 真实 PG；入口 Nginx/Compose 未执行（见 §10.7） |
+| A18 四 action Audit 同事务；Activity 全角色 | **PASS** | `test_audit_four_actions_and_activity`（四 action、object_type=ip_pool、UPDATE before/after 白名单、Activity 全角色 200）、`test_audit_rolls_back_with_the_transaction`（注入 audit 失败业务同回滚、无 BOGUS 行） | 真提交 |
+| A19 默认隐藏软删；过滤/分页/排序 | **PASS** | `test_soft_delete_visibility_and_restore_priority`、`test_list_filters_sorting_pagination`（network_id/allocation_mode/q/deleted、分页 total/page/page_size、sort+order+id 稳定、非法→422） | F009 独立 |
+| A20 DB 未删名称唯一/范围不重叠兜底 | **PASS** | `test_partial_unique_name`、`test_exclusion_overlap_and_generated_column`、独立库 raw 直插/`pg_indexes`/`pg_constraint` | 真实 PG raw |
+| A21 归一化口径一致（仅未删参与唯一） | **PASS（F009 侧）** | `test_name_boundaries_and_name_key`（`ABC`+name_key`ABC` 被 `ck_name_key_matches` 拒=必须 translate；非 ASCII `网ß` 原样）、`test_name_normalisation_and_uniqueness` | F014/F013 执行各自一致性 |
+| A22 保留范围/网关变更与并发分配互斥，无部分变更 | **PASS（机制级互斥）** | `test_network_row_lock_serialises_reserved_change_and_fake_allocate`（networks 行 FOR UPDATE 互斥，第二会话阻塞直至持有者提交）、`test_concurrent_overlapping_insert`（至多一方成功，最终库无重叠） | 真实 IP 分配互斥与容量 **NOT TESTED / 归 F010（T35/T32）** |
+| A23 乐观锁过期被拒，无静默覆盖 | **PASS** | `test_optimistic_lock_two_sessions`（两连接同 version：一方 200/version+1，另一方 409 VERSION_CONFLICT{current_version:2}，最终值来自成功方）、`test_validation_order`（version 先于 name） | 真提交 |
+
+### 10.4 V-DB-82…V-DB-94（真实 PG / 独立库）
+
+| 验证项 | 结果 | 证据 |
+| --- | --- | --- |
+| V-DB-82 迁移 up/down/up、单一 head、`down_revision=0008_networks`、无回填、btree_gist 未重复启用 | **PASS** | `test_migration_up_down_up_and_single_head`；独立库 `TOTAL 27 checks, 0 failed` 中 single head / downgrade / `pg_extension` 前后一致 |
+| V-DB-83 name 边界（0/空/首尾/控制/256 拒；1–255 接受；内部空格/中文保留） | **PASS** | `test_name_boundaries_and_name_key` |
+| V-DB-84 name_key CHECK 与 translate 一致（`Web`/`WEB` 同键、`ß`/非 ASCII 原样） | **PASS** | `test_name_boundaries_and_name_key` |
+| V-DB-85 部分唯一（同 Network 重名拒/跨 Network/软删释放/存活拒/恢复冲突） | **PASS** | `test_partial_unique_name`、`test_name_soft_delete_and_restore_reuse` |
+| V-DB-86 排他约束（重叠/相同/共享端点拒；跨 Network 允许；INACTIVE 参与；软删释放） | **PASS** | `test_exclusion_overlap_and_generated_column`、`test_inactive_network_pool_participates_in_overlap` |
+| V-DB-87 生成列（`[x,x]`、闭区间、UPDATE 重算、`set_masklen`、`provolatile='i'`） | **PASS** | `test_exclusion_overlap_and_generated_column`；独立库生成列 `attgenerated='s'`、表达式、重算、`provolatile` |
+| V-DB-88 恢复重检（重叠时置 `deleted_at=null` 被排他拒） | **PASS** | `test_restore_recheck_overlap_rejected`；独立库 raw restore overlap 拒绝 |
+| V-DB-89 CIDR 触发器（越界 INSERT/UPDATE 拒；/32 相等通过；start=end 通过；Network 缺失交 FK） | **PASS** | `test_cidr_contains_trigger`、`test_address_domain`；独立库 raw 越界 INSERT/UPDATE 拒、/32 通过 |
+| V-DB-90 逆序拒/start=end 允许；IPv6/带掩码拒 | **PASS** | `test_address_domain`；独立库 raw masked insert 拒 |
+| V-DB-91 FK RESTRICT（物理删有 Pool 的 Network 拒；软删 Pool 行仍在） | **PASS** | `test_fk_restrict_and_soft_delete_retention`；独立库 `confdeltype='r'` |
+| V-DB-92 mode 默认/非法/显式 null；NOT NULL；network 变更无 DB 触发器 | **PASS** | `test_defaults_and_not_null`、`test_network_id_has_no_immutability_trigger` |
+| V-DB-93 version 默认 1、<1 拒；乐观锁双会话仅一成功 | **PASS** | `test_defaults_and_not_null`、`test_optimistic_lock_two_sessions` |
+| V-DB-94 对象目录（生成列/排他/部分唯一/触发器/3 索引；无 pg_trgm GIN；btree_gist 属 0008） | **PASS** | `test_table_catalogue_columns_constraints_indexes_triggers`；独立库列/约束/索引/触发器/扩展目录 |
+
+### 10.5 边界/并发场景 B1–B44（TE-1）
+
+| 编号 | 结果 | 证据 / 说明 |
+| --- | --- | --- |
+| B1 名称 trim | PASS | `test_name_normalisation_and_uniqueness` |
+| B2 大小写不敏感重名 | PASS | 同上（`POOL`/`DUP`） |
+| B3 非 ASCII 不折叠 | PASS | `test_name_boundaries_and_name_key`（`网ß`） |
+| B4 内部普通空格不合并 | PASS | `test_name_normalisation_and_uniqueness`（`po ol`/`po  ol`） |
+| B5 空名/纯空白/控制字符 | PASS | API 422 + raw CHECK 拒 |
+| B6 name 长度 255/256 | PASS | `test_name_boundaries_and_name_key` |
+| B7 跨 Network 同名 | PASS | `test_name_normalisation_and_uniqueness` |
+| B8 软删后复用 | PASS | `test_name_soft_delete_and_restore_reuse` |
+| B9 起止格式/越界 | PASS | `test_address_validation` |
+| B10 起止边界 start=end / 网络·广播地址 | PASS（start=end、/32）；网络/广播地址未单列用例，由「属 CIDR 且起≤止」同一路径覆盖 | `test_address_validation`、独立库 `/32` |
+| B11 逆序 | PASS | `test_address_validation`、`test_address_domain` |
+| B12 逆序/越界同时出现取首个 422 | PASS | `test_validation_order`（地址先于 name 唯一） |
+| B13 禁用段不新增限制 | PASS | `test_disabled_segments_not_restricted`（0/8、127/8、169.254/16、224/4、240/4 建池 201） |
+| B14 不同 Network 同范围 | PASS | `test_range_overlap_and_soft_delete_release` |
+| B15 同 Network 重叠/相同/共享端点 | PASS | 同上 |
+| B16 INACTIVE Network 池参与重叠 | PASS | `test_inactive_network_pool_participates_in_overlap` |
+| B17 软删不参与重叠 | PASS | `test_range_overlap_and_soft_delete_release` |
+| B18 缩小范围释放重叠 | PASS | `test_occupancy_patch_expansion_field_rules`（纯缩小 200）、`test_patch_exclude_unset_and_non_nullable` |
+| B19 mode 语义 | PASS | `test_allocation_mode` |
+| B20 非法 mode raw | PASS | `test_defaults_and_not_null` |
+| B21 mode 互转（无占用） | PASS | `test_allocation_mode_transitions` |
+| B22 桩占用：新建 RESERVED 命中 | PASS | `test_occupancy_reserved_create_and_patch`（`bound=false` 明细） |
+| B23 桩占用：扩大 RESERVED 命中 | PASS | `test_occupancy_patch_expansion_field_rules`（field=start/end） |
+| B24 桩占用：AUTO/MANUAL→RESERVED | PASS | `test_occupancy_reserved_create_and_patch` |
+| B25 桩占用：gateway 已占用 | PASS | `test_network_gateway_occupancy_hook` |
+| B26 RESERVED 恢复命中占用 | PASS | `test_reserved_restore_rechecks_occupancy`（失败保持软删） |
+| B27 恢复成功 | PASS | `test_soft_delete_visibility_and_restore_priority`（deleted_at=null，不创建 IP） |
+| B28 恢复依赖失效 | PASS | `test_name_soft_delete_and_restore_reuse`/`test_restore_dependency_deleted`/`test_restore_overlap_recheck` |
+| B29 删除/缩小不回收（结构层） | PASS | `test_pool_delete_registers_no_reference_checker` + 缩小 |
+| B30 来源历史（结构层） | PASS | `test_fk_restrict_and_soft_delete_retention`（软删保行/FK RESTRICT）；真实来源历史归 F010 |
+| B31 软删默认隐藏 | PASS | `test_soft_delete_visibility_and_restore_priority` |
+| B32 四 action Audit | PASS | `test_audit_four_actions_and_activity` |
+| B33 审计同事务回滚 | PASS | `test_audit_rolls_back_with_the_transaction` |
+| B34 部分唯一 raw 兜底 | PASS | `test_partial_unique_name` |
+| B35 范围重叠并发双会话 | PASS | `test_concurrent_overlapping_insert`（最终库仅 1 行） |
+| B36 恢复与并发重建竞争 | **NOT TESTED（无两会话并发用例）** | 机制闭环由部分唯一 + 排他约束 + 恢复重检覆盖（B34/B35/B28）；未构造「软删 A 后并发 restore A vs 建同范围 B」的真提交双会话用例 |
+| B37 保留范围变更 vs 假分配并发 | PASS（机制级） | `test_network_row_lock_serialises_reserved_change_and_fake_allocate`（锁互斥/阻塞）；真实 IP 分配归 F010 |
+| B38 权限矩阵 | PASS | `test_permission_matrix` |
+| B39 乐观锁并发 | PASS | `test_optimistic_lock_two_sessions` |
+| B40 exclude_unset/显式 null/不可变 | PASS | `test_patch_exclude_unset_and_non_nullable`、`test_readonly_and_unknown_fields` |
+| B41 校验顺序 | PASS | `test_validation_order`、`test_restore_priority_precedence` |
+| B42 响应契约/排序 | PASS | `test_create_defaults_and_response_shape`、`test_list_filters_sorting_pagination` |
+| B43 Network 侧引用保护端到端 | PASS | `test_reference_checker_blocks_network_change_and_delete` |
+| B44 迁移 0009 up/down/up | PASS | `test_migration_up_down_up_and_single_head`、独立库 |
+
+### 10.6 数据库 / 接口 / 前端 / 集成结果
+
+- **数据库**：`f009-ip-pool.md` v1 与 D01 v8 §5.8 逐项核对通过；`pg_constraint`/`pg_indexes`/`pg_attribute`/`pg_proc`/`pg_trigger`/`pg_extension` 目录与设计一致；raw 直插验证 CHECK/部分唯一/排他/生成列/触发器/FK RESTRICT；迁移 up/down/up 对称、无回填、单一 head；独立库 27 项全 PASS。
+- **接口**：7 端点契约（字段/类型/状态码/错误语义/分页排序过滤/软删可见性/恢复优先级/乐观锁/审计）由真实 ASGI + 真实 PG 覆盖；只读端点（GET 列表/详情/activity）为纯 SELECT，无业务写副作用。
+- **前端**：`npm run typecheck` 通过；`npm run build` 通过（61 modules）；`npm run smoke:client` 133 passed / 0 failed，含 F009 机制级 24 用例（API URL/method/body、错误码含 `address_in_use`/`range_overlap`/`dependency_deleted`/`not_deleted`、表单解析与 exclude_unset 载荷、点路径映射）。
+- **集成**：`F009 + 占用桩` 的冲突结构/数量与 `_lock_network` 互斥由真实 PG + 真提交覆盖；**F009 + F010 真实 IP 占用端到端未执行**（见 §10.7）。
+
+### 10.7 Defects、未验证项与结论
+
+**Defects（公共分级）**：无。TE-1 未发现业务实现缺陷、Schema 缺陷或契约偏差。
+
+**NOTE（非缺陷）**：
+1. `dependency_deleted` 与 name 复用/范围重叠在业务上不可同时成立（存在存活 Pool 的 Network 无法软删），故 OPEN-14 优先级中这两组 pair 不具备可构造执行场景；已在 `test_restore_priority_precedence` 注明。
+2. `test_migration_up_down_up_and_single_head` 中 F001 V3b 因连接角色 superuser 跳过（环境性，非 F009）。
+3. 入口 Nginx / Compose 全链路未执行：本任务不重建镜像；权限矩阵与接口已按同 F007/F008-TE-1 口径以真实 ASGI 业务端点 + 真实 PG 覆盖，不降验收。
+
+**未验证项（明确不声明通过）**：
+- A10–A12、A14、A22 的真实 IP 占用端到端；T33、T34、T35；容量 T32 —— **NOT TESTED / 归 F010 / F013**。F009 仅以占用桩与 `_lock_network` 机制级证据支持，**不得据此拼接整条 T33/T34/T35 通过**。
+- B36（恢复 vs 并发重建）真提交双会话未执行（机制闭环已由部分唯一/排他/恢复重检覆盖）。
+- B10 中 CIDR 网络地址/广播地址作为池起止的单列用例未单列（同一「属 CIDR 且起≤止」路径覆盖）。
+- T24/T25/T26/T31 完整跨 Feature 回归与 §32 上线验收不在本 Feature，归 F016。
+
+**TE-1 结论**：**`READY FOR REVIEW`** —— A1–A23 与 V-DB-82…V-DB-94 在 F009 范围内全部 PASS，B1–B44 除 B36（NOT TESTED，机制已闭环）外均 PASS，无必须修复问题；F010 端到端项已显式标注 NOT TESTED，未以局部 PASS 拼接整条 T 条款通过。
+
+---
+
+## 11. 版本记录（续）
+
+| 版本 | 日期 | 变更 |
+| --- | --- | --- |
+| TD-1 | 2026-10-09 | 初版 Test Design（见 §Test Design）。 |
+| TD-2 | 2026-10-09 | 依 Database v1 / Contract v1 / D01 v8 逐项关闭 OPEN-1…17；并入 D.3-A…G 判据调整；结论 `TEST DESIGN READY`。 |
+| TE-1 | 2026-10-09 | 独立执行 A1–A23 / V-DB-82–94 / B1–B44；新增/强化测试代码（A13/B13/B16/B26/A16 优先级/A22 互斥）；全量后端 292 passed/1 skipped、F009 43 passed、独立库 27/27、前端 typecheck+build+smoke 133 passed；结论 `READY FOR REVIEW`，无 Defects。 |
+
+> 保留 TD-1 全文作为历史；TE-1 未复用实现者数字。测试代码变更：`backend/tests/integration/test_ip_pools.py`、`backend/tests/integration/test_ip_pool_constraints.py`（新增：`test_restore_priority_precedence`、`test_allocation_mode_transitions`、`test_disabled_segments_not_restricted`、`test_inactive_network_pool_participates_in_overlap`、`test_reserved_restore_rechecks_occupancy`、`test_network_row_lock_serialises_reserved_change_and_fake_allocate`）。
+
+GIT: git log --oneline -8
+GIT: git status --short
+GIT: git rev-parse --short HEAD
+GIT: git diff --stat

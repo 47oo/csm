@@ -279,6 +279,57 @@ def test_allocation_mode(role_client_factory):
         assert resp.json()["error"]["details"]["fields"][0]["field"] == "allocation_mode"
 
 
+def test_allocation_mode_transitions(role_client_factory, occupancy_stub):
+    """A13: AUTO<->MANUAL and RESERVED->AUTO/MANUAL are allowed without occupancy.
+
+    Only the mode changes (range/name untouched, version+1); a non-empty
+    occupancy provider must not be consulted when the effective mode is not
+    RESERVED. Real IP retention is F010 (T34).
+    """
+    client, _, _ = role_client_factory("EDITOR")
+    c1 = _cluster(client, code="C1")
+    net = _network(client, c1["id"], name="n1", cidr="10.0.0.0/24")
+    stub = occupancy_stub(total=0, items=[])
+
+    pool = _pool(
+        client, net["id"], name="m", start="10.0.0.1", end="10.0.0.9",
+        allocation_mode="AUTO",
+    )
+    for target in ("MANUAL", "AUTO", "MANUAL"):
+        stub.calls.clear()
+        resp = client.patch(
+            f"/api/v1/ip-pools/{pool['id']}",
+            json={"version": resp_version(client, pool["id"]), "allocation_mode": target},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()["ip_pool"]
+        assert body["allocation_mode"] == target
+        assert body["start_address"] == "10.0.0.1" and body["end_address"] == "10.0.0.9"
+        assert stub.calls == []  # AUTO/MANUAL never consults occupancy
+
+    # RESERVED -> AUTO/MANUAL is allowed even though the stub reports occupancy.
+    reserved = _pool(
+        client, net["id"], name="r", start="10.0.0.20", end="10.0.0.25",
+        allocation_mode="RESERVED",
+    )
+    stub.total = 3
+    stub.items = [_conflict_item("10.0.0.22")]
+    for target in ("AUTO", "MANUAL"):
+        stub.calls.clear()
+        resp = client.patch(
+            f"/api/v1/ip-pools/{reserved['id']}",
+            json={"version": resp_version(client, reserved["id"]), "allocation_mode": target},
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["ip_pool"]["allocation_mode"] == target
+        assert stub.calls == []
+    assert reserved["allocation_mode"] == "RESERVED"
+
+
+def resp_version(client, pool_id):
+    return client.get(f"/api/v1/ip-pools/{pool_id}").json()["ip_pool"]["version"]
+
+
 # --- overlap ------------------------------------------------------------------
 
 
@@ -546,6 +597,79 @@ def test_restore_cidr_recheck(role_client_factory):
     )
 
 
+def test_restore_priority_precedence(role_client_factory):
+    """Contract §6.6 deterministic priority for reachable recheck combinations.
+
+    (A live pool under a Network blocks that Network's soft delete, so the
+    ``dependency_deleted`` branch can never co-occur with a name/uniqueness or
+    range-overlap failure in the same Network; those pairwise priorities are
+    therefore not constructible and are not asserted here.)
+    """
+    admin, _, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+
+    # (a) not_deleted beats version: restoring a live pool is 409 not_deleted
+    # even with a stale version.
+    net_a = _network(admin, c1["id"], name="na", cidr="10.0.0.0/24")
+    live = _pool(admin, net_a["id"], name="la", start="10.0.0.1", end="10.0.0.5")
+    resp = admin.post(
+        f"/api/v1/ip-pools/{live['id']}/restore", params={"version": 99}
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["details"]["reason"] == "not_deleted"
+
+    # (b) version beats name uniqueness: same-name live pool exists but the
+    # stale version is reported first.
+    net_b = _network(admin, c1["id"], name="nb", cidr="10.1.0.0/24")
+    pb = _pool(admin, net_b["id"], name="dup", start="10.1.0.1", end="10.1.0.5")
+    assert admin.delete(
+        f"/api/v1/ip-pools/{pb['id']}", params={"version": 1}
+    ).status_code == 204
+    _pool(admin, net_b["id"], name="DUP", start="10.1.0.10", end="10.1.0.15")
+    resp = admin.post(
+        f"/api/v1/ip-pools/{pb['id']}/restore", params={"version": 99}
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "VERSION_CONFLICT"
+
+    # (c) name uniqueness beats range overlap: both a reused name and an
+    # overlapping live pool exist; unique_conflict wins.
+    net_c = _network(admin, c1["id"], name="nc", cidr="10.2.0.0/24")
+    pc = _pool(admin, net_c["id"], name="dup", start="10.2.0.1", end="10.2.0.20")
+    assert admin.delete(
+        f"/api/v1/ip-pools/{pc['id']}", params={"version": 1}
+    ).status_code == 204
+    _pool(admin, net_c["id"], name="DUP", start="10.2.0.30", end="10.2.0.40")
+    _pool(admin, net_c["id"], name="other", start="10.2.0.10", end="10.2.0.25")
+    resp = admin.post(
+        f"/api/v1/ip-pools/{pc['id']}/restore", params={"version": 2}
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["details"]["reason"] == "unique_conflict"
+
+    # (d) CIDR containment (422) beats range overlap: the Network was shrunk
+    # after the pool was deleted, and a live overlapping pool now exists.
+    net_d = _network(admin, c1["id"], name="nd", cidr="10.3.0.0/24")
+    pd = _pool(admin, net_d["id"], name="pd", start="10.3.0.1", end="10.3.0.20")
+    assert admin.delete(
+        f"/api/v1/ip-pools/{pd['id']}", params={"version": 1}
+    ).status_code == 204
+    patched = admin.patch(
+        f"/api/v1/networks/{net_d['id']}",
+        json={"version": 1, "cidr": "10.3.0.0/28", "gateway": None},
+    )
+    assert patched.status_code == 200, patched.text
+    _pool(admin, net_d["id"], name="qd", start="10.3.0.10", end="10.3.0.15")
+    resp = admin.post(
+        f"/api/v1/ip-pools/{pd['id']}/restore", params={"version": 2}
+    )
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["error"]["details"]["fields"][0]["field"] in (
+        "start_address",
+        "end_address",
+    )
+
+
 def test_restore_overlap_recheck(role_client_factory):
     admin, _, _ = role_client_factory("ADMIN")
     c1 = _cluster(admin, code="C1")
@@ -563,6 +687,66 @@ def test_restore_overlap_recheck(role_client_factory):
 
 
 # --- occupancy (stub provider) ------------------------------------------------
+
+
+def test_disabled_segments_not_restricted(role_client_factory):
+    """B13 / I-3 / DR-117: F009 adds no disabled-segment build restriction."""
+    client, _, _ = role_client_factory("EDITOR")
+    c1 = _cluster(client, code="C1")
+    cases = [
+        ("dmz1", "0.0.0.0/24", "0.0.0.1", "0.0.0.5"),
+        ("lo", "127.0.0.0/24", "127.0.0.1", "127.0.0.5"),
+        ("ll", "169.254.0.0/24", "169.254.0.1", "169.254.0.5"),
+        ("mc", "224.0.0.0/24", "224.0.0.1", "224.0.0.5"),
+        ("res", "240.0.0.0/24", "240.0.0.1", "240.0.0.5"),
+    ]
+    for name, cidr, start, end in cases:
+        net = _network(client, c1["id"], name=name, cidr=cidr)
+        created = _pool(client, net["id"], name=f"p-{name}", start=start, end=end)
+        assert created["start_address"] == start, (name, created)
+
+
+def test_inactive_network_pool_participates_in_overlap(role_client_factory):
+    """B16: an INACTIVE Network's pools still participate in overlap checks."""
+    admin, _, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+    net = _network(admin, c1["id"], name="n1", cidr="10.0.0.0/24")
+    assert admin.patch(
+        f"/api/v1/networks/{net['id']}", json={"version": 1, "status": "INACTIVE"}
+    ).status_code == 200
+    _pool(admin, net["id"], name="a", start="10.0.0.1", end="10.0.0.10")
+    resp = _create_pool(admin, net["id"], name="b", start="10.0.0.5", end="10.0.0.15")
+    assert resp.status_code == 409, resp.text
+    assert resp.json()["error"]["details"]["reason"] == "range_overlap"
+
+
+def test_reserved_restore_rechecks_occupancy(role_client_factory, occupancy_stub):
+    """B26: restoring a RESERVED pool re-checks occupancy (stub)."""
+    admin, _, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+    net = _network(admin, c1["id"], name="n1", cidr="10.0.0.0/24")
+    stub = occupancy_stub(total=0, items=[])
+    reserved = _pool(
+        admin, net["id"], name="r", start="10.0.0.1", end="10.0.0.9",
+        allocation_mode="RESERVED",
+    )
+    assert admin.delete(
+        f"/api/v1/ip-pools/{reserved['id']}", params={"version": 1}
+    ).status_code == 204
+    stub.total = 2
+    stub.items = [_conflict_item("10.0.0.5"), _conflict_item("10.0.0.6")]
+    resp = admin.post(
+        f"/api/v1/ip-pools/{reserved['id']}/restore", params={"version": 2}
+    )
+    assert resp.status_code == 409, resp.text
+    details = resp.json()["error"]["details"]
+    assert details["reason"] == "address_in_use"
+    assert details["field"] == "allocation_mode"
+    assert details["conflict_count"] == 2
+    detail = admin.get(
+        f"/api/v1/ip-pools/{reserved['id']}", params={"deleted": "true"}
+    ).json()["ip_pool"]
+    assert detail["deleted_at"] is not None  # failed restore keeps it soft-deleted
 
 
 def test_occupancy_reserved_create_and_patch(role_client_factory, occupancy_stub):
