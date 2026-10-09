@@ -570,13 +570,14 @@ features:
   - F008
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: CONTRACT Gate（architect 定稿 docs/api/F009.md + D01 v8 §5.8，签核 DR-103/106/110/111/113）
-  current_stage: CONTRACT
+  next_action: IMPLEMENTATION（Backend：迁移 0009/服务/占用注册表/引用检查器/gateway 挂钩/审计；Frontend：IP Pool 列表/表单/冲突呈现）
+  current_stage: IMPLEMENTATION
   implementation:
     product: COMPLETE
     architecture: COMPLETE
     database: COMPLETE
     test_design: COMPLETE
+    contract: COMPLETE
   evidence:
     product:
     - docs/features/F009/product.md
@@ -586,6 +587,8 @@ features:
     - docs/database/f009-ip-pool.md
     test_design:
     - docs/features/F009/test-report.md#test-design
+    contract:
+    - docs/api/F009.md
   layers:
     database: true
     backend: true
@@ -919,9 +922,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F009
-  current_stage: CONTRACT
-  last_result: F009 DATABASE COMPLETE（READY FOR DATABASE IMPLEMENTATION，DB-D95–D110）+ TEST_DESIGN READY（TD-1）
-  next_action: CONTRACT Gate（architect 定稿）
+  current_stage: IMPLEMENTATION
+  last_result: F009 CONTRACT COMPLETE（READY FOR IMPLEMENTATION；docs/api/F009.md v1，D01 v8 §5.8，F002 §1.2.1 登记 address_in_use/range_overlap）
+  next_action: IMPLEMENTATION（backend + frontend）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
