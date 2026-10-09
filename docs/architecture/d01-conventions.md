@@ -1,8 +1,8 @@
 # D01 共享约定基座 — 字段、归一化、时间与省略语义
 
 - **状态**：READY（专业设计签核）
-- **版本**：v6
-- **签核**：Architect，2026-10-09（v6 修订；v5 2026-10-09；v4 2026-10-09；v3 2026-10-08；v2 2026-10-07；v1 2026-10-06）
+- **版本**：v7
+- **签核**：Architect，2026-10-09（v7 修订；v6 2026-10-09；v5 2026-10-09；v4 2026-10-09；v3 2026-10-08；v2 2026-10-07；v1 2026-10-06）
 - **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v2；docs/api/F004.md v3；docs/api/F007.md v1；docs/database/f003-cluster.md v2；docs/database/f004-resource.md v1；docs/database/f005-bare-metal.md v1；docs/database/f006-virtual-machine.md v1；docs/database/f007-interface.md v1；F004/F005/F006/F007 product/architecture；F001 DR-06 / DB-D13。
 - **覆盖**：API 与导入共用的字段格式、稳定 ID、时间、单位、nullable/PATCH 省略语义、名称归一化口径。F003 首落地签核；后续 Feature 引用本文件不重复定义；数据库列级设计仍归各 Feature Database 文档。
 
@@ -26,6 +26,7 @@
 - 通用整型上限 0..2147483647（非负项）或按各域正整数约束收窄（F005/F006 落实）；具体范围在各 Feature Database 文档。
 - **BareMetalDetail 硬件数值（F005，v4 补充）**：cpu_sockets/cpu_cores/memory_mb 为正整数或 null（1..2147483647）；gpu_count 为非负整数或 null（0..2147483647，0=明确无 GPU）；memory_mb 单位 MiB，原样存储不换算。契约见 docs/api/F004.md v3 §2.4，DB 见 database/f005-bare-metal.md DB-D46。
 - **VirtualMachineDetail 容量数值（F006，v5 补充）**：vcpu/memory_mb 为正整数或 null（1..2147483647）；disk_gb 为非负整数或 null（0..2147483647，0=明确无磁盘）；memory_mb 单位 MiB、disk_gb 单位 GiB，原样存储不换算；一期不校验 VM 总 vCPU/内存是否超过 Host 容量。契约见 docs/api/F004.md v3 §2.5，DB 见 database/f006-virtual-machine.md DB-D55/DB-D56。
+- **Network 地址字段（F008，v7 补充）**：cidr 为 IPv4 CIDR，host 位归一化为网络地址（PG cidr 语义）；gateway 为可空 IPv4，取值域见 §5.7；非数值计量、单位不适用。契约见 docs/api/F008.md v1 §2.2，DB 见 database/f008-network.md DB-D83/DB-D84。
 - **Interface 数值（F007，v6 补充）**：speed_mbps/mtu 为正整数或 null（1..2147483647）；speed_mbps 单位 Mbps（标称速率）、mtu 单位字节；均为登记值、非实时探测，未知存 null 不以 0 代替。契约见 docs/api/F007.md v1 §2.2，DB 见 database/f007-interface.md DB-D69。
 
 ## 4. nullable 与 PATCH 省略语义（§4.1）
@@ -47,7 +48,8 @@
 | Cluster name | 无唯一 | 保留 | 允许普通空格 | 仅 trim+校验 | n/a |
 | Resource hostname | 同 Cluster（未删除） | 不敏感（仅 ASCII A-Z→a-z，存小写；非 ASCII 原样） | 禁止 | hostname_key=ASCII_lower(btrim(hostname))；部分唯一 WHERE deleted_at IS NULL | 是 |
 | Interface name | 同 Resource（未删除） | 区分（保留输入） | 禁止 | trim（不折叠大小写）；(resource_id,name) 部分唯一 WHERE deleted_at IS NULL | 是 |
-| Network/IPPool/Service name | 各自作用域 | 不敏感（保留展示） | 允许单个普通空格（不自动合并） | 归一化键+部分唯一 | 是 |
+| IPPool/Service name | 各自作用域 | 不敏感（保留展示） | 允许单个普通空格（不自动合并） | 归一化键+部分唯一 | 是 |
+| Network name | 同 Cluster（未删除） | 不敏感（仅 ASCII A-Z→a-z 折叠，保留展示） | 允许普通空格（不自动合并） | name_key=ASCII_lower(btrim(name))；(cluster_id,name_key) 部分唯一 WHERE deleted_at IS NULL | 是 |
 
 ### 5.1 Cluster code 字符集与大小写折叠（D01 裁定，F003 I-1；v2 修订 F003-REV-1）
 
@@ -63,7 +65,7 @@
 
 ### 5.2 长度口径
 
-Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限，RFC 1035）**；**BareMetal 硬件字符串字段（manufacturer/model/serial_number/cpu_model/gpu_model）255（v4 新增，见 §5.4）**；**VirtualMachine hypervisor 255（v5 新增，见 §5.5）**；**Interface name 64、mac_address ≤64（v6 新增，见 §5.6）**；其它对象字符/长度在各 Feature Database/Contract 依本节规则收窄（Unicode code point）。
+Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限，RFC 1035）**；**BareMetal 硬件字符串字段（manufacturer/model/serial_number/cpu_model/gpu_model）255（v4 新增，见 §5.4）**；**VirtualMachine hypervisor 255（v5 新增，见 §5.5）**；**Interface name 64、mac_address ≤64（v6 新增，见 §5.6）**；**Network name 255（v7 新增，见 §5.7）**；其它对象字符/长度在各 Feature Database/Contract 依本节规则收窄（Unicode code point）。
 
 ### 5.3 Resource hostname 字符集、长度与折叠（D01 裁定，F004 I-1）
 
@@ -127,6 +129,24 @@ metadata（DR-83/DB-D72）：**归 Interface 自有**（§10 权威），JSON ob
 
 镜像：DB 列/约束见 docs/database/f007-interface.md v1（DB-D64–D79）；API 契约见 docs/api/F007.md v1。本字段字典供 F014 导入复用。
 
+### 5.7 Network 字段口径（D01 裁定，F008 DB I-2；v7 新增）
+
+适用范围：docs/api/F008.md v1 的 Network 独立对象字段（cluster、name、cidr、gateway、status、auto_allocate、description、metadata）。
+
+名称口径（name，DR-90/DB-D81）：trim 首尾空白 → trim 后非空 → 禁控制字符（Unicode Cc/Cf，应用层；DB 为 ASCII backstop）→ 长度（Unicode code point）1–255；允许中文及内部普通空格且不自动合并；仅 ASCII A-Z→a-z 折叠、非 ASCII 原样、保留展示大小写；name_key=ASCII_lower(btrim(name))（应用逐码位、DB translate、禁 lower()/str.lower()，locale 无关）；同 Cluster 未软删 (cluster_id,name_key) 部分唯一 WHERE deleted_at IS NULL；软删后可复用，恢复重检冲突不覆盖。
+
+cidr（DR-91/DB-D83）：合法 IPv4 CIDR，PG 原生 cidr；host 位接受并归一化为网络地址（'10.0.0.5/24'→'10.0.0.0/24'）；仅 IPv4（family=4）；非 IPv4/非法→422；同 Cluster 未软删不重叠（排他约束），INACTIVE 参与。
+
+gateway（DR-93/DB-D84）：可空 IPv4（inet）；填写时①属该 CIDR 基础可用地址（/0–/30 排网络/广播；/31 两址可用；/32 必空）②非 §11.1 禁用范围（0.0.0.0/8、127.0.0.0/8、169.254.0.0/16、224.0.0.0/4、240.0.0.0/4）；违反→422 field="gateway"；从可分配集合排除供 F009/F010/F013 共用；「已占用 IP 设为 gateway」冲突检测归 F009/F010（I-5）。
+
+status/auto_allocate（DR-94/DB-D85）：status ∈{ACTIVE,INACTIVE} 默认 ACTIVE，INACTIVE 禁新增分配、仍参与重叠检查；auto_allocate boolean 默认 false，仅控自动分配、不绕过状态/地址约束；显式 null/非法→422。
+
+metadata（DR-95/DB-D86）：Network 自有 JSONB，object、默认 {}、整值替换；非 object/null→422；不并入 Resource 公共 metadata（覆盖 product I-6 PROPOSED）。
+
+cluster（DR-89/DB-D80）：创建必填 UUID 或 code，须引用存在未软删 Cluster，否则 422 field="cluster"；有未删除 Pool/IP 引用时不可改，无引用时可改并重检目标 Cluster（I-4）。
+
+镜像：DB 列/约束见 docs/database/f008-network.md v1（DB-D80–D94）；API 契约见 docs/api/F008.md v1。本字段字典供 F014 导入复用。
+
 ## 6. 归属与引用
 
 对象「所属对象」（如 Resource 的 Cluster、Pool 的 Network）在创建时必填；具体可空性按各条款。引用以稳定 UUID 表达；删除前做未删除引用检查，不隐式级联（§21）。
@@ -145,3 +165,4 @@ metadata（DR-83/DB-D72）：**归 Interface 自有**（§10 权威），JSON ob
 | v4 | 2026-10-09 | §3 追加 BareMetal 硬件数值上限引用；§5.2 追加硬件字符串长度 255；新增 §5.4 BareMetal hardware 字段口径 | F005 DB I-1 与 Contract v2 定稿 |
 | v5 | 2026-10-09 | §3 追加 VirtualMachineDetail 容量数值引用；§5.2 追加 hypervisor 长度 255；新增 §5.5 VirtualMachine 字段口径（host 必填/四条件、vcpu/memory_mb 正整数、disk_gb 非负且 0=明确无磁盘、MiB/GiB、hypervisor trim/≤255/无枚举、无跨字段、metadata 归 Resource） | F006 DB I-1 与 Contract v3 定稿 |
 | v6 | 2026-10-09 | §3 追加 Interface 数值上限引用；§5.2 追加 Interface name 64 与 mac_address ≤64；§5 表 Interface name 行明确「未删除」范围与不折叠口径；新增 §5.6 Interface 字段口径（name 1–64 区分大小写 trim 禁内部空白、类型 7 值默认 OTHER 不推断、mac ≤64 无正则无唯一、speed_mbps/mtu 正整数或 null、parent 同 Resource 禁自引用/环、enabled 默认 true、metadata Interface 自有、resource 创建必填不可改） | F007 DB I-1 与 Contract v1 定稿（DR-87） |
+| v7 | 2026-10-09 | §3 追加 Network 地址字段引用；§5.2 追加 Network name 255；§5 表新增 Network name 行；新增 §5.7 Network 字段口径（name 1–255 仅 ASCII 折叠、cidr host 位归一化、gateway 取值域 /31 /32 禁用 5 段、status/auto_allocate 默认、metadata 自有、cluster 创建必填与有引用不可改） | F008 DB I-2 与 Contract v1 定稿（DR-90/93/95/101） |

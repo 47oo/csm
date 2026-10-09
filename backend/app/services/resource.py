@@ -373,39 +373,10 @@ def _translate_integrity_error(exc: IntegrityError) -> AppError:
 def _resolve_cluster(db: "Session", reference: Any) -> Cluster:
     """Resolve a POST ``cluster`` (UUID or code) to an undeleted Cluster.
 
-    Missing/nonexistent/soft-deleted all yield 422 with ``field:"cluster"``
-    (Contract §6.2). The lookup deliberately includes soft-deleted rows so a
-    deleted cluster is reported as a field error rather than silently ignored.
+    Delegates to :func:`app.services.cluster.resolve_cluster` (single authority
+    shared with F008 Network).
     """
-    if not isinstance(reference, str) or not reference.strip():
-        raise _field_error("cluster", "cluster is required")
-
-    value = reference.strip()
-    cluster: Cluster | None = None
-    try:
-        cluster_id = uuid.UUID(value)
-    except (ValueError, AttributeError, TypeError):
-        cluster_id = None
-
-    if cluster_id is not None:
-        cluster = db.execute(
-            select(Cluster).where(Cluster.id == cluster_id),
-            execution_options={"include_deleted": True},
-        ).scalars().first()
-    else:
-        try:
-            normalized_code = normalization.normalize_code(value)
-        except AppError as exc:
-            raise _field_error("cluster", "cluster could not be resolved") from exc
-        key = normalization.code_key(normalized_code)
-        cluster = db.execute(
-            select(Cluster).where(Cluster.code_key == key),
-            execution_options={"include_deleted": True},
-        ).scalars().first()
-
-    if cluster is None or cluster.deleted_at is not None:
-        raise _field_error("cluster", "cluster does not exist or is not selectable")
-    return cluster
+    return cluster_service.resolve_cluster(db, reference)
 
 
 def _resolve_cluster_code_filter(db: "Session", code: str) -> uuid.UUID | None:
