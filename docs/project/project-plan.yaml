@@ -570,8 +570,13 @@ features:
   - F008
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: PRODUCT Gate（调用 product-manager 澄清 F009 范围与验收）
-  current_stage: PRODUCT
+  next_action: ARCHITECTURE Gate（architect：IPPool 实体/依赖方案、layers、api_required）
+  current_stage: ARCHITECTURE
+  implementation:
+    product: COMPLETE
+  evidence:
+    product:
+    - docs/features/F009/product.md
 - id: F010
   title: IP 地址分配与容量
   kind: FEATURE
@@ -900,9 +905,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F009
-  current_stage: PRODUCT
-  last_result: F009 started（分支 feature/F009-ip-pool，start_commit ce40bef）
-  next_action: PRODUCT Gate（product-manager）
+  current_stage: ARCHITECTURE
+  last_result: F009 PRODUCT COMPLETE（READY FOR ARCHITECT；无 Blocking Questions）
+  next_action: ARCHITECTURE Gate（architect）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
