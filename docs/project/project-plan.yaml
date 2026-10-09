@@ -640,8 +640,9 @@ features:
   - F008
   - F009
   blocking_decisions: []
-  status: READY
-  next_action: null
+  status: IN_PROGRESS
+  next_action: PRODUCT Gate（product-manager 澄清 F010 范围与验收）
+  current_stage: PRODUCT
 - id: F011
   title: Service 服务登记
   kind: FEATURE
@@ -938,11 +939,10 @@ execution:
     authorized_on: '2026-10-06'
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
-  current_feature: null
-  current_stage: null
-  last_result: F009 DONE（merge 26aecc8；TEST 292 passed/1 skipped；Review APPROVED WITH
-    FOLLOW-UP）
-  next_action: null
+  current_feature: F010
+  current_stage: PRODUCT
+  last_result: F010 started（分支 feature/F010-ip-address-allocation，start_commit a4b8de9）
+  next_action: PRODUCT Gate（product-manager）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -952,11 +952,10 @@ planning_status:
     CANCELLED: 0
     DONE: 9
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 3
+    READY: 2
   ready_features:
-  - F010
   - F011
   - F014
   blocked_draft_features:
