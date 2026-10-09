@@ -6,10 +6,13 @@
 
 ## Test Design
 
-- **版本**：TD-1
+- **版本**：TD-1 → **TD-2（当前）**
 - **日期**：2026-10-09
 - **角色**：Tester（TEST_DESIGN 模式）
-- **结论**：`TEST DESIGN READY`
+- **结论**：`TEST DESIGN READY`（TD-2）
+
+> **TD-2（当前）**：在 TD-1 基础上逐项核对并关闭 §8 OPEN-1–15（依据 DATABASE `docs/database/f008-network.md` v1、Contract `docs/api/F008.md` v1、D01 `d01-conventions.md` v7 §5.7 与真库结构，见 §8A）。TD-1 的结论、版本记录与全部验证项设计保留于下文，不删除。TD-2 仅表示方案可验证、OPEN 已关闭，**不表示测试已执行**；执行结果见 Test Execution（TE-1）。TD-2 发现 1 个数据库约束实现缺陷（DEF-F008-TE1-01，见 TE-1），已转 Backend 修复。
+
 - **依据**：
   - `docs/product/requirements-v3.md` revision 3（§4、§4.1、§11、§11.1、§12.1、§13、§14、§18、§20–§23、§25–§28、§31 T14/T16/T24/T25/T29/T30/T37/T38/T40/T41、§35.2 Q02-A/Q04-A/Q04-B/Q10-A/Q10-B、§35.3 D01/D02）
   - `docs/features/F008/product.md`（`READY FOR ARCHITECT`；A1–A22、I-1–I-6、明确排除项）
@@ -26,6 +29,7 @@
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
 | TD-1 | 2026-10-09 | 初版：A1–A22 映射 V1–V30，边界/并发 B1–B36，夹具/环境设计，可验证性检查，不适用项，§8 OPEN 复核项（待 DATABASE/CONTRACT/D01 v7 定稿后由 TD-2 关闭）。 |
+| TD-2 | 2026-10-09 | 逐项核对 DATABASE v1 / Contract v1 / D01 v7 §5.7 与真库结构，关闭 §8 OPEN-1–15；记录 2 项数据库文档补注（排他约束 `inet_ops`、host 位归一化归属）；发现 1 个 DB gateway CHECK 缺陷。 |
 
 > 待复核基线：`docs/database/f008-network.md`（DATABASE Gate，未定稿）、`docs/api/F008.md`（CONTRACT Gate，未定稿）、`d01-conventions.md` v7 §5.7（DR-101，未定稿）。TD-1 的表名/列名/约束名/错误路径/并发机制均按 architecture 草案假设，TD-2 逐项核对后方可作为执行依据。
 
@@ -270,15 +274,249 @@ TD-1 结论：**TEST DESIGN READY** —— A1–A22 可映射到可观察判据�
 
 ---
 
-## Test Execution
+## 8A. TD-2 — §8 OPEN-1–15 逐项关闭（2026-10-09）
 
-- **版本**：—
-- **日期**：—
-- **角色**：Tester（TEST 模式）
-- **结论**：未执行（待 DATABASE/CONTRACT 定稿、实现完成、TD-2 关闭 §8 后进入 TEST 阶段）。
-- **执行基线**：—
-- **说明**：本区块在 TEST 阶段按 F007 Test Report 模式追加：版本记录、执行基线/代码基线、独立性声明、环境表、实际执行命令与输出摘要、验收映射执行结果、Defects、未验证项。
+核对依据：`docs/database/f008-network.md` v1（DB-D80–D94）、`docs/api/F008.md` v1、`docs/architecture/d01-conventions.md` v7 §5.7、真库结构（独立库 `csm_verify_test`，PostgreSQL 16.15）。命令编号见 Test Execution §B。
+
+| # | TD-1 待复核假设 | 核对结论（真库/文档） | 关闭 / 去向 |
+| --- | --- | --- | --- |
+| OPEN-1 | 表名/列名/类型 | 真库 `networks` 14 列与 DB v1 §2 完全一致（C3）；Contract §3 响应字段一致 | **CLOSED** |
+| OPEN-2 | 约束/索引名 | 真库 13 约束：`pk_networks`、`fk_networks_cluster_id_clusters`、`ck_networks_name_not_blank/_trimmed/_no_control/_length/_name_key_matches`、`ck_networks_cidr_ipv4`、`ck_networks_gateway`、`ck_networks_status`、`ck_networks_metadata_object`、`ck_networks_version`、`excl_networks_cluster_id_cidr`；索引 `uq_networks_cluster_id_name_key`、`ix_networks_cluster_id/_status/_deleted_at`（C3） | **CLOSED** |
+| OPEN-3 | 排他约束形态 + btree_gist | 真库定义 `EXCLUDE USING gist (cluster_id WITH =, cidr inet_ops WITH &&) WHERE (deleted_at IS NULL)`；`btree_gist` 由 0008 `CREATE EXTENSION IF NOT EXISTS` 启用（C1/C3）。DB-D88 未写显式 `inet_ops` | **CLOSED**，NOTE-DB-1 |
+| OPEN-4 | name_key 口径 = ASCII_lower(btrim(name))，name 1–255 | D01 v7 §5.7、Contract §2.1、DB-D81 与真库 `ck_networks_name_key_matches = translate(btrim(name), 'A-Z','a-z')` 一致（C3）；应用 `network_name_key` 逐码位，不用 `str.lower()` | **CLOSED** |
+| OPEN-5 | CIDR host 位归一化 / 非 IPv4 拒 | Contract §2.2 接受并归一化；真库 `cidr` 类型**拒绝**裸 host 位（C4：`invalid cidr value: "10.1.0.5/24" ... Value has bits set to right of mask`），归一化实际由 Service `ipaddress(strict=False)` 完成。DB-D83「由 cidr 类型归一化」措辞与真库不符 | **CLOSED**，NOTE-DB-2 |
+| OPEN-6 | gateway 取值域与 DB CHECK 可行性 | Contract §2.2 / D01 §5.7 固定取值域；DB CHECK `ck_networks_gateway` 存在，但真库验证**未拒绝网络/广播地址**（C7） | **CLOSED（Contract）**；DB CHECK 缺陷 → **DEF-F008-TE1-01** |
+| OPEN-7 | `range_overlap`/`reference_exists` details 形状 | Contract §1.2：`{field:"cidr",conflicts:[{object_type,object_id,label}]}`、`references[{object_type,object_id,label}]`；API/桩测试命中（E8/E12） | **CLOSED** |
+| OPEN-8 | 校验顺序与错误码层级 | Contract §6 POST/PATCH/DELETE/restore；`test_validation_order` 通过（E10） | **CLOSED** |
+| OPEN-9 | 引用检查器注册表 + FOR UPDATE | Contract §7、DB-D90；实现注册空集调用点，改 cidr/cluster/删除事务内 `FOR UPDATE`；空集与桩均验证（E13/E12） | **CLOSED** |
+| OPEN-10 | 迁移 0008 单 head / 对称可逆 / 无回填 / 不 drop 扩展 | 独立库 up→down→up；`alembic heads` 单一 `0008_networks`、`down_revision=0007_interfaces`；down 后 networks/约束消失、interfaces 与 btree_gist 保留；re-up 一致（C1/C2） | **CLOSED** |
+| OPEN-11 | metadata Network 自有 + object CHECK | Contract §2.2、DB-D86、D01 v7；真库 `ck_networks_metadata_object`（C3、C5 非 object 拒） | **CLOSED** |
+| OPEN-12 | 列表 Query 参数集 / q 口径 / deleted / sort / order | Contract §4；`test_list_filters_sorting_pagination` 通过（E9） | **CLOSED** |
+| OPEN-13 | 恢复错误码优先级 name > Cluster > CIDR | Contract §6.6；`test_restore_rechecks_name_cluster_cidr` 通过（E11） | **CLOSED** |
+| OPEN-14 | 响应嵌套 `cluster{id,code,name}` 与字段命名 | Contract §3；`test_create_defaults_and_response_shape` 通过（E1） | **CLOSED** |
+| OPEN-15 | I-3 是否禁止 CIDR 完全落在 §11.1 禁用范围的 Network | architecture §8 I-3：不新增建网限制；无 FAIL 判据；仍为 Product/用户新增业务限定的观察项 | **CLOSED（记录，非阻塞）** |
+
+**TD-2 记录的数据库文档补注（NOTE，非必须修复缺陷；由协调器/Database 决定是否补文）**
+
+| 编号 | 观察 | 证据 |
+| --- | --- | --- |
+| NOTE-DB-1 | DB-D88 的排他约束描述 `(cluster_id WITH =, cidr WITH &&)` 未提及显式操作符类。真库必须写 `cidr inet_ops WITH &&`：安装 btree_gist 后 `cidr` 默认 GiST 操作符类为 `gist_cidr_ops`（仅等值），不加 `inet_ops` 会报 `operator &&(inet,inet) is not a member of operator family "gist_cidr_ops"`（C6）。建议 DB 文档补注。 | C6 |
+| NOTE-DB-2 | DB-D83 措辞「host 位由 cidr 类型归一化为网络地址」与真库不符：PG `cidr` 类型拒绝带 host 位输入，归一化由 Service `ipaddress(strict=False)` 完成；API/Contract 行为不变（B15 通过）。建议 DB 文档补注。 | C4 |
+
+TD-2 结论：`TEST DESIGN READY`（OPEN-1–15 已逐项关闭；2 项文档补注；1 项 DB 约束缺陷转实现）。该结论仍不代表测试通过或批准合并。
 
 ---
 
-GIT: NONE
+## Test Execution
+
+> TE-1（首轮执行）与 TE-2（有限修复第 1 轮后的 TEST 复核）均记录于本节。**当前结论以 TE-2 为准**。
+
+### TE-1（首次执行，历史记录）
+
+- **版本**：TE-1
+- **日期**：2026-10-09
+- **角色**：Tester（TEST 模式）
+- **结论**：**`RETURN TO IMPLEMENTATION`** —— 发现 1 个必须修复的数据库约束实现缺陷（DEF-F008-TE1-01）；其余 A1–A22 / V1–V30 / B1–B36 可验证项通过。
+- **执行基线**：HEAD `9bc9835`（分支 `feature/F008-network-management`）；Contract `docs/api/F008.md` v1；Database `docs/database/f008-network.md` v1；D01 v7；implementation `BACKEND+FRONTEND COMPLETE`；Test Design TD-2。
+- **独立性声明**：后端 pytest 由 Tester 独立重跑（非复用实现者数字）；迁移、约束、排他约束、CHECK、FK、部分唯一、JSONB 在独立库 `csm_verify_test`（库名含 test）以 Alembic / raw SQL 直接执行；未连接生产或未知数据库；前端 typecheck/build/smoke 独立重跑。
+
+---
+
+### A. 执行环境
+
+| 项 | 值 |
+| --- | --- |
+| 日期/时间（UTC） | 2026-10-09T07:17Z 起 |
+| PostgreSQL | `f002test-db` 容器 `postgres:16.15`（Debian 16.15-1.pgdg13+2），网络 `f002test-net` |
+| 测试库 | `csm_test`（pytest，用户 csm）；独立验证库 `csm_verify_test` |
+| 后端测试镜像 | `csm-f007-test:latest`（pytest 8.4.2 / Python 3.12.15），源码以 volume 挂载 |
+| 前端 | Node v22.23.2 / npm 12.0.2，`frontend/node_modules` 就绪 |
+| Compose / Nginx 全链路 | 未执行（环境限制，见未验证项）；权限矩阵以真实 ASGI 业务端点 + 真实 PG 覆盖（同 F007-TE-1-02 口径） |
+
+### B. 实际执行命令（编号引用）
+
+| 编号 | 命令 | 结果摘要 |
+| --- | --- | --- |
+| C1 | `DROP/CREATE csm_verify_test` → `alembic upgrade head` → `alembic heads` → `SELECT version_num` | upgrade 0001→0008 全部 OK；单一 head `0008_networks (head)`；version=`0008_networks` |
+| C2 | `alembic downgrade 0007_interfaces` → 查对象 → `alembic upgrade head` | downgrade 后 version=`0007_interfaces`；`to_regclass('public.networks')`=NULL、`interfaces` 存在、`btree_gist` 存在；re-up 后 `networks` 存在、version=`0008_networks` |
+| C3 | `SELECT conname, pg_get_constraintdef ... FROM pg_constraint`、`pg_indexes`、`pg_extension` | 13 约束 + 6 索引与 DB v1 §2 一致；排他约束含 `cidr inet_ops WITH &&`；`btree_gist` 存在（OPEN-1/2/3） |
+| C4 | raw `INSERT INTO scratch_hostbits (cidr) VALUES ('10.1.0.5/24')` | `ERROR: invalid cidr value ... Value has bits set to right of mask`（NOTE-DB-2） |
+| C5 | raw 直插：同 cluster 同 `name_key`、重叠 CIDR、非 object metadata | 分别被 `uq_networks_cluster_id_name_key`、`excl_networks_cluster_id_cidr`、`ck_networks_metadata_object` 拒（A1/A5/A20/V20/V24） |
+| C6 | scratch 表 `EXCLUDE USING gist (cluster_id WITH =, cidr WITH &&)` vs `cidr inet_ops WITH &&` | 无 opclass：`ERROR: operator &&(inet,inet) is not a member of operator family "gist_cidr_ops"`；加 `inet_ops` 成功（NOTE-DB-1） |
+| C7 | raw 直插 gateway：网络地址/广播/越界/禁用 5 段//32//31/合法 | **网络地址与广播地址被接受（DEF-01）**；越界、禁用 5 段、`/32`+非空被拒；`/31` 两端与合法值接受 |
+| C8 | 后端全量 `python -m pytest tests -q`（独立重跑） | **1 failed, 248 passed, 1 skipped**（失败=DEF-01 新增回归测试；skip=F001 V3b 非 superuser 环境性） |
+| C9 | 后端 F008 专属 `pytest tests/integration/test_networks.py tests/integration/test_network_constraints.py -q` | **1 failed, 31 passed**（32 用例） |
+| C10 | 前端 `npm run typecheck` → `npm run build` → `npm run smoke:client` | typecheck 通过；vite build 通过；smoke **108 passed, 0 failed**（含 F008 机制级 23 用例） |
+
+### D. 验收映射执行结果（A1–A22）
+
+| 验收 | 状态 | 证据 |
+| --- | --- | --- |
+| A1 同 Cluster 名大小写不敏感重名拒 | **PASS** | `test_name_uniqueness_case_insensitive_and_reuse`；C5 raw 部分唯一 |
+| A2 跨 Cluster 同名允许 | **PASS** | 同上 |
+| A3 trim/空名/控制字符/内部空格 | **PASS** | `test_name_trim_boundaries_and_internal_spaces`；`test_name_boundaries_and_name_key` |
+| A4 软删后重建/存活同名拒/恢复不覆盖 | **PASS** | `test_name_uniqueness_case_insensitive_and_reuse`；`test_restore_rechecks_name_cluster_cidr` |
+| A5 同 Cluster CIDR 重叠/相同拒，跨 Cluster 允许 | **PASS** | `test_cidr_overlap_and_inactive`；`test_exclusion_overlap_and_cidr_normalisation` |
+| A6 INACTIVE 参与重叠 | **PASS** | 同上 |
+| A7 非 IPv4/非法 CIDR 422 | **PASS** | `test_cidr_validation_and_normalisation`；DB 非 IPv4 拒 |
+| A8 cluster 缺失/不存在/软删 422 | **PASS** | `test_cluster_validation` |
+| A9 有引用改 cidr/cluster 拒；无引用按约束允许并重检 | **PASS** | `test_reference_checker_blocks_change_and_delete`（注册桩→409 reference_exists + references[]）；`test_patch_cluster_rechecks_target` |
+| A10 gateway 空允许/越界禁用 422//32 必空 | **PASS（API 可观察）**；**DB 后盾缺陷** | `test_gateway_boundaries`（API）通过；C7 证明 DB CHECK 对网络/广播失效 → **DEF-01** |
+| A11 gateway 从可分配集合排除，容量不计 | **PASS（F008 侧）** | Contract §2.2/D01 §5.7 静态核对；容量数值归 F013 |
+| A12 status 默认/显式/非法 | **PASS** | `test_status_auto_allocate_metadata`；`test_status_auto_allocate_and_metadata` |
+| A13 auto_allocate 默认/显式/不绕过 | **PASS** | 同上 |
+| A14 INACTIVE 查询/禁新增分配语义 | **PASS（F008 侧）** | GET INACTIVE 200；F008 无分配入口；执行归 F010 |
+| A15 有引用删除拒+引用列表；不级联；无引用软删 | **PASS** | `test_reference_checker_blocks_change_and_delete`；`test_soft_delete_visibility_and_restore` |
+| A16 恢复重检 name/Cluster/CIDR；失败不覆盖 | **PASS** | `test_restore_rechecks_name_cluster_cidr` |
+| A17 权限矩阵（真实 ASGI + 真实 PG） | **PASS** | `test_permission_matrix`（VIEWER/EDITOR/ADMIN/未认证逐端点）；Compose/Nginx 入口未执行（见未验证项） |
+| A18 四 action Audit 同事务；Activity 全角色 | **PASS** | `test_audit_four_actions_and_activity`；`test_audit_rolls_back_with_the_transaction` |
+| A19 列表软删隐藏/含 INACTIVE/过滤分页排序 | **PASS** | `test_list_filters_sorting_pagination`；`test_soft_delete_visibility_and_restore` |
+| A20 DB 部分唯一 + 排他约束兜底 | **PASS** | C5 raw；`test_partial_unique_name`；`test_exclusion_overlap_and_cidr_normalisation` |
+| A21 归一化 API/DB 一致，仅未删参与唯一 | **PASS（F008 侧）** | 应用 `network_name_key` 与 DB `translate(btrim(name))` 逐项一致；F014/F013 执行各自 |
+| A22 CIDR/gateway 边界作为下游共同输入 | **PASS（F008 侧静态）/ 执行帰下游 NOT TESTED** | Contract §9；F009/F010/F013 执行 |
+
+### E. 补充验证项（V1–V30）
+
+| 验证项 | 状态 | 说明 |
+| --- | --- | --- |
+| V1–V9 | **PASS** | 见 A1–A9 证据 |
+| V10 gateway 边界 | **PASS（API）/ DB CHECK 缺陷** | API `test_gateway_boundaries` 通过；DB `test_gateway_boundaries`（约束）**FAIL** → DEF-01 |
+| V11–V20 | **PASS** | 见对应 A 证据；C5 |
+| V21 归一化一致 | **PASS（F008 侧）** | 应用/DB CHECK 同口径 |
+| V22 边界语义下游共用 | **PASS（F008 侧静态）/ 下游 NOT TESTED** | — |
+| V23 迁移 0008 | **PASS** | C1/C2；`test_migration_up_down_up_and_single_head` |
+| V24 metadata JSONB | **PASS** | `test_status_auto_allocate_metadata`；C5 raw 非 object 拒 |
+| V25 乐观锁并发 | **PASS** | `test_optimistic_lock_two_sessions`（两 Session 真提交） |
+| V26 PATCH exclude_unset/不可变 | **PASS** | `test_patch_exclude_unset_and_non_nullable` |
+| V27 校验顺序 | **PASS** | `test_validation_order` |
+| V28 响应契约 | **PASS** | `test_create_defaults_and_response_shape` |
+| V29 FK 物理语义（机制级） | **PASS** | `test_fk_restrict_and_soft_delete_retention`（`confdeltype='r'`） |
+| V30 引用检查器注册表 | **PASS** | `test_reference_checker_registry_empty`（空集无误报）+ `test_reference_checker_blocks_change_and_delete`（桩生效） |
+
+### F. 边界与并发场景（B1–B36）
+
+全部 **PASS**，证据：B1–B8 `test_name_*`/`test_name_boundaries_and_name_key`/`test_partial_unique_name`；B9–B12 `test_cidr_overlap_and_inactive`/`test_exclusion_overlap_and_cidr_normalisation`；B13–B14 `test_cluster_validation`；B15–B16 `test_cidr_validation_and_normalisation`/C4；B17 `test_gateway_boundaries`（API）/ C7（DB 网络·广播部分 DEF-01）；B18–B20 `test_status_*`；B21–B24 `test_patch_cidr_and_gateway_recheck`/`test_patch_cluster_rechecks_target`/`test_reference_checker_blocks_change_and_delete`；B25 `test_restore_rechecks_name_cluster_cidr`；B26 `test_optimistic_lock_two_sessions`；B27 `test_audit_rolls_back_with_the_transaction`；B28 `test_permission_matrix`；B29 `test_status_auto_allocate_metadata`；B30–B31 C5/`test_partial_unique_name`/`test_exclusion_overlap_and_cidr_normalisation`；B32 `test_soft_delete_visibility_and_restore`；B33 `test_concurrent_overlapping_insert`；B34 `test_concurrent_restore_vs_recreate`；B35 C2/`test_migration_up_down_up_and_single_head`；B36 `test_fk_restrict_and_soft_delete_retention`。
+
+- **B5 NOTE**：TD-1 待核对的 Unicode 空格口径：D01 v7 §5.7 / Contract §2.1 仅固定「允许内部普通空格且不合并」，未规定 Unicode 空格（如 NBSP）行为；实现仅拒 Cc/Cf，保留其它 Unicode 空格。这与已确认规则不冲突，不判 FAIL；如后续要收紧需 Product/D01 裁定。
+- **B34 首次补充执行**：TD-1 计划但实现阶段未落地的「恢复 vs 并发重建」真提交并发用例已由 Tester 新增（`test_concurrent_restore_vs_recreate`），排他约束/部分唯一闭环使至多一方存活，PASS。
+
+### G. Defects
+
+| ID | Severity | Layer | Location | 证据/复现 | 期望 vs 实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| DEF-F008-TE1-01 | **HIGH** | Backend / Database（约束实现） | `backend/alembic/versions/0008_networks.py` 的 `ck_networks_gateway`（docs/database/f008-network.md DB-D84） | C7：独立库 raw 直插 `cidr=10.70.0.0/24, gateway=10.70.0.0`（网络地址）与 `cidr=10.71.0.0/24, gateway=10.71.0.255`（广播地址）**成功**；修正后的 `test_gateway_boundaries`（test_network_constraints.py）FAIL；越界/禁用 5 段//32 均正确拒绝。根因：`network(cidr)::inet` 与 `broadcast(cidr)::inet` 保留前缀长度（如 /24），而 `gateway` 为隐含 /32 主机地址，PostgreSQL `inet` `<>` 比较含掩码长度，故 `gateway <> network(cidr)::inet` 恒为真，网络/广播排除分支失效。 | 期望：DB CHECK 作为 backstop 拒绝网络/广播地址。实际：接受（仅应用层 `normalize_gateway` 拦截）。 | 设计 DB-D84 声明的纯 SQL backstop 未实现；直接 DB 写入可落非法 gateway，且原 DB 验证用例为假阳性（其 bad 用例同 CIDR 被排他约束先阻，未真正到达 CHECK）。API 可观察验收 A10/B17 仍通过（无用户可见失败）。 | Backend（修 CHECK，如 `gateway <> host(network(cidr))` 或 `gateway << cidr AND masklen(cidr)<>32 AND ...` 等价写法）；Database（可同步 DB-D88/DB-D84 措辞） | **是** |
+
+**测试侧修正（Tester 职责内，非业务规则变更）**：
+1. `test_network_constraints.py::test_gateway_boundaries` 改为每个负例使用独立 CIDR 且 gateway 位于其 CIDR 内，确保只有 `ck_networks_gateway` 能使插入失败；修正后该用例暴露 DEF-01。
+2. `test_networks.py::test_audit_four_actions_and_activity` 原先硬编码 `[CREATE,UPDATE,DELETE,RESTORE]` 顺序，在 `created_at` 同刻时按 Contract §6.7 的 `id` 平局顺序会偶然不符（全量跑中偶发失败）；已改为校验 action 集合 + UPDATE before/after，并与 raw 行顺序一致性对齐，消除 flaky（非产品缺陷）。
+3. 新增 `test_reference_checker_blocks_change_and_delete`（注册桩覆盖 A9/A15/V9/V15/B22/B24 的 409 reference_exists 端到端路径）与 `test_concurrent_restore_vs_recreate`（B34）。
+
+### H. 未验证项
+
+| 项 | 原因 | 影响 |
+| --- | --- | --- |
+| A17 经入口 Nginx + Compose 全链路 | 环境限制（本任务不重建镜像；`docker build` 可能鉴权超时） | 已按同 F007-TE-1-02 口径以真实 ASGI 业务端点 + 真实 PG 覆盖权限矩阵；未以入口验证，标 NOTE 不降验收 |
+| A22 / V22 下游执行（F009 IPPool、F010 IPAddress、F013 容量） | 跨 Feature，未实现 | F008 侧仅静态核对边界语义可复用；下游执行帰对应 Feature |
+| A11 容量数值 | 归 F013 | F008 仅提供可分配边界语义 |
+| I-3 禁用范围建网限制 | 属新增业务限定，待用户裁定 | 无 FAIL 判据；不阻塞本 Feature |
+| 真实浏览器 DOM 渲染 | 非 F008 必要判据 | 前端以构建 + client 机制级为准 |
+| DB gateway CHECK 网络/广播后盾 | **FAIL（DEF-01）** | 修复并重测后重新评定 |
+
+### I. 结论
+
+TD-2 已逐项关闭 §8 OPEN-1–15（2 项 DB 文档补注 NOTE）。TE-1 执行：A/V/B 均已在真实 PostgreSQL 上独立验证，发现 **1 个必须修复的 HIGH 缺陷 DEF-F008-TE1-01**（DB gateway CHECK 未拒网络/广播地址，且原验证用例为假阳性）。因此结论为 **`RETURN TO IMPLEMENTATION`**，Owner **Backend**（约束实现）+ 可选 **Database**（文档措辞）；修复并修复后按影响重测（C7/C8/C9）后才能进入正式 Review。
+
+---
+
+**TE-1 Git 声明**
+
+```text
+GIT: git rev-parse --short HEAD
+GIT: git status --porcelain
+GIT: git branch --show-current
+GIT: git diff --stat
+```
+
+---
+
+### TE-2（有限修复第 1 轮后 TEST 复核，当前）
+
+- **版本**：TE-2
+- **日期**：2026-10-09
+- **角色**：Tester（TEST 模式，复核）
+- **结论**：**`READY FOR REVIEW`** —— DEF-F008-TE1-01 已关闭；受影响项与必要回归独立重测通过，无必须修复问题。
+- **候选交付说明**：本轮验证对象为**工作区候选交付**，包含 HEAD `9bc9835` **加上未提交的 backend 修复与测试改动**。具体未提交文件：`backend/alembic/versions/0008_networks.py`、`backend/app/models/network.py`（Backend 修复）、`backend/tests/integration/test_network_constraints.py`、`backend/tests/integration/test_networks.py`（测试侧）、`docs/features/F008/test-report.md`（本报告）。**本轮测试有效性仅针对该工作区组合，不代表任一已提交基线单独通过。**
+- **修复内容核对**：`ck_networks_gateway` 由 `gateway <> network(cidr)::inet` / `gateway <> broadcast(cidr)` 改为 `gateway <> host(network(cidr))::inet` / `gateway <> host(broadcast(cidr))::inet`（移除保留前缀长度，使比较两侧均为隐含 /32 主机地址）；`backend/app/models/network.py` 同步。真库 CHECK 定义已确认新写法（见 R3）。
+- **代码基线**：HEAD `9bc9835` + 上述未提交修复；分支 `feature/F008-network-management`；Test Design TD-2；Contract/Database/D01 版本同 TE-1。
+- **独立性声明**：focused/full pytest 与真库 raw SQL 均由 Tester 独立重跑，不复用 Backend 数字；raw SQL 在重建后的独立库 `csm_verify_test`（库名含 test）以 Alembic `upgrade head` 建表后直接执行，未连接生产或未知数据库。
+
+#### TE-2 A. 执行命令与结果
+
+| 编号 | 命令 | 结果摘要 |
+| --- | --- | --- |
+| R1 | `pytest tests/integration/test_network_constraints.py tests/integration/test_networks.py -q`（docker + f002test-net + `TEST_DATABASE_URL=csm_test`） | **32 passed, 1 warning in 12.04s**（TE-1 为 1 failed, 31 passed） |
+| R2 | `pytest tests -q`（全量） | **249 passed, 1 skipped, 1 warning in 77.01s**（TE-1 为 1 failed, 248 passed, 1 skipped；skip 仍为 `test_migrations.py` superuser 环境性 V3b） |
+| R3 | 独立库 `csm_verify_test`：`DROP DATABASE ... WITH (FORCE)` → `CREATE DATABASE` → `alembic upgrade head` → 读回 `pg_get_constraintdef(ck_networks_gateway)` | upgrade 0001→0008 全部 OK；单一 head `0008_networks`；CHECK 定义确认为 `... gateway <> (host(network((cidr)::inet))::inet) ... AND gateway <> (host(broadcast((cidr)::inet)))::inet ...` |
+| R4 | 真库 raw SQL 直插 `networks`（真实 `ck_networks_gateway`，非 scratch 表；先建合法 cluster 满足 FK） | 见下表 |
+
+**R4 逐项结果（独立验证库 `csm_verify_test`，真实约束）**
+
+| 用例 | cidr / gateway | 预期 | 实际 | 判定 |
+| --- | --- | --- | --- | --- |
+| 网络地址 | `10.70.0.0/24` / `10.70.0.0` | 拒 | `REJECTED (ck_networks_gateway)` | **PASS** |
+| 广播地址 | `10.71.0.0/24` / `10.71.0.255` | 拒 | `REJECTED (ck_networks_gateway)` | **PASS** |
+| `/31` 下端 | `10.72.0.0/31` / `10.72.0.0` | 接受 | `ACCEPTED` | **PASS** |
+| `/31` 上端 | `10.72.0.2/31` / `10.72.0.3` | 接受 | `ACCEPTED` | **PASS** |
+| `/32` 非空 | `10.73.0.5/32` / `10.73.0.5` | 拒 | `REJECTED (ck_networks_gateway)` | **PASS** |
+| 禁用 `0.0.0.0/8` | `10.74.0.0/24` / `10.0.0.1` | 拒 | `REJECTED (ck_networks_gateway)` | **PASS** |
+| 禁用 `127/8` | `127.1.0.0/24` / `127.1.0.1` | 拒 | `REJECTED (ck_networks_gateway)` | **PASS** |
+| 禁用 `169.254/16` | `169.254.5.0/24` / `169.254.5.7` | 拒 | `REJECTED (ck_networks_gateway)` | **PASS** |
+| 禁用 `224/4` | `224.5.0.0/24` / `224.5.0.1` | 拒 | `REJECTED (ck_networks_gateway)` | **PASS** |
+| 禁用 `240/4` | `240.5.0.0/24` / `240.5.0.1` | 拒 | `REJECTED (ck_networks_gateway)` | **PASS** |
+| 合法 host | `10.75.0.0/24` / `10.75.0.10` | 接受 | `ACCEPTED` | **PASS** |
+| CIDR 外越界 | `10.76.0.0/24` / `10.77.0.1` | 拒 | `REJECTED (ck_networks_gateway)` | **PASS** |
+
+#### TE-2 B. 受影响验收/验证项状态更新
+
+| 项 | TE-1 | TE-2 | 证据 |
+| --- | --- | --- | --- |
+| A10 gateway 空允许/越界禁用 422//32 必空 | PASS（API）+ DB 后盾缺陷 | **PASS（API + DB）** | API `test_gateway_boundaries`；R4 真库 CHECK 网络/广播拒 |
+| V10 gateway 边界 | PASS（API）/ DB CHECK FAIL | **PASS（API + DB）** | 同上；R1/R3/R4 |
+| B17 gateway 边界 | 网络/广播部分 DEF-01 | **PASS** | R4 全项；`/31` 两端接受、`/32` 非空拒、禁用 5 段拒、合法 host 接受 |
+| 全量回归 | 1 failed, 248 passed, 1 skipped | **249 passed, 1 skipped** | R2 |
+
+其余 A/V/B 项在本轮无受影响变更，TE-1 结论继续有效（均基于真实 PG 独立验证）。前端未变更，`npm run typecheck/build/smoke:client` 结果沿用 TE-1 C10（不再重跑）。
+
+#### TE-2 C. Defects
+
+| ID | Severity | Layer | Location | 证据/复现 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| DEF-F008-TE1-01 | HIGH | Backend / Database | `backend/alembic/versions/0008_networks.py` `ck_networks_gateway` | TE-1 C7；本轮 R3/R4 | **CLOSED（已修复并独立重测通过）** |
+
+#### TE-2 D. 未验证项
+
+| 项 | 原因 | 影响 |
+| --- | --- | --- |
+| A17 经入口 Nginx + Compose 全链路 | 同 TE-1 环境限制 | 仍以真实 ASGI 业务端点 + 真实 PG 覆盖权限矩阵；不降验收（沿用 TE-1） |
+| A22/V22 下游、A11 容量数值 | 跨 Feature（F009/F010/F013） | 归对应 Feature，非本 Feature 阻塞 |
+| I-3 禁用范围建网限制 | 待用户裁定 | 无 FAIL 判据 |
+| 真实浏览器 DOM 渲染 | 非 F008 必要判据 | 前端以构建 + client 机制级为准 |
+
+#### TE-2 E. 结论
+
+DEF-F008-TE1-01 已关闭；R1 focused 32 passed、R2 全量 249 passed/1 skipped、R3+R4 真库 `ck_networks_gateway` 逐项符合预期。受影响 A10/V10/B17 及全量回归通过，无必须修复问题。**结论：`READY FOR REVIEW`。** 本次候选交付包含未提交的 backend 修复与测试改动，本轮测试有效性针对该工作区组合。
+
+---
+
+**TE-2 Git 声明**
+
+```text
+GIT: git status --porcelain
+GIT: git rev-parse --short HEAD
+GIT: git branch --show-current
+GIT: git diff -- backend/alembic/versions/0008_networks.py backend/app/models/network.py
+GIT: git diff --stat -- backend/tests/
+GIT: git rev-parse --short HEAD
+GIT: git status --porcelain
+GIT: git diff --stat
+```

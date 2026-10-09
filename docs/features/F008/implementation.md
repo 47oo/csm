@@ -31,3 +31,10 @@ Frontend：`npm run typecheck`（tsc --noEmit）通过；`npm run build`（tsc +
 
 ## 9. 提交
 - Backend / Frontend 提交见检查点；implementation 记录由协调器写入。
+
+## 10. 缺陷修复（有限修复第 1 轮）
+- 来源：Tester TE-1 `DEF-F008-TE1-01`（HIGH）：`ck_networks_gateway` 用 `network(cidr)::inet` / `broadcast(cidr)` 比较保留前缀长度，网络/广播地址未被 DB CHECK 拒绝（原用例因同 CIDR 被排他约束先阻而假阳性）。应用层 `normalize_gateway` 正确，未改动。
+- 修复：迁移 `0008_networks.py` 与 ORM `models/network.py` 的 gateway CHECK 改为 `host(network(cidr))::inet` / `host(broadcast(cidr))::inet`；`/31`、`/32`、禁用 5 段、IPv4-only 语义不变；未放宽其它约束。
+- 验证：F008 专属 32 passed；全量 249 passed / 1 skipped；独立库 raw 复核网络/广播/`/32` 非空/禁用段/越界拒绝、`/31` 两端与合法 host 接受。
+- 结果：`DEF-F008-TE1-01` CLOSED；Tester 复核 TE-2 结论 `READY FOR REVIEW`。
+- 遗留 NOTE（非阻塞，待 Database 补齐设计正文措辞）：DB-D83「由 cidr 类型归一化」应记为 Service `ipaddress(strict=False)`；DB-D88 排他约束需显式 `cidr inet_ops WITH &&`。
