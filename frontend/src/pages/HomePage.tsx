@@ -10,6 +10,7 @@ import ClusterDetailPage from "./ClusterDetailPage";
 import ResourcesPage from "./ResourcesPage";
 import ResourceCreatePage from "./ResourceCreatePage";
 import ResourceDetailPage from "./ResourceDetailPage";
+import NetworksPage from "./NetworksPage";
 
 interface HomePageProps {
   user: User;
@@ -25,12 +26,14 @@ type Section =
   | { name: "cluster-detail"; id: string; deleted: boolean }
   | { name: "resources" }
   | { name: "resource-create" }
-  | { name: "resource-detail"; id: string; deleted: boolean };
+  | { name: "resource-detail"; id: string; deleted: boolean }
+  | { name: "networks" };
 
 /**
- * F002 已登录视图 + F003/F004 导航壳（架构 §1.8，不追求复杂视觉效果）：
+ * F002 已登录视图 + F003/F004/F008 导航壳（架构 §1.8，不追求复杂视觉效果）：
  * 概览（当前用户 + 后端健康）/ Clusters（列表 / 新建 / 详情）/ Resources
- * （列表 / 新建 / 详情）。Clusters / Resources 入口对全部已登录角色可见
+ * （列表 / 新建 / 详情）/ Networks（列表 / 新建 / 编辑，F008）。各入口对
+ * 全部已登录角色可见
  * （READ 全角色）；写 / 删 / 恢复 / 已删可见性仅按服务端返回的 permissions
  * 显示对应控件——隐藏不替代鉴权，服务端仍按 §23 矩阵执行（越权请求 403
  * 由页面明确呈现）。
@@ -71,7 +74,8 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
     section.name === "resources" ||
     section.name === "resource-create" ||
     section.name === "resource-detail";
-  const wide = inClusters || inResources;
+  const inNetworks = section.name === "networks";
+  const wide = inClusters || inResources || inNetworks;
 
   return (
     <main className={wide ? "main-wide" : undefined}>
@@ -116,6 +120,13 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
           onClick={() => setSection({ name: "resources" })}
         >
           Resources
+        </button>
+        <button
+          type="button"
+          className={inNetworks ? "nav-link nav-link-active" : "nav-link"}
+          onClick={() => setSection({ name: "networks" })}
+        >
+          Networks
         </button>
       </nav>
 
@@ -216,6 +227,8 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
           }
         />
       )}
+
+      {section.name === "networks" && <NetworksPage user={user} />}
     </main>
   );
 }

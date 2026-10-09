@@ -58,6 +58,20 @@
  *   创建 / PATCH 载荷构造语义的本地镜像（exclude_unset；显式 null=清空；
  *   parent_interface id 提取）。
  *
+ * F008 追加（Contract：docs/api/F008.md v1，前端机制级）：
+ * - src/api/networks.ts 的 URL / method / body 构造（Contract §6：列表查询串
+ *   （q / cluster_id / status / auto_allocate / deleted）、POST 201 信封、PATCH
+ *   仅携带变化字段、DELETE / restore 的 version Query、activity）；
+ * - 409 CONFLICT（unique_conflict field="name" → 字段级错误；range_overlap
+ *   field="cidr" → cidr 字段错误 + conflicts（重叠 Network）；reference_exists
+ *   → references（IPPool / IPAddress）；dependency_deleted → conflicts（cluster）；
+ *   not_deleted）/ VERSION_CONFLICT（→ 刷新后重改，不静默重试）/ 422 / 404 / 403
+ *   的 describeNetworkActionError 语义；
+ * - src/components/networkForm.ts（纯逻辑，无 JSX）：表单值解析（name trim /
+ *   禁控制字符 / ≤255、cidr IPv4/CIDR 格式、gateway 可选 IPv4、空串=null /
+ *   默认 ACTIVE / auto_allocate false）、创建 / PATCH 载荷构造语义的本地镜像
+ *   （exclude_unset；显式 null=清空 gateway/description；可改 cluster）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -119,6 +133,23 @@ import {
   interfaceFormValuesFromInterface,
   parseInterfaceFormValues,
 } from "../src/components/interfaceForm.ts";
+import {
+  createNetwork,
+  deleteNetwork,
+  describeNetworkActionError,
+  getNetwork,
+  getNetworkActivity,
+  listNetworks,
+  restoreNetwork,
+  updateNetwork,
+} from "../src/api/networks.ts";
+import {
+  buildNetworkCreateInput,
+  buildNetworkPatch,
+  emptyNetworkFormValues,
+  networkFormValuesFromNetwork,
+  parseNetworkFormValues,
+} from "../src/components/networkForm.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -1882,6 +1913,489 @@ await test("F007 interfaceFormValuesFromInterface：null → 空串；数值字�
   const roundTrip = parseInterfaceFormValues(interfaceFormValuesFromInterface(ifaceFixture));
   assert.equal(roundTrip.ok, true);
   assert.equal(buildInterfacePatch(ifaceFixture, roundTrip.fields, ifaceFixture.metadata), null);
+});
+
+// ---------- F008 Network 机制级（Contract：docs/api/F008.md v1） ----------
+
+/** Network 响应夹具（Contract §3：cluster 展开 / gateway、description 可空）。 */
+const networkFixture = {
+  id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+  cluster: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004", code: "N96P", name: "N96P集群" },
+  name: "MGMT",
+  cidr: "10.0.0.0/24",
+  gateway: "10.0.0.1",
+  status: "ACTIVE",
+  auto_allocate: false,
+  description: "管理网",
+  metadata: { vlan: 100 },
+  version: 3,
+  created_at: "2026-10-09T12:00:00+00:00",
+  updated_at: "2026-10-09T12:00:00+00:00",
+  deleted_at: null,
+};
+
+await test("F008 listNetworks：默认 GET /api/v1/networks，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listNetworks();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/networks");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F008 listNetworks 组合查询：q/cluster_id/status/auto_allocate/deleted/分页/排序（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listNetworks({
+    q: "mgmt",
+    cluster_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+    status: "INACTIVE",
+    auto_allocate: true,
+    deleted: "include",
+    page: 2,
+    page_size: 50,
+    sort: "cidr",
+    order: "asc",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/networks?q=mgmt&cluster_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004" +
+      "&status=INACTIVE&auto_allocate=true&deleted=include&page=2&page_size=50&sort=cidr&order=asc",
+  );
+  // 空串过滤项不发；false 也要照常发送（不得因 falsy 丢失）
+  await listNetworks({ q: "", cluster_id: "", auto_allocate: false });
+  assert.equal(calls[1].url, "/api/v1/networks?auto_allocate=false");
+});
+
+await test("F008 createNetwork：POST body（cluster/name/cidr+status/auto_allocate；可空仅携带已登记值）；响应解析", async () => {
+  respond = () => jsonResponse(201, { network: networkFixture });
+  const { network } = await createNetwork({
+    cluster: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+    name: "MGMT",
+    cidr: "10.0.0.0/24",
+    gateway: "10.0.0.1",
+    status: "ACTIVE",
+    auto_allocate: false,
+    description: "管理网",
+    metadata: { vlan: 100 },
+  });
+  assert.equal(network.id, networkFixture.id);
+  assert.equal(network.cluster.code, "N96P");
+  assert.equal(network.gateway, "10.0.0.1");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/networks");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    cluster: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+    name: "MGMT",
+    cidr: "10.0.0.0/24",
+    gateway: "10.0.0.1",
+    status: "ACTIVE",
+    auto_allocate: false,
+    description: "管理网",
+    metadata: { vlan: 100 },
+  });
+});
+
+await test("F008 createNetwork 最小载荷：仅 cluster + name + cidr（可空省略 → 服务端默认）", async () => {
+  respond = () => jsonResponse(201, { network: { ...networkFixture, gateway: null, description: null } });
+  const { network } = await createNetwork({
+    cluster: "c1",
+    name: "MGMT",
+    cidr: "10.0.0.0/24",
+  });
+  assert.equal(network.gateway, null); // 未设置返回 null，不用空串代替
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    cluster: "c1",
+    name: "MGMT",
+    cidr: "10.0.0.0/24",
+  });
+});
+
+await test("F008 getNetwork：详情 + ?deleted=true（已删需 VIEW_DELETED）", async () => {
+  respond = () => jsonResponse(200, { network: networkFixture });
+  await getNetwork(networkFixture.id);
+  assert.equal(calls[0].url, `/api/v1/networks/${networkFixture.id}`);
+  await getNetwork(networkFixture.id, { deleted: true });
+  assert.equal(calls[1].url, `/api/v1/networks/${networkFixture.id}?deleted=true`);
+});
+
+await test("F008 updateNetwork：PATCH 仅携带变化字段（version 必带，Contract §6.4）", async () => {
+  respond = () => jsonResponse(200, { network: { ...networkFixture, version: 4, status: "INACTIVE" } });
+  await updateNetwork(networkFixture.id, { version: 3, status: "INACTIVE" });
+  assert.equal(calls[0].init.method, "PATCH");
+  assert.equal(calls[0].url, `/api/v1/networks/${networkFixture.id}`);
+  assert.deepEqual(JSON.parse(calls[0].init.body), { version: 3, status: "INACTIVE" });
+});
+
+await test("F008 updateNetwork：gateway/description 显式 null = 清空", async () => {
+  respond = () => jsonResponse(200, { network: { ...networkFixture, gateway: null } });
+  await updateNetwork(networkFixture.id, { version: 3, gateway: null, description: null });
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    version: 3,
+    gateway: null,
+    description: null,
+  });
+});
+
+await test("F008 deleteNetwork / restoreNetwork：version 为 Query 参数（Contract §6.5/§6.6）", async () => {
+  respond = () => new Response(null, { status: 204 });
+  await deleteNetwork(networkFixture.id, 3);
+  assert.equal(calls[0].init.method, "DELETE");
+  assert.equal(calls[0].url, `/api/v1/networks/${networkFixture.id}?version=3`);
+  respond = () => jsonResponse(200, { network: { ...networkFixture, version: 4, deleted_at: null } });
+  await restoreNetwork(networkFixture.id, 3);
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[1].url, `/api/v1/networks/${networkFixture.id}/restore?version=3`);
+});
+
+await test("F008 getNetworkActivity：URL + deleted/page 查询参数（VIEW_ACTIVITY 全角色）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  await getNetworkActivity(networkFixture.id, { page: 1, page_size: 20 });
+  assert.equal(calls[0].url, `/api/v1/networks/${networkFixture.id}/activity?page=1&page_size=20`);
+  await getNetworkActivity(networkFixture.id, { deleted: true });
+  assert.equal(calls[1].url, `/api/v1/networks/${networkFixture.id}/activity?deleted=true`);
+});
+
+await test("F008 409 VERSION_CONFLICT：可识别冲突信号（刷新后重改），不静默重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "数据已被他人修改",
+        details: { current_version: 7 },
+      },
+    });
+  const err = await expectApiError(updateNetwork(networkFixture.id, { version: 6, status: "INACTIVE" }));
+  const described = describeNetworkActionError(err);
+  assert.equal(described.versionConflict, true);
+  assert.equal(described.currentVersion, 7);
+  assert.ok(described.message.includes("不会自动重试"));
+  assert.equal(calls.length, 1); // 不重试（不静默重试覆盖）
+});
+
+await test('F008 409 CONFLICT unique_conflict（field="name"）→ name 字段级错误（同集群大小写不敏感唯一）', async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "unique_conflict", field: "name" },
+      },
+    });
+  const err = await expectApiError(
+    createNetwork({ cluster: "c1", name: "mgmt", cidr: "10.0.0.0/24" }),
+  );
+  const described = describeNetworkActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.ok(described.fields.name, "unique_conflict 应落为 name 字段级错误");
+  assert.ok(described.fields.name.includes("大小写不敏感"));
+  assert.ok(described.message.includes("name 冲突"));
+});
+
+await test('F008 409 CONFLICT range_overlap（field="cidr"）→ cidr 字段级错误 + 重叠明细；不重试', async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "range_overlap",
+          field: "cidr",
+          conflicts: [
+            { object_type: "network", object_id: "n1", label: "MGMT" },
+            { object_type: "network", object_id: "n2", label: null },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(
+    createNetwork({ cluster: "c1", name: "OTHER", cidr: "10.0.0.0/16" }),
+  );
+  const described = describeNetworkActionError(err);
+  assert.ok(described.fields.cidr, "range_overlap 应落为 cidr 字段级错误");
+  assert.ok(described.fields.cidr.includes("INACTIVE"));
+  assert.equal(described.rangeConflicts.length, 2);
+  assert.equal(described.rangeConflicts[0].object_type, "network");
+  assert.equal(described.rangeConflicts[0].label, "MGMT");
+  assert.equal(described.rangeConflicts[1].label, null); // label 缺失为 null
+  assert.ok(described.message.includes("CONFLICT/range_overlap"));
+  assert.equal(calls.length, 1);
+});
+
+await test("F008 409 CONFLICT reference_exists：删除/改 cidr 被未删 Pool/IP 引用 → references（含 label）；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "reference_exists",
+          references: [
+            { object_type: "ip_pool", object_id: "p1", label: "pool-a" },
+            { object_type: "ip_address", object_id: "a1", label: "10.0.0.5" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(deleteNetwork(networkFixture.id, 3));
+  const described = describeNetworkActionError(err);
+  assert.equal(described.references.length, 2);
+  assert.equal(described.references[0].object_type, "ip_pool");
+  assert.equal(described.references[1].object_type, "ip_address");
+  assert.ok(described.message.includes("无法删除"));
+  assert.equal(calls.length, 1);
+});
+
+await test("F008 409 CONFLICT dependency_deleted：恢复时所属 Cluster 仍删（object_type=cluster）→ 集群文案，不覆盖新对象", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "cluster", object_id: "c1" }],
+        },
+      },
+    });
+  const err = await expectApiError(restoreNetwork(networkFixture.id, 3));
+  const described = describeNetworkActionError(err);
+  assert.equal(described.dependencyConflicts.length, 1);
+  assert.equal(described.dependencyConflicts[0].object_type, "cluster");
+  assert.ok(described.message.includes("所属集群"));
+  assert.ok(described.message.includes("不会覆盖集群或其上新对象"));
+});
+
+await test("F008 409 CONFLICT not_deleted：对未软删对象 restore 的明确文案", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: { code: "CONFLICT", message: "Conflict", details: { reason: "not_deleted" } },
+    });
+  const err = await expectApiError(restoreNetwork(networkFixture.id, 3));
+  const described = describeNetworkActionError(err);
+  assert.ok(described.message.includes("未处于已删除状态"));
+});
+
+await test("F008 422 VALIDATION_ERROR：顶层字段路径透传（name / cluster / cidr / gateway / metadata，Contract §2.3）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "请求体校验失败",
+        details: {
+          fields: [
+            { field: "cluster", message: "集群不存在或已删除" },
+            { field: "cidr", message: "cidr 非法" },
+            { field: "gateway", message: "gateway 不属于该 CIDR 或落入禁用范围" },
+            { field: "metadata", message: "metadata 必须是对象" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(
+    createNetwork({ cluster: "nope", name: "MGMT", cidr: "bad" }),
+  );
+  const described = describeNetworkActionError(err);
+  assert.equal(described.fields.cluster, "集群不存在或已删除");
+  assert.equal(described.fields.cidr, "cidr 非法");
+  assert.equal(described.fields.gateway, "gateway 不属于该 CIDR 或落入禁用范围");
+  assert.equal(described.fields.metadata, "metadata 必须是对象");
+});
+
+await test("F008 403 / 404：明确文案（权限不足 / 对象不存在，不泄露存在性细节）", async () => {
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const err403 = await expectApiError(deleteNetwork(networkFixture.id, 3));
+  assert.ok(describeNetworkActionError(err403).message.includes("没有权限"));
+  respond = () =>
+    jsonResponse(404, { error: { code: "NOT_FOUND", message: "不存在", details: {} } });
+  const err404 = await expectApiError(getNetwork(networkFixture.id));
+  assert.ok(describeNetworkActionError(err404).message.includes("网络不存在"));
+});
+
+await test("F008 parseNetworkFormValues：合法值（name trim / cidr 保留 host 位 / gateway trim / 空串=null）", async () => {
+  const parsed = parseNetworkFormValues({
+    ...emptyNetworkFormValues(),
+    cluster: "c1",
+    name: "  MGMT  ",
+    cidr: " 10.0.0.5/24 ",
+    gateway: " 10.0.0.1 ",
+    status: "INACTIVE",
+    auto_allocate: true,
+    description: "管理网",
+  });
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.fields.name, "MGMT");
+  // host 位不归一化（服务端负责 10.0.0.5/24 → 10.0.0.0/24）
+  assert.equal(parsed.fields.cidr, "10.0.0.5/24");
+  assert.equal(parsed.fields.gateway, "10.0.0.1");
+  assert.equal(parsed.fields.status, "INACTIVE");
+  assert.equal(parsed.fields.auto_allocate, true);
+  assert.equal(parsed.fields.description, "管理网");
+  // 可空字段空串 → null
+  const emptyParsed = parseNetworkFormValues({
+    ...emptyNetworkFormValues(),
+    cluster: "c1",
+    name: "MGMT",
+    cidr: "10.0.0.0/24",
+  });
+  assert.equal(emptyParsed.ok, true);
+  assert.equal(emptyParsed.fields.gateway, null);
+  assert.equal(emptyParsed.fields.description, null);
+  assert.equal(emptyParsed.fields.status, "ACTIVE"); // 默认 ACTIVE
+  assert.equal(emptyParsed.fields.auto_allocate, false); // 默认 false
+});
+
+await test("F008 parseNetworkFormValues：非法输入 → 字段级错误（空名 / 控制字符 / 超长 / cidr 非法或 IPv6 / gateway 非法 / 纯空白）", async () => {
+  const cases = [
+    { values: { name: "   " }, key: "name", hint: "不能为空" },
+    { values: { name: "MG\u0000MT" }, key: "name", hint: "控制字符" },
+    { values: { name: "n".repeat(256) }, key: "name", hint: "长度超过" },
+    { values: { cidr: "" }, key: "cidr", hint: "不能为空" },
+    { values: { cidr: "10.0.0.0" }, key: "cidr", hint: "CIDR" },
+    { values: { cidr: "10.0.0.256/24" }, key: "cidr", hint: "CIDR" },
+    { values: { cidr: "::1/64" }, key: "cidr", hint: "IPv4" },
+    { values: { cidr: "10.0.0.0/33" }, key: "cidr", hint: "CIDR" },
+    { values: { gateway: "10.0.0" }, key: "gateway", hint: "IPv4" },
+    { values: { gateway: "999.1.1.1" }, key: "gateway", hint: "IPv4" },
+    { values: { gateway: "   " }, key: "gateway", hint: "仅包含空白" },
+  ];
+  for (const { values, key, hint } of cases) {
+    const parsed = parseNetworkFormValues({
+      ...emptyNetworkFormValues(),
+      cluster: "c1",
+      name: "MGMT",
+      cidr: "10.0.0.0/24",
+      ...values,
+    });
+    assert.equal(parsed.ok, false, `应校验失败：${key}=${JSON.stringify(values[key])}`);
+    if (!parsed.ok) {
+      assert.ok(parsed.errors[key], `应产生 ${key} 字段错误`);
+      assert.ok(
+        parsed.errors[key].includes(hint),
+        `${key} 错误文案应含「${hint}」，实际：${parsed.errors[key]}`,
+      );
+    }
+  }
+  // 边界值合法：name 255 字符 / /0 / /32 / host 位
+  for (const cidr of ["0.0.0.0/0", "10.0.0.0/32", "172.16.8.9/20"]) {
+    const boundary = parseNetworkFormValues({
+      ...emptyNetworkFormValues(),
+      cluster: "c1",
+      name: "n".repeat(255),
+      cidr,
+    });
+    assert.equal(boundary.ok, true, `应接受合法 cidr ${cidr}`);
+  }
+});
+
+await test("F008 buildNetworkCreateInput：cluster/name/cidr/status/auto_allocate 恒携带；gateway/description 仅已登记值；空 metadata 省略", async () => {
+  const parsed = parseNetworkFormValues({
+    ...emptyNetworkFormValues(),
+    cluster: "c1",
+    name: "MGMT",
+    cidr: "10.0.0.0/24",
+  });
+  assert.equal(parsed.ok, true);
+  const input = buildNetworkCreateInput("c1", parsed.fields, {});
+  assert.deepEqual(input, {
+    cluster: "c1",
+    name: "MGMT",
+    cidr: "10.0.0.0/24",
+    status: "ACTIVE",
+    auto_allocate: false,
+  });
+  const full = parseNetworkFormValues({
+    ...emptyNetworkFormValues(),
+    cluster: "c1",
+    name: "MGMT",
+    cidr: "10.0.0.0/24",
+    gateway: "10.0.0.1",
+    status: "INACTIVE",
+    auto_allocate: true,
+    description: "管理网",
+  });
+  assert.equal(full.ok, true);
+  const fullInput = buildNetworkCreateInput("c1", full.fields, { vlan: 100 });
+  assert.deepEqual(fullInput, {
+    cluster: "c1",
+    name: "MGMT",
+    cidr: "10.0.0.0/24",
+    status: "INACTIVE",
+    auto_allocate: true,
+    gateway: "10.0.0.1",
+    description: "管理网",
+    metadata: { vlan: 100 },
+  });
+});
+
+await test("F008 buildNetworkPatch：exclude_unset 镜像（无变化 → null；变化才携带；显式 null=清空 gateway/description；可改 cluster）", async () => {
+  // 无变化 → null（不发起空更新）
+  const unchanged = parseNetworkFormValues(networkFormValuesFromNetwork(networkFixture));
+  assert.equal(unchanged.ok, true);
+  assert.equal(
+    buildNetworkPatch(
+      networkFixture,
+      networkFixture.cluster.id,
+      unchanged.fields,
+      networkFixture.metadata,
+    ),
+    null,
+  );
+  // 变化：status 改值 + gateway 清空 + 改 cluster
+  const changed = parseNetworkFormValues({
+    ...networkFormValuesFromNetwork(networkFixture),
+    status: "INACTIVE",
+    gateway: "",
+    cluster: "c2",
+  });
+  assert.equal(changed.ok, true);
+  const patch = buildNetworkPatch(networkFixture, "c2", changed.fields, networkFixture.metadata);
+  assert.deepEqual(patch, { version: 3, status: "INACTIVE", gateway: null, cluster: "c2" });
+  // description 显式 null 清空 + metadata 整值替换
+  const descCleared = parseNetworkFormValues({
+    ...networkFormValuesFromNetwork(networkFixture),
+    description: "",
+  });
+  assert.equal(descCleared.ok, true);
+  const descPatch = buildNetworkPatch(
+    networkFixture,
+    networkFixture.cluster.id,
+    descCleared.fields,
+    { vlan: 200 },
+  );
+  assert.deepEqual(descPatch, {
+    version: 3,
+    description: null,
+    metadata: { vlan: 200 },
+  });
+});
+
+await test("F008 networkFormValuesFromNetwork：null → 默认空值；gateway/description 空串；metadata 空对象 → 空文本", async () => {
+  const values = networkFormValuesFromNetwork({ ...networkFixture, metadata: {} });
+  assert.equal(values.cluster, networkFixture.cluster.id);
+  assert.equal(values.name, "MGMT");
+  assert.equal(values.cidr, "10.0.0.0/24");
+  assert.equal(values.gateway, "10.0.0.1");
+  assert.equal(values.metadata, "");
+  const nullValues = networkFormValuesFromNetwork(null);
+  assert.deepEqual(nullValues, emptyNetworkFormValues());
+  // 往返：初始化 → 解析 → 无变化（与 buildNetworkPatch=null 联动）
+  const roundTrip = parseNetworkFormValues(networkFormValuesFromNetwork(networkFixture));
+  assert.equal(roundTrip.ok, true);
+  assert.equal(
+    buildNetworkPatch(
+      networkFixture,
+      networkFixture.cluster.id,
+      roundTrip.fields,
+      networkFixture.metadata,
+    ),
+    null,
+  );
 });
 
 // 还原全局状态
