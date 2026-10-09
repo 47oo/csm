@@ -641,13 +641,21 @@ features:
   - F009
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: ARCHITECTURE Gate（architect：IPAddress 实体/依赖方案、layers、api_required）
-  current_stage: ARCHITECTURE
+  next_action: DATABASE 与 TEST_DESIGN Gate（可并行；Database 出 f010-ip-address.md，Tester 出 TEST_DESIGN）
+  current_stage: DATABASE
   implementation:
     product: COMPLETE
+    architecture: COMPLETE
   evidence:
     product:
     - docs/features/F010/product.md
+    architecture:
+    - docs/features/F010/architecture.md
+  layers:
+    database: true
+    backend: true
+    frontend: true
+  api_required: true
 - id: F011
   title: Service 服务登记
   kind: FEATURE
@@ -945,9 +953,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F010
-  current_stage: ARCHITECTURE
-  last_result: F010 PRODUCT COMPLETE（READY FOR ARCHITECT；无 Blocking Questions）
-  next_action: ARCHITECTURE Gate（architect）
+  current_stage: DATABASE
+  last_result: F010 ARCHITECTURE COMPLETE（READY FOR DESIGN；DR-118–DR-139；layers=db/be/fe，api_required=true）
+  next_action: DATABASE 与 TEST_DESIGN Gate（database + tester，可并行）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
