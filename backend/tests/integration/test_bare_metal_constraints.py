@@ -431,14 +431,14 @@ def test_no_serial_unique_and_no_extra_indexes(committed_engine):
 
 
 def test_migration_is_single_head(pg_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0008_networks"
-    assert _alembic_versions(pg_engine) == ["0008_networks"]
+    assert alembic_runner.head_revision() == "0009_ip_pools"
+    assert _alembic_versions(pg_engine) == ["0009_ip_pools"]
     assert "bare_metal_details" in _tables(pg_engine)
     assert "virtual_machine_details" in _tables(pg_engine)
 
 
 def test_migration_up_down_up(pg_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0008_networks"
+    assert alembic_runner.head_revision() == "0009_ip_pools"
 
     alembic_runner.downgrade("0004_resources")
     remaining = _tables(pg_engine)
@@ -454,7 +454,7 @@ def test_migration_up_down_up(pg_engine, alembic_runner):
         "bare_metal_details",
         "virtual_machine_details",
     } <= _tables(pg_engine)
-    assert _alembic_versions(pg_engine) == ["0008_networks"]
+    assert _alembic_versions(pg_engine) == ["0009_ip_pools"]
 
 
 def test_backfill_existing_resources(pg_engine, alembic_runner):
@@ -512,4 +512,4 @@ def test_backfill_existing_resources(pg_engine, alembic_runner):
                 text("DELETE FROM resources WHERE hostname LIKE 'bf-%'")
             )
             conn.execute(text("DELETE FROM clusters WHERE code = 'BF'"))
-        assert _alembic_versions(pg_engine) == ["0008_networks"]
+        assert _alembic_versions(pg_engine) == ["0009_ip_pools"]

@@ -125,8 +125,8 @@ def _seed(engine, tag: str) -> uuid.UUID:
 
 
 def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0008_networks"
-    assert _alembic_versions(pg_engine) == ["0008_networks"]
+    assert alembic_runner.head_revision() == "0009_ip_pools"
+    assert _alembic_versions(pg_engine) == ["0009_ip_pools"]
     assert "networks" in _tables(pg_engine)
     assert "btree_gist" in _extensions(pg_engine)
 
@@ -140,7 +140,7 @@ def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
 
     alembic_runner.upgrade("head")
     assert "networks" in _tables(pg_engine)
-    assert _alembic_versions(pg_engine) == ["0008_networks"]
+    assert _alembic_versions(pg_engine) == ["0009_ip_pools"]
 
 
 def test_table_catalogue_columns_constraints_indexes(committed_engine):
