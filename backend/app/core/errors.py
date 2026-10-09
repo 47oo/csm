@@ -91,7 +91,8 @@ class Conflict(AppError):
     """409: semantic conflict — uniqueness / references / restore (F003 §1.2).
 
     ``details.reason`` is one of ``unique_conflict``, ``range_overlap``,
-    ``reference_exists``, ``not_deleted`` or ``dependency_deleted``.
+    ``reference_exists``, ``not_deleted``, ``dependency_deleted`` or
+    ``address_in_use`` (F009).
     """
 
     status_code = 409
@@ -119,8 +120,31 @@ class Conflict(AppError):
     def range_overlap(
         cls, conflicts: list[dict], *, field: str = "cidr"
     ) -> "Conflict":
-        """F008: same-Cluster undeleted CIDR overlap (DR-98)."""
+        """F008/F009: undeleted range overlap (DR-98/DR-106)."""
         return cls("range_overlap", field=field, conflicts=conflicts)
+
+    @classmethod
+    def address_in_use(
+        cls,
+        field: str,
+        conflict_count: int,
+        conflicts: list[dict],
+        conflicts_truncated: bool,
+    ) -> "Conflict":
+        """F009: RESERVED pool or Network gateway range holds undeleted IPs.
+
+        ``field`` is one of ``start_address``/``end_address``/
+        ``allocation_mode``/``gateway`` (DR-110). ``conflict_count`` is the
+        total number of undeleted IPs in the changed range; ``conflicts`` is a
+        preview capped at ``CONFLICT_PREVIEW_LIMIT``.
+        """
+        return cls(
+            "address_in_use",
+            field=field,
+            conflict_count=int(conflict_count),
+            conflicts=conflicts,
+            conflicts_truncated=bool(conflicts_truncated),
+        )
 
     @classmethod
     def dependency_deleted(cls, conflicts: list[dict]) -> "Conflict":

@@ -303,6 +303,27 @@ button:disabled {
   background-color: #fef2f2;
 }
 
+/* ---------- F009 IP Pools（复用既有徽标风格，最小样式） ---------- */
+
+/* 分配模式徽标（MANUAL / AUTO / RESERVED，Contract §2.2） */
+.badge-manual {
+  color: #6b7280;
+  border-color: #e5e7eb;
+  background-color: #f9fafb;
+}
+
+.badge-auto {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background-color: #eff6ff;
+}
+
+.badge-reserved {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background-color: #fef2f2;
+}
+
 .status-empty {
   color: #6b7280;
 }

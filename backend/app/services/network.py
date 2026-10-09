@@ -29,6 +29,7 @@ from sqlalchemy import cast, func, select, update
 from sqlalchemy.dialects.postgresql import CIDR
 from sqlalchemy.exc import IntegrityError
 
+from app.core.config import get_settings
 from app.core.errors import (
     AppError,
     Conflict,
@@ -38,7 +39,7 @@ from app.core.errors import (
 )
 from app.models.cluster import Cluster
 from app.models.network import VALID_NETWORK_STATUSES, Network
-from app.services import audit, normalization
+from app.services import audit, ip_occupancy, normalization
 from app.services import cluster as cluster_service
 
 if TYPE_CHECKING:
@@ -410,7 +411,9 @@ def update_network(
         raise NotFound()
 
     changing_location = "cidr" in changes or "cluster" in changes
-    if changing_location:
+    # A gateway change shares the ``_lock_network`` domain with F010 allocation
+    # (Contract §7/DR-109) so the occupancy check serialises with it.
+    if changing_location or "gateway" in changes:
         _lock_network(db, network_id)
 
     if network.version != expected_version:
@@ -452,11 +455,15 @@ def update_network(
     if "cidr" in changes:
         new_cidr = normalization.normalize_cidr(changes["cidr"])
         values["cidr"] = new_cidr
+    new_gateway: str | None = (
+        str(network.gateway) if network.gateway is not None else None
+    )
     if "cidr" in changes or "gateway" in changes:
-        new_gateway = (
-            changes["gateway"] if "gateway" in changes else network.gateway
+        new_gateway = normalization.normalize_gateway(
+            changes["gateway"] if "gateway" in changes else network.gateway,
+            new_cidr,
         )
-        values["gateway"] = normalization.normalize_gateway(new_gateway, new_cidr)
+        values["gateway"] = new_gateway
 
     if changing_location:
         references = cluster_service.check_references(db, OBJECT_TYPE, network_id)
@@ -469,6 +476,21 @@ def update_network(
         )
         if conflicts:
             raise Conflict.range_overlap(conflicts)
+
+    # Network gateway occupancy hook (Contract §7, DR-109/DR-110): an explicit
+    # non-null gateway change consults the occupancy provider; the F009 empty
+    # set never triggers, F010 provides end-to-end data.
+    if "gateway" in changes and new_gateway is not None:
+        limit = get_settings().conflict_preview_limit
+        occupancy = ip_occupancy.check_occupancy(
+            db, network_id, new_gateway, new_gateway, limit
+        )
+        total = int(occupancy.get("total", 0))
+        if total > 0:
+            items = list(occupancy.get("items", []))[:limit]
+            raise Conflict.address_in_use(
+                "gateway", total, items, total > len(items)
+            )
 
     if "cluster" in changes:
         values["cluster_id"] = target_cluster_id

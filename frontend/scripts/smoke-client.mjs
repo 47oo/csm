@@ -72,6 +72,23 @@
  *   默认 ACTIVE / auto_allocate false）、创建 / PATCH 载荷构造语义的本地镜像
  *   （exclude_unset；显式 null=清空 gateway/description；可改 cluster）。
  *
+ * F009 追加（Contract：docs/api/F009.md v1，前端机制级）：
+ * - src/api/ipPools.ts 的 URL / method / body 构造（Contract §6：列表查询串
+ *   （network_id / allocation_mode / q / deleted）、POST 201 {"ip_pool"} 信封、
+ *   PATCH 仅携带变化字段（不含 network，DR-107）、DELETE / restore 的 version
+ *   Query、activity）；
+ * - 409 CONFLICT（unique_conflict field="name" → 字段级错误；range_overlap
+ *   field="start_address"|"end_address" → 字段错误 + conflicts（重叠 IPPool 含
+ *   起止地址）；address_in_use → occupancy（conflict_count 总数 + conflicts
+ *   预览 + conflicts_truncated，DR-110）；dependency_deleted → conflicts
+ *   （network）；not_deleted）/ VERSION_CONFLICT（→ 刷新后重改，不静默重试）/
+ *   422 / 404 / 403 的 describeIpPoolActionError 语义；
+ * - src/components/ipPoolForm.ts（纯逻辑，无 JSX）：表单值解析（name trim /
+ *   禁控制字符 / ≤255、起止单个 IPv4 主机地址不带掩码、起≤止、属 CIDR 本地
+ *   提示、默认 MANUAL、空描述=null）、创建 / PATCH 载荷构造语义的本地镜像
+ *   （exclude_unset；显式 null=清空 description；network 不可改不上送）、
+ *   服务端 422 点路径 → 表单键映射。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -150,6 +167,24 @@ import {
   networkFormValuesFromNetwork,
   parseNetworkFormValues,
 } from "../src/components/networkForm.ts";
+import {
+  createIpPool,
+  deleteIpPool,
+  describeIpPoolActionError,
+  getIpPool,
+  getIpPoolActivity,
+  listIpPools,
+  restoreIpPool,
+  updateIpPool,
+} from "../src/api/ipPools.ts";
+import {
+  buildIpPoolCreateInput,
+  buildIpPoolPatch,
+  emptyIpPoolFormValues,
+  ipPoolFormFieldFromPath,
+  ipPoolFormValuesFromIpPool,
+  parseIpPoolFormValues,
+} from "../src/components/ipPoolForm.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -2396,6 +2431,618 @@ await test("F008 networkFormValuesFromNetwork：null → 默认空值；gateway/
     ),
     null,
   );
+});
+
+// ---------- F009 IP Pool 机制级（Contract：docs/api/F009.md v1） ----------
+
+/** IPPool 响应夹具（Contract §3：network 展开 / description 可空）。 */
+const ipPoolFixture = {
+  id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0901",
+  network: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801", name: "MGMT", cidr: "10.0.0.0/24" },
+  name: "MGMT-POOL",
+  start_address: "10.0.0.10",
+  end_address: "10.0.0.100",
+  allocation_mode: "MANUAL",
+  description: "管理网手动池",
+  version: 3,
+  created_at: "2026-10-09T12:00:00+00:00",
+  updated_at: "2026-10-09T12:00:00+00:00",
+  deleted_at: null,
+};
+
+await test("F009 listIpPools：默认 GET /api/v1/ip-pools，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listIpPools();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/ip-pools");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F009 listIpPools 组合查询：network_id/allocation_mode/q/deleted/分页/排序（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listIpPools({
+    network_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+    allocation_mode: "RESERVED",
+    q: "mgmt",
+    deleted: "only",
+    page: 2,
+    page_size: 50,
+    sort: "start_address",
+    order: "asc",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/ip-pools?network_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801" +
+      "&allocation_mode=RESERVED&q=mgmt&deleted=only&page=2&page_size=50&sort=start_address&order=asc",
+  );
+  // 空串过滤项不发（network_id='' / q=''）
+  await listIpPools({ network_id: "", q: "" });
+  assert.equal(calls[1].url, "/api/v1/ip-pools");
+});
+
+await test("F009 createIpPool：POST body（network/name/start/end/mode；description 仅已登记时携带）；响应解析", async () => {
+  respond = () => jsonResponse(201, { ip_pool: ipPoolFixture });
+  const { ip_pool } = await createIpPool({
+    network: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+    name: "MGMT-POOL",
+    start_address: "10.0.0.10",
+    end_address: "10.0.0.100",
+    allocation_mode: "MANUAL",
+    description: "管理网手动池",
+  });
+  assert.equal(ip_pool.id, ipPoolFixture.id);
+  assert.equal(ip_pool.network.cidr, "10.0.0.0/24"); // network 嵌套展开
+  assert.equal(ip_pool.allocation_mode, "MANUAL");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/ip-pools");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    network: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+    name: "MGMT-POOL",
+    start_address: "10.0.0.10",
+    end_address: "10.0.0.100",
+    allocation_mode: "MANUAL",
+    description: "管理网手动池",
+  });
+});
+
+await test("F009 createIpPool 最小载荷：仅 network+name+start+end（mode 省略 → 服务端默认 MANUAL）", async () => {
+  respond = () =>
+    jsonResponse(201, { ip_pool: { ...ipPoolFixture, description: null } });
+  const { ip_pool } = await createIpPool({
+    network: "n1",
+    name: "P1",
+    start_address: "10.0.0.10",
+    end_address: "10.0.0.20",
+  });
+  assert.equal(ip_pool.description, null); // 未设置返回 null，不用空串代替
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    network: "n1",
+    name: "P1",
+    start_address: "10.0.0.10",
+    end_address: "10.0.0.20",
+  });
+});
+
+await test("F009 getIpPool：详情 + ?deleted=true（已删需 VIEW_DELETED）", async () => {
+  respond = () => jsonResponse(200, { ip_pool: ipPoolFixture });
+  await getIpPool(ipPoolFixture.id);
+  assert.equal(calls[0].url, `/api/v1/ip-pools/${ipPoolFixture.id}`);
+  await getIpPool(ipPoolFixture.id, { deleted: true });
+  assert.equal(calls[1].url, `/api/v1/ip-pools/${ipPoolFixture.id}?deleted=true`);
+});
+
+await test("F009 updateIpPool：PATCH 仅携带变化字段（version 必带，Contract §6.4）", async () => {
+  respond = () =>
+    jsonResponse(200, { ip_pool: { ...ipPoolFixture, version: 4, allocation_mode: "RESERVED" } });
+  await updateIpPool(ipPoolFixture.id, { version: 3, allocation_mode: "RESERVED" });
+  assert.equal(calls[0].init.method, "PATCH");
+  assert.equal(calls[0].url, `/api/v1/ip-pools/${ipPoolFixture.id}`);
+  // body 只含 version + 变化字段；network 不可改不出现（DR-107）
+  const body = JSON.parse(calls[0].init.body);
+  assert.deepEqual(body, { version: 3, allocation_mode: "RESERVED" });
+  assert.ok(!("network" in body), "PATCH 载荷不得携带 network 键（DR-107）");
+});
+
+await test("F009 updateIpPool：description 显式 null = 清空", async () => {
+  respond = () => jsonResponse(200, { ip_pool: { ...ipPoolFixture, description: null } });
+  await updateIpPool(ipPoolFixture.id, { version: 3, description: null });
+  assert.deepEqual(JSON.parse(calls[0].init.body), { version: 3, description: null });
+});
+
+await test("F009 deleteIpPool / restoreIpPool：version 为 Query 参数（Contract §6.5/§6.6）", async () => {
+  respond = () => new Response(null, { status: 204 });
+  const result = await deleteIpPool(ipPoolFixture.id, 3);
+  assert.equal(result, undefined);
+  assert.equal(calls[0].init.method, "DELETE");
+  assert.equal(calls[0].url, `/api/v1/ip-pools/${ipPoolFixture.id}?version=3`);
+  respond = () =>
+    jsonResponse(200, { ip_pool: { ...ipPoolFixture, version: 4, deleted_at: null } });
+  const { ip_pool: restored } = await restoreIpPool(ipPoolFixture.id, 3);
+  assert.equal(restored.deleted_at, null);
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[1].url, `/api/v1/ip-pools/${ipPoolFixture.id}/restore?version=3`);
+});
+
+await test("F009 getIpPoolActivity：URL + deleted/page 查询参数（VIEW_ACTIVITY 全角色）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  await getIpPoolActivity(ipPoolFixture.id, { page: 1, page_size: 20 });
+  assert.equal(calls[0].url, `/api/v1/ip-pools/${ipPoolFixture.id}/activity?page=1&page_size=20`);
+  await getIpPoolActivity(ipPoolFixture.id, { deleted: true });
+  assert.equal(calls[1].url, `/api/v1/ip-pools/${ipPoolFixture.id}/activity?deleted=true`);
+});
+
+await test("F009 409 VERSION_CONFLICT：可识别冲突信号（刷新后重改），不静默重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "数据已被他人修改",
+        details: { current_version: 7 },
+      },
+    });
+  const err = await expectApiError(
+    updateIpPool(ipPoolFixture.id, { version: 6, allocation_mode: "AUTO" }),
+  );
+  const described = describeIpPoolActionError(err);
+  assert.equal(described.versionConflict, true);
+  assert.equal(described.currentVersion, 7);
+  assert.ok(described.message.includes("刷新"), "应提示刷新后重改");
+  assert.ok(described.message.includes("不会自动重试"));
+  assert.equal(calls.length, 1); // 不重试（不静默重试覆盖）
+});
+
+await test('F009 409 CONFLICT unique_conflict（field="name"）→ name 字段级错误（同网络大小写不敏感唯一）', async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "unique_conflict", field: "name" },
+      },
+    });
+  const err = await expectApiError(
+    createIpPool({ network: "n1", name: "mgmt-pool", start_address: "10.0.0.1", end_address: "10.0.0.2" }),
+  );
+  const described = describeIpPoolActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.ok(described.fields.name, "unique_conflict 应落为 name 字段级错误");
+  assert.ok(described.fields.name.includes("大小写不敏感"));
+  assert.ok(described.message.includes("name 冲突"));
+});
+
+await test('F009 409 CONFLICT range_overlap（field="start_address"）→ 字段级错误 + 重叠池明细（含起止地址）；不重试', async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "range_overlap",
+          field: "start_address",
+          conflicts: [
+            {
+              object_type: "ip_pool",
+              object_id: "p1",
+              label: "MGMT-POOL",
+              start_address: "10.0.0.50",
+              end_address: "10.0.0.150",
+            },
+            {
+              object_type: "ip_pool",
+              object_id: "p2",
+              label: null,
+              start_address: "10.0.0.10",
+              end_address: "10.0.0.10",
+            },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(
+    createIpPool({ network: "n1", name: "OTHER", start_address: "10.0.0.100", end_address: "10.0.0.200" }),
+  );
+  const described = describeIpPoolActionError(err);
+  assert.ok(described.fields.start_address, "range_overlap 应落为 start_address 字段级错误");
+  assert.ok(described.fields.start_address.includes("共享端点"));
+  assert.equal(described.rangeConflicts.length, 2);
+  assert.equal(described.rangeConflicts[0].object_type, "ip_pool");
+  assert.equal(described.rangeConflicts[0].label, "MGMT-POOL");
+  assert.equal(described.rangeConflicts[0].start_address, "10.0.0.50");
+  assert.equal(described.rangeConflicts[0].end_address, "10.0.0.150");
+  assert.equal(described.rangeConflicts[1].label, null); // label 缺失为 null
+  assert.ok(described.message.includes("CONFLICT/range_overlap"));
+  assert.equal(calls.length, 1);
+});
+
+await test("F009 409 CONFLICT address_in_use：occupancy 结构（conflict_count 总数 + conflicts 预览 + truncated，DR-110）", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "address_in_use",
+          field: "allocation_mode",
+          conflict_count: 3,
+          conflicts: [
+            {
+              object_type: "ip_address",
+              object_id: "a1",
+              address: "10.0.0.10",
+              bound: false,
+              interface_id: null,
+              resource_id: null,
+              resource_hostname: null,
+            },
+            {
+              object_type: "ip_address",
+              object_id: "a2",
+              address: "10.0.0.20",
+              bound: true,
+              interface_id: "iface-uuid-1",
+              resource_id: "r-uuid-1",
+              resource_hostname: "node001",
+            },
+          ],
+          conflicts_truncated: true,
+        },
+      },
+    });
+  const err = await expectApiError(
+    createIpPool({
+      network: "n1",
+      name: "RES",
+      start_address: "10.0.0.1",
+      end_address: "10.0.0.200",
+      allocation_mode: "RESERVED",
+    }),
+  );
+  const described = describeIpPoolActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.ok(described.occupancy, "address_in_use 应解析出 occupancy 结构");
+  assert.equal(described.occupancy.field, "allocation_mode");
+  assert.equal(described.occupancy.count, 3); // 总数（非预览条数）
+  assert.equal(described.occupancy.conflicts.length, 2); // 预览明细（截断后）
+  assert.equal(described.occupancy.conflicts[0].address, "10.0.0.10");
+  assert.equal(described.occupancy.conflicts[0].bound, false); // 含未绑定
+  assert.equal(described.occupancy.conflicts[1].bound, true);
+  assert.equal(described.occupancy.conflicts[1].resource_hostname, "node001");
+  assert.equal(described.occupancy.truncated, true); // 截断标记透传
+  assert.ok(described.fields.allocation_mode, "应落为 allocation_mode 字段级错误");
+  assert.ok(described.message.includes("CONFLICT/address_in_use"));
+  assert.ok(described.message.includes("3 个未删除的 IP 地址"));
+  assert.ok(described.message.includes("截断"));
+  assert.equal(calls.length, 1); // 不自动重试
+});
+
+await test("F009 409 CONFLICT address_in_use：field=start_address（RESERVED 扩大范围）与字段回退", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "address_in_use",
+          field: "start_address",
+          conflict_count: 1,
+          conflicts: [
+            {
+              object_type: "ip_address",
+              object_id: "a3",
+              address: "10.0.0.5",
+              bound: false,
+              interface_id: null,
+              resource_id: null,
+              resource_hostname: null,
+            },
+          ],
+          conflicts_truncated: false,
+        },
+      },
+    });
+  const err = await expectApiError(
+    updateIpPool(ipPoolFixture.id, { version: 3, start_address: "10.0.0.1" }),
+  );
+  const described = describeIpPoolActionError(err);
+  assert.equal(described.occupancy.field, "start_address");
+  assert.ok(described.fields.start_address);
+  assert.equal(described.occupancy.truncated, false);
+  // 形状不符（缺 field/count）时保守回退，不抛错、不伪造字段
+  respond = () =>
+    jsonResponse(409, {
+      error: { code: "CONFLICT", message: "Conflict", details: { reason: "address_in_use" } },
+    });
+  const fallback = await expectApiError(
+    updateIpPool(ipPoolFixture.id, { version: 3, allocation_mode: "RESERVED" }),
+  );
+  const fallbackDescribed = describeIpPoolActionError(fallback);
+  assert.equal(fallbackDescribed.occupancy.field, "allocation_mode");
+  assert.equal(fallbackDescribed.occupancy.count, 0); // 无明细时 count 回退为预览条数
+  assert.equal(fallbackDescribed.occupancy.conflicts.length, 0);
+});
+
+await test("F009 409 CONFLICT dependency_deleted：恢复时所属 Network 仍删（object_type=network）→ 网络文案，不覆盖新对象", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "network", object_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801" }],
+        },
+      },
+    });
+  const err = await expectApiError(restoreIpPool(ipPoolFixture.id, 3));
+  const described = describeIpPoolActionError(err);
+  assert.equal(described.dependencyConflicts.length, 1);
+  assert.equal(described.dependencyConflicts[0].object_type, "network");
+  assert.ok(described.message.includes("所属网络"));
+  assert.ok(described.message.includes("不会覆盖网络或其上新对象"));
+});
+
+await test("F009 409 CONFLICT not_deleted：对未软删对象 restore 的明确文案", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: { code: "CONFLICT", message: "Conflict", details: { reason: "not_deleted" } },
+    });
+  const err = await expectApiError(restoreIpPool(ipPoolFixture.id, 3));
+  const described = describeIpPoolActionError(err);
+  assert.ok(described.message.includes("未处于已删除状态"));
+  assert.ok(described.message.includes("CONFLICT/not_deleted"));
+});
+
+await test("F009 422 VALIDATION_ERROR：顶层字段路径透传（network/name/start_address/end_address/allocation_mode/description，Contract §2.3）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "请求体校验失败",
+        details: {
+          fields: [
+            { field: "network", message: "网络不存在或已删除" },
+            { field: "name", message: "name 不能为空" },
+            { field: "start_address", message: "start_address 不属于所属网络 CIDR" },
+            { field: "end_address", message: "end_address 不能小于 start_address" },
+            { field: "allocation_mode", message: "allocation_mode 非法" },
+            { field: "description", message: "description 必须为字符串或 null" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(
+    createIpPool({ network: "nope", name: "", start_address: "10.1.0.1", end_address: "10.0.0.1" }),
+  );
+  const described = describeIpPoolActionError(err);
+  assert.equal(described.fields.network, "网络不存在或已删除");
+  assert.equal(described.fields.name, "name 不能为空");
+  assert.equal(described.fields.start_address, "start_address 不属于所属网络 CIDR");
+  assert.equal(described.fields.end_address, "end_address 不能小于 start_address");
+  assert.equal(described.fields.allocation_mode, "allocation_mode 非法");
+  assert.equal(described.fields.description, "description 必须为字符串或 null");
+});
+
+await test("F009 403 / 404：明确文案（权限不足 / 对象不存在，不泄露存在性细节）", async () => {
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const err403 = await expectApiError(deleteIpPool(ipPoolFixture.id, 3));
+  assert.ok(describeIpPoolActionError(err403).message.includes("没有权限"));
+  respond = () =>
+    jsonResponse(404, { error: { code: "NOT_FOUND", message: "不存在", details: {} } });
+  const err404 = await expectApiError(getIpPool(ipPoolFixture.id));
+  assert.ok(describeIpPoolActionError(err404).message.includes("地址池不存在"));
+});
+
+await test("F009 parseIpPoolFormValues：合法值（name trim / 地址 trim / 默认 MANUAL / 空描述=null / start=end 单地址池）", async () => {
+  const parsed = parseIpPoolFormValues({
+    ...emptyIpPoolFormValues(),
+    network: "n1",
+    name: "  MGMT-POOL  ",
+    start_address: " 10.0.0.10 ",
+    end_address: " 10.0.0.10 ",
+    description: "管理网手动池",
+  });
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.fields.name, "MGMT-POOL"); // trim 后原值（不折叠大小写）
+  assert.equal(parsed.fields.start_address, "10.0.0.10");
+  assert.equal(parsed.fields.end_address, "10.0.0.10"); // start=end 允许（单地址池）
+  assert.equal(parsed.fields.allocation_mode, "MANUAL"); // 默认 MANUAL
+  assert.equal(parsed.fields.description, "管理网手动池");
+  // 可空描述空串 → null；AUTO 透传
+  const emptyDesc = parseIpPoolFormValues({
+    ...emptyIpPoolFormValues(),
+    network: "n1",
+    name: "P1",
+    start_address: "10.0.0.10",
+    end_address: "10.0.0.20",
+    allocation_mode: "AUTO",
+  });
+  assert.equal(emptyDesc.ok, true);
+  assert.equal(emptyDesc.fields.description, null);
+  assert.equal(emptyDesc.fields.allocation_mode, "AUTO");
+});
+
+await test("F009 parseIpPoolFormValues：非法输入 → 字段级错误（空名 / 控制字符 / 超长 / 非法 IPv4 / 带掩码 / IPv6 / 逆序）", async () => {
+  const cases = [
+    { values: { name: "   " }, key: "name", hint: "不能为空" },
+    { values: { name: "P\u00001" }, key: "name", hint: "控制字符" },
+    { values: { name: "p".repeat(256) }, key: "name", hint: "长度超过" },
+    { values: { start_address: "" }, key: "start_address", hint: "不能为空" },
+    { values: { start_address: "10.0.0" }, key: "start_address", hint: "IPv4" },
+    { values: { start_address: "10.0.0.256" }, key: "start_address", hint: "IPv4" },
+    { values: { start_address: "10.0.0.10/24" }, key: "start_address", hint: "不带掩码" },
+    { values: { start_address: "::1" }, key: "start_address", hint: "IPv4" },
+    { values: { end_address: "10.0.0" }, key: "end_address", hint: "IPv4" },
+    { values: { end_address: "10.0.0.10/32" }, key: "end_address", hint: "不带掩码" },
+  ];
+  for (const { values, key, hint } of cases) {
+    const parsed = parseIpPoolFormValues({
+      ...emptyIpPoolFormValues(),
+      network: "n1",
+      name: "P1",
+      start_address: "10.0.0.10",
+      end_address: "10.0.0.100",
+      ...values,
+    });
+    assert.equal(parsed.ok, false, `应校验失败：${key}=${JSON.stringify(values[key])}`);
+    if (!parsed.ok) {
+      assert.ok(parsed.errors[key], `应产生 ${key} 字段错误`);
+      assert.ok(
+        parsed.errors[key].includes(hint),
+        `${key} 错误文案应含「${hint}」，实际：${parsed.errors[key]}`,
+      );
+    }
+  }
+  // 逆序：start > end → end_address 错误（服务端同样 422）
+  const reversed = parseIpPoolFormValues({
+    ...emptyIpPoolFormValues(),
+    network: "n1",
+    name: "P1",
+    start_address: "10.0.0.100",
+    end_address: "10.0.0.10",
+  });
+  assert.equal(reversed.ok, false);
+  assert.ok(reversed.errors.end_address.includes("不能小于 start_address"));
+});
+
+await test("F009 parseIpPoolFormValues：属 CIDR 本地提示（服务端仍权威校验；未知 / 异常 CIDR 不伪造结论）", async () => {
+  const values = {
+    ...emptyIpPoolFormValues(),
+    network: "n1",
+    name: "P1",
+    start_address: "10.1.0.5",
+    end_address: "10.1.0.10",
+  };
+  // 未提供 CIDR（网络未选 / 未知）→ 不做本地判定
+  assert.equal(parseIpPoolFormValues(values).ok, true);
+  assert.equal(parseIpPoolFormValues(values, null).ok, true);
+  // 提供 CIDR 且越界 → 本地提示（错误文案含 CIDR）
+  const outOfCidr = parseIpPoolFormValues(values, "10.0.0.0/24");
+  assert.equal(outOfCidr.ok, false);
+  assert.ok(outOfCidr.errors.start_address.includes("不属于所属网络 CIDR 10.0.0.0/24"));
+  assert.ok(outOfCidr.errors.end_address.includes("不属于所属网络 CIDR 10.0.0.0/24"));
+  // 起止均属 CIDR（含网络 / 广播地址，不新增建池范围限制，DR-117）
+  const inCidr = parseIpPoolFormValues(
+    {
+      ...emptyIpPoolFormValues(),
+      network: "n1",
+      name: "P1",
+      start_address: "10.0.0.0",
+      end_address: "10.0.0.255",
+    },
+    "10.0.0.0/24",
+  );
+  assert.equal(inCidr.ok, true);
+  // CIDR 本身不合法 → 不做本地判定（由网络数据源 / 服务端承载）
+  assert.equal(parseIpPoolFormValues(values, "not-a-cidr").ok, true);
+});
+
+await test("F009 ipPoolFormFieldFromPath：服务端 422 点路径 → 表单键（顶层直通；未知路径 → null）", async () => {
+  assert.equal(ipPoolFormFieldFromPath("network"), "network");
+  assert.equal(ipPoolFormFieldFromPath("name"), "name");
+  assert.equal(ipPoolFormFieldFromPath("start_address"), "start_address");
+  assert.equal(ipPoolFormFieldFromPath("end_address"), "end_address");
+  assert.equal(ipPoolFormFieldFromPath("allocation_mode"), "allocation_mode");
+  assert.equal(ipPoolFormFieldFromPath("description"), "description");
+  assert.equal(ipPoolFormFieldFromPath("metadata"), null); // IPPool 无 metadata（I-6）
+  assert.equal(ipPoolFormFieldFromPath("unknown.field"), null);
+});
+
+await test("F009 buildIpPoolCreateInput：network/name/start/end/mode 恒携带；description 仅已登记值", async () => {
+  const parsed = parseIpPoolFormValues({
+    ...emptyIpPoolFormValues(),
+    network: "n1",
+    name: "P1",
+    start_address: "10.0.0.10",
+    end_address: "10.0.0.100",
+  });
+  assert.equal(parsed.ok, true);
+  const input = buildIpPoolCreateInput("0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801", parsed.fields);
+  assert.deepEqual(input, {
+    network: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+    name: "P1",
+    start_address: "10.0.0.10",
+    end_address: "10.0.0.100",
+    allocation_mode: "MANUAL", // 默认由显式值承载
+  });
+  const full = parseIpPoolFormValues({
+    ...emptyIpPoolFormValues(),
+    network: "n1",
+    name: "P1",
+    start_address: "10.0.0.10",
+    end_address: "10.0.0.100",
+    allocation_mode: "RESERVED",
+    description: "保留段",
+  });
+  assert.equal(full.ok, true);
+  const fullInput = buildIpPoolCreateInput("n1-uuid", full.fields);
+  assert.deepEqual(fullInput, {
+    network: "n1-uuid",
+    name: "P1",
+    start_address: "10.0.0.10",
+    end_address: "10.0.0.100",
+    allocation_mode: "RESERVED",
+    description: "保留段",
+  });
+});
+
+await test("F009 buildIpPoolPatch：exclude_unset 镜像（无变化 → null；变化才携带；显式 null=清空 description；network 恒不上送，DR-107）", async () => {
+  // 无变化 → null（不发起空更新）
+  const unchanged = parseIpPoolFormValues(ipPoolFormValuesFromIpPool(ipPoolFixture));
+  assert.equal(unchanged.ok, true);
+  assert.equal(buildIpPoolPatch(ipPoolFixture, unchanged.fields), null);
+  // 变化：name / start / end / mode + description 清空（显式 null）
+  const changed = parseIpPoolFormValues({
+    ...ipPoolFormValuesFromIpPool(ipPoolFixture),
+    name: "MGMT-POOL-2",
+    start_address: "10.0.0.5",
+    end_address: "10.0.0.200",
+    allocation_mode: "RESERVED",
+    description: "",
+  });
+  assert.equal(changed.ok, true);
+  const patch = buildIpPoolPatch(ipPoolFixture, changed.fields);
+  assert.deepEqual(patch, {
+    version: 3,
+    name: "MGMT-POOL-2",
+    start_address: "10.0.0.5",
+    end_address: "10.0.0.200",
+    allocation_mode: "RESERVED",
+    description: null,
+  });
+  assert.ok(!("network" in patch), "PATCH 载荷不得携带 network 键（创建后不可改，DR-107）");
+  // 仅 description 设置（null → 文本）也只携带该字段
+  const descOnly = parseIpPoolFormValues({
+    ...ipPoolFormValuesFromIpPool({ ...ipPoolFixture, description: null }),
+    description: "新描述",
+  });
+  assert.equal(descOnly.ok, true);
+  assert.deepEqual(buildIpPoolPatch(ipPoolFixture, descOnly.fields), {
+    version: 3,
+    description: "新描述",
+  });
+});
+
+await test("F009 ipPoolFormValuesFromIpPool：null → 默认空值；description 空串；往返无变化（与 buildIpPoolPatch=null 联动）", async () => {
+  const values = ipPoolFormValuesFromIpPool({ ...ipPoolFixture, description: null });
+  assert.equal(values.network, ipPoolFixture.network.id);
+  assert.equal(values.name, "MGMT-POOL");
+  assert.equal(values.start_address, "10.0.0.10");
+  assert.equal(values.end_address, "10.0.0.100");
+  assert.equal(values.allocation_mode, "MANUAL");
+  assert.equal(values.description, ""); // null → 空串（未设置）
+  const nullValues = ipPoolFormValuesFromIpPool(null);
+  assert.deepEqual(nullValues, emptyIpPoolFormValues());
+  // 往返：初始化 → 解析 → 无变化（与 buildIpPoolPatch=null 联动）
+  const roundTrip = parseIpPoolFormValues(ipPoolFormValuesFromIpPool(ipPoolFixture));
+  assert.equal(roundTrip.ok, true);
+  assert.equal(buildIpPoolPatch(ipPoolFixture, roundTrip.fields), null);
 });
 
 // 还原全局状态

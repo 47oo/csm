@@ -55,6 +55,14 @@ AUDITABLE_FIELDS: dict[str, tuple[str, ...]] = {
         "description",
         "metadata",
     ),
+    "ip_pool": (
+        "network_id",
+        "name",
+        "start_address",
+        "end_address",
+        "allocation_mode",
+        "description",
+    ),
 }
 
 

@@ -60,6 +60,11 @@ class Settings(BaseSettings):
 
     db_application_name: str = "csm-backend"
 
+    # F009 (Contract §1.2): cap on the ``address_in_use`` conflicts preview.
+    # ``conflict_count`` always reports the full total; ``conflicts`` returns at
+    # most this many descriptors and ``conflicts_truncated`` flags the cut.
+    conflict_preview_limit: int = 100
+
     @property
     def db_connect_options(self) -> str:
         """psycopg server options string for statement/lock timeouts."""

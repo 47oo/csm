@@ -310,6 +310,80 @@ def normalize_gateway(value: str | None, cidr: str) -> str | None:
     return str(address)
 
 
+def normalize_ip_pool_name(value: str) -> str:
+    """Validate and return the trimmed IPPool ``name`` (D01 §5.8, DR-103).
+
+    Same shape as :func:`normalize_name`: trim -> non-empty -> no Cc/Cf control
+    characters -> length 1-255 code points. Internal ordinary spaces are allowed
+    and not collapsed; display case is preserved. The case-insensitive
+    uniqueness key is computed separately by :func:`ip_pool_name_key`.
+    """
+    return normalize_name(value)
+
+
+def ip_pool_name_key(name: str) -> str:
+    """Return the key ``ASCII_lower(btrim(name))`` (D01 §5.8, DR-103).
+
+    Only ASCII ``A-Z`` are folded to ``a-z``; every non-ASCII code point is kept
+    verbatim, matching the database CHECK ``name_key = translate(btrim(name),
+    'ABC...', 'abc...')``. ``str.lower()`` must NOT be used (locale- and
+    Unicode-version-dependent multi-code-point mappings).
+    """
+    return name.strip().translate(_ASCII_LOWER)
+
+
+def normalize_ip_host_address(value: str, *, field: str) -> str:
+    """Validate a single IPv4 host address (Contract §2.2, DR-104).
+
+    A value must be a plain IPv4 address (family 4, no masklen/CIDR form); the
+    PostgreSQL ``inet`` column therefore stores ``masklen = 32``. Any failure is
+    a 422 with the caller's point-path ``field`` (``start_address`` or
+    ``end_address``).
+    """
+    if not isinstance(value, str):
+        raise _field_error(field, f"{field} must be a valid IPv4 address")
+    text = value.strip()
+    try:
+        address = ipaddress.ip_address(text)
+    except ValueError as exc:
+        raise _field_error(field, f"{field} must be a valid IPv4 address") from exc
+    if address.version != 4:
+        raise _field_error(field, f"{field} must be a valid IPv4 address")
+    return str(address)
+
+
+def normalize_ip_pool_addresses(
+    start_address: str, end_address: str, cidr: str
+) -> tuple[str, str]:
+    """Validate the IPPool range and return ``(start, end)`` (DR-104).
+
+    Both endpoints must be IPv4 host addresses belonging to ``cidr`` and
+    ``start <= end`` (a single-address pool with ``start = end`` is allowed).
+    Failures are 422 with the point path of the offending field
+    (``start_address``/``end_address``). The database backstop trigger
+    ``trg_ip_pools_cidr_contains`` remains the concurrency guarantee.
+    """
+    start = normalize_ip_host_address(start_address, field="start_address")
+    end = normalize_ip_host_address(end_address, field="end_address")
+
+    network = ipaddress.ip_network(cidr, strict=False)
+    start_ip = ipaddress.ip_address(start)
+    end_ip = ipaddress.ip_address(end)
+    if start_ip not in network:
+        raise _field_error(
+            "start_address", "start_address must belong to the network cidr"
+        )
+    if end_ip not in network:
+        raise _field_error(
+            "end_address", "end_address must belong to the network cidr"
+        )
+    if int(start_ip) > int(end_ip):
+        raise _field_error(
+            "start_address", "start_address must be less than or equal to end_address"
+        )
+    return start, end
+
+
 def normalize_mac_address(value: str) -> str:
     """Validate and return the trimmed Interface ``mac_address`` (D01 §5.6).
 
