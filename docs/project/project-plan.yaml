@@ -570,16 +570,22 @@ features:
   - F008
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: DATABASE 与 TEST_DESIGN Gate（可并行；Database 出 f009-ip-pool.md，Tester 出 TEST_DESIGN）
-  current_stage: DATABASE
+  next_action: CONTRACT Gate（architect 定稿 docs/api/F009.md + D01 v8 §5.8，签核 DR-103/106/110/111/113）
+  current_stage: CONTRACT
   implementation:
     product: COMPLETE
     architecture: COMPLETE
+    database: COMPLETE
+    test_design: COMPLETE
   evidence:
     product:
     - docs/features/F009/product.md
     architecture:
     - docs/features/F009/architecture.md
+    database:
+    - docs/database/f009-ip-pool.md
+    test_design:
+    - docs/features/F009/test-report.md#test-design
   layers:
     database: true
     backend: true
@@ -913,9 +919,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F009
-  current_stage: DATABASE
-  last_result: F009 ARCHITECTURE COMPLETE（READY FOR DESIGN；DR-102–DR-117；layers=db/be/fe，api_required=true）
-  next_action: DATABASE 与 TEST_DESIGN Gate（database + tester，可并行）
+  current_stage: CONTRACT
+  last_result: F009 DATABASE COMPLETE（READY FOR DATABASE IMPLEMENTATION，DB-D95–D110）+ TEST_DESIGN READY（TD-1）
+  next_action: CONTRACT Gate（architect 定稿）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
