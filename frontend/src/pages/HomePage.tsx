@@ -12,6 +12,7 @@ import ResourceCreatePage from "./ResourceCreatePage";
 import ResourceDetailPage from "./ResourceDetailPage";
 import NetworksPage from "./NetworksPage";
 import IpPoolsPage from "./IpPoolsPage";
+import IpAddressesPage from "./IpAddressesPage";
 
 interface HomePageProps {
   user: User;
@@ -29,13 +30,15 @@ type Section =
   | { name: "resource-create" }
   | { name: "resource-detail"; id: string; deleted: boolean }
   | { name: "networks" }
-  | { name: "ip-pools" };
+  | { name: "ip-pools" }
+  | { name: "ip-addresses" };
 
 /**
  * F002 已登录视图 + F003/F004/F008 导航壳（架构 §1.8，不追求复杂视觉效果）：
  * 概览（当前用户 + 后端健康）/ Clusters（列表 / 新建 / 详情）/ Resources
  * （列表 / 新建 / 详情）/ Networks（列表 / 新建 / 编辑，F008）/ IP Pools
- * （列表 / 新建 / 编辑，F009）。各入口对
+ * （列表 / 新建 / 编辑，F009）/ IP Addresses（分配 / 绑定 / 释放 / 恢复，F010）。
+ * 各入口对
  * 全部已登录角色可见
  * （READ 全角色）；写 / 删 / 恢复 / 已删可见性仅按服务端返回的 permissions
  * 显示对应控件——隐藏不替代鉴权，服务端仍按 §23 矩阵执行（越权请求 403
@@ -79,7 +82,8 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
     section.name === "resource-detail";
   const inNetworks = section.name === "networks";
   const inIpPools = section.name === "ip-pools";
-  const wide = inClusters || inResources || inNetworks || inIpPools;
+  const inIpAddresses = section.name === "ip-addresses";
+  const wide = inClusters || inResources || inNetworks || inIpPools || inIpAddresses;
 
   return (
     <main className={wide ? "main-wide" : undefined}>
@@ -138,6 +142,13 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
           onClick={() => setSection({ name: "ip-pools" })}
         >
           IP Pools
+        </button>
+        <button
+          type="button"
+          className={inIpAddresses ? "nav-link nav-link-active" : "nav-link"}
+          onClick={() => setSection({ name: "ip-addresses" })}
+        >
+          IP Addresses
         </button>
       </nav>
 
@@ -242,6 +253,8 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
       {section.name === "networks" && <NetworksPage user={user} />}
 
       {section.name === "ip-pools" && <IpPoolsPage user={user} />}
+
+      {section.name === "ip-addresses" && <IpAddressesPage user={user} />}
     </main>
   );
 }

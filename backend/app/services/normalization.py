@@ -352,6 +352,30 @@ def normalize_ip_host_address(value: str, *, field: str) -> str:
     return str(address)
 
 
+def normalize_ip_address(value: str) -> str:
+    """Validate and return a single IPv4 host address (Contract §2.1, DR-120).
+
+    The input must be a bare dotted-decimal IPv4 address; a CIDR/mask form
+    (``10.0.0.1/24``), IPv6, an empty string or any illegal value is a 422 with
+    ``field="address"`` (never silently normalised). The returned value is the
+    canonical dotted-decimal form without a ``/32`` suffix.
+    """
+    if not isinstance(value, str):
+        raise _field_error("address", "address must be a valid IPv4 address")
+    text = value.strip()
+    if "/" in text:
+        raise _field_error(
+            "address", "address must be a plain IPv4 host address without a mask"
+        )
+    try:
+        address = ipaddress.ip_address(text)
+    except ValueError as exc:
+        raise _field_error("address", "address must be a valid IPv4 address") from exc
+    if address.version != 4:
+        raise _field_error("address", "address must be a valid IPv4 address")
+    return str(address)
+
+
 def normalize_ip_pool_addresses(
     start_address: str, end_address: str, cidr: str
 ) -> tuple[str, str]:
