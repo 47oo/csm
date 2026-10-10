@@ -641,13 +641,14 @@ features:
   - F009
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: CONTRACT Gate（architect 定稿 docs/api/F010.md + D01 v9 §5.9 + F002 §1.2.1 登记新 reason，关闭 D02）
-  current_stage: CONTRACT
+  next_action: IMPLEMENTATION（Backend：迁移 0010/IPAddress 服务/占用提供者/引用检查器/容量端点；Frontend：IPAM IP 列表/分配/绑定/释放/恢复）
+  current_stage: IMPLEMENTATION
   implementation:
     product: COMPLETE
     architecture: COMPLETE
     database: COMPLETE
     test_design: COMPLETE
+    contract: COMPLETE
   evidence:
     product:
     - docs/features/F010/product.md
@@ -657,6 +658,8 @@ features:
     - docs/database/f010-ip-address.md
     test_design:
     - docs/features/F010/test-report.md#test-design
+    contract:
+    - docs/api/F010.md
   layers:
     database: true
     backend: true
@@ -914,7 +917,7 @@ decisions_required:
   owner: Architect / Database
 - id: D02
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
-  status: OPEN
+  status: CONFIRMED
   kind: DESIGN_INPUT
   affects:
   - F001
@@ -925,6 +928,9 @@ decisions_required:
   - F010
   - F016
   owner: Architect / Database
+  basis: F010 CONTRACT Gate 关闭 D02 的约束/索引/锁/IPAM 并发部分（docs/database/f010-ip-address.md
+    v1 DB-D113/119/125 + docs/api/F010.md v1 §2/§6/§7）；其余部分（软件版本/目录、认证、版本冲突与错误语义、敏感字段、审计一致性与备份）已由 F001–F003/F008/F009
+    设计签核关闭；F016 仅承接备份覆盖 Audit 的验证。
 - id: D03
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
   status: OPEN
@@ -959,9 +965,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F010
-  current_stage: CONTRACT
-  last_result: F010 DATABASE COMPLETE（READY FOR DATABASE IMPLEMENTATION，DB-D111–D127）+ TEST_DESIGN READY（TD-1）
-  next_action: CONTRACT Gate（architect 定稿）
+  current_stage: IMPLEMENTATION
+  last_result: F010 CONTRACT COMPLETE（READY FOR IMPLEMENTATION；F010.md v1，D01 v9 §5.9，F002 §1.2.1 登记新 reason，D02 关闭，I-10 errata）
+  next_action: IMPLEMENTATION（backend + frontend）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

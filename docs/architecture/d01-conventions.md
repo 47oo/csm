@@ -1,9 +1,9 @@
 # D01 共享约定基座 — 字段、归一化、时间与省略语义
 
 - **状态**：READY（专业设计签核）
-- **版本**：v8
-- **签核**：Architect，2026-10-09（v8 修订；v7 2026-10-09；v6 2026-10-09；v5 2026-10-09；v4 2026-10-09；v3 2026-10-08；v2 2026-10-07；v1 2026-10-06）
-- **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v2；docs/api/F004.md v3；docs/api/F007.md v1；docs/api/F009.md v1；docs/database/f003-cluster.md v2；docs/database/f004-resource.md v1；docs/database/f005-bare-metal.md v1；docs/database/f006-virtual-machine.md v1；docs/database/f007-interface.md v1；docs/database/f009-ip-pool.md v1；F004/F005/F006/F007/F009 product/architecture；F001 DR-06 / DB-D13。
+- **版本**：v9
+- **签核**：Architect，2026-10-09（v9 修订；v8 2026-10-09；v7 2026-10-09；v6 2026-10-09；v5 2026-10-09；v4 2026-10-09；v3 2026-10-08；v2 2026-10-07；v1 2026-10-06）
+- **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§13/§13.1/§13.2/§13.3、§14、§20、§21、§27、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v2；docs/api/F004.md v3；docs/api/F007.md v1；docs/api/F009.md v1；docs/api/F010.md v1；docs/database/f003-cluster.md v2；docs/database/f004-resource.md v1；docs/database/f005-bare-metal.md v1；docs/database/f006-virtual-machine.md v1；docs/database/f007-interface.md v1；docs/database/f009-ip-pool.md v1；docs/database/f010-ip-address.md v1（DB-D111–DB-D127）；F004/F005/F006/F007/F009/F010 product/architecture；F001 DR-06 / DB-D13。
 - **覆盖**：API 与导入共用的字段格式、稳定 ID、时间、单位、nullable/PATCH 省略语义、名称归一化口径。F003 首落地签核；后续 Feature 引用本文件不重复定义；数据库列级设计仍归各 Feature Database 文档。
 
 ## 1. 稳定 ID（§4 / DB-D13）
@@ -28,6 +28,7 @@
 - **VirtualMachineDetail 容量数值（F006，v5 补充）**：vcpu/memory_mb 为正整数或 null（1..2147483647）；disk_gb 为非负整数或 null（0..2147483647，0=明确无磁盘）；memory_mb 单位 MiB、disk_gb 单位 GiB，原样存储不换算；一期不校验 VM 总 vCPU/内存是否超过 Host 容量。契约见 docs/api/F004.md v3 §2.5，DB 见 database/f006-virtual-machine.md DB-D55/DB-D56。
 - **Network 地址字段（F008，v7 补充）**：cidr 为 IPv4 CIDR，host 位归一化为网络地址（PG cidr 语义）；gateway 为可空 IPv4，取值域见 §5.7；非数值计量、单位不适用。契约见 docs/api/F008.md v1 §2.2，DB 见 database/f008-network.md DB-D83/DB-D84。
 - **IPPool 地址字段（F009，v8 补充）**：start_address/end_address 为单个 IPv4 主机地址（PG `inet`，family=4 且 masklen=32，非 CIDR/掩码）；均属所属 Network 的 CIDR，且 start_address ≤ end_address（start=end 为单地址池）；非数值计量、单位不适用。契约见 docs/api/F009.md v1 §2.2，DB 见 database/f009-ip-pool.md DB-D98/DB-D104。
+- **IPAddress address 字段（F010，v9 补充）**：address 为单个 IPv4 **主机地址**（PG `inet`，family=4 且 masklen=32，非 CIDR/掩码）；须属所属 Network 的 CIDR，且非网络/广播/禁用/gateway/RESERVED；非数值计量、单位不适用；同 Cluster 未软删唯一。契约见 docs/api/F010.md v1 §2.1，DB 见 docs/database/f010-ip-address.md v1 DB-D114/DB-D119/DB-D120/DB-D121。
 - **Interface 数值（F007，v6 补充）**：speed_mbps/mtu 为正整数或 null（1..2147483647）；speed_mbps 单位 Mbps（标称速率）、mtu 单位字节；均为登记值、非实时探测，未知存 null 不以 0 代替。契约见 docs/api/F007.md v1 §2.2，DB 见 database/f007-interface.md DB-D69。
 
 ## 4. nullable 与 PATCH 省略语义（§4.1）
@@ -66,7 +67,7 @@
 
 ### 5.2 长度口径
 
-Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限，RFC 1035）**；**BareMetal 硬件字符串字段（manufacturer/model/serial_number/cpu_model/gpu_model）255（v4 新增，见 §5.4）**；**VirtualMachine hypervisor 255（v5 新增，见 §5.5）**；**Interface name 64、mac_address ≤64（v6 新增，见 §5.6）**；**Network name 255（v7 新增，见 §5.7）**；**IPPool name 255（v8 新增，见 §5.8）**；其它对象字符/长度在各 Feature Database/Contract 依本节规则收窄（Unicode code point）。
+Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限，RFC 1035）**；**BareMetal 硬件字符串字段（manufacturer/model/serial_number/cpu_model/gpu_model）255（v4 新增，见 §5.4）**；**VirtualMachine hypervisor 255（v5 新增，见 §5.5）**；**Interface name 64、mac_address ≤64（v6 新增，见 §5.6）**；**Network name 255（v7 新增，见 §5.7）**；**IPPool name 255（v8 新增，见 §5.8）**；**IPAddress（F010，v9 补充）**：无名称字段，名称唯一性与长度口径（§5 表）不适用；`address` 为 IPv4 主机地址（见 §3/§5.9）；`description` 可空、无长度上限（同 F003/F004/F007/F008/F009）；其它对象字符/长度在各 Feature Database/Contract 依本节规则收窄（Unicode code point）。
 
 ### 5.3 Resource hostname 字符集、长度与折叠（D01 裁定，F004 I-1）
 
@@ -166,6 +167,28 @@ description（DB-D102）：可空文本，无长度上限（同 F003/F004/F007/F
 
 镜像：DB 列/约束见 docs/database/f009-ip-pool.md v1（DB-D95–D110）；API 契约见 docs/api/F009.md v1。本字段字典供 F014 导入复用。
 
+### 5.9 IPAddress 字段口径（D01 裁定，F010 DB I-1–I-6；v9 新增）
+
+适用范围：docs/api/F010.md v1 的 IPAddress 独立对象字段（network、address、interface、ip_pool、description、version/时间戳/deleted_at）。IPAddress 为独立对象（非 Interface/Network 1:1 明细），归属与生命周期见 §6/§21 及 F010 Contract。
+
+network 归属（DR-118/DR-120/DB-D112）：创建必填 UUID，须引用存在、未软删 Network，否则 422 field="network"；创建后不可改（PATCH 出现 network/network_id→422）。仅新增分配（手动/自动）要求 Network ACTIVE；非 ACTIVE→409 CONFLICT allocation_not_allowed{condition:"network_inactive"}。绑定/解绑/转移不受 Network INACTIVE 限制。
+
+address（DR-120/DB-D114/DB-D119/DB-D120）：单个 IPv4 主机地址（PG `inet`，family=4 且 masklen=32）；输入须为裸点分十进制 IPv4，带前缀/掩码/CIDR 形式→422（不静默归一化），响应为点分十进制（无 `/32`）。须属所属 Network 的 CIDR（应用主校验 + DB 触发器 `trg_ip_addresses_cidr_contains` backstop）；非网络/广播地址（§11.1：/0–/30 排除；/31 两址可用；/32 唯一可用）；非禁用 5 段（0.0.0.0/8、127.0.0.0/8、169.254.0.0/16、224.0.0.0/4、240.0.0.0/4；应用 422 + DB `ck_ip_addresses_address_not_disabled` backstop）；非 gateway、非 RESERVED 池范围（跨表应用主校验）。创建必填、创建后不可改（PATCH 出现 address→422）。唯一：同 Cluster 未软删 (cluster_id,address) 部分唯一 `uq_ip_addresses_cluster_id_address WHERE deleted_at IS NULL`；不同 Cluster 可重复；软删释放可复用；恢复重检冲突不覆盖。
+
+cluster_id（DR-119/DB-D113/DB-D121）：冗余内部列，创建时取自锁定 Network 的 cluster，恒等于 `networks.cluster_id`（DB 触发器 `trg_ip_addresses_cluster_consistent` 兜底）；不暴露于 API；请求体出现 cluster_id→422；不可改。
+
+interface（DR-121/DR-136/DB-D115/DB-D122）：可空 UUID；非空须引用存在、未软删 Interface 且 `Interface.Resource.cluster == IPAddress.cluster`（应用 422 field="interface"；DB 触发器 `trg_ip_addresses_interface_cluster` 兜底）；可 PATCH 绑定/解绑/转移；显式 null=解绑，IP 继续占用；POST 创建不接受 interface（出现→422，分配与绑定分离，DR-137）。
+
+ip_pool（分配来源，DR-122/DB-D116）：可空只读；自动分配=指定 AUTO 池；手动分配=地址所属未删池或 null（池外）；请求体出现→422；创建后不可改；Pool 删除/缩小不回收、不删除、不阻止（§12/§21 例外）。
+
+description：可空文本，无长度上限（同 F003/F004/F007/F008/F009）。
+
+省略语义：见 §4（创建省略非必填→默认/null；PATCH 省略=保持；显式 null 仅清空 interface/description；network/address 显式 null→422；不可变/只读/未知字段→422）。
+
+不落字段：metadata（§13 未列举，DR-123）、name、status、实时探测状态；请求含 metadata→422，响应不含。无名称字段，§5 表名称口径不适用。
+
+镜像：DB 列/约束见 docs/database/f010-ip-address.md v1（DB-D111–DB-D127）；API 契约见 docs/api/F010.md v1。本字段字典供 F014 导入复用。
+
 ## 6. 归属与引用
 
 对象「所属对象」（如 Resource 的 Cluster、Pool 的 Network）在创建时必填；具体可空性按各条款。引用以稳定 UUID 表达；删除前做未删除引用检查，不隐式级联（§21）。
@@ -186,3 +209,4 @@ description（DB-D102）：可空文本，无长度上限（同 F003/F004/F007/F
 | v6 | 2026-10-09 | §3 追加 Interface 数值上限引用；§5.2 追加 Interface name 64 与 mac_address ≤64；§5 表 Interface name 行明确「未删除」范围与不折叠口径；新增 §5.6 Interface 字段口径（name 1–64 区分大小写 trim 禁内部空白、类型 7 值默认 OTHER 不推断、mac ≤64 无正则无唯一、speed_mbps/mtu 正整数或 null、parent 同 Resource 禁自引用/环、enabled 默认 true、metadata Interface 自有、resource 创建必填不可改） | F007 DB I-1 与 Contract v1 定稿（DR-87） |
 | v7 | 2026-10-09 | §3 追加 Network 地址字段引用；§5.2 追加 Network name 255；§5 表新增 Network name 行；新增 §5.7 Network 字段口径（name 1–255 仅 ASCII 折叠、cidr host 位归一化、gateway 取值域 /31 /32 禁用 5 段、status/auto_allocate 默认、metadata 自有、cluster 创建必填与有引用不可改） | F008 DB I-2 与 Contract v1 定稿（DR-90/93/95/101） |
 | v8 | 2026-10-09 | §3 追加 IPPool 地址字段引用；§5.2 追加 IPPool name 255；§5 表 IPPool/Service 行内部空白措辞改为「允许内部普通空格（不自动合并）」；新增 §5.8 IPPool 字段口径（name 1–255 仅 ASCII 折叠、start/end 单主机 IPv4 属 CIDR 且起≤止、network 创建必填不可改、allocation_mode 默认 MANUAL、description 无上限、不落 metadata/status/auto_allocate/容量） | F009 DB I-4 与 Contract v1 定稿（DR-103/104/105/107/113） |
+| v9 | 2026-10-09 | §3 追加 IPAddress address 字段引用；§5.2 追加 IPAddress 无名称/description 口径；新增 §5.9 IPAddress 字段口径（address 主 IPv4 属 CIDR 非网络广播禁用 gateway RESERVED、network 必填不可改、interface 可空同 Cluster 可 PATCH、ip_pool 只读来源、cluster_id 冗余不暴露、不落 metadata/name/status、省略语义） | F010 DB v1 与 Contract v1 定稿（DR-119/120/121/122/123/136/137） |
