@@ -150,6 +150,26 @@ class Conflict(AppError):
     def dependency_deleted(cls, conflicts: list[dict]) -> "Conflict":
         return cls("dependency_deleted", conflicts=conflicts)
 
+    @classmethod
+    def allocation_not_allowed(cls, condition: str) -> "Conflict":
+        """F010: a new-allocation precondition is not met (DR-125/DR-136).
+
+        ``condition`` is ``network_inactive`` / ``auto_allocate_disabled`` /
+        ``pool_not_auto``.
+        """
+        return cls("allocation_not_allowed", condition=condition)
+
+    @classmethod
+    def no_available_address(
+        cls, network_id: uuid.UUID | str, ip_pool_id: uuid.UUID | str
+    ) -> "Conflict":
+        """F010: the specified AUTO pool has no allocatable free address."""
+        return cls(
+            "no_available_address",
+            network_id=str(network_id),
+            ip_pool_id=str(ip_pool_id),
+        )
+
 
 class NotFound(AppError):
     """404: target resource/path does not exist."""

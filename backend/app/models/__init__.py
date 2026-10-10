@@ -3,7 +3,7 @@
 F002 introduces ``users`` and ``user_sessions``; F003 adds ``clusters`` and the
 ``audit_logs`` trail; F004 adds ``resources``; F005 adds ``bare_metal_details``;
 F006 adds ``virtual_machine_details``; F007 adds ``interfaces``; F008 adds
-``networks``; F009 adds ``ip_pools``.
+``networks``; F009 adds ``ip_pools``; F010 adds ``ip_addresses``.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from app.models.bare_metal_detail import BareMetalDetail
 from app.models.base import Base, SoftDeleteMixin
 from app.models.cluster import Cluster
 from app.models.interface import Interface
+from app.models.ip_address import IPAddress
 from app.models.ip_pool import IPPool
 from app.models.network import Network
 from app.models.resource import Resource
@@ -25,8 +26,9 @@ __all__ = [
     "BareMetalDetail",
     "Base",
     "Cluster",
-    "Interface",
+    "IPAddress",
     "IPPool",
+    "Interface",
     "Network",
     "Resource",
     "SoftDeleteMixin",

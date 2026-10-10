@@ -14,6 +14,7 @@ from app.api.v1 import (
     clusters,
     health,
     interfaces,
+    ip_addresses,
     ip_pools,
     networks,
     resources,
@@ -28,3 +29,5 @@ api_v1_router.include_router(resources.router)
 api_v1_router.include_router(interfaces.router)
 api_v1_router.include_router(networks.router)
 api_v1_router.include_router(ip_pools.router)
+api_v1_router.include_router(ip_addresses.router)
+api_v1_router.include_router(ip_addresses.capacity_router)

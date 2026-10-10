@@ -135,8 +135,9 @@ def _seed(engine, tag: str) -> tuple[uuid.UUID, uuid.UUID]:
 
 
 def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0009_ip_pools"
-    assert _alembic_versions(pg_engine) == ["0009_ip_pools"]
+    # F010 appended 0010_ip_addresses to the single head chain (0009 -> 0010).
+    assert alembic_runner.head_revision() == "0010_ip_addresses"
+    assert _alembic_versions(pg_engine) == ["0010_ip_addresses"]
     assert "ip_pools" in _tables(pg_engine)
     extensions_before = _extensions(pg_engine)
 
@@ -159,9 +160,13 @@ def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
     assert _extensions(pg_engine) == extensions_before
     assert "btree_gist" in _extensions(pg_engine)
 
-    alembic_runner.upgrade("head")
+    # Upgrade just the F009 revision to prove 0009 is still intact in the chain.
+    alembic_runner.upgrade("0009_ip_pools")
     assert "ip_pools" in _tables(pg_engine)
     assert _alembic_versions(pg_engine) == ["0009_ip_pools"]
+
+    alembic_runner.upgrade("head")
+    assert _alembic_versions(pg_engine) == ["0010_ip_addresses"]
 
 
 def test_table_catalogue_columns_constraints_indexes_triggers(committed_engine):

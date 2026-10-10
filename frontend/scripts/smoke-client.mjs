@@ -89,6 +89,24 @@
  *   （exclude_unset；显式 null=清空 description；network 不可改不上送）、
  *   服务端 422 点路径 → 表单键映射。
  *
+ * F010 追加（Contract：docs/api/F010.md v1，前端机制级）：
+ * - src/api/ipAddresses.ts 的 URL / method / body 构造（Contract §6：列表查询串
+ *   （network_id/cluster_id/interface_id/ip_pool_id/address/bound/q/deleted）、
+ *   POST 手动分配 201 {"ip_address"}、POST /auto-allocate（network+ip_pool）。
+ *   PATCH 仅携带变化字段（不含 network/address/ip_pool，DR-120/DR-122）、
+ *   DELETE（释放）/ restore 的 version Query、activity、GET /networks/{id}/capacity
+ *   容量数据）；
+ * - 409 CONFLICT（unique_conflict field="address" → 字段级错误；
+ *   allocation_not_allowed condition=network_inactive|auto_allocate_disabled|
+ *   pool_not_auto → 条件文案；no_available_address → {network_id,ip_pool_id}；
+ *   reference_exists → references（endpoint）；dependency_deleted → conflicts
+ *   （network/interface 文案区分）；not_deleted）/ VERSION_CONFLICT（→ 刷新后
+ *   重改，不静默重试）/ 422 / 404 / 403 的 describeIpAddressActionError 语义；
+ * - src/components/ipAddressForm.ts（纯逻辑，无 JSX）：表单值解析（裸 IPv4 不带
+ *   掩码、属 CIDR 本地提示、auto/edit 模式不校验 address、空描述=null、空接口
+ *   选=null）、手动 / 自动分配载荷构造、PATCH exclude_unset 镜像（interface 绑定/
+ *   解绑/转移；network/address/ip_pool 恒不上送）、服务端 422 点路径 → 表单键映射。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -185,6 +203,28 @@ import {
   ipPoolFormValuesFromIpPool,
   parseIpPoolFormValues,
 } from "../src/components/ipPoolForm.ts";
+import {
+  autoAllocateIpAddress,
+  createIpAddress,
+  describeIpAddressActionError,
+  getIpAddress,
+  getIpAddressActivity,
+  getNetworkCapacity,
+  listIpAddresses,
+  releaseIpAddress,
+  restoreIpAddress,
+  updateIpAddress,
+} from "../src/api/ipAddresses.ts";
+import {
+  buildAutoAllocateInput,
+  buildIpAddressPatch,
+  buildManualAllocateInput,
+  emptyIpAddressFormValues,
+  ipAddressFormFieldFromPath,
+  ipAddressFormValuesFromIpAddress,
+  isValidBareIpv4,
+  parseIpAddressFormValues,
+} from "../src/components/ipAddressForm.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -3043,6 +3083,770 @@ await test("F009 ipPoolFormValuesFromIpPool：null → 默认空值；descriptio
   const roundTrip = parseIpPoolFormValues(ipPoolFormValuesFromIpPool(ipPoolFixture));
   assert.equal(roundTrip.ok, true);
   assert.equal(buildIpPoolPatch(ipPoolFixture, roundTrip.fields), null);
+});
+
+// ---------- F010 IP Address 机制级（Contract：docs/api/F010.md v1） ----------
+
+/** IPAddress 响应夹具（Contract §3：network/cluster/interface/ip_pool 展开 / 可空）。 */
+const ipAddressFixture = {
+  id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f1001",
+  network: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801", name: "MGMT", cidr: "10.0.0.0/24" },
+  cluster: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004", code: "N96P", name: "N96P集群" },
+  address: "10.0.0.5",
+  interface: {
+    id: "a1b2c3d4-0000-4000-8000-0000000000f1",
+    name: "eth0",
+    resource: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0101", hostname: "node001" },
+  },
+  ip_pool: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0901", name: "MGMT-AUTO" },
+  description: "管理网示例地址",
+  version: 3,
+  created_at: "2026-10-09T12:00:00+00:00",
+  updated_at: "2026-10-09T12:00:00+00:00",
+  deleted_at: null,
+};
+
+await test("F010 listIpAddresses：默认 GET /api/v1/ip-addresses，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listIpAddresses();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/ip-addresses");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F010 listIpAddresses 组合查询：network/cluster/interface/pool/address/bound/q/deleted/分页/排序（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [ipAddressFixture], page: 2, page_size: 50, total: 1 });
+  const data = await listIpAddresses({
+    network_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+    cluster_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+    interface_id: "a1b2c3d4-0000-4000-8000-0000000000f1",
+    ip_pool_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0901",
+    address: "10.0.0.5",
+    bound: true,
+    q: "10.0.0",
+    deleted: "only",
+    page: 2,
+    page_size: 50,
+    sort: "address",
+    order: "asc",
+  });
+  assert.equal(data.items[0].address, "10.0.0.5");
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/ip-addresses?network_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801" +
+      "&cluster_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004" +
+      "&interface_id=a1b2c3d4-0000-4000-8000-0000000000f1" +
+      "&ip_pool_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0901" +
+      "&address=10.0.0.5&bound=true&q=10.0.0&deleted=only" +
+      "&page=2&page_size=50&sort=address&order=asc",
+  );
+  // bound=false 也要照常发送（不得因 falsy 丢失）；空串过滤项不发
+  await listIpAddresses({ bound: false });
+  assert.equal(calls[1].url, "/api/v1/ip-addresses?bound=false");
+  await listIpAddresses({
+    network_id: "",
+    cluster_id: "",
+    interface_id: "",
+    ip_pool_id: "",
+    address: "",
+    q: "",
+  });
+  assert.equal(calls[2].url, "/api/v1/ip-addresses");
+});
+
+await test("F010 createIpAddress（手动分配）：POST body（network/address/description）；201 解析嵌套展开", async () => {
+  respond = () => jsonResponse(201, { ip_address: ipAddressFixture });
+  const { ip_address } = await createIpAddress({
+    network: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+    address: "10.0.0.5",
+    description: "管理网示例地址",
+  });
+  assert.equal(ip_address.id, ipAddressFixture.id);
+  assert.equal(ip_address.network.cidr, "10.0.0.0/24"); // network 嵌套展开
+  assert.equal(ip_address.cluster.code, "N96P");
+  assert.equal(ip_address.interface.resource.hostname, "node001"); // interface 嵌套展开
+  assert.equal(ip_address.ip_pool.name, "MGMT-AUTO");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/ip-addresses");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    network: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+    address: "10.0.0.5",
+    description: "管理网示例地址",
+  });
+});
+
+await test("F010 createIpAddress 最小载荷：仅 network + address（description 省略 → null）", async () => {
+  respond = () =>
+    jsonResponse(201, { ip_address: { ...ipAddressFixture, description: null } });
+  const { ip_address } = await createIpAddress({ network: "n1", address: "10.0.0.5" });
+  assert.equal(ip_address.description, null); // 未设置返回 null，不用空串代替
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    network: "n1",
+    address: "10.0.0.5",
+  });
+});
+
+await test("F010 autoAllocateIpAddress（自动分配）：POST /auto-allocate + network/ip_pool body；interface=null", async () => {
+  respond = () =>
+    jsonResponse(201, {
+      ip_address: { ...ipAddressFixture, address: "10.0.0.50", interface: null },
+    });
+  const { ip_address } = await autoAllocateIpAddress({
+    network: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+    ip_pool: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0901",
+    description: "自动分配示例",
+  });
+  assert.equal(ip_address.address, "10.0.0.50"); // 服务端升序选址
+  assert.equal(ip_address.interface, null); // 分配与绑定分离（DR-137）
+  assert.equal(ip_address.ip_pool.id, "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0901"); // 来源=指定池
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/ip-addresses/auto-allocate");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    network: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+    ip_pool: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0901",
+    description: "自动分配示例",
+  });
+  // 最小载荷：description 省略
+  respond = () => jsonResponse(201, { ip_address: { ...ipAddressFixture, interface: null } });
+  await autoAllocateIpAddress({ network: "n1", ip_pool: "p1" });
+  assert.deepEqual(JSON.parse(calls[1].init.body), { network: "n1", ip_pool: "p1" });
+});
+
+await test("F010 getIpAddress：详情 + ?deleted=true（已删需 VIEW_DELETED）", async () => {
+  respond = () => jsonResponse(200, { ip_address: ipAddressFixture });
+  await getIpAddress(ipAddressFixture.id);
+  assert.equal(calls[0].url, `/api/v1/ip-addresses/${ipAddressFixture.id}`);
+  await getIpAddress(ipAddressFixture.id, { deleted: true });
+  assert.equal(calls[1].url, `/api/v1/ip-addresses/${ipAddressFixture.id}?deleted=true`);
+});
+
+await test("F010 updateIpAddress：PATCH 仅携带变化字段（version 必带；不含 network/address/ip_pool，DR-120/DR-122）", async () => {
+  respond = () =>
+    jsonResponse(200, { ip_address: { ...ipAddressFixture, version: 4, interface: null } });
+  await updateIpAddress(ipAddressFixture.id, { version: 3, interface: null });
+  assert.equal(calls[0].init.method, "PATCH");
+  assert.equal(calls[0].url, `/api/v1/ip-addresses/${ipAddressFixture.id}`);
+  const body = JSON.parse(calls[0].init.body);
+  assert.deepEqual(body, { version: 3, interface: null }); // 显式 null = 解绑（IP 继续占用）
+  assert.ok(!("network" in body), "PATCH 载荷不得携带 network 键（创建后不可改，DR-120）");
+  assert.ok(!("address" in body), "PATCH 载荷不得携带 address 键（创建后不可改，DR-120）");
+  assert.ok(!("ip_pool" in body), "PATCH 载荷不得携带 ip_pool 键（来源不可改，DR-122）");
+  // 转移（绑定到新接口）+ 描述清空（显式 null）
+  respond = () => jsonResponse(200, { ip_address: ipAddressFixture });
+  await updateIpAddress(ipAddressFixture.id, {
+    version: 3,
+    interface: "a1b2c3d4-0000-4000-8000-0000000000f2",
+    description: null,
+  });
+  assert.deepEqual(JSON.parse(calls[1].init.body), {
+    version: 3,
+    interface: "a1b2c3d4-0000-4000-8000-0000000000f2",
+    description: null,
+  });
+});
+
+await test("F010 releaseIpAddress / restoreIpAddress：version 为 Query 参数（Contract §6.6/§6.7）", async () => {
+  respond = () => new Response(null, { status: 204 });
+  const result = await releaseIpAddress(ipAddressFixture.id, 3);
+  assert.equal(result, undefined);
+  assert.equal(calls[0].init.method, "DELETE");
+  assert.equal(calls[0].url, `/api/v1/ip-addresses/${ipAddressFixture.id}?version=3`);
+  respond = () =>
+    jsonResponse(200, { ip_address: { ...ipAddressFixture, version: 4, deleted_at: null } });
+  const { ip_address: restored } = await restoreIpAddress(ipAddressFixture.id, 3);
+  assert.equal(restored.deleted_at, null);
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[1].url, `/api/v1/ip-addresses/${ipAddressFixture.id}/restore?version=3`);
+});
+
+await test("F010 getIpAddressActivity：URL + deleted/page 查询参数（VIEW_ACTIVITY 全角色）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  await getIpAddressActivity(ipAddressFixture.id, { page: 1, page_size: 20 });
+  assert.equal(
+    calls[0].url,
+    `/api/v1/ip-addresses/${ipAddressFixture.id}/activity?page=1&page_size=20`,
+  );
+  await getIpAddressActivity(ipAddressFixture.id, { deleted: true });
+  assert.equal(calls[1].url, `/api/v1/ip-addresses/${ipAddressFixture.id}/activity?deleted=true`);
+});
+
+await test("F010 getNetworkCapacity：GET /networks/{id}/capacity；remaining 负值原样（不截断，DR-130）", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      network_capacity: {
+        network: {
+          id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+          name: "MGMT",
+          cidr: "10.10.0.0/16",
+          status: "ACTIVE",
+          auto_allocate: true,
+        },
+        allocatable_total: 65534,
+        occupied: 120,
+        remaining: 65414,
+      },
+      auto_pools: [
+        {
+          ip_pool: {
+            id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0901",
+            name: "MGMT-AUTO",
+            start_address: "10.10.1.50",
+            end_address: "10.10.1.200",
+          },
+          allocatable_total: 151,
+          occupied: 12,
+          remaining: 139,
+        },
+      ],
+    });
+  const data = await getNetworkCapacity("0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801");
+  assert.equal(data.network_capacity.allocatable_total, 65534);
+  assert.equal(data.network_capacity.occupied, 120);
+  assert.equal(data.network_capacity.remaining, 65414);
+  assert.equal(data.network_capacity.network.auto_allocate, true);
+  assert.equal(data.auto_pools.length, 1);
+  assert.equal(data.auto_pools[0].ip_pool.name, "MGMT-AUTO");
+  assert.equal(data.auto_pools[0].remaining, 139);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/networks/0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801/capacity",
+  );
+  assert.equal(calls[0].init.method, "GET");
+  // 负值口径：存量地址落入现已保留范围时 remaining 可为负，原样返回（DR-130 定稿）
+  respond = () =>
+    jsonResponse(200, {
+      network_capacity: {
+        network: {
+          id: "n1",
+          name: "MGMT",
+          cidr: "10.0.0.0/24",
+          status: "ACTIVE",
+          auto_allocate: false,
+        },
+        allocatable_total: 250,
+        occupied: 260,
+        remaining: -10,
+      },
+      auto_pools: [],
+    });
+  const negative = await getNetworkCapacity("n1");
+  assert.equal(negative.network_capacity.remaining, -10);
+});
+
+await test('F010 409 CONFLICT unique_conflict（field="address"）→ address 字段级错误（同集群唯一）；不重试', async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "unique_conflict", field: "address" },
+      },
+    });
+  const err = await expectApiError(
+    createIpAddress({ network: "n1", address: "10.0.0.5" }),
+  );
+  assert.equal(err.status, 409);
+  assert.equal(err.code, "CONFLICT");
+  assert.equal(err.details.reason, "unique_conflict");
+  const described = describeIpAddressActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.ok(described.fields.address, "unique_conflict 应落为 address 字段级错误");
+  assert.ok(described.fields.address.includes("同集群"));
+  assert.ok(described.message.includes("address 冲突"));
+  assert.equal(calls.length, 1); // 不自动重试
+});
+
+await test("F010 409 CONFLICT allocation_not_allowed：三种 condition 各自文案（DR-125/DR-136）；不重试", async () => {
+  const conditions = [
+    {
+      condition: "network_inactive",
+      hints: ["INACTIVE", "network_inactive"],
+    },
+    {
+      condition: "auto_allocate_disabled",
+      hints: ["auto_allocate", "auto_allocate_disabled"],
+    },
+    {
+      condition: "pool_not_auto",
+      hints: ["AUTO", "不降级", "pool_not_auto"],
+    },
+  ];
+  for (const { condition, hints } of conditions) {
+    respond = () =>
+      jsonResponse(409, {
+        error: {
+          code: "CONFLICT",
+          message: "Conflict",
+          details: { reason: "allocation_not_allowed", condition },
+        },
+      });
+    const err = await expectApiError(
+      autoAllocateIpAddress({ network: "n1", ip_pool: "p1" }),
+    );
+    const described = describeIpAddressActionError(err);
+    assert.equal(described.versionConflict, false);
+    assert.equal(described.allocationCondition, condition);
+    for (const hint of hints) {
+      assert.ok(
+        described.message.includes(hint),
+        `condition=${condition} 文案应含「${hint}」，实际：${described.message}`,
+      );
+    }
+  }
+  // 未知 condition：保守回退通用文案（携带原值），不伪造已知条件
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "allocation_not_allowed", condition: "weird" },
+      },
+    });
+  const unknown = await expectApiError(
+    autoAllocateIpAddress({ network: "n1", ip_pool: "p1" }),
+  );
+  const unknownDescribed = describeIpAddressActionError(unknown);
+  assert.equal(unknownDescribed.allocationCondition, null);
+  assert.ok(unknownDescribed.message.includes("condition=weird"));
+  assert.equal(calls.length, 4); // 每个用例恰好一次，不重试
+});
+
+await test("F010 409 CONFLICT no_available_address：解析 {network_id, ip_pool_id}；不切换其它池", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "no_available_address",
+          network_id: "n1",
+          ip_pool_id: "p1",
+        },
+      },
+    });
+  const err = await expectApiError(
+    autoAllocateIpAddress({ network: "n1", ip_pool: "p1" }),
+  );
+  const described = describeIpAddressActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.ok(described.noAvailable, "no_available_address 应解析出池信息");
+  assert.equal(described.noAvailable.network_id, "n1");
+  assert.equal(described.noAvailable.ip_pool_id, "p1");
+  assert.ok(described.message.includes("无可用地址"));
+  assert.ok(described.message.includes("不切换"));
+  assert.ok(described.message.includes("CONFLICT/no_available_address"));
+  assert.equal(calls.length, 1); // 不自动重试（不静默换池）
+});
+
+await test("F010 409 CONFLICT reference_exists：解绑/转移/释放被未删 Endpoint 引用 → references；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "reference_exists",
+          references: [
+            { object_type: "endpoint", object_id: "e1", label: "ep-1" },
+            { object_type: "endpoint", object_id: "e2", label: null },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(releaseIpAddress(ipAddressFixture.id, 3));
+  const described = describeIpAddressActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.equal(described.references.length, 2);
+  assert.equal(described.references[0].object_type, "endpoint");
+  assert.equal(described.references[0].label, "ep-1");
+  assert.equal(described.references[1].label, null); // label 缺失为 null
+  assert.ok(described.message.includes("无法解绑/转移/释放"));
+  assert.equal(calls.length, 1); // 不自动重试
+});
+
+await test("F010 409 CONFLICT dependency_deleted：network→所属网络文案 / interface→绑定接口文案；不覆盖新对象", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "network", object_id: "n1" }],
+        },
+      },
+    });
+  const err = await expectApiError(restoreIpAddress(ipAddressFixture.id, 3));
+  const described = describeIpAddressActionError(err);
+  assert.equal(described.dependencyConflicts.length, 1);
+  assert.equal(described.dependencyConflicts[0].object_type, "network");
+  assert.ok(described.message.includes("所属网络"));
+  assert.ok(described.message.includes("不会覆盖网络或其上新对象"));
+  // interface 冲突：绑定接口仍删 → 接口文案，不误用网络文案
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "interface", object_id: "a1b2c3d4-0000-4000-8000-0000000000f1" }],
+        },
+      },
+    });
+  const ifaceErr = await expectApiError(restoreIpAddress(ipAddressFixture.id, 3));
+  const ifaceDescribed = describeIpAddressActionError(ifaceErr);
+  assert.equal(ifaceDescribed.dependencyConflicts[0].object_type, "interface");
+  assert.ok(ifaceDescribed.message.includes("绑定的接口"));
+  assert.ok(!ifaceDescribed.message.includes("所属网络"), "不得误用 network 文案");
+  assert.ok(ifaceDescribed.message.includes("不会覆盖接口或其上新对象"));
+});
+
+await test("F010 409 CONFLICT not_deleted：对未软删对象 restore 的明确文案", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: { code: "CONFLICT", message: "Conflict", details: { reason: "not_deleted" } },
+    });
+  const err = await expectApiError(restoreIpAddress(ipAddressFixture.id, 3));
+  const described = describeIpAddressActionError(err);
+  assert.ok(described.message.includes("未处于已删除状态"));
+  assert.ok(described.message.includes("CONFLICT/not_deleted"));
+});
+
+await test("F010 409 VERSION_CONFLICT：可识别冲突信号（刷新后重改），不静默重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "数据已被他人修改",
+        details: { current_version: 7 },
+      },
+    });
+  const err = await expectApiError(
+    updateIpAddress(ipAddressFixture.id, { version: 6, interface: null }),
+  );
+  const described = describeIpAddressActionError(err);
+  assert.equal(described.versionConflict, true);
+  assert.equal(described.currentVersion, 7);
+  assert.ok(described.message.includes("刷新"), "应提示刷新后重改");
+  assert.ok(described.message.includes("不会自动重试"));
+  assert.equal(calls.length, 1); // 不重试（不静默重试覆盖）
+});
+
+await test("F010 422 VALIDATION_ERROR：顶层字段路径透传（network/address/interface/description，Contract §2.3）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "请求体校验失败",
+        details: {
+          fields: [
+            { field: "network", message: "网络不存在或已删除" },
+            { field: "address", message: "address 为网络/广播地址，不可分配" },
+            { field: "interface", message: "接口与该 IP 不在同一集群" },
+            { field: "description", message: "description 必须为字符串或 null" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(
+    createIpAddress({ network: "nope", address: "10.0.0.0" }),
+  );
+  const described = describeIpAddressActionError(err);
+  assert.equal(described.fields.network, "网络不存在或已删除");
+  assert.equal(described.fields.address, "address 为网络/广播地址，不可分配");
+  assert.equal(described.fields.interface, "接口与该 IP 不在同一集群");
+  assert.equal(described.fields.description, "description 必须为字符串或 null");
+});
+
+await test("F010 403 / 404：明确文案（权限不足 / 对象不存在，不泄露存在性细节）", async () => {
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const err403 = await expectApiError(releaseIpAddress(ipAddressFixture.id, 3));
+  assert.ok(describeIpAddressActionError(err403).message.includes("没有权限"));
+  respond = () =>
+    jsonResponse(404, { error: { code: "NOT_FOUND", message: "不存在", details: {} } });
+  const err404 = await expectApiError(getIpAddress(ipAddressFixture.id));
+  assert.ok(describeIpAddressActionError(err404).message.includes("IP 地址不存在"));
+});
+
+await test("F010 网络层错误（fetch reject）：不伪装成业务结果", async () => {
+  respond = () => Promise.reject(new TypeError("Failed to fetch"));
+  await assert.rejects(listIpAddresses(), TypeError);
+  assert.equal(calls.length, 1); // 失败不重发
+  const described = describeIpAddressActionError(new TypeError("Failed to fetch"));
+  assert.equal(described.message, "无法连接服务器，请稍后重试");
+  assert.equal(described.versionConflict, false);
+});
+
+await test("F010 parseIpAddressFormValues（manual）：合法值（trim / 裸 IPv4 / 空描述=null / 空接口=null）", async () => {
+  const parsed = parseIpAddressFormValues(
+    {
+      ...emptyIpAddressFormValues(),
+      network: "n1",
+      address: " 10.0.0.5 ",
+      description: "管理网示例地址",
+    },
+    "manual",
+  );
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.fields.address, "10.0.0.5"); // trim 后原值（不归一化）
+  assert.equal(parsed.fields.description, "管理网示例地址");
+  assert.equal(parsed.fields.interface, null); // 空选 = null（解绑）
+  // 空描述 → null
+  const emptyDesc = parseIpAddressFormValues(
+    {
+      ...emptyIpAddressFormValues(),
+      network: "n1",
+      address: "10.0.0.5",
+    },
+    "manual",
+  );
+  assert.equal(emptyDesc.ok, true);
+  assert.equal(emptyDesc.fields.description, null);
+});
+
+await test("F010 parseIpAddressFormValues（manual）：非法输入 → 字段级错误（空 / 非 IPv4 / 带掩码 / IPv6 / 越界 octet）", async () => {
+  const cases = [
+    { address: "", hint: "不能为空" },
+    { address: "10.0.0", hint: "IPv4" },
+    { address: "10.0.0.256", hint: "IPv4" },
+    { address: "10.0.0.5/24", hint: "不带掩码" },
+    { address: "10.0.0.5/32", hint: "不带掩码" },
+    { address: "::1", hint: "IPv4" },
+    { address: "   ", hint: "不能为空" },
+  ];
+  for (const { address, hint } of cases) {
+    const parsed = parseIpAddressFormValues(
+      { ...emptyIpAddressFormValues(), network: "n1", address },
+      "manual",
+    );
+    assert.equal(parsed.ok, false, `应校验失败：address=${JSON.stringify(address)}`);
+    if (!parsed.ok) {
+      assert.ok(parsed.errors.address, "应产生 address 字段错误");
+      assert.ok(
+        parsed.errors.address.includes(hint),
+        `address 错误文案应含「${hint}」，实际：${parsed.errors.address}`,
+      );
+    }
+  }
+});
+
+await test("F010 parseIpAddressFormValues（manual）：属 CIDR 本地提示（服务端仍权威；未知 / 异常 CIDR 不伪造结论）", async () => {
+  const values = {
+    ...emptyIpAddressFormValues(),
+    network: "n1",
+    address: "10.1.0.5",
+  };
+  // 未提供 CIDR（网络未选 / 未知）→ 不做本地判定
+  assert.equal(parseIpAddressFormValues(values, "manual").ok, true);
+  assert.equal(parseIpAddressFormValues(values, "manual", null).ok, true);
+  // 提供 CIDR 且越界 → 本地提示（错误文案含 CIDR）
+  const outOfCidr = parseIpAddressFormValues(values, "manual", "10.0.0.0/24");
+  assert.equal(outOfCidr.ok, false);
+  assert.ok(outOfCidr.errors.address.includes("不属于所属网络 CIDR 10.0.0.0/24"));
+  // /31 两址可用、/32 唯一地址可用：不做本地排除（网络/广播排除由服务端权威校验）
+  const boundaryOk = parseIpAddressFormValues(
+    { ...emptyIpAddressFormValues(), network: "n1", address: "10.0.0.0" },
+    "manual",
+    "10.0.0.0/31",
+  );
+  assert.equal(boundaryOk.ok, true, "/31 网络地址不做本地排除（服务端权威）");
+  // CIDR 本身不合法 → 不做本地判定
+  assert.equal(parseIpAddressFormValues(values, "manual", "not-a-cidr").ok, true);
+});
+
+await test("F010 parseIpAddressFormValues（auto/edit）：address 不参与校验（auto 服务端选址 / edit 不可改）", async () => {
+  // auto：address 输入即使非法也不校验（不参与载荷）
+  const autoParsed = parseIpAddressFormValues(
+    { ...emptyIpAddressFormValues(), network: "n1", ip_pool: "p1", address: "garbage/24" },
+    "auto",
+  );
+  assert.equal(autoParsed.ok, true);
+  // edit：address 为只读展示，不校验；interface 透传
+  const editParsed = parseIpAddressFormValues(
+    {
+      ...emptyIpAddressFormValues(),
+      network: "n1",
+      address: "whatever",
+      interface: "a1b2c3d4-0000-4000-8000-0000000000f2",
+    },
+    "edit",
+  );
+  assert.equal(editParsed.ok, true);
+  assert.equal(editParsed.fields.interface, "a1b2c3d4-0000-4000-8000-0000000000f2");
+});
+
+await test("F010 isValidBareIpv4：裸 IPv4 判定（列表过滤本地校验共用）", async () => {
+  assert.equal(isValidBareIpv4("10.0.0.5"), true);
+  assert.equal(isValidBareIpv4("0.0.0.0"), true);
+  assert.equal(isValidBareIpv4("255.255.255.255"), true);
+  assert.equal(isValidBareIpv4("10.0.0.5/24"), false); // 带掩码
+  assert.equal(isValidBareIpv4("10.0.0"), false);
+  assert.equal(isValidBareIpv4("10.0.0.256"), false);
+  assert.equal(isValidBareIpv4("::1"), false); // IPv6
+  assert.equal(isValidBareIpv4(""), false);
+  assert.equal(isValidBareIpv4(" 10.0.0.5 "), false); // 含空白
+});
+
+await test("F010 ipAddressFormFieldFromPath：服务端 422 点路径 → 表单键（顶层直通；未知路径 → null）", async () => {
+  assert.equal(ipAddressFormFieldFromPath("network"), "network");
+  assert.equal(ipAddressFormFieldFromPath("address"), "address");
+  assert.equal(ipAddressFormFieldFromPath("ip_pool"), "ip_pool");
+  assert.equal(ipAddressFormFieldFromPath("interface"), "interface");
+  assert.equal(ipAddressFormFieldFromPath("description"), "description");
+  assert.equal(ipAddressFormFieldFromPath("metadata"), null); // IPAddress 无 metadata（I-3）
+  assert.equal(ipAddressFormFieldFromPath("cluster_id"), null); // 不暴露（§2.2）
+  assert.equal(ipAddressFormFieldFromPath("unknown.field"), null);
+});
+
+await test("F010 buildManualAllocateInput：network/address 恒携带；description 仅已登记值；不含 interface/ip_pool", async () => {
+  const parsed = parseIpAddressFormValues(
+    { ...emptyIpAddressFormValues(), network: "n1", address: " 10.0.0.5 " },
+    "manual",
+  );
+  assert.equal(parsed.ok, true);
+  const input = buildManualAllocateInput("0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801", parsed.fields);
+  assert.deepEqual(input, {
+    network: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0801",
+    address: "10.0.0.5",
+  });
+  assert.ok(!("description" in input), "未设置描述时不得携带 description 键");
+  assert.ok(!("interface" in input), "手动分配载荷不得携带 interface（DR-137）");
+  assert.ok(!("ip_pool" in input), "手动分配载荷不得携带 ip_pool（DR-122 服务端推导）");
+  const full = parseIpAddressFormValues(
+    { ...emptyIpAddressFormValues(), network: "n1", address: "10.0.0.5", description: "示例" },
+    "manual",
+  );
+  assert.equal(full.ok, true);
+  assert.deepEqual(buildManualAllocateInput("n1-uuid", full.fields), {
+    network: "n1-uuid",
+    address: "10.0.0.5",
+    description: "示例",
+  });
+});
+
+await test("F010 buildAutoAllocateInput：network/ip_pool 恒携带；description 仅已登记值；不含 address/interface", async () => {
+  const parsed = parseIpAddressFormValues(
+    { ...emptyIpAddressFormValues(), network: "n1", ip_pool: "p1" },
+    "auto",
+  );
+  assert.equal(parsed.ok, true);
+  const input = buildAutoAllocateInput("n1-uuid", "p1-uuid", parsed.fields);
+  assert.deepEqual(input, { network: "n1-uuid", ip_pool: "p1-uuid" });
+  assert.ok(!("address" in input), "自动分配载荷不得携带 address（服务端升序选址）");
+  assert.ok(!("interface" in input), "自动分配载荷不得携带 interface（DR-137）");
+  const withDesc = parseIpAddressFormValues(
+    { ...emptyIpAddressFormValues(), network: "n1", ip_pool: "p1", description: "自动" },
+    "auto",
+  );
+  assert.equal(withDesc.ok, true);
+  assert.deepEqual(buildAutoAllocateInput("n1-uuid", "p1-uuid", withDesc.fields), {
+    network: "n1-uuid",
+    ip_pool: "p1-uuid",
+    description: "自动",
+  });
+});
+
+await test("F010 buildIpAddressPatch：exclude_unset 镜像（无变化 → null；绑定/解绑/转移；network/address/ip_pool 恒不上送）", async () => {
+  // 无变化 → null（不发起空更新）
+  const unchanged = parseIpAddressFormValues(
+    ipAddressFormValuesFromIpAddress(ipAddressFixture),
+    "edit",
+  );
+  assert.equal(unchanged.ok, true);
+  assert.equal(unchanged.fields.interface, "a1b2c3d4-0000-4000-8000-0000000000f1");
+  assert.equal(buildIpAddressPatch(ipAddressFixture, unchanged.fields), null);
+  // 解绑：interface 空选 → 显式 null（IP 继续占用）
+  const unbound = parseIpAddressFormValues(
+    { ...ipAddressFormValuesFromIpAddress(ipAddressFixture), interface: "" },
+    "edit",
+  );
+  assert.equal(unbound.ok, true);
+  const unbindPatch = buildIpAddressPatch(ipAddressFixture, unbound.fields);
+  assert.deepEqual(unbindPatch, { version: 3, interface: null });
+  // 转移：绑定到新接口
+  const transferred = parseIpAddressFormValues(
+    {
+      ...ipAddressFormValuesFromIpAddress(ipAddressFixture),
+      interface: "a1b2c3d4-0000-4000-8000-0000000000f2",
+    },
+    "edit",
+  );
+  const transferPatch = buildIpAddressPatch(ipAddressFixture, transferred.fields);
+  assert.deepEqual(transferPatch, {
+    version: 3,
+    interface: "a1b2c3d4-0000-4000-8000-0000000000f2",
+  });
+  assert.ok(!("network" in transferPatch), "PATCH 载荷不得携带 network 键（DR-120）");
+  assert.ok(!("address" in transferPatch), "PATCH 载荷不得携带 address 键（DR-120）");
+  assert.ok(!("ip_pool" in transferPatch), "PATCH 载荷不得携带 ip_pool 键（DR-122）");
+  // 仅描述变化：清空（显式 null）/ 设置（null → 文本）
+  const descCleared = parseIpAddressFormValues(
+    { ...ipAddressFormValuesFromIpAddress(ipAddressFixture), description: "" },
+    "edit",
+  );
+  assert.deepEqual(buildIpAddressPatch(ipAddressFixture, descCleared.fields), {
+    version: 3,
+    description: null,
+  });
+  const descSet = parseIpAddressFormValues(
+    {
+      ...ipAddressFormValuesFromIpAddress({ ...ipAddressFixture, description: null }),
+      description: "新描述",
+    },
+    "edit",
+  );
+  assert.deepEqual(buildIpAddressPatch(ipAddressFixture, descSet.fields), {
+    version: 3,
+    description: "新描述",
+  });
+  // 解绑 + 清空描述同时变化
+  const both = parseIpAddressFormValues(
+    { ...ipAddressFormValuesFromIpAddress(ipAddressFixture), interface: "", description: "" },
+    "edit",
+  );
+  assert.deepEqual(buildIpAddressPatch(ipAddressFixture, both.fields), {
+    version: 3,
+    interface: null,
+    description: null,
+  });
+});
+
+await test("F010 ipAddressFormValuesFromIpAddress：null → 默认空值；未绑定 → 空串；往返无变化（与 buildIpAddressPatch=null 联动）", async () => {
+  const values = ipAddressFormValuesFromIpAddress(ipAddressFixture);
+  assert.equal(values.network, ipAddressFixture.network.id);
+  assert.equal(values.address, "10.0.0.5");
+  assert.equal(values.ip_pool, ipAddressFixture.ip_pool.id);
+  assert.equal(values.interface, "a1b2c3d4-0000-4000-8000-0000000000f1");
+  assert.equal(values.description, "管理网示例地址");
+  // 未绑定 / 无来源池 / 无描述 → 空串
+  const unboundValues = ipAddressFormValuesFromIpAddress({
+    ...ipAddressFixture,
+    interface: null,
+    ip_pool: null,
+    description: null,
+  });
+  assert.equal(unboundValues.interface, "");
+  assert.equal(unboundValues.ip_pool, "");
+  assert.equal(unboundValues.description, "");
+  // null → 全空（防御旧版后端）
+  assert.deepEqual(ipAddressFormValuesFromIpAddress(null), emptyIpAddressFormValues());
+  // 往返：初始化 → 解析 → 无变化（与 buildIpAddressPatch=null 联动）
+  const roundTrip = parseIpAddressFormValues(
+    ipAddressFormValuesFromIpAddress(ipAddressFixture),
+    "edit",
+  );
+  assert.equal(roundTrip.ok, true);
+  assert.equal(buildIpAddressPatch(ipAddressFixture, roundTrip.fields), null);
 });
 
 // 还原全局状态
