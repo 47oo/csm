@@ -16,12 +16,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.core.auth import Operator
-from app.core.errors import Conflict, ValidationError
+from app.core.errors import Conflict, ValidationError, VersionConflict
 from app.core.permissions import Role
 from app.models.audit_log import AuditLog
 from app.services import ip_address as ip_address_service
 from app.services import ip_address_reference
 from app.services import ip_capacity, ip_occupancy, ip_pool as ip_pool_service
+from app.services import network as network_service
 
 # --- helpers -----------------------------------------------------------------
 
@@ -993,3 +994,294 @@ def test_concurrent_reserved_change_and_allocation(auth_session_factory, role_cl
     listing = admin.get("/api/v1/ip-addresses", params={"network_id": net["id"]})
     pools = admin.get("/api/v1/ip-pools", params={"network_id": net["id"]})
     assert listing.status_code == 200 and pools.status_code == 200
+
+
+def test_concurrent_gateway_change_and_allocation(
+    auth_session_factory, role_client_factory
+):
+    """A21/T35: a Network gateway change and an allocation of that address
+    cannot both succeed; final state never has an IP at the gateway."""
+    admin, user, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+    net = _network(admin, c1["id"], name="n1", cidr="10.0.0.0/24")
+    operator = _operator(user)
+    network_id = uuid.UUID(net["id"])
+
+    barrier = threading.Barrier(2)
+    results: list[object] = []
+
+    def allocate() -> None:
+        session = auth_session_factory()
+        try:
+            barrier.wait(timeout=10)
+            ip_address_service.create_ip_address(
+                session, operator, network=net["id"], address="10.0.0.15"
+            )
+            results.append("allocated")
+        except Exception as exc:  # noqa: BLE001
+            session.rollback()
+            results.append(exc)
+        finally:
+            session.close()
+
+    def set_gateway() -> None:
+        session = auth_session_factory()
+        try:
+            barrier.wait(timeout=10)
+            network_service.update_network(
+                session,
+                operator,
+                network_id,
+                expected_version=1,
+                changes={"gateway": "10.0.0.15"},
+            )
+            results.append("gateway")
+        except Exception as exc:  # noqa: BLE001
+            session.rollback()
+            results.append(exc)
+        finally:
+            session.close()
+
+    threads = [threading.Thread(target=allocate), threading.Thread(target=set_gateway)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    successes = [r for r in results if isinstance(r, str)]
+    assert len(successes) == 1, results
+
+    # The final state is consistent: either the IP exists (gateway unchanged) or
+    # the gateway is the address (no IP), never both.
+    detail = admin.get(f"/api/v1/networks/{net['id']}").json()["network"]
+    listed = admin.get("/api/v1/ip-addresses", params={"network_id": net["id"]})
+    addresses = {i["address"] for i in listed.json()["items"]}
+    has_ip = "10.0.0.15" in addresses
+    is_gateway = detail["gateway"] == "10.0.0.15"
+    assert not (has_ip and is_gateway), (addresses, detail["gateway"])
+
+
+def test_concurrent_restore_and_reallocate(
+    auth_session_factory, role_client_factory
+):
+    """A13/A22/B44: restoring a released IP and reallocating the same address
+    cannot both survive; the partial unique index closes the race."""
+    admin, user, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+    net = _network(admin, c1["id"], name="n1", cidr="10.0.0.0/24")
+    ip = _ip(admin, net["id"], "10.0.0.5")
+    admin.delete(f"/api/v1/ip-addresses/{ip['id']}", params={"version": 1})
+    operator = _operator(user)
+    ip_id = uuid.UUID(ip["id"])
+
+    barrier = threading.Barrier(2)
+    results: list[object] = []
+
+    def restore() -> None:
+        session = auth_session_factory()
+        try:
+            barrier.wait(timeout=10)
+            ip_address_service.restore_ip_address(
+                session, operator, ip_id, expected_version=2
+            )
+            results.append("restored")
+        except Exception as exc:  # noqa: BLE001
+            session.rollback()
+            results.append(exc)
+        finally:
+            session.close()
+
+    def reallocate() -> None:
+        session = auth_session_factory()
+        try:
+            barrier.wait(timeout=10)
+            ip_address_service.create_ip_address(
+                session, operator, network=net["id"], address="10.0.0.5"
+            )
+            results.append("created")
+        except Exception as exc:  # noqa: BLE001
+            session.rollback()
+            results.append(exc)
+        finally:
+            session.close()
+
+    threads = [threading.Thread(target=restore), threading.Thread(target=reallocate)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    successes = [r for r in results if isinstance(r, str)]
+    assert len(successes) == 1, results
+    # exactly one live occupant of the address
+    listed = admin.get("/api/v1/ip-addresses")
+    live = [i for i in listed.json()["items"] if i["address"] == "10.0.0.5"]
+    assert len(live) == 1, live
+
+
+def test_concurrent_version_conflict_two_sessions(
+    auth_session_factory, role_client_factory
+):
+    """A26/B45: two live sessions PATCH the same version; exactly one wins and
+    the loser gets VERSION_CONFLICT (no lost update)."""
+    admin, user, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+    net = _network(admin, c1["id"], name="n1", cidr="10.0.0.0/24")
+    ip = _ip(admin, net["id"], "10.0.0.5")
+    operator = _operator(user)
+    ip_id = uuid.UUID(ip["id"])
+
+    barrier = threading.Barrier(2)
+    results: list[object] = []
+
+    def patch(description: str) -> None:
+        session = auth_session_factory()
+        try:
+            barrier.wait(timeout=10)
+            ip_address_service.update_ip_address(
+                session,
+                operator,
+                ip_id,
+                expected_version=1,
+                changes={"description": description},
+            )
+            results.append(description)
+        except VersionConflict as exc:
+            session.rollback()
+            results.append(exc)
+        finally:
+            session.close()
+
+    threads = [
+        threading.Thread(target=patch, args=("a",)),
+        threading.Thread(target=patch, args=("b",)),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    winners = [r for r in results if isinstance(r, str)]
+    conflicts = [r for r in results if isinstance(r, VersionConflict)]
+    assert len(winners) == 1, results
+    assert len(conflicts) == 1, results
+    detail = admin.get(f"/api/v1/ip-addresses/{ip['id']}").json()["ip_address"]
+    assert detail["version"] == 2
+    assert detail["description"] == winners[0]
+
+
+def test_audit_failure_rolls_back_business_write(
+    auth_session_factory, role_client_factory, monkeypatch
+):
+    """A24/B48: if staging the audit row fails, the business write is rolled
+    back in the same transaction (no orphan IP row)."""
+    from app.services import audit as audit_service
+
+    admin, user, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+    net = _network(admin, c1["id"], name="n1", cidr="10.0.0.0/24")
+    operator = _operator(user)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("audit failure injected")
+
+    monkeypatch.setattr(audit_service, "record", boom)
+    session = auth_session_factory()
+    try:
+        with pytest.raises(RuntimeError):
+            ip_address_service.create_ip_address(
+                session, operator, network=net["id"], address="10.0.0.5"
+            )
+        session.rollback()
+    finally:
+        session.close()
+
+    listed = admin.get("/api/v1/ip-addresses", params={"network_id": net["id"]})
+    assert listed.json()["items"] == []
+
+
+def test_restore_not_deleted_reason(role_client_factory):
+    """A22: restoring an object that is not soft-deleted is 409 not_deleted."""
+    admin, _, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+    net = _network(admin, c1["id"], name="n1", cidr="10.0.0.0/24")
+    ip = _ip(admin, net["id"], "10.0.0.5")
+    resp = admin.post(
+        f"/api/v1/ip-addresses/{ip['id']}/restore", params={"version": 1}
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error"]["details"]["reason"] == "not_deleted"
+
+
+def test_endpoint_checker_registration_blocks_unbind_transfer_release(
+    role_client_factory, monkeypatch
+):
+    """A18/V18/B52: the public registration hook installs a checker that blocks
+    unbind, transfer and release (F010-side contract for F012)."""
+    admin, _, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+    net = _network(admin, c1["id"], name="n1", cidr="10.0.0.0/24")
+    res = _resource(admin, c1["id"])
+    if1 = _interface(admin, res["id"], name="eth0")
+    if2 = _interface(admin, res["id"], name="eth1")
+    ip = _ip(admin, net["id"], "10.0.0.5")
+    admin.patch(
+        f"/api/v1/ip-addresses/{ip['id']}", json={"version": 1, "interface": if1["id"]}
+    )
+
+    references = [{"object_type": "endpoint", "object_id": str(uuid.uuid4()), "label": "tcp:443"}]
+    monkeypatch.setattr(ip_address_reference, "_CHECKERS", [])
+    ip_address_reference.register_ip_address_reference_checker(
+        lambda db, ip_id: list(references)
+    )
+
+    # unbind
+    unbind = admin.patch(
+        f"/api/v1/ip-addresses/{ip['id']}", json={"version": 2, "interface": None}
+    )
+    assert unbind.status_code == 409, unbind.text
+    assert unbind.json()["error"]["details"]["references"][0]["object_type"] == "endpoint"
+    # transfer
+    transfer = admin.patch(
+        f"/api/v1/ip-addresses/{ip['id']}", json={"version": 2, "interface": if2["id"]}
+    )
+    assert transfer.status_code == 409, transfer.text
+    # release
+    release = admin.delete(f"/api/v1/ip-addresses/{ip['id']}", params={"version": 2})
+    assert release.status_code == 409, release.text
+    # the binding is untouched and the object is still live
+    detail = admin.get(f"/api/v1/ip-addresses/{ip['id']}").json()["ip_address"]
+    assert detail["interface"]["id"] == if1["id"]
+    assert detail["deleted_at"] is None
+
+
+def test_loopback_interface_registers_but_127_not_allocated(role_client_factory):
+    """A17: a LOOPBACK Interface can be registered, but 127.x is not allocated."""
+    editor, _, _ = role_client_factory("EDITOR")
+    c1 = _cluster(editor, code="C1")
+    res = _resource(editor, c1["id"])
+    reg = editor.post(
+        "/api/v1/interfaces",
+        json={"resource": res["id"], "name": "lo", "interface_type": "LOOPBACK"},
+    )
+    assert reg.status_code == 201, reg.text
+    net = _network(editor, c1["id"], name="lo", cidr="127.0.0.0/8")
+    assert _allocate(editor, net["id"], "127.0.0.1").status_code == 422
+
+
+def test_capacity_31_and_32_prefix(role_client_factory):
+    """A16/A23/B60: /31 contributes two allocatable addresses and /32 one."""
+    editor, _, _ = role_client_factory("EDITOR")
+    c1 = _cluster(editor, code="C1")
+    n31 = _network(editor, c1["id"], name="n31", cidr="10.30.0.4/31")
+    _ip(editor, n31["id"], "10.30.0.4")
+    cap31 = editor.get(f"/api/v1/networks/{n31['id']}/capacity").json()
+    assert cap31["network_capacity"]["allocatable_total"] == 2
+    assert cap31["network_capacity"]["occupied"] == 1
+    assert cap31["network_capacity"]["remaining"] == 1
+
+    n32 = _network(editor, c1["id"], name="n32", cidr="10.31.0.5/32")
+    cap32 = editor.get(f"/api/v1/networks/{n32['id']}/capacity").json()
+    assert cap32["network_capacity"]["allocatable_total"] == 1
+    assert cap32["network_capacity"]["occupied"] == 0
+    assert cap32["network_capacity"]["remaining"] == 1

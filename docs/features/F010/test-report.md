@@ -30,6 +30,8 @@
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
 | TD-1 | 2026-10-09 | 初版：A1–A26 映射 V1–V26（补充 V27–V35），边界/并发 B1–B50，夹具/环境设计，F010 独立 / F010+桩 / 留待 F012/F013 三类分界，§8 OPEN 复核项（待 DATABASE/CONTRACT/D01 v9 后由 TD-2 关闭）。 |
+| TD-2 | 2026-10-10 | 依 `database/f010-ip-address.md` v1（DB-D111–D127）、`api/F010.md` v1、`d01-conventions.md` v9 §5.9、F002 §1.2.1、F008 errata、F003 errata 逐项关闭 §8 OPEN-1–20，固定执行判据。 |
+| TE-1 | 2026-10-10 | 独立执行 A1–A26 / V-DB-95–111 / B 场景，真实 PG + 独立验证库 + 真实 HTTP。结论 `READY FOR REVIEW`。 |
 
 > 复核基线（待 TD-2）：`docs/database/f010-ip-address.md`（DATABASE Gate，未定稿）、`docs/api/F010.md` v0（CONTRACT Gate，未定稿）、`d01-conventions.md` v9 §5.9（未签核）。TD-1 的表名/列名/约束名/FK/触发 backstop/索引/迁移 0010 编号/错误路径/并发机制均按 architecture §1/§5/§6/§7/§12 草案假设，TD-2 逐项核对后方可作为执行依据。
 
@@ -328,3 +330,217 @@
 | OPEN-20 | I-10 F008/F003 Contract errata（gateway `address_in_use`）是否在 F010 CONTRACT 一并订正 | V28、B54 | 协调器 |
 
 TD-1 结论：**`TEST DESIGN READY`** —— A1–A26 已映射到可观察判据，边界/并发场景（含 T07/B40、T35/B42–B43、同 Cluster 唯一并发 B41、恢复重检 B28/B44、容量公式 B34–B39、未绑定占用 B20、绑定 Cluster 一致性 B23/B33、禁用与 /31 /32 边界 B3–B9）可执行，夹具与可验证性已与 architecture §5/§6/§7/§9 草案建立对应；A18 在 F010 以 Endpoint 桩断言契约与挂钩，T33/T34/T35 与容量数值在 F010 真实端到端，T32 显示与 Endpoint 端到端明确留待 F013/F012。**DATABASE / CONTRACT / D01 v9 尚未定稿，以上 OPEN 未经逐项核对；READY 不等于测试通过，不批准实现或合并。** 定稿后由 TD-2 关闭 §8 并固定执行判据。
+---
+
+## 9. TD-2 — OPEN 复核关闭（DATABASE v1 / CONTRACT v1 / D01 v9）
+
+- **版本**：TD-2
+- **日期**：2026-10-10
+- **角色**：Tester（TEST_DESIGN 模式）
+- **结论**：`TEST DESIGN READY`（TD-2）
+- **基线**：`docs/database/f010-ip-address.md` v1（DB-D111–D127，2026-10-09）、`docs/api/F010.md` v1（READY，2026-10-09）、`docs/architecture/d01-conventions.md` v9 §5.9（2026-10-09）、`docs/api/F002.md` §1.2.1、`docs/api/F008.md` errata-01、`docs/api/F003.md` errata-01、`docs/features/F010/implementation.md`（BACKEND+FRONTEND COMPLETE）、源码 `backend/app/`。
+- **判据修正**（TD-1 草案假设按下表固定）：CHECK 为 **3 个**（`ck_ip_addresses_address_host`、`ck_ip_addresses_address_not_disabled`、`ck_ip_addresses_version`），**不是**「version/address」两项；约束/索引命名一律以 DB §2 为准；地址边界为分层断言（CHECK + 触发 + 跨表应用主校验），不再笼统写「DB backstop」。
+
+### 9.1 OPEN-1–20 关闭表
+
+| # | 定稿事实（依 DATABASE v1 / CONTRACT v1 / D01 v9） | 核对证据（Tester） | 状态 |
+| --- | --- | --- | --- |
+| OPEN-1 | 表 `ip_addresses`；列/类型/可空/默认与 DB §2 一致：`id uuid PK`、`network_id uuid NOT NULL`、`cluster_id uuid NOT NULL`、`address inet NOT NULL`、`interface_id/ip_pool_id/description` 可空、`version int NOT NULL DEFAULT 1`、`created_at/updated_at timestamptz NOT NULL now()`、`deleted_at timestamptz NULL` | 独立库 `information_schema.columns` 与 V-DB-96；migration 0010 DDL | CLOSED |
+| OPEN-2 | 命名与 DB §2 一致：`pk_ip_addresses`、`fk_ip_addresses_{network_id,cluster_id,interface_id,ip_pool_id}_*`、3 CHECK、`uq_ip_addresses_cluster_id_address`、`ix_ip_addresses_{network_id,cluster_id,interface_id,ip_pool_id,deleted_at}` | `pg_constraint`/`pg_indexes`（V-DB-107 + 独立库 7 索引/8 约束） | CLOSED |
+| OPEN-3 | `cluster_id` 一致性由 `trg_ip_addresses_cluster_consistent`（BEFORE INSERT/UPDATE，`FOR KEY SHARE` networks，比对 `NEW.cluster_id = networks.cluster_id`）兜底；创建取锁定 Network 的 cluster | 独立库 `pg_proc.prosrc` 含 `FOR KEY SHARE`；V-DB-100；raw 跨 cluster 直插被拒 | CLOSED |
+| OPEN-4 | 部分唯一 `uq_ip_addresses_cluster_id_address UNIQUE(cluster_id,address) WHERE deleted_at IS NULL`；软删释放、恢复重检、跨 Network/Pool 生效 | `pg_indexes` predicate；V-DB-102；独立 raw（跨 Cluster 允许、软删可重用、恢复冲突） | CLOSED |
+| OPEN-5 | **分层**：`family=4 AND masklen=32` → CHECK `ck_ip_addresses_address_host`；禁用 5 段 → CHECK `ck_ip_addresses_address_not_disabled`；CIDR 归属与网络/广播（`masklen<=30`）→ 触发 `trg_ip_addresses_cidr_contains`（`FOR KEY SHARE`；/31 两址、/32 单址）；gateway/RESERVED → **跨表应用主校验**（无 DB 约束） | V-DB-97/98/99；独立 raw（越界、/24 网络广播、/31、/32）；`ip_capacity`/`create_ip_address` 应用校验 | CLOSED |
+| OPEN-6 | 迁移 `0010_ip_addresses`（`down_revision=0009_ip_pools`）单 head、全表新建无回填、对称可逆、不含 `CREATE/DROP EXTENSION` | V-DB-95/111；独立库 up→down(0009)→up，单 head，btree_gist/pg_trgm 前后一致 | CLOSED |
+| OPEN-7 | 4 FK 均 `ON DELETE RESTRICT`（`confdeltype='r'`）；来源历史例外在应用层（不注册池引用检查器、不回收） | V-DB-103 + 独立 raw 物理删被拒；`test_pool_source_exception` | CLOSED |
+| OPEN-8 | 部分唯一谓词排除软删、恢复置 null 重新入索引；占用提供者查询走 `(cluster_id,address)` 部分唯一与 `ix_ip_addresses_network_id` | V-DB-102/108/109/110；`ip_occupancy.py` | CLOSED |
+| OPEN-9 | 绑定 Cluster 一致由 `trg_ip_addresses_interface_cluster`（BEFORE INSERT/UPDATE，经 `interfaces→resources` 校验 `resources.cluster_id`，**不检软删**）；软删 Interface 校验留守应用（恢复 `dependency_deleted`/`reference_exists`） | V-DB-101；独立 raw（跨 cluster 拒、NULL 放行）；`restore_ip_address` 依赖重检 | CLOSED |
+| OPEN-10 | 新 reason `allocation_not_allowed{condition∈network_inactive|auto_allocate_disabled|pool_not_auto}`、`no_available_address{network_id,ip_pool_id}` 登记 F002 §1.2.1 | `errors.py`；F002 §1.2.1；`test_auto_allocation_conditions`、`test_auto_allocation_ascending_and_exhaustion`、真实 HTTP E2E | CLOSED |
+| OPEN-11 | 复用 reason 形状按 Contract §1.2：`unique_conflict{field:"address"}`、`reference_exists{references[]}`、`dependency_deleted{conflicts[]}`、`not_deleted{}`、`address_in_use{field:"gateway",conflict_count,conflicts,conflicts_truncated}` | `errors.py`；A14/A18/A19/A22/V28 测试与真实 HTTP E2E | CLOSED |
+| OPEN-12 | 校验顺序按 Contract §6：POST body→network→`_lock_network`→ACTIVE(409)→地址(422)→唯一(409)；auto 条件→升序→耗尽；PATCH 可见性→version→interface→引用；DELETE 对象→version→引用；restore 唯一→依赖→CIDR | `test_auto_allocation_conditions`（INACTIVE 下非法地址仍 409）、`test_body_validation_and_immutability`、`test_optimistic_lock`、service 顺序 | CLOSED |
+| OPEN-13 | D01 v9 §5.9 已签核：address=裸 IPv4 主机（属 CIDR、非网络/广播/禁用/gateway/RESERVED）；network/address 创建必填不可改；interface 可空同 Cluster 可 PATCH；ip_pool 只读来源；description 无上限；不落 metadata/name/status | `d01-conventions.md` v9 §5.9；A2/A16/A17/A25 测试 | CLOSED |
+| OPEN-14 | `ip_pool` 只读：自动=指定 AUTO 池、手动=地址所属未删池或 null；请求体出现→422；创建后不可改 | `IPAddressCreateRequest/AutoAllocateRequest` `extra=forbid`；`_derive_ip_pool_id`；A1/A20/A25 测试 | CLOSED |
+| OPEN-15 | 恢复优先级：唯一(409)→依赖(409 `dependency_deleted`)→CIDR(422)→恢复；失败不覆盖新对象 | `restore_ip_address` 顺序；`test_restore_rechecks`/`test_restore_dependency_deleted_network`/`test_restore_success_after_release`/`test_restore_not_deleted_reason` | CLOSED |
+| OPEN-16 | 列表 Query 参数集与 §4 一致（`network_id/cluster_id/interface_id/ip_pool_id/address/bound/q/deleted/page/page_size/sort/order`）；`sort=address` 按 inet 数值；`deleted` 语义 | `schemas/ip_address.py`、`list_ip_addresses`；`test_list_filters_and_sorting` | CLOSED |
+| OPEN-17 | 容量 `remaining=allocatable_total−occupied` 直接相减、**不设下限 0、可负**；AUTO 池 `allocatable_total=|池∩可分配集|`；停用不清零 | `ip_capacity.py`；`test_capacity_negative_remaining_not_clamped`、`test_capacity_endpoint_formula`、`test_capacity_31_and_32_prefix` | CLOSED |
+| OPEN-18 | 权限映射 READ/WRITE/RELEASE_IP/VIEW_DELETED/RESTORE/VIEW_ACTIVITY；审计白名单 `{network_id,cluster_id,address,interface_id,ip_pool_id,description}`、`object_type="ip_address"`、四类 action 同事务 | `permissions.py`、`audit.py`、API；A24 测试 + `test_audit_failure_rolls_back_business_write` | CLOSED |
+| OPEN-19 | F010 复用 `_lock_network`（networks 行 FOR UPDATE）；注册真实 `IpAddressOccupancyProvider`；`register_ip_address_reference_checker` 默认空集、F012 注册；容量供 F013 | `ip_address.py` import `_lock_network`；`ip_occupancy._PROVIDERS`；`ip_address_reference._CHECKERS=[]`；`test_gateway_and_reserved_see_real_occupancy` | CLOSED |
+| OPEN-20 | F008 §1.2/§6.4/§7 已补 `address_in_use{field:"gateway"}`（errata-01）；F003 §1.2 交叉引用改指 F002 §1.2.1（errata-01） | `docs/api/F008.md` 第 42/44/111/144 行；`docs/api/F003.md` 第 45/135 行 | CLOSED |
+
+TD-2 结论：**`TEST DESIGN READY`（TD-2）** —— OPEN-1–20 全部关闭；A/V/B 判据已按 DATABASE v1 / CONTRACT v1 / D01 v9 固定，可进入 TEST 执行。READY 仅表示方案可验证，不代表测试通过。
+
+---
+
+## 10. TE-1 — TEST 执行报告
+
+- **版本**：TE-1
+- **日期**：2026-10-10
+- **角色**：Tester（TEST 模式）
+- **结论**：`READY FOR REVIEW`
+- **执行基线**：repo `47oo/csm`，分支 `feature/F010-ip-address-allocation`，HEAD `4dacb93`；起始工作区 clean（本次仅 Tester 新增测试文件改动 + 本报告）。
+- **独立性声明**：Backend pytest、前端 typecheck/build/smoke、独立迁移与 raw 约束、真实 HTTP E2E 均由 Tester 独立重跑，不复用实现者数字；测试库/验证库均含 `test`/独立命名，未连接生产或未知数据库；Endpoint 引用为测试侧桩，真实端到端归 F012。
+
+### 10.1 版本记录
+
+| 版本 | 日期 | 基线 HEAD | 结论 | 说明 |
+| --- | --- | --- | --- | --- |
+| TE-1 | 2026-10-10 | 4dacb93 | `READY FOR REVIEW` | A1–A26 / V-DB-95–111 / B 场景独立执行；F010 新增 8 条测试 |
+
+### 10.2 环境
+
+| 项 | 值 |
+| --- | --- |
+| PostgreSQL | 容器 `f002test-db`（postgres:16），网络 `f002test-net`，用户 `csm` |
+| 测试库 | `csm_test`（后端集成）；独立验证库 `csm_f010_verify`（迁移/raw，用后删除）；真实 HTTP 库 `csm_f010_e2e`（用后删除） |
+| 后端镜像 | `csm-f007-test`（源码挂载 `backend:/app`，未 `docker build`） |
+| 前端 | Node/npm（本地），`npm run typecheck/build/smoke:client` |
+
+### 10.3 执行命令与输出（实际执行）
+
+```text
+# F010 专属（后端集成 + 真 PG，含 Tester 新增 8 条）
+docker run --rm --network f002test-net -v "$PWD/backend:/app" \
+  -e TEST_DATABASE_URL="postgresql+psycopg://csm:change-me@f002test-db:5432/csm_test" \
+  -w /app csm-f007-test python -m pytest \
+  tests/integration/test_ip_addresses.py tests/integration/test_ip_address_constraints.py -q
+→ 52 passed, 1 warning in 22.86s
+
+# 全量后端（回归）
+... pytest tests -q
+→ 344 passed, 1 skipped, 1 warning in 136.34s
+   skip = tests/integration/test_migrations.py:105（连接角色 csm 为 superuser，F001 V3b 环境性跳过，非 F010）
+
+# 前端
+cd frontend && npm run typecheck    → 通过
+cd frontend && npm run build        → 通过（65 modules，dist 产出）
+cd frontend && npm run smoke:client → 163 passed, 0 failed（含 F010 机制级用例）
+
+# 独立验证库（迁移 + raw 约束/触发器/并发）
+创建 csm_f010_verify → alembic upgrade head → raw SQL 17/17 PASS
+  （CHECK host/disabled/version、trigger cidr/cluster/interface、部分唯一四种场景、FK RESTRICT、并发同键单胜）
+  → alembic heads = 0010_ip_addresses（单 head）
+  → alembic downgrade 0009_ip_pools（ip_addresses 消失；ip_pools/btree_gist/pg_trgm 保留）
+  → alembic upgrade head → 0010_ip_addresses
+
+# 真实 HTTP E2E（uvicorn + PostgreSQL，未 docker build）
+csm-f007-test 起 uvicorn → urllib 脚本 32/32 PASS
+  （登录/建集群/网络/池、手动/自动分配、升序、耗尽 no_available_address、唯一冲突、带掩码 422、容量公式、跨集群绑定 422、释放复用、activity）
+```
+
+### 10.4 A1–A26 验收映射结果
+
+| 验收 | 结果 | 证据 |
+| --- | --- | --- |
+| A1 手动分配池内/池外成功并占用 | PASS | `test_manual_allocation_in_and_out_of_pool`；真实 HTTP E2E（池外 `ip_pool=null`） |
+| A2 地址非法/越界/带掩码/非 IPv4 → 422 | PASS | `test_manual_allocation_invalid_addresses`；独立 raw CHECK host；E2E `10.20.0.50/24`→422 |
+| A3 gateway/RESERVED/禁用 → 422 | PASS | `test_manual_allocation_invalid_addresses`；独立 raw disabled CHECK |
+| A4 auto_allocate 关闭/MANUAL 池手动仍允许 | PASS | `test_manual_allocation_in_and_out_of_pool` |
+| A5 自动分配条件，不降级 | PASS | `test_auto_allocation_conditions`（三种 condition）；E2E |
+| A6 升序选第一个合法可用 | PASS | `test_auto_allocation_ascending_and_exhaustion`、`test_auto_allocation_skips_gateway_and_reserved`；E2E（.10/.11） |
+| A7 耗尽返回无可用地址、不切换 | PASS | `test_auto_allocation_ascending_and_exhaustion`；E2E `no_available_address{network_id,ip_pool_id}` |
+| A8 并发自动分配不重复 | PASS | `test_concurrent_auto_allocation_no_duplicates`（真提交双线程）+ 独立 raw 同键并发单胜 |
+| A9 未绑定仍占用 | PASS | `test_unbound_occupies_and_unbind_keeps` |
+| A10 解绑不释放 | PASS | `test_unbound_occupies_and_unbind_keeps` |
+| A11 同 Cluster 转移允许、跨 Cluster 拒绝 | PASS | `test_transfer_and_cross_cluster_binding` |
+| A12 释放仅 ADMIN、解绑不隐式释放 | PASS | `test_release_permission_and_reuse`（EDITOR 403 / 解绑 deleted_at 仍 null） |
+| A13 释放后可重用、恢复不覆盖新对象 | PASS | `test_release_permission_and_reuse`、`test_restore_rechecks`、`test_concurrent_restore_and_reallocate` |
+| A14 同 Cluster 唯一、跨 Cluster 允许 | PASS | `test_same_cluster_unique_and_cross_cluster_allowed`；独立 raw |
+| A15 绑定 Cluster 一致、未绑定不豁免 | PASS | `test_transfer_and_cross_cluster_binding`；独立 raw interface trigger；E2E 跨集群绑定 422 |
+| A16 /0–/30 排网络广播、/31 两址、/32 单址 | PASS | `test_disabled_ranges_and_31_32_boundaries`；独立 raw；`test_capacity_31_and_32_prefix` |
+| A17 禁用 5 段、LOOPBACK 登记、127.x 不入台账 | PASS | `test_disabled_ranges_and_31_32_boundaries`；`test_loopback_interface_registers_but_127_not_allocated`（TE-1 新增） |
+| A18 Endpoint 引用阻断解绑/转移/释放（桩） | PASS（桩）；端到端 NOT TESTED / F012 | `test_endpoint_reference_hook_blocks_unbind_and_release`、`test_endpoint_checker_registration_blocks_unbind_transfer_release`（TE-1 新增，经公共注册钩子） |
+| A19 未删 IP 阻止 Network/Interface 删除 | PASS | `test_undeleted_ip_blocks_network_and_interface_delete` |
+| A20 来源历史例外、池变更不回收 | PASS | `test_pool_source_exception`；独立 raw FK RESTRICT |
+| A21 保留范围/网关变更 vs 并发分配互斥 | PASS | `test_concurrent_reserved_change_and_allocation`、`test_concurrent_gateway_change_and_allocation`（TE-1 新增） |
+| A22 ADMIN 恢复、重检、失败不覆盖 | PASS | `test_restore_rechecks`、`test_restore_dependency_deleted_network`、`test_restore_success_after_release`、`test_restore_not_deleted_reason`（TE-1 新增）、`test_concurrent_restore_and_reallocate` |
+| A23 §20 容量公式（去重/未绑定/池外/来源无关/停用） | PASS | `test_capacity_endpoint_formula`、`test_capacity_negative_remaining_not_clamped`、`test_capacity_excludes_disabled_and_dedups_gateway_reserved`、`test_capacity_soft_deleted_network_404`、`test_capacity_31_and_32_prefix`；E2E |
+| A24 权限/审计/Activity | PASS | `test_permissions_and_activity`（action 序列 CREATE/UPDATE/UPDATE/DELETE）；`test_audit_failure_rolls_back_business_write`（TE-1 新增） |
+| A25 D01 语义（必填/省略/不可变/未知字段） | PASS | `test_body_validation_and_immutability` |
+| A26 PostgreSQL 唯一兜底、过期版本 409 | PASS | `test_optimistic_lock`、`test_concurrent_version_conflict_two_sessions`（TE-1 新增）；`test_partial_unique_same_cluster_and_soft_delete`、`test_partial_unique_concurrent_single_winner` |
+
+### 10.5 V-DB-95–V-DB-111 结果（真实 PG，独立验证）
+
+| 项 | 结果 | 证据 |
+| --- | --- | --- |
+| V-DB-95 迁移 up/down/up、单 head、无回填 | PASS | `test_migration_up_down_up_and_single_head`；独立验证库同流程 |
+| V-DB-96 默认/NOT NULL | PASS | `test_defaults_and_not_null` |
+| V-DB-97 `ck_address_host` | PASS | `test_ck_address_host`；独立 raw |
+| V-DB-98 `ck_address_not_disabled` | PASS | `test_ck_address_not_disabled`；独立 raw |
+| V-DB-99 CIDR 包含触发（/24 边界、/31、/32） | PASS | `test_cidr_contains_trigger`；独立 raw |
+| V-DB-100 `cluster_id` 一致性触发 | PASS | `test_cluster_consistent_trigger`；独立 raw |
+| V-DB-101 绑定 Cluster 触发 | PASS | `test_interface_cluster_trigger`；独立 raw |
+| V-DB-102 部分唯一（含并发） | PASS | `test_partial_unique_same_cluster_and_soft_delete`、`test_partial_unique_concurrent_single_winner`；独立 raw |
+| V-DB-103 FK RESTRICT / 软删池 FK | PASS | `test_fk_restrict_and_soft_deleted_pool`；独立 raw |
+| V-DB-104 归属不可改（无 DB 触发器，应用 422） | PASS | `test_no_immutability_trigger_and_version_check`；A25 |
+| V-DB-105 version 默认/`<1` 拒/乐观锁 | PASS | `test_no_immutability_trigger_and_version_check`、`test_concurrent_version_conflict_two_sessions` |
+| V-DB-106 并发串行化（T07/T35） | PASS | `test_concurrent_auto_allocation_no_duplicates`、`test_concurrent_reserved_change_and_allocation`、`test_concurrent_gateway_change_and_allocation` |
+| V-DB-107 索引目录/谓词/无 pg_trgm-GIN | PASS | `test_table_catalogue_columns_constraints_indexes_triggers`；独立 `pg_indexes` |
+| V-DB-108 占用/容量查询索引使用（EXPLAIN） | PASS（NOTE，断言偏弱） | `test_occupancy_query_uses_partial_unique_index`（见 D-F010-02） |
+| V-DB-109 触发属性（BEFORE INSERT/UPDATE、软删/普通 UPDATE 不误拒） | PASS | `test_trigger_does_not_block_soft_delete_or_plain_update`；独立 raw |
+| V-DB-110 恢复重检（DB 层） | PASS | `test_restore_recheck_cidr_after_network_change`；`test_restore_rechecks` |
+| V-DB-111 迁移边界（无 CREATE EXTENSION） | PASS | `test_migration_0010_has_no_create_extension`；独立库 |
+
+### 10.6 B 场景结果
+
+| 场景 | 结果 | 证据 |
+| --- | --- | --- |
+| B1–B13 手动分配位置/格式/网络广播/31/32/禁用/池内池外/auto 关闭 | PASS | `test_manual_allocation_in_and_out_of_pool`、`test_manual_allocation_invalid_addresses`、`test_disabled_ranges_and_31_32_boundaries`；独立 raw |
+| B14–B20 自动条件/升序/耗尽/绑定分离/未绑定占用 | PASS | `test_auto_allocation_conditions`、`test_auto_allocation_ascending_and_exhaustion`、`test_auto_allocation_skips_gateway_and_reserved`、`test_unbound_occupies_and_unbind_keeps` |
+| B21–B33 解绑/转移/跨 Cluster/权限/重用/恢复/重复/未绑定不豁免 | PASS | A11–A15/A22 同证；E2E |
+| B34–B39 容量公式/去重/未绑定/来源无关/停用/负值 | PASS | A23 同证 |
+| B40 T07 并发自动分配 | PASS | `test_concurrent_auto_allocation_no_duplicates` |
+| B41 同 Cluster 唯一并发 | PASS | `test_partial_unique_concurrent_single_winner`（独立 raw，双连接单胜，持久化 1 行） |
+| B42 T35 RESERVED vs 分配 | PASS | `test_concurrent_reserved_change_and_allocation` |
+| B43 T35 gateway vs 分配 | PASS | `test_concurrent_gateway_change_and_allocation`（TE-1 新增） |
+| B44 恢复 vs 并发重建 | PASS | `test_concurrent_restore_and_reallocate`（TE-1 新增） |
+| B45 乐观锁并发 | PASS | `test_concurrent_version_conflict_two_sessions`（TE-1 新增） |
+| B46 权限矩阵 | PASS | `test_permissions_and_activity`；E2E 未认证/角色路径 |
+| B47 五 action 审计同事务 | PASS | `test_permissions_and_activity`（CREATE/UPDATE/DELETE）；`test_restore_success_after_release` |
+| B48 审计失败回滚 | PASS | `test_audit_failure_rolls_back_business_write`（TE-1 新增） |
+| B49 校验顺序 | PASS | `test_auto_allocation_conditions`（409 先于 422）、`test_body_validation_and_immutability` |
+| B50 迁移 0010 up/down/up | PASS | V-DB-95/111；独立库 |
+| B51 Network/Interface 引用保护 | PASS | `test_undeleted_ip_blocks_network_and_interface_delete` |
+| B52 Endpoint 桩引用拦截 | PASS（桩） | `test_endpoint_reference_hook_blocks_unbind_and_release`、`test_endpoint_checker_registration_blocks_unbind_transfer_release` |
+| B53 Endpoint 挂钩默认空集 | PASS | `test_unbound_occupies_and_unbind_keeps`（空集正常成功） |
+| B54 T33 真实占用阻碍 RESERVED/gateway | PASS | `test_gateway_and_reserved_see_real_occupancy` |
+| B55 来源 FK 例外 | PASS | `test_pool_source_exception`；独立 raw FK RESTRICT |
+| B56 cluster_id 一致性 raw | PASS | 独立 raw（跨 cluster 直插被 `trg_ip_addresses_cluster_consistent` 拒） |
+| B57 只读无副作用 | PASS | `test_permissions_and_activity`（多次 GET 后 audit action 序列不含额外写）；capacity 读取 |
+| B58 exclude_unset/显式 null/只读 | PASS | `test_body_validation_and_immutability` |
+| B59 软删默认隐藏/已删查看 | PASS | `test_list_filters_and_sorting`、`test_restore_rechecks` |
+| B60 /31 /32 容量 | PASS | `test_capacity_31_and_32_prefix`（TE-1 新增） |
+
+### 10.7 三分界结论
+
+| 边界 | 结论 |
+| --- | --- |
+| **F010 独立可验证** | A1–A17、A19–A26 与 V-DB-95–111、B1–B51/B54–B60 全部执行并 PASS（真实 PG + 真提交 + 独立库 + 真实 HTTP）。 |
+| **F010 + Endpoint 桩（T22/T23 结构与挂钩）** | A18：`register_ip_address_reference_checker` 钩子、解绑/转移/释放调用点、桩拦截 409 `reference_exists` + references、库值不变，均 PASS；**仅证明挂钩与拦截路径，不证明真实 Endpoint 数据语义**。 |
+| **留待 F012 / F013** | 含真实 Endpoint 的端到端 T22/T23 → `NOT TESTED / F012`；Dashboard 显示 T32 → `NOT TESTED / F013`（F010 仅验证容量数值）。 |
+
+### 10.8 Defects
+
+| ID | Severity | Layer | Location | 证据/复现 | 期望 vs 实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D-F010-01 | NOTE | Backend/Capacity | `backend/app/services/ip_capacity.py::auto_pools_capacity` | AUTO 池内存在 gateway 地址时，`occupied` 以 `[pool_lo,pool_hi]` 计数而非「池∩可分配集」；仅当有 IP 落在池内 gateway 地址才出现差 1（Contract §6.9 措辞为「位于该交集」） | 期望（Contract 字面）：不计非可分配地址；实际：计入。所有 API 可达状态两者一致（gateway 占用钩子 + 可分配集排除，无法产生该行） | 无可达影响；仅 raw/历史数据边界 | Database/Backend（如需与 Contract 字面严格一致） | 否（NOTE，不阻塞） |
+| D-F010-02 | LOW | TEST | `backend/tests/integration/test_ip_address_constraints.py::test_occupancy_query_uses_partial_unique_index` | `assert "uq_..." in plan_text or "Index" in plan_text` 过宽，任意 Index 即通过 | 期望：精确断言使用部分唯一索引；实际：宽松断言 | 索引使用证据偏弱（部分唯一存在与并发单胜已由独立 raw 证明） | Tester/Backend | 否 |
+| D-F010-03 | NOTE | Integration | Nginx/Compose 全栈 | 任务约束不做 `docker build`；前端 `smoke:client` 为机制级（受控响应） | 期望：Nginx 入口真实前后端联调；实际：未执行 | 真实浏览器 DOM/代理链路未覆盖；真实 API 已由 uvicorn HTTP E2E 独立验证 | 协调器 | 否 |
+
+无 BLOCKER / HIGH / MEDIUM 必须修复项。
+
+### 10.9 未验证项
+
+- **T22/T23 真实 Endpoint 端到端**：`NOT TESTED / 归 F012`（F010 无 Endpoint 实体，仅桩与挂钩）。
+- **T32 Dashboard 显示**：`NOT TESTED / 归 F013`（F010 提供并验证容量数值）。
+- **真实浏览器 DOM 渲染**：非 F010 必要判据；前端以构建 + client 机制级为准。
+- **Nginx/Compose 全栈**：D-F010-03（NOTE）；为避免 `docker build` 超时未执行，真实 HTTP API 已另以 uvicorn E2E 覆盖；不降验收。
+- **§32 一期集成验收与完整 §31 跨功能回归**：归 F016；不得以 F010 局部 PASS 拼成整体通过。
+
+### 10.10 TE-1 新增/修改测试代码
+
+仅修改 `backend/tests/integration/test_ip_addresses.py`（新增 8 条，不改业务实现/产品/设计/数据库）：`test_concurrent_gateway_change_and_allocation`、`test_concurrent_restore_and_reallocate`、`test_concurrent_version_conflict_two_sessions`、`test_audit_failure_rolls_back_business_write`、`test_restore_not_deleted_reason`、`test_endpoint_checker_registration_blocks_unbind_transfer_release`、`test_loopback_interface_registers_but_127_not_allocated`、`test_capacity_31_and_32_prefix`。
+
+TE-1 结论：**`READY FOR REVIEW`** —— A1–A26、V-DB-95–111 与 B 场景在真实 PostgreSQL（含独立验证库、真提交并发、真实 HTTP）执行通过；无必须修复缺陷；T22/T23 与 T32 明确留待 F012/F013，未以局部 PASS 拼接整体通过。
+
+GIT: git log --oneline -5
+GIT: git status --short
+GIT: git rev-parse --short HEAD

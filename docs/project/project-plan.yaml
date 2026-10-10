@@ -640,9 +640,9 @@ features:
   - F008
   - F009
   blocking_decisions: []
-  status: IN_PROGRESS
-  next_action: TEST Gate（Tester 独立执行 F010 验收映射，产出 TD-2 + TE-1）
-  current_stage: TEST
+  status: IN_REVIEW
+  next_action: 正式 Review（reviewer 独立审查候选 HEAD）
+  current_stage: REVIEW
   implementation:
     product: COMPLETE
     architecture: COMPLETE
@@ -651,6 +651,7 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: COMPLETE
+    test: COMPLETE
   evidence:
     product:
     - docs/features/F010/product.md
@@ -666,6 +667,8 @@ features:
     - docs/features/F010/implementation.md
     frontend:
     - docs/features/F010/implementation.md
+    test:
+    - docs/features/F010/test-report.md#test-execution
   layers:
     database: true
     backend: true
@@ -935,8 +938,8 @@ decisions_required:
   - F016
   owner: Architect / Database
   basis: F010 CONTRACT Gate 关闭 D02 的约束/索引/锁/IPAM 并发部分（docs/database/f010-ip-address.md
-    v1 DB-D113/119/125 + docs/api/F010.md v1 §2/§6/§7）；其余部分（软件版本/目录、认证、版本冲突与错误语义、敏感字段、审计一致性与备份）已由 F001–F003/F008/F009
-    设计签核关闭；F016 仅承接备份覆盖 Audit 的验证。
+    v1 DB-D113/119/125 + docs/api/F010.md v1 §2/§6/§7）；其余部分（软件版本/目录、认证、版本冲突与错误语义、敏感字段、审计一致性与备份）已由
+    F001–F003/F008/F009 设计签核关闭；F016 仅承接备份覆盖 Audit 的验证。
 - id: D03
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
   status: OPEN
@@ -971,9 +974,10 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F010
-  current_stage: TEST
-  last_result: F010 IMPLEMENTATION COMPLETE（backend 336 passed/1 skipped，F010 44 passed；frontend typecheck/build/smoke 163 passed）
-  next_action: TEST Gate（Tester 独立执行 F010 验收映射）
+  current_stage: REVIEW
+  last_result: F010 TEST READY FOR REVIEW（backend 344 passed/1 skipped；独立库 17/17；真实
+    HTTP 32/32；frontend 163 passed；无必须修复缺陷）
+  next_action: 正式 Review（reviewer）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -983,8 +987,8 @@ planning_status:
     CANCELLED: 0
     DONE: 9
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 2
   ready_features:
   - F011
