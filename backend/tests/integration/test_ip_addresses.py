@@ -552,6 +552,105 @@ def test_restore_success_after_release(role_client_factory):
     assert restored.json()["ip_address"]["version"] == 3
 
 
+def test_restore_rechecks_allocatable_boundary(role_client_factory):
+    """F010-REV-01: restore re-checks the §11.1 gateway/RESERVED boundary (422).
+
+    An address that was allocatable at creation but became a gateway or fell
+    into a RESERVED range after release must not be restored; the boundary
+    failure is 422 ``field:"address"`` (same shape as manual allocation §6.2).
+    """
+    admin, _, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+
+    # 1) the released address later becomes the Network gateway
+    net_gw = _network(admin, c1["id"], name="gw", cidr="10.0.0.0/24")
+    ip_gw = _ip(admin, net_gw["id"], "10.0.0.5")
+    admin.delete(f"/api/v1/ip-addresses/{ip_gw['id']}", params={"version": 1})
+    assert admin.patch(
+        f"/api/v1/networks/{net_gw['id']}",
+        json={"version": 1, "gateway": "10.0.0.5"},
+    ).status_code == 200
+    gateway = admin.post(
+        f"/api/v1/ip-addresses/{ip_gw['id']}/restore", params={"version": 2}
+    )
+    assert gateway.status_code == 422, gateway.text
+    fields = gateway.json()["error"]["details"]["fields"]
+    assert any(f["field"] == "address" for f in fields)
+
+    # 2) a new RESERVED pool covers the released address
+    net_res = _network(admin, c1["id"], name="res", cidr="10.1.0.0/24")
+    ip_res = _ip(admin, net_res["id"], "10.1.0.5")
+    admin.delete(f"/api/v1/ip-addresses/{ip_res['id']}", params={"version": 1})
+    _pool(admin, net_res["id"], name="r", start="10.1.0.1", end="10.1.0.9",
+          allocation_mode="RESERVED")
+    reserved = admin.post(
+        f"/api/v1/ip-addresses/{ip_res['id']}/restore", params={"version": 2}
+    )
+    assert reserved.status_code == 422, reserved.text
+    fields = reserved.json()["error"]["details"]["fields"]
+    assert any(f["field"] == "address" for f in fields)
+
+    # 3) an address that stays allocatable restores normally
+    net_ok = _network(admin, c1["id"], name="ok", cidr="10.2.0.0/24")
+    ip_ok = _ip(admin, net_ok["id"], "10.2.0.5")
+    admin.delete(f"/api/v1/ip-addresses/{ip_ok['id']}", params={"version": 1})
+    ok = admin.post(
+        f"/api/v1/ip-addresses/{ip_ok['id']}/restore", params={"version": 2}
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["ip_address"]["deleted_at"] is None
+
+
+def test_restore_uniqueness_and_dependency_beat_boundary(
+    role_client_factory, auth_session_factory
+):
+    """A22/F010-REV-01: 409 uniqueness/dependency still precede the 422 boundary."""
+    admin, _, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin, code="C1")
+
+    # uniqueness (409) wins when a live duplicate and a gateway collision coexist
+    net_pri = _network(admin, c1["id"], name="pri", cidr="10.3.0.0/24")
+    ip_pri = _ip(admin, net_pri["id"], "10.3.0.5")
+    admin.delete(f"/api/v1/ip-addresses/{ip_pri['id']}", params={"version": 1})
+    _ip(admin, net_pri["id"], "10.3.0.5")
+    # raw write: the API would reject the gateway while the address is occupied,
+    # so force the boundary collision to prove the ordering.
+    with auth_session_factory() as session:
+        session.execute(
+            text("UPDATE networks SET gateway = '10.3.0.5' WHERE id = :id"),
+            {"id": uuid.UUID(net_pri["id"])},
+        )
+        session.commit()
+    unique = admin.post(
+        f"/api/v1/ip-addresses/{ip_pri['id']}/restore", params={"version": 2}
+    )
+    assert unique.status_code == 409, unique.text
+    assert unique.json()["error"]["details"]["reason"] == "unique_conflict"
+
+    # dependency (409) wins over the boundary 422 for a deleted Interface
+    net_dep = _network(admin, c1["id"], name="dep", cidr="10.4.0.0/24")
+    res = _resource(admin, c1["id"], hostname="hd")
+    iface = _interface(admin, res["id"])
+    ip_dep = _ip(admin, net_dep["id"], "10.4.0.5")
+    admin.patch(
+        f"/api/v1/ip-addresses/{ip_dep['id']}",
+        json={"version": 1, "interface": iface["id"]},
+    )
+    admin.delete(f"/api/v1/ip-addresses/{ip_dep['id']}", params={"version": 2})
+    assert admin.patch(
+        f"/api/v1/networks/{net_dep['id']}",
+        json={"version": 1, "gateway": "10.4.0.5"},
+    ).status_code == 200
+    assert admin.delete(
+        f"/api/v1/interfaces/{iface['id']}", params={"version": 1}
+    ).status_code == 204
+    dependency = admin.post(
+        f"/api/v1/ip-addresses/{ip_dep['id']}/restore", params={"version": 3}
+    )
+    assert dependency.status_code == 409, dependency.text
+    assert dependency.json()["error"]["details"]["reason"] == "dependency_deleted"
+
+
 # --- A24: permissions, audit and activity ------------------------------------
 
 

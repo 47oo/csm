@@ -8,6 +8,14 @@ DR-125), bind/unbind/transfer (DR-121/DR-136/DR-137), release (soft delete,
 DR-128), restore re-checks, optimistic locking, the object Activity trail and the
 audit whitelist (DR-131).
 
+The §11.1 allocatable set (CIDR containment, non network/broadcast, disabled 5
+segments, gateway, RESERVED pool ranges) is shared by capacity, manual
+auto-allocation and restore: :func:`_validate_cidr_membership` plus the
+``network_allocatable_intervals`` / ``interval_contains`` boundary re-check in
+:func:`restore_ip_address` keep restore from re-materialising an address that
+became a gateway or fell into a RESERVED range after release (Contract §6.7,
+DR-128).
+
 Concurrency (DR-126): manual/auto allocation and restore lock the owning
 ``networks`` row ``SELECT ... FOR UPDATE`` (``_lock_network``, the F008/F009
 shared protocol) before the uniqueness/boundary checks, so they serialise with a
@@ -188,8 +196,10 @@ def _validate_interface(
 def _validate_cidr_membership(address: str, network: Network) -> None:
     """Require ``address`` in the Network CIDR and not network/broadcast.
 
-    Used by restore (which re-checks CRID membership but not gateway/RESERVED
-    per Contract §6.7). Maps to 422 ``field:"address"``.
+    The CIDR-containment half of the shared §11.1 allocatable set used by
+    restore; the gateway/RESERVED/disabled boundary is re-checked separately by
+    :func:`restore_ip_address` through :mod:`app.services.ip_capacity`. Maps to
+    422 ``field:"address"``.
     """
     cidr = ipaddress.ip_network(str(network.cidr), strict=False)
     value = ipaddress.ip_address(address)
@@ -783,9 +793,10 @@ def restore_ip_address(
 
     find incl. deleted (404) -> not deleted (409) -> version (409) -> lock
     networks row -> address uniqueness (409) -> Network/Interface dependency
-    (409 ``dependency_deleted``) -> CIDR containment re-check (422) -> restore.
-    A failed restore never overwrites the newer object; Network ACTIVE is not
-    required (DR-136).
+    (409 ``dependency_deleted``) -> CIDR containment re-check (422) ->
+    gateway/RESERVED/disabled allocatable-boundary re-check (422, the same
+    §11.1 set as manual allocation) -> restore. A failed restore never
+    overwrites the newer object; Network ACTIVE is not required (DR-136).
     """
     ip_address = get_ip_address(db, ip_address_id, include_deleted=True)
     if ip_address is None:
@@ -851,6 +862,10 @@ def restore_ip_address(
             )
 
     _validate_cidr_membership(_addr(ip_address.address), network)
+
+    intervals = ip_capacity.network_allocatable_intervals(db, network)
+    if not ip_capacity.interval_contains(intervals, _addr(ip_address.address)):
+        _raise_address_not_allocatable()
 
     before = ip_address_snapshot(ip_address)
     try:

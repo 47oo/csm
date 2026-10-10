@@ -32,6 +32,7 @@
 | TD-1 | 2026-10-09 | 初版：A1–A26 映射 V1–V26（补充 V27–V35），边界/并发 B1–B50，夹具/环境设计，F010 独立 / F010+桩 / 留待 F012/F013 三类分界，§8 OPEN 复核项（待 DATABASE/CONTRACT/D01 v9 后由 TD-2 关闭）。 |
 | TD-2 | 2026-10-10 | 依 `database/f010-ip-address.md` v1（DB-D111–D127）、`api/F010.md` v1、`d01-conventions.md` v9 §5.9、F002 §1.2.1、F008 errata、F003 errata 逐项关闭 §8 OPEN-1–20，固定执行判据。 |
 | TE-1 | 2026-10-10 | 独立执行 A1–A26 / V-DB-95–111 / B 场景，真实 PG + 独立验证库 + 真实 HTTP。结论 `READY FOR REVIEW`。 |
+| TE-2 | 2026-10-10 | F010-REV-01 修复后重测：独立重跑 F010 专属/全量、独立验证库 raw/SQL 复核 restore 边界。结论 `READY FOR REVIEW`（REV-01 关闭）。 |
 
 > 复核基线（待 TD-2）：`docs/database/f010-ip-address.md`（DATABASE Gate，未定稿）、`docs/api/F010.md` v0（CONTRACT Gate，未定稿）、`d01-conventions.md` v9 §5.9（未签核）。TD-1 的表名/列名/约束名/FK/触发 backstop/索引/迁移 0010 编号/错误路径/并发机制均按 architecture §1/§5/§6/§7/§12 草案假设，TD-2 逐项核对后方可作为执行依据。
 
@@ -544,3 +545,90 @@ TE-1 结论：**`READY FOR REVIEW`** —— A1–A26、V-DB-95–111 与 B 场�
 GIT: git log --oneline -5
 GIT: git status --short
 GIT: git rev-parse --short HEAD
+
+---
+
+## 11. TE-2 — F010-REV-01 修复后 TEST 复核
+
+- **版本**：TE-2
+- **日期**：2026-10-10
+- **角色**：Tester（TEST 模式，有限修复第 1 轮复核）
+- **结论**：`READY FOR REVIEW`（`F010-REV-01` 关闭）
+- **复核基线（候选，含未提交改动）**：分支 `feature/F010-ip-address-allocation`，HEAD `3c8e1ec` + 未提交工作区改动
+  - 业务实现：`backend/app/services/ip_address.py`（+`ip_capacity` 复用）
+  - 测试：`backend/tests/integration/test_ip_addresses.py`
+  - 设计/契约对齐：`docs/api/F010.md`、`docs/features/F010/architecture.md`、`docs/features/F010/product.md`
+- **独立性声明**：以下 pytest 与独立验证库 raw/SQL 均由 Tester 在本任务内独立重跑，不复用 Backend 数字；测试库与独立验证库均含 `test`/独立命名（`csm_test`、`csm_f010_revtest`），未连接生产或未知数据库。
+
+### 11.1 版本记录
+
+| 版本 | 日期 | 基线 | 结论 | 说明 |
+| --- | --- | --- | --- | --- |
+| TE-2 | 2026-10-10 | `3c8e1ec` + 未提交修复 | `READY FOR REVIEW` | F010-REV-01（restore 未重检 gateway/RESERVED）修复后重测；REV-01 关闭；仅受影响的 A16/A22/T30/T34 相关复核，其余 A/V/B 结论沿用 TE-1 不受影响 |
+
+### 11.2 本轮修复说明（对齐依据）
+
+- 缺陷 `F010-REV-01`（HIGH）：`restore_ip_address` 仅重检 CIDR 包含，未重检 gateway/RESERVED，导致软删后地址变为 gateway 或落入 RESERVED 池范围时仍可恢复，违反要求 §11.1 CONFIRMED「自动、手动、恢复与容量统计共用这一边界」与 §31 T34「恢复不能绕过保留范围/网关占用检查」。
+- 修复：`restore_ip_address` 在 CIDR 重检后复用 `ip_capacity.network_allocatable_intervals` + `interval_contains` 重检 §11.1 可分配边界（base usable − gateway − RESERVED 池 − 禁用段），失败 → 422 `field:"address"`（与手动分配同形状）。恢复优先级固定为 唯一(409)→依赖(409)→CIDR(422)→可分配边界(422)→恢复。
+- 对齐更新：Contract `docs/api/F010.md` §6.7/§2.1（errata-02）、architecture DR-128/§5.2、product A22 均已同步「恢复重检可分配边界」。核对 §11.1 原文与 §31 T34 后确认修复方向由 CONFIRMED 需求必然产生，非新增业务规则。
+
+### 11.3 执行命令与输出（独立重跑）
+
+```text
+# F010 专属（后端集成 + 真 PG；含本轮 2 条新增用例）
+docker run --rm --network f002test-net -v "$PWD/backend:/app" \
+  -e TEST_DATABASE_URL="postgresql+psycopg://csm:change-me@f002test-db:5432/csm_test" \
+  -w /app csm-f007-test python -m pytest \
+  tests/integration/test_ip_addresses.py tests/integration/test_ip_address_constraints.py -q
+→ 54 passed, 1 warning in 27.39s        # TE-1 为 52 passed；本轮 +2（REV-01 用例）
+
+# 全量后端（回归）
+docker run ... python -m pytest tests -q
+→ 346 passed, 1 skipped, 1 warning in 137.35s
+   skip = tests/integration/test_migrations.py:105（csm 为 superuser，F001 V3b 环境性跳过，非 F010）
+
+# 独立验证库 raw/SQL 复核（新建 csm_f010_revtest，独立 schema + alembic upgrade head，
+# 全部状态以 raw SQL 构造并 raw 断言，用后删除；临时用例运行后即移除，不入库）
+docker run ... -e TEST_DATABASE_URL=.../csm_f010_revtest \
+  python -m pytest tests/integration/test_f010_rev01_verify_tmp.py -q
+→ 5 passed, 1 warning in 3.61s
+   ① raw 软删后 raw 设 gateway → restore 422 field="address"；raw 断言 deleted_at 仍非空、version 不变
+   ② raw 软删后 raw 插入 RESERVED 池覆盖 → restore 422 field="address"；raw 状态不变
+   ③ 合法软删 → restore 200、deleted_at=null、version+1
+   ④ 唯一冲突(409 unique_conflict) 优先于边界 422（同时存在 live 重复 + raw gateway 碰撞）
+   ⑤ 依赖失效(409 dependency_deleted) 优先于边界 422（raw 软删绑定 Interface + raw gateway 碰撞）
+```
+
+### 11.4 受 F010-REV-01 影响验收项复核
+
+| 受影响项 | 结果 | 复核证据 |
+| --- | --- | --- |
+| A16 / §31 T30（/0–/30 排网络广播、/31 两址、/32 单址；自动、手动、恢复共用边界） | PASS | `test_restore_rechecks_allocatable_boundary`（恢复边界重检）、`test_disabled_ranges_and_31_32_boundaries`、`test_capacity_31_and_32_prefix`；独立验证库 raw 场景 ①–③ |
+| A22 / §31 T34（恢复重检可分配边界，失败不覆盖新对象，唯一/依赖优先） | PASS | `test_restore_rechecks_allocatable_boundary`、`test_restore_uniqueness_and_dependency_beat_boundary`；独立验证库 raw 场景 ①–⑤；raw 断言失败后 `deleted_at`/`version` 不变 |
+| §31 T30 / T34 层面：恢复不得绕过保留范围/网关 | PASS | 上述两条；Contract §6.7 errata-02 优先级 唯一→依赖→CIDR→可分配边界→恢复 |
+| 回归：A1–A15/A17–A21/A23–A26、V-DB-95–111、B1–B60 | PASS（沿用 TE-1，本轮全量回归通过） | 全量 `346 passed / 1 skipped`；F010 专属 `54 passed`；TE-1 10.4–10.6 结论不受本轮修复影响（修复仅改 restore 边界重检路径） |
+
+### 11.5 Defects（本轮）
+
+| ID | Severity | Layer | Location | 证据/复现 | 期望 vs 实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| F010-REV-01 | HIGH | Backend/Restore | `backend/app/services/ip_address.py::restore_ip_address` | 软删 IP 后设 gateway / RESERVED 覆盖该址，旧实现 restore 仍成功 | 期望：422 `field:"address"`；实际（修复前）：恢复成功。**当前：已修复并复测通过** | 关闭 | Backend | 是（已修复） |
+
+> TE-1 的 D-F010-01（NOTE，无 API 可达影响）、D-F010-02（LOW，测试断言偏弱）、D-F010-03（NOTE，未做 Nginx 全栈）仍保持原状，不阻塞。
+
+### 11.6 未验证项（沿用 TE-1）
+
+- **T22/T23 真实 Endpoint 端到端**：`NOT TESTED / 归 F012`。
+- **T32 Dashboard 显示**：`NOT TESTED / 归 F013`（F010 仅验证容量数值）。
+- **真实浏览器 DOM 渲染**：非 F010 必要判据。
+- **§32 一期集成验收与完整 §31 跨功能回归**：归 F016；不得以 F010 局部 PASS 拼成整体通过。
+
+### 11.7 本轮测试代码改动
+
+仅修改 `backend/tests/integration/test_ip_addresses.py`，新增 2 条：`test_restore_rechecks_allocatable_boundary`、`test_restore_uniqueness_and_dependency_beat_boundary`。独立验证库复核另以临时文件 `tests/integration/test_f010_rev01_verify_tmp.py` 执行，运行后已删除，未留入库改动。未修改业务实现/产品/设计/数据库。
+
+TE-2 结论：**`READY FOR REVIEW`** —— `F010-REV-01` 已修复并经独立重跑（全量 346 passed/1 skipped、F010 专属 54 passed）与独立验证库 raw/SQL（5/5）复核关闭；恢复优先级 唯一→依赖→CIDR→可分配边界→恢复 与 Contract §6.7 errata-02 / architecture DR-128 / product A22 / 要求 §11.1/§31 T34 一致；无新增必须修复项。
+
+GIT: git status --short
+GIT: git rev-parse --short HEAD
+GIT: git diff --stat

@@ -55,7 +55,7 @@ IPAddress 是独立可寻址对象（§21 软删清单含 IPAddress；自身 UUI
 | §14 绑定 Cluster 一致 | 绑定/转移 | 触发 backstop（DR-121） | 422 field="interface" | — | V-DB-TBD |
 | §13.3/§16 Endpoint 引用 | 解绑/转移/释放 | — | 引用检查器→409 `reference_exists` | F012 注册挂钩 | F010 桩 + F012 端到端 |
 | §12.1/§11.1 保留范围/网关 vs 并发分配 | 池/gateway 变更 + 分配 | 无（跨表） | 共享 `_lock_network`+`IpAddressOccupancyProvider` | T35 双会话 | F010 端到端 |
-| §21/§27 软删/恢复 | 释放/恢复 | `deleted_at`+部分唯一 | 恢复重检 CIDR/唯一/Cluster/Interface，不覆盖 | 不级联 | V-DB-TBD |
+| §11.1/§21/§27 软删/恢复 | 释放/恢复 | `deleted_at`+部分唯一 | 恢复重检唯一/依赖/CIDR/可分配边界（gateway/RESERVED/禁用），不覆盖 | 不级联 | V-DB-TBD |
 | §23 乐观锁 | PATCH/释放/恢复 | version + 条件 UPDATE | rowcount=0→409 | 真并发 | V-DB-TBD |
 
 ## 3. Frontend / Backend Work
@@ -96,7 +96,7 @@ IPAddress 是独立可寻址对象（§21 软删清单含 IPAddress；自身 UUI
 ### 5.1 同 Cluster 未删唯一（I-1）
 冗余 `cluster_id`（创建时取自锁定 Network 的 cluster）+ 部分唯一 `UNIQUE(cluster_id,address) WHERE deleted_at IS NULL`。理由：唯一作用域是 Cluster、跨 Network/Pool，`network_id` 无法表达；PG 唯一索引不能跨表取 `networks.cluster_id`；备选 `UNIQUE(network_id,address)` 不满足 §14，纯触发器有并发窗口且 §27 要求 PostgreSQL 兜底。一致性：`cluster_id` 恒等于 `networks.cluster_id`；创建先取 `_lock_network`；有未删 IP 时 Network 不可改 cluster（引用检查器）；DB BEFORE 触发 backstop（`FOR KEY SHARE`，同 F009 模式）。软删释放索引项；恢复重检冲突 409 `unique_conflict{field:"address"}`，不覆盖新占用。
 ### 5.2 地址边界与 CIDR 归属（DR-120）
-`address` 属 Network CIDR（应用主校验 + 触发 backstop）；/0–/30 排网络/广播、/31 两址可用、/32 唯一地址；禁用 5 段不得分配或作 gateway；自动、手动、恢复、容量共用同一可分配集合。
+`address` 属 Network CIDR（应用主校验 + 触发 backstop）；/0–/30 排网络/广播、/31 两址可用、/32 唯一地址；禁用 5 段不得分配或作 gateway；自动、手动、恢复、容量共用同一可分配集合（基础可用地址 − gateway − RESERVED 池范围 − 禁用地址，§11.1/§20）。恢复重检必须与手动分配（DR-124）复用同一集合：除唯一与 CIDR 外，还需重检 gateway/RESERVED/禁用排除，命中 → 422 `field:"address"`；该对齐由 §11.1 CONFIRMED「恢复与容量统计共用这一边界」与 §31 T34 产生（F010-REV-01 订正）。
 ### 5.3 network/address 不可变（I-4）
 创建必填、创建后不可改（PATCH 含 network/address→422）；改地址=新建；改 Network 会破坏 CIDR 归属与 Cluster 唯一。
 
@@ -141,7 +141,7 @@ F010 使 F008 gateway `address_in_use` 路径可达；`docs/api/F008.md` §1.2/�
 - 自动分配：条件不满足→409 allocation_not_allowed；升序；耗尽→409 no_available_address 不切换；并发不重复（A5–A8/T07）。
 - 占用/未绑定：未绑定占用、不再分配（A9）；解绑不释放（A10）。
 - 绑定/转移：跨 Cluster→422（A11/A15）。
-- 释放/恢复：仅 ADMIN；可重用；恢复重检（A12/A13/A22）。
+- 释放/恢复：仅 ADMIN；可重用；恢复重检唯一/依赖/CIDR/gateway/RESERVED 可分配边界（A12/A13/A16/A22/T30/T34）。
 - 引用：未删 IP 阻止 Network/Interface 删除（A19）；Endpoint 引用阻止解绑/转移/释放（A18，F010 契约/空挂钩 + 桩，端到端 F012）。
 - 并发：保留范围/网关变更 vs 分配互斥、事务不残留（A21/T35）。
 - 容量：§20 集合公式、去重、未绑定计入、池外计入 Network、按当前地址、停用不清零（A23 计算；显示 F013）。
@@ -164,7 +164,7 @@ F010 使 F008 gateway `address_in_use` 路径可达；`docs/api/F008.md` §1.2/�
 | DR-125 | 自动分配：ACTIVE + auto_allocate + AUTO 池；不满足→409 `allocation_not_allowed{condition}`；升序；耗尽→409 `no_available_address`，不切换 | PROPOSED→CONTRACT |
 | DR-126 | 并发：手动/自动分配与恢复事务内取 `_lock_network`；部分唯一兜底；与 F009/F008 变更互斥 | PROPOSED→CONTRACT/DATABASE（I-2/I-8） |
 | DR-127 | 引用检查：注册 Network←未删 IP、Interface←未删 IP；IPPool 例外；预留 `Endpoint←IPAddress` 注册点 | CONFIRMED（§21/§16）+DESIGN |
-| DR-128 | 释放=软删（RELEASE_IP/ADMIN）；解绑不释放；恢复仅自身、重检唯一/CIDR/Cluster/Interface，失败不覆盖 | CONFIRMED（§13.3/§21）+DESIGN |
+| DR-128 | 释放=软删（RELEASE_IP/ADMIN）；解绑不释放；恢复仅自身、重检唯一/依赖（Network/Interface）/CIDR 包含/可分配边界（非 gateway、非 RESERVED、非禁用）；可分配边界与手动分配（DR-124）共用同一 §11.1 集合；失败不覆盖 | CONFIRMED（§13.3/§11.1/§21/§31 T34）+DESIGN |
 | DR-129 | API 独立 `/api/v1/ip-addresses`（8 端点）+ 容量端点 `GET /api/v1/networks/{id}/capacity`；新建 `docs/api/F010.md` | PROPOSED→CONTRACT |
 | DR-130 | §20 容量数据接口（`IpCapacityProvider`+端点）；显示归 F013；`remaining` 负值 NOTE 交 CONTRACT | CONFIRMED（§20）+DESIGN |
 | DR-131 | 审计白名单 `{network_id,cluster_id,address,interface_id,ip_pool_id,description}`；`object_type="ip_address"`；四类 action 同事务 | CONFIRMED（§22）+DESIGN |
