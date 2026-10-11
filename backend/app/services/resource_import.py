@@ -782,19 +782,23 @@ def parse_and_validate(
     records = parse_records(data, fmt)
     if not records:
         raise ImportInvalidFile("empty_file")
-    if not records[0] or all(cell == "" for cell in records[0]):
-        raise ImportInvalidFile("header_missing")
 
-    template = _resolve_template(records[0])
     data_records = list(records[1:])
     # Drop trailing blank records (trailing newlines / xlsx used-range artifacts)
     # without shifting the 1-based file row numbers of real data rows.
     while data_records and all(cell == "" for cell in data_records[-1]):
         data_records.pop()
-    if not data_records:
-        raise ImportInvalidFile("empty_file")
+    # Row-count cap precedes header/column validation (Contract §2: parse ->
+    # row limit -> header/columns -> per-row).
     if len(data_records) > max_rows:
         raise ImportRowLimitExceeded(max_rows)
+
+    if not records[0] or all(cell == "" for cell in records[0]):
+        raise ImportInvalidFile("header_missing")
+
+    template = _resolve_template(records[0])
+    if not data_records:
+        raise ImportInvalidFile("empty_file")
 
     seen: dict[tuple[uuid.UUID, str], int] = {}
     cluster_cache: dict[str, Any] = {}

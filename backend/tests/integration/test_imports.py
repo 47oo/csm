@@ -760,6 +760,42 @@ def test_file_size_and_row_limits(role_client_factory, monkeypatch):
     }
 
 
+def test_validation_order_row_limit_before_header(role_client_factory, monkeypatch):
+    """RV-F014-02: row-count cap (413) precedes header/column validation (422).
+
+    Contract §2 order: parse -> row limit -> header/columns -> per-row.
+    """
+    editor, _, _ = role_client_factory("EDITOR")
+    c = _cluster(editor, code="C1")
+    row = {"cluster": c["code"], "hostname": "h1", "resource_type": "BARE_METAL"}
+    two_rows = [row, {"cluster": c["code"], "hostname": "h2", "resource_type": "BARE_METAL"}]
+
+    limited = Settings(_env_file=None, import_max_rows=1)
+    monkeypatch.setattr(imports_api, "get_settings", lambda: limited)
+
+    # Unknown column header + row count over the limit -> 413, not 422.
+    unknown_over = _validate(editor, _csv_bytes(BM_HEADERS + ["interface_name"], two_rows))
+    assert unknown_over.status_code == 413, unknown_over.text
+    assert unknown_over.json()["error"] == {
+        "code": "IMPORT_ROW_LIMIT_EXCEEDED",
+        "message": "Import row limit exceeded",
+        "details": {"limit_rows": 1},
+    }
+
+    # Valid header + row count over the limit -> 413.
+    valid_over = _validate(editor, _csv_bytes(BM_HEADERS, two_rows))
+    assert valid_over.status_code == 413, valid_over.text
+    assert valid_over.json()["error"]["code"] == "IMPORT_ROW_LIMIT_EXCEEDED"
+
+    # Invalid header with a normal row count -> 422 IMPORT_INVALID_FILE.
+    invalid_header = _validate(editor, _csv_bytes(BM_HEADERS + ["interface_name"], [row]))
+    assert invalid_header.status_code == 422, invalid_header.text
+    body = invalid_header.json()["error"]
+    assert body["code"] == "IMPORT_INVALID_FILE"
+    assert body["details"]["reason"] == "unknown_columns"
+    assert body["details"]["unknown_columns"] == ["interface_name"]
+
+
 def test_error_preview_truncation(role_client_factory, monkeypatch):
     """V28/V32: error_count is the full total; errors list is bounded."""
     editor, _, _ = role_client_factory("EDITOR")
