@@ -18,6 +18,7 @@ from app.api.v1 import (
     ip_pools,
     networks,
     resources,
+    services,
 )
 from app import models  # noqa: F401  (populate Base.metadata for autogenerate)
 
@@ -31,3 +32,4 @@ api_v1_router.include_router(networks.router)
 api_v1_router.include_router(ip_pools.router)
 api_v1_router.include_router(ip_addresses.router)
 api_v1_router.include_router(ip_addresses.capacity_router)
+api_v1_router.include_router(services.router)

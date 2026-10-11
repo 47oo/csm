@@ -71,6 +71,13 @@ AUDITABLE_FIELDS: dict[str, tuple[str, ...]] = {
         "ip_pool_id",
         "description",
     ),
+    "service": (
+        "resource_id",
+        "name",
+        "status",
+        "description",
+        "metadata",
+    ),
 }
 
 

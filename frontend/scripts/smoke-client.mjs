@@ -107,6 +107,22 @@
  *   选=null）、手动 / 自动分配载荷构造、PATCH exclude_unset 镜像（interface 绑定/
  *   解绑/转移；network/address/ip_pool 恒不上送）、服务端 422 点路径 → 表单键映射。
  *
+ * F011 追加（Contract：docs/api/F011.md v1，前端机制级）：
+ * - src/api/services.ts 的 URL / method / body 构造（Contract §6：列表查询串
+ *   （resource_id/status/q/deleted）、POST 201 {"service"} 信封、PATCH 仅携带
+ *   变化字段（不含 resource，DR-144）、DELETE / restore 的 version Query、
+ *   activity）；
+ * - 409 CONFLICT（unique_conflict field="name" → 字段级错误；reference_exists
+ *   → references（service_endpoint，F011 默认空集、F012 起真实，DR-146）；
+ *   dependency_deleted → conflicts（resource）；not_deleted）/ VERSION_CONFLICT
+ *   （→ 刷新后重改，不静默重试）/ 422 / 404 / 403 的 describeServiceActionError
+ *   语义；
+ * - src/components/serviceForm.ts（纯逻辑，无 JSX）：表单值解析（name trim /
+ *   禁控制字符 / ≤255、允许内部空格不合并、默认 UNKNOWN、空描述=null）、
+ *   创建 / PATCH 载荷构造语义的本地镜像（exclude_unset；显式 null=清空
+ *   description；metadata 整值替换、非空才携带；resource 不可改不上送）、
+ *   服务端 422 点路径 → 表单键映射。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -225,6 +241,24 @@ import {
   isValidBareIpv4,
   parseIpAddressFormValues,
 } from "../src/components/ipAddressForm.ts";
+import {
+  createService,
+  deleteService,
+  describeServiceActionError,
+  getService,
+  getServiceActivity,
+  listServices,
+  restoreService,
+  updateService,
+} from "../src/api/services.ts";
+import {
+  buildServiceCreateInput,
+  buildServicePatch,
+  emptyServiceFormValues,
+  parseServiceFormValues,
+  serviceFormFieldFromPath,
+  serviceFormValuesFromService,
+} from "../src/components/serviceForm.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -3847,6 +3881,478 @@ await test("F010 ipAddressFormValuesFromIpAddress：null → 默认空值；未�
   );
   assert.equal(roundTrip.ok, true);
   assert.equal(buildIpAddressPatch(ipAddressFixture, roundTrip.fields), null);
+});
+
+// ---------- F011 Service API 机制级（Contract：docs/api/F011.md v1） ----------
+
+/** F011 用例共用的 Service 夹具（Contract §3 形状）。 */
+const serviceFixture = {
+  id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0b01",
+  resource: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004", hostname: "cn001" },
+  name: "slurmd",
+  status: "RUNNING",
+  description: "Slurm compute daemon",
+  metadata: { port: 6818 },
+  version: 3,
+  created_at: "2026-10-09T08:00:00Z",
+  updated_at: "2026-10-09T09:00:00Z",
+  deleted_at: null,
+};
+
+await test("F011 listServices 默认：GET /api/v1/services，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listServices();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/services");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F011 listServices 组合查询：resource_id/status/q/deleted/page/page_size/sort/order（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listServices({
+    resource_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+    status: "RUNNING",
+    q: "slurm",
+    deleted: "only",
+    page: 2,
+    page_size: 50,
+    sort: "name",
+    order: "asc",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/services?resource_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004" +
+      "&status=RUNNING&q=slurm&deleted=only&page=2&page_size=50&sort=name&order=asc",
+  );
+});
+
+await test("F011 listServices 空串过滤项不发（q=''/resource_id=''），status 省略不发", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  await listServices({ q: "", resource_id: "" });
+  assert.equal(calls[0].url, "/api/v1/services");
+});
+
+await test("F011 createService：POST /services + JSON body；201 解析 {service}", async () => {
+  respond = () => jsonResponse(201, { service: serviceFixture });
+  const { service } = await createService({
+    resource: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+    name: "slurmd",
+    status: "RUNNING",
+    description: "Slurm compute daemon",
+    metadata: { port: 6818 },
+  });
+  assert.equal(service.id, serviceFixture.id);
+  assert.equal(service.resource.hostname, "cn001");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/services");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    resource: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+    name: "slurmd",
+    status: "RUNNING",
+    description: "Slurm compute daemon",
+    metadata: { port: 6818 },
+  });
+});
+
+await test("F011 getService：已删对象显式 ?deleted=true；默认不带", async () => {
+  respond = () =>
+    jsonResponse(200, { service: { id: "s1", deleted_at: "2026-10-09T12:00:00Z" } });
+  await getService("s1", { deleted: true });
+  await getService("s1");
+  assert.equal(calls[0].url, "/api/v1/services/s1?deleted=true");
+  assert.equal(calls[1].url, "/api/v1/services/s1");
+});
+
+await test("F011 updateService：PATCH 且仅携带变化字段（省略 = 不重置，Contract §6.4）", async () => {
+  respond = () => jsonResponse(200, { service: { id: "s1", version: 4 } });
+  const { service } = await updateService("s1", {
+    version: 3,
+    name: "slurmd",
+    status: "STOPPED",
+    metadata: { port: 6819 },
+  });
+  assert.equal(service.version, 4);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/services/s1");
+  assert.equal(calls[0].init.method, "PATCH");
+  // body 只含 version + 变化字段；resource 创建后不可改不出现（DR-144）
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    version: 3,
+    name: "slurmd",
+    status: "STOPPED",
+    metadata: { port: 6819 },
+  });
+});
+
+await test("F011 updateService：description 显式 null = 清空", async () => {
+  respond = () => jsonResponse(200, { service: { id: "s1" } });
+  await updateService("s1", { version: 3, description: null });
+  assert.deepEqual(JSON.parse(calls[0].init.body), { version: 3, description: null });
+});
+
+await test("F011 deleteService：DELETE + version 为 Query 参数；204 → undefined", async () => {
+  respond = () => new Response(null, { status: 204 });
+  const result = await deleteService("s1", 5);
+  assert.equal(result, undefined);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/services/s1?version=5");
+  assert.equal(calls[0].init.method, "DELETE");
+});
+
+await test("F011 restoreService：POST /{id}/restore + version Query 参数", async () => {
+  respond = () => jsonResponse(200, { service: { id: "s1", deleted_at: null, version: 7 } });
+  const { service } = await restoreService("s1", 6);
+  assert.equal(service.deleted_at, null);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/services/s1/restore?version=6");
+  assert.equal(calls[0].init.method, "POST");
+});
+
+await test("F011 getServiceActivity：GET /{id}/activity + deleted/page/page_size", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      items: [
+        {
+          id: "a1",
+          action: "CREATE",
+          operator_user_id: null,
+          operator_username: "bootstrap",
+          before_data: null,
+          after_data: { name: "slurmd", resource_id: "r1", status: "UNKNOWN" },
+          created_at: "2026-10-09T08:00:00Z",
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+    });
+  const data = await getServiceActivity("s1", { deleted: true, page: 1, page_size: 20 });
+  assert.equal(data.total, 1);
+  assert.equal(data.items[0].action, "CREATE");
+  assert.equal(data.items[0].after_data.name, "slurmd");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/services/s1/activity?deleted=true&page=1&page_size=20");
+});
+
+await test("F011 409 CONFLICT unique_conflict：落到 name 字段级错误；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "unique_conflict", field: "name" },
+      },
+    });
+  const err = await expectApiError(
+    createService({ resource: "r1", name: "slurmd" }),
+  );
+  assert.equal(err.status, 409);
+  assert.equal(err.code, "CONFLICT");
+  assert.equal(err.details.reason, "unique_conflict");
+  const described = describeServiceActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.ok(described.fields.name, "unique_conflict 应落到 name 字段错误");
+  assert.ok(described.fields.name.includes("大小写不敏感"));
+  assert.ok(described.fields.name.includes("跨资源允许同名"));
+  assert.equal(calls.length, 1); // 不自动重试
+});
+
+await test("F011 409 VERSION_CONFLICT：标记刷新后重改、携带 current_version；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "Version conflict",
+        details: { current_version: 9 },
+      },
+    });
+  const err = await expectApiError(updateService("s1", { version: 3, name: "x" }));
+  assert.equal(err.details.current_version, 9);
+  const described = describeServiceActionError(err);
+  assert.equal(described.versionConflict, true);
+  assert.equal(described.currentVersion, 9);
+  assert.ok(described.message.includes("刷新"), "应提示刷新后重改");
+  assert.ok(described.message.includes("不会自动重试"));
+  assert.equal(calls.length, 1); // 不静默重试覆盖
+});
+
+await test("F011 409 CONFLICT reference_exists：删除被未删 ServiceEndpoint 引用 → references；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "reference_exists",
+          references: [
+            { object_type: "service_endpoint", object_id: "e1", label: "slurmd:6818" },
+            { object_type: "service_endpoint", object_id: "e2", label: null },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(deleteService("s1", 3));
+  const described = describeServiceActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.equal(described.references.length, 2);
+  assert.equal(described.references[0].object_type, "service_endpoint");
+  assert.equal(described.references[0].label, "slurmd:6818");
+  assert.equal(described.references[1].label, null); // label 缺失为 null
+  assert.ok(described.message.includes("无法删除"));
+  assert.ok(described.message.includes("CONFLICT/reference_exists"));
+  assert.equal(calls.length, 1); // 不自动重试
+});
+
+await test("F011 409 CONFLICT dependency_deleted：恢复时解析 conflicts（所属 Resource）", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "resource", object_id: "r1" }],
+        },
+      },
+    });
+  const err = await expectApiError(restoreService("s1", 3));
+  const described = describeServiceActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.equal(described.dependencyConflicts.length, 1);
+  assert.equal(described.dependencyConflicts[0].object_type, "resource");
+  assert.equal(described.dependencyConflicts[0].object_id, "r1");
+  assert.ok(described.message.includes("所属资源"));
+  assert.ok(described.message.includes("不会覆盖资源或其上新对象"));
+});
+
+await test("F011 409 CONFLICT not_deleted：恢复未删对象的明确文案", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: { code: "CONFLICT", message: "Conflict", details: { reason: "not_deleted" } },
+    });
+  const err = await expectApiError(restoreService("s1", 3));
+  const described = describeServiceActionError(err);
+  assert.ok(described.message.includes("未处于已删除状态"));
+  assert.ok(described.message.includes("CONFLICT/not_deleted"));
+});
+
+await test("F011 422 VALIDATION_ERROR：details.fields 透传为字段级错误（含 resource）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: {
+          fields: [
+            { field: "resource", message: "资源不存在或已删除" },
+            { field: "name", message: "name 不能为空" },
+            { field: "status", message: "status 非法" },
+            { field: "metadata", message: "metadata 必须为 JSON 对象" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(
+    createService({ resource: "nope", name: "", status: "BAD", metadata: [] }),
+  );
+  const described = describeServiceActionError(err);
+  assert.equal(described.fields.resource, "资源不存在或已删除");
+  assert.equal(described.fields.name, "name 不能为空");
+  assert.equal(described.fields.status, "status 非法");
+  assert.equal(described.fields.metadata, "metadata 必须为 JSON 对象");
+});
+
+await test("F011 403 / 404：明确文案（不泄露存在性 / 权限不足）", async () => {
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const err403 = await expectApiError(deleteService("s1", 3));
+  assert.ok(describeServiceActionError(err403).message.includes("没有权限"));
+  respond = () =>
+    jsonResponse(404, { error: { code: "NOT_FOUND", message: "不存在", details: {} } });
+  const err404 = await expectApiError(getService("s1"));
+  assert.ok(describeServiceActionError(err404).message.includes("服务不存在"));
+});
+
+await test("F011 网络层错误（fetch reject）：不伪装成业务结果", async () => {
+  respond = () => Promise.reject(new TypeError("Failed to fetch"));
+  await assert.rejects(listServices(), TypeError);
+  assert.equal(calls.length, 1); // 失败不重发
+  const described = describeServiceActionError(new TypeError("Failed to fetch"));
+  assert.equal(described.message, "无法连接服务器，请稍后重试");
+  assert.equal(described.versionConflict, false);
+});
+
+await test("F011 parseServiceFormValues：合法值（trim / status 透传 / 空描述=null；内部空格与中文允许）", async () => {
+  const parsed = parseServiceFormValues({
+    ...emptyServiceFormValues(),
+    name: "  计算服务 node 01 ",
+    status: "STOPPED",
+    description: "示例描述",
+  });
+  assert.equal(parsed.ok, true);
+  // trim 首尾但保留内部空格不合并（与 Interface 禁内部空白不同，§2.1/I-5）
+  assert.equal(parsed.fields.name, "计算服务 node 01");
+  assert.equal(parsed.fields.status, "STOPPED");
+  assert.equal(parsed.fields.description, "示例描述");
+  // 空描述 → null；默认 status=UNKNOWN 透传（§2.2）
+  const emptyDesc = parseServiceFormValues({
+    ...emptyServiceFormValues(),
+    name: "slurmd",
+  });
+  assert.equal(emptyDesc.ok, true);
+  assert.equal(emptyDesc.fields.description, null);
+  assert.equal(emptyDesc.fields.status, "UNKNOWN");
+});
+
+await test("F011 parseServiceFormValues：非法输入 → 字段级错误（空 / 纯空白 / 控制字符 / 超长）", async () => {
+  const cases = [
+    { name: "", hint: "不能为空" },
+    { name: "   ", hint: "不能为空" },
+    { name: "bad\u0000name", hint: "控制字符" },
+    { name: "bad\u200bname", hint: "控制字符" }, // Cf（零宽空格）
+    { name: "x".repeat(256), hint: "255" },
+  ];
+  for (const { name, hint } of cases) {
+    const parsed = parseServiceFormValues({ ...emptyServiceFormValues(), name });
+    assert.equal(parsed.ok, false, `应校验失败：name=${JSON.stringify(name)}`);
+    if (!parsed.ok) {
+      assert.ok(parsed.errors.name, "应产生 name 字段错误");
+      assert.ok(
+        parsed.errors.name.includes(hint),
+        `name 错误文案应含「${hint}」，实际：${parsed.errors.name}`,
+      );
+    }
+  }
+  // 255 code point 恰好合法（含中文按 code point 计）
+  const boundary = parseServiceFormValues({
+    ...emptyServiceFormValues(),
+    name: "服".repeat(255),
+  });
+  assert.equal(boundary.ok, true);
+});
+
+await test("F011 serviceFormFieldFromPath：服务端 422 点路径 → 表单键（顶层直通；未知路径 → null）", async () => {
+  assert.equal(serviceFormFieldFromPath("resource"), "resource");
+  assert.equal(serviceFormFieldFromPath("name"), "name");
+  assert.equal(serviceFormFieldFromPath("status"), "status");
+  assert.equal(serviceFormFieldFromPath("description"), "description");
+  assert.equal(serviceFormFieldFromPath("metadata"), "metadata");
+  assert.equal(serviceFormFieldFromPath("resource_id"), null); // 不可改别名不映射
+  assert.equal(serviceFormFieldFromPath("name_key"), null); // 不暴露（§3）
+  assert.equal(serviceFormFieldFromPath("unknown.field"), null);
+});
+
+await test("F011 buildServiceCreateInput：resource/name/status 恒携带；description/metadata 仅已登记值", async () => {
+  const parsed = parseServiceFormValues({
+    ...emptyServiceFormValues(),
+    name: " slurmd ",
+    status: "UNKNOWN",
+  });
+  assert.equal(parsed.ok, true);
+  // 全部留空：status 默认 UNKNOWN 由显式值承载；description/metadata 省略（→ null / {}）
+  assert.deepEqual(buildServiceCreateInput("r-uuid-1", parsed.fields, {}), {
+    resource: "r-uuid-1",
+    name: "slurmd",
+    status: "UNKNOWN",
+  });
+  // 全字段登记：description 与非空 metadata 照常携带
+  const full = parseServiceFormValues({
+    ...emptyServiceFormValues(),
+    name: "slurmd",
+    status: "RUNNING",
+    description: "Slurm compute daemon",
+  });
+  assert.equal(full.ok, true);
+  assert.deepEqual(
+    buildServiceCreateInput("r-uuid-1", full.fields, { port: 6818 }),
+    {
+      resource: "r-uuid-1",
+      name: "slurmd",
+      status: "RUNNING",
+      description: "Slurm compute daemon",
+      metadata: { port: 6818 },
+    },
+  );
+});
+
+await test("F011 buildServicePatch：exclude_unset 镜像（无变化 → null；name/status/description/metadata；resource 恒不上送）", async () => {
+  // 无变化 → null（不发起空更新）
+  const unchanged = parseServiceFormValues(serviceFormValuesFromService(serviceFixture));
+  assert.equal(unchanged.ok, true);
+  const unchangedMetadata = JSON.parse(
+    serviceFormValuesFromService(serviceFixture).metadata,
+  );
+  assert.equal(buildServicePatch(serviceFixture, unchanged.fields, unchangedMetadata), null);
+  // 仅改名（改后重检同 Resource 唯一由服务端 409 承载）
+  const renamed = parseServiceFormValues({
+    ...serviceFormValuesFromService(serviceFixture),
+    name: "node_exporter",
+  });
+  assert.deepEqual(buildServicePatch(serviceFixture, renamed.fields, unchangedMetadata), {
+    version: 3,
+    name: "node_exporter",
+  });
+  // 仅改 status / 清空 description（显式 null）/ metadata 整值替换
+  const statusChanged = parseServiceFormValues({
+    ...serviceFormValuesFromService(serviceFixture),
+    status: "STOPPED",
+    description: "",
+  });
+  const statusPatch = buildServicePatch(serviceFixture, statusChanged.fields, {
+    port: 6818,
+    extra: true,
+  });
+  assert.deepEqual(statusPatch, {
+    version: 3,
+    status: "STOPPED",
+    description: null,
+    metadata: { port: 6818, extra: true },
+  });
+  // metadata 清空（→ {}）也携带（整值替换，与省略=保持可区分）
+  const metadataCleared = buildServicePatch(serviceFixture, unchanged.fields, {});
+  assert.deepEqual(metadataCleared, { version: 3, metadata: {} });
+  // resource 创建后不可改（DR-144）：载荷恒不含 resource/resource_id
+  const allChanged = parseServiceFormValues({
+    ...serviceFormValuesFromService(serviceFixture),
+    name: "sshd",
+    status: "STOPPED",
+    description: "",
+    resource: "another-resource",
+  });
+  const allPatch = buildServicePatch(serviceFixture, allChanged.fields, {});
+  assert.ok(!("resource" in allPatch), "PATCH 载荷不得携带 resource 键（DR-144）");
+  assert.ok(!("resource_id" in allPatch), "PATCH 载荷不得携带 resource_id 键（DR-144）");
+  assert.deepEqual(allPatch, {
+    version: 3,
+    name: "sshd",
+    status: "STOPPED",
+    description: null,
+    metadata: {},
+  });
+});
+
+await test("F011 serviceFormValuesFromService：null → 默认空值；metadata 对象 ↔ JSON 文本；空 metadata → 空文本", async () => {
+  assert.deepEqual(serviceFormValuesFromService(null), emptyServiceFormValues());
+  const values = serviceFormValuesFromService(serviceFixture);
+  assert.equal(values.resource, serviceFixture.resource.id);
+  assert.equal(values.name, "slurmd");
+  assert.equal(values.status, "RUNNING");
+  assert.equal(values.description, "Slurm compute daemon");
+  assert.deepEqual(JSON.parse(values.metadata), { port: 6818 });
+  // 空 metadata 对象 → 空文本（不显示 "{}" 噪音）；description null → 空串
+  const emptyMeta = serviceFormValuesFromService({
+    ...serviceFixture,
+    description: null,
+    metadata: {},
+  });
+  assert.equal(emptyMeta.metadata, "");
+  assert.equal(emptyMeta.description, "");
 });
 
 // 还原全局状态

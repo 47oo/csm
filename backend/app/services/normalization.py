@@ -310,6 +310,28 @@ def normalize_gateway(value: str | None, cidr: str) -> str | None:
     return str(address)
 
 
+def normalize_service_name(value: str) -> str:
+    """Validate and return the trimmed Service ``name`` (D01 §5.10, DR-141).
+
+    Same shape as :func:`normalize_name`: trim -> non-empty -> no Cc/Cf control
+    characters -> length 1-255 code points. Internal ordinary spaces are allowed
+    and not collapsed; display case is preserved. The case-insensitive
+    uniqueness key is computed separately by :func:`service_name_key`.
+    """
+    return normalize_name(value)
+
+
+def service_name_key(name: str) -> str:
+    """Return the key ``ASCII_lower(btrim(name))`` (D01 §5.10, DR-141).
+
+    Only ASCII ``A-Z`` are folded to ``a-z``; every non-ASCII code point is kept
+    verbatim, matching the database CHECK ``name_key = translate(btrim(name),
+    'ABC...', 'abc...')``. ``str.lower()`` must NOT be used (locale- and
+    Unicode-version-dependent multi-code-point mappings).
+    """
+    return name.strip().translate(_ASCII_LOWER)
+
+
 def normalize_ip_pool_name(value: str) -> str:
     """Validate and return the trimmed IPPool ``name`` (D01 §5.8, DR-103).
 

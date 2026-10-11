@@ -1112,3 +1112,10 @@ def _raise_update_conflict(
 # checker registered before any Resource delete. No cycle: the interface service
 # imports the models and sibling services, never this module.
 from app.services import interface as _interface_service  # noqa: E402,F401
+
+# F011 registers the ``resource`` <- undeleted Service reference checker when
+# the service module is imported. Import it here so a process that only loaded
+# the resource service (CLI/import tooling, service-level tests) still has the
+# checker registered before any Resource delete. No cycle: the service module
+# imports the Resource *model* and sibling services, never this module.
+from app.services import service as _service_service  # noqa: E402,F401
