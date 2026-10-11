@@ -1,9 +1,9 @@
 # D01 共享约定基座 — 字段、归一化、时间与省略语义
 
 - **状态**：READY（专业设计签核）
-- **版本**：v10
-- **签核**：Architect，2026-10-09（v10 修订；v9 2026-10-09；v8 2026-10-09；v7 2026-10-09；v6 2026-10-09；v5 2026-10-09；v4 2026-10-09；v3 2026-10-08；v2 2026-10-07；v1 2026-10-06）
-- **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§13/§13.1/§13.2/§13.3、§14、§15、§20、§21、§27、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v2；docs/api/F004.md v3；docs/api/F007.md v1；docs/api/F009.md v1；docs/api/F010.md v1；docs/api/F011.md v1；docs/database/f003-cluster.md v2；docs/database/f004-resource.md v1；docs/database/f005-bare-metal.md v1；docs/database/f006-virtual-machine.md v1；docs/database/f007-interface.md v1；docs/database/f009-ip-pool.md v1；docs/database/f010-ip-address.md v1（DB-D111–DB-D127）；docs/database/f011-service.md v1（DB-D128–DB-D141）；F004/F005/F006/F007/F009/F010/F011 product/architecture；F001 DR-06 / DB-D13。
+- **版本**：v11
+- **签核**：Architect，2026-10-09（v11 修订；v10 2026-10-09；v9 2026-10-09；v8 2026-10-09；v7 2026-10-09；v6 2026-10-09；v5 2026-10-09；v4 2026-10-09；v3 2026-10-08；v2 2026-10-07；v1 2026-10-06）
+- **依据**：requirements-v3.md revision 3（§4、§4.1、§5、§7–§12、§13/§13.1/§13.2/§13.3、§14、§15、§16、§20、§21、§27、§35.2 Q10-A/Q10-B、§35.3 D01）；docs/api/F003.md v2；docs/api/F004.md v3；docs/api/F007.md v1；docs/api/F009.md v1；docs/api/F010.md v1；docs/api/F011.md v1；docs/api/F012.md v1；docs/database/f003-cluster.md v2；docs/database/f004-resource.md v1；docs/database/f005-bare-metal.md v1；docs/database/f006-virtual-machine.md v1；docs/database/f007-interface.md v1；docs/database/f009-ip-pool.md v1；docs/database/f010-ip-address.md v1（DB-D111–DB-D127）；docs/database/f011-service.md v1（DB-D128–DB-D141）；docs/database/f012-service-endpoint.md v1（DB-D142–DB-D156）；F004/F005/F006/F007/F009/F010/F011/F012 product/architecture；F001 DR-06 / DB-D13。
 - **覆盖**：API 与导入共用的字段格式、稳定 ID、时间、单位、nullable/PATCH 省略语义、名称归一化口径。F003 首落地签核；后续 Feature 引用本文件不重复定义；数据库列级设计仍归各 Feature Database 文档。
 
 ## 1. 稳定 ID（§4 / DB-D13）
@@ -68,7 +68,7 @@
 
 ### 5.2 长度口径
 
-Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限，RFC 1035）**；**BareMetal 硬件字符串字段（manufacturer/model/serial_number/cpu_model/gpu_model）255（v4 新增，见 §5.4）**；**VirtualMachine hypervisor 255（v5 新增，见 §5.5）**；**Interface name 64、mac_address ≤64（v6 新增，见 §5.6）**；**Network name 255（v7 新增，见 §5.7）**；**IPPool name 255（v8 新增，见 §5.8）**；**Service name 255（v10 新增，见 §5.10）**；**IPAddress（F010，v9 补充）**：无名称字段，名称唯一性与长度口径（§5 表）不适用；`address` 为 IPv4 主机地址（见 §3/§5.9）；`description` 可空、无长度上限（同 F003/F004/F007/F008/F009）；其它对象字符/长度在各 Feature Database/Contract 依本节规则收窄（Unicode code point）。
+Cluster code 64；Cluster name 255；**Resource hostname 253（FQDN 表示上限，RFC 1035）**；**BareMetal 硬件字符串字段（manufacturer/model/serial_number/cpu_model/gpu_model）255（v4 新增，见 §5.4）**；**VirtualMachine hypervisor 255（v5 新增，见 §5.5）**；**Interface name 64、mac_address ≤64（v6 新增，见 §5.6）**；**Network name 255（v7 新增，见 §5.7）**；**IPPool name 255（v8 新增，见 §5.8）**；**Service name 255（v10 新增，见 §5.10）**；**ServiceEndpoint（F012，v11 补充）**：无名称字段，名称唯一性与长度口径（§5 表）不适用；`description` 可空、无长度上限（同 F003/F004/F007/F008/F009/F010/F011）；**IPAddress（F010，v9 补充）**：无名称字段，名称唯一性与长度口径（§5 表）不适用；`address` 为 IPv4 主机地址（见 §3/§5.9）；`description` 可空、无长度上限（同 F003/F004/F007/F008/F009）；其它对象字符/长度在各 Feature Database/Contract 依本节规则收窄（Unicode code point）。
 
 ### 5.3 Resource hostname 字符集、长度与折叠（D01 裁定，F004 I-1）
 
@@ -210,6 +210,28 @@ resource 归属（DR-144/DB-D129/DB-D136）：创建必填 UUID，须引用存�
 
 镜像：DB 列/约束见 docs/database/f011-service.md v1（DB-D128–DB-D141）；API 契约见 docs/api/F011.md v1。本字段字典供 F014 导入复用。
 
+### 5.11 ServiceEndpoint 字段口径（D01 裁定，F012 DB-D147/DB-D155；v11 新增）
+
+适用范围：docs/api/F012.md v1 的 ServiceEndpoint 独立对象字段（service、ip_address、protocol、port、description）。ServiceEndpoint 为独立可寻址对象（非 Service / IPAddress 的 1:1 明细），归属与生命周期见 §6/§21 及 F012 Contract。
+
+service 归属（DR-157/DB-D143）：创建必填 UUID，须引用存在、未软删 Service，否则 422 field="service"；创建后不可改（PATCH 出现 service/service_id→422）；DB FK `fk_service_endpoints_service_id_services` ON DELETE RESTRICT，无不可变触发器。
+
+ip_address 引用（DR-158/DB-D144）：创建必填 UUID，须引用存在、未软删 IPAddress，否则 422 field="ip_address"；且该 IP 已绑定 Interface（`interface_id` 非空），该 Interface 存在、未软删，且 `interfaces.resource_id == services.resource_id`（同 Resource ⇒ 同 Cluster），违反→422 field="ip_address"；DB 另有 `trg_service_endpoints_attribution`（BEFORE INSERT/UPDATE）结构性 backstop。创建后不可改（PATCH 出现 ip_address/ip_address_id→422）。
+
+protocol（DR-160/DB-D145）：创建必填；`varchar(8)` NOT NULL；∈{TCP,UDP}；仅接受大写规范值、存储大写；显式 null/其它值（含 "tcp"）→422 field="protocol"；DB `ck_service_endpoints_protocol`。
+
+port（DR-160/DB-D146）：创建必填；`integer` NOT NULL；1–65535（含端点）；0、65536、负数、非整数、显式 null→422 field="port"；边界 1、65535 接受；DB `ck_service_endpoints_port`。
+
+description（DB-D147）：可空文本，无长度上限（同 F003/F004/F007/F008/F009/F010/F011）；显式 null 清空、省略保持。
+
+唯一（DR-159/DB-D149）：同一 IPAddress 未软删 (ip_address_id, protocol, port) 部分唯一 `uq_service_endpoints_ip_protocol_port WHERE deleted_at IS NULL`；软删释放、恢复重检冲突不覆盖；不同 IP 对象（含不同 Cluster 同值地址）各自独立。
+
+生命周期与省略语义：见 §4/§21（创建省略非必填→默认/null；PATCH 省略=保持；显式 null 仅清空 description；service/ip_address/protocol/port 显式 null→422；不可变/只读/未知字段→422）。
+
+不落字段（§16）：metadata、name、status、listen_address 文本、Unix Socket、端口范围/列表、VIP 标识、URL/路径/TLS、实时探测/健康状态、部署/同步标记。请求含 metadata→422，响应不含。无名称字段，§5 表名称口径不适用。
+
+镜像：DB 列/约束见 docs/database/f012-service-endpoint.md v1（DB-D142–DB-D156）；API 契约见 docs/api/F012.md v1。本字段字典供 F014 导入复用。
+
 ## 6. 归属与引用
 
 对象「所属对象」（如 Resource 的 Cluster、Pool 的 Network）在创建时必填；具体可空性按各条款。引用以稳定 UUID 表达；删除前做未删除引用检查，不隐式级联（§21）。
@@ -232,3 +254,4 @@ resource 归属（DR-144/DB-D129/DB-D136）：创建必填 UUID，须引用存�
 | v8 | 2026-10-09 | §3 追加 IPPool 地址字段引用；§5.2 追加 IPPool name 255；§5 表 IPPool/Service 行内部空白措辞改为「允许内部普通空格（不自动合并）」；新增 §5.8 IPPool 字段口径（name 1–255 仅 ASCII 折叠、start/end 单主机 IPv4 属 CIDR 且起≤止、network 创建必填不可改、allocation_mode 默认 MANUAL、description 无上限、不落 metadata/status/auto_allocate/容量） | F009 DB I-4 与 Contract v1 定稿（DR-103/104/105/107/113） |
 | v9 | 2026-10-09 | §3 追加 IPAddress address 字段引用；§5.2 追加 IPAddress 无名称/description 口径；新增 §5.9 IPAddress 字段口径（address 主 IPv4 属 CIDR 非网络广播禁用 gateway RESERVED、network 必填不可改、interface 可空同 Cluster 可 PATCH、ip_pool 只读来源、cluster_id 冗余不暴露、不落 metadata/name/status、省略语义） | F010 DB v1 与 Contract v1 定稿（DR-119/120/121/122/123/136/137） |
 | v10 | 2026-10-09 | §5 表将「IPPool/Service name」合并行拆为 IPPool name 与 Service name 两行；§5.2 追加 Service name 255；新增 §5.10 Service 字段口径（name 1–255 仅 ASCII 折叠、status 默认 UNKNOWN 非探测、description 无上限、metadata Service 自有、resource 创建必填不可改、不落 IP/端口/协议/cluster/探测/部署字段）；§8 记 v10 | F011 DB v1（DB-D130/132/133/129）与 Contract v1 定稿（DR-141/142/143/144/152） |
+| v11 | 2026-10-09 | §5.2 追加 ServiceEndpoint 无名称/description 口径；新增 §5.11 ServiceEndpoint 字段口径（service/ip_address 建必填活引用且创建后不可改、ip_address 须已绑定且属 Service.Resource、protocol∈{TCP,UDP}（大写）、port 1–65535、description 可空无上限、同 IPAddress 未删 (ip_address_id,protocol,port) 部分唯一、不落 metadata/name/status/listen_address）；§8 记 v11 | F012 DB v1（DB-D143/144/145/146/147/149/155）与 Contract v1 定稿（DR-156/157/158/159/160/169） |
