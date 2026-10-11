@@ -976,13 +976,21 @@ features:
   - F012
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: ARCHITECTURE Gate（architect 产出 architecture.md + api/F015.md 草案，定 layers/api_required）
-  current_stage: ARCHITECTURE
+  next_action: DATABASE（复核 DR-227 索引/DR-222 登记）+ TEST_DESIGN（并行）
+  current_stage: DATABASE
   implementation:
     product: COMPLETE
+    architecture: COMPLETE
+  layers:
+    database: true
+    backend: true
+    frontend: true
+  api_required: true
   evidence:
     product:
     - docs/features/F015/product.md
+    architecture:
+    - docs/features/F015/architecture.md
 - id: F016
   title: 一期集成验收与交付
   kind: FEATURE
@@ -1155,9 +1163,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F015
-  current_stage: ARCHITECTURE
-  last_result: F015 PRODUCT COMPLETE（READY FOR ARCHITECT；A1–A31/I-1–I-15；OPEN O-1–O-8 交设计裁定）
-  next_action: ARCHITECTURE Gate（architect）
+  current_stage: DATABASE
+  last_result: F015 ARCHITECTURE COMPLETE（READY FOR DESIGN；DR-213–DR-227；api/F015.md 草案；O-1–O-8 裁定）
+  next_action: DATABASE + TEST_DESIGN（并行）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
