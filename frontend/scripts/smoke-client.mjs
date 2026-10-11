@@ -153,6 +153,23 @@
  *   type 自由输入非法值拦截、422 点路径 → 表单键映射、高亮分段（ASCII
  *   大小写不敏感子串；非子串模糊命中不高亮）。
  *
+ * F014 追加（Contract：docs/api/F014.md v1，前端机制级）：
+ * - src/api/client.ts 的 requestUpload：multipart/form-data（不手动设置
+ *   Content-Type，boundary 由 fetch 生成）；信封 / 401 全局处理 / 不重试与
+ *   request 一致（共用 handleResponse）；
+ * - src/api/imports.ts 的三端点（§3/§4/§5：POST /imports/resources/validate、
+ *   POST /imports/resources（FormData：file+format）、GET /imports/resources/
+ *   templates）；describeImportError 的 401/403（permission|csrf）/ 413
+ *   （IMPORT_FILE_TOO_LARGE limit_bytes / IMPORT_ROW_LIMIT_EXCEEDED limit_rows）/ 422
+ *   （IMPORT_INVALID_FILE reason+列清单 / IMPORT_VALIDATION_FAILED 行错误明细 /
+ *   VALIDATION_ERROR field=format）/ 500 / 网络层兑底语义；details 形状不符时
+ *   不伪造行错误；
+ * - src/components/importForm.ts（纯逻辑，无 JSX）：空输入不发请求（file
+ *   未选本地报错）、文件大小超 5 MiB 本地拦截（§10 签核值）、format=xlsx
+ *   仅接受 .xlsx（大小写不敏感）、importTargetKey 输入指纹（变化即失效）、
+ *   422 点路径 → 表单键（format）、模板列渲染辅助（类型·单位/枚举/必填）与
+ *   表头行 CSV 生成（DR-208）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -322,6 +339,22 @@ import {
   parseGlobalSearchFormValues,
   searchFormFieldFromPath,
 } from "../src/components/globalSearchForm.ts";
+import {
+  describeImportError,
+  getImportTemplates,
+  IMPORT_MAX_FILE_BYTES,
+  importResources,
+  validateResourceImport,
+} from "../src/api/imports.ts";
+import {
+  buildTemplateCsv,
+  emptyImportFormValues,
+  importFormFieldFromPath,
+  importTargetKey,
+  parseImportFormValues,
+  templateColumnTypeLabel,
+  templateColumnRequiredLabel,
+} from "../src/components/importForm.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -5439,6 +5472,372 @@ await test("F013 highlightSegments：ASCII 大小写不敏感子串；非子串�
     { text: "gpu07", hit: true },
     { text: "01", hit: false },
   ]);
+});
+
+// ---------- F014 Import API 机制级（Contract：docs/api/F014.md v1） ----------
+
+/** 构造最小 CSV 测试文件（multipart file 字段）。 */
+function importCsvFile(name = "resources.csv") {
+  return new File(
+    ["cluster,hostname,resource_type\nN96P,cn001,BARE_METAL\n"],
+    name,
+    { type: "text/csv" },
+  );
+}
+
+await test("F014 getImportTemplates：GET /api/v1/imports/resources/templates；解析两套模板列描述", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      templates: [
+        {
+          resource_type: "BARE_METAL",
+          columns: [
+            { name: "cluster", required: true, target: "resource.cluster", type: "string", unit: null, enum: null, description: "Cluster code (case-insensitive) or UUID; must exist and be undeleted", example: "N96P" },
+            { name: "memory_mb", required: false, target: "hardware.memory_mb", type: "integer", unit: "MiB", enum: null, description: "Physical memory; empty = unknown (null)", example: "262144" },
+            { name: "role", required: false, target: "resource.role", type: "enum", unit: null, enum: ["COMPUTE", "LOGIN", "OTHER"], description: "Role; empty→OTHER", example: "COMPUTE" },
+          ],
+        },
+        {
+          resource_type: "VIRTUAL_MACHINE",
+          columns: [
+            { name: "host", required: true, target: "virtual_machine.host_resource_id", type: "string", unit: null, enum: null, description: "Hostname (or UUID) of an existing, undeleted BARE_METAL host in the same cluster", example: "cn001" },
+          ],
+        },
+      ],
+    });
+  const data = await getImportTemplates();
+  assert.equal(data.templates.length, 2);
+  assert.equal(data.templates[0].resource_type, "BARE_METAL");
+  assert.equal(data.templates[0].columns[1].unit, "MiB");
+  assert.equal(data.templates[0].columns[1].required, false);
+  assert.deepEqual(data.templates[0].columns[2].enum, ["COMPUTE", "LOGIN", "OTHER"]);
+  assert.equal(data.templates[1].columns[0].name, "host");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resources/templates");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F014 validateResourceImport：POST multipart（FormData：file+format），不手动设 Content-Type", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      format: "csv",
+      total_rows: 12,
+      importable_rows: 10,
+      error_count: 3,
+      errors: [
+        { row: 4, field: "cluster", reason: "cluster does not exist or is not selectable", related_row: null },
+        { row: 7, field: "hostname", reason: "duplicate hostname within file (also at row 2)", related_row: 2 },
+      ],
+      errors_truncated: false,
+    });
+  const file = importCsvFile();
+  const data = await validateResourceImport(file, "csv");
+  assert.equal(data.format, "csv");
+  assert.equal(data.total_rows, 12);
+  assert.equal(data.importable_rows, 10);
+  assert.equal(data.error_count, 3);
+  assert.equal(data.errors[1].related_row, 2);
+  assert.equal(data.errors_truncated, false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resources/validate");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  // multipart：body 为 FormData；不得手动设置 Content-Type（boundary 由 fetch 生成）
+  assert.ok(calls[0].init.body instanceof FormData, "body 应为 FormData（multipart）");
+  assert.ok(
+    !("Content-Type" in (calls[0].init.headers ?? {})),
+    "不得手动设置 Content-Type（boundary 由 fetch 生成）",
+  );
+  assert.equal(calls[0].init.headers["Accept"], "application/json");
+  assert.equal(calls[0].init.body.get("format"), "csv");
+  const uploaded = calls[0].init.body.get("file");
+  assert.ok(uploaded instanceof File, "file 字段应为文件对象");
+  assert.equal(uploaded.name, "resources.csv");
+  assert.equal(uploaded.size, file.size);
+});
+
+await test("F014 importResources：POST /imports/resources multipart；201 解析 {created,total_rows}", async () => {
+  respond = () => jsonResponse(201, { created: 10, total_rows: 10 });
+  const file = new File(
+    [new Uint8Array([0x50, 0x4b, 0x03, 0x04])],
+    "resources.xlsx",
+    { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+  );
+  const data = await importResources(file, "xlsx");
+  assert.equal(data.created, 10);
+  assert.equal(data.total_rows, 10);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resources");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  assert.ok(calls[0].init.body instanceof FormData);
+  assert.equal(calls[0].init.body.get("format"), "xlsx");
+  assert.equal(calls[0].init.body.get("file").name, "resources.xlsx");
+});
+
+await test("F014 上传 401：抛 ApiError、触发全局 401 处理器、不重试；describeImportError 明确文案", async () => {
+  respond = () =>
+    jsonResponse(401, {
+      error: { code: "AUTH_REQUIRED", message: "未认证或会话已过期", details: {} },
+    });
+  const err = await expectApiError(validateResourceImport(importCsvFile(), "csv"));
+  assert.equal(err.status, 401);
+  assert.equal(handlerCalls, 1);
+  assert.equal(calls.length, 1);
+  const described = describeImportError(err);
+  assert.ok(described.message.includes("重新登录"));
+  assert.equal(described.validationFailed, null);
+});
+
+await test("F014 403 FORBIDDEN（permission / csrf）：明确文案（隐藏不替代服务端校验）", async () => {
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "Forbidden", details: { reason: "permission" } },
+    });
+  const permission = describeImportError(
+    await expectApiError(validateResourceImport(importCsvFile(), "csv")),
+  );
+  assert.ok(permission.message.includes("导入权限"));
+  assert.equal(handlerCalls, 0);
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "Forbidden", details: { reason: "csrf" } },
+    });
+  const csrf = describeImportError(
+    await expectApiError(importResources(importCsvFile(), "csv")),
+  );
+  assert.ok(csrf.message.includes("csrf"));
+});
+
+await test("F014 413 IMPORT_FILE_TOO_LARGE / IMPORT_ROW_LIMIT_EXCEEDED：携带上限值、无部分导入语义", async () => {
+  respond = () =>
+    jsonResponse(413, {
+      error: { code: "IMPORT_FILE_TOO_LARGE", message: "File too large", details: { limit_bytes: 5242880 } },
+    });
+  const fileErr = describeImportError(
+    await expectApiError(validateResourceImport(importCsvFile(), "csv")),
+  );
+  assert.equal(fileErr.code, "IMPORT_FILE_TOO_LARGE");
+  assert.equal(fileErr.limitBytes, 5242880);
+  assert.ok(fileErr.message.includes("5242880"));
+  assert.ok(fileErr.message.includes("未导入任何数据"));
+
+  respond = () =>
+    jsonResponse(413, {
+      error: { code: "IMPORT_ROW_LIMIT_EXCEEDED", message: "Row limit exceeded", details: { limit_rows: 5000 } },
+    });
+  const rowErr = describeImportError(
+    await expectApiError(importResources(importCsvFile(), "csv")),
+  );
+  assert.equal(rowErr.limitRows, 5000);
+  assert.ok(rowErr.message.includes("5000"));
+  assert.ok(rowErr.message.includes("未导入任何数据"));
+});
+
+await test("F014 422 IMPORT_INVALID_FILE：reason 映射与缺失 / 未定义列拼接", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_INVALID_FILE",
+        message: "Invalid file",
+        details: { reason: "missing_columns", missing_columns: ["cluster", "hostname"] },
+      },
+    });
+  const missing = describeImportError(
+    await expectApiError(validateResourceImport(importCsvFile(), "csv")),
+  );
+  assert.equal(missing.invalidFile.reason, "missing_columns");
+  assert.deepEqual(missing.invalidFile.missingColumns, ["cluster", "hostname"]);
+  assert.ok(missing.message.includes("缺失列"));
+  assert.ok(missing.message.includes("cluster"));
+  assert.ok(missing.message.includes("IMPORT_INVALID_FILE"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_INVALID_FILE",
+        message: "Invalid file",
+        details: { reason: "unknown_columns", unknown_columns: ["rack"] },
+      },
+    });
+  const unknown = describeImportError(
+    await expectApiError(validateResourceImport(importCsvFile(), "csv")),
+  );
+  assert.deepEqual(unknown.invalidFile.unknownColumns, ["rack"]);
+  assert.ok(unknown.message.includes("未定义列"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: { code: "IMPORT_INVALID_FILE", message: "Invalid file", details: { reason: "unsupported_format" } },
+    });
+  const unsupported = describeImportError(
+    await expectApiError(importResources(importCsvFile(), "xlsx")),
+  );
+  assert.equal(unsupported.invalidFile.reason, "unsupported_format");
+  assert.ok(unsupported.message.includes(".xls"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: { code: "IMPORT_INVALID_FILE", message: "Invalid file", details: { reason: "column_order" } },
+    });
+  const order = describeImportError(
+    await expectApiError(validateResourceImport(importCsvFile(), "csv")),
+  );
+  assert.ok(order.message.includes("顺序"));
+});
+
+await test("F014 422 IMPORT_VALIDATION_FAILED：整批回滚语义 + 行错误明细（与预校验同形状）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_VALIDATION_FAILED",
+        message: "Import validation failed",
+        details: {
+          total_rows: 12,
+          importable_rows: 10,
+          error_count: 3,
+          errors: [
+            { row: 4, field: "cluster", reason: "cluster does not exist or is not selectable", related_row: null },
+            { row: 7, field: "hostname", reason: "duplicate hostname within file (also at row 2)", related_row: 2 },
+          ],
+          errors_truncated: true,
+        },
+      },
+    });
+  const err = await expectApiError(importResources(importCsvFile(), "csv"));
+  const described = describeImportError(err);
+  assert.equal(described.code, "IMPORT_VALIDATION_FAILED");
+  assert.ok(described.validationFailed !== null, "应解析出行错误明细");
+  assert.equal(described.validationFailed.total_rows, 12);
+  assert.equal(described.validationFailed.importable_rows, 10);
+  assert.equal(described.validationFailed.error_count, 3);
+  assert.equal(described.validationFailed.errors.length, 2);
+  assert.equal(described.validationFailed.errors[1].related_row, 2);
+  assert.equal(described.validationFailed.errors_truncated, true);
+  // 无部分成功语义：文案明确整批回滚、未创建任何资源
+  assert.ok(described.message.includes("整批失败"));
+  assert.ok(described.message.includes("回滚"));
+  assert.ok(described.message.includes("未创建任何资源"));
+});
+
+await test("F014 422 IMPORT_VALIDATION_FAILED details 形状不符：不伪造行错误明细", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: { code: "IMPORT_VALIDATION_FAILED", message: "Import validation failed", details: {} },
+    });
+  const err = await expectApiError(importResources(importCsvFile(), "csv"));
+  const described = describeImportError(err);
+  assert.equal(described.validationFailed, null);
+  assert.ok(described.message.includes("整批失败"));
+  assert.ok(described.message.includes("回滚"));
+});
+
+await test("F014 422 VALIDATION_ERROR field=format：字段级错误（供表单 format 输入呈现）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: { fields: [{ field: "format", message: "format 必须为 csv 或 xlsx" }] },
+      },
+    });
+  const err = await expectApiError(validateResourceImport(importCsvFile(), "csv"));
+  const described = describeImportError(err);
+  assert.equal(described.fields.format, "format 必须为 csv 或 xlsx");
+  assert.equal(described.validationFailed, null);
+});
+
+await test("F014 500 / 网络层错误：兑底文案，不伪装成空结果、不重试", async () => {
+  respond = () =>
+    jsonResponse(500, { error: { code: "INTERNAL_ERROR", message: "内部错误", details: {} } });
+  const err = await expectApiError(validateResourceImport(importCsvFile(), "csv"));
+  const described = describeImportError(err);
+  assert.equal(described.code, "INTERNAL_ERROR");
+  assert.ok(described.message.includes("内部错误"));
+  assert.equal(described.validationFailed, null);
+  assert.equal(calls.length, 1); // 500 不重试
+
+  respond = () => Promise.reject(new TypeError("Failed to fetch"));
+  await assert.rejects(validateResourceImport(importCsvFile(), "csv"), TypeError);
+  assert.equal(calls.length, 2); // 网络层失败也不重发（每次恰好一次调用）
+  const networkDescribed = describeImportError(new TypeError("Failed to fetch"));
+  assert.ok(networkDescribed.message.includes("无法连接服务器"));
+});
+
+await test("F014 parseImportFormValues：空输入不发请求（file 未选 → 本地错误）；非法 format 防御", async () => {
+  const empty = parseImportFormValues(emptyImportFormValues());
+  assert.equal(empty.ok, false);
+  assert.ok(empty.errors.file.includes("选择"), "未选文件应本地报错（不发起请求）");
+
+  // format 下拉恒合法；防御自由输入的非法值（服务端同样 422 field="format"）
+  const badFormat = parseImportFormValues({ format: "xls", file: importCsvFile() });
+  assert.equal(badFormat.ok, false);
+  assert.ok(badFormat.errors.format);
+
+  // 合法最小输入通过（csv 不限扩展名）
+  const ok = parseImportFormValues({ format: "csv", file: importCsvFile("resources") });
+  assert.equal(ok.ok, true);
+});
+
+await test("F014 parseImportFormValues：xlsx 仅接受 .xlsx（.xls 拒绝、大小写不敏感）", async () => {
+  const xls = parseImportFormValues({ format: "xlsx", file: new File(["x"], "resources.xls") });
+  assert.equal(xls.ok, false);
+  assert.ok(xls.errors.file.includes(".xlsx"));
+
+  const upper = parseImportFormValues({ format: "xlsx", file: new File(["x"], "Resources.XLSX") });
+  assert.equal(upper.ok, true);
+});
+
+await test("F014 parseImportFormValues：文件大小超上限本地拦截（§10 签核值 5,242,880 字节）", async () => {
+  const big = new File(["x"], "big.csv");
+  Object.defineProperty(big, "size", { value: IMPORT_MAX_FILE_BYTES + 1 });
+  const tooBig = parseImportFormValues({ format: "csv", file: big });
+  assert.equal(tooBig.ok, false);
+  assert.ok(tooBig.errors.file.includes("5242880"));
+  assert.ok(tooBig.errors.file.includes("IMPORT_FILE_TOO_LARGE"));
+
+  // 恰好等于上限：本地通过（服务端拦 > 上限；> 为严格比较）
+  const exact = new File(["x"], "exact.csv");
+  Object.defineProperty(exact, "size", { value: IMPORT_MAX_FILE_BYTES });
+  assert.equal(parseImportFormValues({ format: "csv", file: exact }).ok, true);
+});
+
+await test("F014 importTargetKey：format/文件名/大小/修改时间指纹，变化即失效", async () => {
+  const fileA = new File(["a,b\n"], "a.csv");
+  const fileB = new File(["a,b\n"], "a.csv", { lastModified: 12345 });
+  const keyA = importTargetKey({ format: "csv", file: fileA });
+  assert.ok(keyA !== null);
+  assert.equal(keyA, importTargetKey({ format: "csv", file: fileA }));
+  assert.notEqual(keyA, importTargetKey({ format: "xlsx", file: fileA }));
+  assert.notEqual(keyA, importTargetKey({ format: "csv", file: fileB }));
+  assert.equal(importTargetKey({ format: "csv", file: null }), null);
+});
+
+await test("F014 importFormFieldFromPath：422 点路径 → 表单键（format 直通；未知 → null）", async () => {
+  assert.equal(importFormFieldFromPath("format"), "format");
+  assert.equal(importFormFieldFromPath("file"), null); // file 由 multipart 形状承载，非 422 字段
+  assert.equal(importFormFieldFromPath("format.x"), null);
+  assert.equal(importFormFieldFromPath(""), null);
+});
+
+await test("F014 模板渲染辅助：类型·单位/枚举标签、必填标签、表头行 CSV 生成（DR-208）", async () => {
+  const template = {
+    resource_type: "BARE_METAL",
+    columns: [
+      { name: "cluster", required: true, target: "resource.cluster", type: "string", unit: null, enum: null, description: "d", example: "N96P" },
+      { name: "memory_mb", required: false, target: "hardware.memory_mb", type: "integer", unit: "MiB", enum: null, description: "d", example: "262144" },
+      { name: "role", required: false, target: "resource.role", type: "enum", unit: null, enum: ["COMPUTE", "LOGIN", "OTHER"], description: "d", example: "COMPUTE" },
+    ],
+  };
+  assert.equal(templateColumnTypeLabel(template.columns[0]), "string");
+  assert.equal(templateColumnTypeLabel(template.columns[1]), "integer · MiB");
+  assert.equal(templateColumnTypeLabel(template.columns[2]), "enum（COMPUTE | LOGIN | OTHER）");
+  assert.equal(templateColumnRequiredLabel(template.columns[0]), "必填");
+  assert.ok(templateColumnRequiredLabel(template.columns[1]).includes("省略"));
+  // 表头行：列名按冻结顺序拼接（.xlsx 模板使用相同表头，§6.3）
+  assert.equal(buildTemplateCsv(template), "cluster,memory_mb,role\n");
 });
 
 // 还原全局状态

@@ -65,6 +65,14 @@ class Settings(BaseSettings):
     # most this many descriptors and ``conflicts_truncated`` flags the cut.
     conflict_preview_limit: int = 100
 
+    # --- F014 CSV/Excel import (Contract §2/§10, DR-196/DR-212) ---
+    # Hard cap on the uploaded file size (bytes); rejected before parsing.
+    import_max_file_bytes: int = 5_242_880
+    # Hard cap on the number of data rows; rejected before row validation.
+    import_max_rows: int = 5000
+    # Bounded error preview; ``error_count`` always reports the full total.
+    import_error_preview_limit: int = 1000
+
     @property
     def db_connect_options(self) -> str:
         """psycopg server options string for statement/lock timeouts."""

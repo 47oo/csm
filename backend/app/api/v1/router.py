@@ -14,6 +14,7 @@ from app.api.v1 import (
     clusters,
     dashboard,
     health,
+    imports,
     interfaces,
     ip_addresses,
     ip_pools,
@@ -39,3 +40,4 @@ api_v1_router.include_router(services.router)
 api_v1_router.include_router(service_endpoints.router)
 api_v1_router.include_router(search.router)
 api_v1_router.include_router(dashboard.router)
+api_v1_router.include_router(imports.router)

@@ -900,8 +900,8 @@ features:
   - F006
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: IMPLEMENTATION（Backend：依赖+resource_import+两端点；Frontend：上传/模板/错误表）
-  current_stage: IMPLEMENTATION
+  next_action: TEST Gate（Tester 独立执行 F014 验收映射，TD-2 + TE-1 + 真实 PG 性能证据）
+  current_stage: TEST
   layers:
     database: false
     backend: true
@@ -915,6 +915,8 @@ features:
     database: NOT_REQUIRED
     test_design: COMPLETE
     contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
   evidence:
     product:
     - docs/features/F014/product.md
@@ -926,6 +928,10 @@ features:
     - docs/features/F014/test-report.md#test-design
     contract:
     - docs/api/F014.md
+    backend:
+    - docs/features/F014/implementation.md
+    frontend:
+    - docs/features/F014/implementation.md
 - id: F015
   title: Audit 查询、已删除对象管理与系统功能
   kind: FEATURE
