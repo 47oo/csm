@@ -900,13 +900,21 @@ features:
   - F006
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: ARCHITECTURE Gate（architect 产出 architecture.md + api/F014.md 草案，定 layers/api_required，签核 D03）
-  current_stage: ARCHITECTURE
+  next_action: DATABASE（NOT_REQUIRED 复核）+ TEST_DESIGN（并行）
+  current_stage: DATABASE
+  layers:
+    database: false
+    backend: true
+    frontend: true
+  api_required: true
   implementation:
     product: COMPLETE
+    architecture: COMPLETE
   evidence:
     product:
     - docs/features/F014/product.md
+    architecture:
+    - docs/features/F014/architecture.md
 - id: F015
   title: Audit 查询、已删除对象管理与系统功能
   kind: FEATURE
