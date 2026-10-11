@@ -21,7 +21,7 @@
 | DB-D121 | `cluster_id` 一致性 backstop：`fn/trg_ip_addresses_cluster_consistent`（BEFORE INSERT/UPDATE，`FOR KEY SHARE` networks，`NEW.cluster_id = networks.cluster_id`，模式同 F009 `trg_ip_pools_cidr_contains`） | PROPOSED→DATABASE（I-1/DR-119）+DESIGN |
 | DB-D122 | 绑定 Interface 的 Cluster 一致性 backstop：`fn/trg_ip_addresses_interface_cluster`（BEFORE INSERT/UPDATE，`interface_id` 非空时经 `interfaces→resources` 校验 `resources.cluster_id = NEW.cluster_id`；不检查软删，软删交应用引用检查/422） | CONFIRMED（§14/DR-121）+DESIGN |
 | DB-D123 | **不建** `network_id`/`address`/`cluster_id`/`ip_pool_id` 不可变触发器；不可改为 CONTRACT 层规则，应用 422。沿用 F008 DB-D93、F009 §3.5 先例 | DESIGN（DR-120/I-4 裁定） |
-| DB-D124 | 索引集合：`uq_ip_addresses_cluster_id_address`（部分唯一）+ `ix_ip_addresses_network_id/_cluster_id/_interface_id/_ip_pool_id/_deleted_at`；不建 pg_trgm/GIN、不建 address 单列 B-tree、不建额外复合索引 | DESIGN |
+| DB-D124 | 索引集合：`uq_ip_addresses_cluster_id_address`（部分唯一）+ `ix_ip_addresses_network_id/_cluster_id/_interface_id/_ip_pool_id/_deleted_at`；不建 pg_trgm/GIN、不建 address 单列 B-tree、不建额外复合索引（F013 交叉引用：F013 已评估 IP 精确/前缀索引并**延期**，`0013` 不建 IP 索引；触发条件见 docs/database/f013-search-index.md §4） | DESIGN |
 | DB-D125 | 并发/锁：手动/自动分配与恢复事务内复用 `_lock_network`（networks 行 FOR UPDATE，F008 DB-D90/DB-D93）；触发 backstop 对 networks 行 `FOR KEY SHARE` 串行；部分唯一跨 Network/Cluster 兜底；`IpAddressOccupancyProvider` 由部分唯一 `(cluster_id,address)` 与 `ix_ip_addresses_network_id` 支撑；关闭 D02 相应部分 | PROPOSED→DATABASE（I-2/I-8/DR-126/DR-134）+DESIGN |
 | DB-D126 | 迁移 `0010_ip_addresses`，`down_revision=0009_ip_pools`；**不重复启用** btree_gist/pg_trgm（0008/0001 已启用）；单一 head、全表新建无回填、对称可逆 | DESIGN（DR-132） |
 | DB-D127 | 100% 新建对象，无已有数据迁移；downgrade 丢弃 `ip_addresses` 数据不可逆，生产回滚用 F001 全库备份 | DESIGN |

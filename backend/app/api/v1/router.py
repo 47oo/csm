@@ -12,12 +12,14 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auth,
     clusters,
+    dashboard,
     health,
     interfaces,
     ip_addresses,
     ip_pools,
     networks,
     resources,
+    search,
     service_endpoints,
     services,
 )
@@ -35,3 +37,5 @@ api_v1_router.include_router(ip_addresses.router)
 api_v1_router.include_router(ip_addresses.capacity_router)
 api_v1_router.include_router(services.router)
 api_v1_router.include_router(service_endpoints.router)
+api_v1_router.include_router(search.router)
+api_v1_router.include_router(dashboard.router)

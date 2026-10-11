@@ -96,6 +96,19 @@ class Cluster(SoftDeleteMixin, Base):
         CheckConstraint("version >= 1", name="version"),
         Index("ix_clusters_status", "status"),
         Index("ix_clusters_deleted_at", "deleted_at"),
+        # F013 global search (DB-D159/DB-D160): non-partial GIN trigram indexes.
+        Index(
+            "ix_clusters_code_key_trgm",
+            "code_key",
+            postgresql_using="gin",
+            postgresql_ops={"code_key": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_clusters_name_trgm",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
     )
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid

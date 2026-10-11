@@ -111,7 +111,7 @@ Service 是独立可寻址对象（§21 软删清单含 Service；自身 UUID/ve
 
 ## 7. 数据库影响（交 DATABASE）
 表 `services`：id UUID PK；resource_id NOT NULL FK RESTRICT + ix_services_resource_id；name varchar(255) NOT NULL + ck；name_key varchar(255) NOT NULL + ck；status varchar(16) NOT NULL DEFAULT 'UNKNOWN' + CHECK；description text NULL；metadata JSONB NOT NULL DEFAULT '{}' + CHECK jsonb_typeof='object'；version integer NOT NULL DEFAULT 1 CHECK≥1；时间戳。
-约束/索引：`uq_services_resource_id_name_key UNIQUE(resource_id,name_key) WHERE deleted_at IS NULL`；ix_services_resource_id、ix_services_status、ix_services_deleted_at；不建 pg_trgm GIN。
+约束/索引：`uq_services_resource_id_name_key UNIQUE(resource_id,name_key) WHERE deleted_at IS NULL`；ix_services_resource_id、ix_services_status、ix_services_deleted_at；F011 不建 pg_trgm GIN（**F013 errata**：F013 追加 `ix_services_name_key_trgm` GIN trigram）。
 迁移 `0011_services`（down_revision=0010_ip_addresses）；全表新建无回填、对称可逆；真库 up/down/up。
 F011 注册 Resource←未删 Service 引用检查器。
 

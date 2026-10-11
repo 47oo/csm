@@ -567,3 +567,125 @@ button:disabled {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* ---------- F013 全局搜索 / Dashboard（复用既有风格，最小样式） ---------- */
+
+/* 搜索结果列表（typed 行：类型标签 + 高亮命中值 + 上下文 + 跳转） */
+.search-results {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-result-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-main {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.search-result-value {
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.search-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin-top: 0.25rem;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.search-result-actions {
+  flex: 0 0 auto;
+}
+
+/* 命中高亮（ASCII 大小写不敏感子串；模糊命中但非子串时不高亮） */
+mark {
+  padding: 0 0.1rem;
+  border-radius: 3px;
+  background-color: #fef08a;
+  color: inherit;
+}
+
+/* 搜索结果类型标签（Resource / Cluster / IP / Service，A10） */
+.badge-type {
+  color: #374151;
+  border-color: #e5e7eb;
+  background-color: #f9fafb;
+}
+
+/* 服务状态徽标（RUNNING / STOPPED；UNKNOWN 复用 badge-unknown） */
+.badge-running {
+  color: #047857;
+  border-color: #a7f3d0;
+  background-color: #ecfdf5;
+}
+
+.badge-stopped {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background-color: #fef2f2;
+}
+
+/* Dashboard 计数卡片 */
+.dashboard-note {
+  margin-bottom: 0.75rem;
+}
+
+.dashboard-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.count-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background-color: #f9fafb;
+}
+
+.count-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.count-label {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+/* per-Network 行内 AUTO 池容量列表 */
+.pool-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.pool-list li {
+  margin: 0.15rem 0;
+  white-space: normal;
+}
+
+/* 剩余可为负：原样展示数值（不截断，DR-130），仅以颜色提示超用 */
+.capacity-negative {
+  color: #b91c1c;
+  font-weight: 600;
+}

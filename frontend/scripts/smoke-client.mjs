@@ -140,6 +140,19 @@
  *   显式 null=清空 description；service/ip_address 不可改不上送）、
  *   服务端 422 点路径 → 表单键映射（service_id/ip_address_id 别名不映射）。
  *
+ * F013 追加（Contract：docs/api/F013.md v1，前端机制级）：
+ * - src/api/search.ts 的 URL 构造（Contract §2：q 必携带、type/deleted/page/
+ *   page_size 序列化、空结果 200 空列表）与 typed 行响应解析（4 类嵌套对象、
+ *   未绑定 IP resource=null）；describeSearchError 的 401/403（permission 与
+ *   未知 reason）/ 422（fields）/ 网络层兑底语义；
+ * - src/api/dashboard.ts 的 URL 构造（Contract §3：无查询串默认、page/
+ *   page_size 仅作用于 networks）与 counts/networks/capacity/auto_pools 响应
+ *   解析（负 remaining 原样）；describeDashboardError 的 401/403/422 语义；
+ * - src/components/globalSearchForm.ts（纯逻辑，无 JSX）：q trim / 空输入
+ *   不发请求（buildSearchQuery → null，I-13）/ 超长 255 code point 本地拦截、
+ *   type 自由输入非法值拦截、422 点路径 → 表单键映射、高亮分段（ASCII
+ *   大小写不敏感子串；非子串模糊命中不高亮）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -294,6 +307,21 @@ import {
   serviceEndpointFormFieldFromPath,
   serviceEndpointFormValuesFromEndpoint,
 } from "../src/components/serviceEndpointForm.ts";
+import {
+  describeDashboardError,
+  getDashboard,
+} from "../src/api/dashboard.ts";
+import {
+  describeSearchError,
+  search,
+} from "../src/api/search.ts";
+import {
+  buildSearchQuery,
+  emptyGlobalSearchFormValues,
+  highlightSegments,
+  parseGlobalSearchFormValues,
+  searchFormFieldFromPath,
+} from "../src/components/globalSearchForm.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -4981,6 +5009,436 @@ await test("F012 serviceEndpointFormValuesFromEndpoint：null → 默认空值�
     ),
     null,
   );
+});
+
+// ---------- F013 全局搜索 / Dashboard 机制级（Contract：docs/api/F013.md v1） ----------
+
+/** F013 搜索 typed 行响应样本（Contract §2.2：四类行各一，去重键 (object_type,id)）。 */
+const SEARCH_RESPONSE_FIXTURE = {
+  items: [
+    {
+      object_type: "resource",
+      id: "r-uuid-1",
+      matched_field: "hostname",
+      matched_value: "gpu0701",
+      resource: {
+        id: "r-uuid-1",
+        hostname: "gpu0701",
+        resource_type: "BARE_METAL",
+        role: "COMPUTE",
+        status: "IDLE",
+        cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+      },
+      cluster: null,
+      ip_address: null,
+      service: null,
+    },
+    {
+      object_type: "cluster",
+      id: "c-uuid-1",
+      matched_field: "code",
+      matched_value: "N96P",
+      resource: null,
+      cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群", status: "ACTIVE" },
+      ip_address: null,
+      service: null,
+    },
+    {
+      object_type: "ip_address",
+      id: "ip-uuid-1",
+      matched_field: "address",
+      matched_value: "10.10.1.50",
+      resource: {
+        id: "r-uuid-1",
+        hostname: "gpu0701",
+        resource_type: "BARE_METAL",
+        role: "COMPUTE",
+        status: "IDLE",
+        cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+      },
+      cluster: null,
+      ip_address: {
+        id: "ip-uuid-1",
+        address: "10.10.1.50",
+        network: { id: "n-uuid-1", name: "mgmt" },
+        interface: { id: "if-uuid-1", name: "eth0" },
+      },
+      service: null,
+    },
+    {
+      object_type: "ip_address",
+      id: "ip-uuid-2",
+      matched_field: "address",
+      matched_value: "10.20.1.50",
+      resource: null,
+      cluster: null,
+      ip_address: {
+        id: "ip-uuid-2",
+        address: "10.20.1.50",
+        network: { id: "n-uuid-2", name: "storage" },
+        interface: null,
+      },
+      service: null,
+    },
+    {
+      object_type: "service",
+      id: "s-uuid-1",
+      matched_field: "name",
+      matched_value: "slurmd",
+      resource: {
+        id: "r-uuid-1",
+        hostname: "gpu0701",
+        resource_type: "BARE_METAL",
+        role: "COMPUTE",
+        status: "IDLE",
+        cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+      },
+      cluster: null,
+      ip_address: null,
+      service: { id: "s-uuid-1", name: "slurmd", status: "RUNNING" },
+    },
+  ],
+  page: 1,
+  page_size: 20,
+  total: 5,
+};
+
+await test("F013 search：q 必携带；默认无其余参数（deleted 等由服务端默认生效）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await search({ q: "gpu07" });
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/search?q=gpu07");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F013 search 组合查询：type/deleted/page/page_size 序列化（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await search({ q: " gpu 07 ", type: "resource", deleted: "only", page: 2, page_size: 50 });
+  assert.equal(calls.length, 1);
+  // q 原样上送（trim 由调用方 / globalSearchForm 负责；URLSearchParams 将空格编码为 +）
+  assert.equal(
+    calls[0].url,
+    "/api/v1/search?q=+gpu+07+&type=resource&deleted=only&page=2&page_size=50",
+  );
+});
+
+await test("F013 search 响应解析：typed 行（4 类）、嵌套对象、未绑定 IP resource=null", async () => {
+  respond = () => jsonResponse(200, SEARCH_RESPONSE_FIXTURE);
+  const data = await search({ q: "07" });
+  assert.equal(data.total, 5);
+  assert.equal(data.items.length, 5);
+  const [resource, cluster, boundIp, unboundIp, service] = data.items;
+  // resource 行仅由 hostname 命中产生（§2.3）；其余嵌套对象为 null（字段集不因查询变化）
+  assert.equal(resource.object_type, "resource");
+  assert.equal(resource.resource.hostname, "gpu0701");
+  assert.equal(resource.cluster, null);
+  // cluster 行：code 与 name 皆命中取 code（确定性，§2.2）
+  assert.equal(cluster.matched_field, "code");
+  assert.equal(cluster.cluster.code, "N96P");
+  assert.equal(cluster.cluster.status, "ACTIVE");
+  // 已绑定 IP：经 interface→resource 填充 resource（§2.4）
+  assert.equal(boundIp.object_type, "ip_address");
+  assert.equal(boundIp.ip_address.interface.name, "eth0");
+  assert.equal(boundIp.resource.hostname, "gpu0701");
+  // 未绑定 IP：resource=null，不伪造归属（A5/I-6）
+  assert.equal(unboundIp.resource, null);
+  assert.equal(unboundIp.ip_address.interface, null);
+  assert.equal(unboundIp.ip_address.network.name, "storage");
+  // service 行：嵌入承载 Resource（§2.2）
+  assert.equal(service.object_type, "service");
+  assert.equal(service.service.status, "RUNNING");
+  assert.equal(service.resource.id, "r-uuid-1");
+});
+
+await test("F013 空结果：200 空列表（非 404 / 500，I-3）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await search({ q: "不存在的对象" });
+  assert.deepEqual(data.items, []);
+  assert.equal(data.total, 0);
+});
+
+await test("F013 describeSearchError：401 / 403（permission 与未知 reason）/ 422 / 网络层", async () => {
+  respond = () =>
+    jsonResponse(401, {
+      error: { code: "AUTH_REQUIRED", message: "未认证或会话已过期", details: {} },
+    });
+  const unauth = await expectApiError(search({ q: "x" }));
+  assert.ok(describeSearchError(unauth).message.includes("AUTH_REQUIRED"));
+
+  respond = () =>
+    jsonResponse(403, {
+      error: {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        details: { reason: "permission" },
+      },
+    });
+  const forbidden = await expectApiError(search({ q: "x", deleted: "only" }));
+  const forbiddenDescribed = describeSearchError(forbidden);
+  assert.ok(forbiddenDescribed.message.includes("VIEW_DELETED"));
+  assert.ok(forbiddenDescribed.message.includes("FORBIDDEN"));
+
+  // 未知 reason：原样透出 reason 值，不伪装成已知原因
+  respond = () =>
+    jsonResponse(403, {
+      error: {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        details: { reason: "something_else" },
+      },
+    });
+  const unknownReason = await expectApiError(search({ q: "x" }));
+  assert.ok(describeSearchError(unknownReason).message.includes("something_else"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: {
+          fields: [
+            { field: "q", message: "不能为空" },
+            { field: "type", message: "非法枚举值" },
+          ],
+        },
+      },
+    });
+  const invalid = await expectApiError(search({ q: "x", type: "bogus" }));
+  const invalidDescribed = describeSearchError(invalid);
+  assert.equal(invalidDescribed.fields.q, "不能为空");
+  assert.equal(invalidDescribed.fields.type, "非法枚举值");
+  assert.ok(invalidDescribed.message.includes("VALIDATION_ERROR"));
+
+  // 网络层错误（fetch reject）：固定文案，不伪装成业务结果
+  respond = () => Promise.reject(new TypeError("Failed to fetch"));
+  await assert.rejects(search({ q: "x" }), TypeError);
+  const networkDescribed = describeSearchError(new TypeError("Failed to fetch"));
+  assert.ok(networkDescribed.message.includes("无法连接服务器"));
+  // 本用例共发起 5 次请求（401/403×2/422/网络层），每次恰好一次、不重试
+  assert.equal(calls.length, 5);
+});
+
+/** F013 Dashboard 响应样本（Contract §3.2：counts + networks 行 + AUTO 池，含负 remaining）。 */
+const DASHBOARD_RESPONSE_FIXTURE = {
+  counts: {
+    clusters: 3,
+    resources: 128,
+    bare_metal: 96,
+    virtual_machines: 32,
+    networks: 7,
+  },
+  networks: {
+    items: [
+      {
+        network: {
+          id: "n-uuid-1",
+          name: "mgmt",
+          cidr: "10.10.0.0/16",
+          status: "ACTIVE",
+          auto_allocate: true,
+          cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+        },
+        capacity: { allocatable_total: 65534, occupied: 120, remaining: 65414 },
+        auto_pools: [
+          {
+            ip_pool: {
+              id: "p-uuid-1",
+              name: "auto",
+              start_address: "10.10.1.50",
+              end_address: "10.10.1.200",
+            },
+            allocatable_total: 151,
+            occupied: 12,
+            remaining: 139,
+          },
+        ],
+      },
+      {
+        // INACTIVE 网络：容量不清零、仍出现（A19）；remaining 为负原样返回（DR-130）
+        network: {
+          id: "n-uuid-2",
+          name: "legacy",
+          cidr: "10.20.0.0/24",
+          status: "INACTIVE",
+          auto_allocate: false,
+          cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+        },
+        capacity: { allocatable_total: 250, occupied: 251, remaining: -1 },
+        auto_pools: [],
+      },
+    ],
+    page: 1,
+    page_size: 20,
+    total: 7,
+  },
+};
+
+await test("F013 getDashboard 默认：GET /api/v1/dashboard，无查询串", async () => {
+  respond = () => jsonResponse(200, DASHBOARD_RESPONSE_FIXTURE);
+  const data = await getDashboard();
+  assert.equal(data.counts.clusters, 3);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/dashboard");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F013 getDashboard 分页：page/page_size 仅作用于 networks", async () => {
+  respond = () => jsonResponse(200, DASHBOARD_RESPONSE_FIXTURE);
+  const data = await getDashboard({ page: 2, page_size: 50 });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/dashboard?page=2&page_size=50");
+  // counts 不受分页影响（恒为全局未删口径，§3.2）
+  assert.equal(data.counts.networks, 7);
+  assert.equal(data.networks.page, 1);
+});
+
+await test("F013 getDashboard 响应解析：counts / capacity / auto_pools / 负 remaining 原样", async () => {
+  respond = () => jsonResponse(200, DASHBOARD_RESPONSE_FIXTURE);
+  const data = await getDashboard();
+  const [active, inactive] = data.networks.items;
+  // 容量三元组只消费不重算（DR-182）
+  assert.equal(active.capacity.allocatable_total, 65534);
+  assert.equal(active.capacity.occupied, 120);
+  assert.equal(active.capacity.remaining, 65414);
+  // 每行 AUTO 池容量（池范围口径）
+  assert.equal(active.auto_pools.length, 1);
+  assert.equal(active.auto_pools[0].ip_pool.name, "auto");
+  assert.equal(active.auto_pools[0].remaining, 139);
+  // INACTIVE 网络：容量不清零；status / auto_allocate 与容量分别展示（A19）
+  assert.equal(inactive.network.status, "INACTIVE");
+  assert.equal(inactive.network.auto_allocate, false);
+  assert.equal(inactive.capacity.remaining, -1); // 可为负、原样返回不截断（DR-130）
+  assert.deepEqual(inactive.auto_pools, []); // 无 AUTO 池为空数组非 null
+  // counts 为未删口径（bare_metal + virtual_machines = resources）
+  assert.equal(data.counts.bare_metal + data.counts.virtual_machines, data.counts.resources);
+});
+
+await test("F013 describeDashboardError：401 / 403 / 422 / 网络层（不伪装成空数据）", async () => {
+  respond = () =>
+    jsonResponse(401, {
+      error: { code: "AUTH_REQUIRED", message: "未认证或会话已过期", details: {} },
+    });
+  const unauth = await expectApiError(getDashboard());
+  assert.ok(describeDashboardError(unauth).message.includes("AUTH_REQUIRED"));
+
+  respond = () =>
+    jsonResponse(403, {
+      error: {
+        code: "FORBIDDEN",
+        message: "Forbidden",
+        details: { reason: "permission" },
+      },
+    });
+  const forbidden = await expectApiError(getDashboard());
+  assert.ok(describeDashboardError(forbidden).message.includes("FORBIDDEN"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: { fields: [{ field: "page", message: "必须 ≥ 1" }] },
+      },
+    });
+  const invalid = await expectApiError(getDashboard({ page: 0 }));
+  assert.ok(describeDashboardError(invalid).message.includes("page"));
+
+  respond = () => Promise.reject(new TypeError("Failed to fetch"));
+  await assert.rejects(getDashboard(), TypeError);
+  const networkDescribed = describeDashboardError(new TypeError("Failed to fetch"));
+  assert.ok(networkDescribed.message.includes("无法连接服务器"));
+  // 本用例共发起 4 次请求（401/403/422/网络层），每次恰好一次、不重试
+  assert.equal(calls.length, 4);
+});
+
+await test("F013 buildSearchQuery：空 / 纯空白 q → null（不发请求，I-13）；trim 后携带", async () => {
+  const empty = emptyGlobalSearchFormValues();
+  assert.equal(buildSearchQuery(empty), null);
+  assert.equal(
+    buildSearchQuery({ ...empty, q: "   \t\n " }),
+    null,
+    "纯空白 q 同样不发请求（服务端 422 field=q，前端本地拦截）",
+  );
+  const query = buildSearchQuery({ ...empty, q: "  gpu07 " });
+  assert.deepEqual(query, {
+    q: "gpu07",
+    deleted: "exclude",
+    page: 1,
+    page_size: 20,
+  });
+  // type 非空才携带（空 = 全部，省略参数）；deleted / page / page_size 原样序列化
+  assert.deepEqual(
+    buildSearchQuery({ q: "N96P", type: "cluster", deleted: "include", page: 3, pageSize: 100 }),
+    { q: "N96P", type: "cluster", deleted: "include", page: 3, page_size: 100 },
+  );
+});
+
+await test("F013 parseGlobalSearchFormValues：空 q / 超长 255 code point / 非法 type → 本地错误", async () => {
+  // 空 / 纯空白 q：本地拦截（不发起请求）
+  assert.equal(parseGlobalSearchFormValues({ q: "   ", type: "" }).ok, false);
+  // 恰 255 code point 合法（含端点）；256 报错（含中文按 code point 计长，非 UTF-16 码元）
+  const atLimit = parseGlobalSearchFormValues({ q: "a".repeat(255), type: "" });
+  assert.equal(atLimit.ok, true);
+  const cjk = "\u96c6\u7fa4".repeat(128); // 256 code points
+  assert.equal(Array.from(cjk).length, 256);
+  const tooLong = parseGlobalSearchFormValues({ q: cjk, type: "" });
+  assert.equal(tooLong.ok, false);
+  if (!tooLong.ok) {
+    assert.ok(tooLong.errors.q.includes("255"));
+  }
+  // type 自由输入非法值：不归一化、不改写，直接报错（服务端同样 422 field=type）
+  for (const badType of ["Resource", "resource ", "bogus"]) {
+    const bad = parseGlobalSearchFormValues({ q: "x", type: badType });
+    assert.equal(bad.ok, false, `type=${JSON.stringify(badType)} 应本地报错`);
+    if (!bad.ok) {
+      assert.ok(bad.errors.type);
+    }
+  }
+  // 合法枚举值全部通过（含空串 = 全部）
+  for (const goodType of ["", "resource", "cluster", "ip_address", "service"]) {
+    assert.equal(parseGlobalSearchFormValues({ q: "x", type: goodType }).ok, true);
+  }
+});
+
+await test("F013 searchFormFieldFromPath：422 点路径 → 表单键（顶层直通；未知 → null）", async () => {
+  assert.equal(searchFormFieldFromPath("q"), "q");
+  assert.equal(searchFormFieldFromPath("type"), "type");
+  assert.equal(searchFormFieldFromPath("deleted"), "deleted");
+  assert.equal(searchFormFieldFromPath("page"), "page");
+  assert.equal(searchFormFieldFromPath("page_size"), "page_size");
+  assert.equal(searchFormFieldFromPath("object.field"), null); // 未知路径不强行映射
+  assert.equal(searchFormFieldFromPath("cluster"), null);
+});
+
+await test("F013 highlightSegments：ASCII 大小写不敏感子串；非子串模糊命中 / 空 q 不高亮", async () => {
+  // 命中：命中段保留原展示大小写（不改写值），前缀 / 后缀分段
+  assert.deepEqual(highlightSegments("GPU0701", "gpu07"), [
+    { text: "GPU07", hit: true },
+    { text: "01", hit: false },
+  ]);
+  // 中段命中：前缀 / 命中 / 后缀三段
+  assert.deepEqual(highlightSegments("cn-gpu0701.n96p", "GPU07"), [
+    { text: "cn-", hit: false },
+    { text: "gpu07", hit: true },
+    { text: "01.n96p", hit: false },
+  ]);
+  // 模糊（trigram）命中但非连续子串：整段不高亮，不伪造高亮位置
+  assert.deepEqual(highlightSegments("gpu0701", "gp07"), [
+    { text: "gpu0701", hit: false },
+  ]);
+  // 空 q / 纯空白：整段不高亮
+  assert.deepEqual(highlightSegments("gpu0701", "   "), [
+    { text: "gpu0701", hit: false },
+  ]);
+  // 中文与内部空格原样保留（ASCII 折叠不影响非 ASCII，A3）
+  assert.deepEqual(highlightSegments("集群 gpu0701", "gpu07"), [
+    { text: "集群 ", hit: false },
+    { text: "gpu07", hit: true },
+    { text: "01", hit: false },
+  ]);
 });
 
 // 还原全局状态

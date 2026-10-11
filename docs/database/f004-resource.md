@@ -16,7 +16,7 @@
 | DB-D38 | uq_resources_cluster_id_hostname_key UNIQUE(cluster_id, hostname_key) WHERE deleted_at IS NULL 部分唯一（同 Cluster 未删唯一、软删可重用、跨 Cluster 允许） | CONFIRMED（§7/§21）+DESIGN |
 | DB-D39 | fk_resources_cluster_id_clusters → clusters.id ON DELETE RESTRICT | DESIGN |
 | DB-D40 | 不可改字段 DB 兜底触发器 trg_resources_immutable_fields（cluster_id/resource_type 变更抛错），应用层 422 | CONFIRMED（§6）+DESIGN |
-| DB-D41 | 索引：ix_resources_cluster_id/resource_type/role/status/deleted_at/hostname_key；**不引入 pg_trgm GIN**（沿用 DB-D30，F013） | DESIGN |
+| DB-D41 | 索引：ix_resources_cluster_id/resource_type/role/status/deleted_at/hostname_key；**不引入 pg_trgm GIN**（沿用 DB-D30，F013）。**errata(F013)**：F013 `0013_search_indexes` 已建 `ix_resources_hostname_trgm`（GIN trigram、非 partial）。 | DESIGN+errata(F013) |
 | DB-D42 | 迁移 0004_resources（down_revision=0003_clusters_audit），对称可逆、单一 head、真实 PG up/down/up | DESIGN（DB-D7） |
 | DB-D43 | version int≥1 默认 1；created_at/updated_at timestamptz NOT NULL now()、updated_at 应用维护无触发器；deleted_at 软删列 | DESIGN |
 | DB-D44 | cluster←resource 引用检查由应用层注册；DB 仅 FK RESTRICT 保证物理删除完整性 | DESIGN（§21，DR-40） |
@@ -48,7 +48,7 @@
 
 - `uq_resources_cluster_id_hostname_key UNIQUE(cluster_id, hostname_key) WHERE deleted_at IS NULL`（部分唯一）。
 - 与 F003 uq_clusters_code_key 全量唯一差异：code 软删不重用；hostname 软删可重用；恢复置空 deleted_at 重新进入索引，冲突由部分唯一直接拒绝。
-- 索引：ix_resources_cluster_id、ix_resources_resource_type、ix_resources_role、ix_resources_status、ix_resources_deleted_at、ix_resources_hostname_key。cluster_id 全量 btree 必须保留（FK RESTRICT 校验父删除时不尊重部分索引谓词）。不建 pg_trgm GIN（DB-D30，引入点 F013）。include/only 无专用索引，延后。
+- 索引：ix_resources_cluster_id、ix_resources_resource_type、ix_resources_role、ix_resources_status、ix_resources_deleted_at、ix_resources_hostname_key。cluster_id 全量 btree 必须保留（FK RESTRICT 校验父删除时不尊重部分索引谓词）。不建 pg_trgm GIN（DB-D30，引入点 F013）；**F013 已追加 `ix_resources_hostname_trgm`**（GIN trigram，见 docs/database/f013-search-index.md）。include/only 无专用索引，延后。
 
 ## 4. 触发器
 
@@ -74,8 +74,8 @@ revision="0004_resources"、down_revision="0003_clusters_audit"，单一 head。
 
 ## 7. Backend 可依赖保证与测试项
 
-保证：cluster_id/resource_type 不可改；部分唯一与 translate 同口径；hostname 存 trim+ASCII 小写、key CHECK 一致；枚举合法值、role/status 默认、resource_type 必填；metadata object 默认 {}；version≥1 默认 1；FK RESTRICT 物理删除完整；hostname ILIKE 无索引（正确性保证）；0004 有真实 downgrade。
-计划测试项（真实 PG）：V-DB-18 up/down/up；V-DB-19 部分唯一（同 cluster 冲突/跨 cluster 允许/软删后重建/恢复冲突）；V-DB-20 直接插入非归一化被 CHECK 拒、key 不一致拒；V-DB-21 多码位 Unicode 按 ASCII-only 原样且 key 与 translate 一致；V-DB-22 非法枚举/默认值/version/NOT NULL；V-DB-23 非 object metadata 拒+默认 {}；V-DB-24 UPDATE cluster_id/resource_type 被触发器拒、其它字段放行；V-DB-25 物理 DELETE 有 Resource 的 cluster 被 RESTRICT 拒；V-DB-26 约束/索引/触发器/部分唯一谓词存在断言；V-DB-27 hostname 253 通过/254 拒；V-DB-28 resources 无 pg_trgm GIN 断言。
+保证：cluster_id/resource_type 不可改；部分唯一与 translate 同口径；hostname 存 trim+ASCII 小写、key CHECK 一致；枚举合法值、role/status 默认、resource_type 必填；metadata object 默认 {}；version≥1 默认 1；FK RESTRICT 物理删除完整；hostname ILIKE 由 F013 `ix_resources_hostname_trgm` 加速（≥3 字符；正确性不依赖索引）；0004 有真实 downgrade。
+计划测试项（真实 PG）：V-DB-18 up/down/up；V-DB-19 部分唯一（同 cluster 冲突/跨 cluster 允许/软删后重建/恢复冲突）；V-DB-20 直接插入非归一化被 CHECK 拒、key 不一致拒；V-DB-21 多码位 Unicode 按 ASCII-only 原样且 key 与 translate 一致；V-DB-22 非法枚举/默认值/version/NOT NULL；V-DB-23 非 object metadata 拒+默认 {}；V-DB-24 UPDATE cluster_id/resource_type 被触发器拒、其它字段放行；V-DB-25 物理 DELETE 有 Resource 的 cluster 被 RESTRICT 拒；V-DB-26 约束/索引/触发器/部分唯一谓词存在断言；V-DB-27 hostname 253 通过/254 拒；V-DB-28 resources 存在 `ix_resources_hostname_trgm`（GIN gin_trgm_ops）断言（errata F013 / DR-189）。
 
 ## 8. 未验证项与风险
 

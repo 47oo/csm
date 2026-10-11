@@ -166,6 +166,13 @@ class Resource(SoftDeleteMixin, Base):
         Index("ix_resources_status", "status"),
         Index("ix_resources_deleted_at", "deleted_at"),
         Index("ix_resources_hostname_key", "hostname_key"),
+        # F013 global search (DB-D158): non-partial GIN trigram on hostname.
+        Index(
+            "ix_resources_hostname_trgm",
+            "hostname",
+            postgresql_using="gin",
+            postgresql_ops={"hostname": "gin_trgm_ops"},
+        ),
     )
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid

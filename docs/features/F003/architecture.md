@@ -98,7 +98,7 @@ id(UUID) / code(string) / name(string,允许中文,t trim保留大小写) / stat
 | created_at/updated_at | timestamptz | NOT NULL | now() | UTC；updated_at 应用维护 |
 | deleted_at | timestamptz | NULL | — | 软删 |
 
-索引：**UNIQUE uq_clusters_code_key 全量（不含 deleted_at 谓词）**实现 §5 code 不重用；ix_clusters_status、ix_clusters_deleted_at；q 模糊搜索 pg_trgm GIN 是否 F003 引入交 Database 裁定。
+索引：**UNIQUE uq_clusters_code_key 全量（不含 deleted_at 谓词）**实现 §5 code 不重用；ix_clusters_status、ix_clusters_deleted_at；q 模糊搜索 pg_trgm GIN 是否 F003 引入交 Database 裁定（**F013 errata**：已由 F013 `0013_search_indexes` 为 clusters 落地 `ix_clusters_code_key_trgm`/`ix_clusters_name_trgm`）。
 
 ### 4.2 audit_logs
 

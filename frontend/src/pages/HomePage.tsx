@@ -4,6 +4,8 @@ import { displayError, isApiError } from "../api/client";
 import type { Cluster } from "../api/clusters";
 import type { Resource } from "../api/resources";
 import HealthPanel from "../components/HealthPanel";
+import GlobalSearch from "../components/GlobalSearch";
+import DashboardPanel from "../components/DashboardPanel";
 import ClustersPage from "./ClustersPage";
 import ClusterCreatePage from "./ClusterCreatePage";
 import ClusterDetailPage from "./ClusterDetailPage";
@@ -32,15 +34,16 @@ type Section =
   | { name: "resource-detail"; id: string; deleted: boolean }
   | { name: "networks" }
   | { name: "ip-pools" }
-  | { name: "ip-addresses" }
+  | { name: "ip-addresses"; networkId?: string }
   | { name: "services" };
 
 /**
  * F002 已登录视图 + F003/F004/F008 导航壳（架构 §1.8，不追求复杂视觉效果）：
- * 概览（当前用户 + 后端健康）/ Clusters（列表 / 新建 / 详情）/ Resources
- * （列表 / 新建 / 详情）/ Networks（列表 / 新建 / 编辑，F008）/ IP Pools
- * （列表 / 新建 / 编辑，F009）/ IP Addresses（分配 / 绑定 / 释放 / 恢复，F010）/
- * Services（服务登记：列表 / 创建 / 编辑 / 删除 / 恢复 / Activity，F011）。
+ * 概览（F013 首页统一全局搜索 + Dashboard 汇总 / 当前用户 / 后端健康）/ Clusters
+ * （列表 / 新建 / 详情）/ Resources（列表 / 新建 / 详情）/ Networks（列表 /
+ * 新建 / 编辑，F008）/ IP Pools（列表 / 新建 / 编辑，F009）/ IP Addresses
+ * （分配 / 绑定 / 释放 / 恢复，F010；可从 F013 搜索按所属网络定位）/ Services
+ * （服务登记：列表 / 创建 / 编辑 / 删除 / 恢复 / Activity，F011）。
  * 各入口对
  * 全部已登录角色可见
  * （READ 全角色）；写 / 删 / 恢复 / 已删可见性仅按服务端返回的 permissions
@@ -87,7 +90,15 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
   const inIpPools = section.name === "ip-pools";
   const inIpAddresses = section.name === "ip-addresses";
   const inServices = section.name === "services";
-  const wide = inClusters || inResources || inNetworks || inIpPools || inIpAddresses || inServices;
+  const inOverview = section.name === "overview";
+  const wide =
+    inOverview ||
+    inClusters ||
+    inResources ||
+    inNetworks ||
+    inIpPools ||
+    inIpAddresses ||
+    inServices;
 
   return (
     <main className={wide ? "main-wide" : undefined}>
@@ -165,6 +176,21 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
 
       {section.name === "overview" && (
         <>
+          <GlobalSearch
+            user={user}
+            onOpenResource={(id, deleted) =>
+              setSection({ name: "resource-detail", id, deleted })
+            }
+            onOpenCluster={(id, deleted) =>
+              setSection({ name: "cluster-detail", id, deleted })
+            }
+            onOpenNetworkIps={(networkId) =>
+              setSection({ name: "ip-addresses", networkId })
+            }
+          />
+
+          <DashboardPanel />
+
           <section className="panel">
             <h2>当前用户</h2>
             <p className="status">
@@ -265,7 +291,13 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
 
       {section.name === "ip-pools" && <IpPoolsPage user={user} />}
 
-      {section.name === "ip-addresses" && <IpAddressesPage user={user} />}
+      {section.name === "ip-addresses" && (
+        <IpAddressesPage
+          key={section.networkId ?? "all"}
+          user={user}
+          initialNetworkId={section.networkId}
+        />
+      )}
 
       {section.name === "services" && <ServicesPage user={user} />}
     </main>
