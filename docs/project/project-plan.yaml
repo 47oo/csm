@@ -834,8 +834,8 @@ features:
   - F011
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: IMPLEMENTATION（Backend：迁移 0013 GIN + /search + /dashboard + no-GIN 断言同步；Frontend：首页搜索 + Dashboard）
-  current_stage: IMPLEMENTATION
+  next_action: TEST Gate（Tester 独立执行 F013 验收映射，TD-2 + TE-1）
+  current_stage: TEST
   layers:
     database: true
     backend: true
@@ -847,6 +847,8 @@ features:
     database: COMPLETE
     test_design: COMPLETE
     contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
   evidence:
     product:
     - docs/features/F013/product.md
@@ -858,6 +860,10 @@ features:
     - docs/features/F013/test-report.md#test-design
     contract:
     - docs/api/F013.md
+    backend:
+    - docs/features/F013/implementation.md
+    frontend:
+    - docs/features/F013/implementation.md
 - id: F014
   title: CSV / Excel 批量导入
   kind: FEATURE
@@ -1085,9 +1091,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F013
-  current_stage: IMPLEMENTATION
-  last_result: F013 CONTRACT COMPLETE（READY FOR IMPLEMENTATION；F013.md v1，I-11–I-18 定稿，D01 无变更，errata 同步）
-  next_action: IMPLEMENTATION（backend + frontend）
+  current_stage: TEST
+  last_result: F013 IMPLEMENTATION COMPLETE（backend 473 passed/1 skipped；frontend 224 passed）
+  next_action: TEST Gate（Tester）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

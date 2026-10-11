@@ -128,6 +128,13 @@ class Service(SoftDeleteMixin, Base):
         Index("ix_services_resource_id", "resource_id"),
         Index("ix_services_status", "status"),
         Index("ix_services_deleted_at", "deleted_at"),
+        # F013 global search (DB-D161): non-partial GIN trigram on name_key.
+        Index(
+            "ix_services_name_key_trgm",
+            "name_key",
+            postgresql_using="gin",
+            postgresql_ops={"name_key": "gin_trgm_ops"},
+        ),
     )
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid

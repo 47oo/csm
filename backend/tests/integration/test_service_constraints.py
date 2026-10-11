@@ -48,6 +48,7 @@ SERVICE_INDEXES = {
     "ix_services_resource_id",
     "ix_services_status",
     "ix_services_deleted_at",
+    "ix_services_name_key_trgm",
 }
 
 
@@ -131,8 +132,8 @@ def _seed(engine, tag: str) -> tuple[uuid.UUID, uuid.UUID]:
 
 def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
     # F011 appended 0011_services to the single head chain (0010 -> 0011).
-    assert alembic_runner.head_revision() == "0012_service_endpoints"
-    assert _alembic_versions(pg_engine) == ["0012_service_endpoints"]
+    assert alembic_runner.head_revision() == "0013_search_indexes"
+    assert _alembic_versions(pg_engine) == ["0013_search_indexes"]
     assert "services" in _tables(pg_engine)
     extensions_before = _extensions(pg_engine)
 
@@ -147,7 +148,7 @@ def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
 
     alembic_runner.upgrade("head")
     assert "services" in _tables(pg_engine)
-    assert _alembic_versions(pg_engine) == ["0012_service_endpoints"]
+    assert _alembic_versions(pg_engine) == ["0013_search_indexes"]
 
 
 def test_migration_0011_has_no_create_extension():
@@ -218,19 +219,21 @@ def test_table_catalogue_columns_constraints_indexes(committed_engine):
         assert "UNIQUE" in partial
         assert "deleted_at IS NULL" in partial
 
-        # No pg_trgm/GIN, no name/name_key single-column B-tree (DB-D137).
+        # F013 adds the name_key GIN trigram index (DB-D161); no name/name_key
+        # single-column B-tree (DB-D137 errata).
         gin = conn.execute(
             text(
                 "SELECT indexname FROM pg_indexes WHERE schemaname = 'public' "
                 "AND tablename = 'services' AND indexdef ILIKE '%USING gin%'"
             )
         ).scalars().all()
-        assert gin == []
+        assert gin == ["ix_services_name_key_trgm"]
         name_indexes = conn.execute(
             text(
                 "SELECT indexname FROM pg_indexes WHERE schemaname = 'public' "
-                "AND tablename = 'services' AND ("
-                "indexdef ILIKE '%(name)%' OR indexdef ILIKE '%(name_key)%')"
+                "AND tablename = 'services' "
+                "AND indexdef NOT ILIKE '%USING gin%' AND ("
+                "indexdef ILIKE '%(name)%' OR indexdef ILIKE '%(name_key)%') "
             )
         ).scalars().all()
         assert name_indexes == []

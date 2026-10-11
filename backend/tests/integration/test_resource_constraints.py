@@ -297,16 +297,18 @@ def test_partial_unique_index_semantics(committed_engine):
     assert "UNIQUE" in indexdef.upper()
 
 
-def test_no_pg_trgm_gin_on_resources(committed_engine):
+def test_pg_trgm_gin_on_resources(committed_engine):
     with committed_engine.connect() as conn:
-        gin_indexes = conn.execute(
+        indexdef = conn.execute(
             text(
                 "SELECT indexdef FROM pg_indexes "
-                "WHERE schemaname='public' AND tablename='resources' "
-                "AND indexdef ILIKE '%USING gin%'"
+                "WHERE schemaname='public' "
+                "AND indexname='ix_resources_hostname_trgm'"
             )
-        ).scalars().all()
-    assert gin_indexes == []
+        ).scalar_one()
+    assert "USING gin" in indexdef
+    assert "gin_trgm_ops" in indexdef
+    assert "WHERE" not in indexdef.upper()
 
 
 # --- V13/B13/B14: immutable trigger -----------------------------------------

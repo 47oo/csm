@@ -34,6 +34,11 @@ import {
 
 interface IpAddressesPageProps {
   user: User;
+  /**
+   * 初始 network 过滤（F013 搜索「未绑定 IP → 所属网络」定位入口）：
+   * 仅初始化 query / draft，不随后续 prop 变化重置（由 HomePage 以 key 控制重挂载）。
+   */
+  initialNetworkId?: string;
 }
 
 type ListState =
@@ -120,7 +125,7 @@ const UUID_PATTERN =
  *   （所属网络 / 绑定接口仍删）/ 422（cidr 变更后越界 field="address"）明确呈现；
  * - Activity（VIEW_ACTIVITY 全角色）：created_at 升序只读流水，无修改/删除入口。
  */
-export default function IpAddressesPage({ user }: IpAddressesPageProps) {
+export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesPageProps) {
   const canWrite = user.permissions.includes("WRITE");
   const canRelease = user.permissions.includes("RELEASE_IP");
   const canRestore = user.permissions.includes("RESTORE");
@@ -128,17 +133,21 @@ export default function IpAddressesPage({ user }: IpAddressesPageProps) {
 
   const [options, setOptions] = useState<FilterOptionsState>({ kind: "loading" });
   const [optionsReloadToken, setOptionsReloadToken] = useState(0);
-  const [query, setQuery] = useState<AppliedQuery>(DEFAULT_QUERY);
-  // 筛选表单草稿：点击“筛选”才应用（避免每次击键发请求）
-  const [draft, setDraft] = useState({
+  // F013 入口可携带初始 network 过滤（仅初始化一次；合法性与存在性由服务端校验）
+  const [query, setQuery] = useState<AppliedQuery>(() => ({
+    ...DEFAULT_QUERY,
+    networkId: initialNetworkId ?? DEFAULT_QUERY.networkId,
+  }));
+  // 筛选表单草稿：点击“筛选”才应用（避免每次击键发请求）；与 query 同源初始化
+  const [draft, setDraft] = useState(() => ({
     q: DEFAULT_QUERY.q,
-    networkId: DEFAULT_QUERY.networkId,
+    networkId: initialNetworkId ?? DEFAULT_QUERY.networkId,
     clusterId: DEFAULT_QUERY.clusterId,
     poolId: DEFAULT_QUERY.poolId,
     interfaceId: DEFAULT_QUERY.interfaceId,
     bound: DEFAULT_QUERY.bound,
     address: DEFAULT_QUERY.address,
-  });
+  }));
   const [filterError, setFilterError] = useState<string | null>(null);
   const [state, setState] = useState<ListState>({ kind: "loading" });
   const [mode, setMode] = useState<PanelMode>({ kind: "list" });
