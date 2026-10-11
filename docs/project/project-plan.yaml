@@ -834,13 +834,21 @@ features:
   - F011
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: ARCHITECTURE Gate（architect 产出 architecture.md + api/F013.md 草案，定 layers/api_required）
-  current_stage: ARCHITECTURE
+  next_action: DATABASE + TEST_DESIGN（并行：Database 签核 0013 GIN 索引/errata；Tester 产出 TEST DESIGN READY）
+  current_stage: DATABASE
+  layers:
+    database: true
+    backend: true
+    frontend: true
+  api_required: true
   implementation:
     product: COMPLETE
+    architecture: COMPLETE
   evidence:
     product:
     - docs/features/F013/product.md
+    architecture:
+    - docs/features/F013/architecture.md
 - id: F014
   title: CSV / Excel 批量导入
   kind: FEATURE
@@ -1068,9 +1076,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F013
-  current_stage: ARCHITECTURE
-  last_result: F013 PRODUCT COMPLETE（READY FOR ARCHITECT；A1–A24/I-1–I-10；OPEN I-11–I-18 交设计裁定）
-  next_action: ARCHITECTURE Gate（architect）
+  current_stage: DATABASE
+  last_result: F013 ARCHITECTURE COMPLETE（READY FOR DESIGN；DR-171–DR-189；layers db/be/fe，api_required=true；api/F013.md 草案）
+  next_action: DATABASE + TEST_DESIGN（并行）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
