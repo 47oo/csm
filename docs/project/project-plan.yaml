@@ -899,16 +899,17 @@ features:
   - F005
   - F006
   blocking_decisions: []
-  status: IN_PROGRESS
-  next_action: TEST Gate（Tester 独立执行 F014 验收映射，TD-2 + TE-1 + 真实 PG 性能证据）
-  current_stage: TEST
+  status: IN_REVIEW
+  next_action: 正式 Review（reviewer 独立审查候选 HEAD）
+  current_stage: REVIEW
   layers:
     database: false
     backend: true
     frontend: true
   api_required: true
   not_required:
-    database: 导入只写既有 resources/bare_metal_details/virtual_machine_details，复用既有部分唯一/FK/CHECK（f014-import.md v1 NOT_REQUIRED）；无新表/列/索引/迁移。
+    database: 导入只写既有 resources/bare_metal_details/virtual_machine_details，复用既有部分唯一/FK/CHECK（f014-import.md
+      v1 NOT_REQUIRED）；无新表/列/索引/迁移。
   implementation:
     product: COMPLETE
     architecture: COMPLETE
@@ -917,6 +918,7 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: COMPLETE
+    test: COMPLETE
   evidence:
     product:
     - docs/features/F014/product.md
@@ -932,6 +934,8 @@ features:
     - docs/features/F014/implementation.md
     frontend:
     - docs/features/F014/implementation.md
+    test:
+    - docs/features/F014/test-report.md#test-execution
 - id: F015
   title: Audit 查询、已删除对象管理与系统功能
   kind: FEATURE
@@ -1107,7 +1111,8 @@ decisions_required:
   affects:
   - F014
   owner: Architect / Backend / Tester
-  resolution: F014 CONTRACT v1 §10 签核（模板 BM 14/VM 10 列、VM Host 引用列、同步上限 5 MiB/5000 行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
+  resolution: F014 CONTRACT v1 §10 签核（模板 BM 14/VM 10 列、VM Host 引用列、同步上限 5 MiB/5000
+    行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 pending_changes: []
 execution:
   mode: CONTINUOUS
@@ -1148,8 +1153,8 @@ planning_status:
     CANCELLED: 0
     DONE: 13
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 1
   ready_features:
   - F015

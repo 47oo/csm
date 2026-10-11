@@ -262,3 +262,237 @@ TD-1 结论：**`TEST DESIGN READY`** —— A1–A26 已映射到可观察判�
 > GIT: git branch --show-current
 > GIT: git status --short
 > ```
+
+---
+
+## Test Design（TD-2，定稿复核）
+
+- **版本**：TD-2
+- **日期**：2026-10-14
+- **角色**：Tester（TEST_DESIGN 定稿复核）
+- **结论**：`TEST DESIGN READY (TD-2)` —— TD-1 §7 OPEN-1…OPEN-10 已按最终 Contract / DB / D01 逐项关闭并固定执行判据；TD-1 的端点、模板列、错误码/details、上限、行号假设全部与定稿一致，无判据返工。
+- **复核基线**：`docs/api/F014.md` v1（READY，2026-10-13，D03 §10 签核、D01 §12 关闭）；`docs/database/f014-import.md` v1（NOT_REQUIRED）；`docs/api/F002.md` §1.2 已登记 4 码、§3 `IMPORT` 权限；`docs/architecture/d01-conventions.md` v11；实现报告 `docs/features/F014/implementation.md`；HEAD `51a4645`。
+
+### TD-2 §7 OPEN 关闭表
+
+| OPEN | TD-1 待复核假设 | 定稿裁定（TD-2 核对） | 判据固定 | 状态 |
+| --- | --- | --- | --- | --- |
+| OPEN-1 | `F014.md` 草案 v0 BLOCKED；端点/details 可能调整 | `docs/api/F014.md` v1 READY；三端点路径/方法不变；details 形态与 TD-1 假设一致 | V1–V32 按 v1 执行 | **CLOSED** |
+| OPEN-2 | 模板列集 BM/VM、`resource_type` 是否保留、`metadata`/`description` | 冻结 BM 14 列 / VM 10 列（`resource_type` 保留为固定值列，含 `serial_number`/`cpu_sockets`/VM 容量列）；`metadata`/`description` 不导入（默认 `{}`/null） | A21/A25、V-FE-2/3、B3/B5/B24 | **CLOSED** |
+| OPEN-3 | 两步交互是否用令牌 | 无令牌：validate + 写入两端点，写入接收同一文件完整重校验，服务端不落盘 | V4/V31、B12 | **CLOSED** |
+| OPEN-4 | 上限数值、超限码、`reason` 枚举、`format` 归属、截断语义 | 5,242,880 B / 5000 行 / 预览 1000；超限 413 `IMPORT_FILE_TOO_LARGE`/`IMPORT_ROW_LIMIT_EXCEEDED`；`reason` 7 值；`format` 非法→422 `VALIDATION_ERROR{field:"format"}`；`errors_truncated` 与全量 `error_count` | V20/V29/V30/V32、B13/B14/B31/B32 | **CLOSED** |
+| OPEN-5 | 空单元格语义、枚举大小写 | 空=省略（默认生效；非必填→null），必填空=行错误；枚举取大写规范值，非规范报错 | V15/V17、B21/B27 | **CLOSED** |
+| OPEN-6 | 错误形态与行号约定、`field` 取值 | 合法解析即使有行错误也 200 + `errors`；文件级致命 4xx 无 `errors`；行号 1-based 文件行号（表头第 1 行、数据自第 2 行），CSV 逻辑记录号，`.xlsx` 工作表行号；`field`=模板列名；`related_row` 可空 | V2/V21/V27/V28、B5 | **CLOSED** |
+| OPEN-7 | 请求/表单细节与截断阈值 | `format` 大小写不敏感；校验顺序 401→403→format(422)→size(413)→parse(422)→rows(413)→header(422)→逐行；预览阈值 1000 | V28/V29/V32 | **CLOSED** |
+| OPEN-8 | VM Host 引用列取值 | `host`=同 cluster 内已存在、未软删 BARE_METAL 的 hostname **或** UUID；不接受 cluster code/name；批外已存在 | V11/V18/V19、B17/B18 | **CLOSED** |
+| OPEN-9 | 新依赖签核、4 码登记 | `python-multipart>=0.0.9,<0.1`、`openpyxl>=3.1,<3.2` 已入 `backend/pyproject.toml`；4 码已登记 `docs/api/F002.md` §1.2；`IMPORT` 复用 §3（未新增 capability） | 全部 xlsx/错误码用例 | **CLOSED** |
+| OPEN-10 | layers/database=false 复核 | `docs/database/f014-import.md` v1 `NOT_REQUIRED`（无新表/列/索引/触发器/迁移）；导入复用既有部分唯一/FK/CHECK/触发器 | V-DB-F014-*、B33 | **CLOSED** |
+
+### TD-2 定稿判据（并入执行）
+
+1. **模板与列序**：BM `[cluster,hostname,resource_type,role,status,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,memory_mb,gpu_model,gpu_count]`（14）；VM `[cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor]`（10）；表头列名+顺序严格一致，缺列/多列/列序不符→422 `IMPORT_INVALID_FILE`。
+2. **Host 引用**：hostname 或 UUID，解析为 `host_resource_id`；四条件（存在、未软删、BARE_METAL、同 cluster）+ 批外已存在。
+3. **两端点无令牌**：`POST …/validate`（只读）与 `POST …/resources`（单事务）；写入重传同一文件、无服务端临时文件。
+4. **上限**：5,242,880 B（解析前 413）/ 5000 行（解析后校验前 413）/ 预览 1000；超限无部分导入。
+5. **空/枚举**：空=省略，非必填→null；`resource_type`/`role`/`status` 大写规范值；`gpu_count`/`disk_gb`=0 表「明确无」。
+6. **行号**：1-based 文件行号，表头第 1 行；CSV 逻辑记录号；`related_row` 指向另一重复行。
+7. **`metadata`/`description` 不导入**。
+8. **`IMPORT` 复用 F002 §3**：EDITOR/ADMIN 允许，VIEWER 403，未认证 401。
+
+**TD-2 结论**：`TEST DESIGN READY`。TD-1 全部判据经最终 Contract 校对一致，无 OPEN 遗留，进入 TE-1 独立执行。
+
+---
+
+## Test Execution（TE-1）
+
+- **版本**：TE-1
+- **日期**：2026-10-14
+- **角色**：Tester（TEST 模式，独立执行）
+- **被测版本**：HEAD `51a4645`（`feature/F014-import`）；工作区仅新增 Tester 测试文件（`backend/tests/integration/test_import_performance.py`、`test_import_tester_acceptance.py`），无业务/产品/设计改动。
+- **执行基线**：
+  - Contract `docs/api/F014.md` v1（READY）；DB `docs/database/f014-import.md` v1（NOT_REQUIRED）；D01 v11（已关闭）；实现报告 `docs/features/F014/implementation.md`。
+  - 后端全量：**528 passed, 1 skipped**（skip=连接角色 superuser，环境性 DB-D11）。F014 开发者用例 32/32；Tester 追加 13（性能 4 + 独立验收 9）；回归 `resource/bare_metal/virtual_machine` 等全绿。
+  - 前端：`typecheck` 0、`build` 成功（82 modules）、`smoke:client` **241 passed / 0 failed**。
+  - 真实 HTTP（uvicorn 经 socket + 真实 PG）：**13/13** 通过。
+- **独立性声明**：本报告结果由 Tester 在独立数据库（`csm_f014_test`，运行后 DROP）与独立命令下重新执行得到，未复制开发者输出。对开发者既有用例做独立复跑，并新增独立验收/性能/约束用例补足缺口；对未实际执行项明确标注，未把设计推演当作 PASS。
+
+### 环境
+
+| 项 | 值 |
+| --- | --- |
+| 分支 / HEAD | `feature/F014-import` / `51a4645` |
+| 数据库 | PostgreSQL 16，容器 `f002test-db`，网络 `f002test-net` |
+| 独立验证库 | `csm_f014_test`（主）、`csm_f014_http`（真实 HTTP）；用后已 DROP |
+| 后端镜像 | `csm-f007-test`（容器内安装 `python-multipart`、`openpyxl`，未 `docker build`） |
+| 前端 | Node v22.23.2 / npm 12.0.2 |
+| 生产/未知库 | 未使用；DB-D10 护栏（库名含 `test` 且 ≠ `DATABASE_URL`）生效 |
+| Compose / Nginx | 未使用（单容器 + 网络）；浏览器 E2E 无 harness（见未验证项） |
+
+### 命令与输出（摘要）
+
+```text
+# 后端全量（真实 PG，独立库）
+docker run --rm --network f002test-net -v "$PWD/backend:/app" \
+  -e TEST_DATABASE_URL=postgresql+psycopg://csm:change-me@f002test-db:5432/csm_f014_test \
+  -w /app csm-f007-test bash -c "pip install -q 'python-multipart>=0.0.9,<0.1' 'openpyxl>=3.1,<3.2' && python -m pytest tests -q"
+=> 528 passed, 1 skipped in 332.27s
+
+# F014 开发者用例
+tests/integration/test_imports.py + test_import_constraints.py -v  => 32 passed
+
+# Tester 独立用例
+tests/integration/test_import_tester_acceptance.py -q              =>  9 passed
+tests/integration/test_import_performance.py -v -s                =>  4 passed
+
+# 真实 HTTP（uvicorn app.main:app + 真实 PG csm_f014_http）
+=> HTTP integration: 13/13 passed
+
+# 前端
+cd frontend && npm run typecheck   => exit 0
+npm run build                      => built in 5.95s (82 modules)
+npm run smoke:client               => 241 passed, 0 failed
+
+# 项目状态一致性（只读）
+python3 scripts/validate_project_state.py --feature F014
+=> PROJECT STATE VALID
+```
+
+### A1–A26 验收映射结果
+
+| 验收 | 结果 | 主要证据（独立复跑） |
+| --- | --- | --- |
+| A1 CSV/xlsx 行为一致 | **PASS** | `test_csv_and_xlsx_behaviour_identical`（BM 预校验深比较）、Tester `test_csv_xlsx_vm_validate_identical`（VM）、真实 HTTP BM+VM |
+| A2 错误聚合（行/字段/原因） | **PASS** | `test_validate_aggregates_all_errors_not_fail_fast`（3 错行全部返回） |
+| A3 预校验只读幂等无 Audit | **PASS** | `test_validate_read_only_and_idempotent`（行数快照 + 两次响应相等）、`test_prevalidate_writes_nothing` |
+| A4 写入再次校验 | **PASS** | `test_write_revalidates_after_external_change`（预校验后占用 hostname → 422 回滚） |
+| A5 整批回滚无部分成功 | **PASS** | `test_rollback_zero_residue_including_audit`（1 非法行 → 422，全表零新增） |
+| A6 回滚无 Resource/明细/Audit/Activity | **PASS** | 同上 + Tester `test_activity_after_success_and_absent_after_rollback`（失败批资源列表不可见） |
+| A7 每行 Resource+明细+CREATE Audit | **PASS** | `test_bm_create_defaults_units_and_audit`、`test_vm_create_with_host_detail_and_audit`、Tester Activity 查询 |
+| A8 文件内重复两行号 | **PASS** | `test_file_internal_duplicate_reports_related_row`（`related_row=2`） |
+| A9 现存冲突不覆盖不 UPDATE | **PASS** | `test_existing_conflict_not_overwritten`（role/description/version 不变，无 UPDATE Audit） |
+| A10 非法字段字段级报错 | **PASS** | `test_field_validation_errors`、Tester `test_numeric_boundaries_map_to_template_columns` |
+| A11 非法 VM Host 关系 | **PASS** | `test_vm_host_four_conditions`（不存在/跨 cluster/VM/软删 4 类） |
+| A12 cluster 不存在/软删/INACTIVE | **PASS** | `test_cluster_not_found_soft_deleted_inactive` |
+| A13 软删 hostname 重用 | **PASS** | `test_soft_deleted_hostname_reusable`、`test_hostname_unique_backstop_and_soft_delete_reuse` |
+| A14 同一 Service Layer / 无旁路 | **PASS** | `test_no_direct_write_bypass_static`、Tester `test_import_service_has_no_direct_write_sql` |
+| A15 缺省 role/status/可空 null | **PASS** | `test_bm_create_defaults_units_and_audit`（`OTHER`/`UNKNOWN`/`{}`） |
+| A16 单位 MiB/GiB | **PASS** | memory_mb 逐字存 262144；模板 `unit` 断言；Tester VM disk_gb |
+| A17 0 与 null 区分、负/零拒绝 | **PASS** | gpu_count=0/disk_gb=0 存 0；cpu_cores=0/负值被拒；Tester 负数/小数 |
+| A18 Host 须已存在、批外 | **PASS** | `test_vm_host_must_be_out_of_batch`（先 BM 批后 VM 批成功）、`test_same_batch_bm_not_referencable`（缺 Host 行错误） |
+| A19 同批 BM 不被本批 VM 引用 | **NOT TESTED（不可达）** | 冻结 Contract §6.3 要求单文件单一模板，一个批次（=一个文件）不可能同时含 BM 行与 VM 行，该场景在批准契约下结构性不可发生；DR-205「批外快照」由 `write_import` 先全行校验、后插入的次序保证。Tester 增加 `test_mixed_role_template_header_rejected` 证明混合表头被拒。**不构成覆盖失败**（详见未验证项/说明） |
+| A20 上限拒绝无部分导入 | **PASS** | `test_file_size_and_row_limits`、Tester D03-2a/2b（413 + 零残留） |
+| A21 固定模板/缺列/多列/列序/类型错配 | **PASS** | `test_header_errors`（missing/unknown/order/header_missing/BM 含 host/VM 含 gpu_model）、Tester 混合表头 |
+| A22 权限 401/403/EDITOR/ADMIN | **PASS** | `test_permission_matrix`、`test_templates_spec_and_read_permission`、`test_csrf_reason_distinct` |
+| A23 同步 + 重复确认冲突 | **PASS** | `test_reimport_after_success_conflicts`；路由为同步函数、无 Celery/队列（源码/路由核对） |
+| A24 不改 Cluster | **PASS** | `test_import_does_not_touch_clusters` |
+| A25 模板逐列说明可下载/查看 | **PASS** | `test_templates_spec_and_read_permission`、真实 HTTP `/templates`（BM14/VM10 + required/unit/enum） |
+| A26 未支持对象不导入 | **PASS** | `test_unsupported_columns_rejected`、Tester 混合表头 → `IMPORT_INVALID_FILE` |
+
+**补充验证项**：V1–V32 除 V-FE-* 外均由上表开发者 + Tester 用例覆盖；V14/V-SL-1、V-SYNC-1 由静态检查独立复跑；V27/V29/V30/V31/V32 由 BOM/引号换行行号、`format` 形状、空/损坏文件、无临时文件、截断用例覆盖。
+
+### V-DB-F014-1…8（真实 PG）
+
+| 项 | 结果 | 证据 |
+| --- | --- | --- |
+| V-DB-F014-1 文件内重复两行号、零写入 | **PASS** | `test_file_internal_duplicate_reports_related_row` |
+| V-DB-F014-2 并发重叠仅一成功、整批回滚 | **PASS** | `test_concurrent_overlapping_import_one_succeeds`（committed_engine 双连接；失败方 `ImportValidationFailed`；最终 1 行/1 Audit） |
+| V-DB-F014-3 软删 hostname 可重用（部分唯一谓词） | **PASS** | `test_hostname_unique_backstop_and_soft_delete_reuse`（raw SQL） |
+| V-DB-F014-4 cluster 不存在/软删行错误、INACTIVE 通过、跨 cluster 同名允许 | **PASS** | `test_cluster_not_found_soft_deleted_inactive`、Tester `test_same_hostname_allowed_across_clusters` |
+| V-DB-F014-5 0 与 null 可区分、0/负被 CHECK 拒 | **PASS** | `test_bm_create_defaults_units_and_audit`、Tester 负数/小数 |
+| V-DB-F014-6 VM Host 触发器违约归因；批外快照应用保证 | **PASS**（批外属性见下 NOTE） | `test_vm_host_four_conditions`、Tester `test_import_adds_no_catalog_objects`（断言 `trg_*_host_valid` 存在）；DB 不表达「批次前已存在」时间语义（DB 设计 §3.1） |
+| V-DB-F014-7 回滚零残留 + 成功每行 1 CREATE Audit | **PASS** | `test_rollback_zero_residue_including_audit`、性能 D03-1（5000 CREATE Audit） |
+| V-DB-F014-8 运行期不增删 DB 对象 | **PASS** | Tester `test_import_adds_no_catalog_objects`（`pg_class`/`pg_trigger` 前后一致；依赖索引/触发器存在） |
+
+### B1–B33 边界/并发结果
+
+| # | 结果 | 证据 |
+| --- | --- | --- |
+| B1 CSV/xlsx 一致 | PASS | A1 证据 |
+| B2 表头缺失 | PASS | `test_header_errors`（`b"\n"` → `header_missing`） |
+| B3 缺列 | PASS | `missing_columns` |
+| B4 未知列 | PASS | `unknown_columns` |
+| B5 列序不符 | PASS | `column_order` |
+| B6 文件内重复两行 | PASS | A8 证据 |
+| B7 现存冲突不覆盖 | PASS | A9 证据 |
+| B8 归一化一致性 | PASS | 重复用例 `cn001` vs ` CN001 `；软删用例 `CN001` |
+| B9 软删重用 | PASS | A13 证据 |
+| B10 整批回滚零残留 | PASS | A5 证据 |
+| B11 失败无 Activity | PASS | Tester Activity 用例 |
+| B12 预校验后状态变化 | PASS | A4 证据 |
+| B13 文件字节超限 | PASS | `test_file_size_and_row_limits`、D03-2b |
+| B14 行数超限 | PASS | 同上、D03-2a |
+| B15 cluster 不存在 | PASS | A12 证据 |
+| B16 cluster 软删/INACTIVE | PASS | A12 证据 |
+| B17 Host 不存在/软删 | PASS | A11 证据 |
+| B18 Host 非 BM/跨 cluster | PASS | A11 证据 |
+| B19 Host 批外已存在 | PASS | A18 证据 |
+| B20 同批 BM 不可被本批 VM 引用 | **NOT TESTED（不可达）** | 同 A19；单一模板/文件下不可构造 |
+| B21 枚举错配 | PASS | `test_field_validation_errors`（`role=compute`/`status=idle`） |
+| B22 类型错配整数 | PASS | `abc`/`0`/负/小数 |
+| B23 字符串边界 | PASS | `manufacturer` 256 → 行错误；纯空白 → null |
+| B24 BM/VM 专属列错配 | PASS | `test_header_errors`（BM+`host`、VM+`gpu_model` → `unknown_columns`） |
+| B25 单位与未知值 | PASS | MiB/GiB、空→null、0→0 |
+| B26 零值/负值 | PASS | gpu_count=0/disk_gb=0 接受；负值/`cpu_cores=0` 拒绝 |
+| B27 空单元格语义 | PASS | `test_required_and_optional_empty_cells` |
+| B28 权限矩阵 | PASS | A22 证据 |
+| B29 403 与 CSRF 区分 | PASS | `test_csrf_reason_distinct`（`permission` vs `csrf`） |
+| B30 未认证先于权限 | PASS | `test_permission_matrix`（无 Cookie → 401） |
+| B31 `format` 非法 | PASS | 缺/`xls`/`pdf` → `VALIDATION_ERROR`；Tester 大小写不敏感 |
+| B32 仅表头/空/损坏 xlsx | PASS | `test_format_and_file_level_errors`（`empty_file`/`unsupported_format`/`unreadable`） |
+| B33 并发重叠 hostname | PASS | V-DB-F014-2 证据 |
+
+### D03 真实 PG 性能证据（Contract §10 义务）
+
+执行：`tests/integration/test_import_performance.py`（真实 PG，默认签核上限），输出如下（同一测试主机，耗时随负载有波动，取两次观测区间）：
+
+| 项 | 观测 |
+| --- | --- |
+| **① 接近上限导入基线** | 5000 行 BM CSV，文件 495,138 B；预校验 **5.64 s**（Python 峰值内存 ≈8.0 MB）；整批写入 **43.3–47.8 s**（峰值内存 ≈7.8 MB）；成功创建 5000 Resource + 5000 bare_metal_details + 5000 条 CREATE Audit；`created=total_rows=5000` |
+| **② 上限处拒绝时延 + 无部分导入** | 5001 行 → 413 `IMPORT_ROW_LIMIT_EXCEEDED{limit_rows:5000}`，**≈0.008 s**，`resources`/明细/`audit_logs` 与调用前一致；5,242,881 B → 413 `IMPORT_FILE_TOO_LARGE{limit_bytes:5242880}`，**≈0.0001 s**，零残留 |
+| **③ 预览截断行为** | 1100 个错误行 → `errors_truncated=true`、`error_count=1100`、`errors` 恰为 1000 条，**≈0.03 s**；只读路径零写入 |
+
+**判读**：上限拒绝与截断均在毫秒级、无部分导入，符合 §10；内存有界（≈8 MB Python 侧，`read_only` xlsx/流式 CSV）。**NOTE（风险，非阻塞）**：5000 行同步写入约 43–48 s，属单次迁移量级但接近常见网关默认 60 s 请求超时。D03 未定义时延阈值，本项不判 FAIL；建议协调器/Architect 按 `change-control.md` 评估部署超时或是否需要调低 `import_max_rows`（若判定「不安全」）。
+
+### 前端（V-FE-1…3）与真实 API 集成
+
+| 项 | 结果 | 证据 |
+| --- | --- | --- |
+| V-FE-1 上传入口/预校验结果/确认写入/四态/无部分成功 | **PASS（机制级 + 真实 API）；浏览器 DOM E2E NOT TESTED** | `smoke:client` 241 passed（`describeImportError` 401/403/413/422/500、无重试、不伪装空结果）；真实 HTTP 13/13（真实 multipart + 真实 PG 经 socket，非 Mock）；未在真实浏览器渲染（无 harness） |
+| V-FE-2 逐列说明含单位/枚举/必填 | **PASS** | smoke 模板渲染辅助 + `GET /templates`；真实 HTTP 列集断言 |
+| V-FE-3 模板下载列名/顺序与冻结集合一致 | **PASS** | smoke 表头 CSV 生成 + 真实 HTTP BM14/VM10 顺序 |
+
+### 既有 no-GIN 抖动 NOTE（非 F014）
+
+`test_search_constraints.py::test_explain_uses_gin_for_long_enough_query` 依赖查询计划器选择 `Bitmap Index Scan`（50000 填充行 + `ILIKE '%needle-xyz%'`），属计划器依赖、易随统计/负载抖动，**与 F014 无关**。本次独立复跑：单测 1 次 PASS、两次全量回归各 1 次 PASS，**未观测到抖动**；保留 NOTE 供后续，不阻塞 F014。
+
+### Defects
+
+- **无阻塞缺陷**。未发现需求违反、整批原子性破坏、回滚残留、权限越权、模板/错误码偏离 Contract 或 DB 设计偏差。
+- **风险 NOTE（Owner：协调器/Architect）**：5000 行同步写入 ≈43–48 s（见 D03 判读），需确认部署超时或评估上限调整，走变更控制（非实现缺陷）。
+- **说明（非缺陷，Owner：Architect/Product）**：A19/B20「同批 BM 被本批 VM 引用」在单模板/文件契约下不可达（见上）；DR-205 的「批外快照」由 `write_import` 校验先于插入的次序保证，DB 不兜底（DB 设计 §3.1 已记录）。
+
+### 未验证项
+
+| 项 | 原因 |
+| --- | --- |
+| 真实浏览器 DOM E2E（上传/表格渲染） | 无浏览器/E2E harness；已用机制级 smoke + 真实 HTTP 覆盖 API 契约，浏览器渲染未执行 |
+| Compose / Nginx 端到端 | 未使用 Compose/Nginx；不影响契约限定的验证 |
+| §31/§32 完整跨功能回归（T01–T41） | 归 F016 整体验收，不得以 F014 局部 PASS 拼接；本报告只闭合 F014 承载部分 |
+| superuser 专用迁移用例 | DB-D11：连接角色为 superuser，`test_migrations.py::105` skip（环境性，非 F014） |
+| A19/B20 同批 BM 引用 | 批准契约下不可达（见说明） |
+
+### TE-1 结论
+
+F014 全部可执行验收项（A1–A18、A20–A26；V-DB-F014-1…8；B1–B19、B21–B33）**PASS**；D03 性能证据已产出且判据满足；前端机制级与真实 API 集成 **PASS**（浏览器 DOM E2E 未执行）；唯一 NOT TESTED 项（A19/B20）在定稿契约下结构性不可达，不构成覆盖或实现缺口；无必须修复问题。
+
+**结论：`READY FOR REVIEW`** —— 附两项交协调器的 NOTE（性能时延、A19 不可达说明），非阻塞。测试代码（`test_import_performance.py`、`test_import_tester_acceptance.py`）属 Review 范围。
+
+> **TE-1 Git 记录**（全程只读，未执行 `git add`/commit/branch/merge/stash/reset，工作区未产生业务改动；仅新增上述两个 Tester 测试文件）：
+> ```text
+> GIT: git status
+> GIT: git status --short
+> GIT: git branch --show-current
+> GIT: git rev-parse --short HEAD
+> GIT: git log --oneline -5
+> GIT: git log --oneline -1
+> ```
