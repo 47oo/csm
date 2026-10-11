@@ -138,8 +138,8 @@ def _seed(engine, tag: str):
 
 
 def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0011_services"
-    assert _alembic_versions(pg_engine) == ["0011_services"]
+    assert alembic_runner.head_revision() == "0012_service_endpoints"
+    assert _alembic_versions(pg_engine) == ["0012_service_endpoints"]
     assert "interfaces" in _tables(pg_engine)
 
     alembic_runner.downgrade("0006_virtual_machine_details")
@@ -157,7 +157,7 @@ def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
 
     alembic_runner.upgrade("head")
     assert "interfaces" in _tables(pg_engine)
-    assert _alembic_versions(pg_engine) == ["0011_services"]
+    assert _alembic_versions(pg_engine) == ["0012_service_endpoints"]
 
 
 def test_table_catalogue_columns_constraints_indexes_triggers(committed_engine):

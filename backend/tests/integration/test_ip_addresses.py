@@ -407,7 +407,7 @@ def test_endpoint_reference_hook_blocks_unbind_and_release(
     iface = _interface(admin, res["id"])
     ip = _ip(admin, net["id"], "10.0.0.5")
 
-    refs = [{"object_type": "endpoint", "object_id": str(uuid.uuid4()), "label": "ssh:22"}]
+    refs = [{"object_type": "service_endpoint", "object_id": str(uuid.uuid4()), "label": "ssh:22"}]
     monkeypatch.setattr(
         ip_address_reference, "_CHECKERS", [lambda db, ip_id: list(refs)]
     )
@@ -427,7 +427,7 @@ def test_endpoint_reference_hook_blocks_unbind_and_release(
         assert resp.status_code == 409, (method, resp.text)
         details = resp.json()["error"]["details"]
         assert details["reason"] == "reference_exists"
-        assert details["references"][0]["object_type"] == "endpoint"
+        assert details["references"][0]["object_type"] == "service_endpoint"
 
 
 # --- A19/A20: Network/Interface references and Pool source exception ---------
@@ -1328,7 +1328,7 @@ def test_endpoint_checker_registration_blocks_unbind_transfer_release(
         f"/api/v1/ip-addresses/{ip['id']}", json={"version": 1, "interface": if1["id"]}
     )
 
-    references = [{"object_type": "endpoint", "object_id": str(uuid.uuid4()), "label": "tcp:443"}]
+    references = [{"object_type": "service_endpoint", "object_id": str(uuid.uuid4()), "label": "tcp:443"}]
     monkeypatch.setattr(ip_address_reference, "_CHECKERS", [])
     ip_address_reference.register_ip_address_reference_checker(
         lambda db, ip_id: list(references)
@@ -1339,7 +1339,7 @@ def test_endpoint_checker_registration_blocks_unbind_transfer_release(
         f"/api/v1/ip-addresses/{ip['id']}", json={"version": 2, "interface": None}
     )
     assert unbind.status_code == 409, unbind.text
-    assert unbind.json()["error"]["details"]["references"][0]["object_type"] == "endpoint"
+    assert unbind.json()["error"]["details"]["references"][0]["object_type"] == "service_endpoint"
     # transfer
     transfer = admin.patch(
         f"/api/v1/ip-addresses/{ip['id']}", json={"version": 2, "interface": if2["id"]}

@@ -123,6 +123,23 @@
  *   description；metadata 整值替换、非空才携带；resource 不可改不上送）、
  *   服务端 422 点路径 → 表单键映射。
  *
+ * F012 追加（Contract：docs/api/F012.md v1，前端机制级）：
+ * - src/api/serviceEndpoints.ts 的 URL / method / body 构造（Contract §6：列表
+ *   查询串（service_id/ip_address_id/protocol/deleted）、POST 201
+ *   {"service_endpoint"} 信封、PATCH 仅携带变化字段（不含 service/ip_address，
+ *   DR-157）、DELETE / restore 的 version Query、activity）；
+ * - 409 CONFLICT（unique_conflict field="port" → port 字段级错误（携带冲突
+ *   protocol/port/ip_address_id）；dependency_deleted → conflicts（service /
+ *   ip_address / interface 文案区分，DR-166）；reference_exists → references
+ *   （防御，Endpoint 无子对象）；not_deleted）/ VERSION_CONFLICT（→ 刷新后
+ *   重改，不静默重试）/ 422 / 404 / 403 的 describeServiceEndpointActionError
+ *   语义；
+ * - src/components/serviceEndpointForm.ts（纯逻辑，无 JSX）：表单值解析
+ *   （protocol 仅大写 TCP/UDP 不归一化、port 严格整数 1–65535 含端点、
+ *   空描述=null）、创建 / PATCH 载荷构造语义的本地镜像（exclude_unset；
+ *   显式 null=清空 description；service/ip_address 不可改不上送）、
+ *   服务端 422 点路径 → 表单键映射（service_id/ip_address_id 别名不映射）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -259,6 +276,24 @@ import {
   serviceFormFieldFromPath,
   serviceFormValuesFromService,
 } from "../src/components/serviceForm.ts";
+import {
+  createServiceEndpoint,
+  deleteServiceEndpoint,
+  describeServiceEndpointActionError,
+  getServiceEndpoint,
+  getServiceEndpointActivity,
+  listServiceEndpoints,
+  restoreServiceEndpoint,
+  updateServiceEndpoint,
+} from "../src/api/serviceEndpoints.ts";
+import {
+  buildServiceEndpointCreateInput,
+  buildServiceEndpointPatch,
+  emptyServiceEndpointFormValues,
+  parseServiceEndpointFormValues,
+  serviceEndpointFormFieldFromPath,
+  serviceEndpointFormValuesFromEndpoint,
+} from "../src/components/serviceEndpointForm.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -4353,6 +4388,599 @@ await test("F011 serviceFormValuesFromService：null → 默认空值；metadata
   });
   assert.equal(emptyMeta.metadata, "");
   assert.equal(emptyMeta.description, "");
+});
+
+// ---------- F012 ServiceEndpoint API 机制级（Contract：docs/api/F012.md v1） ----------
+
+/** F012 用例共用的 ServiceEndpoint 夹具（Contract §3 形状：嵌套 service / ip_address 展开）。 */
+const serviceEndpointFixture = {
+  id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0c01",
+  service: {
+    id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0b01",
+    name: "slurmd",
+    resource: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004", hostname: "cn001" },
+  },
+  ip_address: {
+    id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0a01",
+    address: "10.10.0.5",
+    network: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0006", name: "mgmt" },
+    interface: { id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0007", name: "eth0" },
+  },
+  protocol: "TCP",
+  port: 6818,
+  description: "Slurmd listen port",
+  version: 2,
+  created_at: "2026-10-09T08:00:00Z",
+  updated_at: "2026-10-09T09:00:00Z",
+  deleted_at: null,
+};
+
+await test("F012 listServiceEndpoints 默认：GET /api/v1/service-endpoints，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listServiceEndpoints();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/service-endpoints");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F012 listServiceEndpoints 组合查询：service_id/ip_address_id/protocol/deleted/分页/排序（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listServiceEndpoints({
+    service_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0b01",
+    ip_address_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0a01",
+    protocol: "TCP",
+    deleted: "only",
+    page: 2,
+    page_size: 50,
+    sort: "port",
+    order: "asc",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/service-endpoints?service_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0b01" +
+      "&ip_address_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0a01" +
+      "&protocol=TCP&deleted=only&page=2&page_size=50&sort=port&order=asc",
+  );
+});
+
+await test("F012 listServiceEndpoints 空串过滤项不发（service_id=''/ip_address_id=''），protocol 省略不发", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  await listServiceEndpoints({ service_id: "", ip_address_id: "" });
+  assert.equal(calls[0].url, "/api/v1/service-endpoints");
+});
+
+await test("F012 createServiceEndpoint：POST /service-endpoints + JSON body；201 解析 {service_endpoint}", async () => {
+  respond = () => jsonResponse(201, { service_endpoint: serviceEndpointFixture });
+  const { service_endpoint: endpoint } = await createServiceEndpoint({
+    service: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0b01",
+    ip_address: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0a01",
+    protocol: "TCP",
+    port: 6818,
+    description: "Slurmd listen port",
+  });
+  assert.equal(endpoint.id, serviceEndpointFixture.id);
+  assert.equal(endpoint.service.name, "slurmd");
+  assert.equal(endpoint.service.resource.hostname, "cn001");
+  assert.equal(endpoint.ip_address.address, "10.10.0.5");
+  assert.equal(endpoint.ip_address.interface.name, "eth0");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/service-endpoints");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    service: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0b01",
+    ip_address: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0a01",
+    protocol: "TCP",
+    port: 6818,
+    description: "Slurmd listen port",
+  });
+});
+
+await test("F012 getServiceEndpoint：已删对象显式 ?deleted=true；默认不带", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      service_endpoint: { id: "e1", deleted_at: "2026-10-09T12:00:00Z" },
+    });
+  await getServiceEndpoint("e1", { deleted: true });
+  await getServiceEndpoint("e1");
+  assert.equal(calls[0].url, "/api/v1/service-endpoints/e1?deleted=true");
+  assert.equal(calls[1].url, "/api/v1/service-endpoints/e1");
+});
+
+await test("F012 updateServiceEndpoint：PATCH 且仅携带变化字段（省略 = 不重置，Contract §6.4）", async () => {
+  respond = () => jsonResponse(200, { service_endpoint: { id: "e1", version: 4 } });
+  const { service_endpoint: endpoint } = await updateServiceEndpoint("e1", {
+    version: 3,
+    protocol: "UDP",
+    port: 6819,
+  });
+  assert.equal(endpoint.version, 4);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/service-endpoints/e1");
+  assert.equal(calls[0].init.method, "PATCH");
+  // body 只含 version + 变化字段；service/ip_address 创建后不可改不出现（DR-157）
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    version: 3,
+    protocol: "UDP",
+    port: 6819,
+  });
+});
+
+await test("F012 updateServiceEndpoint：description 显式 null = 清空", async () => {
+  respond = () => jsonResponse(200, { service_endpoint: { id: "e1" } });
+  await updateServiceEndpoint("e1", { version: 3, description: null });
+  assert.deepEqual(JSON.parse(calls[0].init.body), { version: 3, description: null });
+});
+
+await test("F012 deleteServiceEndpoint：DELETE + version 为 Query 参数；204 → undefined", async () => {
+  respond = () => new Response(null, { status: 204 });
+  const result = await deleteServiceEndpoint("e1", 5);
+  assert.equal(result, undefined);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/service-endpoints/e1?version=5");
+  assert.equal(calls[0].init.method, "DELETE");
+});
+
+await test("F012 restoreServiceEndpoint：POST /{id}/restore + version Query 参数", async () => {
+  respond = () =>
+    jsonResponse(200, { service_endpoint: { id: "e1", deleted_at: null, version: 7 } });
+  const { service_endpoint: endpoint } = await restoreServiceEndpoint("e1", 6);
+  assert.equal(endpoint.deleted_at, null);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/service-endpoints/e1/restore?version=6");
+  assert.equal(calls[0].init.method, "POST");
+});
+
+await test("F012 getServiceEndpointActivity：GET /{id}/activity + deleted/page/page_size", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      items: [
+        {
+          id: "a1",
+          action: "CREATE",
+          operator_user_id: null,
+          operator_username: "bootstrap",
+          before_data: null,
+          after_data: {
+            service_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0b01",
+            ip_address_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0a01",
+            protocol: "TCP",
+            port: 6818,
+            description: null,
+          },
+          created_at: "2026-10-09T08:00:00Z",
+        },
+      ],
+      page: 1,
+      page_size: 20,
+      total: 1,
+    });
+  const data = await getServiceEndpointActivity("e1", { deleted: true, page: 1, page_size: 20 });
+  assert.equal(data.total, 1);
+  assert.equal(data.items[0].action, "CREATE");
+  assert.equal(data.items[0].after_data.port, 6818);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/service-endpoints/e1/activity?deleted=true&page=1&page_size=20",
+  );
+});
+
+await test("F012 409 CONFLICT unique_conflict：落到 port 字段级错误、携带冲突监听三元组；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "unique_conflict",
+          field: "port",
+          ip_address_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0a01",
+          protocol: "TCP",
+          port: 6818,
+        },
+      },
+    });
+  const err = await expectApiError(
+    createServiceEndpoint({
+      service: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0b01",
+      ip_address: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0a01",
+      protocol: "TCP",
+      port: 6818,
+    }),
+  );
+  assert.equal(err.status, 409);
+  assert.equal(err.code, "CONFLICT");
+  assert.equal(err.details.reason, "unique_conflict");
+  const described = describeServiceEndpointActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.ok(described.fields.port, "unique_conflict 应落到 port 字段错误");
+  assert.ok(described.fields.port.includes("IPAddress"), "应说明同 IP 作用域");
+  assert.ok(described.message.includes("TCP/6818"), "应携带冲突 protocol/port");
+  assert.ok(described.message.includes("ip_address_id="), "应携带冲突 ip_address_id");
+  assert.equal(calls.length, 1); // 不自动重试
+});
+
+await test("F012 409 VERSION_CONFLICT：标记刷新后重改、携带 current_version；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "Version conflict",
+        details: { current_version: 9 },
+      },
+    });
+  const err = await expectApiError(
+    updateServiceEndpoint("e1", { version: 3, port: 6819 }),
+  );
+  assert.equal(err.details.current_version, 9);
+  const described = describeServiceEndpointActionError(err);
+  assert.equal(described.versionConflict, true);
+  assert.equal(described.currentVersion, 9);
+  assert.ok(described.message.includes("刷新"), "应提示刷新后重改");
+  assert.ok(described.message.includes("不会自动重试"));
+  assert.equal(calls.length, 1); // 不静默重试覆盖
+});
+
+await test("F012 409 CONFLICT dependency_deleted：按 object_type 区分文案（service / ip_address / interface）", async () => {
+  // service 仍软删 → 所属服务文案
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "service", object_id: "s1" }],
+        },
+      },
+    });
+  const errService = await expectApiError(restoreServiceEndpoint("e1", 3));
+  const describedService = describeServiceEndpointActionError(errService);
+  assert.equal(describedService.dependencyConflicts.length, 1);
+  assert.equal(describedService.dependencyConflicts[0].object_type, "service");
+  assert.ok(describedService.message.includes("所属服务"));
+  assert.ok(describedService.message.includes("CONFLICT/dependency_deleted"));
+
+  // ip_address 仍软删 → 引用 IP 文案
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "ip_address", object_id: "ip1" }],
+        },
+      },
+    });
+  const errIp = await expectApiError(restoreServiceEndpoint("e1", 3));
+  const describedIp = describeServiceEndpointActionError(errIp);
+  assert.ok(describedIp.message.includes("IP 地址"));
+
+  // interface 仍软删 → 绑定接口文案
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [{ object_type: "interface", object_id: "if1" }],
+        },
+      },
+    });
+  const errIface = await expectApiError(restoreServiceEndpoint("e1", 3));
+  const describedIface = describeServiceEndpointActionError(errIface);
+  assert.ok(describedIface.message.includes("接口"));
+
+  // 混合依赖 → 通用文案（不伪装成单一原因）
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "dependency_deleted",
+          conflicts: [
+            { object_type: "service", object_id: "s1" },
+            { object_type: "interface", object_id: "if1" },
+          ],
+        },
+      },
+    });
+  const errMixed = await expectApiError(restoreServiceEndpoint("e1", 3));
+  const describedMixed = describeServiceEndpointActionError(errMixed);
+  assert.equal(describedMixed.dependencyConflicts.length, 2);
+  assert.ok(describedMixed.message.includes("依赖对象"));
+});
+
+await test("F012 409 CONFLICT not_deleted：恢复未删对象的明确文案", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: { code: "CONFLICT", message: "Conflict", details: { reason: "not_deleted" } },
+    });
+  const err = await expectApiError(restoreServiceEndpoint("e1", 3));
+  const described = describeServiceEndpointActionError(err);
+  assert.ok(described.message.includes("未处于已删除状态"));
+  assert.ok(described.message.includes("CONFLICT/not_deleted"));
+});
+
+await test("F012 409 CONFLICT reference_exists：解析 references（防御，Endpoint 无子对象）", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: {
+          reason: "reference_exists",
+          references: [{ object_type: "service_endpoint", object_id: "e2", label: "TCP/22" }],
+        },
+      },
+    });
+  const err = await expectApiError(deleteServiceEndpoint("e1", 3));
+  const described = describeServiceEndpointActionError(err);
+  assert.equal(described.versionConflict, false);
+  assert.equal(described.references.length, 1);
+  assert.equal(described.references[0].object_type, "service_endpoint");
+  assert.equal(described.references[0].label, "TCP/22");
+  assert.ok(described.message.includes("CONFLICT/reference_exists"));
+});
+
+await test("F012 422 VALIDATION_ERROR：details.fields 透传为字段级错误（含 service / ip_address）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: {
+          fields: [
+            { field: "service", message: "服务不存在或已删除" },
+            { field: "ip_address", message: "IP 未绑定接口或不属于服务所在资源" },
+            { field: "protocol", message: "protocol 必须为 TCP 或 UDP" },
+            { field: "port", message: "port 必须在 1–65535 范围内" },
+          ],
+        },
+      },
+    });
+  const err = await expectApiError(
+    createServiceEndpoint({
+      service: "nope",
+      ip_address: "nope",
+      protocol: "tcp",
+      port: 0,
+    }),
+  );
+  const described = describeServiceEndpointActionError(err);
+  assert.equal(described.fields.service, "服务不存在或已删除");
+  assert.equal(described.fields.ip_address, "IP 未绑定接口或不属于服务所在资源");
+  assert.equal(described.fields.protocol, "protocol 必须为 TCP 或 UDP");
+  assert.equal(described.fields.port, "port 必须在 1–65535 范围内");
+});
+
+await test("F012 403 / 404：明确文案（不泄露存在性 / 权限不足）", async () => {
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const err403 = await expectApiError(deleteServiceEndpoint("e1", 3));
+  assert.ok(describeServiceEndpointActionError(err403).message.includes("没有权限"));
+  respond = () =>
+    jsonResponse(404, { error: { code: "NOT_FOUND", message: "不存在", details: {} } });
+  const err404 = await expectApiError(getServiceEndpoint("e1"));
+  assert.ok(describeServiceEndpointActionError(err404).message.includes("监听端点不存在"));
+});
+
+await test("F012 网络层错误（fetch reject）：不伪装成业务结果", async () => {
+  respond = () => Promise.reject(new TypeError("Failed to fetch"));
+  await assert.rejects(listServiceEndpoints(), TypeError);
+  assert.equal(calls.length, 1); // 失败不重发
+  const described = describeServiceEndpointActionError(new TypeError("Failed to fetch"));
+  assert.equal(described.message, "无法连接服务器，请稍后重试");
+  assert.equal(described.versionConflict, false);
+});
+
+await test("F012 parseServiceEndpointFormValues：合法值（trim / 边界 1 与 65535 / 空描述=null）", async () => {
+  const parsed = parseServiceEndpointFormValues({
+    ...emptyServiceEndpointFormValues(),
+    service: "s-1",
+    ipAddress: "ip-1",
+    protocol: "TCP",
+    port: " 6818 ",
+    description: "示例描述",
+  });
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.fields.protocol, "TCP");
+  assert.equal(parsed.fields.port, 6818); // trim 后严格整数
+  assert.equal(parsed.fields.description, "示例描述");
+  // 空描述 → null；UDP 合法
+  const emptyDesc = parseServiceEndpointFormValues({
+    ...emptyServiceEndpointFormValues(),
+    protocol: "UDP",
+    port: "53",
+  });
+  assert.equal(emptyDesc.ok, true);
+  assert.equal(emptyDesc.fields.description, null);
+  // 边界 1 与 65535 接受（含端点，Contract §2.2）
+  assert.equal(
+    parseServiceEndpointFormValues({ ...emptyServiceEndpointFormValues(), port: "1" }).ok,
+    true,
+  );
+  assert.equal(
+    parseServiceEndpointFormValues({
+      ...emptyServiceEndpointFormValues(),
+      port: "65535",
+    }).ok,
+    true,
+  );
+});
+
+await test("F012 parseServiceEndpointFormValues：非法输入 → 字段级错误（空 / 0 / 65536 / 负 / 非整数 / 非法 protocol）", async () => {
+  const portCases = [
+    { port: "", hint: "不能为空" },
+    { port: "0", hint: "1–65535" },
+    { port: "65536", hint: "1–65535" },
+    { port: "-1", hint: "1–65535" },
+    { port: "1.5", hint: "整数" },
+    { port: "abc", hint: "整数" },
+    { port: "  ", hint: "不能为空" },
+  ];
+  for (const { port, hint } of portCases) {
+    const parsed = parseServiceEndpointFormValues({
+      ...emptyServiceEndpointFormValues(),
+      port,
+    });
+    assert.equal(parsed.ok, false, `应校验失败：port=${JSON.stringify(port)}`);
+    if (!parsed.ok) {
+      assert.ok(parsed.errors.port, "应产生 port 字段错误");
+      assert.ok(
+        parsed.errors.port.includes(hint),
+        `port 错误文案应含「${hint}」，实际：${parsed.errors.port}`,
+      );
+    }
+  }
+  // protocol 仅大写规范值（"tcp" 不归一化、直接报错，Contract §2.2/DR-160）
+  const badProtocol = parseServiceEndpointFormValues({
+    ...emptyServiceEndpointFormValues(),
+    protocol: "tcp",
+    port: "6818",
+  });
+  assert.equal(badProtocol.ok, false);
+  assert.ok(badProtocol.errors.protocol.includes("TCP"));
+  // 多字段同时非法 → 同时报错
+  const both = parseServiceEndpointFormValues({
+    ...emptyServiceEndpointFormValues(),
+    protocol: "tcp",
+    port: "0",
+  });
+  assert.equal(both.ok, false);
+  assert.ok(both.errors.protocol);
+  assert.ok(both.errors.port);
+});
+
+await test("F012 serviceEndpointFormFieldFromPath：422 点路径 → 表单键（顶层直通；不可变别名 → null）", async () => {
+  assert.equal(serviceEndpointFormFieldFromPath("service"), "service");
+  assert.equal(serviceEndpointFormFieldFromPath("ip_address"), "ip_address");
+  assert.equal(serviceEndpointFormFieldFromPath("protocol"), "protocol");
+  assert.equal(serviceEndpointFormFieldFromPath("port"), "port");
+  assert.equal(serviceEndpointFormFieldFromPath("description"), "description");
+  assert.equal(serviceEndpointFormFieldFromPath("service_id"), null); // 不可变别名不映射
+  assert.equal(serviceEndpointFormFieldFromPath("ip_address_id"), null); // 不可变别名不映射
+  assert.equal(serviceEndpointFormFieldFromPath("metadata"), null); // 不落字段（I-1/DR-156）
+  assert.equal(serviceEndpointFormFieldFromPath("unknown.field"), null);
+});
+
+await test("F012 buildServiceEndpointCreateInput：service/ip_address/protocol/port 恒携带；description 仅已登记值", async () => {
+  const parsed = parseServiceEndpointFormValues({
+    ...emptyServiceEndpointFormValues(),
+    protocol: "TCP",
+    port: "6818",
+  });
+  assert.equal(parsed.ok, true);
+  // 未设置描述：description 省略（→ null，Contract §2.5）
+  assert.deepEqual(
+    buildServiceEndpointCreateInput("s-1", "ip-1", parsed.fields),
+    {
+      service: "s-1",
+      ip_address: "ip-1",
+      protocol: "TCP",
+      port: 6818,
+    },
+  );
+  // 已设置描述照常携带
+  const withDesc = parseServiceEndpointFormValues({
+    ...emptyServiceEndpointFormValues(),
+    protocol: "UDP",
+    port: "53",
+    description: "DNS",
+  });
+  assert.equal(withDesc.ok, true);
+  assert.deepEqual(
+    buildServiceEndpointCreateInput("s-1", "ip-1", withDesc.fields),
+    {
+      service: "s-1",
+      ip_address: "ip-1",
+      protocol: "UDP",
+      port: 53,
+      description: "DNS",
+    },
+  );
+});
+
+await test("F012 buildServiceEndpointPatch：exclude_unset 镜像（无变化 → null；service/ip_address 恒不上送）", async () => {
+  // 无变化 → null（不发起空更新）
+  const unchanged = parseServiceEndpointFormValues(
+    serviceEndpointFormValuesFromEndpoint(serviceEndpointFixture),
+  );
+  assert.equal(unchanged.ok, true);
+  assert.equal(
+    buildServiceEndpointPatch(serviceEndpointFixture, unchanged.fields),
+    null,
+  );
+  // 改 protocol/port（改后重检同 IP 监听唯一由服务端 409 承载）+ 清空 description
+  const changed = parseServiceEndpointFormValues({
+    ...serviceEndpointFormValuesFromEndpoint(serviceEndpointFixture),
+    protocol: "UDP",
+    port: "6819",
+    description: "",
+  });
+  assert.equal(changed.ok, true);
+  assert.deepEqual(
+    buildServiceEndpointPatch(serviceEndpointFixture, changed.fields),
+    { version: 2, protocol: "UDP", port: 6819, description: null },
+  );
+  // 仅改 description（非清空）→ 只携带 description
+  const descOnly = parseServiceEndpointFormValues({
+    ...serviceEndpointFormValuesFromEndpoint(serviceEndpointFixture),
+    description: "新描述",
+  });
+  assert.deepEqual(
+    buildServiceEndpointPatch(serviceEndpointFixture, descOnly.fields),
+    { version: 2, description: "新描述" },
+  );
+  // service/ip_address 创建后不可改（DR-157）：载荷恒不含这些键（即使表单值被篡改）
+  const tampered = parseServiceEndpointFormValues({
+    ...serviceEndpointFormValuesFromEndpoint(serviceEndpointFixture),
+    service: "another-service",
+    ipAddress: "another-ip",
+    port: "6820",
+  });
+  const tamperedPatch = buildServiceEndpointPatch(serviceEndpointFixture, tampered.fields);
+  assert.ok(!("service" in tamperedPatch), "PATCH 载荷不得携带 service 键（DR-157）");
+  assert.ok(!("service_id" in tamperedPatch), "PATCH 载荷不得携带 service_id 键");
+  assert.ok(!("ip_address" in tamperedPatch), "PATCH 载荷不得携带 ip_address 键（DR-157）");
+  assert.ok(!("ip_address_id" in tamperedPatch), "PATCH 载荷不得携带 ip_address_id 键");
+  assert.deepEqual(tamperedPatch, { version: 2, port: 6820 });
+});
+
+await test("F012 serviceEndpointFormValuesFromEndpoint：null → 默认空值；嵌套引用 id 提取与 port 字符串化", async () => {
+  assert.deepEqual(
+    serviceEndpointFormValuesFromEndpoint(null),
+    emptyServiceEndpointFormValues(),
+  );
+  const values = serviceEndpointFormValuesFromEndpoint(serviceEndpointFixture);
+  assert.equal(values.service, serviceEndpointFixture.service.id);
+  assert.equal(values.ipAddress, serviceEndpointFixture.ip_address.id);
+  assert.equal(values.protocol, "TCP");
+  assert.equal(values.port, "6818"); // 数值 → 文本（表单输入）
+  assert.equal(values.description, "Slurmd listen port");
+  // description null → 空串；往返解析后无变化（与 buildServiceEndpointPatch=null 联动）
+  const noDesc = serviceEndpointFormValuesFromEndpoint({
+    ...serviceEndpointFixture,
+    description: null,
+  });
+  assert.equal(noDesc.description, "");
+  const roundTrip = parseServiceEndpointFormValues(noDesc);
+  assert.equal(roundTrip.ok, true);
+  assert.equal(
+    buildServiceEndpointPatch(
+      { ...serviceEndpointFixture, description: null },
+      roundTrip.fields,
+    ),
+    null,
+  );
 });
 
 // 还原全局状态
