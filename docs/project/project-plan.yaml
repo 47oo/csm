@@ -762,8 +762,13 @@ features:
   - F011
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: PRODUCT Gate（product-manager 澄清 F012 范围与验收）
-  current_stage: PRODUCT
+  next_action: ARCHITECTURE Gate（architect：ServiceEndpoint 实体/依赖方案、layers、api_required）
+  current_stage: ARCHITECTURE
+  implementation:
+    product: COMPLETE
+  evidence:
+    product:
+    - docs/features/F012/product.md
 - id: F013
   title: 全局搜索与 Dashboard
   kind: FEATURE
@@ -1023,9 +1028,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F012
-  current_stage: PRODUCT
-  last_result: F012 started（分支 feature/F012-service-endpoint，start_commit 002730a）
-  next_action: PRODUCT Gate（product-manager）
+  current_stage: ARCHITECTURE
+  last_result: F012 PRODUCT COMPLETE（READY FOR ARCHITECT；无 Blocking Questions）
+  next_action: ARCHITECTURE Gate（architect）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
