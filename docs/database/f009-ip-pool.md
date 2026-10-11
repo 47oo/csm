@@ -19,7 +19,7 @@
 | DB-D103 | version integer NOT NULL DEFAULT 1 CHECK≥1；created_at/updated_at timestamptz NOT NULL now()（updated_at 应用维护无触发器）；deleted_at timestamptz NULL 软删 | DESIGN |
 | DB-D104 | 跨表 CIDR 包含 DB backstop：fn/trg_ip_pools_cidr_contains（BEFORE INSERT/UPDATE）校验 start/end `<<=` networks.cidr，并对 networks 行 `FOR KEY SHARE`；应用主校验→422 | PROPOSED→DATABASE（DR-104 裁定）+DESIGN |
 | DB-D105 | I-5 占用冲突 DB 侧无约束（F009 无 IP 数据）；由应用 `IpOccupancyProvider` 承担（F009 注册空集）；复用 `_lock_network`（networks 行 FOR UPDATE）；来源历史由 F010 `ip_addresses.ip_pool_id` FK RESTRICT 承接 | PROPOSED→DATABASE（DR-108/DR-109/I-5）+DESIGN |
-| DB-D106 | 索引仅 ix_ip_pools_network_id、ix_ip_pools_allocation_mode、ix_ip_pools_deleted_at；不建 pg_trgm/GIN、不建 start/end 单列 B-tree | DESIGN |
+| DB-D106 | 索引仅 ix_ip_pools_network_id、ix_ip_pools_allocation_mode、ix_ip_pools_deleted_at；不建 pg_trgm/GIN、不建 start/end 单列 B-tree（F013 交叉引用：`ip_pools` 不在 §17 搜索目标，F013 未建 ip_pools 索引；见 docs/database/f013-search-index.md §7-E2） | DESIGN |
 | DB-D107 | 迁移 0009_ip_pools，down_revision=0008_networks；不重复启用 btree_gist/pg_trgm（0008/0001 已启用）；单一 head、全表新建无回填、对称可逆 | DESIGN（DR-114） |
 | DB-D108 | F009 注册 Network 引用检查器（未删 Pool 阻止 Network 删除/改 cidr/cluster → references:[{object_type:"ip_pool",...}]）；Pool 自身删除引用集为空（§21 例外/DR-116）；DB 仅 FK RESTRICT 保证物理删 | CONFIRMED（§21/DR-96/DR-116）+DESIGN |
 | DB-D109 | F008 遗留订正（errata，非阻塞）：见 §7 | NOTE |

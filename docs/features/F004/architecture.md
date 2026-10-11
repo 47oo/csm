@@ -38,7 +38,7 @@
 
 - 列表：组合过滤 cluster(code)/cluster_id/type/role/status + q(hostname ILIKE) + 分页/排序。
 - Detail Overview（§18）：Hostname/Cluster/Type/Role/Status/Description；其它区域占位（F005+）。
-- hostname 基础搜索：`GET /resources?q=<hostname>`（ILIKE，不用 pg_trgm；全局搜索/pg_trgm/GIN 归 F013，沿用 DB-D30）。
+- hostname 基础搜索：`GET /resources?q=<hostname>`（ILIKE，不用 pg_trgm；全局搜索/pg_trgm/GIN 归 F013，沿用 DB-D30）。**F013 errata**：F013 `0013_search_indexes` 已建 `ix_resources_hostname_trgm`（GIN trigram），各域列表 `q` 行为不变。
 - 软删/恢复/审计/乐观锁：完全复用 F003 基座；object_type="resource"。
 - 引用检查：resource 自身被引用来源在 F007+（空集）；**F004 注册首个反向检查器 cluster←未删除 Resource**（有未删 Resource 时禁止删 Cluster，§21 必然结果，F003 cluster 删除随之收窄）。
 
@@ -117,7 +117,7 @@ PATCH（exclude_unset，省略=保持不重置）：version(必填)、hostname(�
 
 ### 4.2 唯一性与索引
 
-**uq_resources_cluster_id_hostname_key UNIQUE (cluster_id, hostname_key) WHERE deleted_at IS NULL**（部分唯一）：同 Cluster 未删除唯一、软删可重用、跨 Cluster 允许；与 F003 code_key 全量唯一对照，不可互换。索引：ix_resources_cluster_id、ix_resources_resource_type、ix_resources_role、ix_resources_status、ix_resources_deleted_at。pg_trgm/GIN 不在 F004 引入（F013）。索引最终集合交 Database 裁定。
+**uq_resources_cluster_id_hostname_key UNIQUE (cluster_id, hostname_key) WHERE deleted_at IS NULL**（部分唯一）：同 Cluster 未删除唯一、软删可重用、跨 Cluster 允许；与 F003 code_key 全量唯一对照，不可互换。索引：ix_resources_cluster_id、ix_resources_resource_type、ix_resources_role、ix_resources_status、ix_resources_deleted_at。pg_trgm/GIN 不在 F004 引入（F013）；**F013 errata**：已由 `0013_search_indexes` 建 `ix_resources_hostname_trgm`。索引最终集合交 Database 裁定（已完成，见 docs/database/f013-search-index.md）。
 
 ### 4.3 触发器与迁移
 

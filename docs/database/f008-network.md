@@ -17,7 +17,7 @@
 | DB-D86 | metadata jsonb NOT NULL DEFAULT '{}' + object CHECK；Network 自有 | CONFIRMED（§11/DR-95）+DESIGN |
 | DB-D87 | version integer NOT NULL DEFAULT 1 CHECK≥1；created_at/updated_at（updated_at 应用维护）；deleted_at | DESIGN |
 | DB-D88 | CIDR 不重叠排他约束 excl_networks_cluster_id_cidr EXCLUDE USING gist (cluster_id WITH =, cidr WITH &&) WHERE (deleted_at IS NULL)；cluster_id WITH = 需 btree_gist（0008 首次启用） | PROPOSED→DATABASE（I-1/DR-92）+DESIGN |
-| DB-D89 | 索引仅 ix_networks_cluster_id、ix_networks_status、ix_networks_deleted_at；不建 pg_trgm/GIN、不建 cidr 单列 B-tree | DESIGN |
+| DB-D89 | 索引仅 ix_networks_cluster_id、ix_networks_status、ix_networks_deleted_at；不建 pg_trgm/GIN、不建 cidr 单列 B-tree（F013 交叉引用：`networks` 不在 §17 搜索目标，F013 `0013_search_indexes` 未建 networks 索引；见 docs/database/f013-search-index.md §7-E2） | DESIGN |
 | DB-D90 | 依赖检查器落点：应用注册表（F008 初始空集，F009/F010 注册）+ networks 行 FOR UPDATE；DB 仅 FK RESTRICT；不建软删引用触发器（子表尚不存在，I-4） | PROPOSED→DATABASE（I-4/DR-96）+DESIGN |
 | DB-D91 | 迁移 0008_networks，down_revision=0007；首次 CREATE EXTENSION IF NOT EXISTS btree_gist；建表→约束/排他→索引；对称可逆、单一 head、无回填、真库 up/down/up | DESIGN（DR-100） |
 | DB-D92 | I-1/I-2/I-4 落地见 §3 | DESIGN |

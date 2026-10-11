@@ -17,7 +17,7 @@
 | DB-D134 | `description` text NULL（无长度上限，同 F003/F004/F007/F008/F009） | DESIGN（D01 §5.10 拟） |
 | DB-D135 | `version` integer NOT NULL DEFAULT 1 CHECK ≥1；`created_at`/`updated_at` timestamptz NOT NULL `now()`（`updated_at` 应用维护，无触发器）；`deleted_at` timestamptz NULL 软删 | DESIGN |
 | DB-D136 | **不建** `resource_id` 不可变触发器：不可改为 CONTRACT 层规则，应用 PATCH 出现 `resource`/`resource_id` → 422。沿用 F008/F009/F010 先例 | DESIGN（DR-144 裁定） |
-| DB-D137 | 索引集合：`uq_services_resource_id_name_key`（部分唯一）+ `ix_services_resource_id`、`ix_services_status`、`ix_services_deleted_at`；**不建** pg_trgm/GIN、不建 name/name_key 单列 B-tree、不建额外复合索引 | DESIGN |
+| DB-D137 | 索引集合：`uq_services_resource_id_name_key`（部分唯一）+ `ix_services_resource_id`、`ix_services_status`、`ix_services_deleted_at`；**F011 不建** pg_trgm/GIN、不建 name/name_key 单列 B-tree、不建额外复合索引。**errata(F013)**：F013 `0013_search_indexes` 已建 `ix_services_name_key_trgm`（GIN gin_trgm_ops、非 partial）；「不建 name/name_key **单列 B-tree**」仍成立（GIN ≠ btree）。 | DESIGN+errata(F013) |
 | DB-D138 | 迁移 `0011_services`，`down_revision=0010_ip_addresses`；**不重复启用** pg_trgm/btree_gist（0001/0008 已启用）；单一 head、全表新建无回填、对称可逆 | DESIGN（DR-151） |
 | DB-D139 | F011 注册 Resource←未删 Service 引用检查器（与 F006/F007 同机制，收窄 F004 DELETE /resources）；Service 删除引用集由 `register_service_reference_checker` 扩展点承担（F011 默认空集，F012 注册真实 Endpoint provider）；DB 仅 FK RESTRICT 保证物理删除完整性 | CONFIRMED（§21/DR-146/DR-147）+DESIGN |
 | DB-D140 | D01 v9→v10 §5.10 的 DB 依据：name 1–255、name_key=ASCII_lower(btrim(name))、status 默认/取值、description text 无上限、metadata Service 自有 object 默认 {}、resource 创建必填不可改；(resource_id,name_key) 部分唯一 | PROPOSED→CONTRACT/D01（I-1/I-3/DR-152）+DESIGN |
@@ -55,7 +55,7 @@ CHECK 形态（`ck_` 由 naming convention 展开为 `ck_services_<name>`）：
 
 - `uq_services_resource_id_name_key` UNIQUE(resource_id, name_key) WHERE deleted_at IS NULL（部分唯一）。
 - `ix_services_resource_id`、`ix_services_status`、`ix_services_deleted_at`。
-- **无**不可变触发器（DB-D136）；**无** pg_trgm/GIN；**无** name/name_key 单列 B-tree。
+- **无**不可变触发器（DB-D136）；F011 **无** pg_trgm/GIN（**F013 errata**：F013 已加 `ix_services_name_key_trgm` GIN trigram）；**无** name/name_key 单列 B-tree。
 
 DDL（关键片段，供迁移使用）：
 
@@ -123,7 +123,7 @@ name：trim→非空→禁控制字符（应用 Unicode Cc/Cf；DB `[[:cntrl:]]`
 | `ix_services_status` | 列表 status 过滤 | 低基数，已确认基线 |
 | `ix_services_deleted_at` | deleted=include/only | 与既有 Feature 一致 |
 
-不建 pg_trgm/GIN；不建 name/name_key 单列 B-tree；不新增复合索引。
+F011 不建 pg_trgm/GIN（**F013 errata**：F013 追加 `ix_services_name_key_trgm`）；不建 name/name_key 单列 B-tree；不新增复合索引。
 
 ### 3.6 生命周期、引用与跨 Feature 落点（DB-D139，DR-145/146/147/148）
 - 软删/恢复：`deleted_at`；恢复重新进入部分唯一，冲突被拒→应用 409 unique_conflict{name}，不覆盖；另重检 Resource 未软删（应用 dependency_deleted）；不级联、不恢复 Endpoint。
@@ -184,7 +184,7 @@ downgrade（对称逆序）：drop 三普通索引 → drop 部分唯一索引 �
 
 ## 7. Backend 可依赖保证与测试项
 
-**保证（DB 层）**：`id` 唯一（PK）；`resource_id` 非空指向存在 Resource（FK），物理删被引用 Resource 被 RESTRICT 拒；同 Resource 未删 `(resource_id,name_key)` 唯一、跨 Resource 允许、软删释放、恢复冲突被拒；name 已 trim 非空、无 ASCII 控制字符、1–255，内部普通空格与中文保留不合并；name_key 恒等于 `ASCII_lower(btrim(name))`；status 恒 3 值默认 UNKNOWN；metadata 恒 object 默认 {}；description 可空无上限；version ≥1 默认 1；索引集合存在且无 pg_trgm/GIN、无 name/name_key 单列 B-tree；0011 有真实 downgrade、单一 head、无回填、扩展不重复启用。
+**保证（DB 层）**：`id` 唯一（PK）；`resource_id` 非空指向存在 Resource（FK），物理删被引用 Resource 被 RESTRICT 拒；同 Resource 未删 `(resource_id,name_key)` 唯一、跨 Resource 允许、软删释放、恢复冲突被拒；name 已 trim 非空、无 ASCII 控制字符、1–255，内部普通空格与中文保留不合并；name_key 恒等于 `ASCII_lower(btrim(name))`；status 恒 3 值默认 UNKNOWN；metadata 恒 object 默认 {}；description 可空无上限；version ≥1 默认 1；索引集合存在且无 name/name_key 单列 B-tree；**F013 errata**：F013 追加 `ix_services_name_key_trgm`（GIN gin_trgm_ops）；0011 有真实 downgrade、单一 head、无回填、扩展不重复启用。
 
 **不保证（应用/Contract 层）**：resource 软删时点校验（应用 422）；resource_id 不可变（应用 422）；Unicode Cc/Cf（DB 仅 ASCII backstop）；Endpoint 引用保护（F012 provider）；Resource←Service 软删引用保护（应用检查器）；status「非探测、不由名称推导」（业务规则）；`name ILIKE` 性能（正确性保证）。
 
@@ -199,7 +199,7 @@ downgrade（对称逆序）：drop 三普通索引 → drop 部分唯一索引 �
 - **V-DB-119** version 默认 1、<1 拒；乐观锁双会话仅一成功。
 - **V-DB-120** FK RESTRICT：物理删有未删 Service 的 Resource 拒；软删 Service 行仍在；软删 Resource 不删 services 行。
 - **V-DB-121** resource 不可改断言：无不可变触发器；UPDATE resource_id 在 DB 层不被阻止（应用 422）。
-- **V-DB-122** 索引目录：部分唯一谓词正确；三索引存在；无 pg_trgm/GIN、无 name/name_key 单列 B-tree。
+- **V-DB-122** 索引目录：部分唯一谓词正确；三索引存在；无 name/name_key 单列 B-tree；**F013 errata**：改为断言 `ix_services_name_key_trgm`（GIN gin_trgm_ops）存在、无单列 btree。
 - **V-DB-123** 恢复重检 DB 层：软删同名后重建，恢复旧对象被部分唯一拒（不覆盖）；Resource 依赖留应用。
 - **V-DB-124** Service 删除引用集：DB 无约束；reference_exists 由应用 provider 承担（F011 空集断言）。
 - **V-DB-125** 迁移边界：0011 不含 CREATE EXTENSION；downgrade 后可再 upgrade；既有表无结构改动。

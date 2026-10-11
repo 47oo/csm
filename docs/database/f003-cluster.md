@@ -18,7 +18,7 @@
 | DB-D27 | audit_logs 多态 (object_type, object_id) 无对象 FK；operator_user_id FK→users.id ON DELETE RESTRICT（可空）+ operator_username 快照 | CONFIRMED（§22/§21） |
 | DB-D28 | audit_logs append-only 由 DB 行级触发器强制；无 deleted_at、无 version | DESIGN（§22/§6） |
 | DB-D29 | audit_logs before/after JSONB 至少一方非空；非空时必须 object | DESIGN（§22） |
-| DB-D30 | pg_trgm GIN 不在 F003 引入；F004/F013 评估后追加（扩展已由 0001 启用） | DESIGN（§26/plan F013） |
+| DB-D30 | pg_trgm GIN 不在 F003 引入；F004/F013 评估后追加（扩展已由 0001 启用）。**errata(F013)**：F013 `0013_search_indexes` 已为 `clusters` 落地 `ix_clusters_code_key_trgm`/`ix_clusters_name_trgm`（GIN trigram、非 partial）；本行「F003 不引入」的历史陈述仍真。 | DESIGN（§26/plan F013）+errata(F013) |
 | DB-D31 | 迁移 0003_clusters_audit 追加，对称可逆、单一 head、真库 up/down/up | DESIGN（DB-D7） |
 | DB-D32 | clusters.updated_at 应用维护无触发器；code 不可改由 DB 触发器 trg_clusters_code_immutable + 应用 422 双重保证 | CONFIRMED（§5）+ DESIGN |
 
@@ -37,7 +37,7 @@
 | created_at/updated_at | timestamptz | NOT NULL | now() | UTC；updated_at 应用维护 |
 | deleted_at | timestamptz | NULL | — | 软删 |
 
-唯一/索引：**uq_clusters_code_key UNIQUE(code_key) 全量唯一（含软删）** 实现 §5 code 不重用 + §27 DB 兜底；ix_clusters_status；ix_clusters_deleted_at；不建 pg_trgm GIN（DB-D30）。
+唯一/索引：**uq_clusters_code_key UNIQUE(code_key) 全量唯一（含软删）** 实现 §5 code 不重用 + §27 DB 兜底；ix_clusters_status；ix_clusters_deleted_at；不建 pg_trgm GIN（DB-D30）；**F013 已追加 clusters 两条 GIN trigram**（`ix_clusters_code_key_trgm`/`ix_clusters_name_trgm`，见 docs/database/f013-search-index.md）。
 
 **code_key 归一化口径（v2，REV-1）**：`code_key = translate(btrim(code), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')`。仅对 ASCII 小写字母折叠为大写，**不依赖数据库 locale / collation**，非 ASCII 码位（含中文、`ß`、`ﬁ`）原样保留。应用侧必须使用完全相同的 ASCII-only 折叠规则生成 code_key（v1 的 PG `upper()` 与 Python `str.upper()` 对多码位 Unicode 映射不一致，会触发 `ck_clusters_code_key_matches` CheckViolation，见 REV-1）。中文无大小写不受影响。
 
@@ -66,7 +66,7 @@ append-only：DB 行级触发器 trg_audit_logs_append_only（BEFORE UPDATE OR D
 ## 4. 四项交核裁定
 
 ① **code_key 全量唯一 vs 通用部分唯一**：Cluster code 全量唯一（含软删，永久预约，恢复无 code 冲突）；通用对象（hostname/Network/Pool/Service/Interface name）部分唯一 WHERE deleted_at IS NULL（可复用，恢复须重查冲突）。两者不可互换。
-② **pg_trgm GIN**：F003 不引入（低基维表；§26 为建议；plan F013 定为引入点）；`q` 用 ILIKE/contains，正确性不依赖索引；需要时追加迁移不改表结构。
+② **pg_trgm GIN**：F003 不引入（低基维表；§26 为建议；plan F013 定为引入点，已由 F013 `0013_search_indexes` 落地 clusters 两条 GIN trigram）；`q` 用 ILIKE/contains，正确性不依赖索引；需要时追加迁移不改表结构。
 ③ **audit append-only**：DB 触发器强制（F001 DB-D11 允许 Compose 单角色，REVOKE 对 owner 不可靠；触发器跨角色一致）。
 ④ **软删过滤**：DB 只提供列/索引，可见性语义归 ORM；with_loader_criteria/do_orm_execute 仅作用于 SoftDeleteMixin 模型（users/audit_logs 无 deleted_at，不得全局注入）；F004+ 关系加载须验证 criteria 传播；不引入 RLS。
 
@@ -104,7 +104,7 @@ revision="0003_clusters_audit"、down_revision="0002_users_sessions"；单一 he
 - **I-1（MEDIUM，交 Architect，契约对齐）**：architecture DR-24 建议 code ASCII 正则 `^[A-Z0-9][A-Z0-9._-]{0,63}$`，会拒绝 §5 示例中的中文集群标识（山河3/亘聪集群）。本设计按 D01 采用宽松规则（trim/非空/无空白控制字符/≤64，大小写不敏感由 code_key 承载），保留中文可能。需 Architect 在 docs/api/F003.md 的 code 校验与本设计一致；若 Product 确认 code 仅 ASCII 则改严格正则（无数据，迁移低成本）。**属 §35.3 D01 专业设计输入，非新业务规则。**
 - I-2（LOW）：code varchar(64)/name varchar(255)/operator_username varchar(64) 长度口径需 API 契约镜像。
 - I-3（LOW）：触发器受控禁用流程写入运维/迁移说明。
-- I-4（NOTE）：pg_trgm GIN 延后，F004/F013 决定。
+- I-4（NOTE）：pg_trgm GIN 延后，已由 F004/F013 决定；F013 `0013_search_indexes` 落地 clusters 两条 GIN trigram，**本项闭合**。
 - **I-6（LOW，非阻塞，REV-2 已知差异）**：DB `ck_clusters_code_no_ws_control`/`ck_clusters_name_no_control` 用 `!~ '[[:space:][:cntrl:]]'`，在 PG locale（如 en_US.utf8）下仅覆盖 ASCII/有限范围，**弱于**应用对 Unicode Cc/Cf 与 `isspace()` 的校验；API 路径由应用拦截无绕过，DB 仅为 backstop，记录为已知差异，不阻塞。
 - I-5（NOTE）：软删可见性非 DB 保证，with_loader_criteria 按 Mixin 作用域注入，列 Backend 集成测试。
 - 只读签核，全部为计划验证无 PASS。

@@ -44,7 +44,7 @@ F013 在已交付资源域之上新增两个跨域**只读**通用入口，不�
 | DR-186 | 计划字段：`layers.database=true`、`layers.backend=true`、`layers.frontend=true`、`api_required=true`（I-18） | PROPOSED→CONTRACT（I-18） |
 | DR-187 | 只读无副作用：无写端点、不写 Audit、重复调用幂等（I-4/§22/§20） | CONFIRMED（§22/§23）+DESIGN |
 | DR-188 | Dashboard 计数全局口径（I-8），不默认按 Cluster 过滤；OPEN I-8 若后续确认，以新增可选参数扩展，不破坏现有响应 | PROPOSED→CONTRACT（I-8） |
-| DR-189 | F013 引入 GIN 使既有 DB 决策与桩测试失效：DB-D30/DB-D38/DB-D41/DB-D89/DB-D124/DB-D137 的「不建 pg_trgm/GIN」需由 Database 以 errata 修订；`test_resource_constraints.py:300`、`test_service_constraints.py:225`、`test_cluster_*`（如有）等无-GIN 断言需 Tester/Backend 同步 | CONFIRMED+DESIGN（跨 Feature 一致性，见 §9/§12） |
+| DR-189 | F013 引入 GIN 使既有 DB 决策与桩测试失效：DB-D30/DB-D41/DB-D89/DB-D124/DB-D137 的「不建 pg_trgm/GIN」需由 Database 以 errata 修订（原列 DB-D38 系编号误标：DB-D38 为 `uq_resources_cluster_id_hostname_key` 部分唯一决策，与 GIN 无关；resources errata 目标为 DB-D41）；`test_resource_constraints.py:300`、`test_service_constraints.py:225`、`test_cluster_*`（如有）等无-GIN 断言需 Tester/Backend 同步 | CONFIRMED+DESIGN（跨 Feature 一致性，见 §9/§12） |
 
 > 状态语义：`CONFIRMED`+`DESIGN` = 由已确认规则必然产生的技术要求；`PROPOSED→CONTRACT` = 对 F013 product I-11–I-18（均非阻塞）给出的可实施默认，由 Product/Architect 在 CONTRACT Gate 定稿，不在此之前视为永久规则。
 
@@ -147,7 +147,7 @@ F013 在已交付资源域之上新增两个跨域**只读**通用入口，不�
 - **是否 partial**：`WHERE deleted_at IS NULL` 可减小索引，但 `deleted=include/only`（ADMIN）需全量；倾向非 partial，由 Database 裁定。
 - **不建**：Networks/Interfaces/IPPools/ServiceEndpoints/各类型的 name 之外列不建 trigram（§17 只要求 hostname/IP/Cluster/Service）。
 - **迁移可逆性**：up 建索引、down 对称 DROP 索引；**不 DROP pg_trgm/btree_gist**（F001 DB-D4）；单 head、无回填。
-- **既有 no-GIN 决策的 errata（DR-189）**：DB-D30/DB-D38/DB-D41/DB-D89/DB-D124/DB-D137 等「不建 pg_trgm/GIN」需 Database 在 DATABASE Gate 以 errata 或新决策修订（明确 F013 引入），并同步受影响断言测试。此为跨 Feature 一致性事项，不改变各域业务行为。
+- **既有 no-GIN 决策的 errata（DR-189）**：DB-D30/DB-D41/DB-D89/DB-D124/DB-D137 等「不建 pg_trgm/GIN」需 Database 在 DATABASE Gate 以 errata 或新决策修订（明确 F013 引入），并同步受影响断言测试。DB-D38 系编号误标（实为部分唯一约束决策），resources 的 errata 目标为 DB-D41。此为跨 Feature 一致性事项，不改变各域业务行为。
 
 ## 7. 与各域列表 `q` 的契约收敛（I-17，DR-185）
 
@@ -184,7 +184,7 @@ F013 在已交付资源域之上新增两个跨域**只读**通用入口，不�
 - **去重/排序/展开/空查询**：I-11（同 Resource 多路径不重复、对象唯一）、I-12（Cluster 不展开）、I-13（空 q 422）。
 - **Dashboard**：A13–A23。计数口径（A13/A23）、per-Network 容量（A14）、AUTO 池（A15）、排除/去重（A16）、占用含未绑定与池外、软删不计、负值原样（A17）、AUTO 占用按当前地址、Network 含池外（A18）、容量与状态/许可分别展示与 INACTIVE 不清零（A19）、与 F010 `/capacity` 逐项一致（A20）。
 - **只读/权限**：A21（无写端点、无 Audit）、A22（全角色可读；401；include/only 需 VIEW_DELETED）。
-- **迁移**：0013 up/down/up、单 head、无回填、GIN 索引存在断言、扩展前后一致（pg_trgm/btree_gist 不变）；DB-D30/38/41/89/124/137 相关「无 GIN」桩测试同步更新（DR-189）。
+- **迁移**：0013 up/down/up、单 head、无回填、GIN 索引存在断言、扩展前后一致（pg_trgm/btree_gist 不变）；DB-D30/41/89/124/137 相关「无 GIN」桩测试同步更新（DR-189；原含 DB-D38 系误标）。
 - **契约收敛**：各域列表 `q` 行为回归不变（I-17）。
 - **排除项**：A24（SN/MAC/Role/GPU Model 不纳入验收）。
 - 限制：pg_trgm/负值/GIN 必须真 PG；SQLite/Mock 不足以证明。
@@ -202,7 +202,7 @@ api_required: true   # /api/v1/search + /api/v1/dashboard
 
 ## 12. 风险与待核对项
 
-- **交 DATABASE（I-15）**：GIN 索引集合/opclass/表达式/partial 取舍；`host(address)` 索引取舍；迁移 0013 up/down/up；既有 DB-D30/38/41/89/124/137 的 errata；EXPLAIN 命中证据。
+- **交 DATABASE（I-15）**：GIN 索引集合/opclass/表达式/partial 取舍；`host(address)` 索引取舍；迁移 0013 up/down/up；既有 DB-D30/41/89/124/137 的 errata（原含 DB-D38 系误标）；EXPLAIN 命中证据。
 - **交 TEST_DESIGN**：A1–A24 判据；去重/排序全序与稳定分页；与 F010 `/capacity` 逐项一致；真库 GIN；既有 no-GIN 断言更新范围。
 - **交 CONTRACT**：I-11（去重可用 typed 行 vs product PROPOSED 折叠）、I-12、I-13、I-14、I-16、I-17 定稿；搜索条目字段/错误细节；`q` 长度上限。
 - **I-8（OPEN，product）**：Dashboard 是否按 Cluster 过滤 — 本设计不默认新增；CONTRACT 若确认则加可选参数，不影响现有响应。

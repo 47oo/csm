@@ -834,8 +834,8 @@ features:
   - F011
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: CONTRACT Gate（architect 定稿 docs/api/F013.md v1 + 裁定 I-11–I-18 + errata 同步 + D02 索引签核）
-  current_stage: CONTRACT
+  next_action: IMPLEMENTATION（Backend：迁移 0013 GIN + /search + /dashboard + no-GIN 断言同步；Frontend：首页搜索 + Dashboard）
+  current_stage: IMPLEMENTATION
   layers:
     database: true
     backend: true
@@ -846,6 +846,7 @@ features:
     architecture: COMPLETE
     database: COMPLETE
     test_design: COMPLETE
+    contract: COMPLETE
   evidence:
     product:
     - docs/features/F013/product.md
@@ -855,6 +856,8 @@ features:
     - docs/database/f013-search-index.md
     test_design:
     - docs/features/F013/test-report.md#test-design
+    contract:
+    - docs/api/F013.md
 - id: F014
   title: CSV / Excel 批量导入
   kind: FEATURE
@@ -1082,9 +1085,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F013
-  current_stage: CONTRACT
-  last_result: F013 DATABASE COMPLETE（READY FOR DATABASE IMPLEMENTATION；DB-D157–D166，4 条非 partial GIN，IP 索引延期）+ TEST DESIGN READY
-  next_action: CONTRACT Gate（architect 定稿）
+  current_stage: IMPLEMENTATION
+  last_result: F013 CONTRACT COMPLETE（READY FOR IMPLEMENTATION；F013.md v1，I-11–I-18 定稿，D01 无变更，errata 同步）
+  next_action: IMPLEMENTATION（backend + frontend）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
