@@ -21,6 +21,7 @@ import {
   type SortOrder,
 } from "../api/services";
 import ServiceForm from "../components/ServiceForm";
+import ServiceEndpointsPanel from "../components/ServiceEndpointsPanel";
 import { parseMetadataText } from "../components/ClusterForm";
 import {
   buildServiceCreateInput,
@@ -44,12 +45,13 @@ type ResourceOptionsState =
   | { kind: "success"; resources: Resource[]; total: number }
   | { kind: "error"; message: string };
 
-/** 面板交互模式：列表 / 创建表单 / 编辑表单 / Activity。 */
+/** 面板交互模式：列表 / 创建表单 / 编辑表单 / Activity / Endpoints 管理区。 */
 type PanelMode =
   | { kind: "list" }
   | { kind: "create" }
   | { kind: "edit"; service: Service }
-  | { kind: "activity"; service: Service };
+  | { kind: "activity"; service: Service }
+  | { kind: "endpoints"; service: Service };
 
 /** Activity 加载状态（分页）。 */
 type ActivityState =
@@ -125,7 +127,9 @@ function parseSubmission(values: ServiceFormValues) {
  *   reference_exists 展示引用列表（F011 默认空集，F012 起真实，DR-146）；
  * - 恢复（RESTORE）：409 not_deleted / unique_conflict / dependency_deleted
  *   （所属 Resource 仍删 / 缺失，DR-148）明确呈现；
- * - Activity（VIEW_ACTIVITY 全角色）：created_at 升序只读流水，无修改/删除入口。
+ * - Activity（VIEW_ACTIVITY 全角色）：created_at 升序只读流水，无修改/删除入口；
+ * - Endpoints 管理区（F012，DR-170）：Service Detail 的监听端点列表 / 新建 /
+ *   编辑 / 删除 / 恢复 / Activity（ServiceEndpointsPanel，按 service_id 过滤）。
  */
 export default function ServicesPage({ user }: ServicesPageProps) {
   const canWrite = user.permissions.includes("WRITE");
@@ -619,6 +623,16 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                             >
                               Activity
                             </button>
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={() => {
+                                setFormError(null);
+                                setMode({ kind: "endpoints", service });
+                              }}
+                            >
+                              Endpoints
+                            </button>
                             {canWrite && service.deleted_at === null && (
                               <button
                                 type="button"
@@ -862,6 +876,13 @@ export default function ServicesPage({ user }: ServicesPageProps) {
               </>
             ))}
         </div>
+      )}
+      {mode.kind === "endpoints" && (
+        <ServiceEndpointsPanel
+          service={mode.service}
+          user={user}
+          onBack={() => setMode({ kind: "list" })}
+        />
       )}
     </section>
   );
