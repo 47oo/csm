@@ -900,8 +900,13 @@ features:
   - F006
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: PRODUCT Gate（product-manager 产出 docs/features/F014/product.md）
-  current_stage: PRODUCT
+  next_action: ARCHITECTURE Gate（architect 产出 architecture.md + api/F014.md 草案，定 layers/api_required，签核 D03）
+  current_stage: ARCHITECTURE
+  implementation:
+    product: COMPLETE
+  evidence:
+    product:
+    - docs/features/F014/product.md
 - id: F015
   title: Audit 查询、已删除对象管理与系统功能
   kind: FEATURE
