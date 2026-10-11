@@ -320,6 +320,238 @@ TD-1 结论：**`TEST DESIGN READY`** —— A1–A21 已映射到可观察判�
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
 | TD-1 | 2026-10-11 | 初版 Test Design（见 §Test Design）。 |
+| TD-2 | 2026-10-12 | 依 Database v1、Contract v1、D01 v11 §5.11、F010 errata-03 逐项关闭 §8 OPEN-1–20，并入 Architect 定稿判据调整（见 §10）。 |
+| TE-1 | 2026-10-12 | 首次独立执行（基线 HEAD=e5c1504）：A1–A21、V-DB-126–138、B1–B45 结果与证据；新增 Tester 独立套件 10 项（见 §11）。结论 `READY FOR REVIEW`。 |
+
+> **TD-1 Git 记录**：
+> ```text
+> GIT: git rev-parse --short HEAD
+> GIT: git branch --show-current
+> GIT: git status --porcelain
+> ```
+
+---
+
+## 10. Test Design 复核（TD-2）
+
+- **版本**：TD-2
+- **日期**：2026-10-12
+- **角色**：Tester（TEST_DESIGN 模式复核）
+- **结论**：`TEST DESIGN READY`（TD-2；§8 OPEN-1–20 全部关闭，未验证项保持明确标注）
+- **复核依据（已定稿）**：
+  - `docs/database/f012-service-endpoint.md` v1（Database 2026-10-09，DB-D142–DB-D156）
+  - `docs/api/F012.md` v1（Contract READY，Architect 2026-10-09）
+  - `docs/architecture/d01-conventions.md` v11（§5.2、§5.11、§8 修订记录）
+  - `docs/api/F010.md` v1 + **errata-03**（2026-10-09，`object_type` `"endpoint"`→`"service_endpoint"`，桩测试同步）
+  - `docs/features/F012/{product,architecture,implementation}.md`（A1–A21、DR-155–DR-170）
+- **状态属性**：TD-2 `READY` 仅表示 A1–A21 判据已与定稿设计逐项对齐、可执行；不代表测试已运行、不批准实现或合并。测试执行见 §11（TE-1）。
+
+### 10.1 §8 OPEN-1–20 关闭结论
+
+| # | 定稿结论（判据固定） | 关闭依据 |
+| --- | --- | --- |
+| OPEN-1 | 表 `service_endpoints`；列/类型/必填/默认与 DB v1 §2 一致（`id uuid pk gen_random_uuid()`、`service_id uuid NOT NULL`、`ip_address_id uuid NOT NULL`、`protocol varchar(8) NOT NULL`、`port integer NOT NULL`、`description text NULL`、`version int NOT NULL DEFAULT 1`、`created_at/updated_at timestamptz NOT NULL now()`、`deleted_at timestamptz NULL`） | DB v1 §2；V-DB-126/127；实测目录 + 独立库 raw SQL 一致 |
+| OPEN-2 | 约束/索引名：`pk_service_endpoints`、`fk_service_endpoints_service_id_services`、`fk_service_endpoints_ip_address_id_ip_addresses`、`ck_service_endpoints_{protocol,port,version}`、`uq_service_endpoints_ip_protocol_port`、`ix_service_endpoints_{service_id,ip_address_id,deleted_at}` | DB v1 §2；V-DB-126/134；实测目录一致 |
+| OPEN-3 | 部分唯一精确形态 `UNIQUE(ip_address_id,protocol,port) WHERE deleted_at IS NULL`；同 IP 未删唯一、不同 IP 允许、软删释放、恢复冲突拒 | DB v1 §3.1/DB-D149；V-DB-130/136 |
+| OPEN-4 | `ck_service_endpoints_protocol` ∈{TCP,UDP}；`ck_service_endpoints_port` 1–65535（含端点）；仅大写规范值存储 | DB v1 §3.2/DB-D145/146；V-DB-128/129 |
+| OPEN-5 | **归属 backstop 采纳并确定存在**：`fn_service_endpoints_attribution` + `trg_service_endpoints_attribution`（BEFORE INSERT/UPDATE，逐行；**不检查软删、不加行锁**）；未绑定/跨 Resource 抛 `restrict_violation`（实测 SQLSTATE=`23001`）。V-DB-5/B6/B39 判据改为断言**触发名/时机**及 SQLSTATE；归属窗口由 F010 provider + 触发**双证**（触发器保证写入时点结构归属，F010 在 IP 事务内调用 provider 拦截解绑/转移） | DB v1 §3.3/DB-D150；V-DB-132；独立库 raw SQL（pg_trigger `tgtype=23`、SQLSTATE 23001） |
+| OPEN-6 | `service_id`/`ip_address_id` NOT NULL FK `ON DELETE RESTRICT`；`service`/`ip_address` 创建后不可改**仅为应用 422**（PATCH 出现不可变字段→422）；**DB 无不可变触发器**，DB 层 `UPDATE service_id=...` 不被阻止 | DB v1 §3.4/DB-D151；V-DB-133；独立库 raw SQL（`UPDATE service_id` 成功） |
+| OPEN-7 | 索引集合=部分唯一 + 3 普通 btree（`service_id`/`ip_address_id`/`deleted_at`）；**不建** pg_trgm/GIN、不建独立 `protocol` 索引、不重复启用扩展 | DB v1 §3/DB-D152；V-DB-134 |
+| OPEN-8 | `version` DEFAULT 1、CHECK ≥1；时间戳列；`deleted_at` 可空；软删/恢复与部分唯一交互 | DB v1 §2/§3；V-DB-127/135/136 |
+| OPEN-9 | 迁移 `0012_service_endpoints`（`down_revision=0011_services`）单 head、全表新建无回填、对称可逆、不重复启用扩展 | DB v1 §4；V-DB-126/138 |
+| OPEN-10 | 恢复重检 DB 层：部分唯一重新入索引拒冲突；归属触发在恢复（UPDATE）时重跑；越界/存活/依赖交应用 | DB v1 §3.3/§5；V-DB-130/136 |
+| OPEN-11 | 错误码复用集固定：`unique_conflict` details `{field:"port",ip_address_id,protocol,port}`；`not_deleted` `{}`；`dependency_deleted` `conflicts:[{object_type:"service"\|"ip_address"\|"interface",object_id}]`；`reference_exists` `references:[{object_type:"service_endpoint",object_id,label}]`；F012 **不新增** code/reason | Contract v1 §1.2/§6；V8/V12/V13/V14；B9/B12/B14/B15/B21/B24 |
+| OPEN-12 | `object_type` canonical=`"service_endpoint"`；**F010 errata-03 已落地**（`docs/api/F010.md` §1.2 + 修订记录；`backend/tests/integration/test_ip_addresses.py` 4 处桩测试同步） | F010 errata-03；Contract v1 §1.2/§9；B14/`test_reference_providers_registered` |
+| OPEN-13 | 校验顺序固定：POST 401→403→body(422)→service→ip_address 存在/未软删→归属→protocol→port→唯一(409)→写+Audit→201；PATCH 401→403→body→可见性(404)→version(409)→取值(422)→唯一重检(409)→写→200；DELETE 对象(404)→version 校验(422)→版本(409)→软删；**restore 确定性优先级 唯一(409)→依赖(409)→归属(422)** | Contract v1 §6；V23/B22/B43 |
+| OPEN-14 | 列表 Query=`service_id/ip_address_id/protocol/deleted/page/page_size/sort/order`；`deleted∈{exclude,include,only}`；`sort∈{protocol,port,created_at,updated_at}`、`sort=port` 按数值；**不新增** cluster/resource 过滤参数 | Contract v1 §4（DR-167）；V18/B29/B30 |
+| OPEN-15 | **D01 v11 §5.11 已签核**（Architect 2026-10-09）：service/ip_address 创建必填、引用须存活、创建后不可改；ip_address 须已绑定 Interface 且属 Service.Resource；protocol∈{TCP,UDP}（大写）；port 1–65535；description 可空无上限；同 IPAddress 未删部分唯一；不落 metadata/name/status；§5 名称表不适用；§8 已记 v11 | D01 v11 §5.2/§5.11/§8 |
+| OPEN-16 | 权限：READ/WRITE/DELETE_OBJECT/VIEW_DELETED/RESTORE/VIEW_ACTIVITY（全角色）；审计白名单 `{service_id,ip_address_id,protocol,port,description}`、`object_type="service_endpoint"` | Contract v1 §1.3/§8；V15/V16/B25–B28 |
+| OPEN-17 | 响应契约：`service{id,name,resource{id,hostname}}`、`ip_address{id,address,network{id,name},interface{id,name}}` 嵌套；不含 `metadata`/原始 `service_id`/`ip_address_id`；列表 `{items,page,page_size,total}`；软删可见性语义 | Contract v1 §3/§5；V22/B18/B29/B30 |
+| OPEN-18 | 双 provider 落点：F012 在启动导入链注册两个**真实** provider（`ip_address_reference.register_ip_address_reference_checker`、`service_reference.register_service_reference_checker`，模块 `app/services/endpoint_reference.py`）；`label=f"protocol/port"`；F010/F011 未删行不参与引用 | Contract v1 §1.2/§9（DR-161）；B12/B14/B15/`test_reference_providers_registered` |
+| OPEN-19 | I-2 关闭：CONTRACT 固定 `service`/`ip_address` 创建后不可改（PATCH 出现含同值→422）；`protocol`/`port` 可 PATCH 并重检监听唯一；`description` 可改（显式 null 清空、省略保持） | Contract v1 §2.1/§2.2/§2.5/§6.4；V21/V25/B33/B35 |
+| OPEN-20 | **Contract 状态与上游一致性已修正**：`docs/api/F012.md` v1 现引用已存在的 `docs/database/f012-service-endpoint.md` v1 与 `d01-conventions.md` v11 §5.11；F010 errata-03 已落地；0012 迁移与后端代码已交付。TD-1 的一致性观察（NOTE）关闭 | Contract v1 文件头/§10；DB v1；D01 v11 |
+
+### 10.2 对 TD-1 判据的调整（并入 Architect 定稿）
+
+1. **V-DB 编号切换**：执行与报告采用 Database 的 `V-DB-126`–`V-DB-138`；TD-1 的 V-DB-1…9 为其概要等价物，逐一映射见 §11.5。
+2. **归属 backstop 由「若裁定」改为确定存在**：V-DB-5/B6/B39 断言 `trg_service_endpoints_attribution` 名称、`BEFORE INSERT OR UPDATE` 时机、`restrict_violation`（SQLSTATE 23001）；软删/普通 UPDATE 不误拒；不检查软删、不加锁。
+3. **不可变分层**：应用 PATCH 含 `service`/`service_id`/`ip_address`/`ip_address_id`/`id`→422；DB 无不可变触发器（`UPDATE service_id` 允许）。
+4. **错误码 details 形状固定**（OPEN-11）；`dependency_deleted` 的 `object_type∈{service,ip_address,interface}`，`reference_exists` 的 `object_type="service_endpoint"`。
+5. **restore 优先级**：唯一(409)→依赖(409)→归属(422)（Contract §6.6）；归属失败为 422，依赖失效为 409。
+6. **列表/回退**：非法 `sort`/`order`/`deleted`/`protocol` 及越界分页→422；无 cluster/resource 过滤。
+7. **A12/A13 不再以桩替代**：F012 真实 provider 端到端闭合 T22/T23 的 Endpoint 部分（F010 errata-03 已同步）。
+
+---
+
+## 11. TEST 执行（TE-1）
+
+- **版本**：TE-1
+- **日期**：2026-10-12
+- **角色**：Tester（TEST 模式）
+- **执行基线**：Git HEAD `e5c1504`，分支 `feature/F012-service-endpoint`
+- **依据**：`docs/database/f012-service-endpoint.md` v1、`docs/api/F012.md` v1、`docs/architecture/d01-conventions.md` v11 §5.11、`docs/api/F010.md` v1+errata-03、`docs/features/F012/{product,architecture,implementation}.md`、TD-2（§10）
+- **结论**：`READY FOR REVIEW`（F012 独立范围全部通过；无必须修复的实现缺陷；§18/§19/§17/§20 展示聚合与 F016 整体回归明确 `NOT TESTED`）
+
+### 11.1 独立性声明
+
+- Backend pytest 由 Tester 在本容器内独立重跑，不复用实现报告数字；实现报告称 427 passed/1 skipped（F012 33），本次独立复跑一致。
+- 追加 Tester 独立套件 `backend/tests/integration/test_service_endpoints_tester.py`（10 项，Tester 编写），定向覆盖实现套件未直接断言的验收点：B28 四 action 审计同事务回滚、B31 两真实会话乐观锁、B41 恢复 vs 并发重建、B22 restore 优先级、B32 软删对象过期 version→404、A5 **跨 Cluster** 归属、B29 列表参数校验、V22 响应契约形状、B14 IP 引用列表全集与 label、V24/B45 只读无副作用。
+- 迁移 up/down/up、约束/索引/触发目录、部分唯一、CHECK、FK RESTRICT、SQLSTATE 在真实 PostgreSQL（独立库 `f012_tester` 与测试库 `csm_test`）执行；未连接生产或未知数据库（`f012_tester` 为本次新建的一次性验证库，验证后 `DROP DATABASE`）。
+- 只读功能（GET 列表/详情/activity）确认无业务写副作用（version/updated_at/audit 行不变）。
+
+### 11.2 环境
+
+| 项 | 值 |
+| --- | --- |
+| PostgreSQL | 容器 `f002test-db`（`postgres:16`），网络 `f002test-net`；测试库 `csm_test`（csm/change-me） |
+| 后端镜像 | `csm-f007-test`，源码挂载 `-v $PWD/backend:/app`；`TEST_DATABASE_URL=postgresql+psycopg://csm:change-me@f002test-db:5432/csm_test` |
+| 独立迁移验证库 | `f012_tester`（`f002test-db` 上 `CREATE DATABASE`，同一 `csm-f007-test` 镜像运行 alembic/raw SQL，验证后 `DROP DATABASE`） |
+| 前端 | Node v22.23.2；`frontend/node_modules` 已存在 |
+| 安全护栏 | 测试库名含 `test`；`TEST_DATABASE_URL != DATABASE_URL`（conftest DB-D10）；未使用 SQLite/Mock 作约束/并发证据 |
+
+### 11.3 执行命令与输出
+
+| # | 命令（要点） | 输出 |
+| --- | --- | --- |
+| E1 | 全量后端 `pytest tests -q`（实现基线复跑） | `427 passed, 1 skipped`（skip=`test_migrations.py` V3b superuser 环境性） |
+| E2 | F012 专属 `pytest tests/integration/test_service_endpoints.py tests/integration/test_service_endpoint_constraints.py -q` | `33 passed`（18+15） |
+| E3 | Tester 独立套件 `pytest tests/integration/test_service_endpoints_tester.py -q` | `10 passed` |
+| E4 | 全量后端（含 Tester 10 项）`pytest tests -q` | `436 passed, 1 skipped`（F012 合计 43） |
+| E5 | 独立库 `f012_tester`：`alembic upgrade head` → raw SQL → `alembic downgrade 0011_services` → `alembic upgrade head` | 单一 head `0012_service_endpoints`；up 建表/触发/索引；down 后 `service_endpoints` 与 `fn_service_endpoints_attribution` 消失、`services` 保留；re-up 恢复；扩展 `plpgsql,pg_trgm,btree_gist` 前后一致 |
+| E6 | 独立库 raw SQL：`pg_trigger`/`pg_constraint`/`pg_indexes`/SQLSTATE | 触发 `tgtype=23`（BEFORE/INSERT/UPDATE）；约束 6 个（PK+2 FK+3 CHECK）；索引 5 个含 `uq_service_endpoints_ip_protocol_port ... WHERE (deleted_at IS NULL)`；未绑定/跨 Resource 抛 `SQLSTATE=23001`（restrict_violation）；`UPDATE service_id` 成功（无不可变触发器） |
+| E7 | 前端 `cd frontend && npm run typecheck && npm run build && npm run smoke:client` | typecheck 通过；build 74 modules 成功；`211 passed, 0 failed` |
+| E8 | `python3 scripts/validate_project_state.py --feature F012` | `PROJECT STATE VALID`（结构/Gate/文件；批准真值与 Git 证据需另行核验） |
+| E9 | 静态核对：响应/ORM 无 `metadata`/`name`/`status`/`listen_address`；列表无 cluster/resource 过滤；provider 注册存在 | 通过 |
+
+### 11.4 验收映射 A1–A21
+
+| 验收 | 结果 | 证据（验证项 / 测试） |
+| --- | --- | --- |
+| A1 必填缺失/未知只读字段→422 | PASS | V1/V-DB-127；`test_create_required_and_unknown_fields`、`test_defaults_and_not_null` |
+| A2 service 不存在/软删→422 field="service" | PASS | V2；`test_service_and_ip_reference_validation` |
+| A3 ip_address 不存在/软删→422 field="ip_address" | PASS | V3；`test_service_and_ip_reference_validation` |
+| A4 未绑定 IP→422 field="ip_address" | PASS | V4/V-DB-132；`test_attribution_unbound_and_cross_resource`、`test_attribution_trigger` |
+| A5 跨 Resource/**跨 Cluster**→422 | PASS | V5/V-DB-132；`test_attribution_unbound_and_cross_resource`、`test_attribution_cross_cluster_rejected`、`test_attribution_trigger` |
+| A6 protocol 非 TCP/UDP（含 null）→422；TCP/UDP 登记 | PASS | V6/V-DB-128；`test_protocol_and_port_validation`、`test_protocol_check` |
+| A7 port 边界 1/65535 接受、0/65536/-1/非整数/null→422 | PASS | V7/V-DB-129；`test_protocol_and_port_validation`、`test_port_check` |
+| A8 同 IP 重复 (protocol,port)→409 unique_conflict | PASS | V8/V-DB-130；`test_listener_uniqueness_same_ip_and_across_ips`、`test_partial_unique_listener` |
+| A9 不同 IP 同 (protocol,port) 允许 | PASS | V9/V-DB-130；`test_listener_uniqueness_same_ip_and_across_ips`、`test_partial_unique_listener` |
+| A10 一 Service 多 Endpoint | PASS | V10；`test_many_endpoints_and_description_semantics` |
+| A11 description 省略/显式 null/保持 | PASS | V11；`test_many_endpoints_and_description_semantics` |
+| A12 IP 解绑/转移/释放引用保护端到端 | PASS | V12/T22；`test_ip_reference_blocks_unbind_transfer_release`、`test_ip_reference_list_all_undeleted_with_labels` |
+| A13 Service 删除引用保护端到端 | PASS | V13/T23；`test_service_reference_blocks_delete` |
+| A14 软删/恢复重检、失败不覆盖、不级联 | PASS | V14/V-DB-130/136；`test_soft_delete_restore_and_dependency_rechecks`、`test_restore_uniqueness_conflict`、`test_restore_priority_uniqueness_before_dependency` |
+| A15 权限矩阵（服务端） | PASS | V15；`test_permissions_matrix` |
+| A16 四 action 审计同事务、object_type、白名单 | PASS | V16；`test_activity_trail_and_whitelist`、`test_failed_create_writes_no_audit`、`test_audit_failure_rolls_back_endpoint_writes`、`test_read_only_has_no_side_effects` |
+| A17 乐观锁过期 409，无静默覆盖 | PASS | V17/V-DB-135；`test_optimistic_lock_and_immutable_fields`、`test_version_and_optimistic_lock`、`test_optimistic_lock_two_sessions`、`test_stale_version_on_soft_deleted_is_404` |
+| A18 列表过滤/分页/排序/软删 | PASS | V18；`test_list_filters_sorting_pagination`、`test_list_parameter_validation` |
+| A19 非法监听形式被拒 | PASS | V19；`test_invalid_listen_forms_rejected` + 静态 E9 |
+| A20 DB 部分唯一兜底 + 并发仅一成功 | PASS | V20/V-DB-130；`test_partial_unique_listener`、`test_concurrent_same_listener_insert`、`test_restore_vs_recreate_concurrency` |
+| A21 D01 §4 省略语义/不可变只读字段 422 | PASS | V21；`test_optimistic_lock_and_immutable_fields`、`test_create_required_and_unknown_fields` |
+
+### 11.5 数据库机制级验证 V-DB-126–138
+
+| 编号 | 结果 | 证据（TD-1 V-DB 等价） |
+| --- | --- | --- |
+| V-DB-126 迁移 up/down/up、单 head、对象齐全、无回填、扩展无新增 | PASS | E5/E6；`test_migration_up_down_up_and_single_head`、`test_table_catalogue_columns_constraints_indexes_triggers`（V-DB-1/2/6/8/9） |
+| V-DB-127 默认/NOT NULL | PASS | `test_defaults_and_not_null`（V-DB-3/4） |
+| V-DB-128 `ck_protocol`：TCP/UDP 接受，tcp/udp/SCTP/空/NULL 拒 | PASS | `test_protocol_check`（V-DB-2） |
+| V-DB-129 `ck_port`：1/65535 接受，0/65536/-1/NULL 拒 | PASS | `test_port_check`（V-DB-2） |
+| V-DB-130 部分唯一：同 IP 重复拒/异 protocol·port 接受/异 IP 接受/软删释放/恢复冲突/并发仅一成功 | PASS | `test_partial_unique_listener`、`test_restore_recheck_partial_unique`、`test_concurrent_same_listener_insert`、E6（V-DB-1/7） |
+| V-DB-131 FK RESTRICT；软删 Service/IP 行仍在 | PASS | `test_fk_restrict_and_soft_delete_retention`（V-DB-3/9） |
+| V-DB-132 归属触发：未绑定/跨 Resource→restrict_violation；匹配成功；软删/普通 UPDATE 不误拒；恢复重跑 | PASS | `test_attribution_trigger`、E6（SQLSTATE 23001）、独立库 raw SQL（V-DB-5） |
+| V-DB-133 无不可变触发器；DB 层 UPDATE 不被阻止 | PASS | `test_no_immutability_trigger`、E6（V-DB-6） |
+| V-DB-134 索引目录：部分唯一谓词正确；三索引存在；无 GIN/无独立 protocol 索引 | PASS | `test_table_catalogue_columns_constraints_indexes_triggers`、E6（V-DB-6） |
+| V-DB-135 version 默认 1、<1 拒；乐观锁双会话仅一成功 | PASS | `test_defaults_and_not_null`、`test_version_and_optimistic_lock`、`test_optimistic_lock_two_sessions`（V-DB-4） |
+| V-DB-136 恢复重检 DB 层：软删同名重建后恢复被部分唯一拒；归属触发恢复重跑 | PASS | `test_restore_recheck_partial_unique`、`test_attribution_trigger`（V-DB-7） |
+| V-DB-137 引用集：DB 无 soft-delete 约束；reference_exists 由 F012 两 provider 承担 | PASS | `test_reference_set_has_no_db_constraint`、`test_reference_providers_registered`、`test_ip_reference_blocks_unbind_transfer_release`、`test_service_reference_blocks_delete` |
+| V-DB-138 迁移边界：0012 不含 CREATE EXTENSION；downgrade 后再 upgrade；既有表无结构改动 | PASS | `test_migration_0012_has_no_create_extension`、`test_existing_tables_not_altered`、E5（V-DB-8） |
+
+### 11.6 边界与并发场景 B1–B45
+
+| 编号 | 结果 | 证据 |
+| --- | --- | --- |
+| B1 | PASS | `test_create_required_and_unknown_fields` |
+| B2 | PASS | `test_protocol_and_port_validation`（protocol/port 显式 null）；schema `extra/required` 强制 service/ip 非 null |
+| B3 | PASS | `test_create_required_and_unknown_fields` |
+| B4 | PASS | `test_service_and_ip_reference_validation` |
+| B5 | PASS | `test_service_and_ip_reference_validation`、`test_attribution_unbound_and_cross_resource` |
+| B6 | PASS | `test_attribution_unbound_and_cross_resource`、`test_attribution_cross_cluster_rejected`、`test_attribution_trigger` |
+| B7 | PASS | `test_protocol_and_port_validation`、`test_protocol_check` |
+| B8 | PASS | `test_protocol_and_port_validation`、`test_port_check` |
+| B9 | PASS | `test_listener_uniqueness_same_ip_and_across_ips` |
+| B10 | PASS | `test_listener_uniqueness_same_ip_and_across_ips`、`test_partial_unique_listener` |
+| B11 | PASS | `test_many_endpoints_and_description_semantics` |
+| B12 | PASS | `test_ip_reference_blocks_unbind_transfer_release` |
+| B13 | PASS | `test_ip_reference_blocks_unbind_transfer_release`（软删后解绑成功） |
+| B14 | PASS | `test_ip_reference_list_all_undeleted_with_labels` |
+| B15 | PASS | `test_service_reference_blocks_delete` |
+| B16 | PASS | `test_service_reference_blocks_delete` |
+| B17 | PASS | 软删测试仅改 `deleted_at`/version；无 Endpoint 触碰 Service/IP/Interface（静态 E9） |
+| B18 | PASS | `test_permissions_matrix`、`test_list_filters_sorting_pagination` |
+| B19 | PASS | `test_soft_delete_restore_and_dependency_rechecks` |
+| B20 | PASS | `test_restore_uniqueness_conflict`、`test_restore_recheck_partial_unique` |
+| B21 | PASS | `test_soft_delete_restore_and_dependency_rechecks`（service/ip_address/attribution） |
+| B22 | PASS | `test_restore_priority_uniqueness_before_dependency` |
+| B23 | PASS | `test_soft_delete_restore_and_dependency_rechecks` |
+| B24 | PASS | `test_soft_delete_restore_and_dependency_rechecks`（`not_deleted`） |
+| B25 | PASS | `test_permissions_matrix` |
+| B26 | PASS | `test_permissions_matrix` |
+| B27 | PASS | `test_activity_trail_and_whitelist` |
+| B28 | PASS | `test_audit_failure_rolls_back_endpoint_writes`（四 action）、`test_failed_create_writes_no_audit` |
+| B29 | PASS | `test_list_filters_sorting_pagination`、`test_list_parameter_validation` |
+| B30 | PASS | `test_list_filters_sorting_pagination` |
+| B31 | PASS | `test_version_and_optimistic_lock`、`test_optimistic_lock_two_sessions` |
+| B32 | PASS | `test_stale_version_on_soft_deleted_is_404` |
+| B33 | PASS | `test_many_endpoints_and_description_semantics`、`test_patch_listener_uniqueness` |
+| B34 | PASS | `test_patch_listener_uniqueness` |
+| B35 | PASS | `test_optimistic_lock_and_immutable_fields`、`test_no_immutability_trigger` |
+| B36 | PASS | `test_invalid_listen_forms_rejected` + 静态 E9 |
+| B37 | PASS | `test_partial_unique_listener`、`test_defaults_and_not_null` |
+| B38 | PASS | `test_concurrent_same_listener_insert`（raw 双会话真提交，断言最终唯一行）；API 层 409 由 `test_listener_uniqueness_same_ip_and_across_ips` 覆盖 |
+| B39 | PASS | `test_attribution_trigger` + E6（SQLSTATE 23001，触发在写入时点恒成立） |
+| B40 | PASS | `test_ip_reference_blocks_unbind_transfer_release`（解绑/转移窗口由 F010 provider 拦截） |
+| B41 | PASS | `test_restore_vs_recreate_concurrency`（真实部分唯一仲裁，最终仅一未删行） |
+| B42 | PASS | `test_fk_restrict_and_soft_delete_retention`、目录 `confdeltype='r'`（机制级） |
+| B43 | PASS | POST/PATCH/DELETE/restore 用例抽查 + Contract §6 静态核对；restore 优先级见 B22 |
+| B44 | PASS | E5；`test_migration_up_down_up_and_single_head` |
+| B45 | PASS | `test_read_only_has_no_side_effects` |
+
+### 11.7 三分界声明
+
+1. **F012 独立可验证（本次全部执行）**：A1–A21（含 A12/A13 的真实双 provider 端到端）、V-DB-126–138、B1–B45；对应 §31 T22/T23 的 **Endpoint 部分**（含真实 Endpoint 的引用保护）、T24/T25/T26/T37/T40/T41 的 Endpoint 子集。
+2. **留待 F013（本 Feature 不可执行）**：§18 Resource Detail Services 区域、§19 Cluster Detail、§17 全局搜索、§20 Dashboard 的页面/聚合展示；F012 仅提供 Endpoint 数据与 `/api/v1/service-endpoints`。
+3. **留待 F016（整体验收）**：T22–T26 的跨对象完整回归与 §32 上线验收；F012 局部 PASS **不得**拼成整条通过。
+
+### 11.8 Defects
+
+| ID | Severity | Layer | Location | 期望/实际 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- |
+| F012-TE1-01 | NOTE | Backend 测试 | `backend/tests/integration/test_service_endpoints.py::test_invalid_listen_forms_rejected` | 覆盖 `"1-100"/"22,80"/0`，未逐一断言 `listen_address`/`host`/`socket`/`port_range` 等未知字段的 422；A19 其余面由 schema `extra="forbid"` + 静态核对闭合（未发现缺陷） | Backend（可选补强） | 否 |
+| F012-TE1-02 | NOTE | 集成环境 | Compose/Nginx 真实前后端 | `compose.yaml` 的后端/前端需 `docker build`，本轮按任务约束未构建；前端以 `typecheck`+`build`+`smoke:client` 机制级验证。不降 F012 验收（真实浏览器 DOM 非必要判据） | 协调器 | 否 |
+
+无 BLOCKER/HIGH/MEDIUM 缺陷；未发现必须修复的问题。
+
+### 11.9 未验证项
+
+| 项 | 状态 | 原因 |
+| --- | --- | --- |
+| §18 Resource Detail Services、§19 Cluster Detail、§17 全局搜索、§20 Dashboard 聚合展示 | `NOT TESTED / 归 F013` | F012 仅提供 Endpoint 数据与列表/详情 API |
+| T22–T26 跨对象完整回归与 §32 上线验收 | `NOT TESTED / 归 F016` | 不由 F012 局部 PASS 拼接 |
+| CSV/Excel 导入（§24） | `NOT TESTED / 归 F014` | 导入不在 F012 |
+| 完整 Audit 查询页（§22） | `NOT TESTED / 归 F015` | F012 仅验证资源级 Activity 四 action |
+| Compose 入口 Nginx 真实前后端集成 / 真实浏览器 DOM | `NOT TESTED / BLOCKED（环境）` | Compose 需构建镜像（任务禁止 `docker build`）；见 F012-TE1-02 |
+| F001 `test_migrations` V3b | `SKIPPED` | 连接角色为 superuser，环境性跳过（非 F012） |
+
+### 11.10 TE-1 结论
+
+- F012 独立范围 A1–A21、V-DB-126–138、B1–B45 全部 PASS；无 BLOCKER/HIGH/MEDIUM，无必须修复的实现缺陷。
+- 独立复跑：实现基线 `427 passed/1 skipped`（F012 33）；新增 Tester 套件 10 项，含 B28 四 action 审计同事务回滚、B31 两真实会话乐观锁、B41 恢复 vs 并发重建、B22 restore 优先级、B32 软删对象过期 version→404、A5 跨 Cluster 归属、B29 列表参数校验、V22 响应契约、B14 引用列表全集与 label、V24/B45 只读无副作用；全量 `436 passed/1 skipped`（F012 合计 43）。
+- 数据库机制级：部分唯一、CHECK、FK RESTRICT、归属触发（名称/时机/SQLSTATE 23001）、无不可变触发器、迁移 0012 up/down/up 与扩展不变，均在真实 PostgreSQL 独立库验证。
+- 前端 `typecheck`/`build`/`smoke:client`（211/0）通过；真实 Nginx 集成因环境（禁止构建镜像）记 `NOT TESTED / BLOCKED`，不降验收。
+- §18/§19/§17/§20 与 F016 整体回归保持 `NOT TESTED`，不声明整条 §31 通过。
+
+**结论：`READY FOR REVIEW`**
 
 ---
 
