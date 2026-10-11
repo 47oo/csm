@@ -189,7 +189,7 @@ downgrade（对称逆序）：drop 三普通索引 → drop 部分唯一索引 �
 **不保证（应用/Contract 层）**：resource 软删时点校验（应用 422）；resource_id 不可变（应用 422）；Unicode Cc/Cf（DB 仅 ASCII backstop）；Endpoint 引用保护（F012 provider）；Resource←Service 软删引用保护（应用检查器）；status「非探测、不由名称推导」（业务规则）；`name ILIKE` 性能（正确性保证）。
 
 **计划测试项（真实 PG，V-DB-112–V-DB-125，无 PASS）**：
-- **V-DB-112** 迁移 up/down/up；down_revision=0010_ip_addresses；单 head=0011_services；对象齐全（9 CHECK、1 PK、1 FK、1 部分唯一 + 3 普通索引）；无回填；扩展无新增。
+- **V-DB-112** 迁移 up/down/up；down_revision=0010_ip_addresses；单 head=0011_services；对象齐全（8 CHECK、1 PK、1 FK、1 部分唯一 + 3 普通索引）；无回填；扩展无新增。
 - **V-DB-113** 默认/NOT NULL：id/status/metadata/version/created_at/updated_at 默认；resource_id/name/name_key NOT NULL。
 - **V-DB-114** name 边界：空/纯空白/首尾/ASCII 控制/256 拒；1 与 255 接受；内部普通空格与中文保留不合并。
 - **V-DB-115** name_key CHECK：SSH/ssh 同键；`ß`/`ﬁ` 原样；与 translate 一致；不一致 name_key 被拒。
