@@ -900,8 +900,8 @@ features:
   - F006
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: CONTRACT Gate（architect 定稿 docs/api/F014.md + 签核 D03 + 登记 F002 错误码 + D01 关闭）
-  current_stage: CONTRACT
+  next_action: IMPLEMENTATION（Backend：依赖+resource_import+两端点；Frontend：上传/模板/错误表）
+  current_stage: IMPLEMENTATION
   layers:
     database: false
     backend: true
@@ -914,6 +914,7 @@ features:
     architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: COMPLETE
+    contract: COMPLETE
   evidence:
     product:
     - docs/features/F014/product.md
@@ -923,6 +924,8 @@ features:
     - docs/database/f014-import.md
     test_design:
     - docs/features/F014/test-report.md#test-design
+    contract:
+    - docs/api/F014.md
 - id: F015
   title: Audit 查询、已删除对象管理与系统功能
   kind: FEATURE
@@ -1093,11 +1096,12 @@ decisions_required:
     F001–F003/F008/F009 设计签核关闭；F016 仅承接备份覆盖 Audit 的验证。
 - id: D03
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
-  status: OPEN
+  status: CONFIRMED
   kind: DESIGN_INPUT
   affects:
   - F014
   owner: Architect / Backend / Tester
+  resolution: F014 CONTRACT v1 §10 签核（模板 BM 14/VM 10 列、VM Host 引用列、同步上限 5 MiB/5000 行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 pending_changes: []
 execution:
   mode: CONTINUOUS
