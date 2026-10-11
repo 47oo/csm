@@ -899,9 +899,15 @@ features:
   - F005
   - F006
   blocking_decisions: []
-  status: IN_REVIEW
-  next_action: 正式 Review（reviewer 独立审查候选 HEAD）
-  current_stage: REVIEW
+  status: DONE
+  next_action: null
+  current_stage: null
+  git:
+    base_branch: v3
+    branch: feature/F014-import
+    start_commit: 48ca02fcc440761ab74be586e1c48e901708d8af
+    head_commit: 8ba6ac32fcec421bb9150482cb195f903e918daf
+    merge_commit: 4db89962a07f6af5858bb17d8060b15cfeed37ba
   layers:
     database: false
     backend: true
@@ -919,6 +925,7 @@ features:
     backend: COMPLETE
     frontend: COMPLETE
     test: COMPLETE
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F014/product.md
@@ -936,6 +943,8 @@ features:
     - docs/features/F014/implementation.md
     test:
     - docs/features/F014/test-report.md#test-execution
+    review:
+    - docs/features/F014/review-report.md
 - id: F015
   title: Audit 查询、已删除对象管理与系统功能
   kind: FEATURE
@@ -1139,21 +1148,22 @@ execution:
     authorized_on: '2026-10-06'
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
-  current_feature: F014
-  current_stage: REVIEW
-  last_result: F014 修复第1轮完成（RV-F014-01 nginx client_max_body_size 6m+超时；RV-F014-02 校验顺序对齐）；backend 529 passed/1 skipped
-  next_action: 正式 Review 重审（修复后候选）
-  repair_rounds: 1
+  current_feature: null
+  current_stage: null
+  last_result: F014 DONE（merge 4db8996；TEST 529 passed/1 skipped；Review APPROVED WITH
+    FOLLOW-UP，修复 RV-F014-01）
+  next_action: null
+  repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 1
     CANCELLED: 0
-    DONE: 13
+    DONE: 14
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 1
   ready_features:
   - F015
