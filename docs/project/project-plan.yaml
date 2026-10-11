@@ -762,16 +762,22 @@ features:
   - F011
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: DATABASE 与 TEST_DESIGN Gate（可并行；Database 出 f012-service-endpoint.md，Tester 出 TEST_DESIGN）
-  current_stage: DATABASE
+  next_action: CONTRACT Gate（architect 定稿 docs/api/F012.md + D01 v11 §5.11 + F010 errata-03）
+  current_stage: CONTRACT
   implementation:
     product: COMPLETE
     architecture: COMPLETE
+    database: COMPLETE
+    test_design: COMPLETE
   evidence:
     product:
     - docs/features/F012/product.md
     architecture:
     - docs/features/F012/architecture.md
+    database:
+    - docs/database/f012-service-endpoint.md
+    test_design:
+    - docs/features/F012/test-report.md#test-design
   layers:
     database: true
     backend: true
@@ -1036,9 +1042,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F012
-  current_stage: DATABASE
-  last_result: F012 ARCHITECTURE COMPLETE（READY FOR DESIGN；DR-155–DR-170；layers=db/be/fe，api_required=true）
-  next_action: DATABASE 与 TEST_DESIGN Gate（database + tester，可并行）
+  current_stage: CONTRACT
+  last_result: F012 DATABASE COMPLETE（READY FOR DATABASE IMPLEMENTATION，DB-D142–D156）+ TEST_DESIGN READY（TD-1）
+  next_action: CONTRACT Gate（architect 定稿）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
