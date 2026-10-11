@@ -321,3 +321,223 @@ TD-1 结论：**`TEST DESIGN READY`** —— A1–A18 已映射到可观察判�
 | 版本 | 日期 | 变更 |
 | --- | --- | --- |
 | TD-1 | 2026-10-09 | 初版 Test Design（见 §Test Design）。 |
+| TD-2 | 2026-10-09 | 依 Database v1、Contract v1、D01 v10 逐项关闭 §8 OPEN-1–20，并入 Architect 定稿的判据调整（见 §10）。 |
+| TE-1 | 2026-10-09 | 首次独立执行（基线 HEAD=4f9caa4）：A1–A18、V-DB-112–125、B1–B40 结果与证据（见 §11）。结论 `READY FOR REVIEW`。 |
+
+---
+
+## 10. Test Design 复核（TD-2）
+
+- **版本**：TD-2
+- **日期**：2026-10-09
+- **角色**：Tester（TEST_DESIGN 模式复核）
+- **结论**：`TEST DESIGN READY`（TD-2；§8 OPEN-1–20 全部关闭，未验证项保持明确标注）
+- **复核依据（已定稿）**：
+  - `docs/database/f011-service.md` v1（Database 2026-10-09，DB-D128–DB-D141）
+  - `docs/api/F011.md` v1（Contract READY，Architect 2026-10-09）
+  - `docs/architecture/d01-conventions.md` v10（§5 表、§5.2、§5.10）
+  - `docs/features/F011/architecture.md`、`docs/features/F011/product.md`（A1–A18）
+- **状态属性**：TD-2 `READY` 仅表示 A1–A18 判据已与定稿设计逐项对齐、可执行；不代表测试已运行、不批准实现或合并。测试执行见 §11（TE-1）。
+
+### 10.1 §8 OPEN-1–20 关闭结论
+
+| # | 定稿结论（判据固定） | 关闭依据 |
+| --- | --- | --- |
+| OPEN-1 | 表 `services`；列类型/必填/默认与实现一致（`id uuid pk gen_random_uuid()`、`resource_id uuid NOT NULL`、`name/name_key varchar(255) NOT NULL`、`status varchar(16) NOT NULL DEFAULT 'UNKNOWN'`、`description text NULL`、`metadata jsonb NOT NULL DEFAULT '{}'`、`version int NOT NULL DEFAULT 1`、`created_at/updated_at timestamptz NOT NULL now()`、`deleted_at timestamptz NULL`） | DB v1 §2；V-DB-113 |
+| OPEN-2 | 约束/索引名：`pk_services`、`fk_services_resource_id_resources`、`uq_services_resource_id_name_key`、`ck_services_{name_not_blank,name_trimmed,name_no_control,name_length,name_key_matches,status,metadata_object,version}`、`ix_services_{resource_id,status,deleted_at}` | DB v1 §2；V-DB-112/122；实测目录一致 |
+| OPEN-3 | `name_key = translate(btrim(name))`（禁 `lower()`）；name 长度 1–255；**DB 直插负例控制字符范围收敛为 ASCII `[[:cntrl:]]`**；Unicode Cc/Cf 拒绝改在 API 级断言 | DB v1 §2/§3.1；D01 v10 §5.10；V-DB-114/115 |
+| OPEN-4 | 部分唯一精确形态 `UNIQUE(resource_id,name_key) WHERE deleted_at IS NULL`；软删释放、恢复重检、跨 Resource 允许 | DB v1 §2/§3.1；V-DB-116/123 |
+| OPEN-5 | `status` NOT NULL DEFAULT 'UNKNOWN' + `CHECK IN ('RUNNING','STOPPED','UNKNOWN')` | DB v1 §2/§3.2；V-DB-117 |
+| OPEN-6 | `metadata` JSONB NOT NULL DEFAULT `'{}'` + `CHECK jsonb_typeof='object'` | DB v1 §2/§3.3；V-DB-118 |
+| OPEN-7 | `resource_id` FK `ON DELETE RESTRICT`；**`resource_id` 不可变仅为应用 422；DB 层允许 UPDATE（无不可变触发器）** | DB v1 §3.4/DB-D136；V-DB-120/121 |
+| OPEN-8 | `version` DEFAULT 1、CHECK ≥1；时间戳列；`deleted_at` 可空；软删/恢复与部分唯一交互 | DB v1 §2；V-DB-119/123 |
+| OPEN-9 | 索引集合=部分唯一 + 3 普通 btree；不建 pg_trgm/GIN、不建 name/name_key 单列 B-tree；不重复启用扩展 | DB v1 §3.5/DB-D137；V-DB-122/125 |
+| OPEN-10 | 迁移 `0011_services`（`down_revision=0010_ip_addresses`）单 head、全表新建无回填、对称可逆 | DB v1 §4；V-DB-112/125 |
+| OPEN-11 | Resource←未删 Service 引用检查：DB 仅 FK RESTRICT（物理）兜底，应用注册检查器返回 409 `reference_exists` | DB v1 §3.6/DB-D139；V22/V-DB-120 |
+| OPEN-12 | 错误码复用集：`unique_conflict{field:"name"}`、`not_deleted`、`dependency_deleted{conflicts:[{object_type:"resource"}]}`、`reference_exists`；F011 不新增 code/reason | Contract v1 §1.2 |
+| OPEN-13 | **`reference_exists` object_type 固化：Service DELETE 为 `service_endpoint`；Resource DELETE 为 `service`** | Contract v1 §1.2/§6.5/§7；V10/V22 |
+| OPEN-14 | 校验顺序：**POST body（含 status/metadata）→resource→name 规范→name 唯一**；PATCH 可见性→version→name 归一化→name 唯一；DELETE 对象→version→引用→软删；**restore not_deleted→version→name 唯一→Resource 依赖** | Contract v1 §6；V24 |
+| OPEN-15 | 列表 Query=`resource_id/status/q/deleted/page/page_size/sort/order`；`q`=name 大小写不敏感子串（trim 后空视为未提供）；`sort=name` 按 name_key；**不新增 cluster 过滤参数** | Contract v1 §4（DR-153）；V14 |
+| OPEN-16 | D01 v10 §5.10 签核：name 1–255 仅 ASCII 折叠、内部普通空格不合并；status 默认 UNKNOWN；description 无上限；metadata Service 自有 object 整值替换；resource 创建必填不可改；§5.2 已追加 Service name 255；§5 表已拆 Service 单行 | D01 v10 §5/§5.2/§5.10 |
+| OPEN-17 | 跨 Feature 协议：F011 提供 `register_service_reference_checker`（默认空集）；F012 必须注册真实 Endpoint 检查器；F011 注册 Resource←Service 检查器；T23 端到端留 F012 | Contract v1 §9/DR-146；V21/V22 |
+| OPEN-18 | 权限：READ/WRITE/DELETE_OBJECT/VIEW_DELETED/RESTORE/VIEW_ACTIVITY（全角色）；审计白名单 `{resource_id,name,status,description,metadata}`、`object_type="service"` | Contract v1 §1.3/§8；V12/V13 |
+| OPEN-19 | 响应契约：`resource{id,hostname}` 嵌套；`name_key`/`resource_id` 原始列不暴露；列表 `{items,page,page_size,total}` | Contract v1 §3/§4；V23 |
+| OPEN-20 | I-2 关闭：CONTRACT 固定「创建后不可改」（PATCH 出现 `resource`/`resource_id` 含同值→422），不新增目标 Resource 重检 | Contract v1 §2.2/§2.4；V9/V-DB-121 |
+
+### 10.2 对 TD-1 判据的调整（并入 Architect 定稿）
+
+1. **控制字符负例分层**：DB 直插负例仅覆盖 ASCII `[[:cntrl:]]`（`\x01`/`\t`）；Unicode Cc/Cf（`\x00`、`\u200b`、`\ufeff`、`\u00ad`）在 API 级断言 422。DB 接受 Unicode Cf 属已记录差异（DB v1 §9 LOW）。
+2. **resource 不可变分层**：应用 PATCH 含 `resource`/`resource_id`/`id`/`name_key`→422；DB 无不可变触发器，`UPDATE services SET resource_id=...` 允许（机制级断言无业务触发器）。
+3. **列表参数**：无 cluster 过滤参数；F013 聚合与 §17 全局搜索记 `NOT TESTED / 归 F013`。
+4. **restore 优先级**：`not_deleted → version → name 唯一 → Resource 依赖`（name 唯一先于 Resource 依赖）。
+5. **POST 顺序**：body（含 status/metadata）→resource→name 规范→name 唯一。
+6. **`reference_exists` object_type**：Service DELETE=`service_endpoint`；Resource DELETE=`service`。
+7. **V-DB 表名/约束名/索引/FK/迁移** 以 DB v1 为准。
+
+---
+
+## 11. TEST 执行（TE-1）
+
+- **版本**：TE-1
+- **日期**：2026-10-09
+- **角色**：Tester（TEST 模式）
+- **执行基线**：Git HEAD `4f9caa4`，分支 `feature/F011-service-registry`
+- **依据**：`docs/database/f011-service.md` v1、`docs/api/F011.md` v1、`docs/architecture/d01-conventions.md` v10、`docs/features/F011/{product,architecture,implementation}.md`、TD-2（§10）
+- **结论**：`READY FOR REVIEW`（F011 独立范围全部通过；无必须修复的实现缺陷；T23 真实 Endpoint 端到端与 F013/F014/F015/F016 范围明确 `NOT TESTED`）
+
+### 11.1 独立性声明
+
+- Backend pytest 由 Tester 在本容器内独立重跑，不复用实现报告数字；实现报告称 382 passed/1 skipped（F011 36），本次独立复跑一致。
+- 追加独立测试 `backend/tests/integration/test_services_tester.py`（12 项，Tester 编写），定向覆盖实现套件未直接断言的验收点：B26 审计同事务回滚（CREATE/UPDATE/DELETE/RESTORE）、B33 两真实会话乐观锁、B34 恢复 vs 并发重建、A1 的 Unicode Cc/Cf（API 级）与 DB ASCII backstop 分层、A16 应用/DB `name_key` 一致、A12 未认证 401、A14 `sort=name` 按 `name_key`、A13 UPDATE 审计 before/after 内容、V27 只读无副作用、A10 公共 `register_service_reference_checker` 挂钩。
+- 迁移 up/down/up、约束/索引目录、并发部分唯一、FK RESTRICT 在真实 PostgreSQL（独立库 `f011_te1` 与测试库 `csm_test`）执行；未连接生产或未知数据库（`f011_te1` 为本次新建的一次性验证库，用后删除）。
+
+### 11.2 环境
+
+| 项 | 值 |
+| --- | --- |
+| PostgreSQL | 容器 `f002test-db`（`postgres:16`），网络 `f002test-net`；测试库 `csm_test`（csm/change-me） |
+| 后端镜像 | `csm-f007-test`，源码挂载 `-v $PWD/backend:/app`；`TEST_DATABASE_URL=postgresql+psycopg://csm:change-me@f002test-db:5432/csm_test` |
+| 独立迁移验证库 | `f011_te1`（`f002test-db` 上 `CREATE DATABASE`，同一 `csm-f007-test` 镜像运行 alembic/raw SQL，验证后 `DROP DATABASE`） |
+| 前端 | Node v22.23.2 / npm 12.0.2；`frontend/node_modules` 已存在 |
+| 安全护栏 | 测试库名含 `test`；`TEST_DATABASE_URL != DATABASE_URL`（conftest DB-D10）；未使用 SQLite/Mock 作约束/并发证据 |
+
+### 11.3 执行命令与输出
+
+| # | 命令（要点） | 输出 |
+| --- | --- | --- |
+| E1 | 全量后端 `pytest tests -q`（实现基线复跑） | `382 passed, 1 skipped`（skip=`test_migrations.py` V3b superuser 环境性） |
+| E2 | F011 专属 `pytest tests/integration/test_services.py tests/integration/test_service_constraints.py -v` | `36 passed`（23+13） |
+| E3 | Tester 独立套件 `pytest tests/integration/test_services_tester.py -q` | `12 passed` |
+| E4 | 全量后端（含 Tester 12 项）`pytest tests -q` | `394 passed, 1 skipped`（一次运行出现 2 个非 F011 失败，见 Defect F011-TE1-03） |
+| E5 | 独立库迁移：`alembic upgrade head` → `alembic heads` → `alembic downgrade 0010_ip_addresses` → `alembic upgrade head` | 单一 head `0011_services`；up 后 `services` 存在、`alembic_version=0011_services`；down 后 `services` 消失、`ip_addresses` 保留、版本 `0010_ip_addresses`；re-up 后 `services` 恢复、版本 `0011_services`；扩展 `btree_gist`/`pg_trgm` 前后一致 |
+| E6 | 独立库目录查询 `pg_constraint`/`pg_indexes`/`pg_extension` | 约束 10 个=PK+FK+8 CHECK；索引 `uq_services_resource_id_name_key`（`WHERE deleted_at IS NULL`）+`ix_services_{resource_id,status,deleted_at}`；无 GIN、无 name/name_key 单列 B-tree |
+| E7 | 前端 `npm run typecheck && npm run build && npm run smoke:client` | typecheck 通过；build 70 modules 成功；`187 passed, 0 failed`（F011 新增 27） |
+| E8 | `python3 scripts/validate_project_state.py --feature F011` | `PROJECT STATE VALID`（结构/Gate/文件） |
+| E9 | 静态核对：Service 无 Slurm/监控/探测集成；无 cluster 过滤参数；`name_key` 不出现在 schema；无 Endpoint 级联删除路径 | 通过 |
+
+### 11.4 验收映射 A1–A18
+
+| 验收 | 结果 | 证据（验证项 / 测试） |
+| --- | --- | --- |
+| A1 名称 trim/空/控制字符拒；中文与内部空格保留不合并 | PASS | V1/V-DB-1/V-DB-2；`test_name_trim_and_control_characters`、`test_name_boundaries_and_name_key`、`test_name_length_and_internal_spaces_api`、`test_unicode_control_and_format_rejected_api`、`test_db_name_control_backstop_is_ascii_only` |
+| A2 同 Resource 大小写不敏感重名拒；跨 Resource 允许 | PASS | V2/V-DB-3；`test_same_resource_name_unique_case_insensitive`、`test_partial_unique_name` |
+| A3 软删后同名可重建；存活同名拒；恢复不覆盖新对象 | PASS | V3/V-DB-3/V-DB-8；`test_soft_delete_reuse_and_restore_conflict`、`test_restore_recheck_partial_unique` |
+| A4 resource 缺失/不存在/软删→422 | PASS | V4/V-DB-4；`test_resource_required_and_must_exist` |
+| A5 status 省略→UNKNOWN；三值保存；非法/null→422 | PASS | V5/V-DB-5；`test_status_default_and_values`、`test_status_check_and_default` |
+| A6 status 人工维护、不由名称推导 | PASS | V6 + 静态 E9；`test_status_default_and_values`（`slurmd`→UNKNOWN） |
+| A7 description 可空/清空/保持 | PASS | V7；`test_description_nullable_and_preserved` |
+| A8 metadata 默认 {}/整值替换/非法拒 | PASS | V8/V-DB-6；`test_metadata_whole_replacement`、`test_metadata_object_check`、`test_update_audit_snapshot_content` |
+| A9 resource 必填且创建后不可改（应用 422） | PASS | V9/V-DB-4/V-DB-7；`test_resource_immutable`、`test_resource_id_has_no_immutability_trigger` |
+| A10 未删 Endpoint 引用时删除被拒返回 references；不级联；无引用可删 | PASS（桩）/ NOT TESTED（F012 端到端） | V10/V21；`test_delete_default_empty_reference_set`、`test_delete_reference_checker_stub_blocks`、`test_public_service_reference_register_hook`；真实 Endpoint 归 F012（T23） |
+| A11 恢复重检名称唯一与 Resource 有效性；失败不覆盖；不级联 | PASS | V11；`test_soft_delete_reuse_and_restore_conflict`、`test_restore_dependency_resource_deleted`、`test_restore_not_deleted`、`test_restore_success_and_audit`、`test_restore_vs_recreate_concurrency` |
+| A12 权限矩阵（VIEWER/EDITOR/ADMIN/未认证，服务端） | PASS | V12；`test_permissions`、`test_view_deleted_and_detail`、`test_unauthenticated_401` |
+| A13 四 action 审计且同事务；Activity 全角色；白名单 | PASS | V13；`test_activity_trail`、`test_audit_whitelist_row`、`test_update_audit_snapshot_content`、`test_audit_failure_rolls_back_all_service_writes` |
+| A14 默认隐藏软删；过滤/模糊/分页/排序基线 | PASS | V14；`test_list_filters_and_pagination`、`test_sort_name_uses_name_key` |
+| A15 DB 部分唯一兜底 | PASS | V15/V-DB-3；`test_table_catalogue_columns_constraints_indexes`、`test_partial_unique_name`、`test_concurrent_same_name_insert` |
+| A16 归一化在 API/DB 一致；仅未删参与唯一 | PASS（F011 侧）/ NOT TESTED（F014/F013） | V16/V-DB-2/V-DB-3；`test_name_key_app_db_consistency_api_to_db`、`test_partial_unique_name` |
+| A17 乐观锁过期编辑 409，无静默覆盖 | PASS | V17/V-DB-119；`test_optimistic_lock`、`test_optimistic_lock_two_sessions` |
+| A18 Resource 间接归属；Resource Detail 数据可取 | PASS（F011 侧）/ NOT TESTED（F013 搜索/聚合） | V18；`test_nested_resource_and_query`、`test_list_filters_and_pagination`；§17/§19/§20 归 F013 |
+
+### 11.5 数据库机制级验证 V-DB-112–125
+
+| 编号 | 结果 | 证据 |
+| --- | --- | --- |
+| V-DB-112 迁移 up/down/up、单 head、对象齐全、无回填、扩展无新增 | PASS | E5/E6；`test_migration_up_down_up_and_single_head`、`test_table_catalogue_columns_constraints_indexes` |
+| V-DB-113 默认/NOT NULL | PASS | `test_defaults_and_not_null` |
+| V-DB-114 name 边界 | PASS | `test_name_boundaries_and_name_key`、`test_name_length_and_internal_spaces_api` |
+| V-DB-115 name_key CHECK（translate 口径） | PASS | `test_name_boundaries_and_name_key`、`test_name_key_app_db_consistency_api_to_db` |
+| V-DB-116 部分唯一（重名/跨 Resource/软删释放/恢复冲突/并发） | PASS | `test_partial_unique_name`、`test_concurrent_same_name_insert`、E6 |
+| V-DB-117 status 默认/取值 | PASS | `test_status_check_and_default` |
+| V-DB-118 metadata object/默认/整值替换 | PASS | `test_metadata_object_check` |
+| V-DB-119 version 默认≥1、乐观锁双会话 | PASS | `test_defaults_and_not_null`、`test_optimistic_lock_two_sessions` |
+| V-DB-120 FK RESTRICT、软删保留行 | PASS | `test_fk_restrict_and_soft_delete_retention` |
+| V-DB-121 resource 不可改：无触发器、DB 允许 UPDATE | PASS | `test_resource_id_has_no_immutability_trigger` |
+| V-DB-122 索引目录（部分唯一谓词、无 GIN/无单列 B-tree） | PASS | `test_table_catalogue_columns_constraints_indexes`、E6 |
+| V-DB-123 恢复重检 DB 层（部分唯一拒） | PASS | `test_restore_recheck_partial_unique` |
+| V-DB-124 Service 删除引用集由应用承担（DB 无约束） | PASS | `test_service_delete_reference_set_has_no_db_constraint` |
+| V-DB-125 迁移边界（无 CREATE/DROP EXTENSION） | PASS | `test_migration_0011_has_no_create_extension`、E5 |
+
+### 11.6 边界与并发场景 B1–B40
+
+| 编号 | 结果 | 证据 |
+| --- | --- | --- |
+| B1 | PASS | `test_name_trim_and_control_characters` |
+| B2 | PASS | `test_same_resource_name_unique_case_insensitive` |
+| B3 | PASS | `test_same_resource_name_unique_case_insensitive`（ß）、`test_name_key_app_db_consistency_api_to_db`（İ） |
+| B4 | PASS | `test_name_length_and_internal_spaces_api`（`web  1`） |
+| B5 | PASS | `test_unicode_control_and_format_rejected_api`、`test_db_name_control_backstop_is_ascii_only` |
+| B6 | PASS | `test_name_length_and_internal_spaces_api`、`test_name_boundaries_and_name_key` |
+| B7 | PASS | `test_same_resource_name_unique_case_insensitive` |
+| B8 | PASS | `test_soft_delete_reuse_and_restore_conflict` |
+| B9 | PASS | `test_concurrent_same_name_insert`（raw 双会话真提交，断言最终唯一行） |
+| B10 | PASS | `test_resource_required_and_must_exist` |
+| B11 | PASS | `test_resource_immutable` |
+| B12 | PASS | `test_status_default_and_values`、`test_status_check_and_default` |
+| B13 | PASS | `test_status_default_and_values` + 静态 E9 |
+| B14 | PASS | `test_description_nullable_and_preserved` |
+| B15 | PASS | `test_metadata_whole_replacement`、`test_metadata_object_check` |
+| B16 | PASS | `test_metadata_whole_replacement`、`test_update_audit_snapshot_content`（审计 after 整值） |
+| B17 | PASS | `test_delete_reference_checker_stub_blocks`、`test_public_service_reference_register_hook` |
+| B18 | PASS | `test_delete_default_empty_reference_set` |
+| B19 | PASS | `test_delete_default_empty_reference_set` + 静态 E9（无 Endpoint 触碰） |
+| B20 | PASS | `test_restore_success_and_audit` |
+| B21 | PASS | `test_soft_delete_reuse_and_restore_conflict` |
+| B22 | PASS | `test_restore_dependency_resource_deleted` |
+| B23 | PASS | `test_restore_success_and_audit`（仅自身恢复） |
+| B24 | PASS | `test_permissions`、`test_unauthenticated_401` |
+| B25 | PASS | `test_activity_trail`、`test_audit_whitelist_row`、`test_update_audit_snapshot_content` |
+| B26 | PASS | `test_audit_failure_rolls_back_all_service_writes`（四 action 同回滚） |
+| B27 | PASS | `test_view_deleted_and_detail`、`test_list_filters_and_pagination` |
+| B28 | PASS | `test_list_filters_and_pagination` |
+| B29 | PASS | `test_partial_unique_name` |
+| B30 | PASS | `test_concurrent_same_name_insert`（raw 真提交） |
+| B31 | PASS | `test_undeleted_service_blocks_resource_delete` |
+| B32 | PASS | `test_restore_dependency_resource_deleted`（软删 Service 后 Resource 可删） |
+| B33 | PASS | `test_optimistic_lock_two_sessions`（两真实会话） |
+| B34 | PASS | `test_restore_vs_recreate_concurrency`（真实部分唯一仲裁，最终仅一未删行） |
+| B35 | PASS | `test_restore_dependency_resource_deleted`、`test_restore_not_deleted`、`test_resource_immutable`（抽查顺序） |
+| B36 | PASS | `test_list_filters_and_pagination`、`test_nested_resource_and_query` |
+| B37 | PASS | E5；`test_migration_up_down_up_and_single_head` |
+| B38 | PASS | `test_read_only_has_no_side_effects` |
+| B39 | PASS | `test_fk_restrict_and_soft_delete_retention`（机制级） |
+| B40 | PASS | `test_resource_immutable`、`test_description_nullable_and_preserved`、`test_metadata_whole_replacement` |
+
+### 11.7 三分界声明
+
+1. **F011 独立可验证（本次全部执行）**：A1–A9、A11–A18，V-DB-112–125，B1–B16/B19–B40。
+2. **F011 + Endpoint 桩（仅结构与挂钩，不能证明真实 Endpoint 数据语义）**：A10 的 `register_service_reference_checker` 公共挂钩、默认空集、桩返回引用时 DELETE→409 `reference_exists{references:[{object_type:"service_endpoint",...}]}` 与不级联；对应 §31 T23 的结构/挂钩部分。
+3. **留待 F012（本 Feature 不可执行）**：含真实 ServiceEndpoint 的端到端（T23 完整）、真实 `service_endpoint` 引用数据、Endpoint 本体与监听唯一性。F011 局部 PASS 不拼成 T23 通过。
+
+### 11.8 Defects
+
+| ID | Severity | Layer | Location | 期望/实际 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- |
+| F011-TE1-01 | NOTE | Database 文档 | `docs/database/f011-service.md` §7 V-DB-112 | 期望“8 CHECK + 1 PK + 1 FK”；实际文案写“9 CHECK”。实现与 DB §2 表均为 8 CHECK，无功能影响 | Database | 否 |
+| F011-TE1-02 | NOTE | Backend 文档 | `docs/features/F011/implementation.md` §1 | 期望准确记录注册路径；实际写“`app/services/resource.py` 导入 service 完成注册”，实为 `app/services/service.py` 模块级 `cluster_service.register_reference_checker`，经 API 路由导入生效。运行期行为正确（`test_undeleted_service_blocks_resource_delete` PASS） | Backend / 协调器 | 否 |
+| F011-TE1-03 | MEDIUM（非 F011） | 测试基础设施 | `tests/integration/test_clusters.py::test_audit_four_actions_and_activity`、`tests/integration/test_ip_addresses.py::test_concurrent_gateway_change_and_allocation` | 4 次全量运行中 1 次出现这 2 项偶发失败，单独重跑与再次全量均通过；与 F011 无代码关联，表明 F003/F010 并发/审计用例存在时序性 flake | 协调器 / Backend 测试基础设施 | 否（F011 不阻塞；建议后续隔离修复） |
+| F011-TE1-04 | NOTE | 集成环境 | Compose/Nginx 真实前后端 | `compose.yaml` 的后端/前端需 `docker build`，本轮按任务约束未构建；前端以 `typecheck`+`build`+`smoke:client` 机制级验证。不降 F011 验收（真实浏览器 DOM 非必要判据） | 协调器 | 否 |
+
+### 11.9 未验证项
+
+| 项 | 状态 | 原因 |
+| --- | --- | --- |
+| T23 真实 ServiceEndpoint 端到端 | `NOT TESTED / 归 F012` | Endpoint 本体（F012）未交付；F011 仅提供挂钩/默认空集 |
+| §17 全局 Service 搜索、§19 Cluster Detail Services、§20 Dashboard 聚合 | `NOT TESTED / 归 F013` | 归 F013 消费 F011 数据 |
+| CSV/Excel 导入一致性 | `NOT TESTED / 归 F014` | 导入归 F014；F011 仅提供字段口径 |
+| 完整 Audit 查询页（§22） | `NOT TESTED / 归 F015` | F011 仅验证资源级 Activity 四 action |
+| 跨功能 §31–33 整体验收 | `NOT TESTED / 归 F016` | 不由 F011 局部 PASS 拼接 |
+| Compose 入口 Nginx 真实前后端集成 / 真实浏览器 DOM | `NOT TESTED / BLOCKED（环境）` | Compose 需构建镜像（任务禁止 `docker build`）；见 F011-TE1-04 |
+| F001 `test_migrations` V3b | `SKIPPED` | 连接角色为 superuser，环境性跳过（非 F011） |
+
+### 11.10 TE-1 结论
+
+- F011 独立范围（A1–A9、A11–A18；V-DB-112–125；B 场景除 F012/F013 分界项外）全部 PASS；无必须修复的实现缺陷；F011 无 BLOCKER/HIGH。
+- 新增 12 项 Tester 独立测试，其中 B26/B33/B34/A10 公共挂钩/只读无副作用为本次新增执行证据。
+- 真实 Endpoint 端到端（T23）与 F013/F014/F015/F016 范围保持 `NOT TESTED`，不声明整条 §31 通过。
+- 前端 typecheck/build/smoke 通过（187/0）；真实 Nginx 集成因环境（禁止构建镜像）记 `NOT TESTED / BLOCKED`，不降验收。
+
+**结论：`READY FOR REVIEW`**
+
+GIT: git rev-parse --short HEAD
+GIT: git status --porcelain
+GIT: git branch --show-current

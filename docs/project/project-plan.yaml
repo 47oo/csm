@@ -699,9 +699,9 @@ features:
   depends_on:
   - F004
   blocking_decisions: []
-  status: IN_PROGRESS
-  next_action: TEST Gate（Tester 独立执行 F011 验收映射，产出 TD-2 + TE-1）
-  current_stage: TEST
+  status: IN_REVIEW
+  next_action: 正式 Review（reviewer 独立审查候选 HEAD）
+  current_stage: REVIEW
   implementation:
     product: COMPLETE
     architecture: COMPLETE
@@ -710,6 +710,7 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: COMPLETE
+    test: COMPLETE
   evidence:
     product:
     - docs/features/F011/product.md
@@ -725,6 +726,8 @@ features:
     - docs/features/F011/implementation.md
     frontend:
     - docs/features/F011/implementation.md
+    test:
+    - docs/features/F011/test-report.md#test-execution
   layers:
     database: true
     backend: true
@@ -1012,9 +1015,10 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F011
-  current_stage: TEST
-  last_result: F011 IMPLEMENTATION COMPLETE（backend 382 passed/1 skipped，F011 36 passed；frontend typecheck/build/smoke 187 passed）
-  next_action: TEST Gate（Tester 独立执行 F011 验收映射）
+  current_stage: REVIEW
+  last_result: F011 TEST READY FOR REVIEW（backend 394 passed/1 skipped，F011 36 passed；独立库迁移/约束通过；frontend
+    187 passed）
+  next_action: 正式 Review（reviewer）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -1024,8 +1028,8 @@ planning_status:
     CANCELLED: 0
     DONE: 10
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 1
   ready_features:
   - F014
