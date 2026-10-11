@@ -833,8 +833,9 @@ features:
   - F010
   - F011
   blocking_decisions: []
-  status: READY
-  next_action: null
+  status: IN_PROGRESS
+  next_action: PRODUCT Gate（product-manager 产出 docs/features/F013/product.md）
+  current_stage: PRODUCT
 - id: F014
   title: CSV / Excel 批量导入
   kind: FEATURE
@@ -1075,11 +1076,10 @@ planning_status:
     CANCELLED: 0
     DONE: 12
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 3
+    READY: 2
   ready_features:
-  - F013
   - F014
   - F015
   blocked_draft_features:
