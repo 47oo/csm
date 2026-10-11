@@ -13,6 +13,7 @@ import ResourceDetailPage from "./ResourceDetailPage";
 import NetworksPage from "./NetworksPage";
 import IpPoolsPage from "./IpPoolsPage";
 import IpAddressesPage from "./IpAddressesPage";
+import ServicesPage from "./ServicesPage";
 
 interface HomePageProps {
   user: User;
@@ -31,13 +32,15 @@ type Section =
   | { name: "resource-detail"; id: string; deleted: boolean }
   | { name: "networks" }
   | { name: "ip-pools" }
-  | { name: "ip-addresses" };
+  | { name: "ip-addresses" }
+  | { name: "services" };
 
 /**
  * F002 已登录视图 + F003/F004/F008 导航壳（架构 §1.8，不追求复杂视觉效果）：
  * 概览（当前用户 + 后端健康）/ Clusters（列表 / 新建 / 详情）/ Resources
  * （列表 / 新建 / 详情）/ Networks（列表 / 新建 / 编辑，F008）/ IP Pools
- * （列表 / 新建 / 编辑，F009）/ IP Addresses（分配 / 绑定 / 释放 / 恢复，F010）。
+ * （列表 / 新建 / 编辑，F009）/ IP Addresses（分配 / 绑定 / 释放 / 恢复，F010）/
+ * Services（服务登记：列表 / 创建 / 编辑 / 删除 / 恢复 / Activity，F011）。
  * 各入口对
  * 全部已登录角色可见
  * （READ 全角色）；写 / 删 / 恢复 / 已删可见性仅按服务端返回的 permissions
@@ -83,7 +86,8 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
   const inNetworks = section.name === "networks";
   const inIpPools = section.name === "ip-pools";
   const inIpAddresses = section.name === "ip-addresses";
-  const wide = inClusters || inResources || inNetworks || inIpPools || inIpAddresses;
+  const inServices = section.name === "services";
+  const wide = inClusters || inResources || inNetworks || inIpPools || inIpAddresses || inServices;
 
   return (
     <main className={wide ? "main-wide" : undefined}>
@@ -149,6 +153,13 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
           onClick={() => setSection({ name: "ip-addresses" })}
         >
           IP Addresses
+        </button>
+        <button
+          type="button"
+          className={inServices ? "nav-link nav-link-active" : "nav-link"}
+          onClick={() => setSection({ name: "services" })}
+        >
+          Services
         </button>
       </nav>
 
@@ -255,6 +266,8 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
       {section.name === "ip-pools" && <IpPoolsPage user={user} />}
 
       {section.name === "ip-addresses" && <IpAddressesPage user={user} />}
+
+      {section.name === "services" && <ServicesPage user={user} />}
     </main>
   );
 }

@@ -700,14 +700,16 @@ features:
   - F004
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: IMPLEMENTATION（Backend：迁移 0011/Service 服务/引用检查扩展点；Frontend：Services 列表/详情/Resource Detail 区域）
-  current_stage: IMPLEMENTATION
+  next_action: TEST Gate（Tester 独立执行 F011 验收映射，产出 TD-2 + TE-1）
+  current_stage: TEST
   implementation:
     product: COMPLETE
     architecture: COMPLETE
     database: COMPLETE
     test_design: COMPLETE
     contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
   evidence:
     product:
     - docs/features/F011/product.md
@@ -719,6 +721,10 @@ features:
     - docs/features/F011/test-report.md#test-design
     contract:
     - docs/api/F011.md
+    backend:
+    - docs/features/F011/implementation.md
+    frontend:
+    - docs/features/F011/implementation.md
   layers:
     database: true
     backend: true
@@ -1006,9 +1012,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F011
-  current_stage: IMPLEMENTATION
-  last_result: F011 CONTRACT COMPLETE（READY FOR IMPLEMENTATION；F011.md v1，D01 v10 §5.10；不新增 reason）
-  next_action: IMPLEMENTATION（backend + frontend）
+  current_stage: TEST
+  last_result: F011 IMPLEMENTATION COMPLETE（backend 382 passed/1 skipped，F011 36 passed；frontend typecheck/build/smoke 187 passed）
+  next_action: TEST Gate（Tester 独立执行 F011 验收映射）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

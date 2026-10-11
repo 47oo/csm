@@ -17,6 +17,7 @@ import {
 } from "../api/resources";
 import ResourceForm, { type ResourceFormValues } from "../components/ResourceForm";
 import InterfacesPanel from "../components/InterfacesPanel";
+import ServicesPanel from "../components/ServicesPanel";
 import { parseMetadataText } from "../components/ClusterForm";
 import { buildHardwarePatch, parseHardwareFormValues } from "../components/hardware";
 import {
@@ -238,10 +239,9 @@ function HardwarePanel({ hardware }: { hardware: Hardware | null }) {
   );
 }
 
-/** F008+ 交付的 Detail 区域（Contract §9：Hardware 随 F005、Virtual Machines 随 F006、Interfaces 随 F007 交付，其余占位）。 */
+/** F008+ 交付的 Detail 区域（Contract §9：Hardware 随 F005、Virtual Machines 随 F006、Interfaces 随 F007、Services 随 F011 交付，其余占位）。 */
 const PLACEHOLDER_AREAS: { title: string; note: string }[] = [
   { title: "IP 地址（IP）", note: "IP 地址与分配明细，后续 Feature 提供" },
-  { title: "服务（Services）", note: "运行服务登记，后续 Feature 提供" },
 ];
 
 /**
@@ -465,7 +465,9 @@ function HostVirtualMachinesPanel({
  *   经 host_resource_id 过滤列出其 VM（DR-67，Loading/Empty/Error）；
  *   Interfaces 区域（F007，A19）：GET /api/v1/interfaces?resource_id=<id>
  *   列出接口（name/type/mac/speed/mtu/enabled，未知「—」非 0）+ 创建/编辑/
- *   删除/恢复（DR-84）；IP / Services 区域占位（F008+；IP/Network 聚合列归 F013）；
+ *   删除/恢复（DR-84）；Services 区域（F011，§18）：GET /api/v1/
+ *   services?resource_id=<id> 只读列出该资源的服务登记（管理入口在 Services
+ *   页面）；IP 区域占位（F008+；IP/Network 聚合列归 F013）；
  * - 编辑：PATCH 带 version；仅变化字段；cluster / resource_type 不可改（只读展示）；
  *   409 VERSION_CONFLICT → 提示刷新后重改（不静默重试）；
  * - 删除（软删，DELETE_OBJECT）：需确认，409 VERSION_CONFLICT / reference_exists
@@ -701,6 +703,8 @@ export default function ResourceDetailPage({
             ))}
 
           <InterfacesPanel resource={state.resource} user={user} />
+
+          <ServicesPanel resource={state.resource} user={user} />
 
           <h3 className="detail-section-title">系统信息</h3>
           <dl className="detail-grid">
