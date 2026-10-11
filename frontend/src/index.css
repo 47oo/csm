@@ -689,3 +689,43 @@ mark {
   color: #b91c1c;
   font-weight: 600;
 }
+
+/* ---------- F014 批量导入（复用既有风格，最小样式） ---------- */
+
+/* 预校验 / 整批失败错误表：区域内滚动（行号/字段/原因/关联行），原因列可换行 */
+.import-errors-wrap {
+  max-height: 360px;
+  overflow: auto;
+  margin-top: 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.import-error-reason {
+  white-space: normal;
+  min-width: 260px;
+}
+
+/* 模板逐列说明表：说明 / 类型列可换行（覆盖 data-table 默认 nowrap） */
+.import-col-desc {
+  white-space: normal;
+  min-width: 280px;
+}
+
+.import-col-type {
+  white-space: normal;
+  min-width: 150px;
+}
+
+.import-templates {
+  margin-top: 1rem;
+}
+
+.import-template-block {
+  margin-top: 1rem;
+}
+
+.import-template-block h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}

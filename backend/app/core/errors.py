@@ -179,6 +179,82 @@ class NotFound(AppError):
     default_message = "Not found"
 
 
+class ImportFileTooLarge(AppError):
+    """413: uploaded import file exceeds ``import_max_file_bytes`` (Contract §1.2)."""
+
+    status_code = 413
+    code = "IMPORT_FILE_TOO_LARGE"
+    default_message = "Import file too large"
+
+    def __init__(self, limit_bytes: int) -> None:
+        super().__init__(details={"limit_bytes": int(limit_bytes)})
+
+
+class ImportRowLimitExceeded(AppError):
+    """413: data rows exceed ``import_max_rows`` (Contract §1.2)."""
+
+    status_code = 413
+    code = "IMPORT_ROW_LIMIT_EXCEEDED"
+    default_message = "Import row limit exceeded"
+
+    def __init__(self, limit_rows: int) -> None:
+        super().__init__(details={"limit_rows": int(limit_rows)})
+
+
+class ImportInvalidFile(AppError):
+    """422: file-level fatal parse/header error (Contract §1.2).
+
+    ``reason`` is one of ``unreadable``, ``unsupported_format``,
+    ``header_missing``, ``missing_columns``, ``unknown_columns``,
+    ``column_order`` or ``empty_file``.
+    """
+
+    status_code = 422
+    code = "IMPORT_INVALID_FILE"
+    default_message = "Invalid import file"
+
+    def __init__(
+        self,
+        reason: str,
+        *,
+        missing_columns: list[str] | None = None,
+        unknown_columns: list[str] | None = None,
+    ) -> None:
+        details: dict[str, Any] = {"reason": reason}
+        if missing_columns is not None:
+            details["missing_columns"] = missing_columns
+        if unknown_columns is not None:
+            details["unknown_columns"] = unknown_columns
+        super().__init__(details=details)
+
+
+class ImportValidationFailed(AppError):
+    """422: one or more row errors; the whole batch is rolled back (Contract §1.2/§4)."""
+
+    status_code = 422
+    code = "IMPORT_VALIDATION_FAILED"
+    default_message = "Import validation failed"
+
+    def __init__(
+        self,
+        *,
+        total_rows: int,
+        importable_rows: int,
+        error_count: int,
+        errors: list[dict[str, Any]],
+        errors_truncated: bool,
+    ) -> None:
+        super().__init__(
+            details={
+                "total_rows": int(total_rows),
+                "importable_rows": int(importable_rows),
+                "error_count": int(error_count),
+                "errors": errors,
+                "errors_truncated": bool(errors_truncated),
+            }
+        )
+
+
 class ValidationError(AppError):
     """422: request body/parameter validation failed."""
 

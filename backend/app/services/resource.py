@@ -14,6 +14,7 @@ filter hides ``deleted_at IS NOT NULL`` rows by default; callers opt in with
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import false, func, select, update
@@ -241,23 +242,29 @@ def validate_virtual_machine_values(vm: Any, *, partial: bool) -> dict[str, Any]
 
 
 def validate_virtual_machine(
-    db: "Session", host_resource_id: uuid.UUID, *, cluster_id: uuid.UUID
+    db: "Session",
+    host_resource_id: uuid.UUID,
+    *,
+    cluster_id: uuid.UUID,
+    lock: bool = True,
 ) -> Resource:
-    """Validate the VM Host and lock its row (DR-60/DR-71).
+    """Validate the VM Host and (by default) lock its row (DR-60/DR-71).
 
     The referenced Resource must simultaneously exist, be undeleted, be
     ``BARE_METAL`` and belong to the VM's cluster; any failure raises 422 with
-    ``field="virtual_machine.host_resource_id"`` (no sub-code). The host row is
-    locked ``FOR UPDATE`` *before* it is read so a concurrent Host soft-delete
-    (which locks the same row before its reference check) cannot interleave, and
-    vice-versa (DR-71). The lock includes soft-deleted rows so a host is seen as
-    deleted rather than missing.
+    ``field="virtual_machine.host_resource_id"`` (no sub-code). With
+    ``lock=True`` (writes) the host row is locked ``FOR UPDATE`` *before* it is
+    read so a concurrent Host soft-delete (which locks the same row before its
+    reference check) cannot interleave, and vice-versa (DR-71). With
+    ``lock=False`` (F014 pre-validate, read-only) no lock is taken. The lock
+    includes soft-deleted rows so a host is seen as deleted rather than missing.
     """
+    statement = select(Resource).where(Resource.id == host_resource_id)
+    if lock:
+        statement = statement.with_for_update()
     host = (
         db.execute(
-            select(Resource)
-            .where(Resource.id == host_resource_id)
-            .with_for_update(),
+            statement,
             execution_options={"include_deleted": True},
         )
         .scalars()
@@ -713,11 +720,78 @@ def create_resource(
 ) -> Resource:
     """Create a resource; same-cluster hostname is unique among undeleted rows.
 
-    A BARE_METAL resource always gets its 1:1 ``bare_metal_details`` row in the
-    same transaction (all-null when ``hardware`` is omitted). A VIRTUAL_MACHINE
-    request that carries ``hardware`` is rejected with 422 (DR-51); a VM must
-    carry a ``virtual_machine`` object and its Host is validated/locked first
-    (DR-60/DR-71).
+    Thin wrapper around :func:`_create_resource_core`: it commits on success and
+    rolls back + translates an unexpected ``IntegrityError`` (DR-202). All rule
+    logic lives in the shared non-committing core so F014 import can reuse it
+    inside its single batch transaction.
+    """
+    try:
+        resource = _create_resource_core(
+            db,
+            operator,
+            cluster=cluster,
+            hostname=hostname,
+            resource_type=resource_type,
+            role=role,
+            status=status,
+            description=description,
+            metadata=metadata,
+            hardware=hardware,
+            virtual_machine=virtual_machine,
+            virtual_machine_present=virtual_machine_present,
+        )
+    except IntegrityError as exc:  # concurrent create lost the race on a UNIQUE
+        db.rollback()
+        raise _translate_integrity_error(exc) from exc
+    db.commit()
+    return resource
+
+
+@dataclass
+class PreparedResource:
+    """Fully validated resource values ready to be staged (DR-202).
+
+    Produced by :func:`prepare_resource`; persisted (without re-running
+    validation) by :func:`stage_resource`. F014 import builds the same object
+    after its aggregation-friendly per-row validation and stages it inside a
+    SAVEPOINT.
+    """
+
+    cluster: Cluster
+    hostname: str
+    hostname_key: str
+    resource_type: str
+    role: str
+    status: str
+    description: str | None
+    meta: dict
+    hardware: dict[str, Any] | None
+    virtual_machine: dict[str, Any] | None
+
+
+def prepare_resource(
+    db: "Session",
+    *,
+    cluster: str,
+    hostname: str,
+    resource_type: str,
+    role: str = "OTHER",
+    status: str = "UNKNOWN",
+    description: str | None = None,
+    metadata: dict | None = None,
+    hardware: dict | None = None,
+    virtual_machine: dict | None = None,
+    virtual_machine_present: bool = False,
+    lock: bool = True,
+) -> PreparedResource:
+    """Validate and normalise an incoming resource (no write, no commit).
+
+    Resolves the cluster, normalises the hostname, validates type/role/status,
+    metadata and the type-specific detail, and validates (optionally locking)
+    the VM Host (DR-60/DR-71). The same-cluster hostname uniqueness conflict is
+    *not* checked here; callers do that explicitly. Shared by the ordinary API
+    (:func:`_create_resource_core`) and F014 import validation; ``lock=False``
+    supports the read-only pre-validate path.
     """
     resolved_cluster = _resolve_cluster(db, cluster)
     normalized_hostname = normalization.normalize_hostname(hostname)
@@ -751,6 +825,7 @@ def create_resource(
             db,
             virtual_machine_values["host_resource_id"],
             cluster_id=resolved_cluster.id,
+            lock=lock,
         )
     else:
         if vm_present:
@@ -760,18 +835,8 @@ def create_resource(
             )
         hardware_values = validate_hardware(hardware or {}, partial=False)
 
-    existing = db.execute(
-        select(Resource.id).where(
-            Resource.cluster_id == resolved_cluster.id,
-            Resource.hostname_key == key,
-            Resource.deleted_at.is_(None),
-        )
-    ).first()
-    if existing is not None:
-        raise Conflict.unique_conflict("hostname")
-
-    resource = Resource(
-        cluster_id=resolved_cluster.id,
+    return PreparedResource(
+        cluster=resolved_cluster,
         hostname=normalized_hostname,
         hostname_key=key,
         resource_type=resource_type,
@@ -779,29 +844,40 @@ def create_resource(
         status=status,
         description=description,
         meta=meta,
+        hardware=hardware_values,
+        virtual_machine=virtual_machine_values,
+    )
+
+
+def stage_resource(
+    db: "Session", operator: "Operator | None", prepared: PreparedResource
+) -> Resource:
+    """Persist a prepared resource + its 1:1 detail + CREATE audit (no commit).
+
+    Flushes so the generated id/constraints are visible; an ``IntegrityError``
+    propagates to the caller, which owns rollback (API: whole-transaction in
+    :func:`create_resource`; import: the per-row SAVEPOINT).
+    """
+    resource = Resource(
+        cluster_id=prepared.cluster.id,
+        hostname=prepared.hostname,
+        hostname_key=prepared.hostname_key,
+        resource_type=prepared.resource_type,
+        role=prepared.role,
+        status=prepared.status,
+        description=prepared.description,
+        meta=prepared.meta,
     )
     db.add(resource)
-    try:
+    db.flush()
+
+    if prepared.hardware is not None:
+        _attach_hardware(resource, prepared.hardware)
         db.flush()
-    except IntegrityError as exc:  # concurrent create lost the race
-        db.rollback()
-        raise _translate_integrity_error(exc) from exc
 
-    if hardware_values is not None:
-        _attach_hardware(resource, hardware_values)
-        try:
-            db.flush()
-        except IntegrityError as exc:
-            db.rollback()
-            raise _translate_integrity_error(exc) from exc
-
-    if virtual_machine_values is not None:
-        _attach_virtual_machine(resource, virtual_machine_values)
-        try:
-            db.flush()
-        except IntegrityError as exc:
-            db.rollback()
-            raise _translate_integrity_error(exc) from exc
+    if prepared.virtual_machine is not None:
+        _attach_virtual_machine(resource, prepared.virtual_machine)
+        db.flush()
 
     audit.record(
         db,
@@ -812,8 +888,58 @@ def create_resource(
         before=None,
         after=resource_snapshot(resource),
     )
-    db.commit()
     return resource
+
+
+def _create_resource_core(
+    db: "Session",
+    operator: "Operator | None",
+    *,
+    cluster: str,
+    hostname: str,
+    resource_type: str,
+    role: str = "OTHER",
+    status: str = "UNKNOWN",
+    description: str | None = None,
+    metadata: dict | None = None,
+    hardware: dict | None = None,
+    virtual_machine: dict | None = None,
+    virtual_machine_present: bool = False,
+) -> Resource:
+    """Non-committing create core: validate, uniqueness check, stage (DR-202).
+
+    A BARE_METAL resource always gets its 1:1 ``bare_metal_details`` row in the
+    same transaction (all-null when ``hardware`` is omitted). A VIRTUAL_MACHINE
+    request that carries ``hardware`` is rejected with 422 (DR-51); a VM must
+    carry a ``virtual_machine`` object and its Host is validated/locked first
+    (DR-60/DR-71). Callers own commit/rollback.
+    """
+    prepared = prepare_resource(
+        db,
+        cluster=cluster,
+        hostname=hostname,
+        resource_type=resource_type,
+        role=role,
+        status=status,
+        description=description,
+        metadata=metadata,
+        hardware=hardware,
+        virtual_machine=virtual_machine,
+        virtual_machine_present=virtual_machine_present,
+        lock=True,
+    )
+
+    existing = db.execute(
+        select(Resource.id).where(
+            Resource.cluster_id == prepared.cluster.id,
+            Resource.hostname_key == prepared.hostname_key,
+            Resource.deleted_at.is_(None),
+        )
+    ).first()
+    if existing is not None:
+        raise Conflict.unique_conflict("hostname")
+
+    return stage_resource(db, operator, prepared)
 
 
 def update_resource(
