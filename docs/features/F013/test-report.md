@@ -298,6 +298,250 @@ TD-1 结论：**`TEST DESIGN READY`** —— A1–A24 已映射到可观察判�
 > GIT: git branch --show-current
 > ```
 
-GIT: git status --short
+---
+
+## TD-2 Test Design Closure（版本 TD-2）
+
+- **版本**：TD-2
+- **日期**：2026-10-13
+- **角色**：Tester（TEST_DESIGN 模式，TD-2 关闭）
+- **结论**：`TEST DESIGN READY`（TD-2）
+- **定稿输入（已核对）**：
+  - `docs/api/F013.md` v1（READY，Architect 2026-10-13；§2.3/§2.4/§2.5/§3/§6/§7 裁定）
+  - `docs/database/f013-search-index.md` v1（DB-D157–DB-D166；迁移 `0013_search_indexes`）
+  - `docs/architecture/d01-conventions.md` v11（**无变更**，Contract §8 声明）
+  - `docs/features/F013/implementation.md`（BACKEND/FRONTEND COMPLETE）
+  - errata：`docs/database/f003-cluster.md` DB-D30、`f004-resource.md` DB-D41（**非** DB-D38）、`f011-service.md` DB-D137；`f008/f009/f010/f012` 交叉引用；architecture DR-189 已更正 `DB-D38→DB-D41`。
+- **状态属性**：TD-2 `READY` 表示 TD-1 §7 OPEN 已逐项关闭、执行判据已固定为 Contract/DB 定稿值；**不填充执行 PASS、不批准实现或合并**。
+
+### TD-2.1 TD-1 §7 OPEN-1–10 关闭
+
+| OPEN | TD-1 待复核假设 | 定稿判据（Contract v1 / DB v1） | 关闭 |
+| --- | --- | --- | --- |
+| OPEN-1 | 错误信封/校验顺序 | 复用 F002 信封；401 `AUTH_REQUIRED`→403 `FORBIDDEN{reason:"permission"}`→422 `VALIDATION_ERROR{fields:[{field,message}]}`→200；field 用查询参数名 | ✅ 关闭（Contract §1.2/§1.3） |
+| OPEN-2 | 去重/排序 | **typed 行**（不折叠为 Resource）；去重键 `(object_type,id)`；排序 `similarity DESC → object_type 固定序 resource<cluster<ip_address<service → id ASC`；相似度不暴露 | ✅ 关闭（Contract §2.3；DR-174/175） |
+| OPEN-3 | 空查询/长度 | `q` trim 后 1–255（Unicode code point）；空/纯空白→422 field=`"q"`；>255→422 field=`"q"` | ✅ 关闭（Contract §2.5；DR-177） |
+| OPEN-4 | IP 非整址兜底 | **不采纳**前缀/trigram 兜底，仅精确匹配；非整址/带掩码/IPv6 不产生 `ip_address` 结果且不报错 | ✅ 关闭（Contract §2.4/§7/§8.5；DB-D163） |
+| OPEN-5 | I-12 不展开 / I-16 无全局合计 | Cluster 命中仅 `cluster` 行；Dashboard 无跨 Network 合计；`counts` 全局不受分页影响 | ✅ 关闭（Contract §2.7/§3.4/§7） |
+| OPEN-6 | GIN 索引集合/opclass/partial/迁移 | 4 条**非 partial、非唯一** `gin_trgm_ops` GIN：`ix_resources_hostname_trgm`(hostname)、`ix_clusters_code_key_trgm`(code_key)、`ix_clusters_name_trgm`(name)、`ix_services_name_key_trgm`(name_key)；`ip_addresses` 不建索引；迁移 `0013_search_indexes`(`down_revision=0012_service_endpoints`) | ✅ 关闭（DB v1 §2–§6；DB-D157–163） |
+| OPEN-7 | DR-189 no-GIN 断言/errata | 修订 DB-D30/DB-D41/DB-D137；澄清 DB-D89/DB-D124/DB-D77/DB-D106/DB-D152；更正 DB-D38→DB-D41；受影响断言同步（§7-E4） | ✅ 关闭（DB v1 §7） |
+| OPEN-8 | Dashboard 路径/字段 | `GET /api/v1/dashboard`；无 `deleted`/`cluster_id` 参数；`networks.items` 行序 `created_at DESC, id ASC`；`counts` 5 键 | ✅ 关闭（Contract §3；DR-181–183/188） |
+| OPEN-9 | I-17 列表 `q` | F013 仅新增 `/search`；各 DONE 域列表 `q` 保持 ILIKE 子串，不追溯修改 | ✅ 关闭（Contract §1.4；DR-185） |
+| OPEN-10 | Contract 草案未签核 | `docs/api/F013.md` v1 READY（2026-10-13），与 architecture/DB 一致 | ✅ 关闭 |
+
+### TD-2.2 并入的执行判据（相对 TD-1 §6 候选的固定化）
+
+- **去重/排序**：TD-1 V27/V28 的排序候选固定为 `similarity DESC → object_type(resource,cluster,ip_address,service) → id ASC` 全序；typed 行方案确定，**不**折叠为单一 Resource；相似度值不进入响应。
+- **空 `q`**：TD-1 V9/B1 的 PROPOSED 422 固定为定稿：field=`"q"`，长度 1–255。
+- **IP**：TD-1 V30/B12 的 OPEN-4 固定为**仅精确匹配**；非整址无 `ip_address` 结果（空结果 200）。
+- **Dashboard**：TD-1 V31 固定路径 `/api/v1/dashboard`，无 `deleted`/`cluster_id` 参数，`networks` 行序 `created_at DESC, id ASC`；容量只消费 `ip_capacity.py`。
+- **GIN/迁移**：TD-1 §6.1 候选索引集合固定为 DB v1 的 4 条（无 IP 索引）；pg_trgm 引入点 F013，扩展由 0001 启用、0013 不含扩展 DDL。
+- **I-17**：各域列表 `q` 行为不变的回归判据（B29）固定。
+
+### TD-2.3 版本记录
+
+| 版本 | 日期 | 变更 |
+| --- | --- | --- |
+| TD-2 | 2026-10-13 | 关闭 TD-1 §7 OPEN-1–10；按 Contract v1 / DB v1 / D01 v11 固定去重排序、空 q、IP 精确、Dashboard 路径与行序、GIN 集合、I-17 判据；确认 errata（DB-D30/41/137，DB-D38→DB-D41）。 |
+
+> **TD-2 Git 记录**：`GIT: NONE`（TD-2 为文档定稿复核，无 Git 命令）。
+
+TD-2 结论：**`TEST DESIGN READY`** —— 执行判据已全部固定为已签核 Contract/DB 值，可进入 TEST。
+
+---
+
+## TE-1 独立测试执行（版本 TE-1）
+
+- **版本**：TE-1
+- **日期**：2026-10-13
+- **角色**：Tester（TEST 模式）
+- **执行基线**：分支 `feature/F013-global-search-dashboard`，`HEAD=0c1d80d`（工作区除本 Tester 新增测试文件外 clean）。
+- **结论**：**`READY FOR REVIEW`** —— A1–A24、V-DB-139–144、B1–B30 全部适用项 PASS，无必须修复缺陷。
+- **独立性声明**：本次未复制开发者执行结果。全部测试由 Tester 在本机独立运行；迁移/索引/EXPLAIN 在**独立验证库**（`f013_verify_test`，与开发者/常规测试库 `csm_test` 分离）重建并逐条核对；TD-2 已先复核 Contract/DB 定稿与 errata。开发者实现的测试属 Review 对象，Tester 另行以 probe 覆盖其未覆盖的验收项（A16 gateway∩RESERVED 去重、A17 软删 IP 不计占用、B17 软删池、V28 id 全序、V26 401 先于 422、V25/V31 响应形状、B12 非整址/IPv6）。
+
+### 环境
+
+| 项 | 值 |
+| --- | --- |
+| PostgreSQL | 容器 `f002test-db`（`postgres:16`），网络 `f002test-net`，用户 `csm` |
+| 常规测试库 | `csm_test`（库名含 `test`，DB-D10 护栏通过） |
+| 独立验证库 | `f013_verify_test`（Tester 新建，用毕 DROP） |
+| 后端镜像 | `csm-f007-test`（未 `docker build`） |
+| 后端依赖 | 真实 PG + ASGI 应用（`TestClient`），非 SQLite/Mock |
+| 前端 | 本机 Node 22；`npm run typecheck` / `build` / `smoke:client` |
+| 未执行 | Compose/Nginx 入口（无运行入口且不允许 `docker build`）；真实浏览器 DOM 渲染 |
+
+### 命令与输出
+
+```text
+# 1) F013 专属后端测试
+$ docker run --rm --network f002test-net -v "$PWD/backend:/app" \
+    -e TEST_DATABASE_URL="postgresql+psycopg://csm:change-me@f002test-db:5432/csm_test" \
+    -w /app csm-f007-test python -m pytest tests/integration/test_search.py \
+    tests/integration/test_dashboard.py tests/integration/test_search_constraints.py -q
+=> 35 passed, 1 warning in 21.32s
+
+# 2) 后端全量回归（含开发者 F013 测试）
+$ docker run ... -w /app csm-f007-test python -m pytest tests -q
+=> 473 passed, 1 skipped, 1 warning in 246.39s
+   (skip=tests/integration/test_migrations.py:105 superuser 环境性跳过，与 F013 无关)
+
+# 3) Tester 独立验收补充（新增 test_f013_tester_acceptance.py）
+$ docker run ... python -m pytest tests/integration/test_f013_tester_acceptance.py -q
+=> 10 passed in 7.32s
+
+# 4) 后端全量回归（含 Tester 补充后）
+$ docker run ... python -m pytest tests -q
+=> 482 passed, 1 skipped, 1 warning in 247.37s
+
+# 5) 独立验证库：迁移 up（真实 PG）
+$ docker run ... -e DATABASE_URL=".../f013_verify_test" python -m alembic upgrade head
+=> 0001_baseline .. 0012_service_endpoints -> 0013_search_indexes 全链成功
+
+# 6) 单 head
+$ python -m alembic heads        => 0013_search_indexes (head)
+$ SELECT version_num FROM alembic_version;  => 0013_search_indexes
+
+# 7) 4 条 GIN 索引目录
+$ SELECT indexname,indexdef FROM pg_indexes WHERE ...
+ix_resources_hostname_trgm | ... USING gin (hostname gin_trgm_ops)
+ix_clusters_code_key_trgm  | ... USING gin (code_key gin_trgm_ops)
+ix_clusters_name_trgm      | ... USING gin (name gin_trgm_ops)
+ix_services_name_key_trgm  | ... USING gin (name_key gin_trgm_ops)
+$ indisunique=f / indisvalid=t / indpred=NULL（4/4 非唯一、非 partial）
+$ ip_addresses 上 USING gin 索引数 = 0
+
+# 8) down/up 往返
+$ alembic downgrade 0012_service_endpoints  => 4 索引消失，resources/clusters/services/ip_addresses 保留
+$ extensions: btree_gist,pg_trgm,plpgsql（前后一致）
+$ alembic upgrade head                      => 4 索引恢复，extensions 不变
+$ 0013 源码: 无 'CREATE EXTENSION'/'DROP EXTENSION'；down_revision="0012_service_endpoints"
+
+# 9) EXPLAIN (ANALYZE) q>=3 命中 GIN（真实 PG，5 万行/表）
+resources.hostname ILIKE '%needlexyz%'   => Bitmap Index Scan on ix_resources_hostname_trgm
+clusters.code_key ILIKE '%needlecn%'     => Bitmap Index Scan on ix_clusters_code_key_trgm
+clusters.name ILIKE '%needle cluster%'   => Bitmap Index Scan on ix_clusters_name_trgm
+services.name_key ILIKE '%needle service%' => Bitmap Index Scan on ix_services_name_key_trgm
+# ADMIN only 路径（deleted_at IS NOT NULL）亦可走 GIN（非 partial 的意义）
+resources ... AND deleted_at IS NOT NULL => Bitmap Index Scan on ix_resources_hostname_trgm
+
+# 10) 前端
+$ cd frontend && npm run typecheck   => 通过
+$ npm run build                      => ✓ 79 modules transformed, built in 6.00s
+$ npm run smoke:client               => 224 passed, 0 failed（F013 +16）
+```
+
+### A1–A24 验收结果
+
+| 验收 | 验证项 | 结果 | 证据 |
+| --- | --- | --- | --- |
+| A1 统一入口四类 | V1/V33 | **PASS** | `test_search.py` 四类命中用例；`smoke:client` F013 搜索入口/typed 行解析 |
+| A2 hostname 模糊 | V2 | **PASS** | `test_hostname_substring_and_normalisation` |
+| A3 归一化大小写/空白 | V3 | **PASS** | 同上（GPU0701 / `  gpu0701  `）；`V-DB-142` 归一化等价 |
+| A4 IP→Interface→Resource | V4 | **PASS** | `test_ip_exact_match_binds_resource` |
+| A5 未绑定 IP resource=null | V5 | **PASS** | `test_ip_unbound_has_null_resource` |
+| A6 Cluster code/name | V6 | **PASS** | `test_cluster_code_and_name_matching`；probe `test_probe_cluster_code_wins`（code 优先） |
+| A7 Service→Resource | V7 | **PASS** | `test_service_match_embeds_resource` |
+| A8 软删 exclude/include/only + 403 | V8/V-DB-1 | **PASS** | `test_soft_delete_exclude_include_only` |
+| A9 空 q→422 | V9 | **PASS** | `test_empty_query_is_422`、`test_missing_query_is_422`、`test_overlong_query_is_422` |
+| A10 稳定 ID/object_type | V10 | **PASS** | 各用例断言 `id`/`object_type`；`smoke` 跳转目标解析 |
+| A11 分页/边界 | V11 | **PASS** | `test_pagination_is_stable_and_total_is_exact`、`test_invalid_parameters_are_422`、probe `test_probe_parameter_bounds` |
+| A12 pg_trgm/GIN 签核 | V12/V-DB-2 | **PASS** | §命令 5–9：4 索引 + EXPLAIN 命中四查询 |
+| A13 counts 未删含 INACTIVE | V13/V-DB-3 | **PASS** | `test_counts_scope_and_inactive`、`test_counts_match_domain_list_totals` |
+| A14 per-Network 容量 | V14 | **PASS** | `test_network_capacity_matches_f010_capacity_endpoint` |
+| A15 AUTO 池容量 | V15 | **PASS** | 同上；probe `test_probe_soft_deleted_pools` |
+| A16 排除 gateway/RESERVED/禁用 + 去重 | V16/V-DB-4 | **PASS** | probe `test_probe_gateway_inside_reserved_dedup`（244 非 243）、`test_probe_soft_deleted_pools` |
+| A17 占用含未绑定/池外、软删不计、负值不截断 | V17/V-DB-5 | **PASS** | `test_network_capacity...`（池外 10.10.0.200 计入）、`test_negative_remaining_not_clamped`、probe `test_probe_soft_deleted_ip_not_occupied` |
+| A18 AUTO 占用按当前地址/Network 含池外 | V18 | **PASS** | `test_network_capacity...`；`ip_capacity.auto_pools_capacity` 按当前地址计数（NOTE 见下） |
+| A19 状态/许可分列、INACTIVE 不清零 | V19 | **PASS** | `test_counts_scope_and_inactive`（INACTIVE 容量 >0） |
+| A20 与 F010 逐项一致 | V20/V-DB-7 | **PASS** | `test_network_capacity_matches_f010_capacity_endpoint`（三项 + auto_pools 逐项相等） |
+| A21 只读/无 Audit/幂等 | V21 | **PASS** | `test_search_writes_no_audit`、`test_dashboard_writes_no_audit`；静态路由仅 `GET` |
+| A22 权限 401/403/全角色 | V22 | **PASS** | `test_all_roles_can_read_dashboard`、`test_unauthenticated_*`、`test_soft_delete...`(403) |
+| A23 软删 Network/IP/对象隔离 | V23/V-DB-6 | **PASS** | `test_soft_deleted_excluded_from_counts_and_networks`、probe 软删 IP/池 |
+| A24 SN/MAC/Role/GPU Model 排除 | V24 | **PASS**（静态） | `SearchItem.matched_field` 枚举仅 hostname/address/code/name；`type` 无 SN/MAC 值 |
+
+### V-DB-139–V-DB-144 结果
+
+| 编号 | 内容 | 结果 | 证据 |
+| --- | --- | --- | --- |
+| V-DB-139 | 迁移 up/down/up、单 head、down_revision | **PASS** | 独立库 §命令 5–8；`test_migration_0013_up_down_up_single_head` |
+| V-DB-140 | 4 条 GIN `gin_trgm_ops`，非唯一、非 partial、valid | **PASS** | §命令 7；`test_trgm_indexes_are_non_partial_gin`；`indisunique=f`/`indpred=NULL` |
+| V-DB-141 | include/only 覆盖、非 partial 可走 GIN | **PASS** | 独立库 EXPLAIN `deleted_at IS NOT NULL` → GIN 命中 |
+| V-DB-142 | EXPLAIN q≥3 命中 GIN（四类） | **PASS** | §命令 9（四条 Bitmap Index Scan） |
+| V-DB-143 | 无扩展 DDL、扩展前后一致、单 head | **PASS** | `test_migration_0013_has_no_extension_ddl`；独立库扩展 `btree_gist,pg_trgm,plpgsql` 前后一致 |
+| V-DB-144 | 既有 no-GIN/head 断言同步后复跑 | **PASS** | 全量 482 passed（`test_resource_constraints`/`test_service_constraints`/8 个 head 硬编码 → `0013_search_indexes`） |
+
+### V1–V33 补充验证项
+
+V1–V24 已并入上表；V25（响应契约）PASS（probe `test_probe_response_shape_and_ignored_params`）；V26（401→403→422 顺序）PASS（`test_soft_delete...`、probe `test_probe_unauthenticated_precedes_validation`）；V27（去重）PASS（probe `test_probe_typed_rows_no_synthesised_resource`）；V28（全序/稳定分页）PASS（`test_pagination...`、probe `test_probe_equal_similarity_id_asc_stable_paging`）；V29（Cluster 不展开）PASS（`test_cluster_code_and_name_matching`）；V30（IP 兜底）PASS（定稿仅精确；probe `test_probe_ip_non_integer_forms`）；V31（无全局合计）PASS（probe 响应键集合）；V32（迁移 0013）PASS（同 V-DB-139）；V33（前端状态/集成）PASS（`smoke:client` 机制级）。
+
+### B1–B30 边界场景结果
+
+| 编号 | 场景 | 结果 | 证据 |
+| --- | --- | --- | --- |
+| B1 | q 缺失/空/纯空白 | **PASS** | `test_empty_query_is_422`、`test_missing_query_is_422` |
+| B2 | 归一化 | **PASS** | `test_hostname_substring_and_normalisation` |
+| B3 | q 255/256 | **PASS** | probe `test_probe_parameter_bounds`（255→200，256→422） |
+| B4 | type 非法/大小写 | **PASS** | `test_invalid_parameters_are_422`、probe（`RESOURCE`→422） |
+| B5 | deleted 非法 | **PASS** | `test_invalid_parameters_are_422` |
+| B6 | 分页非法/边界 | **PASS** | `test_invalid_parameters_are_422`、probe（1/100 接受，0/101/1.5 拒） |
+| B7 | 空结果 200 | **PASS** | `test_empty_result_is_200` |
+| B8 | 去重 | **PASS** | probe typed 行；probe 同分跨 Cluster 各一条 |
+| B9 | 全序/稳定分页 | **PASS** | `test_pagination...`、probe id-ASC 翻页无重复遗漏 |
+| B10 | Cluster 不展开 | **PASS** | `test_cluster_code_and_name_matching` |
+| B11 | 未绑定 IP | **PASS** | `test_ip_unbound_has_null_resource` |
+| B12 | IP 非整址 | **PASS** | probe `test_probe_ip_non_integer_forms`（前缀/掩码/IPv6/非法 均空结果 200） |
+| B13 | 401/403 顺序 | **PASS** | `test_soft_delete...`、probe 401 先于 422 |
+| B14 | 只读/幂等 | **PASS** | `test_search_writes_no_audit`、`test_dashboard_writes_no_audit` |
+| B15 | counts 口径 | **PASS** | `test_counts_scope_and_inactive`、`test_counts_match_domain_list_totals` |
+| B16 | per-Network 容量 | **PASS** | `test_network_capacity_matches_f010_capacity_endpoint` |
+| B17 | AUTO 池含软删池 | **PASS** | probe `test_probe_soft_deleted_pools`（软删 AUTO 消失、软删 RESERVED 不再排除） |
+| B18 | 排除与去重 | **PASS** | probe gateway∩RESERVED 只扣一次 |
+| B19 | 占用含未绑定/池外、软删不计 | **PASS** | `test_network_capacity...`、probe 软删 IP |
+| B20 | 负值不截断 | **PASS** | `test_negative_remaining_not_clamped`（remaining=-1） |
+| B21 | INACTIVE 不清零/许可分列 | **PASS** | `test_counts_scope_and_inactive` |
+| B22 | 与 F010 一致 | **PASS** | `test_network_capacity_matches_f010_capacity_endpoint` |
+| B23 | 无全局合计/分页关系 | **PASS** | `test_networks_pagination_does_not_affect_counts`、probe 响应键 |
+| B24 | 软删 Network | **PASS** | `test_soft_deleted_excluded_from_counts_and_networks` |
+| B25 | GIN EXPLAIN（真 PG） | **PASS** | §命令 9 |
+| B26 | 迁移 0013 往返 | **PASS** | §命令 8 |
+| B27 | 前端搜索状态 | **PASS**（机制级） | `smoke:client` search/空结果/错误描述 |
+| B28 | 前端 Dashboard 状态 | **PASS**（机制级） | `smoke:client` dashboard 解析/负值原样/错误描述 |
+| B29 | 各域列表 q 回归 | **PASS** | 全量套件中 `test_clusters/test_resources/test_services` 等 q 过滤用例通过 |
+| B30 | 未知值处理 | **PASS**（机制级） | `smoke:client` 未知 reason/error code 不伪装为空列表 |
+
+### Defects
+
+无。未发现必须修复的实现缺陷、Contract/DB 偏差或安全/权限问题。
+
+### 未验证项与 NOTE
+
+- **NOTE-1（非阻塞性能，归 F010/后续）**：`ip_capacity.auto_pools_capacity` 的 AUTO `occupied` 按池原始地址范围计数（`_count_ips(pool_lo..pool_hi)`），而 Contract §3.3/§20 表述为「位于池∩可分配集合的未删 IP」。仅当池范围内存在 gateway/RESERVED/禁用地址且该地址上有存量 IP 时两者才可能不一致；而 API 拒绝将 gateway 设为被占用地址、也拒绝在 gateway 上创建 IP，故该差异经 API **不可达**。F013 按 A20 只验证「逐项复用 F010 口径」并已通过；公式本身归 F010，按 TD-1 范围声明不在 F013 重验。
+- **NOTE-2（前端集成层级）**：真实浏览器 DOM 渲染与 Compose/Nginx 入口级前后端集成未执行（无运行入口且任务禁止 `docker build`）。按 TD-1 §3.1/§5 与 architecture §8，F013 前端判据为 `typecheck + build + smoke:client` 机制级，故不降验收；后端真实 API（ASGI + 真实 PG）已由集成测试覆盖。
+- **NOTE-3（pg_trgm 固有）**：`q` 长度 <3 时 GIN 可能退化为顺序扫描；不影响正确性（Contract §6）。未作强制断言。
+- **NOTE-4（DB-D163）**：跨 Cluster 全局 IP 精确查询无专用索引（已识别的非阻塞性能项），未追加迁移。
+- **§31/§32 完整跨功能验收**：`NOT TESTED`，归 F016；本报告不声明整体通过。
+
+### TE-1 结论
+
+**`READY FOR REVIEW`**：A1–A24、V-DB-139–144、B1–B30 全部适用项 PASS；无必须修复问题；数据完整性（只读派生、未删过滤、容量口径、归一化、稳定 ID、权限、只读无 Audit）逐项有真实 PG + 真实 API 证据。NOTE-1–4 均为非阻塞说明，不构成缺陷。Tester 新增 `backend/tests/integration/test_f013_tester_acceptance.py`（10 用例，Tester 补充覆盖，属 Review 范围）。
+
+---
+
+## 9. 总版本记录
+
+| 版本 | 日期 | 角色 | 结论 |
+| --- | --- | --- | --- |
+| TD-1 | 2026-10-12 | Tester (TEST_DESIGN) | `TEST DESIGN READY`（OPEN-1–10 待关闭） |
+| TD-2 | 2026-10-13 | Tester (TEST_DESIGN) | `TEST DESIGN READY`（OPEN-1–10 已关闭） |
+| TE-1 | 2026-10-13 | Tester (TEST) | `READY FOR REVIEW`（482 passed / 1 skipped；前端 224 passed） |
+
+---
+
 GIT: git rev-parse --short HEAD
+GIT: git status --porcelain
 GIT: git branch --show-current
+GIT: git log --oneline -3
+GIT: git status --short
+GIT: git diff --stat HEAD
+GIT: git mv backend/tests/integration/test_f013_probe_tmp.py backend/tests/integration/test_f013_tester_acceptance.py （该命令在对未跟踪文件执行时失败退出，未改变 Git 状态；随后以文件系统 `mv` 完成重命名）
