@@ -235,7 +235,7 @@ def test_protocol_and_port_validation(role_client_factory):
         assert resp.status_code == 422, proto
         assert resp.json()["error"]["details"]["fields"][0]["field"] == "protocol"
 
-    for port in (0, 65536, -1, None, 22.5):
+    for port in (0, 65536, -1, None, 22.5, "80", True, False, "22"):
         resp = _endpoint_post(admin, service, ip, protocol="TCP", port=port)
         assert resp.status_code == 422, port
         assert resp.json()["error"]["details"]["fields"][0]["field"] == "port"
@@ -243,6 +243,30 @@ def test_protocol_and_port_validation(role_client_factory):
     # boundaries accepted
     assert _endpoint_post(admin, service, ip, protocol="TCP", port=1).status_code == 201
     assert _endpoint_post(admin, service, ip, protocol="UDP", port=65535).status_code == 201
+
+
+def test_patch_port_strict_integer(role_client_factory):
+    """A7/B8: PATCH port uses the same strict 1..65535 integer domain as POST."""
+    admin, _, _ = role_client_factory("ADMIN")
+    c1 = _cluster(admin)
+    service, ip, *_ = _bound_service_ip(admin, c1["id"])
+    endpoint = _endpoint(admin, service, ip, "TCP", 22)
+
+    for bad in (0, 65536, -1, None, 22.5, "80", True, False, "22"):
+        resp = admin.patch(
+            f"/api/v1/service-endpoints/{endpoint['id']}",
+            json={"version": 1, "port": bad},
+        )
+        assert resp.status_code == 422, bad
+        assert resp.json()["error"]["details"]["fields"][0]["field"] == "port"
+
+    # boundaries accepted and the version advances per successful update
+    ok = admin.patch(
+        f"/api/v1/service-endpoints/{endpoint['id']}",
+        json={"version": 1, "port": 65535},
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["service_endpoint"]["port"] == 65535
 
 
 # --- A8/A9/A20: listener uniqueness + concurrency ---------------------------

@@ -322,6 +322,7 @@ TD-1 结论：**`TEST DESIGN READY`** —— A1–A21 已映射到可观察判�
 | TD-1 | 2026-10-11 | 初版 Test Design（见 §Test Design）。 |
 | TD-2 | 2026-10-12 | 依 Database v1、Contract v1、D01 v11 §5.11、F010 errata-03 逐项关闭 §8 OPEN-1–20，并入 Architect 定稿判据调整（见 §10）。 |
 | TE-1 | 2026-10-12 | 首次独立执行（基线 HEAD=e5c1504）：A1–A21、V-DB-126–138、B1–B45 结果与证据；新增 Tester 独立套件 10 项（见 §11）。结论 `READY FOR REVIEW`。 |
+| TE-2 | 2026-10-12 | 有限修复第 1 轮复核：F012-RV-01（`port` 未用 StrictInt，lax 接受 `"80"`/`true`）关闭；独立重跑全量 `438 passed/1 skipped`（F012 合计 44）；真实 API 探针 `"80"`/`True`/`22.5`→422 field="port"、`1`/`65535`→201/200（POST/PATCH）。基线 HEAD=c93b47a + 未提交修复。见 §12。 |
 
 > **TD-1 Git 记录**：
 > ```text
@@ -433,7 +434,7 @@ TD-1 结论：**`TEST DESIGN READY`** —— A1–A21 已映射到可观察判�
 | A4 未绑定 IP→422 field="ip_address" | PASS | V4/V-DB-132；`test_attribution_unbound_and_cross_resource`、`test_attribution_trigger` |
 | A5 跨 Resource/**跨 Cluster**→422 | PASS | V5/V-DB-132；`test_attribution_unbound_and_cross_resource`、`test_attribution_cross_cluster_rejected`、`test_attribution_trigger` |
 | A6 protocol 非 TCP/UDP（含 null）→422；TCP/UDP 登记 | PASS | V6/V-DB-128；`test_protocol_and_port_validation`、`test_protocol_check` |
-| A7 port 边界 1/65535 接受、0/65536/-1/非整数/null→422 | PASS | V7/V-DB-129；`test_protocol_and_port_validation`、`test_port_check` |
+| A7 port 边界 1/65535 接受、0/65536/-1/非整数/null→422 | PASS（TE-2 复核） | V7/V-DB-129；`test_protocol_and_port_validation`（TE-2 扩展 `"80"`/`True`/`False`/`"22"`/`22.5`→422 field="port"）、`test_patch_port_strict_integer`（TE-2 新增：PATCH port 同口径 strict 1..65535）、`test_port_check` |
 | A8 同 IP 重复 (protocol,port)→409 unique_conflict | PASS | V8/V-DB-130；`test_listener_uniqueness_same_ip_and_across_ips`、`test_partial_unique_listener` |
 | A9 不同 IP 同 (protocol,port) 允许 | PASS | V9/V-DB-130；`test_listener_uniqueness_same_ip_and_across_ips`、`test_partial_unique_listener` |
 | A10 一 Service 多 Endpoint | PASS | V10；`test_many_endpoints_and_description_semantics` |
@@ -558,3 +559,92 @@ TD-1 结论：**`TEST DESIGN READY`** —— A1–A21 已映射到可观察判�
 GIT: git rev-parse --short HEAD
 GIT: git branch --show-current
 GIT: git status --porcelain
+
+---
+
+## 12. TEST 复核（TE-2，有限修复第 1 轮）
+
+- **版本**：TE-2
+- **日期**：2026-10-12
+- **角色**：Tester（TEST 模式复核）
+- **复核对象**：Reviewer 缺陷 `F012-RV-01`（MEDIUM）：`port` 使用裸 `int`，pydantic lax 接受 `"80"`（201）、`true`（201）；应 `StrictInt`→422 `field="port"`。
+- **代码基线**：Git HEAD `c93b47a`，分支 `feature/F012-service-endpoint`，**叠加未提交修复**。
+- **候选构成（重要）**：本次复核的候选**包含未提交改动**（`git status --porcelain` 三条 `M`），未提交内容为：
+  1. `backend/app/schemas/service_endpoint.py`：新增 `Port = Annotated[StrictInt, Field(ge=1, le=65535)]`，`ServiceEndpointCreateRequest.port` 与 `ServiceEndpointUpdateRequest.port` 均改用 `Port`；
+  2. `backend/app/services/service_endpoint.py`：`_validate_port` 布尔守卫补防御性注释（行为不变，仅说明 API 路径已由 schema 拦截）；
+  3. `backend/tests/integration/test_service_endpoints.py`：`test_protocol_and_port_validation` 的非法 port 用例扩展 `"80"`/`True`/`False`/`"22"`，并新增 `test_patch_port_strict_integer`（PATCH 端同口径 422/200 边界）。
+  上述未提交改动**未 commit**；本复核结论仅对「HEAD `c93b47a` + 该未提交修复」的候选成立，协调器在正式 Review/合并前须以实际提交内容为准。
+- **结论**：`READY FOR REVIEW`（`F012-RV-01` 已关闭；F012 独立范围全部通过，无必须修复的实现缺陷）
+
+### 12.1 F012-RV-01 复核（真实 API 探针）
+
+独立探针经真实 ASGI 应用 + 真实 PostgreSQL（`csm_test`）经 `TestClient` 逐项执行（探针文件为一次性临时文件，执行后删除，不计入仓库测试计数）：
+
+| 端点 | 输入 `port` | 期望 | 实测 | 判定 |
+| --- | --- | --- | --- | --- |
+| POST /api/v1/service-endpoints | `"80"` | 422 `field="port"` | 422 `field="port"` | PASS |
+| POST | `True` | 422 `field="port"` | 422 `field="port"` | PASS |
+| POST | `22.5` | 422 `field="port"` | 422 `field="port"` | PASS |
+| POST | `1` | 201 | 201，`port=1` | PASS |
+| POST | `65535` | 201 | 201，`port=65535` | PASS |
+| PATCH /api/v1/service-endpoints/{id} | `"80"` | 422 `field="port"` | 422 `field="port"` | PASS |
+| PATCH | `True` | 422 `field="port"` | 422 `field="port"` | PASS |
+| PATCH | `22.5` | 422 `field="port"` | 422 `field="port"` | PASS |
+| PATCH | `1` | 200 | 200，`port=1` | PASS |
+| PATCH | `65535` | 200 | 200，`port=65535` | PASS |
+
+`"80"`/`True`/`22.5` 在 schema 层（pydantic `StrictInt`）即被拒，应用层 `_validate_port` 的布尔守卫保持为直接服务层调用者的纵深防御。原缺陷的 lax 接受行为未复现，**`F012-RV-01` 关闭**。
+
+### 12.2 独立重跑命令与输出
+
+| # | 命令（要点） | 输出 | 与 Backend 声明 |
+| --- | --- | --- | --- |
+| E10 | `pytest tests/integration/test_service_endpoints.py tests/integration/test_service_endpoints_tester.py tests/integration/test_service_endpoint_constraints.py -q`（真实 PG `csm_test`） | `44 passed` | 一致 |
+| E11 | `pytest tests -q`（全量，真实 PG `csm_test`） | `438 passed, 1 skipped`（skip=`test_migrations.py` V3b superuser 环境性） | 与 Backend 报的 438/1 一致（Tester 独立复跑） |
+| E12 | 一次性探针 `pytest tests/integration/test_te2_probe_tmp.py -q -s`（真实 API，见 §12.1；执行后已删除） | `10 passed` | 独立探针 |
+
+F012 计数：`test_service_endpoints.py` 19 + `test_service_endpoints_tester.py` 10 + `test_service_endpoint_constraints.py` 15 = **44**。
+
+### 12.3 A7 / B8 受影响项状态
+
+| 项 | 状态 | 复核证据 |
+| --- | --- | --- |
+| A7 port 边界 1/65535 接受、0/65536/-1/非整数/null→422 | **PASS（复核更新）** | E10 `test_protocol_and_port_validation`（`"80"`/`True`/`False`/`"22"`/`22.5`→422 field="port"）、`test_patch_port_strict_integer`（PATCH 同口径）、`test_port_check`；E12 真实 API 探针 |
+| B8 port 边界（含 `"80"`/非整数） | **PASS（复核更新）** | 同 A7；POST 与 PATCH 均将 `"80"`/`True`/`22.5` 判为 422 `field="port"`，`1`/`65535` 接受；raw `ck_service_endpoints_port` CHECK 仍由 `test_port_check` 覆盖 |
+
+其余 A/V-DB/B 项未受本修复影响，维持 TE-1 结果（E10/E11 全量重跑回归通过，无新增 FAIL）。
+
+### 12.4 计数更正
+
+- TE-1 记录全量 `436 passed/1 skipped`（F012 合计 43）。本轮加入 `test_patch_port_strict_integer` 1 项后，F012 合计 44，**当前全量 `438 passed/1 skipped`**。
+- 已同步更新 §11.4 的 A7 证据行；§11.1 / §11.3 E1/E4 / §11.10 中的 `436`/`43` 为 **TE-1 时点值**，当前有效计数以 TE-2（438/44）为准。
+- TE-1 的环境、数据库机制级结论（部分唯一 / CHECK / FK RESTRICT / 归属触发 / 迁移 0012）本轮未变更，未重跑（不在修复影响面内），保持其原版本证据。
+
+### 12.5 未验证项（TE-2 不变）
+
+| 项 | 状态 | 原因 |
+| --- | --- | --- |
+| §18 Resource Detail Services、§19 Cluster Detail、§17 全局搜索、§20 Dashboard 聚合展示 | `NOT TESTED / 归 F013` | F012 仅提供 Endpoint 数据与列表/详情 API |
+| T22–T26 跨对象完整回归与 §32 上线验收 | `NOT TESTED / 归 F016` | 不由 F012 局部 PASS 拼接 |
+| CSV/Excel 导入（§24） | `NOT TESTED / 归 F014` | 导入不在 F012 |
+| 完整 Audit 查询页（§22） | `NOT TESTED / 归 F015` | F012 仅验证资源级 Activity 四 action |
+| Compose 入口 Nginx 真实前后端集成 / 真实浏览器 DOM | `NOT TESTED / BLOCKED（环境）` | 任务约束未构建镜像；沿用 F012-TE1-02 |
+| F001 `test_migrations` V3b | `SKIPPED` | 连接角色为 superuser，环境性跳过（非 F012） |
+
+### 12.6 TE-2 结论
+
+- `F012-RV-01` **CLOSED**：POST/PATCH 的 `port` 对 `"80"`（字符串）、`True`（布尔）、`22.5`（浮点）均返回 422 `field="port"`，`1`/`65535` 正常接受，由真实 API 探针独立确认。
+- 独立重跑：F012 定向 44 passed；全量 438 passed / 1 skipped；无新增 FAIL。
+- 候选含**未提交**的 backend 修复与测试改动（HEAD `c93b47a` + working tree），需由协调器按 Git 流程处理后再进入正式 Review。
+
+**结论：`READY FOR REVIEW`（TE-2；F012-RV-01 CLOSED）**
+
+---
+
+GIT: git status
+GIT: git status --porcelain
+GIT: git rev-parse --abbrev-ref HEAD
+GIT: git rev-parse --short HEAD
+GIT: git log --oneline -5
+GIT: git diff
+GIT: git ls-files --others --exclude-standard

@@ -170,6 +170,11 @@ def _validate_protocol(value: Any) -> str:
 
 
 def _validate_port(value: Any) -> int:
+    # The API path already rejects non-integers via the schema ``StrictInt``
+    # (Contract §2.2), so ``bool`` / ``str`` / ``float`` never reach here from
+    # HTTP. This guard stays as defense-in-depth for direct service-layer
+    # callers (e.g. imports / internal workflows): ``bool`` is an ``int``
+    # subclass, so it must be rejected explicitly rather than coerced to 0/1.
     if isinstance(value, bool) or not isinstance(value, int):
         raise _field_error("port", "port must be an integer between 1 and 65535")
     if not 1 <= value <= 65535:

@@ -23,12 +23,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StrictInt,
     field_serializer,
 )
 
@@ -39,6 +40,12 @@ from app.models.service_endpoint import ServiceEndpoint
 DeletedMode = Literal["exclude", "include", "only"]
 SortField = Literal["protocol", "port", "created_at", "updated_at"]
 SortOrder = Literal["asc", "desc"]
+
+# Strict integer 1..65535 (Contract §2.2, D01 §5.11, DR-160). ``StrictInt``
+# rejects lax-coercible non-integers such as ``"80"``, ``true`` and ``22.5``
+# (-> 422 field="port"), matching the F005/F007 precedent; ``ge``/``le`` mirror
+# the ``ck_service_endpoints_port`` CHECK.
+Port = Annotated[StrictInt, Field(ge=1, le=65535)]
 
 
 def _iso_utc(value: datetime) -> str:
@@ -58,7 +65,7 @@ class ServiceEndpointCreateRequest(BaseModel):
     service: str
     ip_address: str
     protocol: str
-    port: int
+    port: Port
     description: str | None = None
 
 
@@ -69,7 +76,7 @@ class ServiceEndpointUpdateRequest(BaseModel):
 
     version: int = Field(ge=1)
     protocol: str | None = None
-    port: int | None = None
+    port: Port | None = None
     description: str | None = None
 
 
