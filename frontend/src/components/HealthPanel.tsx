@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Alert, Card, Spin } from "antd";
 import { getHealth, type Health } from "../api/client";
 
 type HealthState =
@@ -36,19 +37,23 @@ export default function HealthPanel() {
   }, []);
 
   return (
-    <section className="panel">
-      <h2>后端健康状态</h2>
+    <Card title="后端健康状态" className="w-full">
       {health.kind === "loading" && (
-        <p className="status status-loading">正在检查后端服务…</p>
+        <div className="flex items-center gap-3">
+          <Spin />
+          <span>正在检查后端服务…</span>
+        </div>
       )}
       {health.kind === "ok" && (
-        <p className="status status-ok">
-          后端服务正常（status: {health.data.status}，service: {health.data.service}）
-        </p>
+        <Alert
+          type="success"
+          showIcon
+          message={`后端服务正常（status: ${health.data.status}，service: ${health.data.service}）`}
+        />
       )}
       {health.kind === "error" && (
-        <p className="status status-error">后端服务不可用：{health.message}</p>
+        <Alert type="error" showIcon message={`后端服务不可用：${health.message}`} />
       )}
-    </section>
+    </Card>
   );
 }
