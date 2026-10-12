@@ -1056,8 +1056,8 @@ features:
   - F015
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: DATABASE（NOT_REQUIRED 复核）+ TEST_DESIGN（并行）
-  current_stage: DATABASE
+  next_action: CONTRACT Gate（architect 最终设计核对；contract NOT_REQUIRED 已记）
+  current_stage: CONTRACT
   layers:
     database: false
     backend: false
@@ -1068,11 +1068,17 @@ features:
   implementation:
     product: COMPLETE
     architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
   evidence:
     product:
     - docs/features/F016/product.md
     architecture:
     - docs/features/F016/architecture.md
+    database:
+    - docs/database/f016-acceptance.md
+    test_design:
+    - docs/features/F016/test-report.md#test-design
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1209,9 +1215,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F016
-  current_stage: DATABASE
-  last_result: F016 ARCHITECTURE COMPLETE（READY FOR DESIGN；DR-228–DR-246；layers 全 false/api_required=false；真实替代栈方案）
-  next_action: DATABASE（NOT_REQUIRED）+ TEST_DESIGN（并行）
+  current_stage: CONTRACT
+  last_result: F016 DATABASE NOT_REQUIRED + TEST DESIGN READY（f016-acceptance.md v1；TD-1）
+  next_action: CONTRACT Gate（architect）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
