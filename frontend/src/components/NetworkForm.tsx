@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Alert, Button, Checkbox, Form, Input, Select } from "antd";
 import type { Cluster } from "../api/clusters";
 import type {
   Network,
@@ -106,203 +107,216 @@ export default function NetworkForm({
     return localErrors[key] ?? serverFields[key];
   }
 
+  const clusterFieldError = clusterError ?? serverFields.cluster;
+  const nameFieldError = fieldError("name");
+  const cidrFieldError = fieldError("cidr");
+  const gatewayFieldError = fieldError("gateway");
+  const metadataFieldError = metadataError ?? serverFields.metadata;
+
+  const clusterOptions = [
+    { value: "", label: "请选择集群…" },
+    ...(clusterMissing && currentCluster !== null
+      ? [
+          {
+            value: currentCluster.id,
+            label: `${currentCluster.code} — ${currentCluster.name}（当前集群）`,
+          },
+        ]
+      : []),
+    ...clusters.map((item) => ({
+      value: item.id,
+      label: `${item.code} — ${item.name}`,
+    })),
+  ];
+
+  // 表单数据不经 antd Form 托管：原生 form 承载提交（受控值语义不变），
+  // antd Form 仅提供 vertical 布局上下文（component={false} 不渲染 form 元素）
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <div className="form-field">
-        <label htmlFor="network-cluster">cluster（所属集群，必填）</label>
-        <select
-          id="network-cluster"
-          name="cluster"
-          value={values.cluster}
-          onChange={(event) => setField("cluster", event.target.value)}
-          disabled={submitting}
+      <Form layout="vertical" component={false}>
+        <Form.Item
+          label="cluster（所属集群，必填）"
+          htmlFor="network-cluster"
+          validateStatus={clusterFieldError ? "error" : undefined}
+          help={clusterFieldError}
         >
-          <option value="">请选择集群…</option>
-          {clusterMissing && currentCluster !== null && (
-            <option value={currentCluster.id}>
-              {currentCluster.code} — {currentCluster.name}（当前集群）
-            </option>
-          )}
-          {clusters.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.code} — {item.name}
-            </option>
-          ))}
-        </select>
-        {(clusterError ?? serverFields.cluster) && (
-          <p className="field-error" role="alert">
-            {clusterError ?? serverFields.cluster}
-          </p>
-        )}
-      </div>
+          <Select
+            id="network-cluster"
+            value={values.cluster}
+            onChange={(value) => setField("cluster", value)}
+            options={clusterOptions}
+            disabled={submitting}
+          />
+        </Form.Item>
 
-      <div className="form-field">
-        <label htmlFor="network-name">
-          name（必填；大小写不敏感，同集群未删除唯一；允许中文与内部空格，≤255）
-        </label>
-        <input
-          id="network-name"
-          name="name"
-          type="text"
-          value={values.name}
-          onChange={(event) => setField("name", event.target.value)}
-          disabled={submitting}
-          placeholder="如 MGMT；与 mgmt 视为同名；已软删网络不占用名称"
-        />
-        {fieldError("name") && (
-          <p className="field-error" role="alert">
-            {fieldError("name")}
-          </p>
-        )}
-      </div>
-
-      <div className="form-field">
-        <label htmlFor="network-cidr">
-          cidr（必填；合法 IPv4 CIDR；同集群未删除网络不可重叠，INACTIVE 同样占用）
-        </label>
-        <input
-          id="network-cidr"
-          name="cidr"
-          type="text"
-          value={values.cidr}
-          onChange={(event) => setField("cidr", event.target.value)}
-          disabled={submitting}
-          placeholder="如 10.0.0.0/24；host 位会被归一化为网络地址（10.0.0.5/24 → 10.0.0.0/24）"
-        />
-        {fieldError("cidr") && (
-          <p className="field-error" role="alert">
-            {fieldError("cidr")}
-          </p>
-        )}
-      </div>
-
-      <div className="form-field">
-        <label htmlFor="network-gateway">
-          gateway（网关，可选 IPv4；须属该 CIDR 基础可用地址且非禁用范围）
-        </label>
-        <input
-          id="network-gateway"
-          name="gateway"
-          type="text"
-          value={values.gateway}
-          onChange={(event) => setField("gateway", event.target.value)}
-          disabled={submitting}
-          placeholder="如 10.0.0.1；留空 = 未设置（null）；/32 网段必须留空"
-        />
-        {fieldError("gateway") && (
-          <p className="field-error" role="alert">
-            {fieldError("gateway")}
-          </p>
-        )}
-      </div>
-
-      <div className="form-field">
-        <label htmlFor="network-status">status（状态）</label>
-        <select
-          id="network-status"
-          name="status"
-          value={values.status}
-          onChange={(event) => setField("status", event.target.value as NetworkStatus)}
-          disabled={submitting}
+        <Form.Item
+          label="name（必填；大小写不敏感，同集群未删除唯一；允许中文与内部空格，≤255）"
+          htmlFor="network-name"
+          validateStatus={nameFieldError ? "error" : undefined}
+          help={nameFieldError}
         >
-          <option value="ACTIVE">ACTIVE（启用，默认）</option>
-          <option value="INACTIVE">INACTIVE（停用，禁止新增分配，仍参与 CIDR 重叠检查）</option>
-        </select>
-        {serverFields.status && (
-          <p className="field-error" role="alert">
-            {serverFields.status}
-          </p>
-        )}
-      </div>
+          <Input
+            id="network-name"
+            name="name"
+            value={values.name}
+            onChange={(event) => setField("name", event.target.value)}
+            disabled={submitting}
+            placeholder="如 MGMT；与 mgmt 视为同名；已软删网络不占用名称"
+          />
+        </Form.Item>
 
-      <div className="form-field checkbox-field">
-        <label htmlFor="network-auto-allocate">
-          <input
+        <Form.Item
+          label="cidr（必填；合法 IPv4 CIDR；同集群未删除网络不可重叠，INACTIVE 同样占用）"
+          htmlFor="network-cidr"
+          validateStatus={cidrFieldError ? "error" : undefined}
+          help={cidrFieldError}
+        >
+          <Input
+            id="network-cidr"
+            name="cidr"
+            value={values.cidr}
+            onChange={(event) => setField("cidr", event.target.value)}
+            disabled={submitting}
+            placeholder="如 10.0.0.0/24；host 位会被归一化为网络地址（10.0.0.5/24 → 10.0.0.0/24）"
+          />
+        </Form.Item>
+
+        <Form.Item
+          label="gateway（网关，可选 IPv4；须属该 CIDR 基础可用地址且非禁用范围）"
+          htmlFor="network-gateway"
+          validateStatus={gatewayFieldError ? "error" : undefined}
+          help={gatewayFieldError}
+        >
+          <Input
+            id="network-gateway"
+            name="gateway"
+            value={values.gateway}
+            onChange={(event) => setField("gateway", event.target.value)}
+            disabled={submitting}
+            placeholder="如 10.0.0.1；留空 = 未设置（null）；/32 网段必须留空"
+          />
+        </Form.Item>
+
+        <Form.Item
+          label="status（状态）"
+          htmlFor="network-status"
+          validateStatus={serverFields.status ? "error" : undefined}
+          help={serverFields.status}
+        >
+          <Select
+            id="network-status"
+            value={values.status}
+            onChange={(value) => setField("status", value as NetworkStatus)}
+            options={[
+              { value: "ACTIVE", label: "ACTIVE（启用，默认）" },
+              {
+                value: "INACTIVE",
+                label: "INACTIVE（停用，禁止新增分配，仍参与 CIDR 重叠检查）",
+              },
+            ]}
+            disabled={submitting}
+          />
+        </Form.Item>
+
+        <Form.Item
+          validateStatus={serverFields.auto_allocate ? "error" : undefined}
+          help={serverFields.auto_allocate}
+        >
+          <Checkbox
             id="network-auto-allocate"
             name="auto_allocate"
-            type="checkbox"
             checked={values.auto_allocate}
             onChange={(event) => setField("auto_allocate", event.target.checked)}
             disabled={submitting}
+          >
+            auto_allocate（允许自动分配 IP，默认关闭；不绕过 status 与地址约束）
+          </Checkbox>
+        </Form.Item>
+
+        <Form.Item
+          label="description（描述，可选）"
+          htmlFor="network-description"
+          validateStatus={serverFields.description ? "error" : undefined}
+          help={serverFields.description}
+        >
+          <Input.TextArea
+            id="network-description"
+            name="description"
+            rows={3}
+            value={values.description}
+            onChange={(event) => setField("description", event.target.value)}
+            disabled={submitting}
+            placeholder="可选；编辑时清空表示删除描述（显式置 null）"
           />
-          auto_allocate（允许自动分配 IP，默认关闭；不绕过 status 与地址约束）
-        </label>
-        {serverFields.auto_allocate && (
-          <p className="field-error" role="alert">
-            {serverFields.auto_allocate}
-          </p>
-        )}
-      </div>
+        </Form.Item>
 
-      <div className="form-field">
-        <label htmlFor="network-description">description（描述，可选）</label>
-        <textarea
-          id="network-description"
-          name="description"
-          rows={3}
-          value={values.description}
-          onChange={(event) => setField("description", event.target.value)}
-          disabled={submitting}
-          placeholder="可选；编辑时清空表示删除描述（显式置 null）"
-        />
-        {serverFields.description && (
-          <p className="field-error" role="alert">
-            {serverFields.description}
-          </p>
-        )}
-      </div>
-
-      <div className="form-field">
-        <label htmlFor="network-metadata">metadata（JSON 对象，可选；网络自有扩展，整值替换）</label>
-        <textarea
-          id="network-metadata"
-          name="metadata"
-          rows={5}
-          value={values.metadata}
-          onChange={(event) => setField("metadata", event.target.value)}
-          disabled={submitting}
-          placeholder={'可选，例如 {"vlan": 100}；留空视为 {}；与所属集群的 metadata 相互独立'}
-        />
-        {(metadataError ?? serverFields.metadata) && (
-          <p className="field-error" role="alert">
-            {metadataError ?? serverFields.metadata}
-          </p>
-        )}
-      </div>
+        <Form.Item
+          label="metadata（JSON 对象，可选；网络自有扩展，整值替换）"
+          htmlFor="network-metadata"
+          validateStatus={metadataFieldError ? "error" : undefined}
+          help={metadataFieldError}
+        >
+          <Input.TextArea
+            id="network-metadata"
+            name="metadata"
+            rows={5}
+            value={values.metadata}
+            onChange={(event) => setField("metadata", event.target.value)}
+            disabled={submitting}
+            placeholder={'可选，例如 {"vlan": 100}；留空视为 {}；与所属集群的 metadata 相互独立'}
+          />
+        </Form.Item>
+      </Form>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
-          <p>
-            {serverError.message}
-            {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
-          </p>
-          {serverError.rangeConflicts.length > 0 && (
-            <ul>
-              {serverError.rangeConflicts.map((conflict) => (
-                <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                  {conflict.object_type}
-                  {conflict.label ? `：${conflict.label}` : ""}（{conflict.object_id}）
-                </li>
-              ))}
-            </ul>
-          )}
-          {serverError.versionConflict && onRefresh && (
-            <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
-                刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
-            </p>
-          )}
-        </div>
+        <Alert
+          type="error"
+          className="mb-6"
+          message={
+            <>
+              {serverError.message}
+              {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
+            </>
+          }
+          description={
+            serverError.rangeConflicts.length > 0 ||
+            (serverError.versionConflict && onRefresh) ? (
+              <>
+                {serverError.rangeConflicts.length > 0 && (
+                  <ul className="list-disc pl-5">
+                    {serverError.rangeConflicts.map((conflict) => (
+                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                        {conflict.object_type}
+                        {conflict.label ? `：${conflict.label}` : ""}（{conflict.object_id}）
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {serverError.versionConflict && onRefresh && (
+                  <p>
+                    <Button
+                      size="small"
+                      htmlType="button"
+                      onClick={onRefresh}
+                      disabled={submitting}
+                    >
+                      刷新最新数据（放弃本次未保存的修改，重做变更）
+                    </Button>
+                  </p>
+                )}
+              </>
+            ) : undefined
+          }
+        />
       )}
 
-      <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+      <div className="flex items-center gap-3">
+        <Button type="primary" htmlType="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button htmlType="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );
