@@ -1056,13 +1056,23 @@ features:
   - F015
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: ARCHITECTURE Gate（architect 产出 architecture.md + api/F016.md 草案，定 layers/api_required）
-  current_stage: ARCHITECTURE
+  next_action: DATABASE（NOT_REQUIRED 复核）+ TEST_DESIGN（并行）
+  current_stage: DATABASE
+  layers:
+    database: false
+    backend: false
+    frontend: false
+  api_required: false
+  not_required:
+    contract: F016 无新增业务 API/Endpoint/Schema（被验收 API 来自 F001–F015 READY Contract），api_required=false，不新建 docs/api/F016.md。
   implementation:
     product: COMPLETE
+    architecture: COMPLETE
   evidence:
     product:
     - docs/features/F016/product.md
+    architecture:
+    - docs/features/F016/architecture.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1199,9 +1209,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F016
-  current_stage: ARCHITECTURE
-  last_result: F016 PRODUCT COMPLETE（READY FOR ARCHITECT；A1–A14/I-1–I-9；T01–T41/§32/§33 映射；O-1–O-4 交设计）
-  next_action: ARCHITECTURE Gate（architect）
+  current_stage: DATABASE
+  last_result: F016 ARCHITECTURE COMPLETE（READY FOR DESIGN；DR-228–DR-246；layers 全 false/api_required=false；真实替代栈方案）
+  next_action: DATABASE（NOT_REQUIRED）+ TEST_DESIGN（并行）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
