@@ -5,13 +5,16 @@ project:
     path: docs/product/requirements-v3.md
     revision: 4
   plan_revision: 5
-  status: DRAFT
+  status: ACCEPTED
   approval:
-    plan_revision: null
-    feature_ids: []
-    approved_by: null
-    approved_on: null
-    basis: null
+    plan_revision: 5
+    feature_ids:
+    - F017
+    - F018
+    approved_by: 用户
+    approved_on: '2026-10-12'
+    basis: 用户于 2026-10-12 批准：『批准修订 4 与候选计划 revision 5（F017/F018），授权实施』。对象为 docs/product/requirements-v3.md
+      revision 4 与 docs/project/project-plan.yaml revision 5（F017/F018，M8）。 确认来源：本次会话用户指令。同次明确授权实施。
   acceptance:
     status: PENDING
     evidence:
@@ -1300,23 +1303,24 @@ decisions_required:
   - F018
   owner: Architect
   resolution: null
-pending_changes:
-- id: CHG-001
-  proposal: proposal/CHG-001-frontend-antd-tailwind
-  affects:
-  - F017
-  - F018
+pending_changes: []
 execution:
-  mode: null
-  authorization: null
+  mode: CONTINUOUS
+  authorization:
+    plan_revision: 5
+    feature_ids:
+    - F017
+    - F018
+    authorized_by: 用户
+    authorized_on: '2026-10-12'
+    basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
   current_feature: null
   current_stage: null
-  last_result: 计划 revision 5 候选：新增 F017 / F018 承接前端 Ant Design + Tailwind CSS 改造（CHG-001），
-    待用户批准。
-  next_action: null
+  last_result: 计划 revision 5 获批准并合入；进入 implement-project，待启动 F017。
+  next_action: 启动 F017 Preflight 与 PRODUCT 阶段。
   repair_rounds: 0
 planning_status:
-  status: DRAFT
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
