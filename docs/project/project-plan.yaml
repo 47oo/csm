@@ -1055,8 +1055,9 @@ features:
   - F014
   - F015
   blocking_decisions: []
-  status: READY
-  next_action: 依赖全部 DONE 后解锁为 READY（责任者：前置 Feature 交付）
+  status: IN_PROGRESS
+  next_action: PRODUCT Gate（product-manager 产出 docs/features/F016/product.md）
+  current_stage: PRODUCT
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1192,11 +1193,10 @@ execution:
     authorized_on: '2026-10-06'
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
-  current_feature: null
-  current_stage: null
-  last_result: F015 DONE（merge da91d11；TEST 581 passed/1 skipped；Review APPROVED WITH
-    FOLLOW-UP）
-  next_action: null
+  current_feature: F016
+  current_stage: PRODUCT
+  last_result: F016 STARTUP（PRODUCT；授权 CONTINUOUS revision 4 覆盖 F016）
+  next_action: PRODUCT Gate（product-manager）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -1206,11 +1206,10 @@ planning_status:
     CANCELLED: 0
     DONE: 15
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F016
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
