@@ -1,0 +1,20 @@
+# CSM test deployment override.
+# Reuses locally built images (no Docker Hub/deb.debian.org needed) so
+# `docker compose --env-file .env.test -f compose.yaml -f compose.test.yaml up -d --no-build`
+# works in network-restricted environments. NOT for production.
+services:
+  migrate:
+    image: csm-csm-backend:test
+  bootstrap:
+    image: csm-csm-backend:test
+  backend:
+    image: csm-csm-backend:test
+    # Runtime image has no curl (apt blocked); probe via Python instead.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/ready', timeout=3).status==200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+  frontend:
+    image: csm-csm-frontend:test
