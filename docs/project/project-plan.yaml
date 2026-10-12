@@ -1116,8 +1116,8 @@ features:
   - F016
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT 阶段：产出 docs/features/F017/product.md 并使 product=COMPLETE。
+  current_stage: ARCHITECTURE
+  next_action: ARCHITECTURE 阶段：定稿 D04 并产出 docs/features/F017/architecture.md（READY FOR DESIGN）。
   git:
     base_branch: v3
     branch: feature/F017-frontend-ui-antd-tailwind
@@ -1128,7 +1128,7 @@ features:
     frontend: true
   api_required: false
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -1141,6 +1141,9 @@ features:
     database: 纯展示层改造，无新表/列/约束/索引/迁移。
     backend: 不改后端路由/服务/模型；frontend/src/api 维持既有 Contract。
     contract: api_required=false，无新增/变更业务 API 与错误语义；前端仅消费既有 READY Contract。
+  evidence:
+    product:
+    - docs/features/F017/product.md
 - id: F018
   title: 前端改造后一期整体验收复验
   kind: FEATURE
@@ -1318,9 +1321,9 @@ execution:
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
   current_feature: F017
-  current_stage: PRODUCT
-  last_result: F017 Preflight 完成；分支 feature/F017-frontend-ui-antd-tailwind（start 6777063）。
-  next_action: PRODUCT 阶段：product-manager 澄清并落 docs/features/F017/product.md。
+  current_stage: ARCHITECTURE
+  last_result: F017 PRODUCT COMPLETE（docs/features/F017/product.md，READY FOR ARCHITECT）。
+  next_action: ARCHITECTURE 阶段：architect 定稿 D04 并产出 architecture.md。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
