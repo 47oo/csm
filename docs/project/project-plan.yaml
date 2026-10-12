@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 4
   plan_revision: 5
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 5
     feature_ids:
@@ -1115,9 +1115,9 @@ features:
   depends_on:
   - F016
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: null
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: PRODUCT 阶段：产出 docs/features/F017/product.md 并使 product=COMPLETE。
   git:
     base_branch: v3
     branch: feature/F017-frontend-ui-antd-tailwind
@@ -1317,24 +1317,23 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
-  current_feature: null
-  current_stage: null
-  last_result: 计划 revision 5 获批准并合入；进入 implement-project，待启动 F017。
-  next_action: 启动 F017 Preflight 与 PRODUCT 阶段。
+  current_feature: F017
+  current_stage: PRODUCT
+  last_result: F017 Preflight 完成；分支 feature/F017-frontend-ui-antd-tailwind（start 6777063）。
+  next_action: PRODUCT 阶段：product-manager 澄清并落 docs/features/F017/product.md。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 16
     DRAFT: 1
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F017
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT:
