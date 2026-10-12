@@ -453,4 +453,6 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ## 36. 文档建立状态
 
-本次更新需求基线至 revision 3，关闭六项业务问题并同步流程引用；D01–D03 仍为 OPEN 专业设计输入。领域文档提供本文件的规则索引；架构 ADR、数据库 Schema、API Contract、部署实现和完整 Feature 计划尚未建立。项目计划为未批准空骨架，引用需求 revision 3，派生视图由脚本生成并标明尚未规划；不标 READY / DONE，不回查旧版本补齐。§31 的 T01–T41 是未来验收要求，尚未运行应用测试。
+> 本节为**状态记录**（2026-10 更新），不改动本文件中的任何业务规则（§1–§35）；需求基线仍为 revision 3。
+
+需求基线为 revision 3；六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
