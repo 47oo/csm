@@ -1065,6 +1065,7 @@ features:
   api_required: false
   not_required:
     contract: F016 无新增业务 API/Endpoint/Schema（被验收 API 来自 F001–F015 READY Contract），api_required=false，不新建 docs/api/F016.md。
+    database: 验收型 Feature 无 Schema 交付：无新表/列/约束/触发器/索引/迁移；迁移链单 head 0013_search_indexes；T36 备份复用整库 pg_dump（默认含 audit_logs 及 append-only 触发器）。依据 docs/database/f016-acceptance.md v1。
   implementation:
     product: COMPLETE
     architecture: COMPLETE
