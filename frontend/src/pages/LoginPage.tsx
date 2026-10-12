@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { Alert, Button, Card, Form, Input } from "antd";
 import { login, type User } from "../api/auth";
 import { isApiError, type ApiErrorDetails } from "../api/client";
 
@@ -40,29 +41,33 @@ interface LoginPageProps {
   onLoginSuccess: (user: User) => void;
 }
 
+/** Ant Design Form 管理的登录表单值（对应原生受控 state username / password）。 */
+interface LoginFormValues {
+  username: string;
+  password: string;
+}
+
 /**
  * F002 最小登录页：username / password → POST /auth/login（credentials include）。
  * Loading（提交中，表单禁用）/ Success（回调切换到已登录视图）/ Error（信封消息）
  * 三态显式区分；错误文案不回显输入的凭据内容，不伪装成空结果。
  */
 export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [form] = Form.useForm<LoginFormValues>();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<LoginError | null>(null);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSubmit(values: LoginFormValues) {
     if (submitting) {
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const { user } = await login(username, password);
+      const { user } = await login(values.username, values.password);
       onLoginSuccess(user); // Success
     } catch (err: unknown) {
-      setPassword(""); // 失败后清空密码输入，不保留敏感内容
+      form.setFieldsValue({ password: "" }); // 失败后清空密码输入，不保留敏感内容
       if (isApiError(err)) {
         // 401 AUTH_INVALID_CREDENTIALS / 403 CSRF / 422 校验 / 500 等：
         // 消息与错误码均来自信封，明确呈现，不静默重试
@@ -77,61 +82,57 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   }
 
   return (
-    <main className="login-main">
-      <h1>CSM</h1>
-      <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
+      <h1 className="text-3xl font-bold tracking-tight text-gray-900">CSM</h1>
+      <p className="mt-2 text-sm text-gray-500">Cluster Source Manager · 资源事实数据源</p>
 
-      <section className="panel">
-        <h2>登录</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="form-field">
-            <label htmlFor="login-username">用户名</label>
-            <input
-              id="login-username"
-              name="username"
-              type="text"
-              autoComplete="username"
-              required
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              disabled={submitting}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="login-password">密码</label>
-            <input
-              id="login-password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              disabled={submitting}
-            />
-          </div>
+      <Card title="登录" className="mt-8 w-full max-w-sm">
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          disabled={submitting}
+          requiredMark={false}
+        >
+          <Form.Item
+            label="用户名"
+            name="username"
+            rules={[{ required: true, message: "请输入用户名" }]}
+          >
+            <Input autoComplete="username" />
+          </Form.Item>
+          <Form.Item
+            label="密码"
+            name="password"
+            rules={[{ required: true, message: "请输入密码" }]}
+          >
+            <Input type="password" autoComplete="current-password" />
+          </Form.Item>
 
           {error && (
-            <div className="form-error status status-error" role="alert">
-              <p>
-                登录失败：{error.message}
-                {error.code ? `（${error.code}）` : ""}
-              </p>
-              {error.fields.length > 0 && (
-                <ul>
-                  {error.fields.map((fieldMessage) => (
-                    <li key={fieldMessage}>{fieldMessage}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            // Ant Design Alert 自带 role="alert"，保留无障碍错误语义
+            <Alert
+              className="mb-6"
+              type="error"
+              showIcon
+              message={`登录失败：${error.message}${error.code ? `（${error.code}）` : ""}`}
+              description={
+                error.fields.length > 0 ? (
+                  <ul className="mb-0 list-disc pl-5">
+                    {error.fields.map((fieldMessage) => (
+                      <li key={fieldMessage}>{fieldMessage}</li>
+                    ))}
+                  </ul>
+                ) : undefined
+              }
+            />
           )}
 
-          <button type="submit" disabled={submitting}>
+          <Button type="primary" htmlType="submit" block disabled={submitting}>
             {submitting ? "正在登录…" : "登录"}
-          </button>
-        </form>
-      </section>
+          </Button>
+        </Form>
+      </Card>
     </main>
   );
 }
