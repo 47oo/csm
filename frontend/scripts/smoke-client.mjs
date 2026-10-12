@@ -170,6 +170,27 @@
  *   422 点路径 → 表单键（format）、模板列渲染辅助（类型·单位/枚举/必填）与
  *   表头行 CSV 生成（DR-208）。
  *
+ * F015 追加（Contract：docs/api/F015.md v1，前端机制级）：
+ * - src/api/audit.ts 的 URL / 查询串构造（§2：operator/object_type/object_id/
+ *   action/created_from/created_to/分页/sort=created_at/order AND 组合、空串
+ *   过滤项不发）与 AuditRow 响应解析（operator_user_id/before/after 可 null）；
+ *   describeAuditQueryError 的 401/403/422（fields）/网络层兑底语义；
+ * - src/api/deleted.ts 的 URL / 查询串构造（§3：object_type/分页/sort=
+ *   deleted_at/order）与 DeletedItem 响应解析（label/version/cluster 可 null）；
+ *   restoreDeletedItem 按 object_type 路由到各域既有 restore（§5 路由表，
+ *   不新增统一写端点）；describeDeletedActionError 的 409 reason
+ *   （unique_conflict/dependency_deleted/not_deleted）/ VERSION_CONFLICT /
+ *   403 / 网络层语义；
+ * - src/api/users.ts 的 URL / method / body 构造（§4：列表 role/status/q/分页/
+ *   排序、POST 创建 201 {user}（body 恰含 username/password/role）、GET 详情、
+ *   PATCH 仅携带变化字段 + version 乐观锁）；describeUserActionError 的 409
+ *   unique_conflict（→ username 字段级错误）/ VERSION_CONFLICT（→ 刷新后重改）/
+ *   422（fields）/ 403 / 404 语义；
+ * - src/components/auditQueryForm.ts（纯逻辑，无 JSX）：表单值解析（operator
+ *   trim / ≤64、object_id 须与 object_type 同现且为 UUID、datetime-local 按
+ *   UTC 归一为 ISO-8601、from≤to 闭区间）、buildAuditQuery 参数序列化、
+ *   422 点路径 → 表单键映射（snake→camel；分页/排序参数不映射）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -355,6 +376,29 @@ import {
   templateColumnTypeLabel,
   templateColumnRequiredLabel,
 } from "../src/components/importForm.ts";
+import {
+  describeAuditQueryError,
+  listAudit,
+} from "../src/api/audit.ts";
+import {
+  describeDeletedActionError,
+  listDeleted,
+  restoreDeletedItem,
+} from "../src/api/deleted.ts";
+import {
+  createUser,
+  describeUserActionError,
+  getUser,
+  listUsers,
+  updateUser,
+} from "../src/api/users.ts";
+import {
+  auditQueryFieldFromPath,
+  buildAuditQuery,
+  emptyAuditQueryFormValues,
+  parseAuditQueryFormValues,
+  parseIso8601UtcInput,
+} from "../src/components/auditQueryForm.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -5838,6 +5882,646 @@ await test("F014 模板渲染辅助：类型·单位/枚举标签、必填标签
   assert.ok(templateColumnRequiredLabel(template.columns[1]).includes("省略"));
   // 表头行：列名按冻结顺序拼接（.xlsx 模板使用相同表头，§6.3）
   assert.equal(buildTemplateCsv(template), "cluster,memory_mb,role\n");
+});
+
+// ---------------------------------------------------------------------------
+// F015：Audit 查询 / 已删对象 / 账号管理（Contract：docs/api/F015.md v1）
+// ---------------------------------------------------------------------------
+
+const AUDIT_ROW_FIXTURE = {
+  id: "a0000000-0000-0000-0000-00000000000f",
+  action: "UPDATE",
+  object_type: "resource",
+  object_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+  operator_user_id: null,
+  operator_username: "bootstrap",
+  before_data: { status: "IDLE" },
+  after_data: { status: "DOWN" },
+  created_at: "2026-10-06T12:00:00+00:00",
+};
+
+await test("F015 listAudit 默认：GET /api/v1/audit，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listAudit();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/audit");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F015 listAudit 组合查询：operator/object_type/object_id/action/created_from/created_to/分页/排序（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listAudit({
+    operator: "user01",
+    object_type: "resource",
+    object_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+    action: "UPDATE",
+    created_from: "2026-10-01T00:00:00Z",
+    created_to: "2026-10-06T23:59:59Z",
+    page: 2,
+    page_size: 50,
+    sort: "created_at",
+    order: "asc",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/audit?operator=user01&object_type=resource" +
+      "&object_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004&action=UPDATE" +
+      "&created_from=2026-10-01T00%3A00%3A00Z&created_to=2026-10-06T23%3A59%3A59Z" +
+      "&page=2&page_size=50&sort=created_at&order=asc",
+  );
+});
+
+await test("F015 listAudit 空串过滤项不发（operator=''/object_id=''/created_from=''）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  await listAudit({ operator: "", object_id: "", created_from: "", created_to: "" });
+  assert.equal(calls[0].url, "/api/v1/audit");
+});
+
+await test("F015 listAudit 响应解析：AuditRow 字段（operator_user_id/before_data 可 null；不含密码/令牌）", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      items: [AUDIT_ROW_FIXTURE],
+      page: 1,
+      page_size: 20,
+      total: 137,
+    });
+  const data = await listAudit();
+  assert.equal(data.total, 137);
+  assert.equal(data.items.length, 1);
+  const row = data.items[0];
+  assert.equal(row.id, AUDIT_ROW_FIXTURE.id);
+  assert.equal(row.action, "UPDATE");
+  assert.equal(row.object_type, "resource");
+  assert.equal(row.operator_user_id, null);
+  assert.equal(row.operator_username, "bootstrap");
+  assert.deepEqual(row.before_data, { status: "IDLE" });
+  assert.deepEqual(row.after_data, { status: "DOWN" });
+  assert.ok(!("password" in row) && !("token" in row));
+});
+
+await test("F015 describeAuditQueryError：401/403/422（fields）/网络层兑底", async () => {
+  respond = () =>
+    jsonResponse(401, {
+      error: { code: "AUTH_REQUIRED", message: "未认证或会话已过期", details: {} },
+    });
+  const unauthorized = await expectApiError(listAudit());
+  const unauthorizedDescribed = describeAuditQueryError(unauthorized);
+  assert.equal(unauthorizedDescribed.code, "AUTH_REQUIRED");
+  assert.ok(unauthorizedDescribed.message.includes("未认证"));
+  assert.equal(handlerCalls, 1); // 401 先触发全局处理器（回登录页）再呈现
+
+  respond = () =>
+    jsonResponse(403, {
+      error: {
+        code: "FORBIDDEN",
+        message: "没有权限",
+        details: { reason: "permission", permission: "AUDIT_READ" },
+      },
+    });
+  const forbidden = await expectApiError(listAudit());
+  const forbiddenDescribed = describeAuditQueryError(forbidden);
+  assert.ok(forbiddenDescribed.message.includes("AUDIT_READ"));
+  assert.ok(forbiddenDescribed.message.includes("FORBIDDEN"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "请求参数校验失败",
+        details: {
+          fields: [
+            { field: "object_id", message: "须与 object_type 同现" },
+            { field: "created_to", message: "不能早于 created_from" },
+          ],
+        },
+      },
+    });
+  const invalid = await expectApiError(listAudit());
+  const invalidDescribed = describeAuditQueryError(invalid);
+  assert.equal(invalidDescribed.fields.object_id, "须与 object_type 同现");
+  assert.equal(invalidDescribed.fields.created_to, "不能早于 created_from");
+  assert.ok(invalidDescribed.message.includes("VALIDATION_ERROR"));
+
+  const networkDescribed = describeAuditQueryError(new TypeError("Failed to fetch"));
+  assert.ok(networkDescribed.message.includes("无法连接服务器"));
+});
+
+const DELETED_ITEM_FIXTURES = [
+  {
+    object_type: "network",
+    object_id: "d0000000-0000-0000-0000-000000000001",
+    version: 3,
+    label: "mgmt",
+    cluster: {
+      id: "c0000000-0000-0000-0000-000000000001",
+      code: "N96P",
+      name: "N96 生产集群",
+    },
+    deleted_at: "2026-10-05T08:30:00+00:00",
+  },
+  {
+    object_type: "cluster",
+    object_id: "d0000000-0000-0000-0000-000000000002",
+    version: 2,
+    label: "N96P",
+    cluster: null,
+    deleted_at: "2026-10-04T09:00:00+00:00",
+  },
+];
+
+await test("F015 listDeleted 默认：GET /api/v1/deleted，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listDeleted();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/deleted");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F015 listDeleted 组合查询：object_type/page/page_size/sort=deleted_at/order", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 3, page_size: 100, total: 0 });
+  await listDeleted({ object_type: "ip_pool", page: 3, page_size: 100, sort: "deleted_at", order: "asc" });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/deleted?object_type=ip_pool&page=3&page_size=100&sort=deleted_at&order=asc",
+  );
+});
+
+await test("F015 listDeleted 响应解析：DeletedItem（label/version/cluster 可 null；不返回删除操作者）", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      items: DELETED_ITEM_FIXTURES,
+      page: 1,
+      page_size: 20,
+      total: 6,
+    });
+  const data = await listDeleted();
+  assert.equal(data.total, 6);
+  assert.equal(data.items.length, 2);
+  const [networkItem, clusterItem] = data.items;
+  assert.equal(networkItem.object_type, "network");
+  assert.equal(networkItem.label, "mgmt");
+  assert.equal(networkItem.version, 3);
+  assert.equal(networkItem.cluster.code, "N96P");
+  assert.equal(networkItem.deleted_at, "2026-10-05T08:30:00+00:00");
+  assert.equal(clusterItem.cluster, null); // cluster 类型自身无归属 cluster
+  assert.equal(clusterItem.label, "N96P"); // cluster 的 label=code（§3.2 口径）
+  assert.ok(!("operator" in networkItem) && !("deleted_by" in networkItem)); // O-7：不返回删除操作者
+});
+
+await test("F015 restoreDeletedItem 路由表：按 object_type 调各域既有 restore（POST + version Query，§5）", async () => {
+  respond = () => jsonResponse(200, {}); // 各域响应信封形状各异，调用方只关心成败
+  const id = "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004";
+  const version = 7;
+  const expectedPaths = {
+    cluster: "/clusters",
+    resource: "/resources",
+    interface: "/interfaces",
+    network: "/networks",
+    ip_pool: "/ip-pools",
+    ip_address: "/ip-addresses",
+    service: "/services",
+    service_endpoint: "/service-endpoints",
+  };
+  for (const [objectType, path] of Object.entries(expectedPaths)) {
+    await restoreDeletedItem(objectType, id, version);
+  }
+  assert.equal(calls.length, 8);
+  let index = 0;
+  for (const [objectType, path] of Object.entries(expectedPaths)) {
+    assert.equal(
+      calls[index].url,
+      `/api/v1${path}/${id}/restore?version=${version}`,
+      `object_type=${objectType} 应路由到 ${path}`,
+    );
+    assert.equal(calls[index].init.method, "POST");
+    assert.equal(calls[index].init.credentials, "include");
+    index += 1;
+  }
+});
+
+await test("F015 describeDeletedActionError：409 reason 逐类映射 + VERSION_CONFLICT + 403 + 网络层；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "unique_conflict", field: "name" },
+      },
+    });
+  const unique = await expectApiError(
+    restoreDeletedItem("network", "d0000000-0000-0000-0000-000000000001", 3),
+  );
+  const uniqueDescribed = describeDeletedActionError(unique);
+  assert.ok(uniqueDescribed.message.includes("已被新的未删除对象占用"));
+  assert.ok(uniqueDescribed.message.includes("unique_conflict"));
+  assert.ok(uniqueDescribed.message.includes("不会被覆盖"));
+
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "dependency_deleted", conflicts: [] },
+      },
+    });
+  const dependency = await expectApiError(
+    restoreDeletedItem("service", "d0000000-0000-0000-0000-000000000003", 5),
+  );
+  const dependencyDescribed = describeDeletedActionError(dependency);
+  assert.ok(dependencyDescribed.message.includes("依赖"));
+  assert.ok(dependencyDescribed.message.includes("dependency_deleted"));
+
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "not_deleted" },
+      },
+    });
+  const notDeleted = await expectApiError(
+    restoreDeletedItem("ip_pool", "d0000000-0000-0000-0000-000000000004", 2),
+  );
+  const notDeletedDescribed = describeDeletedActionError(notDeleted);
+  assert.ok(notDeletedDescribed.message.includes("未处于已删除状态"));
+
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "数据已被他人修改",
+        details: { current_version: 9 },
+      },
+    });
+  const versionConflict = await expectApiError(
+    restoreDeletedItem("cluster", "d0000000-0000-0000-0000-000000000002", 8),
+  );
+  const versionDescribed = describeDeletedActionError(versionConflict);
+  assert.equal(versionDescribed.versionConflict, true);
+  assert.equal(versionDescribed.currentVersion, 9);
+  assert.ok(versionDescribed.message.includes("不会自动重试"));
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const forbidden = await expectApiError(
+    restoreDeletedItem("resource", "d0000000-0000-0000-0000-000000000005", 4),
+  );
+  const forbiddenDescribed = describeDeletedActionError(forbidden);
+  assert.ok(forbiddenDescribed.message.includes("RESTORE"));
+
+  const networkDescribed = describeDeletedActionError(new TypeError("Failed to fetch"));
+  assert.ok(networkDescribed.message.includes("无法连接服务器"));
+  assert.equal(calls.length, 5); // 每次恰好一次调用，不重试
+});
+
+const USER_ROW_FIXTURE = {
+  id: "u0000000-0000-0000-0000-000000000001",
+  username: "user01",
+  role: "EDITOR",
+  status: "ACTIVE",
+  version: 3,
+  created_at: "2026-09-01T08:00:00+00:00",
+  updated_at: "2026-10-06T09:00:00+00:00",
+};
+
+await test("F015 listUsers 默认：GET /api/v1/users，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listUsers();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/users");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F015 listUsers 组合查询：role/status/q/分页/排序（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listUsers({
+    role: "EDITOR",
+    status: "ACTIVE",
+    q: "user",
+    page: 2,
+    page_size: 50,
+    sort: "username",
+    order: "asc",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/users?role=EDITOR&status=ACTIVE&q=user&page=2&page_size=50&sort=username&order=asc",
+  );
+});
+
+await test("F015 listUsers 空串 q 不发；响应不含 password_hash", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      items: [USER_ROW_FIXTURE],
+      page: 1,
+      page_size: 20,
+      total: 1,
+    });
+  const data = await listUsers({ q: "" });
+  assert.equal(calls[0].url, "/api/v1/users");
+  assert.equal(data.items[0].username, "user01");
+  assert.equal(data.items[0].version, 3);
+  assert.ok(!("password_hash" in data.items[0])); // UserRow 永不含 password_hash
+  assert.ok(!("password" in data.items[0]));
+});
+
+await test("F015 createUser：POST /users + body 恰含 username/password/role；201 解析 {user}", async () => {
+  respond = () => jsonResponse(201, { user: USER_ROW_FIXTURE });
+  const { user } = await createUser({
+    username: "user01",
+    password: "initial-password",
+    role: "EDITOR",
+  });
+  assert.equal(user.id, USER_ROW_FIXTURE.id);
+  assert.equal(user.username, "user01");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/users");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.headers["Content-Type"], "application/json");
+  // body 恰含三字段：无 id/version/status 等只读字段（出现即 422，§4.3）
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    username: "user01",
+    password: "initial-password",
+    role: "EDITOR",
+  });
+});
+
+await test("F015 getUser：GET /users/{id}；404 NOT_FOUND 描述", async () => {
+  respond = () => jsonResponse(200, { user: USER_ROW_FIXTURE });
+  const { user } = await getUser(USER_ROW_FIXTURE.id);
+  assert.equal(user.username, "user01");
+  assert.equal(calls[0].url, `/api/v1/users/${USER_ROW_FIXTURE.id}`);
+  assert.equal(calls[0].init.method, "GET");
+
+  respond = () =>
+    jsonResponse(404, {
+      error: { code: "NOT_FOUND", message: "账号不存在", details: {} },
+    });
+  const err = await expectApiError(getUser("u0000000-0000-0000-0000-000000000009"));
+  const described = describeUserActionError(err);
+  assert.ok(described.message.includes("账号不存在"));
+});
+
+await test("F015 updateUser：PATCH /users/{id} 且仅携带变化字段（version + role 或 status；省略 = 不重置）", async () => {
+  respond = () => jsonResponse(200, { user: { ...USER_ROW_FIXTURE, role: "ADMIN", version: 4 } });
+  const { user } = await updateUser(USER_ROW_FIXTURE.id, { version: 3, role: "ADMIN" });
+  assert.equal(user.version, 4);
+  assert.equal(calls[0].url, `/api/v1/users/${USER_ROW_FIXTURE.id}`);
+  assert.equal(calls[0].init.method, "PATCH");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { version: 3, role: "ADMIN" });
+
+  respond = () => jsonResponse(200, { user: { ...USER_ROW_FIXTURE, status: "DISABLED", version: 4 } });
+  await updateUser(USER_ROW_FIXTURE.id, { version: 3, status: "DISABLED" });
+  assert.deepEqual(JSON.parse(calls[1].init.body), { version: 3, status: "DISABLED" });
+  // username/password_hash 不可出现（§4.4）：本 client 类型不提供该形态
+});
+
+await test("F015 describeUserActionError：409 unique_conflict → username 字段级；VERSION_CONFLICT → 刷新后重改；422/403；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "CONFLICT",
+        message: "Conflict",
+        details: { reason: "unique_conflict", field: "username" },
+      },
+    });
+  const unique = await expectApiError(
+    createUser({ username: "user01", password: "initial-password", role: "VIEWER" }),
+  );
+  const uniqueDescribed = describeUserActionError(unique);
+  assert.ok(uniqueDescribed.fields.username.includes("冲突"));
+  assert.ok(uniqueDescribed.message.includes("username"));
+
+  respond = () =>
+    jsonResponse(409, {
+      error: {
+        code: "VERSION_CONFLICT",
+        message: "数据已被他人修改",
+        details: { current_version: 8 },
+      },
+    });
+  const versionConflict = await expectApiError(
+    updateUser(USER_ROW_FIXTURE.id, { version: 3, status: "DISABLED" }),
+  );
+  const versionDescribed = describeUserActionError(versionConflict);
+  assert.equal(versionDescribed.versionConflict, true);
+  assert.equal(versionDescribed.currentVersion, 8);
+  assert.ok(versionDescribed.message.includes("不会自动重试"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "请求参数校验失败",
+        details: {
+          fields: [
+            { field: "password", message: "长度须为 8–128" },
+            { field: "role", message: "role/status 至少一个" },
+          ],
+        },
+      },
+    });
+  const invalid = await expectApiError(
+    createUser({ username: "user02", password: "short", role: "VIEWER" }),
+  );
+  const invalidDescribed = describeUserActionError(invalid);
+  assert.equal(invalidDescribed.fields.password, "长度须为 8–128");
+  assert.equal(invalidDescribed.fields.role, "role/status 至少一个");
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const forbidden = await expectApiError(listUsers());
+  const forbiddenDescribed = describeUserActionError(forbidden);
+  assert.ok(forbiddenDescribed.message.includes("USER_ADMIN"));
+
+  const networkDescribed = describeUserActionError(new TypeError("Failed to fetch"));
+  assert.ok(networkDescribed.message.includes("无法连接服务器"));
+  assert.equal(calls.length, 4); // 每次恰好一次调用，不重试
+});
+
+await test("F015 parseIso8601UtcInput：datetime-local → ISO-8601 UTC（秒省略补 00；空 = 未提供）", async () => {
+  assert.deepEqual(parseIso8601UtcInput(""), { ok: true, value: null });
+  assert.deepEqual(parseIso8601UtcInput("   "), { ok: true, value: null });
+  assert.deepEqual(parseIso8601UtcInput("2026-10-06T12:00"), {
+    ok: true,
+    value: "2026-10-06T12:00:00Z",
+  });
+  assert.deepEqual(parseIso8601UtcInput(" 2026-10-06T12:00:31 "), {
+    ok: true,
+    value: "2026-10-06T12:00:31Z",
+  });
+  // 格式 / 分量 / 日历非法
+  assert.equal(parseIso8601UtcInput("2026-10-06").ok, false);
+  assert.equal(parseIso8601UtcInput("2026-10-06T25:00").ok, false);
+  assert.equal(parseIso8601UtcInput("2026-13-01T00:00").ok, false);
+  assert.equal(parseIso8601UtcInput("2026-02-30T00:00").ok, false);
+  assert.equal(parseIso8601UtcInput("not-a-date").ok, false);
+});
+
+await test("F015 parseAuditQueryFormValues：合法值（operator trim / object_id UUID / 时间归一；空 = 未提供）", async () => {
+  const parsed = parseAuditQueryFormValues({
+    ...emptyAuditQueryFormValues(),
+    operator: "  user01  ",
+    objectType: "resource",
+    objectId: " 0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004 ",
+    action: "UPDATE",
+    createdFrom: "2026-10-01T00:00",
+    createdTo: "2026-10-06T23:59:59",
+  });
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.fields.operator, "user01");
+  assert.equal(parsed.fields.objectType, "resource");
+  assert.equal(parsed.fields.objectId, "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004");
+  assert.equal(parsed.fields.action, "UPDATE");
+  assert.equal(parsed.fields.createdFrom, "2026-10-01T00:00:00Z");
+  assert.equal(parsed.fields.createdTo, "2026-10-06T23:59:59Z");
+
+  // 全空：未提供任何过滤（均 null）
+  const empty = parseAuditQueryFormValues(emptyAuditQueryFormValues());
+  assert.equal(empty.ok, true);
+  assert.equal(empty.fields.operator, null);
+  assert.equal(empty.fields.objectType, null);
+  assert.equal(empty.fields.objectId, null);
+  assert.equal(empty.fields.action, null);
+  assert.equal(empty.fields.createdFrom, null);
+  assert.equal(empty.fields.createdTo, null);
+});
+
+await test("F015 parseAuditQueryFormValues：object_id 须与 object_type 同现（单独提供 → 本地错误；object_type 单独 → 合法）", async () => {
+  const objectIdOnly = parseAuditQueryFormValues({
+    ...emptyAuditQueryFormValues(),
+    objectId: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+  });
+  assert.equal(objectIdOnly.ok, false);
+  assert.ok(objectIdOnly.errors.objectId.includes("同现"));
+
+  const objectTypeOnly = parseAuditQueryFormValues({
+    ...emptyAuditQueryFormValues(),
+    objectType: "cluster",
+  });
+  assert.equal(objectTypeOnly.ok, true);
+  assert.equal(objectTypeOnly.fields.objectType, "cluster");
+  assert.equal(objectTypeOnly.fields.objectId, null);
+});
+
+await test("F015 parseAuditQueryFormValues：非法输入本地拦截（operator>64 / object_id 非 UUID / 时间非法 / from>to）", async () => {
+  const longOperator = parseAuditQueryFormValues({
+    ...emptyAuditQueryFormValues(),
+    operator: "a".repeat(65),
+  });
+  assert.equal(longOperator.ok, false);
+  assert.ok(longOperator.errors.operator.includes("64"));
+
+  // 恰好 64：合法（服务端 >64 才 422）
+  const exactOperator = parseAuditQueryFormValues({
+    ...emptyAuditQueryFormValues(),
+    operator: "a".repeat(64),
+  });
+  assert.equal(exactOperator.ok, true);
+
+  const badUuid = parseAuditQueryFormValues({
+    ...emptyAuditQueryFormValues(),
+    objectType: "resource",
+    objectId: "not-a-uuid",
+  });
+  assert.equal(badUuid.ok, false);
+  assert.ok(badUuid.errors.objectId.includes("UUID"));
+
+  const badTime = parseAuditQueryFormValues({
+    ...emptyAuditQueryFormValues(),
+    createdFrom: "2026-02-30T00:00",
+  });
+  assert.equal(badTime.ok, false);
+  assert.ok(badTime.errors.createdFrom !== undefined);
+
+  const reversed = parseAuditQueryFormValues({
+    ...emptyAuditQueryFormValues(),
+    createdFrom: "2026-10-06T12:00",
+    createdTo: "2026-10-01T00:00",
+  });
+  assert.equal(reversed.ok, false);
+  assert.ok(reversed.errors.createdTo.includes("不能晚于"));
+
+  // 闭区间：from == to 合法（含边界）
+  const sameBoundary = parseAuditQueryFormValues({
+    ...emptyAuditQueryFormValues(),
+    createdFrom: "2026-10-06T12:00",
+    createdTo: "2026-10-06T12:00:00",
+  });
+  assert.equal(sameBoundary.ok, true);
+});
+
+await test("F015 buildAuditQuery：过滤项省略不发（null → 不携带）；分页/sort/order 恒携带", async () => {
+  const query = buildAuditQuery(
+    {
+      operator: null,
+      objectType: null,
+      objectId: null,
+      action: null,
+      createdFrom: null,
+      createdTo: null,
+    },
+    1,
+    20,
+    "desc",
+  );
+  assert.deepEqual(query, { page: 1, page_size: 20, sort: "created_at", order: "desc" });
+
+  const full = buildAuditQuery(
+    {
+      operator: "user01",
+      objectType: "user",
+      objectId: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+      action: "CREATE",
+      createdFrom: "2026-10-01T00:00:00Z",
+      createdTo: "2026-10-06T23:59:59Z",
+    },
+    2,
+    50,
+    "asc",
+  );
+  assert.deepEqual(full, {
+    operator: "user01",
+    object_type: "user",
+    object_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0004",
+    action: "CREATE",
+    created_from: "2026-10-01T00:00:00Z",
+    created_to: "2026-10-06T23:59:59Z",
+    page: 2,
+    page_size: 50,
+    sort: "created_at",
+    order: "asc",
+  });
+});
+
+await test("F015 auditQueryFieldFromPath：422 参数名（snake）→ 表单键（camel）；分页/排序/未知 → null", async () => {
+  assert.equal(auditQueryFieldFromPath("operator"), "operator");
+  assert.equal(auditQueryFieldFromPath("object_type"), "objectType");
+  assert.equal(auditQueryFieldFromPath("object_id"), "objectId");
+  assert.equal(auditQueryFieldFromPath("action"), "action");
+  assert.equal(auditQueryFieldFromPath("created_from"), "createdFrom");
+  assert.equal(auditQueryFieldFromPath("created_to"), "createdTo");
+  // 分页 / 排序参数无对应过滤表单控件：不强行映射（页面在通用错误区呈现）
+  assert.equal(auditQueryFieldFromPath("page"), null);
+  assert.equal(auditQueryFieldFromPath("page_size"), null);
+  assert.equal(auditQueryFieldFromPath("sort"), null);
+  assert.equal(auditQueryFieldFromPath("order"), null);
+  // 未知路径 / 嵌套路径 → null
+  assert.equal(auditQueryFieldFromPath("unknown"), null);
+  assert.equal(auditQueryFieldFromPath("object_id.x"), "objectId"); // 顶层直通
 });
 
 // 还原全局状态

@@ -976,14 +976,16 @@ features:
   - F012
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: IMPLEMENTATION（Backend：audit/deleted/users 端点 + audit 白名单；Frontend：Audit/System 页面）
-  current_stage: IMPLEMENTATION
+  next_action: TEST Gate（Tester 独立执行 F015 验收映射，TD-2 + TE-1）
+  current_stage: TEST
   implementation:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: COMPLETE
     contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
   layers:
     database: false
     backend: true
@@ -1002,6 +1004,10 @@ features:
     - docs/features/F015/test-report.md#test-design
     contract:
     - docs/api/F015.md
+    backend:
+    - docs/features/F015/implementation.md
+    frontend:
+    - docs/features/F015/implementation.md
 - id: F016
   title: 一期集成验收与交付
   kind: FEATURE
@@ -1174,9 +1180,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F015
-  current_stage: IMPLEMENTATION
-  last_result: F015 CONTRACT COMPLETE（READY FOR IMPLEMENTATION；F015.md v1；database=false；O-1–O-8/F015-OPEN-1 裁定）
-  next_action: IMPLEMENTATION（backend + frontend）
+  current_stage: TEST
+  last_result: F015 IMPLEMENTATION COMPLETE（backend 565 passed/1 skipped；frontend 264 passed）
+  next_action: TEST Gate（Tester）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

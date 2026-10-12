@@ -729,3 +729,30 @@ mark {
   margin: 0;
   font-size: 0.95rem;
 }
+
+/* ---------- F015 Audit 查询 / System（复用既有风格，最小样式） ---------- */
+
+/* 审计行 before/after 摘要：可换行 + 限宽（覆盖 data-table 默认 nowrap） */
+.audit-snapshot {
+  white-space: normal;
+  min-width: 200px;
+  max-width: 360px;
+  word-break: break-all;
+}
+
+/* 行详情（当前选中的审计行） */
+.row-selected {
+  background-color: #eff6ff;
+}
+
+/* 列表下方的行详情面板（嵌套 panel：与外层留出间距） */
+.detail-panel {
+  margin-top: 1rem;
+}
+
+/* System 页 Tab（复用 nav-link 视觉） */
+.system-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}

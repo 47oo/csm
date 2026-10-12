@@ -85,6 +85,9 @@ AUDITABLE_FIELDS: dict[str, tuple[str, ...]] = {
         "port",
         "description",
     ),
+    # F015/O-6: account events. Snapshots are deliberately limited to the
+    # non-sensitive profile fields; password material is never auditable.
+    "user": ("username", "role", "status"),
 }
 
 
