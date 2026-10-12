@@ -3,35 +3,20 @@ project:
   version: V3 phase 1
   requirements:
     path: docs/product/requirements-v3.md
-    revision: 3
-  plan_revision: 4
-  status: DONE
+    revision: 4
+  plan_revision: 5
+  status: ACCEPTED
   approval:
-    plan_revision: 4
+    plan_revision: 5
     feature_ids:
-    - F001
-    - F002
-    - F003
-    - F004
-    - F005
-    - F006
-    - F007
-    - F008
-    - F009
-    - F010
-    - F011
-    - F012
-    - F013
-    - F014
-    - F015
-    - F016
+    - F017
+    - F018
     approved_by: 用户
-    approved_on: '2026-10-06'
-    basis: 用户于 2026-10-06 批准：『后续如果没有问题，就按计划执行 implement-project，如果还有问题，则给个推荐，按推荐修改后，再执行
-      implement-project，这里批准开始』。对象为 docs/project/project-plan.yaml revision 4 全部 16
-      个 Feature；协调器核验定稿发现 5 处缺陷，按预授权以推荐方案修正后落地本批准。确认来源：本次会话用户指令。
+    approved_on: '2026-10-12'
+    basis: 用户于 2026-10-12 批准：『批准修订 4 与候选计划 revision 5（F017/F018），授权实施』。对象为 docs/product/requirements-v3.md
+      revision 4 与 docs/project/project-plan.yaml revision 5（F017/F018，M8）。 确认来源：本次会话用户指令。同次明确授权实施。
   acceptance:
-    status: COMPLETE
+    status: PENDING
     evidence:
     - docs/features/F016/test-report.md#test-execution
     - docs/features/F016/test-report.md#t01t41-evidence-index
@@ -1106,6 +1091,97 @@ features:
     - docs/features/F016/test-report.md#test-execution
     review:
     - docs/features/F016/review-report.md
+- id: F017
+  title: 前端 UI 体系改造（Ant Design + Tailwind CSS）
+  kind: FEATURE
+  priority: P0
+  milestone: M8 前端 UI 改造
+  scope: 在已交付前端（React 18 / TypeScript / Vite）内引入 Ant Design 与 Tailwind CSS，按 Architect
+    签核的 D04 版本与集成方式接入（Ant Design 5.x、Tailwind CSS 4.x + @tailwindcss/vite、layer 顺序与
+    StyleProvider、ConfigProvider 主题）；将 frontend/src/pages/ 与 frontend/src/components/
+    现有页面与组件迁移到 Ant Design 组件与 Tailwind 原子类；按 §28 保持 Dashboard / Search / Clusters
+    / Resources / Networks / IPAM / Services / Audit / System 的既有交互、权限门控与 Loading/Success/Empty/Error
+    四态；收敛手写 frontend/src/index.css 为最小全局层；不改动 frontend/src/api/ 与纯逻辑 *.ts、不改后端与数据契约、不新增业务规则。
+  acceptance: F-UI-1 依赖按 D04 签核版本锁定（package.json + lockfile，npm ci 可复现）；F-UI-2 全部页面与组件迁移到
+    Ant Design 与 Tailwind，无遗留原生控件承担主要交互；F-UI-3 §28 列表分页/排序/过滤/模糊搜索与各页面行为不降低； F-UI-4
+    无业务回归（API 层与后端契约不动；401/403/409/422 呈现、权限门控、四态保持）；F-UI-5 typecheck/build/smoke:client
+    在新栈下通过（smoke 用例不得删减覆盖）；F-UI-6 index.css 按 D04-7 收敛为最小全局层， 无重复/冲突样式；F-UI-7 经 Nginx
+    入口前端可达、SPA fallback 正常。Ant Design 运行时样式的手动验证边界按 D04-8 记录， 未实际执行项不得写 PASS。
+  requirements:
+  - docs/product/requirements-v3.md#28-前端
+  - docs/product/requirements-v3.md#29-技术栈
+  - docs/product/requirements-v3.md#31-测试
+  - docs/product/requirements-v3.md#32-上线验收
+  depends_on:
+  - F016
+  blocking_decisions:
+  - D04
+  status: DRAFT
+  current_stage: null
+  next_action: null
+  layers:
+    database: false
+    backend: false
+    frontend: true
+  api_required: false
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: NOT_REQUIRED
+    test_design: PENDING
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
+  not_required:
+    database: 纯展示层改造，无新表/列/约束/索引/迁移。
+    backend: 不改后端路由/服务/模型；frontend/src/api 维持既有 Contract。
+    contract: api_required=false，无新增/变更业务 API 与错误语义；前端仅消费既有 READY Contract。
+- id: F018
+  title: 前端改造后一期整体验收复验
+  kind: FEATURE
+  priority: P0
+  milestone: M8 前端 UI 改造
+  scope: 在真实/等价部署拓扑（Nginx → Frontend / FastAPI → PostgreSQL，§30）复核 F016 交付的 §31 /
+    §32 / §33 前端相关证据：重跑前端 typecheck/build/smoke:client，确认 Nginx 入口可达性与 SPA fallback，复核
+    §28 列表交互与 §33 查询场景界面；更新 project.acceptance.evidence，作为修订后一期整体验收承接项。F001–F016 其余后端/数据库/API/备份
+    证据不复验、不回写。
+  acceptance: 修订后 §29 前端栈下 §31 相关用例与 §32 C1–C15 复验通过；前端构建、入口可达性与 smoke 证据更新；§28 交互要求满足；
+    project.acceptance 由协调器核验后置 COMPLETE。
+  requirements:
+  - docs/product/requirements-v3.md#28-前端
+  - docs/product/requirements-v3.md#29-技术栈
+  - docs/product/requirements-v3.md#30-部署
+  - docs/product/requirements-v3.md#31-测试
+  - docs/product/requirements-v3.md#32-上线验收
+  - docs/product/requirements-v3.md#33-目标查询场景
+  depends_on:
+  - F017
+  blocking_decisions: []
+  status: DRAFT
+  current_stage: null
+  next_action: null
+  layers:
+    database: false
+    backend: false
+    frontend: false
+  api_required: false
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: NOT_REQUIRED
+    test_design: PENDING
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: NOT_REQUIRED
+    test: PENDING
+    review: PENDING
+  not_required:
+    contract: 无新增业务 API；api_required=false。
+    database: 验收型 Feature 无 Schema 交付。
+    backend: 无新增后端实现，仅复验。
+    frontend: 无新增前端页面/组件，仅构建与验收；如 ARCHITECTURE 阶段判定需 frontend layer 再复核。
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1190,7 +1266,9 @@ decisions_required:
   - F012
   - F014
   owner: Architect / Database
-  basis: 专业设计已签核：docs/architecture/d01-conventions.md v11（READY，Architect 2026-10-09）覆盖 F003–F012 的字段字典/hostname/数值上限/时间/单位/归一化口径；F014 CONTRACT v1 §12 记录「D01 已最终核对关闭」（导入字段口径逐项一致、无新增/偏离；D01 v11 无字段变更）。原 status OPEN 为滞后记录，由协调器按 change-control 依已完成的专业签核更正为 CONFIRMED，不改变任何已批准行为。
+  basis: 专业设计已签核：docs/architecture/d01-conventions.md v11（READY，Architect 2026-10-09）覆盖
+    F003–F012 的字段字典/hostname/数值上限/时间/单位/归一化口径；F014 CONTRACT v1 §12 记录「D01 已最终核对关闭」（导入字段口径逐项一致、无新增/偏离；D01
+    v11 无字段变更）。原 status OPEN 为滞后记录，由协调器按 change-control 依已完成的专业签核更正为 CONFIRMED，不改变任何已批准行为。
 - id: D02
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
   status: CONFIRMED
@@ -1216,50 +1294,45 @@ decisions_required:
   owner: Architect / Backend / Tester
   resolution: F014 CONTRACT v1 §10 签核（模板 BM 14/VM 10 列、VM Host 引用列、同步上限 5 MiB/5000
     行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
+- id: D04
+  source: docs/product/requirements-v3.md#29-技术栈
+  status: OPEN
+  kind: DESIGN_INPUT
+  affects:
+  - F017
+  - F018
+  owner: Architect
+  resolution: null
 pending_changes: []
 execution:
   mode: CONTINUOUS
   authorization:
-    plan_revision: 4
+    plan_revision: 5
     feature_ids:
-    - F001
-    - F002
-    - F003
-    - F004
-    - F005
-    - F006
-    - F007
-    - F008
-    - F009
-    - F010
-    - F011
-    - F012
-    - F013
-    - F014
-    - F015
-    - F016
+    - F017
+    - F018
     authorized_by: 用户
-    authorized_on: '2026-10-06'
-    basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
-      全部 16 个 Feature）；发现问题按推荐修正后继续执行。
+    authorized_on: '2026-10-12'
+    basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
   current_feature: null
   current_stage: null
-  last_result: F016 DONE（merge e1cb7d3；一期集成验收 APPROVED WITH FOLLOW-UP）；项目全部 F001–F016
-    交付，project.acceptance=COMPLETE
-  next_action: null
+  last_result: 计划 revision 5 获批准并合入；进入 implement-project，待启动 F017。
+  next_action: 启动 F017 Preflight 与 PRODUCT 阶段。
   repair_rounds: 0
 planning_status:
-  status: DONE
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 16
-    DRAFT: 0
+    DRAFT: 2
     IN_PROGRESS: 0
     IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: []
+    DRAFT:
+    - F017
+    - F018

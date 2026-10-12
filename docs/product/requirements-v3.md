@@ -330,6 +330,8 @@ CONFIRMED：运维资源查询与维护控制台，强调快速、清晰、高�
 
 CONFIRMED：前端 React / TypeScript / Vite；后端 Python / FastAPI / Pydantic；测试 pytest；入口代理 Nginx。
 
+CONFIRMED：前端 UI 组件库采用 Ant Design，样式方案采用 Tailwind CSS，与既有 React / TypeScript / Vite 组合使用；不改变 §28 的交互基线与业务规则。具体主版本、集成 / 构建方式、主题与样式优先级由 Architect 在已确认边界内设计签核（§35.3 D04）。
+
 CONFIRMED：数据库相关选型按 §26，Docker Compose 部署按 §30。一期暂不引入 Redis、RabbitMQ、Kafka、ElasticSearch、Kubernetes、Celery。具体软件版本、目录结构、连接池、索引和锁策略由 Architect / Database 在已确认边界内设计签核，不作为待用户重复确认的技术栈问题；替换已确认选型仍按变更控制处理。
 
 ## 30. 部署
@@ -410,6 +412,7 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 | --- | --- |
 | revision 2 / 2026-10-06 | 用户在收到 Q01–Q10 推荐规则后回复“按照推荐的建议进行修改”；替代 revision 1 中对应建议/冲突条款 |
 | revision 3 / 2026-10-06 | 用户在收到剩余六项逐项建议后回复“按照推荐建议修改这6项”；确认 Q02-A、Q04-A、Q04-B、Q07-A、Q10-A、Q10-B，替代 revision 2 对这些问题的 OPEN 描述；具体决策索引见 §35.2 |
+| revision 4 / 2026-10-12 | 用户明确要求『修改前端，使用 Ant Design 组件库，以及 CSS 样式 Tailwind CSS』；确认 §29 新增前端 UI 组件库 / 样式方案条款。仅确认产品技术选型，不包含 Feature 计划批准或应用实施授权；变更影响评估见 `docs/architecture/d04-frontend-ui-stack.md` |
 
 | 原 ID | 已确认内容所在条款 | 尚需处理的部分 |
 | --- | --- | --- |
@@ -453,6 +456,8 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ## 36. 文档建立状态
 
-> 本节为**状态记录**（2026-10 更新），不改动本文件中的任何业务规则（§1–§35）；需求基线仍为 revision 3。
+> 本节为**状态记录**（2026-10 更新），不改动本文件中的任何业务规则（§1–§35）；需求基线为 revision 4。
 
-需求基线为 revision 3；六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
+需求基线为 revision 4；revision 3 的六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。revision 4 新增 §29 的 Ant Design / Tailwind CSS 前端选型，影响评估与 D04 见 `docs/architecture/d04-frontend-ui-stack.md`。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
+
+前端 Ant Design / Tailwind CSS 变更（CHG-001）的候选计划 revision 5 新增 F017 / F018；该变更将使 F016 的前端构建 / 可达性 / smoke 相关验收证据失效，须由 F017 / F018 重建后再更新 `project.acceptance`。
