@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { Alert, Button, Form, Input, Select } from "antd";
 import type { Cluster, ClusterActionError, ClusterStatus } from "../api/clusters";
 
 /** 表单原始值（均为字符串；metadata 为 JSON 文本，提交前本地校验并解析）。 */
@@ -67,6 +68,9 @@ interface ClusterFormProps {
  * - metadata 留空视为 {}，非空必须为合法 JSON 对象；
  * - 409 VERSION_CONFLICT → 明确提示刷新后重改；409 CONFLICT unique_conflict
  *   → code 字段级错误；422 → details.fields 字段级错误。
+ *
+ * 迁移说明（AntD + Tailwind）：本地校验仍仅在提交时触发（不使用 antd rules），
+ * 以保持原有行为——错误文案只在下次提交时更新，字段级错误优先级为本地 ?? 服务端。
  */
 export default function ClusterForm({
   mode,
@@ -87,8 +91,7 @@ export default function ClusterForm({
   );
   const [localErrors, setLocalErrors] = useState<ClusterFormLocalErrors>({});
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function handleSubmit() {
     if (submitting) {
       return;
     }
@@ -112,131 +115,157 @@ export default function ClusterForm({
   }
 
   const serverFields = serverError?.fields ?? {};
+  const codeError = localErrors.code ?? serverFields.code;
+  const nameError = localErrors.name ?? serverFields.name;
+  const statusError = serverFields.status;
+  const descriptionError = serverFields.description;
+  const metadataError = localErrors.metadata ?? serverFields.metadata;
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <Form
+      layout="vertical"
+      colon={false}
+      onFinish={handleSubmit}
+      noValidate
+      className="space-y-4"
+    >
       {isCreate ? (
-        <div className="form-field">
-          <label htmlFor="cluster-code">code（唯一标识，创建后不可修改）</label>
-          <input
+        <div>
+          <label htmlFor="cluster-code" className="mb-1 block text-sm font-medium">
+            code（唯一标识，创建后不可修改）
+          </label>
+          <Input
             id="cluster-code"
             name="code"
-            type="text"
             value={code}
             onChange={(event) => setCode(event.target.value)}
             disabled={submitting}
+            status={codeError ? "error" : undefined}
             placeholder="如 N96P；允许中文，禁内部空白 / 控制字符，≤64 字符"
           />
-          {(localErrors.code ?? serverFields.code) && (
-            <p className="field-error" role="alert">
-              {localErrors.code ?? serverFields.code}
+          {codeError && (
+            <p className="mt-1 text-sm text-red-600" role="alert">
+              {codeError}
             </p>
           )}
         </div>
       ) : (
-        <div className="form-field">
-          <span className="field-label">code（创建后不可修改）</span>
-          <p className="readonly-value mono">{cluster?.code}</p>
+        <div>
+          <span className="mb-1 block text-sm font-medium">code（创建后不可修改）</span>
+          <p className="break-all font-mono">{cluster?.code}</p>
         </div>
       )}
 
-      <div className="form-field">
-        <label htmlFor="cluster-name">name（名称）</label>
-        <input
+      <div>
+        <label htmlFor="cluster-name" className="mb-1 block text-sm font-medium">
+          name（名称）
+        </label>
+        <Input
           id="cluster-name"
           name="name"
-          type="text"
           value={name}
           onChange={(event) => setName(event.target.value)}
           disabled={submitting}
+          status={nameError ? "error" : undefined}
           placeholder="如 N96P 集群；允许中文与内部空格，≤255 字符"
         />
-        {(localErrors.name ?? serverFields.name) && (
-          <p className="field-error" role="alert">
-            {localErrors.name ?? serverFields.name}
+        {nameError && (
+          <p className="mt-1 text-sm text-red-600" role="alert">
+            {nameError}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="cluster-status">status（状态）</label>
-        <select
+      <div>
+        <label htmlFor="cluster-status" className="mb-1 block text-sm font-medium">
+          status（状态）
+        </label>
+        <Select<ClusterStatus>
           id="cluster-status"
-          name="status"
           value={status}
-          onChange={(event) => setStatus(event.target.value as ClusterStatus)}
+          onChange={(value) => setStatus(value)}
           disabled={submitting}
-        >
-          <option value="ACTIVE">ACTIVE（启用）</option>
-          <option value="INACTIVE">INACTIVE（停用，仍可维护）</option>
-        </select>
-        {serverFields.status && (
-          <p className="field-error" role="alert">
-            {serverFields.status}
+          status={statusError ? "error" : undefined}
+          className="w-full"
+          options={[
+            { value: "ACTIVE", label: "ACTIVE（启用）" },
+            { value: "INACTIVE", label: "INACTIVE（停用，仍可维护）" },
+          ]}
+        />
+        {statusError && (
+          <p className="mt-1 text-sm text-red-600" role="alert">
+            {statusError}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="cluster-description">description（描述，可选）</label>
-        <textarea
+      <div>
+        <label htmlFor="cluster-description" className="mb-1 block text-sm font-medium">
+          description（描述，可选）
+        </label>
+        <Input.TextArea
           id="cluster-description"
           name="description"
           rows={3}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           disabled={submitting}
+          status={descriptionError ? "error" : undefined}
           placeholder="可选；编辑时清空表示删除描述（显式置 null）"
         />
-        {serverFields.description && (
-          <p className="field-error" role="alert">
-            {serverFields.description}
+        {descriptionError && (
+          <p className="mt-1 text-sm text-red-600" role="alert">
+            {descriptionError}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="cluster-metadata">metadata（JSON 对象，可选）</label>
-        <textarea
+      <div>
+        <label htmlFor="cluster-metadata" className="mb-1 block text-sm font-medium">
+          metadata（JSON 对象，可选）
+        </label>
+        <Input.TextArea
           id="cluster-metadata"
           name="metadata"
           rows={5}
           value={metadataText}
           onChange={(event) => setMetadataText(event.target.value)}
           disabled={submitting}
+          status={metadataError ? "error" : undefined}
           placeholder={'可选，例如 {"region": "shanghai"}；留空视为 {}'}
         />
-        {(localErrors.metadata ?? serverFields.metadata) && (
-          <p className="field-error" role="alert">
-            {localErrors.metadata ?? serverFields.metadata}
+        {metadataError && (
+          <p className="mt-1 text-sm text-red-600" role="alert">
+            {metadataError}
           </p>
         )}
       </div>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
-          <p>
-            {serverError.message}
-            {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
-          </p>
-          {serverError.versionConflict && onRefresh && (
-            <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+        <Alert
+          type="error"
+          role="alert"
+          message={`${serverError.message}${
+            serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""
+          }`}
+          description={
+            serverError.versionConflict && onRefresh ? (
+              <Button htmlType="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
-            </p>
-          )}
-        </div>
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
-      <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+      <div className="flex gap-3">
+        <Button type="primary" htmlType="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button htmlType="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
-    </form>
+    </Form>
   );
 }
