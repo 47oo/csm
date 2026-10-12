@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 3
   plan_revision: 4
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 4
     feature_ids:
@@ -31,8 +31,13 @@ project:
       implement-project，这里批准开始』。对象为 docs/project/project-plan.yaml revision 4 全部 16
       个 Feature；协调器核验定稿发现 5 处缺陷，按预授权以推荐方案修正后落地本批准。确认来源：本次会话用户指令。
   acceptance:
-    status: PENDING
-    evidence: []
+    status: COMPLETE
+    evidence:
+    - docs/features/F016/test-report.md#test-execution
+    - docs/features/F016/test-report.md#t01t41-evidence-index
+    - docs/features/F016/test-report.md#32-c1c15-上线验收
+    - docs/features/F016/test-report.md#33-目标查询场景
+    - docs/features/F016/test-report.md#t36-备份覆盖-audit
 features:
 - id: F001
   title: 工程与部署底座
@@ -1055,9 +1060,15 @@ features:
   - F014
   - F015
   blocking_decisions: []
-  status: IN_REVIEW
-  next_action: 正式 Review（reviewer 独立审查候选 HEAD）
-  current_stage: REVIEW
+  status: DONE
+  next_action: null
+  current_stage: null
+  git:
+    base_branch: v3
+    branch: feature/F016-integration-acceptance
+    start_commit: 079e4adddd9d580d5b303de47bfb354ba23aae30
+    head_commit: 621e1c5022f13092761b8c25edc265ec0a18e933
+    merge_commit: e1cb7d3261186a5b8091e2bca2d0fd2ab36abec3
   layers:
     database: false
     backend: false
@@ -1078,6 +1089,7 @@ features:
     database: NOT_REQUIRED
     test_design: COMPLETE
     test: COMPLETE
+    review: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
@@ -1092,6 +1104,8 @@ features:
     - docs/features/F016/test-report.md#test-design
     test:
     - docs/features/F016/test-report.md#test-execution
+    review:
+    - docs/features/F016/review-report.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1227,22 +1241,22 @@ execution:
     authorized_on: '2026-10-06'
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
-  current_feature: F016
-  current_stage: REVIEW
-  last_result: F016 TEST：真实替代栈执行（Compose BLOCKED 已录制）；RERUN 15 + §32 C1–C15 + §33
-    Q1–Q9 + T36 B1–B7 全部 PASS；前端 264 passed
-  next_action: 正式 Review（reviewer）
+  current_feature: null
+  current_stage: null
+  last_result: F016 DONE（merge e1cb7d3；一期集成验收 APPROVED WITH FOLLOW-UP）；项目全部 F001–F016
+    交付，project.acceptance=COMPLETE
+  next_action: null
   repair_rounds: 0
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 15
+    DONE: 16
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
