@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Alert, Button, Card, Menu, Tag } from "antd";
+import type { MenuProps } from "antd";
 import { logout, type User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import type { Cluster } from "../api/clusters";
@@ -117,97 +119,102 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
   const canSystem =
     user.permissions.includes("USER_ADMIN") || user.permissions.includes("VIEW_DELETED");
 
+  const activeNavKey = inOverview
+    ? "overview"
+    : inClusters
+      ? "clusters"
+      : inResources
+        ? "resources"
+        : inNetworks
+          ? "networks"
+          : inIpPools
+            ? "ip-pools"
+            : inIpAddresses
+              ? "ip-addresses"
+              : inServices
+                ? "services"
+                : inAudit
+                  ? "audit"
+                  : inSystem
+                    ? "system"
+                    : "overview";
+
+  const navItems: MenuProps["items"] = [
+    { key: "overview", label: "概览" },
+    { key: "clusters", label: "Clusters" },
+    { key: "resources", label: "Resources" },
+    { key: "networks", label: "Networks" },
+    { key: "ip-pools", label: "IP Pools" },
+    { key: "ip-addresses", label: "IP Addresses" },
+    { key: "services", label: "Services" },
+    ...(canAudit ? [{ key: "audit", label: "Audit" }] : []),
+    ...(canSystem ? [{ key: "system", label: "System" }] : []),
+  ];
+
+  function handleNav(key: string) {
+    switch (key) {
+      case "clusters":
+        setSection({ name: "clusters" });
+        break;
+      case "resources":
+        setSection({ name: "resources" });
+        break;
+      case "networks":
+        setSection({ name: "networks" });
+        break;
+      case "ip-pools":
+        setSection({ name: "ip-pools" });
+        break;
+      case "ip-addresses":
+        setSection({ name: "ip-addresses" });
+        break;
+      case "services":
+        setSection({ name: "services" });
+        break;
+      case "audit":
+        setSection({ name: "audit" });
+        break;
+      case "system":
+        setSection({ name: "system" });
+        break;
+      default:
+        setSection({ name: "overview" });
+    }
+  }
+
   return (
-    <main className={wide ? "main-wide" : undefined}>
-      <header className="app-header">
+    <main className={wide ? "mx-auto max-w-6xl px-6 py-8" : "mx-auto max-w-2xl px-6 py-12"}>
+      <header className="flex items-start justify-between gap-4">
         <div>
-          <h1>CSM</h1>
-          <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
+          <h1 className="m-0 text-2xl font-semibold">CSM</h1>
+          <p className="mt-1 text-gray-500">Cluster Source Manager · 资源事实数据源</p>
         </div>
-        <div className="user-box">
-          <span className="user-name">{user.username}</span>
-          <span className="user-role">{user.role}</span>
-          <button type="button" onClick={handleLogout} disabled={loggingOut}>
+        <div className="flex items-center gap-3 pt-1 whitespace-nowrap">
+          <span className="font-semibold">{user.username}</span>
+          <span className="text-sm text-gray-500">{user.role}</span>
+          <Button type="default" onClick={handleLogout} disabled={loggingOut}>
             {loggingOut ? "正在登出…" : "登出"}
-          </button>
+          </Button>
         </div>
       </header>
 
       {logoutError && (
-        <p className="status status-error" role="alert">
-          登出失败：{logoutError}
-        </p>
+        <Alert
+          className="mt-4"
+          type="error"
+          role="alert"
+          message={`登出失败：${logoutError}`}
+        />
       )}
 
-      <nav className="app-nav" aria-label="主导航">
-        <button
-          type="button"
-          className={section.name === "overview" ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "overview" })}
-        >
-          概览
-        </button>
-        <button
-          type="button"
-          className={inClusters ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "clusters" })}
-        >
-          Clusters
-        </button>
-        <button
-          type="button"
-          className={inResources ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "resources" })}
-        >
-          Resources
-        </button>
-        <button
-          type="button"
-          className={inNetworks ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "networks" })}
-        >
-          Networks
-        </button>
-        <button
-          type="button"
-          className={inIpPools ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "ip-pools" })}
-        >
-          IP Pools
-        </button>
-        <button
-          type="button"
-          className={inIpAddresses ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "ip-addresses" })}
-        >
-          IP Addresses
-        </button>
-        <button
-          type="button"
-          className={inServices ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "services" })}
-        >
-          Services
-        </button>
-        {canAudit && (
-          <button
-            type="button"
-            className={inAudit ? "nav-link nav-link-active" : "nav-link"}
-            onClick={() => setSection({ name: "audit" })}
-          >
-            Audit
-          </button>
-        )}
-        {canSystem && (
-          <button
-            type="button"
-            className={inSystem ? "nav-link nav-link-active" : "nav-link"}
-            onClick={() => setSection({ name: "system" })}
-          >
-            System
-          </button>
-        )}
-      </nav>
+      <Menu
+        className="mt-6"
+        mode="horizontal"
+        aria-label="主导航"
+        selectedKeys={[activeNavKey]}
+        items={navItems}
+        onClick={({ key }) => handleNav(key)}
+      />
 
       {section.name === "overview" && (
         <>
@@ -226,26 +233,25 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
 
           <DashboardPanel />
 
-          <section className="panel">
-            <h2>当前用户</h2>
-            <p className="status">
+          <Card className="mt-6" title="当前用户">
+            <p className="m-0">
               用户名：{user.username}　角色：{user.role}　状态：{user.status}
             </p>
-            <p className="permissions-note">
+            <p className="mb-1 mt-3 text-sm text-gray-500">
               权限（由服务端按角色返回，仅用于界面显示，不构成安全边界）：
             </p>
-            <p className="permissions">
+            <p className="m-0">
               {user.permissions.length > 0 ? (
                 user.permissions.map((permission) => (
-                  <span key={permission} className="permission-badge">
+                  <Tag key={permission} className="mr-1 mt-1">
                     {permission}
-                  </span>
+                  </Tag>
                 ))
               ) : (
-                <span className="permission-badge">无</span>
+                <Tag className="mr-1 mt-1">无</Tag>
               )}
             </p>
-          </section>
+          </Card>
 
           <HealthPanel />
         </>
