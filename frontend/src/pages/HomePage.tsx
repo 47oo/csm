@@ -16,6 +16,8 @@ import NetworksPage from "./NetworksPage";
 import IpPoolsPage from "./IpPoolsPage";
 import IpAddressesPage from "./IpAddressesPage";
 import ServicesPage from "./ServicesPage";
+import AuditPage from "./AuditPage";
+import SystemPage from "./SystemPage";
 
 interface HomePageProps {
   user: User;
@@ -35,7 +37,9 @@ type Section =
   | { name: "networks" }
   | { name: "ip-pools" }
   | { name: "ip-addresses"; networkId?: string }
-  | { name: "services" };
+  | { name: "services" }
+  | { name: "audit" }
+  | { name: "system" };
 
 /**
  * F002 已登录视图 + F003/F004/F008 导航壳（架构 §1.8，不追求复杂视觉效果）：
@@ -43,12 +47,14 @@ type Section =
  * （列表 / 新建 / 详情）/ Resources（列表 / 新建 / 详情）/ Networks（列表 /
  * 新建 / 编辑，F008）/ IP Pools（列表 / 新建 / 编辑，F009）/ IP Addresses
  * （分配 / 绑定 / 释放 / 恢复，F010；可从 F013 搜索按所属网络定位）/ Services
- * （服务登记：列表 / 创建 / 编辑 / 删除 / 恢复 / Activity，F011）。
+ * （服务登记：列表 / 创建 / 编辑 / 删除 / 恢复 / Activity，F011）/ Audit
+ * （完整审计查询，F015；仅 AUDIT_READ）/ System（账号管理 + 已删对象管理，
+ * F015；需 USER_ADMIN 或 VIEW_DELETED）。
  * 各入口对
  * 全部已登录角色可见
  * （READ 全角色）；写 / 删 / 恢复 / 已删可见性仅按服务端返回的 permissions
  * 显示对应控件——隐藏不替代鉴权，服务端仍按 §23 矩阵执行（越权请求 403
- * 由页面明确呈现）。
+ * 由页面明确呈现）。Audit / System 导航同样仅对具备对应权限的角色显示。
  */
 export default function HomePage({ user, onLoggedOut }: HomePageProps) {
   const [section, setSection] = useState<Section>({ name: "overview" });
@@ -90,6 +96,8 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
   const inIpPools = section.name === "ip-pools";
   const inIpAddresses = section.name === "ip-addresses";
   const inServices = section.name === "services";
+  const inAudit = section.name === "audit";
+  const inSystem = section.name === "system";
   const inOverview = section.name === "overview";
   const wide =
     inOverview ||
@@ -98,7 +106,16 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
     inNetworks ||
     inIpPools ||
     inIpAddresses ||
-    inServices;
+    inServices ||
+    inAudit ||
+    inSystem;
+
+  // F015：Audit 仅 AUDIT_READ；System 需 USER_ADMIN（账号管理）或
+  // VIEW_DELETED（已删对象管理）之一（DR-224）；按服务端返回的 permissions
+  // 显示 / 隐藏导航入口，不替代服务端鉴权
+  const canAudit = user.permissions.includes("AUDIT_READ");
+  const canSystem =
+    user.permissions.includes("USER_ADMIN") || user.permissions.includes("VIEW_DELETED");
 
   return (
     <main className={wide ? "main-wide" : undefined}>
@@ -172,6 +189,24 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
         >
           Services
         </button>
+        {canAudit && (
+          <button
+            type="button"
+            className={inAudit ? "nav-link nav-link-active" : "nav-link"}
+            onClick={() => setSection({ name: "audit" })}
+          >
+            Audit
+          </button>
+        )}
+        {canSystem && (
+          <button
+            type="button"
+            className={inSystem ? "nav-link nav-link-active" : "nav-link"}
+            onClick={() => setSection({ name: "system" })}
+          >
+            System
+          </button>
+        )}
       </nav>
 
       {section.name === "overview" && (
@@ -300,6 +335,10 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
       )}
 
       {section.name === "services" && <ServicesPage user={user} />}
+
+      {section.name === "audit" && <AuditPage user={user} />}
+
+      {section.name === "system" && <SystemPage user={user} />}
     </main>
   );
 }

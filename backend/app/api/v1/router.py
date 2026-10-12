@@ -10,9 +10,11 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    audit,
     auth,
     clusters,
     dashboard,
+    deleted,
     health,
     imports,
     interfaces,
@@ -23,6 +25,7 @@ from app.api.v1 import (
     search,
     service_endpoints,
     services,
+    users,
 )
 from app import models  # noqa: F401  (populate Base.metadata for autogenerate)
 
@@ -41,3 +44,6 @@ api_v1_router.include_router(service_endpoints.router)
 api_v1_router.include_router(search.router)
 api_v1_router.include_router(dashboard.router)
 api_v1_router.include_router(imports.router)
+api_v1_router.include_router(audit.router)
+api_v1_router.include_router(deleted.router)
+api_v1_router.include_router(users.router)
