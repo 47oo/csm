@@ -1066,6 +1066,8 @@ features:
   not_required:
     contract: F016 无新增业务 API/Endpoint/Schema（被验收 API 来自 F001–F015 READY Contract），api_required=false，不新建 docs/api/F016.md。
     database: 验收型 Feature 无 Schema 交付：无新表/列/约束/触发器/索引/迁移；迁移链单 head 0013_search_indexes；T36 备份复用整库 pg_dump（默认含 audit_logs 及 append-only 触发器）。依据 docs/database/f016-acceptance.md v1。
+    backend: F016 无新业务路由/服务/模型；验收脚本与夹具为测试基础设施（scripts/acceptance、backend/tests/integration），非 Backend 实现层。
+    frontend: F016 无新页面/组件；前端仅 npm run build 产物用于入口验证。
   implementation:
     product: COMPLETE
     architecture: COMPLETE
