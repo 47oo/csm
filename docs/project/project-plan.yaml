@@ -1116,8 +1116,8 @@ features:
   - F016
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: ARCHITECTURE 阶段：定稿 D04 并产出 docs/features/F017/architecture.md（READY FOR DESIGN）。
+  current_stage: TEST_DESIGN
+  next_action: DATABASE（预期 NOT_REQUIRED）与 TEST_DESIGN 并行；随后 CONTRACT 定稿。
   git:
     base_branch: v3
     branch: feature/F017-frontend-ui-antd-tailwind
@@ -1129,7 +1129,7 @@ features:
   api_required: false
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: PENDING
     contract: NOT_REQUIRED
@@ -1144,6 +1144,8 @@ features:
   evidence:
     product:
     - docs/features/F017/product.md
+    architecture:
+    - docs/features/F017/architecture.md
 - id: F018
   title: 前端改造后一期整体验收复验
   kind: FEATURE
@@ -1302,13 +1304,17 @@ decisions_required:
     行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 - id: D04
   source: docs/product/requirements-v3.md#29-技术栈
-  status: OPEN
+  status: CONFIRMED
   kind: DESIGN_INPUT
   affects:
   - F017
   - F018
   owner: Architect
-  resolution: null
+  resolution: >-
+    Architect 于 F017 设计 Gate 签核：docs/features/F017/architecture.md v1 定稿 D04-1..D04-10，
+    docs/architecture/d04-frontend-ui-stack.md 升为 v2 FINAL/CONFIRMED（2026-10-15）；Ant Design 5.x、
+    Tailwind CSS 4.x + @tailwindcss/vite、layer 顺序（含 legacy 过渡层）、StyleProvider layer=antd、
+    locale zh_CN。依据 requirements-v3.md revision 4 §29 与 plan_revision 5。
 pending_changes: []
 execution:
   mode: CONTINUOUS
@@ -1321,9 +1327,9 @@ execution:
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
   current_feature: F017
-  current_stage: ARCHITECTURE
-  last_result: F017 PRODUCT COMPLETE（docs/features/F017/product.md，READY FOR ARCHITECT）。
-  next_action: ARCHITECTURE 阶段：architect 定稿 D04 并产出 architecture.md。
+  current_stage: TEST_DESIGN
+  last_result: F017 ARCHITECTURE COMPLETE（docs/features/F017/architecture.md，READY FOR DESIGN；D04 v2 FINAL/CONFIRMED）。
+  next_action: DATABASE 与 TEST_DESIGN 并行，随后 Architect CONTRACT 定稿。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
