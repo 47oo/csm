@@ -1175,7 +1175,7 @@ decisions_required:
   owner: Product Manager / 用户
 - id: D01
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
-  status: OPEN
+  status: CONFIRMED
   kind: DESIGN_INPUT
   affects:
   - F003
@@ -1190,6 +1190,7 @@ decisions_required:
   - F012
   - F014
   owner: Architect / Database
+  basis: 专业设计已签核：docs/architecture/d01-conventions.md v11（READY，Architect 2026-10-09）覆盖 F003–F012 的字段字典/hostname/数值上限/时间/单位/归一化口径；F014 CONTRACT v1 §12 记录「D01 已最终核对关闭」（导入字段口径逐项一致、无新增/偏离；D01 v11 无字段变更）。原 status OPEN 为滞后记录，由协调器按 change-control 依已完成的专业签核更正为 CONFIRMED，不改变任何已批准行为。
 - id: D02
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
   status: CONFIRMED
