@@ -306,3 +306,153 @@
 TD-1 结论：**`TEST DESIGN READY`** —— A1–A31 已映射到可观察判据（V1–V38、V-DB-F015-1…5、V-FE-1…4、V-ST-1…3），边界/并发/环境场景（401 先于 403、Audit 过滤 AND/时间闭区间/分页排序/空结果/只读幂等/append-only/无变更端点、已删 8 类聚合与过滤/label/version/cluster、恢复复用一致性与不级联/不覆盖 409 unique_conflict/dependency_deleted/失败无 Audit 残留/并发、用户创建/重复 409/角色即时/停用登录 401+旧会话 401+会话删除/启用/无注册无删除无改密/PATCH 乐观锁、账号审计白名单无密码/停用不改旧审计/历史身份保留、权限矩阵、前端门控）可执行；夹具与可验证性已与 architecture §2–§6 及 Contract v0 建立对应；真实 PostgreSQL + `committed_engine` + 并发双连接口径固定；索引 EXPLAIN 方案已按 DR-227 条件化。**Contract 为草案 DRAFT、索引/登记待 Database、F015-OPEN-1 未裁定，§9 OPEN-1–9 未经逐项核对；READY 不等于测试通过，不批准实现或合并。** 定稿后由 TD-2 关闭 §9 并固定执行判据。
 
 GIT: NONE
+
+---
+
+## Test Design（TD-2，定稿并入）
+
+- **版本**：TD-2
+- **日期**：2026-10-14
+- **角色**：Tester（TEST_DESIGN 模式，基于 Contract v1 / DB v1 / D01 v11 定稿判据）
+- **结论**：`TEST DESIGN READY`（TD-2）
+- **依据**：`docs/api/F015.md` v1（READY，2026-10-14）；`docs/database/f015-audit-admin.md` v1（NOT_REQUIRED，DB-D167–D172）；`docs/architecture/d01-conventions.md` v11；`docs/features/F015/{product,architecture,implementation}.md`；`docs/api/F002.md` v1。
+- **工作区/基线**：分支 `feature/F015-audit-admin`，HEAD `dd9a47d`（只读核对，clean）。
+
+### TD-2 §9 OPEN 逐项关闭（并入定稿判据）
+
+| TD-1 OPEN | 定稿裁定（Contract v1 / DB v1 / D01 v11） | 执行判据并入 |
+| --- | --- | --- |
+| OPEN-1 契约签核 | `docs/api/F015.md` v1 READY 签核（Architect 2026-10-14），端点/参数/字段/错误固定 | 全部 V* 按 v1 执行，不再按草案假设 |
+| OPEN-2 Audit 参数形态 | `operator`=`operator_username` **精确**匹配（trim+小写归一；trim 空或 >64→422）；`object_type` ∈ 9 类**含 `user`**；`object_id` **须与 `object_type` 同现**（单独提供/非 UUID→422）；`created_from`/`created_to` **闭区间**（from>to→422）；`sort` 仅 `created_at`、`order` asc/desc 默认 desc；**同刻 `id` 恒升序** | V3/V4/V32、B4–B7 固定 |
+| OPEN-3 已删列表字段 | `{object_type,object_id,version,label,cluster,deleted_at}`；**不返回删除操作者**、**不新增 `q`**；`object_type` ∈ 8 类（不含 `user`）；`sort` 仅 `deleted_at`；同刻 `object_type`→`object_id` 升序；`version≥1` | V13/V33、B14 固定 |
+| OPEN-4 用户端点细节 | `role`/`status`/`q`（大小写不敏感子串，空/超长 422）过滤；`sort∈{username,role,status,created_at,updated_at}` 默认 `created_at`；`GET /users/{id}` 非 UUID/不存在→404；**密码 8–128**；PATCH 校验顺序 **401→403→422→404→409**；`UserRow` 永不含 `password_hash` | V20/V34–V36、B29–B38 固定 |
+| OPEN-5 初始凭据/改密 | ADMIN 创建时设初始密码；改密/重置/首登强制改密**本期不实现**（404/405） | V35/V37 固定 |
+| OPEN-6 `object_type="user"` | `audit_logs.object_type` 为 `varchar(64) NOT NULL`、**无枚举 CHECK**；登记 `user` **无 Schema 变更**（DB-D167） | V-DB-F015-2/8 |
+| OPEN-7 索引 / database 层 | DR-227 **NOT_REQUIRED**（DB-D168，不新增索引/迁移）；`layers.database=false`；head 保持 `0013_search_indexes` | **V-DB-F015-4 记 `NOT_REQUIRED`，不判 FAIL**；TD-1 V-DB-F015-4（索引 EXPLAIN）→ NOT_REQUIRED；B43/B44 → NOT_REQUIRED |
+| OPEN-8 F015-OPEN-1 | Contract §8 裁定**不保护**最后一个 ACTIVE ADMIN（无已确认规则，属 PRODUCT DECISION）；**不新增拒绝断言**，仅 NOTE 风险 | A21/A22 按常规语义验证；不将可致无 ADMIN 场景记缺陷 |
+| OPEN-9 F002 无新增码 | F015 复用 `AUDIT_READ`/`USER_ADMIN`/`VIEW_DELETED`/`RESTORE`/`VIEW_ACTIVITY`；**无新增 error code/reason**；F002/D01/D02 **无变更** | 全部 V* 复用码断言 |
+
+### TD-2 版本记录
+
+| 版本 | 日期 | 变更 |
+| --- | --- | --- |
+| TD-2 | 2026-10-14 | 依据 Contract v1 / DB v1 / D01 v11 关闭 TD-1 §9 OPEN-1–9；固定 audit/已删/用户端点判据、`object_type="user"` 无 Schema 变更、DR-227 NOT_REQUIRED、F015-OPEN-1 不保护、F002 无新增码。READY 仅表示方案可验证，非测试通过。 |
+
+---
+
+## Test Execution（TE-1）
+
+- **版本**：TE-1（独立执行）
+- **日期**：2026-10-14
+- **角色**：Tester（TEST 模式）
+- **结论**：**`READY FOR REVIEW`**
+- **执行基线**：分支 `feature/F015-audit-admin`，HEAD `dd9a47d`，工作区 clean；实现报告 backend 565 passed/1 skipped、frontend 264 passed。
+- **独立性声明**：Tester **未修改任何业务实现 / Schema / 产品 / 设计**；除本报告外仅新增 Tester 专属测试 `backend/tests/integration/test_f015_tester_acceptance.py`。以下数字由 Tester 独立运行获得，未复制实现报告。真实 PG 证据全部来自独立测试库；并发证据来自 `committed_engine` 双连接 + 最终持久化断言；无 SQLite / Mock 约束或并发证据。
+
+### 执行环境与命令
+
+| 层 | 环境 | 命令 | 结果 |
+| --- | --- | --- | --- |
+| Backend 全量 | 镜像 `csm-f007-test`；PG 容器 `f002test-db`（`f002test-net`）；库 `csm_test` | `docker run … csm-f007-test bash -c "pip install -q 'python-multipart…' 'openpyxl…' && python -m pytest tests -q"` | **581 passed, 1 skipped**（skip=`test_migrations.py::V3b`，csm 为 superuser 属环境性） |
+| Backend F015 子集（独立库） | 独立库 `csm_test_f015te`（运行后 DROP） | `python -m pytest tests/integration/test_{audit_query,deleted,users,f015_constraints,f015_tester_acceptance}.py -q` | **52 passed** |
+| Frontend | Node v22.23.2 / npm 12.0.2 | `npm run typecheck && npm run build && npm run smoke:client` | typecheck 通过；build 91 modules 通过；**smoke:client 264 passed, 0 failed** |
+
+执行顺序：先建基线，再由 Tester 独立编写并运行新增验收用例，最后重跑全量确认无回归。首次全量 565+1 与实现报告一致；加入 16 个 Tester 用例后 **581+1**。
+
+### A1–A31 验收结果
+
+| # | 结果 | 证据（执行） |
+| --- | --- | --- |
+| A1 Audit 仅 ADMIN；401 先于 403 | PASS | `test_audit_permissions`：ADMIN 200、VIEWER/EDITOR 403 `FORBIDDEN{permission}`、无 Cookie 401 `AUTH_REQUIRED`；未认证含非法枚举仍 401 |
+| A2 AuditRow 字段齐全/类型正确 | PASS | `test_audit_row_shape_and_account_snapshots`：字段集精确匹配、`operator_user_id` 可空、《`created_at` ISO-8601 UTC》 |
+| A3 过滤 AND；非法 422 | PASS | `test_filters_are_and_combined`、`test_invalid_query_parameters`（object_id 单独/非 UUID 422、非法枚举/时间/sort/order 422） |
+| A4 分页/越界/空结果 | PASS | `test_pagination_and_empty_result`、Tester `test_audit_pagination_boundaries_and_ordering`（page_size 1/100 接受，0/101 422，空结果 200 total 0） |
+| A5 只读/幂等 | PASS | `test_audit_query_is_read_only_and_idempotent`（前后行数一致、两次响应深比较） |
+| A6 Activity 全基础角色 | PASS | Tester `test_activity_visible_to_all_base_roles`：VIEWER/EDITOR/ADMIN 200、未认证 401 |
+| A7 既有 Audit 不变 | PASS | Tester `test_existing_audit_rows_never_change`：查询/删除/恢复/名称复用/停用后逐行深比较不变；停用后 `operator_username`/`operator_user_id` 保留 |
+| A8 无修改/删除/清空端点 | PASS | `test_no_audit_mutation_endpoints`、`test_route_catalogue_has_no_mutation_or_registration`（PUT/PATCH/DELETE 404/405、无 clear） |
+| A9 无 TTL/清理/归档 | PASS | Tester `test_no_audit_ttl_cleanup_or_archive`：源码无 retention/purge/cleanup/archive/调度依赖；`audit_logs` 无 expires_at/ttl/archived_at 列 |
+| A10 无密码/令牌；白名单 | PASS | `test_audit_row_shape_and_account_snapshots`（快照键 ⊆ `{username,role,status}`）、`test_create_writes_user_audit` |
+| A11 停用不改旧审计、身份保留 | PASS | `test_disable_preserves_existing_audit`、`test_audit_row_shape_and_account_snapshots`、Tester A7 |
+| A12 8 类已删聚合；默认隐藏 | PASS | `test_aggregate_covers_eight_types`（恰 8 条）、`test_deleted_permissions`；默认域列表隐藏由全量域回归覆盖 |
+| A13 已删过滤/分页/稳定 ID/label | PASS | `test_aggregate_covers_eight_types`（label/cluster 逐类）、`test_filter_pagination_and_validation` |
+| A14 统一入口恢复 + RESTORE Audit | PASS | `test_version_routes_to_domain_restore`、Tester `test_restore_audit_and_failure_residue` |
+| A15 恢复不级联 | PASS | Tester `test_restore_does_not_cascade`：Service↛Endpoint、Network↛Pool、Resource↛Interface |
+| A16/A17 冲突 409、不覆盖、T41 | PASS | Tester `test_restore_conflicts_do_not_overwrite`（Network/Service/Resource 名称复用→`unique_conflict`、新对象不变；Cluster code 不重用）、`test_restore_dependency_deleted`（`dependency_deleted{conflicts}`）；`test_deleted` 路由恢复 |
+| A18 RESTORE Audit 同事务；失败无残留 | PASS | Tester `test_restore_audit_and_failure_residue`：成功 1 条 RESTORE、operator 正确；冲突失败 0 条 |
+| A19 恢复复用各域语义 | PASS | 恢复经 `/deleted` version 调各域端点；Tester 全量回归（580+）各域 restore 用例绿 |
+| A20 创建账号 + 登录 + permissions | PASS | `test_create_user_and_login` |
+| A21 角色即时生效 | PASS | `test_role_change_is_immediate`（同 Cookie 立即按新角色） |
+| A22 停用→登录 401 + 旧会话 401 + 删会话 | PASS | `test_disable_invalidates_sessions_and_blocks_login`（`AUTH_INVALID_CREDENTIALS`、`AUTH_REQUIRED`、`user_sessions` 0） |
+| A23 启用恢复登录 | PASS | `test_enable_restores_login` |
+| A24 账号事件 Audit 同事务 | PASS | `test_create_writes_user_audit`、`test_update_writes_user_audit`（CREATE/UPDATE/UPDATE + before/after） |
+| A25 无注册 | PASS | `test_no_registration_delete_or_password_endpoints`、`test_route_catalogue_has_no_mutation_or_registration` |
+| A26 账号管理仅 ADMIN | PASS | `test_users_permissions`（无 Cookie 401 含非法参数仍 401；VIEWER/EDITOR 全路径 403） |
+| A27 System 页面存在/门控 | PASS（机制+静态） | `HomePage.tsx` 按 `AUDIT_READ`/`USER_ADMIN|VIEW_DELETED` 门控导航；`AuditPage`/`SystemPage` 存在、页内二次门控；后端 403 已验（A1/A26）。真实 API 经入口 Nginx 未执行→NOTE |
+| A28 列表分页/排序/过滤 + 四态 | PASS（机制+静态） | `smoke:client` 覆盖 `listUsers`/`listDeleted` 查询串与解析；`AccountManagementPanel` 具 loading/empty/error 显式态；真实 API 经 Nginx 未执行→NOTE |
+| A29 权限矩阵服务端执行/可复现 | PASS | A1/A6/A26 + 各测试重复执行结果一致；`require_permission` 服务端依赖注入 |
+| A30 前端无 Audit 变更入口 | PASS | `AuditPage`/`AuditQueryPanel` 静态无修改/删除/清空控件；构造写请求 404/405（A8） |
+| A31 不改既有语义（回归） | PASS | Tester 全量 **581 passed**（F003–F014 既有用例全绿） |
+
+### V-DB-F015-1–8 结果（按 DB v1 §8 编号；括注 TD-1 对应）
+
+| 编号 | 结果 | 证据 |
+| --- | --- | --- |
+| V-DB-F015-1 append-only 触发器拒 UPDATE/DELETE | PASS | `test_audit_logs_append_only`（raw SQL 均 `DBAPIError`） |
+| V-DB-F015-2 `user`+CREATE/UPDATE+白名单快照可写、非法快照/action 被拒 | PASS | `test_audit_object_type_accepts_user_without_enum_check`、`test_audit_operator_fk_restrict_and_snapshot_constraints` |
+| V-DB-F015-3 FK RESTRICT 持审计用户不可物理删除 | PASS | `test_audit_operator_fk_restrict_and_snapshot_constraints` |
+| V-DB-F015-4 停用+删会话同事务、旧审计不变 | PASS | `test_disable_invalidates_sessions_and_blocks_login`、A7 |
+| V-DB-F015-5 username 唯一/格式约束回归 | PASS | `test_users_has_no_soft_delete_and_username_unique` + F002/F003 全量回归 |
+| V-DB-F015-6 已删 8 类索引：7 类存在、`interfaces` 无 | PASS | `test_no_new_schema_or_operator_username_index`、Tester `test_deleted_at_indexes_and_schema_unchanged` |
+| V-DB-F015-7 Audit 查询计划基线（operator 过滤无专用索引，预期） | PASS（baseline） | Tester `test_audit_query_plan_baseline`（EXPLAIN 可执行）；属计划基线，无性能 PASS/FAIL |
+| V-DB-F015-8 Schema 不变：head=`0013_search_indexes`、无 `ix_audit_logs_operator_username` | PASS | `test_no_new_schema_or_operator_username_index`、Tester 同上 |
+| **TD-1 V-DB-F015-4（DR-227 索引 EXPLAIN）** | **NOT_REQUIRED** | DB-D168 裁定不新增索引；按 TD-2 口径记 `NOT_REQUIRED`，不判 FAIL |
+
+### B 场景结果
+
+| 场景 | 结果 | 场景 | 结果 |
+| --- | --- | --- | --- |
+| B1 未认证先于权限 | PASS | B24 恢复失败无 Audit 残留 | PASS |
+| B2 三角色矩阵 | PASS | B25 恢复双连接并发（仅一成功、版本+1、1 条 RESTORE） | PASS |
+| B3 CSRF reason 区分权限 | PASS | B26 名称复用后恢复回退、新对象不变 | PASS |
+| B4 Audit 过滤 AND | PASS | B27 停用不改旧审计 | PASS |
+| B5 时间闭区间/from>to | PASS | B28 停用后审计仍可解析 | PASS |
+| B6 分页边界 1/100/0/101/负/非整数 | PASS | B29 创建账号成功 | PASS |
+| B7 排序稳定（同刻 id 升序）；Tester 追加 desc 同刻仍升序 | PASS | B30 username 归一/正则 3/64/65 | PASS |
+| B8 空结果 200 | PASS | B31 重复 username 409 | PASS |
+| B9 只读幂等 | PASS | B32 password 8/128 边界 + 脱敏 | PASS |
+| B10 append-only DB 兜底 | PASS | B33 账号事件 Audit 同事务 | PASS |
+| B11 无变更端点 404/405 | PASS | B34 角色即时生效 | PASS |
+| B12 已删 8 类聚合 | PASS | B35 停用即时失效会话 | PASS |
+| B13 `deleted=only/include` 权限 | PASS（默认隐藏 + 域回归） | B36 停用登录语义一致 | PASS |
+| B14 label/cluster 映射 | PASS | B37 启用恢复 | PASS |
+| B15 恢复不级联（Service/Endpoint） | PASS | B38 PATCH 乐观锁与字段校验 | PASS |
+| B16 恢复不级联（Network 子项） | PASS | B39 无注册/无物理删除 | PASS |
+| B17 恢复不级联（Resource/Interface） | PASS | B40 非 UUID 路径 404 | PASS |
+| B18 唯一重名恢复失败 | PASS | B41 权限矩阵可复现 | PASS |
+| B19 依赖仍删恢复失败 | PASS | B42 只读无副作用 | PASS |
+| B20 Cluster code 不重用 | PASS | B43 索引 EXPLAIN（若采纳） | NOT_REQUIRED |
+| B21 恢复版本冲突 | PASS | B44 索引迁移 up/down/up | NOT_REQUIRED |
+| B22 恢复成功可见性 | PASS | B45 前端门控 + 直连 API | PASS（机制+静态；真实浏览器 NOTE） |
+| B23 恢复 RESTORE Audit | PASS | | |
+
+### Defects
+
+无。未发现实现缺陷（`RETURN TO IMPLEMENTATION` 无触发项）。
+
+### 未验证项与说明（不降低判定）
+
+- **真实前后端集成（经入口 Nginx / Compose）未执行**：环境无运行中的前后端栈；按既有 Feature 口径记为机制级 + 静态通过、端到端集成以 F016/入口 Nginx 为准。不影响 F015 后端契约与约束验收。
+- **浏览器 E2E / DOM 交互未执行**：`smoke:client` 为受控响应的 client 机制级测试；页面存在、权限门控与四态经静态核对与 build 验证。
+- **V-DB-F015-7 为计划基线**：operator 过滤无专用索引为 DB-D168 的预期结论，不构成性能 PASS/FAIL。
+- **F015-OPEN-1（不保护最后一个 ACTIVE ADMIN）**：Contract 裁定不保护，仅 NOTE 风险（管理员可将系统降至无 ACTIVE ADMIN）；不作为缺陷。
+- **PATCH /users 双连接并发未单独用例**：乐观锁语义由 404→409 顺序用例与恢复并发用例覆盖；`audit_logs`/查询为只读无并发风险。
+- **Audit 备份（§22/F016）与完整 §31/§32 跨功能集成**：归 F016，**不得以 F015 局部 PASS 拼接整体通过**。
+
+### 数据完整性对应（执行确认）
+
+append-only（V-DB-F015-1/B10/B11）、operator 快照与 FK RESTRICT（V-DB-F015-3/A11/B27/B28）、恢复原子/不覆盖/不级联（A15–A19/B15–B26）、用户唯一与无删除（V-DB-F015-5/B31/B39）、账号审计脱敏/同事务（A10/A24/B32/B33）、权限服务端（A1/A26/A29/B1–B3）、只读无副作用（A5/A7/B9/B42）——均经真实 PG 执行确认。
+
+TE-1 结论：**`READY FOR REVIEW`** —— A1–A31 全部 PASS，V-DB-F015-1–3/5–8 PASS、TD-1 V-DB-F015-4（DR-227）`NOT_REQUIRED`，B1–B45 除 B43/B44 `NOT_REQUIRED` 外全部 PASS；无必须修复缺陷；真实前后端 Nginx 集成与 F016 跨功能验收明确记为未执行/归 F016，未以 Mock 替代约束与并发证据。
+
+GIT: NONE

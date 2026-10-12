@@ -975,9 +975,9 @@ features:
   - F011
   - F012
   blocking_decisions: []
-  status: IN_PROGRESS
-  next_action: TEST Gate（Tester 独立执行 F015 验收映射，TD-2 + TE-1）
-  current_stage: TEST
+  status: IN_REVIEW
+  next_action: 正式 Review（reviewer 独立审查候选 HEAD）
+  current_stage: REVIEW
   implementation:
     product: COMPLETE
     architecture: COMPLETE
@@ -986,13 +986,16 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: COMPLETE
+    test: COMPLETE
   layers:
     database: false
     backend: true
     frontend: true
   api_required: true
   not_required:
-    database: 无 Schema 交付：audit_logs.object_type 为 varchar(64) 无枚举 CHECK，登记 user 无需迁移；不新增 operator_username 索引（DB-D168）；已删聚合复用既有 ix_*_deleted_at（DB-D169）；无新迁移，单 head 0013_search_indexes。依据 docs/database/f015-audit-admin.md v1。
+    database: 无 Schema 交付：audit_logs.object_type 为 varchar(64) 无枚举 CHECK，登记 user 无需迁移；不新增
+      operator_username 索引（DB-D168）；已删聚合复用既有 ix_*_deleted_at（DB-D169）；无新迁移，单 head
+      0013_search_indexes。依据 docs/database/f015-audit-admin.md v1。
   evidence:
     product:
     - docs/features/F015/product.md
@@ -1008,6 +1011,8 @@ features:
     - docs/features/F015/implementation.md
     frontend:
     - docs/features/F015/implementation.md
+    test:
+    - docs/features/F015/test-report.md#test-execution
 - id: F016
   title: 一期集成验收与交付
   kind: FEATURE
@@ -1180,9 +1185,10 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F015
-  current_stage: TEST
-  last_result: F015 IMPLEMENTATION COMPLETE（backend 565 passed/1 skipped；frontend 264 passed）
-  next_action: TEST Gate（Tester）
+  current_stage: REVIEW
+  last_result: F015 TEST READY FOR REVIEW（backend 581 passed/1 skipped；独立库 F015 52
+    passed；frontend 264 passed；无缺陷）
+  next_action: 正式 Review（reviewer）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -1192,8 +1198,8 @@ planning_status:
     CANCELLED: 0
     DONE: 14
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
