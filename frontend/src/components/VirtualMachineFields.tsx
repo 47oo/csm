@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button, Input, Select } from "antd";
 import { displayError, isApiError } from "../api/client";
 import { listResources, type Resource } from "../api/resources";
 import type {
@@ -125,89 +126,99 @@ export default function VirtualMachineFields({
   const currentHostMissing =
     currentHost !== null && !hosts.some((host) => host.id === currentHost.id);
 
+  // AntD Select 选项：保留 value="" 的占位选项，等价于原生 <option value="">
+  // “请选择宿主机”，可被重新选中以清空选择（表单值仍为 "" 字符串）。
+  const hostSelectOptions: { value: string; label: string }[] = [
+    { value: "", label: "请选择宿主机" },
+    ...(currentHostMissing && currentHost !== null
+      ? [{ value: currentHost.id, label: `${currentHost.hostname}（当前宿主）` }]
+      : []),
+    ...hosts.map((host) => ({ value: host.id, label: host.hostname })),
+  ];
+
   return (
     <>
-      <h3 className="detail-section-title">
+      <h3 className="mt-4 text-base font-semibold text-slate-900">
         virtual_machine（虚拟机信息；仅 VIRTUAL_MACHINE）
       </h3>
-      <p className="status status-empty">
+      <p className="mt-1 text-sm leading-6 text-slate-500">
         host_resource_id 必填（同集群内未删除的 BARE_METAL）；容量字段可选：
         留空 = 未知（null，不以 0 代替；编辑时清空 = 清除登记）；
         disk_gb 填 0 表示明确无磁盘；memory_mb 单位 MiB、disk_gb 单位 GiB，原样存储不换算。
       </p>
       {serverFields.virtual_machine && (
-        <p className="field-error" role="alert">
+        <p className="mb-1 text-sm text-red-600" role="alert">
           {serverFields.virtual_machine}
         </p>
       )}
 
-      <div className="form-field">
-        <label htmlFor="resource-vm-host">
+      <div className="mb-4 flex flex-col gap-1.5">
+        <label htmlFor="resource-vm-host" className="text-sm font-medium text-slate-700">
           host_resource_id（宿主机 Host，必填；同集群未删除的 BARE_METAL）
         </label>
         {hostOptions.kind === "idle" && (
-          <p className="status status-empty">请先选择所属集群，再选择宿主机。</p>
+          <p className="text-sm text-slate-500">请先选择所属集群，再选择宿主机。</p>
         )}
         {hostOptions.kind === "loading" && (
-          <p className="status status-loading">正在加载宿主机列表…</p>
+          <p className="text-sm text-blue-600">正在加载宿主机列表…</p>
         )}
         {hostOptions.kind === "error" && (
-          <div className="status status-error" role="alert">
+          <div
+            className="flex flex-col items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            role="alert"
+          >
             <p>加载宿主机列表失败：{hostOptions.message}</p>
-            <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+            <Button
+              size="small"
+              htmlType="button"
+              onClick={() => setReloadToken((token) => token + 1)}
+            >
               重试
-            </button>
+            </Button>
           </div>
         )}
         {hostOptions.kind === "success" && hosts.length === 0 && (
-          <p className="status status-empty">
+          <p className="text-sm text-slate-500">
             该集群暂无未删除的 BARE_METAL 资源：需先登记物理机，才能创建虚拟机。
           </p>
         )}
-        <select
+        <Select
           id="resource-vm-host"
-          name="virtual_machine.host_resource_id"
+          className="w-full"
+          placeholder="请选择宿主机"
           value={values.host_resource_id}
-          onChange={(event) => onChange({ host_resource_id: event.target.value })}
+          onChange={(value) => onChange({ host_resource_id: value })}
           disabled={submitting || hostOptions.kind !== "success"}
-        >
-          <option value="">请选择宿主机</option>
-          {currentHostMissing && currentHost !== null && (
-            <option value={currentHost.id}>{currentHost.hostname}（当前宿主）</option>
-          )}
-          {hosts.map((host) => (
-            <option key={host.id} value={host.id}>
-              {host.hostname}
-            </option>
-          ))}
-        </select>
+          options={hostSelectOptions}
+        />
         {hostOptions.kind === "success" && hostOptions.total > hosts.length && (
-          <p className="status status-empty">
+          <p className="text-sm text-slate-500">
             宿主机总数 {hostOptions.total} 台，下拉仅显示前 {hosts.length} 台
             （按 hostname 排序；列表分页上限 100）。
           </p>
         )}
         {(localErrors.host_resource_id ?? serverFields["virtual_machine.host_resource_id"]) && (
-          <p className="field-error" role="alert">
+          <p className="text-sm text-red-600" role="alert">
             {localErrors.host_resource_id ?? serverFields["virtual_machine.host_resource_id"]}
           </p>
         )}
       </div>
 
       {VM_INPUT_FIELDS.map((field) => (
-        <div className="form-field" key={field.key}>
-          <label htmlFor={`resource-vm-${field.key}`}>{field.label}</label>
-          <input
+        <div className="mb-4 flex flex-col gap-1.5" key={field.key}>
+          <label htmlFor={`resource-vm-${field.key}`} className="text-sm font-medium text-slate-700">
+            {field.label}
+          </label>
+          <Input
             id={`resource-vm-${field.key}`}
             name={`virtual_machine.${field.key}`}
-            type="text"
             value={values[field.key]}
             onChange={(event) => onChange({ [field.key]: event.target.value })}
             disabled={submitting}
             placeholder={field.placeholder}
           />
           {(localErrors[field.key] ?? serverFields[`virtual_machine.${field.key}`]) && (
-            <p className="field-error" role="alert">
+            <p className="text-sm text-red-600" role="alert">
               {localErrors[field.key] ?? serverFields[`virtual_machine.${field.key}`]}
             </p>
           )}
