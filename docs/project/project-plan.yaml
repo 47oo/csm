@@ -1056,8 +1056,8 @@ features:
   - F015
   blocking_decisions: []
   status: IN_PROGRESS
-  next_action: CONTRACT Gate（architect 最终设计核对；contract NOT_REQUIRED 已记）
-  current_stage: CONTRACT
+  next_action: TEST Gate（Tester 执行 §31–§33/§32/T36 验收，产出 test-report 证据）
+  current_stage: TEST
   layers:
     database: false
     backend: false
@@ -1071,6 +1071,9 @@ features:
     architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: NOT_REQUIRED
   evidence:
     product:
     - docs/features/F016/product.md
@@ -1216,9 +1219,9 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F016
-  current_stage: CONTRACT
-  last_result: F016 DATABASE NOT_REQUIRED + TEST DESIGN READY（f016-acceptance.md v1；TD-1）
-  next_action: CONTRACT Gate（architect）
+  current_stage: TEST
+  last_result: F016 CONTRACT COMPLETE（READY FOR IMPLEMENTATION；contract/database/backend/frontend NOT_REQUIRED；进入 TEST 验收）
+  next_action: TEST Gate（Tester 验收执行）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
