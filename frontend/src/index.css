@@ -1,3 +1,47 @@
+/* F017：Tailwind CSS v4 入口层序（D04-5 / D04-7）。
+   迁移期旧规则统一包进 @layer legacy，位于 base 之后、antd 之前，
+   使其能被 AntD / Tailwind utilities 覆盖，同时未迁移页面仍有样式。
+   全部迁移完成后删除 @layer legacy。 */
+@layer theme, base, antd, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@theme {
+  --color-brand: #2563eb;
+  --font-sans:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
+    sans-serif;
+  --radius-card: 0.375rem;
+}
+
+/* 最小全局层（定稿保留）：字体栈、根高度、背景、body 归零。 */
+:root {
+  font-family: var(--font-sans);
+  color: #1f2937;
+  background-color: #f9fafb;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+@layer legacy {
 :root {
   font-family:
     system-ui,
@@ -755,4 +799,5 @@ mark {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
+}
 }
