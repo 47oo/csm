@@ -1,7 +1,7 @@
 # F017 前端 UI 体系改造（Ant Design + Tailwind CSS）— ARCHITECTURE 阶段报告
 
 - **Task**：F017（FEATURE，P0，M8 前端 UI 改造，deps F016）— Architect，Feature 设计模式
-- **阶段**：ARCHITECTURE；**结论**：`READY FOR DESIGN`（2026-10-15，本会话日期）
+- **阶段**：CONTRACT；**结论**：`READY FOR IMPLEMENTATION`（2026-10-15）
 - **Basis**：
   - `docs/product/requirements-v3.md` **revision 4** CONFIRMED：§28（前端交互基线）、§29（Ant Design + Tailwind CSS 已 CONFIRMED；主版本/集成/主题/优先级交 Architect 签核）、§31/§32（测试与上线验收判据不变）、§35.3 D04、§36 revision 4。
   - `docs/features/F017/product.md`（`READY FOR ARCHITECT`；F-UI-1..7、§2.2 不改变业务规则、N-1..N-5）。
@@ -39,7 +39,7 @@
 
 ```css
 /* F017 定稿最小全局层：只保留真正跨页的规则 */
-@layer theme, base, legacy, antd, components, utilities;
+@layer theme, base, antd, components, utilities;
 
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
@@ -69,7 +69,7 @@ body {
 ```
 
 - `@layer ... ;` 顺序语句置于所有 `@import` 之前，先建立层序。
-- 最终优先序：**preflight(base) → legacy(迁移期旧样式) → antd(AntD CSS-in-JS) → utilities(Tailwind 原子类)**。
+- 迁移期优先序：**preflight(base) → legacy(迁移期旧样式) → antd(AntD CSS-in-JS) → utilities(Tailwind 原子类)**；定稿（删除 `legacy` 后）：**preflight(base) → antd → utilities（`components` 为预留空层）**。
 - 迁移期在 `@layer legacy { ... }` 中承载旧 `index.css` 全部现有规则（含 `.panel`、`.data-table`、`.badge-*`、`.form-field`、`.detail-grid` 等）；`@theme`/@layer 语句不放进任何层。
 
 ### 1.3 ConfigProvider / StyleProvider 装配（D04-5/D04-6/D04-9）
@@ -289,6 +289,19 @@ api_required: false
 
 ### 7.4 结论
 
-无 Blocking Questions，无新增业务规则，无 API/Schema/部署语义变更。**Status：`READY FOR DESIGN`。**
+无 Blocking Questions，无新增业务规则，无 API/Schema/部署语义变更。**Status：`READY FOR IMPLEMENTATION`。**
 
-下一步：Database 裁定 `NOT_REQUIRED` → Tester 出 TEST_DESIGN（F-UI-1..7 / V1–V7）→ Architect 核对 Test Design 与本文档一致性并签发 `READY FOR IMPLEMENTATION`（本阶段不越级）。
+CONTRACT 阶段已核对 Database `NOT_REQUIRED`（`docs/database/f017-frontend-ui.md` v1）、Test Design `TEST DESIGN READY`（`docs/features/F017/test-report.md#test-design` TD-1）与 D04 v2 FINAL，并裁定 TD-1（见 §7.5）；`api_required=false`，不新建 `docs/api/F017.md`。
+
+### 7.5 CONTRACT 最终设计签核（Architect）
+
+- 签核对象：F017 最终设计（本文档 + `docs/architecture/d04-frontend-ui-stack.md` v2 FINAL / CONFIRMED）。
+- 签核者：Architect。
+- 签核日期：2026-10-15。
+- 覆盖 Feature：F017（含 F018 复验所依赖的前端 UI 集成设计）。
+- 版本：本文件 CONTRACT 定稿；D04 v2 FINAL（含 TD-1 编辑性更正）。
+- 上游依据：`docs/product/requirements-v3.md` revision 4（§28 / §29 rev4 CONFIRMED、§35.3 D04）；`docs/project/project-plan.yaml` plan_revision 5（用户 2026-10-12 批准）。
+- 核对输入：product.md（PRODUCT COMPLETE）；database/f017-frontend-ui.md（Database NOT_REQUIRED）；test-report.md#test-design（TD-1 TEST DESIGN READY）。
+- Contract 状态：`NOT_REQUIRED`（api_required=false；无 Endpoint / 字段 / 错误语义 / 分页 / 排序 / 过滤 / 权限 / 并发变更）。
+- TD-1 裁定：定稿 `@layer` 行为 `@layer theme, base, antd, components, utilities;`（删除 `legacy`）；§1.2 与 D04 §2.1 按此订正（编辑性更正，不改 D04-7 规范文本、不改行为或范围）。
+- 结论：`READY FOR IMPLEMENTATION`（无阻塞、无新增业务规则、无 API / Schema / 部署语义变化）。

@@ -1116,8 +1116,8 @@ features:
   - F016
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: CONTRACT
-  next_action: CONTRACT 定稿：architect 核对 Database / Test Design 并签核 READY FOR IMPLEMENTATION；处理 TD-1。
+  current_stage: IMPLEMENTATION
+  next_action: IMPLEMENTATION：Frontend 按 architecture.md §3 迁移全部页面/组件到 Ant Design + Tailwind，并本地验证 typecheck/build/smoke。
   git:
     base_branch: v3
     branch: feature/F017-frontend-ui-antd-tailwind
@@ -1331,9 +1331,9 @@ execution:
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
   current_feature: F017
-  current_stage: CONTRACT
-  last_result: F017 DATABASE NOT_REQUIRED（docs/database/f017-frontend-ui.md）与 TEST DESIGN READY（docs/features/F017/test-report.md#test-design）。
-  next_action: CONTRACT 定稿：architect 签核 READY FOR IMPLEMENTATION 并处理 TD-1。
+  current_stage: IMPLEMENTATION
+  last_result: F017 CONTRACT 定稿 READY FOR IMPLEMENTATION（architect 签核 #7.5；TD-1 已裁定并入文档）。
+  next_action: IMPLEMENTATION：Frontend 执行迁移并本地验证。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

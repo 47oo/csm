@@ -30,14 +30,14 @@ V3 一期 F001–F016 前端为 React 18.3 + TypeScript 5.6 + Vite 5.4，使用�
 定稿（迁移完成）入口 CSS：
 
 ```css
-@layer theme, base, legacy, antd, components, utilities;
+@layer theme, base, antd, components, utilities;
 
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
 ```
 
-迁移期旧规则整体包进 `@layer legacy { ... }`（置于 `base` 之后、`antd` 之前），使未迁移页面仍有样式、且已迁移页面的 AntD/utilities 能覆盖旧规则。最终优先序：preflight(base) → legacy(迁移期旧样式) → antd(AntD CSS-in-JS) → utilities(Tailwind 原子类)。配合 `StyleProvider layer="antd"` 保证确定性。
+迁移期旧规则整体包进 `@layer legacy { ... }`（置于 `base` 之后、`antd` 之前），使未迁移页面仍有样式、且已迁移页面的 AntD/utilities 能覆盖旧规则。迁移期优先序：preflight(base) → legacy(迁移期旧样式) → antd(AntD CSS-in-JS) → utilities(Tailwind 原子类)；定稿（删除 `legacy` 后）：preflight(base) → antd → utilities（`components` 为预留空层）。配合 `StyleProvider layer="antd"` 保证确定性。
 
 ## 3. 影响评估
 
