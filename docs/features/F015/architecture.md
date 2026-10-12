@@ -35,8 +35,8 @@
 | DR-223 | 不新增 error code / CONFLICT reason；复用 F002；恢复沿用各域 reason；未定义 404/405 | CONFIRMED+DESIGN |
 | DR-224 | 前端落点：新增 AuditPage 与 SystemPage（账号管理 + 已删对象管理 Tab）；权限门控；列表四态；无 Audit 修改/删除 UI | PROPOSED→CONTRACT + CONFIRMED |
 | DR-225 | 恢复路由表：各域 `POST /api/v1/{object}/{id}/restore?version=`（RESTORE）；F015 不复制语义 | CONFIRMED+DESIGN |
-| DR-226 | 计划字段：`layers.backend=true`、`frontend=true`、`api_required=true`；`layers.database` PROPOSED true（仅索引，Database 可降级 NOT_REQUIRED） | PROPOSED→CONTRACT |
-| DR-227 | 索引建议：`ix_audit_logs_operator_username`（btree audit_logs(operator_username)）；既有 ix 覆盖 object_type/object_id/created_at/operator_user_id；不改 audit_logs 结构 | PROPOSED→DATABASE |
+| DR-226 | 计划字段：`layers.backend=true`、`frontend=true`、`api_required=true`；`layers.database=false`（Database v1 裁定 NOT_REQUIRED） | CONFIRMED |
+| DR-227 | 索引建议：`ix_audit_logs_operator_username` 经 Database 复核裁定 **NOT_REQUIRED**（不新增索引、不产生迁移）；既有 ix 覆盖 object_type/object_id/created_at/operator_user_id；不改 audit_logs 结构 | NOT_REQUIRED（DB-D168） |
 
 ## 3. 裁定 O-1–O-8
 
@@ -49,7 +49,7 @@
 | O-5 初始凭据/改密 | ADMIN 设初始密码；改密/重置/首登强制改密一期不实现 | DR-218/219 |
 | O-6 账号事件登记 | object_type="user"，CREATE/UPDATE，白名单无密码；无需迁移 | DR-221/222 |
 | O-7 已删列表字段 | object_type/object_id/version/label/cluster/deleted_at；删除操作者不返回（OPEN） | DR-217/§4.2 |
-| O-8 计划字段 | api_required=true；backend/frontend=true；database PROPOSED true（仅索引） | DR-226/227 |
+| O-8 计划字段 | api_required=true；backend/frontend=true；database=false（Database 裁定 NOT_REQUIRED） | DR-226/227、DB-D167–D172 |
 
 ## 4. Domain / Data Impact 与形态
 
@@ -92,7 +92,7 @@
 
 ```yaml
 layers:
-  database: true    # PROPOSED：仅 ix_audit_logs_operator_username；Database 可改 NOT_REQUIRED
+  database: false   # Database v1 裁定 NOT_REQUIRED（DB-D167–D172；无 Schema/迁移）
   backend: true
   frontend: true
 api_required: true  # /audit · /deleted · /users（restore 复用各域）
@@ -108,7 +108,7 @@ api_required: true  # /audit · /deleted · /users（restore 复用各域）
 ## 7. Blocking / OPEN
 - Blocking：无。
 - PROPOSED→CONTRACT：O-1–O-8 默认（DR-214/215/217/219/221/224/226）；密码长度策略；operator 精确匹配。
-- PROPOSED→DATABASE：ix_audit_logs_operator_username；object_type="user" 登记无 Schema 变更复核。
+- DATABASE 已裁定：ix_audit_logs_operator_username NOT_REQUIRED（DB-D168）；object_type="user" 登记无 Schema 变更（DB-D167）。
 - OPEN（product，非阻塞）：O-5 改密/重置；O-7 删除操作者/`q`。
 - OPEN（新，非阻塞，风险）F015-OPEN-1：是否阻止停用/降级最后一个 ACTIVE ADMIN（无已确认规则；PROPOSED 默认不加保护）。
 - NOTE：Audit/已删 total 为过滤后计数；无跨对象全局合计。
