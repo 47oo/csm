@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Alert, Button, Empty, Select, Spin, Table, type TableProps } from "antd";
 import type { User } from "../api/auth";
 import {
   describeDeletedActionError,
@@ -42,6 +43,12 @@ const OBJECT_TYPE_OPTIONS: { value: DeletedObjectType; label: string }[] = [
   { value: "service_endpoint", label: "service_endpoint（服务端点）" },
 ];
 
+/** 过滤下拉选项（“全部（默认）” + 8 类；文案与迁移前一致）。 */
+const OBJECT_TYPE_FILTER_OPTIONS: { value: "" | DeletedObjectType; label: string }[] = [
+  { value: "", label: "全部（默认）" },
+  ...OBJECT_TYPE_OPTIONS,
+];
+
 const OBJECT_TYPE_LABELS: Record<DeletedObjectType, string> = {
   cluster: "cluster",
   resource: "resource",
@@ -52,6 +59,11 @@ const OBJECT_TYPE_LABELS: Record<DeletedObjectType, string> = {
   service: "service",
   service_endpoint: "service_endpoint",
 };
+
+/** 按服务端返回的分页口径推总页数（与迁移前 Pagination 组件一致）。 */
+function totalPagesOf(total: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(total / pageSize));
+}
 
 interface DeletedObjectsPanelProps {
   user: User;
@@ -166,206 +178,216 @@ export default function DeletedObjectsPanel({ user }: DeletedObjectsPanelProps) 
       });
   }
 
+  const columns: TableProps<DeletedItem>["columns"] = [
+    {
+      title: "object_type",
+      dataIndex: "object_type",
+      key: "object_type",
+      render: (_, item) => (
+        <span className="font-mono">{OBJECT_TYPE_LABELS[item.object_type]}</span>
+      ),
+    },
+    { title: "label", dataIndex: "label", key: "label" },
+    {
+      title: "cluster",
+      key: "cluster",
+      render: (_, item) =>
+        item.cluster ? (
+          `${item.cluster.code}（${item.cluster.name}）`
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+    {
+      title: "object_id",
+      dataIndex: "object_id",
+      key: "object_id",
+      render: (_, item) => <span className="font-mono">{item.object_id}</span>,
+    },
+    { title: "version", dataIndex: "version", key: "version" },
+    {
+      title: (
+        <Button type="link" size="small" className="px-0" onClick={toggleOrder}>
+          deleted_at{query.order === "asc" ? " ▲" : " ▼"}
+        </Button>
+      ),
+      dataIndex: "deleted_at",
+      key: "deleted_at",
+      render: (_, item) => <span className="font-mono">{item.deleted_at}</span>,
+    },
+    {
+      title: "操作",
+      key: "actions",
+      render: (_, item) =>
+        canRestore ? (
+          <Button
+            type="link"
+            size="small"
+            className="px-0"
+            onClick={() => requestRestore(item)}
+          >
+            恢复
+          </Button>
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+  ];
+
   return (
     <div>
-      <p className="status">
-        跨 8 类对象（Cluster / Resource / Interface / Network / IP Pool / IP Address /
-        Service / ServiceEndpoint）的已软删对象统一视图（不含用户账号；账号以停用
-        代替删除）。恢复按对象类型调用其所属域的既有恢复端点：仅恢复当前对象、
-        不级联；将重检唯一性与依赖有效性，失败不覆盖新对象。
-      </p>
+      <Alert
+        className="mb-4"
+        type="info"
+        showIcon
+        message="跨 8 类对象（Cluster / Resource / Interface / Network / IP Pool / IP Address / Service / ServiceEndpoint）的已软删对象统一视图（不含用户账号；账号以停用代替删除）。恢复按对象类型调用其所属域的既有恢复端点：仅恢复当前对象、不级联；将重检唯一性与依赖有效性，失败不覆盖新对象。"
+      />
 
-      <form className="filter-form" onSubmit={applyFilters}>
-        <div className="form-field">
-          <label htmlFor="deleted-filter-object-type">object_type</label>
-          <select
+      <form
+        className="mb-4 flex flex-wrap items-end gap-4 border-b border-gray-100 pb-4"
+        onSubmit={applyFilters}
+      >
+        <div className="flex flex-col gap-1">
+          <label htmlFor="deleted-filter-object-type" className="text-sm text-gray-700">
+            object_type
+          </label>
+          <Select<"" | DeletedObjectType>
             id="deleted-filter-object-type"
+            className="w-60"
             value={draft.objectType}
-            onChange={(event) =>
-              setDraft({ objectType: event.target.value as "" | DeletedObjectType })
-            }
-          >
-            <option value="">全部（默认）</option>
-            {OBJECT_TYPE_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setDraft({ objectType: value })}
+            options={OBJECT_TYPE_FILTER_OPTIONS}
+          />
         </div>
-        <div className="filter-actions">
-          <button type="submit">筛选</button>
-          <button type="button" onClick={resetFilters}>
-            重置
-          </button>
+        <div className="flex gap-2">
+          <Button type="primary" htmlType="submit">
+            筛选
+          </Button>
+          <Button onClick={resetFilters}>重置</Button>
         </div>
       </form>
 
       {state.kind === "loading" && (
-        <p className="status status-loading">正在加载已删除对象…</p>
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+          <Spin />
+          <span>正在加载已删除对象…</span>
+        </div>
       )}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载已删除对象失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <Alert
+          type="error"
+          showIcon
+          message={`加载已删除对象失败：${state.message}`}
+          action={
+            <Button
+              size="small"
+              danger
+              onClick={() => setReloadToken((token) => token + 1)}
+            >
+              重试
+            </Button>
+          }
+        />
       )}
 
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            没有已删除对象（当前过滤 / 分页下无数据，非错误）。
-          </p>
+          <Empty
+            className="py-8"
+            description="没有已删除对象（当前过滤 / 分页下无数据，非错误）。"
+          />
         ) : (
           <>
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>object_type</th>
-                    <th>label</th>
-                    <th>cluster</th>
-                    <th>object_id</th>
-                    <th>version</th>
-                    <th>
-                      <button type="button" className="sort-button" onClick={toggleOrder}>
-                        deleted_at
-                        {query.order === "asc" ? " ▲" : " ▼"}
-                      </button>
-                    </th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.data.items.map((item) => (
-                    <tr key={`${item.object_type}-${item.object_id}`}>
-                      <td className="mono">{OBJECT_TYPE_LABELS[item.object_type]}</td>
-                      <td>{item.label}</td>
-                      <td>
-                        {item.cluster ? (
-                          `${item.cluster.code}（${item.cluster.name}）`
-                        ) : (
-                          <span className="unset">—</span>
-                        )}
-                      </td>
-                      <td className="mono">{item.object_id}</td>
-                      <td>{item.version}</td>
-                      <td className="mono">{item.deleted_at}</td>
-                      <td>
-                        {canRestore ? (
-                          <button
-                            type="button"
-                            className="link-button"
-                            onClick={() => requestRestore(item)}
-                          >
-                            恢复
-                          </button>
-                        ) : (
-                          <span className="unset">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Pagination
-              page={state.data.page}
-              pageSize={state.data.page_size}
-              total={state.data.total}
-              appliedPageSize={query.pageSize}
-              onGotoPage={gotoPage}
-              onChangePageSize={changePageSize}
+            <Table<DeletedItem>
+              className="mt-4"
+              rowKey={(item) => `${item.object_type}-${item.object_id}`}
+              size="middle"
+              pagination={false}
+              scroll={{ x: "max-content" }}
+              dataSource={state.data.items}
+              columns={columns}
             />
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span>
+                共 {state.data.total} 条 · 第 {state.data.page} /{" "}
+                {totalPagesOf(state.data.total, state.data.page_size)} 页
+              </span>
+              <Button
+                disabled={state.data.page <= 1}
+                onClick={() => gotoPage(state.data.page - 1)}
+              >
+                上一页
+              </Button>
+              <Button
+                disabled={
+                  state.data.page >= totalPagesOf(state.data.total, state.data.page_size)
+                }
+                onClick={() => gotoPage(state.data.page + 1)}
+              >
+                下一页
+              </Button>
+              <label className="flex items-center gap-2">
+                每页
+                <Select
+                  className="w-20"
+                  value={query.pageSize}
+                  onChange={(value) => changePageSize(value)}
+                  options={[
+                    { value: 20, label: "20" },
+                    { value: 50, label: "50" },
+                    { value: 100, label: "100" },
+                  ]}
+                />
+                条
+              </label>
+            </div>
           </>
         ))}
 
-      <div className="detail-actions">
-        {actionError && (
-          <div className="status status-error action-error" role="alert">
-            <p>{actionError.message}</p>
-            {actionError.versionConflict && (
-              <p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActionError(null);
-                    setAction(null);
-                    setReloadToken((token) => token + 1);
-                  }}
-                  disabled={actionBusy}
-                >
-                  刷新最新数据
-                </button>
-              </p>
-            )}
-          </div>
-        )}
+      {(actionError !== null || action !== null) && (
+        <div className="mt-5 flex flex-col gap-3">
+          {actionError && (
+            <Alert
+              type="error"
+              showIcon
+              message={actionError.message}
+              description={
+                actionError.versionConflict ? (
+                  <Button
+                    size="small"
+                    danger
+                    disabled={actionBusy}
+                    onClick={() => {
+                      setActionError(null);
+                      setAction(null);
+                      setReloadToken((token) => token + 1);
+                    }}
+                  >
+                    刷新最新数据
+                  </Button>
+                ) : null
+              }
+            />
+          )}
 
-        {action !== null && (
-          <div className="inline-confirm">
-            <span>
-              确认恢复 {OBJECT_TYPE_LABELS[action.item.object_type]}
-              「{action.item.label}」？（仅恢复当前对象、不级联；将按该对象类型的
-              既有规则重检唯一性与依赖有效性，失败不覆盖新对象；version 递增）
-            </span>
-            <button type="button" onClick={confirmRestore} disabled={actionBusy}>
-              {actionBusy ? "正在恢复…" : "确认恢复"}
-            </button>
-            <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-              取消
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
+          {action !== null && (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <span>
+                确认恢复 {OBJECT_TYPE_LABELS[action.item.object_type]}
+                「{action.item.label}」？（仅恢复当前对象、不级联；将按该对象类型的
+                既有规则重检唯一性与依赖有效性，失败不覆盖新对象；version 递增）
+              </span>
+              <Button type="primary" onClick={confirmRestore} disabled={actionBusy}>
+                {actionBusy ? "正在恢复…" : "确认恢复"}
+              </Button>
+              <Button onClick={() => setAction(null)} disabled={actionBusy}>
+                取消
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

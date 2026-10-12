@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Button, Input, Select } from "antd";
 import type { Network } from "../api/networks";
 import type {
   IpOccupancyConflictItem,
@@ -128,159 +129,170 @@ export default function IpPoolForm({
   return (
     <form onSubmit={handleSubmit} noValidate>
       {isCreate ? (
-        <div className="form-field">
-          <label htmlFor="ip-pool-network">
+        <div className="mb-4 flex flex-col gap-1.5">
+          <label htmlFor="ip-pool-network" className="text-sm font-medium text-gray-700">
             network（所属网络，必填；创建后不可更改）
           </label>
-          <select
+          <Select
             id="ip-pool-network"
-            name="network"
+            className="w-full"
+            status={(networkError ?? serverFields.network) ? "error" : undefined}
             value={values.network}
-            onChange={(event) => setField("network", event.target.value)}
+            onChange={(value) => setField("network", value)}
             disabled={submitting}
           >
-            <option value="">请选择网络…</option>
+            <Select.Option value="">请选择网络…</Select.Option>
             {networks.map((item) => (
-              <option key={item.id} value={item.id}>
+              <Select.Option key={item.id} value={item.id}>
                 {item.name}（{item.cidr}）
-              </option>
+              </Select.Option>
             ))}
-          </select>
+          </Select>
           {(networkError ?? serverFields.network) && (
-            <p className="field-error" role="alert">
+            <p className="text-sm text-red-500" role="alert">
               {networkError ?? serverFields.network}
             </p>
           )}
         </div>
       ) : (
-        <div className="form-field">
-          <label htmlFor="ip-pool-network-readonly">
+        <div className="mb-4 flex flex-col gap-1.5">
+          <label htmlFor="ip-pool-network-readonly" className="text-sm font-medium text-gray-700">
             network（所属网络，创建后不可更改）
           </label>
-          <output id="ip-pool-network-readonly" className="mono">
+          <output
+            id="ip-pool-network-readonly"
+            className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 font-mono text-sm text-gray-700"
+          >
             {currentNetwork !== null
               ? `${currentNetwork.name}（${currentNetwork.cidr}）`
               : "未知（网络引用缺失）"}
-            {networkMissing && <span className="unset">（不在当前网络候选列表，如已软删）</span>}
+            {networkMissing && (
+              <span className="text-amber-600">（不在当前网络候选列表，如已软删）</span>
+            )}
           </output>
           {serverFields.network && (
-            <p className="field-error" role="alert">
+            <p className="text-sm text-red-500" role="alert">
               {serverFields.network}
             </p>
           )}
         </div>
       )}
 
-      <div className="form-field">
-        <label htmlFor="ip-pool-name">
+      <div className="mb-4 flex flex-col gap-1.5">
+        <label htmlFor="ip-pool-name" className="text-sm font-medium text-gray-700">
           name（必填；大小写不敏感，同网络未删除唯一；允许中文与内部空格，≤255）
         </label>
-        <input
+        <Input
           id="ip-pool-name"
           name="name"
-          type="text"
+          status={fieldError("name") ? "error" : undefined}
           value={values.name}
           onChange={(event) => setField("name", event.target.value)}
           disabled={submitting}
           placeholder="如 MGMT-自动池；与 mgmt-自动池 视为同名；已软删地址池不占用名称"
         />
         {fieldError("name") && (
-          <p className="field-error" role="alert">
+          <p className="text-sm text-red-500" role="alert">
             {fieldError("name")}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="ip-pool-start">
+      <div className="mb-4 flex flex-col gap-1.5">
+        <label htmlFor="ip-pool-start" className="text-sm font-medium text-gray-700">
           start_address（必填；单个 IPv4 主机地址，不带掩码；须属所属网络 CIDR）
         </label>
-        <input
+        <Input
           id="ip-pool-start"
           name="start_address"
-          type="text"
+          status={fieldError("start_address") ? "error" : undefined}
           value={values.start_address}
           onChange={(event) => setField("start_address", event.target.value)}
           disabled={submitting}
-          placeholder={"如 10.0.0.10；单个 IPv4 主机地址，不带掩码；同网络未删除池范围不可重叠（含共享端点）"}
+          placeholder="如 10.0.0.10；单个 IPv4 主机地址，不带掩码；同网络未删除池范围不可重叠（含共享端点）"
         />
         {fieldError("start_address") && (
-          <p className="field-error" role="alert">
+          <p className="text-sm text-red-500" role="alert">
             {fieldError("start_address")}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="ip-pool-end">
+      <div className="mb-4 flex flex-col gap-1.5">
+        <label htmlFor="ip-pool-end" className="text-sm font-medium text-gray-700">
           end_address（必填；单个 IPv4 主机地址；≥ start_address，相等为单地址池）
         </label>
-        <input
+        <Input
           id="ip-pool-end"
           name="end_address"
-          type="text"
+          status={fieldError("end_address") ? "error" : undefined}
           value={values.end_address}
           onChange={(event) => setField("end_address", event.target.value)}
           disabled={submitting}
           placeholder="如 10.0.0.100；与 start_address 相等表示单地址池"
         />
         {fieldError("end_address") && (
-          <p className="field-error" role="alert">
+          <p className="text-sm text-red-500" role="alert">
             {fieldError("end_address")}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="ip-pool-allocation-mode">
+      <div className="mb-4 flex flex-col gap-1.5">
+        <label htmlFor="ip-pool-allocation-mode" className="text-sm font-medium text-gray-700">
           allocation_mode（分配模式；RESERVED 时范围内不得存在未删除 IP，由服务端校验）
         </label>
-        <select
+        <Select
           id="ip-pool-allocation-mode"
-          name="allocation_mode"
+          className="w-full"
+          status={serverFields.allocation_mode ? "error" : undefined}
           value={values.allocation_mode}
-          onChange={(event) =>
-            setField("allocation_mode", event.target.value as IpPoolAllocationMode)
-          }
+          onChange={(value) => setField("allocation_mode", value as IpPoolAllocationMode)}
           disabled={submitting}
         >
-          <option value="MANUAL">MANUAL（仅手动分配，默认）</option>
-          <option value="AUTO">AUTO（允许自动与手动分配）</option>
-          <option value="RESERVED">RESERVED（保留，禁止分配）</option>
-        </select>
+          <Select.Option value="MANUAL">MANUAL（仅手动分配，默认）</Select.Option>
+          <Select.Option value="AUTO">AUTO（允许自动与手动分配）</Select.Option>
+          <Select.Option value="RESERVED">RESERVED（保留，禁止分配）</Select.Option>
+        </Select>
         {serverFields.allocation_mode && (
-          <p className="field-error" role="alert">
+          <p className="text-sm text-red-500" role="alert">
             {serverFields.allocation_mode}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="ip-pool-description">description（描述，可选）</label>
-        <textarea
+      <div className="mb-4 flex flex-col gap-1.5">
+        <label htmlFor="ip-pool-description" className="text-sm font-medium text-gray-700">
+          description（描述，可选）
+        </label>
+        <Input.TextArea
           id="ip-pool-description"
           name="description"
           rows={3}
+          status={fieldError("description") ? "error" : undefined}
           value={values.description}
           onChange={(event) => setField("description", event.target.value)}
           disabled={submitting}
           placeholder="可选，无长度上限；编辑时清空表示删除描述（显式置 null）"
         />
         {fieldError("description") && (
-          <p className="field-error" role="alert">
+          <p className="text-sm text-red-500" role="alert">
             {fieldError("description")}
           </p>
         )}
       </div>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
+        <div
+          className="mb-4 space-y-1 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+          role="alert"
+        >
           <p>
             {serverError.message}
             {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
           </p>
           {unmappedServerFields.length > 0 && (
-            <ul>
+            <ul className="list-disc pl-5">
               {unmappedServerFields.map(({ path, message }) => (
                 <li key={path}>
                   {path}：{message}
@@ -289,7 +301,7 @@ export default function IpPoolForm({
             </ul>
           )}
           {serverError.rangeConflicts.length > 0 && (
-            <ul>
+            <ul className="list-disc pl-5">
               {serverError.rangeConflicts.map((conflict) => (
                 <li key={`${conflict.object_type}-${conflict.object_id}`}>
                   重叠地址池：
@@ -308,7 +320,7 @@ export default function IpPoolForm({
                   : "："}
               </p>
               {serverError.occupancy.conflicts.length > 0 && (
-                <ul>
+                <ul className="list-disc pl-5">
                   {serverError.occupancy.conflicts.map((item) => (
                     <li key={`${item.object_type}-${item.object_id}`}>
                       {occupancyItemText(item)}
@@ -320,21 +332,21 @@ export default function IpPoolForm({
           )}
           {serverError.versionConflict && onRefresh && (
             <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+              <Button htmlType="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
+              </Button>
             </p>
           )}
         </div>
       )}
 
-      <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+      <div className="flex items-center gap-3">
+        <Button type="primary" htmlType="submit" loading={submitting} disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button htmlType="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );
