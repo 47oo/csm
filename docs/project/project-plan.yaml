@@ -1055,24 +1055,29 @@ features:
   - F014
   - F015
   blocking_decisions: []
-  status: IN_PROGRESS
-  next_action: TEST Gate（Tester 执行 §31–§33/§32/T36 验收，产出 test-report 证据）
-  current_stage: TEST
+  status: IN_REVIEW
+  next_action: 正式 Review（reviewer 独立审查候选 HEAD）
+  current_stage: REVIEW
   layers:
     database: false
     backend: false
     frontend: false
   api_required: false
   not_required:
-    contract: F016 无新增业务 API/Endpoint/Schema（被验收 API 来自 F001–F015 READY Contract），api_required=false，不新建 docs/api/F016.md。
-    database: 验收型 Feature 无 Schema 交付：无新表/列/约束/触发器/索引/迁移；迁移链单 head 0013_search_indexes；T36 备份复用整库 pg_dump（默认含 audit_logs 及 append-only 触发器）。依据 docs/database/f016-acceptance.md v1。
-    backend: F016 无新业务路由/服务/模型；验收脚本与夹具为测试基础设施（scripts/acceptance、backend/tests/integration），非 Backend 实现层。
+    contract: F016 无新增业务 API/Endpoint/Schema（被验收 API 来自 F001–F015 READY Contract），api_required=false，不新建
+      docs/api/F016.md。
+    database: 验收型 Feature 无 Schema 交付：无新表/列/约束/触发器/索引/迁移；迁移链单 head 0013_search_indexes；T36
+      备份复用整库 pg_dump（默认含 audit_logs 及 append-only 触发器）。依据 docs/database/f016-acceptance.md
+      v1。
+    backend: F016 无新业务路由/服务/模型；验收脚本与夹具为测试基础设施（scripts/acceptance、backend/tests/integration），非
+      Backend 实现层。
     frontend: F016 无新页面/组件；前端仅 npm run build 产物用于入口验证。
   implementation:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: COMPLETE
+    test: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
@@ -1085,6 +1090,8 @@ features:
     - docs/database/f016-acceptance.md
     test_design:
     - docs/features/F016/test-report.md#test-design
+    test:
+    - docs/features/F016/test-report.md#test-execution
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1221,9 +1228,10 @@ execution:
     basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
       全部 16 个 Feature）；发现问题按推荐修正后继续执行。
   current_feature: F016
-  current_stage: TEST
-  last_result: F016 CONTRACT COMPLETE（READY FOR IMPLEMENTATION；contract/database/backend/frontend NOT_REQUIRED；进入 TEST 验收）
-  next_action: TEST Gate（Tester 验收执行）
+  current_stage: REVIEW
+  last_result: F016 TEST：真实替代栈执行（Compose BLOCKED 已录制）；RERUN 15 + §32 C1–C15 + §33
+    Q1–Q9 + T36 B1–B7 全部 PASS；前端 264 passed
+  next_action: 正式 Review（reviewer）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -1233,8 +1241,8 @@ planning_status:
     CANCELLED: 0
     DONE: 15
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
