@@ -1,4 +1,15 @@
 import { useEffect, useState, type ReactNode } from "react";
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Empty,
+  Space,
+  Spin,
+  Table,
+  Tag,
+  type TableProps,
+} from "antd";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import type { Resource } from "../api/resources";
@@ -35,6 +46,9 @@ type PanelMode =
   | { kind: "create" }
   | { kind: "edit"; iface: Interface };
 
+/** Table 行数据类型（取自 InterfaceListResponse.items 元素）。 */
+type InterfaceItem = InterfaceListResponse["items"][number];
+
 interface InterfacesPanelProps {
   /** 所属 Resource（归属创建后不可改；已删资源不可新建 / 恢复接口）。 */
   resource: Resource;
@@ -63,7 +77,7 @@ function referenceItemText(reference: {
 /** 数值字段：null → 占位，绝不以 0 代替（D01 §5.6：未知存 null 不转 0）。 */
 function interfaceNumber(value: number | null): ReactNode {
   if (value === null) {
-    return <span className="unset">—</span>;
+    return <span className="text-gray-400">—</span>;
   }
   return String(value);
 }
@@ -295,241 +309,317 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
       });
   }
 
+  // 仅开启已删开关时追加 deleted_at 列（与原实现口径一致）
+  const deletedAtColumn: NonNullable<TableProps<InterfaceItem>["columns"]>[number] = {
+    title: "deleted_at",
+    dataIndex: "deleted_at",
+    key: "deleted_at",
+    render: (value) =>
+      value != null ? (
+        <span className="font-mono text-xs">{value}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
+  };
+
+  const columns: TableProps<InterfaceItem>["columns"] = [
+    {
+      title: "name",
+      dataIndex: "name",
+      key: "name",
+      render: (_, iface) => (
+        <span>
+          <span className="font-mono text-xs">{iface.name}</span>
+          {iface.deleted_at !== null && (
+            <Tag color="red" className="ml-2">
+              已删除
+            </Tag>
+          )}
+        </span>
+      ),
+    },
+    {
+      title: "interface_type",
+      dataIndex: "interface_type",
+      key: "interface_type",
+    },
+    {
+      title: "mac_address",
+      dataIndex: "mac_address",
+      key: "mac_address",
+      render: (value) =>
+        value != null ? (
+          <span className="font-mono text-xs">{value}</span>
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+    {
+      title: "speed_mbps",
+      dataIndex: "speed_mbps",
+      key: "speed_mbps",
+      render: (value) => interfaceNumber(value),
+    },
+    {
+      title: "mtu",
+      dataIndex: "mtu",
+      key: "mtu",
+      render: (value) => interfaceNumber(value),
+    },
+    {
+      title: "parent_interface",
+      dataIndex: "parent_interface",
+      key: "parent_interface",
+      render: (_, iface) =>
+        iface.parent_interface === null ? (
+          <span className="text-gray-400">—</span>
+        ) : (
+          <span className="font-mono text-xs">{iface.parent_interface.name}</span>
+        ),
+    },
+    {
+      title: "enabled",
+      dataIndex: "enabled",
+      key: "enabled",
+      render: (_, iface) => (
+        <Tag color={iface.enabled ? "success" : "default"}>
+          {iface.enabled ? "启用" : "停用"}
+        </Tag>
+      ),
+    },
+    ...(showDeleted ? [deletedAtColumn] : []),
+    {
+      title: "操作",
+      key: "actions",
+      render: (_, iface) => (
+        <Space size={4}>
+          {canWrite && iface.deleted_at === null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => {
+                setFormError(null);
+                setMode({ kind: "edit", iface });
+                setFormKey((key) => key + 1);
+              }}
+            >
+              编辑
+            </Button>
+          )}
+          {canDelete && iface.deleted_at === null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              danger
+              onClick={() => requestDelete(iface)}
+            >
+              删除
+            </Button>
+          )}
+          {canRestore && iface.deleted_at !== null && !resourceDeleted && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => requestRestore(iface)}
+            >
+              恢复
+            </Button>
+          )}
+        </Space>
+      ),
+    },
+  ];
+
   return (
     <>
-      <h3 className="detail-section-title">Interfaces（网络接口）</h3>
+      <h3 className="mb-1 text-base font-semibold text-gray-900">Interfaces（网络接口）</h3>
 
       {mode.kind === "list" && (
         <>
-          <div className="table-toolbar">
-            <span className="permissions-note">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-gray-500">
               经 GET /api/v1/interfaces?resource_id 过滤（{resource.hostname}）
             </span>
             <span>
               {canWrite && !resourceDeleted && (
-                <button
-                  type="button"
+                <Button
+                  type="primary"
                   onClick={() => {
                     setFormError(null);
                     setMode({ kind: "create" });
                   }}
                 >
                   新建接口
-                </button>
+                </Button>
               )}
             </span>
           </div>
 
           {resourceDeleted && (
-            <p className="status status-empty">
-              所属资源处于已删除状态：无法新建接口（服务端拒绝引用已删资源），恢复接口需先恢复所属资源。
-            </p>
+            <Alert
+              className="mb-3"
+              type="warning"
+              showIcon
+              message="所属资源处于已删除状态：无法新建接口（服务端拒绝引用已删资源），恢复接口需先恢复所属资源。"
+            />
           )}
 
           {canViewDeleted && (
-            <div className="form-field checkbox-field deleted-toggle">
-              <label htmlFor="interfaces-deleted-toggle">
-                <input
-                  id="interfaces-deleted-toggle"
-                  type="checkbox"
-                  checked={showDeleted}
-                  onChange={(event) => setShowDeleted(event.target.checked)}
-                />
+            <div className="mb-3">
+              <Checkbox
+                id="interfaces-deleted-toggle"
+                checked={showDeleted}
+                onChange={(event) => setShowDeleted(event.target.checked)}
+              >
                 显示已删除接口（deleted=include，需 VIEW_DELETED）
-              </label>
+              </Checkbox>
             </div>
           )}
 
           {state.kind === "loading" && (
-            <p className="status status-loading">正在加载该资源的网络接口…</p>
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+              <Spin />
+              <span>正在加载该资源的网络接口…</span>
+            </div>
           )}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载接口列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <Alert
+              className="mb-3"
+              type="error"
+              showIcon
+              message={`加载接口列表失败：${state.message}`}
+              action={
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                {showDeleted
-                  ? "该资源暂无接口登记（含已删除）。"
-                  : "该资源暂无未删除的接口登记（非错误）。"}
-              </p>
+              <Empty
+                className="py-8"
+                description={
+                  showDeleted
+                    ? "该资源暂无接口登记（含已删除）。"
+                    : "该资源暂无未删除的接口登记（非错误）。"
+                }
+              />
             ) : (
               <>
                 {state.data.total > state.data.items.length && (
-                  <p className="status status-empty">
-                    接口总数 {state.data.total} 个，仅显示前 {state.data.items.length} 个
-                    （按 created_at 排序；列表分页上限 100）。
-                  </p>
+                  <Alert
+                    className="mb-3"
+                    type="info"
+                    showIcon
+                    message={`接口总数 ${state.data.total} 个，仅显示前 ${state.data.items.length} 个（按 created_at 排序；列表分页上限 100）。`}
+                  />
                 )}
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>name</th>
-                        <th>interface_type</th>
-                        <th>mac_address</th>
-                        <th>speed_mbps</th>
-                        <th>mtu</th>
-                        <th>parent_interface</th>
-                        <th>enabled</th>
-                        {showDeleted && <th>deleted_at</th>}
-                        <th>操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {state.data.items.map((iface) => (
-                        <tr key={iface.id}>
-                          <td className="mono">
-                            {iface.name}
-                            {iface.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
-                            )}
-                          </td>
-                          <td>{iface.interface_type}</td>
-                          <td className="mono">
-                            {iface.mac_address ?? <span className="unset">—</span>}
-                          </td>
-                          <td>{interfaceNumber(iface.speed_mbps)}</td>
-                          <td>{interfaceNumber(iface.mtu)}</td>
-                          <td className="mono">
-                            {iface.parent_interface === null ? (
-                              <span className="unset">—</span>
-                            ) : (
-                              iface.parent_interface.name
-                            )}
-                          </td>
-                          <td>
-                            <span className={`badge ${iface.enabled ? "badge-active" : "badge-inactive"}`}>
-                              {iface.enabled ? "启用" : "停用"}
-                            </span>
-                          </td>
-                          {showDeleted && (
-                            <td className="mono">
-                              {iface.deleted_at ?? <span className="unset">—</span>}
-                            </td>
-                          )}
-                          <td>
-                            {canWrite && iface.deleted_at === null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => {
-                                  setFormError(null);
-                                  setMode({ kind: "edit", iface });
-                                  setFormKey((key) => key + 1);
-                                }}
-                              >
-                                编辑
-                              </button>
-                            )}
-                            {canDelete && iface.deleted_at === null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => requestDelete(iface)}
-                              >
-                                删除
-                              </button>
-                            )}
-                            {canRestore && iface.deleted_at !== null && !resourceDeleted && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => requestRestore(iface)}
-                              >
-                                恢复
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table<InterfaceItem>
+                  rowKey="id"
+                  size="middle"
+                  pagination={false}
+                  scroll={{ x: "max-content" }}
+                  dataSource={state.data.items}
+                  columns={columns}
+                />
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((reference) => (
-                      <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {referenceItemText(reference)}（{reference.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.conflicts.length > 0 && (
-                  <ul>
-                    {actionError.conflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflict.object_type === "resource"
-                          ? `所属资源（${conflict.object_id}）仍处于已删除状态或已不存在`
-                          : `父接口（${conflict.object_id}）仍处于已删除状态或已不存在`}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
+          {(actionError !== null || action !== null) && (
+            <div className="mt-5 flex flex-col gap-3">
+              {actionError && (
+                <Alert
+                  type="error"
+                  showIcon
+                  message={actionError.message}
+                  description={
+                    <>
+                      {actionError.references.length > 0 && (
+                        <ul className="list-disc pl-5">
+                          {actionError.references.map((reference) => (
+                            <li key={`${reference.object_type}-${reference.object_id}`}>
+                              {referenceItemText(reference)}（{reference.object_id}）
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {actionError.conflicts.length > 0 && (
+                        <ul className="list-disc pl-5">
+                          {actionError.conflicts.map((conflict) => (
+                            <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                              {conflict.object_type === "resource"
+                                ? `所属资源（${conflict.object_id}）仍处于已删除状态或已不存在`
+                                : `父接口（${conflict.object_id}）仍处于已删除状态或已不存在`}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {actionError.versionConflict && (
+                        <Button
+                          size="small"
+                          danger
+                          className="mt-2"
+                          disabled={actionBusy}
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                        >
+                          刷新最新数据
+                        </Button>
+                      )}
+                    </>
+                  }
+                />
+              )}
 
-            {action !== null && (
-              <div className="inline-confirm">
-                {action.kind === "delete" ? (
+              {action !== null && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
                   <span>
-                    确认软删除接口 {action.iface.name}？（不级联删除关联对象；同资源内名称软删后可复用；
-                    若仍有未删除的子接口或 IP 引用，将被拒绝并显示引用列表）
+                    {action.kind === "delete" ? (
+                      <span>
+                        确认软删除接口 {action.iface.name}？（不级联删除关联对象；同资源内名称软删后可复用；
+                        若仍有未删除的子接口或 IP 引用，将被拒绝并显示引用列表）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复接口 {action.iface.name}？（仅恢复自身，不级联；将重检同资源名称唯一性、
+                        所属资源与父接口有效性，失败不覆盖新对象；version 递增）
+                      </span>
+                    )}
                   </span>
-                ) : (
-                  <span>
-                    确认恢复接口 {action.iface.name}？（仅恢复自身，不级联；将重检同资源名称唯一性、
-                    所属资源与父接口有效性，失败不覆盖新对象；version 递增）
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            )}
-          </div>
+                  <Button
+                    type="primary"
+                    danger={action.kind === "delete"}
+                    onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
+                    disabled={actionBusy}
+                  >
+                    {actionBusy
+                      ? action.kind === "delete"
+                        ? "正在删除…"
+                        : "正在恢复…"
+                      : action.kind === "delete"
+                        ? "确认删除"
+                        : "确认恢复"}
+                  </Button>
+                  <Button onClick={() => setAction(null)} disabled={actionBusy}>
+                    取消
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
