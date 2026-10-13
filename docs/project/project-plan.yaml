@@ -1115,9 +1115,9 @@ features:
   depends_on:
   - F016
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: MERGE
-  next_action: 合并已批准候选 HEAD 并提交最终状态。
+  status: DONE
+  current_stage: null
+  next_action: null
   git:
     base_branch: v3
     branch: feature/F017-frontend-ui-antd-tailwind
@@ -1179,7 +1179,7 @@ features:
   depends_on:
   - F017
   blocking_decisions: []
-  status: DRAFT
+  status: READY
   current_stage: null
   next_action: null
   layers:
@@ -1338,11 +1338,10 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
-  current_feature: F017
-  current_stage: MERGE
-  last_result: F017 REVIEW APPROVED WITH FOLLOW-UP（docs/features/F017/review-report.md；候选
-    HEAD a9b9274，merge 824cf33）。
-  next_action: 提交 F017 最终状态。
+  current_feature: null
+  current_stage: null
+  last_result: F017 DONE（merge 824cf33；REVIEW APPROVED WITH FOLLOW-UP）；F018 READY。
+  next_action: 启动 F018 整体验收复验（CONTINUOUS 授权范围）。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -1350,13 +1349,13 @@ planning_status:
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 16
-    DRAFT: 1
+    DONE: 17
+    DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
-    READY: 0
-  ready_features: []
+    IN_REVIEW: 0
+    READY: 1
+  ready_features:
+  - F018
   blocked_draft_features:
     BLOCKED: []
-    DRAFT:
-    - F018
+    DRAFT: []
