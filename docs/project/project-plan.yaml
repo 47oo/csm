@@ -1115,13 +1115,15 @@ features:
   depends_on:
   - F016
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: REVIEW
-  next_action: REVIEW 阶段：调用 reviewer 对候选 HEAD 做独立正式 Review。
+  status: IN_REVIEW
+  current_stage: MERGE
+  next_action: 合并已批准候选 HEAD 并提交最终状态。
   git:
     base_branch: v3
     branch: feature/F017-frontend-ui-antd-tailwind
     start_commit: 67770639067bd7fe11bf633de4ff7b9c31e42c5e
+    head_commit: a9b9274b93d66bbb807e6b52c5488089df8680bd
+    merge_commit: 824cf33b3e6f246c69d6fe76b7aceeaa558b4714
   layers:
     database: false
     backend: false
@@ -1136,7 +1138,7 @@ features:
     backend: NOT_REQUIRED
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   not_required:
     database: 纯展示层改造，无新表/列/约束/索引/迁移。
     backend: 不改后端路由/服务/模型；frontend/src/api 维持既有 Contract。
@@ -1154,6 +1156,8 @@ features:
     - docs/features/F017/implementation.md
     test:
     - docs/features/F017/test-report.md#testte-1
+    review:
+    - docs/features/F017/review-report.md
 - id: F018
   title: 前端改造后一期整体验收复验
   kind: FEATURE
@@ -1318,11 +1322,11 @@ decisions_required:
   - F017
   - F018
   owner: Architect
-  resolution: >-
-    Architect 于 F017 设计 Gate 签核：docs/features/F017/architecture.md v1 定稿 D04-1..D04-10，
-    docs/architecture/d04-frontend-ui-stack.md 升为 v2 FINAL/CONFIRMED（2026-10-15）；Ant Design 5.x、
-    Tailwind CSS 4.x + @tailwindcss/vite、layer 顺序（含 legacy 过渡层）、StyleProvider layer=antd、
-    locale zh_CN。依据 requirements-v3.md revision 4 §29 与 plan_revision 5。
+  resolution: Architect 于 F017 设计 Gate 签核：docs/features/F017/architecture.md v1 定稿
+    D04-1..D04-10， docs/architecture/d04-frontend-ui-stack.md 升为 v2 FINAL/CONFIRMED（2026-10-15）；Ant
+    Design 5.x、 Tailwind CSS 4.x + @tailwindcss/vite、layer 顺序（含 legacy 过渡层）、StyleProvider
+    layer=antd、 locale zh_CN。依据 requirements-v3.md revision 4 §29 与 plan_revision
+    5。
 pending_changes: []
 execution:
   mode: CONTINUOUS
@@ -1335,9 +1339,10 @@ execution:
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
   current_feature: F017
-  current_stage: REVIEW
-  last_result: F017 TEST READY FOR REVIEW（docs/features/F017/test-report.md#testte-1；A1–A16 全绿，无必须修复缺陷）。
-  next_action: REVIEW 阶段：reviewer 独立 Review 候选 HEAD。
+  current_stage: MERGE
+  last_result: F017 REVIEW APPROVED WITH FOLLOW-UP（docs/features/F017/review-report.md；候选
+    HEAD a9b9274，merge 824cf33）。
+  next_action: 提交 F017 最终状态。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -1347,8 +1352,8 @@ planning_status:
     CANCELLED: 0
     DONE: 16
     DRAFT: 1
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:

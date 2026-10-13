@@ -13,6 +13,6 @@
 | M5 服务与端点 | F011, F012 | 2 / 2 | DONE=2 |
 | M6 检索、导入与系统功能 | F013, F014, F015 | 3 / 3 | DONE=3 |
 | M7 一期整体验收 | F016 | 1 / 1 | DONE=1 |
-| M8 前端 UI 改造 | F017, F018 | 0 / 2 | DRAFT=1, IN_PROGRESS=1 |
+| M8 前端 UI 改造 | F017, F018 | 0 / 2 | DRAFT=1, IN_REVIEW=1 |
 
 计数不替代验收、批准或发布授权；CANCELLED 不计入 DONE。
