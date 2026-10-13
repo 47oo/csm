@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 4
   plan_revision: 5
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 5
     feature_ids:
@@ -16,8 +16,13 @@ project:
     basis: 用户于 2026-10-12 批准：『批准修订 4 与候选计划 revision 5（F017/F018），授权实施』。对象为 docs/product/requirements-v3.md
       revision 4 与 docs/project/project-plan.yaml revision 5（F017/F018，M8）。 确认来源：本次会话用户指令。同次明确授权实施。
   acceptance:
-    status: PENDING
+    status: COMPLETE
     evidence:
+    - docs/features/F018/test-report.md#test-execution
+    - docs/features/F018/test-report.md#test-design
+    - docs/features/F018/review-report.md
+    - docs/features/F017/test-report.md#testte-1
+    - docs/features/F017/review-report.md
     - docs/features/F016/test-report.md#test-execution
     - docs/features/F016/test-report.md#t01t41-evidence-index
     - docs/features/F016/test-report.md#32-c1c15-上线验收
@@ -1179,9 +1184,9 @@ features:
   depends_on:
   - F017
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: MERGE
-  next_action: 合并已批准候选 HEAD 并提交最终状态；同时更新 project.acceptance。
+  status: DONE
+  current_stage: null
+  next_action: null
   git:
     base_branch: v3
     branch: feature/F018-post-ui-acceptance
@@ -1357,22 +1362,21 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
-  current_feature: F018
-  current_stage: MERGE
-  last_result: F018 REVIEW APPROVED WITH FOLLOW-UP（docs/features/F018/review-report.md；候选
-    HEAD 44ac909，merge 57a984d）。
-  next_action: 提交 F018 最终状态并更新 project.acceptance。
+  current_feature: null
+  current_stage: null
+  last_result: F018 DONE（merge 57a984d；REVIEW APPROVED WITH FOLLOW-UP）；F001–F018 全部交付，project.acceptance=COMPLETE。
+  next_action: null
   repair_rounds: 0
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 17
+    DONE: 18
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:

@@ -460,4 +460,4 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 需求基线为 revision 4；revision 3 的六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。revision 4 新增 §29 的 Ant Design / Tailwind CSS 前端选型，影响评估与 D04 见 `docs/architecture/d04-frontend-ui-stack.md`。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
 
-前端 Ant Design / Tailwind CSS 变更（CHG-001）的候选计划 revision 5 新增 F017 / F018；该变更将使 F016 的前端构建 / 可达性 / smoke 相关验收证据失效，须由 F017 / F018 重建后再更新 `project.acceptance`。
+前端 Ant Design / Tailwind CSS 变更（CHG-001）已由 F017 / F018 交付：F017 前端 UI 体系改造（Ant Design + Tailwind CSS）DONE（merge 824cf33，REVIEW APPROVED WITH FOLLOW-UP），F018 前端改造后一期整体验收复验 DONE（merge 57a984d，REVIEW APPROVED WITH FOLLOW-UP）；`project.acceptance=COMPLETE`（F017 静态/构建/smoke 与 F018 等价部署栈 + 真实浏览器验收；Compose 首选路径因环境镜像源不可达已如实记录并附差异声明）。
