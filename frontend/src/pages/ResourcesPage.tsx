@@ -1,4 +1,17 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  Alert,
+  Button,
+  Card,
+  Empty,
+  Form,
+  Input,
+  Select,
+  Spin,
+  Table,
+  Tag,
+  type TableProps,
+} from "antd";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import {
@@ -63,6 +76,68 @@ const SORT_COLUMNS: { field: ResourceSortField; label: string }[] = [
   { field: "updated_at", label: "更新时间" },
 ];
 
+/** 资源状态徽标配色（沿用旧版 badge-idle/alloc/down/unknown 的绿/蓝/红/灰）。 */
+const STATUS_TAG_COLOR: Record<ResourceStatus, string> = {
+  IDLE: "success",
+  ALLOC: "processing",
+  DOWN: "error",
+  UNKNOWN: "default",
+};
+
+/** 排序列单元格渲染（hostname / 时间等宽字体；status 徽标化并附“已删除”标记）。 */
+const SORT_CELL_RENDER: { [F in ResourceSortField]: (resource: Resource) => ReactNode } = {
+  hostname: (resource) => (
+    <span>
+      <span className="font-mono">{resource.hostname}</span>
+      {resource.deleted_at !== null && (
+        <Tag color="red" className="ml-2">
+          已删除
+        </Tag>
+      )}
+    </span>
+  ),
+  resource_type: (resource) => resource.resource_type,
+  role: (resource) => resource.role,
+  status: (resource) => <Tag color={STATUS_TAG_COLOR[resource.status]}>{resource.status}</Tag>,
+  created_at: (resource) => <span className="font-mono">{resource.created_at}</span>,
+  updated_at: (resource) => <span className="font-mono">{resource.updated_at}</span>,
+};
+
+/** 类型过滤下拉选项（“全部（默认）” + 两种类型；文案与迁移前一致）。 */
+const TYPE_FILTER_OPTIONS: { value: "" | ResourceType; label: string }[] = [
+  { value: "", label: "全部（默认）" },
+  { value: "BARE_METAL", label: "BARE_METAL（物理机）" },
+  { value: "VIRTUAL_MACHINE", label: "VIRTUAL_MACHINE（虚拟机）" },
+];
+
+/** 角色过滤下拉选项。 */
+const ROLE_FILTER_OPTIONS: { value: "" | ResourceRole; label: string }[] = [
+  { value: "", label: "全部（默认）" },
+  { value: "COMPUTE", label: "COMPUTE" },
+  { value: "LOGIN", label: "LOGIN" },
+  { value: "MANAGEMENT", label: "MANAGEMENT" },
+  { value: "STORAGE", label: "STORAGE" },
+  { value: "SERVICE", label: "SERVICE" },
+  { value: "GPU", label: "GPU" },
+  { value: "OTHER", label: "OTHER" },
+];
+
+/** 状态过滤下拉选项。 */
+const STATUS_FILTER_OPTIONS: { value: "" | ResourceStatus; label: string }[] = [
+  { value: "", label: "全部（默认）" },
+  { value: "IDLE", label: "IDLE" },
+  { value: "ALLOC", label: "ALLOC" },
+  { value: "DOWN", label: "DOWN" },
+  { value: "UNKNOWN", label: "UNKNOWN" },
+];
+
+/** 软删可见性选项（exclude 默认 | include | only；后两者需 VIEW_DELETED）。 */
+const DELETED_MODE_OPTIONS: { value: DeletedMode; label: string }[] = [
+  { value: "exclude", label: "未删除（默认）" },
+  { value: "include", label: "全部（含已删除）" },
+  { value: "only", label: "仅已删除" },
+];
+
 /**
  * F004 Resources 列表页（Contract §4/§5/§6.1）：
  * - 分页（page / page_size 1–100）、排序白名单（sort=hostname 实际按 hostname_key）、
@@ -72,6 +147,10 @@ const SORT_COLUMNS: { field: ResourceSortField; label: string }[] = [
  * - 403（如无 VIEW_DELETED 却请求 include/only）/ 422 / 500 明确呈现并允许重试；
  * - F014：工具栏提供 CSV / .xlsx 批量导入入口（仅 IMPORT 权限显示，服务端仍
  *   鉴权；面板内预校验 → 确认导入，成功后刷新列表）。
+ *
+ * F017：控件层迁移 Ant Design + Tailwind（props / API 调用 / 过滤排序分页与软删
+ * 参数 / 四态 / 权限门控 / 文案均保持不变）。排序仍由表头按钮切换，不用 AntD
+ * 内置 sorter。
  */
 export default function ResourcesPage({ user, onOpenResource, onCreate }: ResourcesPageProps) {
   const canViewDeleted = user.permissions.includes("VIEW_DELETED");
@@ -128,8 +207,8 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
     };
   }, [query, reloadToken]);
 
-  function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /** 点击“筛选”才应用草稿（提交时机由 AntD Form onFinish 接管）。 */
+  function applyFilters() {
     setQuery((current) => ({
       ...current,
       q: draft.q,
@@ -178,191 +257,210 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
 
   const showDeletedColumn = query.deleted !== "exclude";
 
+  /** 仅开启软删可见性（include / only）时追加 deleted_at 列（与原实现口径一致）。 */
+  const deletedAtColumn: NonNullable<TableProps<Resource>["columns"]>[number] = {
+    title: "deleted_at",
+    dataIndex: "deleted_at",
+    key: "deleted_at",
+    render: (value: string | null) =>
+      value !== null ? (
+        <span className="font-mono">{value}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
+  };
+
+  /** 列定义（文案与数据口径同旧版；排序由表头按钮切换，不用 AntD 内置 sorter）。 */
+  const columns: TableProps<Resource>["columns"] = [
+    ...SORT_COLUMNS.map(
+      ({ field, label }): NonNullable<TableProps<Resource>["columns"]>[number] => ({
+        title: (
+          <Button
+            type="link"
+            size="small"
+            className="px-0 font-semibold"
+            onClick={() => toggleSort(field)}
+          >
+            {label}
+            {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
+          </Button>
+        ),
+        dataIndex: field,
+        key: field,
+        render: (_: unknown, resource: Resource) => SORT_CELL_RENDER[field](resource),
+      }),
+    ),
+    {
+      title: "所属集群",
+      dataIndex: ["cluster", "code"],
+      key: "cluster",
+      render: (code: string) => <span className="font-mono">{code}</span>,
+    },
+    { title: "version", dataIndex: "version", key: "version" },
+    ...(showDeletedColumn ? [deletedAtColumn] : []),
+    {
+      title: "操作",
+      key: "actions",
+      render: (_, resource) => (
+        <Button
+          type="link"
+          size="small"
+          className="px-0"
+          onClick={() => onOpenResource(resource)}
+        >
+          查看
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <>
-      <section className="panel">
-        <div className="table-toolbar">
-          <h2>Resources（资源）</h2>
-          <div className="filter-actions">
-            {canImport && (
-              <button type="button" onClick={() => setShowImport((visible) => !visible)}>
-                {showImport ? "收起批量导入" : "批量导入…"}
-              </button>
-            )}
-            {canWrite && (
-              <button type="button" onClick={onCreate}>
-                新建资源
-              </button>
-            )}
-          </div>
-        </div>
-
-        <form className="filter-form" onSubmit={applyFilters}>
-          <div className="form-field">
-            <label htmlFor="resource-filter-q">模糊搜索（hostname 子串）</label>
-            <input
+      <Card
+        title="Resources（资源）"
+        extra={
+          canImport || canWrite ? (
+            <div className="flex gap-2">
+              {canImport && (
+                <Button onClick={() => setShowImport((visible) => !visible)}>
+                  {showImport ? "收起批量导入" : "批量导入…"}
+                </Button>
+              )}
+              {canWrite && (
+                <Button type="primary" onClick={onCreate}>
+                  新建资源
+                </Button>
+              )}
+            </div>
+          ) : undefined
+        }
+      >
+        <Form
+          onFinish={applyFilters}
+          className="flex flex-wrap items-end gap-x-4 gap-y-3 border-b border-gray-100 pb-4"
+        >
+          <div className="flex w-56 flex-col gap-1">
+            <label htmlFor="resource-filter-q" className="text-sm text-gray-700">
+              模糊搜索（hostname 子串）
+            </label>
+            <Input
               id="resource-filter-q"
-              type="text"
               value={draft.q}
               onChange={(event) => setDraft({ ...draft, q: event.target.value })}
               placeholder="大小写不敏感子串匹配"
             />
           </div>
-          <div className="form-field">
-            <label htmlFor="resource-filter-cluster">集群 code 精确过滤</label>
-            <input
+          <div className="flex w-56 flex-col gap-1">
+            <label htmlFor="resource-filter-cluster" className="text-sm text-gray-700">
+              集群 code 精确过滤
+            </label>
+            <Input
               id="resource-filter-cluster"
-              type="text"
               value={draft.cluster}
               onChange={(event) => setDraft({ ...draft, cluster: event.target.value })}
               placeholder="按集群 code（大小写不敏感）精确匹配"
             />
           </div>
-          <div className="form-field">
-            <label htmlFor="resource-filter-type">类型</label>
-            <select
+          <div className="flex w-52 flex-col gap-1">
+            <label htmlFor="resource-filter-type" className="text-sm text-gray-700">
+              类型
+            </label>
+            <Select<"" | ResourceType>
               id="resource-filter-type"
+              className="w-full"
               value={draft.type}
-              onChange={(event) =>
-                setDraft({ ...draft, type: event.target.value as "" | ResourceType })
-              }
-            >
-              <option value="">全部（默认）</option>
-              <option value="BARE_METAL">BARE_METAL（物理机）</option>
-              <option value="VIRTUAL_MACHINE">VIRTUAL_MACHINE（虚拟机）</option>
-            </select>
+              onChange={(value) => setDraft({ ...draft, type: value })}
+              options={TYPE_FILTER_OPTIONS}
+            />
           </div>
-          <div className="form-field">
-            <label htmlFor="resource-filter-role">角色</label>
-            <select
+          <div className="flex w-40 flex-col gap-1">
+            <label htmlFor="resource-filter-role" className="text-sm text-gray-700">
+              角色
+            </label>
+            <Select<"" | ResourceRole>
               id="resource-filter-role"
+              className="w-full"
               value={draft.role}
-              onChange={(event) =>
-                setDraft({ ...draft, role: event.target.value as "" | ResourceRole })
-              }
-            >
-              <option value="">全部（默认）</option>
-              <option value="COMPUTE">COMPUTE</option>
-              <option value="LOGIN">LOGIN</option>
-              <option value="MANAGEMENT">MANAGEMENT</option>
-              <option value="STORAGE">STORAGE</option>
-              <option value="SERVICE">SERVICE</option>
-              <option value="GPU">GPU</option>
-              <option value="OTHER">OTHER</option>
-            </select>
+              onChange={(value) => setDraft({ ...draft, role: value })}
+              options={ROLE_FILTER_OPTIONS}
+            />
           </div>
-          <div className="form-field">
-            <label htmlFor="resource-filter-status">状态</label>
-            <select
+          <div className="flex w-36 flex-col gap-1">
+            <label htmlFor="resource-filter-status" className="text-sm text-gray-700">
+              状态
+            </label>
+            <Select<"" | ResourceStatus>
               id="resource-filter-status"
+              className="w-full"
               value={draft.status}
-              onChange={(event) =>
-                setDraft({ ...draft, status: event.target.value as "" | ResourceStatus })
-              }
-            >
-              <option value="">全部（默认）</option>
-              <option value="IDLE">IDLE</option>
-              <option value="ALLOC">ALLOC</option>
-              <option value="DOWN">DOWN</option>
-              <option value="UNKNOWN">UNKNOWN</option>
-            </select>
+              onChange={(value) => setDraft({ ...draft, status: value })}
+              options={STATUS_FILTER_OPTIONS}
+            />
           </div>
-          <div className="filter-actions">
-            <button type="submit">筛选</button>
-            <button type="button" onClick={resetFilters}>
-              重置
-            </button>
+          <div className="flex gap-2">
+            <Button type="primary" htmlType="submit">
+              筛选
+            </Button>
+            <Button onClick={resetFilters}>重置</Button>
           </div>
-        </form>
+        </Form>
 
         {canViewDeleted && (
-          <div className="form-field deleted-toggle">
-            <label htmlFor="resource-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-            <select
+          <div className="mt-4 flex w-56 flex-col gap-1">
+            <label htmlFor="resource-deleted-mode" className="text-sm text-gray-700">
+              软删可见性（需 VIEW_DELETED 权限）
+            </label>
+            <Select<DeletedMode>
               id="resource-deleted-mode"
               value={query.deleted}
-              onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
-            >
-              <option value="exclude">未删除（默认）</option>
-              <option value="include">全部（含已删除）</option>
-              <option value="only">仅已删除</option>
-            </select>
+              onChange={(value) => changeDeleted(value)}
+              options={DELETED_MODE_OPTIONS}
+            />
           </div>
         )}
 
         {state.kind === "loading" && (
-          <p className="status status-loading">正在加载资源列表…</p>
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+            <Spin />
+            <span>正在加载资源列表…</span>
+          </div>
         )}
 
         {state.kind === "error" && (
-          <div className="status status-error" role="alert">
-            <p>加载资源列表失败：{state.message}</p>
-            <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-              重试
-            </button>
-          </div>
+          <Alert
+            className="mt-4"
+            type="error"
+            showIcon
+            message={`加载资源列表失败：${state.message}`}
+            action={
+              <Button
+                size="small"
+                danger
+                onClick={() => setReloadToken((token) => token + 1)}
+              >
+                重试
+              </Button>
+            }
+          />
         )}
 
         {state.kind === "success" &&
           (state.data.items.length === 0 ? (
-            <p className="status status-empty">
-              没有符合条件的资源（当前过滤 / 分页下无数据，非错误）。
-            </p>
+            <Empty
+              className="py-8"
+              description="没有符合条件的资源（当前过滤 / 分页下无数据，非错误）。"
+            />
           ) : (
             <>
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      {SORT_COLUMNS.map(({ field, label }) => (
-                        <th key={field}>
-                          <button type="button" className="sort-button" onClick={() => toggleSort(field)}>
-                            {label}
-                            {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                          </button>
-                        </th>
-                      ))}
-                      <th>所属集群</th>
-                      <th>version</th>
-                      {showDeletedColumn && <th>deleted_at</th>}
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {state.data.items.map((resource) => (
-                      <tr key={resource.id}>
-                        <td className="mono">
-                          {resource.hostname}
-                          {resource.deleted_at !== null && (
-                            <span className="badge badge-deleted">已删除</span>
-                          )}
-                        </td>
-                        <td>{resource.resource_type}</td>
-                        <td>{resource.role}</td>
-                        <td>
-                          <span className={`badge badge-${resource.status.toLowerCase()}`}>
-                            {resource.status}
-                          </span>
-                        </td>
-                        <td className="mono">{resource.created_at}</td>
-                        <td className="mono">{resource.updated_at}</td>
-                        <td>
-                          <span className="mono">{resource.cluster.code}</span>
-                        </td>
-                        <td>{resource.version}</td>
-                        {showDeletedColumn && (
-                          <td className="mono">{resource.deleted_at ?? "—"}</td>
-                        )}
-                        <td>
-                          <button type="button" onClick={() => onOpenResource(resource)}>
-                            查看
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table<Resource>
+                className="mt-4"
+                rowKey="id"
+                size="middle"
+                pagination={false}
+                scroll={{ x: "max-content" }}
+                dataSource={state.data.items}
+                columns={columns}
+              />
               <Pagination
                 page={state.data.page}
                 pageSize={state.data.page_size}
@@ -373,10 +471,12 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               />
             </>
           ))}
-      </section>
+      </Card>
 
       {showImport && (
-        <ResourceImportPanel onImported={() => setReloadToken((token) => token + 1)} />
+        <div className="mt-4">
+          <ResourceImportPanel onImported={() => setReloadToken((token) => token + 1)} />
+        </div>
       )}
     </>
   );
@@ -391,6 +491,7 @@ interface PaginationProps {
   onChangePageSize: (pageSize: number) => void;
 }
 
+/** 分页条（AntD Button / Select 承担控件，文案与行为同迁移前）。 */
 function Pagination({
   page,
   pageSize,
@@ -401,26 +502,28 @@ function Pagination({
 }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <div className="pagination">
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
       <span>
         共 {total} 条 · 第 {page} / {totalPages} 页
       </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
+      <Button disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
         上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
+      </Button>
+      <Button disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
         下一页
-      </button>
-      <label>
+      </Button>
+      <label className="flex items-center gap-2">
         每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
+        <Select<number>
+          className="w-20"
+          value={appliedPageSize}
+          onChange={(value) => onChangePageSize(value)}
+          options={[
+            { value: 20, label: "20" },
+            { value: 50, label: "50" },
+            { value: 100, label: "100" },
+          ]}
+        />
         条
       </label>
     </div>
