@@ -1180,8 +1180,8 @@ features:
   - F017
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST_DESIGN
-  next_action: DATABASE（预期 NOT_REQUIRED）与 TEST_DESIGN 并行；随后 CONTRACT 定稿。
+  current_stage: CONTRACT
+  next_action: CONTRACT 定稿：architect 核对 Database / Test Design 并签核 READY FOR IMPLEMENTATION。
   git:
     base_branch: v3
     branch: feature/F018-post-ui-acceptance
@@ -1195,7 +1195,7 @@ features:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
+    test_design: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
@@ -1211,6 +1211,10 @@ features:
     - docs/features/F018/product.md
     architecture:
     - docs/features/F018/architecture.md
+    database:
+    - docs/database/f018-acceptance.md
+    test_design:
+    - docs/features/F018/test-report.md#test-design
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1348,9 +1352,9 @@ execution:
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
   current_feature: F018
-  current_stage: TEST_DESIGN
-  last_result: F018 ARCHITECTURE COMPLETE（docs/features/F018/architecture.md，READY FOR DESIGN）。
-  next_action: DATABASE 与 TEST_DESIGN 并行。
+  current_stage: CONTRACT
+  last_result: F018 DATABASE NOT_REQUIRED（docs/database/f018-acceptance.md）与 TEST DESIGN READY（docs/features/F018/test-report.md#test-design）。
+  next_action: CONTRACT 定稿：architect 签核 READY FOR IMPLEMENTATION。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
