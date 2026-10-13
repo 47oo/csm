@@ -1,4 +1,17 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
+import {
+  Alert,
+  Button,
+  Card,
+  Empty,
+  Form,
+  Input,
+  Select,
+  Spin,
+  Table,
+  Tag,
+  type TableProps,
+} from "antd";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import { listClusters, type Cluster } from "../api/clusters";
@@ -17,6 +30,7 @@ import {
   type DeletedMode,
   type IpAddress,
   type IpAddressActionError,
+  type IpAddressActivityItem,
   type IpAddressActivityResponse,
   type IpAddressListResponse,
   type IpAddressSortField,
@@ -104,6 +118,13 @@ const DEFAULT_QUERY: AppliedQuery = {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** 软删可见性选项（exclude 默认 | include | only；后两者需 VIEW_DELETED）。 */
+const DELETED_MODE_OPTIONS: { value: DeletedMode; label: string }[] = [
+  { value: "exclude", label: "未删除（默认）" },
+  { value: "include", label: "全部（含已删除）" },
+  { value: "only", label: "仅已删除" },
+];
+
 /**
  * F010 IP Addresses 地址管理页（Contract §4/§5/§6）：
  * - 列表：GET /api/v1/ip-addresses（分页 page/page_size 1–100、排序白名单
@@ -124,6 +145,12 @@ const UUID_PATTERN =
  *   恢复（RESTORE）：409 not_deleted / unique_conflict / dependency_deleted
  *   （所属网络 / 绑定接口仍删）/ 422（cidr 变更后越界 field="address"）明确呈现；
  * - Activity（VIEW_ACTIVITY 全角色）：created_at 升序只读流水，无修改/删除入口。
+ *
+ * F017：控件层迁移 Ant Design + Tailwind（props / API 调用与参数 / 手动与自动
+ * 分配、绑定/解绑/转移、释放/恢复、过滤排序分页与软删语义 / 四态 / 权限门控 /
+ * 二次确认与冲突呈现 / 文案均保持不变）。排序仍由表头按钮切换，不用 AntD 内置
+ * sorter；行内二次确认沿用迁移前交互（失败后确认区保持待确认状态，错误在上方
+ * Alert 呈现）。
  */
 export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesPageProps) {
   const canWrite = user.permissions.includes("WRITE");
@@ -440,8 +467,8 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
       });
   }
 
-  function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /** 点击“筛选”才应用草稿（提交时机由 AntD Form onFinish 接管）。 */
+  function applyFilters() {
     // 本地格式校验（快速反馈；避免把必然 422 的查询发给服务端）
     const interfaceId = draft.interfaceId.trim();
     const address = draft.address.trim();
@@ -505,13 +532,18 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
     }));
   }
 
-  /** 排序表头按钮（当前排序字段附 ▲/▼ 指示）。 */
+  /** 排序表头按钮（当前排序字段附 ▲/▼ 指示；不用 AntD 内置 sorter）。 */
   function renderSortHeader(field: IpAddressSortField, label: string) {
     return (
-      <button type="button" className="sort-button" onClick={() => toggleSort(field)}>
+      <Button
+        type="link"
+        size="small"
+        className="px-0 font-semibold"
+        onClick={() => toggleSort(field)}
+      >
         {label}
         {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-      </button>
+      </Button>
     );
   }
 
@@ -528,16 +560,192 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
   }
 
   const networks = options.kind === "success" ? options.networks : [];
+  const clusters = options.kind === "success" ? options.clusters : [];
+  const pools = options.kind === "success" ? options.pools : [];
   const showDeletedColumn = query.deleted !== "exclude";
 
+  /** 仅开启软删可见性（include / only）时追加 deleted_at 列（与原实现口径一致）。 */
+  const deletedAtColumn: NonNullable<TableProps<IpAddress>["columns"]>[number] = {
+    title: "deleted_at",
+    dataIndex: "deleted_at",
+    key: "deleted_at",
+    render: (value: string | null) =>
+      value !== null ? (
+        <span className="font-mono">{value}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
+  };
+
+  /** 列定义（文案与数据口径同旧版；排序由表头按钮切换，不用 AntD 内置 sorter）。 */
+  const columns: TableProps<IpAddress>["columns"] = [
+    {
+      title: renderSortHeader("address", "address"),
+      key: "address",
+      render: (_, ipAddress) => (
+        <span>
+          <span className="font-mono">{ipAddress.address}</span>
+          {ipAddress.deleted_at !== null && (
+            <Tag color="red" className="ml-2">
+              已删除
+            </Tag>
+          )}
+        </span>
+      ),
+    },
+    {
+      title: "network",
+      key: "network",
+      render: (_, ipAddress) => (
+        <span>
+          <span className="font-mono">{ipAddress.network.name}</span>
+          <span className="text-gray-400">（{ipAddress.network.cidr}）</span>
+        </span>
+      ),
+    },
+    {
+      title: "cluster",
+      key: "cluster",
+      render: (_, ipAddress) => <span className="font-mono">{ipAddress.cluster.code}</span>,
+    },
+    {
+      title: "interface",
+      key: "interface",
+      render: (_, ipAddress) =>
+        ipAddress.interface !== null ? (
+          <span>
+            {ipAddress.interface.name}
+            <span className="text-gray-400">（{ipAddress.interface.resource.hostname}）</span>
+          </span>
+        ) : (
+          <span className="text-gray-400">未绑定</span>
+        ),
+    },
+    {
+      title: "ip_pool（来源）",
+      key: "ip_pool",
+      render: (_, ipAddress) =>
+        ipAddress.ip_pool !== null ? (
+          ipAddress.ip_pool.name
+        ) : (
+          <span className="text-gray-400">池外（手动）</span>
+        ),
+    },
+    {
+      title: "description",
+      dataIndex: "description",
+      key: "description",
+      render: (value: string | null) => (value ?? <span className="text-gray-400">—</span>),
+    },
+    {
+      title: renderSortHeader("created_at", "创建时间"),
+      key: "created_at",
+      render: (_, ipAddress) => <span className="font-mono">{ipAddress.created_at}</span>,
+    },
+    {
+      title: renderSortHeader("updated_at", "更新时间"),
+      key: "updated_at",
+      render: (_, ipAddress) => <span className="font-mono">{ipAddress.updated_at}</span>,
+    },
+    { title: "version", dataIndex: "version", key: "version" },
+    ...(showDeletedColumn ? [deletedAtColumn] : []),
+    {
+      title: "操作",
+      key: "actions",
+      render: (_, ipAddress) => (
+        <>
+          <Button
+            type="link"
+            size="small"
+            className="px-0"
+            onClick={() => {
+              setActivityPage(1);
+              setMode({ kind: "activity", ipAddress });
+            }}
+          >
+            Activity
+          </Button>
+          {canWrite && ipAddress.deleted_at === null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => {
+                setFormError(null);
+                setMode({ kind: "edit", ipAddress });
+                setFormKey((key) => key + 1);
+              }}
+            >
+              编辑
+            </Button>
+          )}
+          {canRelease && ipAddress.deleted_at === null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => requestRelease(ipAddress)}
+            >
+              释放
+            </Button>
+          )}
+          {canRestore && ipAddress.deleted_at !== null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => requestRestore(ipAddress)}
+            >
+              恢复
+            </Button>
+          )}
+        </>
+      ),
+    },
+  ];
+
+  /** Activity 列定义（只读流水；created_at 升序由服务端保证）。 */
+  const activityColumns: TableProps<IpAddressActivityItem>["columns"] = [
+    {
+      title: "created_at",
+      dataIndex: "created_at",
+      key: "created_at",
+      render: (value: string) => <span className="font-mono">{value}</span>,
+    },
+    {
+      title: "action",
+      dataIndex: "action",
+      key: "action",
+      render: (value: IpAddressActivityItem["action"]) => (
+        <span className="font-mono">{value}</span>
+      ),
+    },
+    { title: "操作者", dataIndex: "operator_username", key: "operator_username" },
+    {
+      title: "变更前",
+      dataIndex: "before_data",
+      key: "before_data",
+      render: (value: Record<string, unknown> | null) => (
+        <span className="font-mono">{formatAuditData(value)}</span>
+      ),
+    },
+    {
+      title: "变更后",
+      dataIndex: "after_data",
+      key: "after_data",
+      render: (value: Record<string, unknown> | null) => (
+        <span className="font-mono">{formatAuditData(value)}</span>
+      ),
+    },
+  ];
+
   return (
-    <section className="panel">
-      <div className="table-toolbar">
-        <h2>IP Addresses（IP 地址）</h2>
-        {canWrite && mode.kind === "list" && (
-          <span className="filter-actions">
-            <button
-              type="button"
+    <Card
+      title="IP Addresses（IP 地址）"
+      extra={
+        canWrite && mode.kind === "list" ? (
+          <div className="flex gap-2">
+            <Button
               onClick={() => {
                 setFormError(null);
                 setNotice(null);
@@ -545,9 +753,8 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
               }}
             >
               手动分配 IP
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
               onClick={() => {
                 setFormError(null);
                 setNotice(null);
@@ -555,282 +762,213 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
               }}
             >
               自动分配 IP
-            </button>
-          </span>
-        )}
-      </div>
-
+            </Button>
+          </div>
+        ) : undefined
+      }
+    >
       {mode.kind === "list" && (
         <>
           {options.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载过滤选项失败：{options.message}</p>
-              <button
-                type="button"
-                onClick={() => setOptionsReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <Alert
+              className="mb-4"
+              type="error"
+              showIcon
+              message={`加载过滤选项失败：${options.message}`}
+              action={
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setOptionsReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {notice && (
-            <p className="status status-ok" role="status">
-              {notice}
-            </p>
+            <Alert className="mb-4" type="success" showIcon message={notice} />
           )}
 
-          <form className="filter-form" onSubmit={applyFilters}>
-            <div className="form-field">
-              <label htmlFor="ip-address-filter-q">模糊搜索（address 子串，大小写不敏感）</label>
-              <input
+          <Form
+            onFinish={applyFilters}
+            className="flex flex-wrap items-end gap-x-4 gap-y-3 border-b border-gray-100 pb-4"
+          >
+            <div className="flex w-56 flex-col gap-1">
+              <label htmlFor="ip-address-filter-q" className="text-sm text-gray-700">
+                模糊搜索（address 子串，大小写不敏感）
+              </label>
+              <Input
                 id="ip-address-filter-q"
-                type="text"
                 value={draft.q}
                 onChange={(event) => setDraft({ ...draft, q: event.target.value })}
                 placeholder="大小写不敏感子串匹配"
               />
             </div>
-            <div className="form-field">
-              <label htmlFor="ip-address-filter-address">address（精确匹配）</label>
-              <input
+            <div className="flex w-56 flex-col gap-1">
+              <label htmlFor="ip-address-filter-address" className="text-sm text-gray-700">
+                address（精确匹配）
+              </label>
+              <Input
                 id="ip-address-filter-address"
-                type="text"
                 value={draft.address}
                 onChange={(event) => setDraft({ ...draft, address: event.target.value })}
                 placeholder="如 10.0.0.5（精确匹配）"
               />
             </div>
-            <div className="form-field">
-              <label htmlFor="ip-address-filter-network">所属网络</label>
-              <select
+            <div className="flex w-60 flex-col gap-1">
+              <label htmlFor="ip-address-filter-network" className="text-sm text-gray-700">
+                所属网络
+              </label>
+              <Select<string>
                 id="ip-address-filter-network"
+                className="w-full"
                 value={draft.networkId}
-                onChange={(event) => setDraft({ ...draft, networkId: event.target.value })}
+                onChange={(value) => setDraft({ ...draft, networkId: value })}
                 disabled={options.kind !== "success"}
-              >
-                <option value="">全部（默认）</option>
-                {networks.map((network) => (
-                  <option key={network.id} value={network.id}>
-                    {network.name}（{network.cidr}）
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "全部（默认）" },
+                  ...networks.map((network) => ({
+                    value: network.id,
+                    label: `${network.name}（${network.cidr}）`,
+                  })),
+                ]}
+              />
             </div>
-            <div className="form-field">
-              <label htmlFor="ip-address-filter-cluster">集群（地址唯一作用域）</label>
-              <select
+            <div className="flex w-60 flex-col gap-1">
+              <label htmlFor="ip-address-filter-cluster" className="text-sm text-gray-700">
+                集群（地址唯一作用域）
+              </label>
+              <Select<string>
                 id="ip-address-filter-cluster"
+                className="w-full"
                 value={draft.clusterId}
-                onChange={(event) => setDraft({ ...draft, clusterId: event.target.value })}
+                onChange={(value) => setDraft({ ...draft, clusterId: value })}
                 disabled={options.kind !== "success"}
-              >
-                <option value="">全部（默认）</option>
-                {options.kind === "success" &&
-                  options.clusters.map((cluster) => (
-                    <option key={cluster.id} value={cluster.id}>
-                      {cluster.code}（{cluster.name}）
-                    </option>
-                  ))}
-              </select>
+                options={[
+                  { value: "", label: "全部（默认）" },
+                  ...clusters.map((cluster) => ({
+                    value: cluster.id,
+                    label: `${cluster.code}（${cluster.name}）`,
+                  })),
+                ]}
+              />
             </div>
-            <div className="form-field">
-              <label htmlFor="ip-address-filter-pool">分配来源地址池</label>
-              <select
+            <div className="flex w-64 flex-col gap-1">
+              <label htmlFor="ip-address-filter-pool" className="text-sm text-gray-700">
+                分配来源地址池
+              </label>
+              <Select<string>
                 id="ip-address-filter-pool"
+                className="w-full"
                 value={draft.poolId}
-                onChange={(event) => setDraft({ ...draft, poolId: event.target.value })}
+                onChange={(value) => setDraft({ ...draft, poolId: value })}
                 disabled={options.kind !== "success"}
-              >
-                <option value="">全部（默认）</option>
-                {options.kind === "success" &&
-                  options.pools.map((pool) => (
-                    <option key={pool.id} value={pool.id}>
-                      {pool.name} · {pool.network.name}
-                    </option>
-                  ))}
-              </select>
+                options={[
+                  { value: "", label: "全部（默认）" },
+                  ...pools.map((pool) => ({
+                    value: pool.id,
+                    label: `${pool.name} · ${pool.network.name}`,
+                  })),
+                ]}
+              />
             </div>
-            <div className="form-field">
-              <label htmlFor="ip-address-filter-interface">interface UUID（精确匹配）</label>
-              <input
+            <div className="flex w-72 flex-col gap-1">
+              <label htmlFor="ip-address-filter-interface" className="text-sm text-gray-700">
+                interface UUID（精确匹配）
+              </label>
+              <Input
                 id="ip-address-filter-interface"
-                type="text"
                 value={draft.interfaceId}
                 onChange={(event) => setDraft({ ...draft, interfaceId: event.target.value })}
                 placeholder="接口 UUID，如 0b9f4c6b-…（精确匹配）"
               />
             </div>
-            <div className="form-field">
-              <label htmlFor="ip-address-filter-bound">绑定状态</label>
-              <select
+            <div className="flex w-52 flex-col gap-1">
+              <label htmlFor="ip-address-filter-bound" className="text-sm text-gray-700">
+                绑定状态
+              </label>
+              <Select<"" | "true" | "false">
                 id="ip-address-filter-bound"
+                className="w-full"
                 value={draft.bound}
-                onChange={(event) =>
-                  setDraft({ ...draft, bound: event.target.value as "" | "true" | "false" })
-                }
-              >
-                <option value="">全部（默认）</option>
-                <option value="true">已绑定（interface 非空）</option>
-                <option value="false">未绑定</option>
-              </select>
+                onChange={(value) => setDraft({ ...draft, bound: value })}
+                options={[
+                  { value: "", label: "全部（默认）" },
+                  { value: "true", label: "已绑定（interface 非空）" },
+                  { value: "false", label: "未绑定" },
+                ]}
+              />
             </div>
-            <div className="filter-actions">
-              <button type="submit">筛选</button>
-              <button type="button" onClick={resetFilters}>
-                重置
-              </button>
+            <div className="flex gap-2">
+              <Button type="primary" htmlType="submit">
+                筛选
+              </Button>
+              <Button onClick={resetFilters}>重置</Button>
             </div>
-          </form>
+          </Form>
 
           {filterError && (
-            <p className="status status-error" role="alert">
-              {filterError}
-            </p>
+            <Alert className="mt-4" type="error" showIcon message={filterError} />
           )}
 
           {canViewDeleted && (
-            <div className="form-field deleted-toggle">
-              <label htmlFor="ip-address-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-              <select
+            <div className="mt-4 flex w-56 flex-col gap-1">
+              <label htmlFor="ip-address-deleted-mode" className="text-sm text-gray-700">
+                软删可见性（需 VIEW_DELETED 权限）
+              </label>
+              <Select<DeletedMode>
                 id="ip-address-deleted-mode"
                 value={query.deleted}
-                onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
-              >
-                <option value="exclude">未删除（默认）</option>
-                <option value="include">全部（含已删除）</option>
-                <option value="only">仅已删除</option>
-              </select>
+                onChange={(value) => changeDeleted(value)}
+                options={DELETED_MODE_OPTIONS}
+              />
             </div>
           )}
 
           {state.kind === "loading" && (
-            <p className="status status-loading">正在加载 IP 地址列表…</p>
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+              <Spin />
+              <span>正在加载 IP 地址列表…</span>
+            </div>
           )}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载 IP 地址列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <Alert
+              className="mt-4"
+              type="error"
+              showIcon
+              message={`加载 IP 地址列表失败：${state.message}`}
+              action={
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                没有符合条件的 IP 地址（当前过滤 / 分页下无数据，非错误）。
-              </p>
+              <Empty
+                className="py-8"
+                description="没有符合条件的 IP 地址（当前过滤 / 分页下无数据，非错误）。"
+              />
             ) : (
               <>
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>{renderSortHeader("address", "address")}</th>
-                        <th>network</th>
-                        <th>cluster</th>
-                        <th>interface</th>
-                        <th>ip_pool（来源）</th>
-                        <th>description</th>
-                        <th>{renderSortHeader("created_at", "创建时间")}</th>
-                        <th>{renderSortHeader("updated_at", "更新时间")}</th>
-                        <th>version</th>
-                        {showDeletedColumn && <th>deleted_at</th>}
-                        <th>操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {state.data.items.map((ipAddress) => (
-                        <tr key={ipAddress.id}>
-                          <td className="mono">
-                            {ipAddress.address}
-                            {ipAddress.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
-                            )}
-                          </td>
-                          <td>
-                            <span className="mono">{ipAddress.network.name}</span>
-                            <span className="unset">（{ipAddress.network.cidr}）</span>
-                          </td>
-                          <td className="mono">{ipAddress.cluster.code}</td>
-                          <td>
-                            {ipAddress.interface !== null ? (
-                              <span>
-                                {ipAddress.interface.name}
-                                <span className="unset">
-                                  （{ipAddress.interface.resource.hostname}）
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="unset">未绑定</span>
-                            )}
-                          </td>
-                          <td>
-                            {ipAddress.ip_pool !== null ? (
-                              ipAddress.ip_pool.name
-                            ) : (
-                              <span className="unset">池外（手动）</span>
-                            )}
-                          </td>
-                          <td>{ipAddress.description ?? <span className="unset">—</span>}</td>
-                          <td className="mono">{ipAddress.created_at}</td>
-                          <td className="mono">{ipAddress.updated_at}</td>
-                          <td>{ipAddress.version}</td>
-                          {showDeletedColumn && (
-                            <td className="mono">
-                              {ipAddress.deleted_at ?? <span className="unset">—</span>}
-                            </td>
-                          )}
-                          <td>
-                            <button
-                              type="button"
-                              className="link-button"
-                              onClick={() => {
-                                setActivityPage(1);
-                                setMode({ kind: "activity", ipAddress });
-                              }}
-                            >
-                              Activity
-                            </button>
-                            {canWrite && ipAddress.deleted_at === null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => {
-                                  setFormError(null);
-                                  setMode({ kind: "edit", ipAddress });
-                                  setFormKey((key) => key + 1);
-                                }}
-                              >
-                                编辑
-                              </button>
-                            )}
-                            {canRelease && ipAddress.deleted_at === null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => requestRelease(ipAddress)}
-                              >
-                                释放
-                              </button>
-                            )}
-                            {canRestore && ipAddress.deleted_at !== null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => requestRestore(ipAddress)}
-                              >
-                                恢复
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table<IpAddress>
+                  className="mt-4"
+                  rowKey="id"
+                  size="middle"
+                  pagination={false}
+                  scroll={{ x: "max-content" }}
+                  dataSource={state.data.items}
+                  columns={columns}
+                />
                 <Pagination
                   page={state.data.page}
                   pageSize={state.data.page_size}
@@ -842,88 +980,99 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {Object.keys(actionError.fields).length > 0 && (
-                  <ul>
-                    {Object.entries(actionError.fields).map(([field, message]) => (
-                      <li key={field}>
-                        {field}：{message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((item) => (
-                      <li key={`${item.object_type}-${item.object_id}`}>
-                        引用对象：{item.label ?? item.object_id}（{item.object_type}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {dependencyConflictText(conflict.object_type, conflict.object_id)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
+          {(actionError !== null || action !== null) && (
+            <div className="mt-5 flex flex-col gap-3">
+              {actionError && (
+                <Alert
+                  type="error"
+                  showIcon
+                  message={actionError.message}
+                  description={
+                    <>
+                      {Object.keys(actionError.fields).length > 0 && (
+                        <ul className="list-disc pl-5">
+                          {Object.entries(actionError.fields).map(([field, message]) => (
+                            <li key={field}>
+                              {field}：{message}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {actionError.references.length > 0 && (
+                        <ul className="list-disc pl-5">
+                          {actionError.references.map((item) => (
+                            <li key={`${item.object_type}-${item.object_id}`}>
+                              引用对象：{item.label ?? item.object_id}（{item.object_type}）
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {actionError.dependencyConflicts.length > 0 && (
+                        <ul className="list-disc pl-5">
+                          {actionError.dependencyConflicts.map((conflict) => (
+                            <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                              {dependencyConflictText(conflict.object_type, conflict.object_id)}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {actionError.versionConflict && (
+                        <Button
+                          size="small"
+                          danger
+                          className="mt-2"
+                          disabled={actionBusy}
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                        >
+                          刷新最新数据
+                        </Button>
+                      )}
+                    </>
+                  }
+                />
+              )}
 
-            {action !== null && (
-              <div className="inline-confirm">
-                {action.kind === "release" ? (
+              {action !== null && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
                   <span>
-                    确认释放 IP 地址 {action.ipAddress.address}？（软删除释放，不级联；被未删除
-                    Endpoint 引用时将被拒绝；不自动解绑其它对象；同集群内该地址软删后可复用）
+                    {action.kind === "release" ? (
+                      <span>
+                        确认释放 IP 地址 {action.ipAddress.address}？（软删除释放，不级联；被未删除
+                        Endpoint 引用时将被拒绝；不自动解绑其它对象；同集群内该地址软删后可复用）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复 IP 地址 {action.ipAddress.address}？（仅恢复自身，不级联；将重检同集群
+                        地址唯一、所属网络与绑定接口有效性、地址仍属网络 CIDR，失败不覆盖新对象；
+                        version 递增）
+                      </span>
+                    )}
                   </span>
-                ) : (
-                  <span>
-                    确认恢复 IP 地址 {action.ipAddress.address}？（仅恢复自身，不级联；将重检同集群
-                    地址唯一、所属网络与绑定接口有效性、地址仍属网络 CIDR，失败不覆盖新对象；
-                    version 递增）
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={action.kind === "release" ? confirmRelease : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "release"
-                      ? "正在释放…"
-                      : "正在恢复…"
-                    : action.kind === "release"
-                      ? "确认释放"
-                      : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            )}
-          </div>
+                  <Button
+                    type="primary"
+                    danger={action.kind === "release"}
+                    onClick={action.kind === "release" ? confirmRelease : confirmRestore}
+                    disabled={actionBusy}
+                  >
+                    {actionBusy
+                      ? action.kind === "release"
+                        ? "正在释放…"
+                        : "正在恢复…"
+                      : action.kind === "release"
+                        ? "确认释放"
+                        : "确认恢复"}
+                  </Button>
+                  <Button onClick={() => setAction(null)} disabled={actionBusy}>
+                    取消
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -954,90 +1103,85 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
 
       {mode.kind === "activity" && (
         <div>
-          <div className="table-toolbar">
-            <h3>
-              Activity — <span className="mono">{mode.ipAddress.address}</span>
-              <span className="unset">（{mode.ipAddress.network.name}）</span>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="m-0 text-base font-semibold">
+              Activity — <span className="font-mono">{mode.ipAddress.address}</span>
+              <span className="text-gray-400">（{mode.ipAddress.network.name}）</span>
             </h3>
-            <button type="button" onClick={() => setMode({ kind: "list" })}>
-              返回列表
-            </button>
+            <Button onClick={() => setMode({ kind: "list" })}>返回列表</Button>
           </div>
-          <p className="status">
+          <p className="mb-4 text-sm text-gray-500">
             操作流水（created_at 升序、同刻 id 升序；只读，无修改 / 删除入口；已删对象需
             VIEW_DELETED 才可查看）
           </p>
           {activityState.kind === "loading" && (
-            <p className="status status-loading">正在加载 Activity…</p>
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+              <Spin />
+              <span>正在加载 Activity…</span>
+            </div>
           )}
           {activityState.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载 Activity 失败：{activityState.message}</p>
-              <button
-                type="button"
-                onClick={() => setActivityReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <Alert
+              type="error"
+              showIcon
+              message={`加载 Activity 失败：${activityState.message}`}
+              action={
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setActivityReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
           {activityState.kind === "success" &&
             (activityState.data.items.length === 0 ? (
-              <p className="status status-empty">该 IP 地址暂无操作流水。</p>
+              <Empty className="py-8" description="该 IP 地址暂无操作流水。" />
             ) : (
               <>
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>created_at</th>
-                        <th>action</th>
-                        <th>操作者</th>
-                        <th>变更前</th>
-                        <th>变更后</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activityState.data.items.map((item) => (
-                        <tr key={item.id}>
-                          <td className="mono">{item.created_at}</td>
-                          <td className="mono">{item.action}</td>
-                          <td>{item.operator_username}</td>
-                          <td className="mono">{formatAuditData(item.before_data)}</td>
-                          <td className="mono">{formatAuditData(item.after_data)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="pagination">
+                <Table<IpAddressActivityItem>
+                  rowKey="id"
+                  size="middle"
+                  pagination={false}
+                  scroll={{ x: "max-content" }}
+                  dataSource={activityState.data.items}
+                  columns={activityColumns}
+                />
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
                   <span>
                     共 {activityState.data.total} 条 · 第 {activityState.data.page} /
-                    {Math.max(1, Math.ceil(activityState.data.total / activityState.data.page_size))} 页
+                    {Math.max(
+                      1,
+                      Math.ceil(activityState.data.total / activityState.data.page_size),
+                    )}{" "}
+                    页
                   </span>
-                  <button
-                    type="button"
+                  <Button
                     disabled={activityState.data.page <= 1}
                     onClick={() => setActivityPage(activityState.data.page - 1)}
                   >
                     上一页
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
                     disabled={
                       activityState.data.page >=
-                      Math.max(1, Math.ceil(activityState.data.total / activityState.data.page_size))
+                      Math.max(
+                        1,
+                        Math.ceil(activityState.data.total / activityState.data.page_size),
+                      )
                     }
                     onClick={() => setActivityPage(activityState.data.page + 1)}
                   >
                     下一页
-                  </button>
+                  </Button>
                 </div>
               </>
             ))}
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -1071,6 +1215,7 @@ interface PaginationProps {
   onChangePageSize: (pageSize: number) => void;
 }
 
+/** 分页条（AntD Button / Select 承担控件，文案与行为同迁移前）。 */
 function Pagination({
   page,
   pageSize,
@@ -1081,26 +1226,28 @@ function Pagination({
 }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <div className="pagination">
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
       <span>
         共 {total} 条 · 第 {page} / {totalPages} 页
       </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
+      <Button disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
         上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
+      </Button>
+      <Button disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
         下一页
-      </button>
-      <label>
+      </Button>
+      <label className="flex items-center gap-2">
         每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
+        <Select<number>
+          className="w-20"
+          value={appliedPageSize}
+          onChange={(value) => onChangePageSize(value)}
+          options={[
+            { value: 20, label: "20" },
+            { value: 50, label: "50" },
+            { value: 100, label: "100" },
+          ]}
+        />
         条
       </label>
     </div>
