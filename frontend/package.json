@@ -11,13 +11,17 @@
     "smoke:client": "node scripts/smoke-client.mjs"
   },
   "dependencies": {
+    "@ant-design/cssinjs": "^1.24.0",
+    "antd": "^5.29.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.2",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.9"
   }

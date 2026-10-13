@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Button, Checkbox, Input, Select } from "antd";
 import { displayError, isApiError } from "../api/client";
 import { listInterfaces, type Interface, type InterfaceActionError, type InterfaceTypeValue } from "../api/interfaces";
 import { parseMetadataText } from "./ClusterForm";
@@ -63,6 +64,14 @@ const INTERFACE_INT_FIELDS: {
     placeholder: "如 9000；留空 = 未知（null，不以 0 代替）",
   },
 ];
+
+/** Tailwind 工具类（F017：替代原 form-field / field-label / field-error / status 样式）。 */
+const FIELD_CLASS = "flex flex-col gap-1.5";
+const LABEL_CLASS = "text-sm font-medium text-gray-700";
+const FIELD_ERROR_CLASS = "text-sm text-red-600";
+const STATUS_CLASS = "text-sm text-gray-500";
+const STATUS_ERROR_CLASS =
+  "flex flex-col items-start gap-2 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700";
 
 /**
  * Interface 创建 / 编辑表单（F007，Contract §2/§6.2/§6.4）：
@@ -173,210 +182,212 @@ export default function InterfaceForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
-      <div className="form-field">
-        <span className="field-label">resource（所属资源，创建后不可修改）</span>
-        <p className="readonly-value mono">
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+      <div className={FIELD_CLASS}>
+        <span className={LABEL_CLASS}>resource（所属资源，创建后不可修改）</span>
+        <p className="font-mono text-sm text-gray-900">
           {resource.hostname}
-          <span className="unset">（id: {resource.id}）</span>
+          <span className="text-gray-400">（id: {resource.id}）</span>
         </p>
         {serverFields.resource && (
-          <p className="field-error" role="alert">
+          <p className={FIELD_ERROR_CLASS} role="alert">
             {serverFields.resource}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="interface-name">
+      <div className={FIELD_CLASS}>
+        <label htmlFor="interface-name" className={LABEL_CLASS}>
           name（必填；区分大小写保留输入，同资源内未删除唯一；禁内部空白 / 控制字符，≤64）
         </label>
-        <input
+        <Input
           id="interface-name"
           name="name"
-          type="text"
           value={values.name}
           onChange={(event) => setField("name", event.target.value)}
           disabled={submitting}
+          status={fieldError("name") ? "error" : undefined}
           placeholder="如 eth0；eth0 与 ETH0 为不同名称；已软删接口不占用名称"
         />
         {fieldError("name") && (
-          <p className="field-error" role="alert">
+          <p className={FIELD_ERROR_CLASS} role="alert">
             {fieldError("name")}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="interface-type">interface_type（类型，可选，默认 OTHER；不据名称推断）</label>
-        <select
+      <div className={FIELD_CLASS}>
+        <label htmlFor="interface-type" className={LABEL_CLASS}>
+          interface_type（类型，可选，默认 OTHER；不据名称推断）
+        </label>
+        <Select
           id="interface-type"
-          name="interface_type"
           value={values.interface_type}
-          onChange={(event) => setField("interface_type", event.target.value as InterfaceTypeValue)}
+          onChange={(value) => setField("interface_type", value as InterfaceTypeValue)}
           disabled={submitting}
-        >
-          {INTERFACE_TYPE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          status={serverFields.interface_type ? "error" : undefined}
+          options={INTERFACE_TYPE_OPTIONS}
+        />
         {serverFields.interface_type && (
-          <p className="field-error" role="alert">
+          <p className={FIELD_ERROR_CLASS} role="alert">
             {serverFields.interface_type}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="interface-parent">
+      <div className={FIELD_CLASS}>
+        <label htmlFor="interface-parent" className={LABEL_CLASS}>
           parent_interface（父接口，可选；须为本资源内未删除的其它接口，留空 = 根接口）
         </label>
         {parentOptions.kind === "loading" && (
-          <p className="status status-loading">正在加载接口列表…</p>
+          <p className={STATUS_CLASS}>正在加载接口列表…</p>
         )}
         {parentOptions.kind === "error" && (
-          <div className="status status-error" role="alert">
+          <div className={STATUS_ERROR_CLASS} role="alert">
             <p>加载父接口候选失败：{parentOptions.message}</p>
-            <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+            <Button size="small" onClick={() => setReloadToken((token) => token + 1)}>
               重试
-            </button>
+            </Button>
           </div>
         )}
         {parentOptions.kind === "success" && parentItems.length === 0 && (
-          <p className="status status-empty">
+          <p className={STATUS_CLASS}>
             本资源暂无其它未删除接口：留空即为根接口（首个接口无父）。
           </p>
         )}
-        <select
+        <Select
           id="interface-parent"
-          name="parent_interface"
           value={values.parent_interface}
-          onChange={(event) => setField("parent_interface", event.target.value)}
+          onChange={(value) => setField("parent_interface", value as string)}
           disabled={submitting || parentOptions.kind !== "success"}
-        >
-          <option value="">无（根接口）</option>
-          {currentParentMissing && currentParent !== null && (
-            <option value={currentParent.id}>{currentParent.name}（当前父接口）</option>
-          )}
-          {parentItems.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}（{item.interface_type}）
-            </option>
-          ))}
-        </select>
+          status={fieldError("parent_interface") ? "error" : undefined}
+          options={[
+            { value: "", label: "无（根接口）" },
+            ...(currentParentMissing && currentParent !== null
+              ? [{ value: currentParent.id, label: `${currentParent.name}（当前父接口）` }]
+              : []),
+            ...parentItems.map((item) => ({
+              value: item.id,
+              label: `${item.name}（${item.interface_type}）`,
+            })),
+          ]}
+        />
         {parentOptions.kind === "success" && parentOptions.total > parentOptions.items.length && (
-          <p className="status status-empty">
+          <p className={STATUS_CLASS}>
             接口总数 {parentOptions.total} 个，下拉仅显示前 {parentOptions.items.length} 个
             （按 name 排序；列表分页上限 100）。
           </p>
         )}
         {fieldError("parent_interface") && (
-          <p className="field-error" role="alert">
+          <p className={FIELD_ERROR_CLASS} role="alert">
             {fieldError("parent_interface")}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="interface-mac">
+      <div className={FIELD_CLASS}>
+        <label htmlFor="interface-mac" className={LABEL_CLASS}>
           mac_address（MAC 地址，可选；无格式校验、保留输入大小写，≤64）
         </label>
-        <input
+        <Input
           id="interface-mac"
           name="mac_address"
-          type="text"
           value={values.mac_address}
           onChange={(event) => setField("mac_address", event.target.value)}
           disabled={submitting}
+          status={fieldError("mac_address") ? "error" : undefined}
           placeholder="如 00:1A:2B:3C:4D:5E；留空 = 未登记（null）；一期不做全局唯一"
         />
         {fieldError("mac_address") && (
-          <p className="field-error" role="alert">
+          <p className={FIELD_ERROR_CLASS} role="alert">
             {fieldError("mac_address")}
           </p>
         )}
       </div>
 
       {INTERFACE_INT_FIELDS.map((field) => (
-        <div className="form-field" key={field.key}>
-          <label htmlFor={`interface-${field.key}`}>{field.label}</label>
-          <input
+        <div className={FIELD_CLASS} key={field.key}>
+          <label htmlFor={`interface-${field.key}`} className={LABEL_CLASS}>
+            {field.label}
+          </label>
+          <Input
             id={`interface-${field.key}`}
             name={field.key}
-            type="text"
             value={values[field.key]}
             onChange={(event) => setField(field.key, event.target.value)}
             disabled={submitting}
+            status={fieldError(field.key) ? "error" : undefined}
             placeholder={field.placeholder}
           />
           {fieldError(field.key) && (
-            <p className="field-error" role="alert">
+            <p className={FIELD_ERROR_CLASS} role="alert">
               {fieldError(field.key)}
             </p>
           )}
         </div>
       ))}
 
-      <div className="form-field checkbox-field">
-        <label htmlFor="interface-enabled">
-          <input
-            id="interface-enabled"
-            name="enabled"
-            type="checkbox"
-            checked={values.enabled}
-            onChange={(event) => setField("enabled", event.target.checked)}
-            disabled={submitting}
-          />
+      <div className={FIELD_CLASS}>
+        <Checkbox
+          id="interface-enabled"
+          checked={values.enabled}
+          onChange={(event) => setField("enabled", event.target.checked)}
+          disabled={submitting}
+        >
           enabled（启用状态；登记值非实时探测，默认开启）
-        </label>
+        </Checkbox>
       </div>
 
-      <div className="form-field">
-        <label htmlFor="interface-description">description（描述，可选）</label>
-        <textarea
+      <div className={FIELD_CLASS}>
+        <label htmlFor="interface-description" className={LABEL_CLASS}>
+          description（描述，可选）
+        </label>
+        <Input.TextArea
           id="interface-description"
           name="description"
           rows={3}
           value={values.description}
           onChange={(event) => setField("description", event.target.value)}
           disabled={submitting}
+          status={serverFields.description ? "error" : undefined}
           placeholder="可选；编辑时清空表示删除描述（显式置 null）"
         />
         {serverFields.description && (
-          <p className="field-error" role="alert">
+          <p className={FIELD_ERROR_CLASS} role="alert">
             {serverFields.description}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="interface-metadata">metadata（JSON 对象，可选；接口自有扩展，整值替换）</label>
-        <textarea
+      <div className={FIELD_CLASS}>
+        <label htmlFor="interface-metadata" className={LABEL_CLASS}>
+          metadata（JSON 对象，可选；接口自有扩展，整值替换）
+        </label>
+        <Input.TextArea
           id="interface-metadata"
           name="metadata"
           rows={5}
           value={values.metadata}
           onChange={(event) => setField("metadata", event.target.value)}
           disabled={submitting}
+          status={metadataError ?? serverFields.metadata ? "error" : undefined}
           placeholder={'可选，例如 {"pci_slot": "3"}；留空视为 {}；与所属资源的 metadata 相互独立'}
         />
         {(metadataError ?? serverFields.metadata) && (
-          <p className="field-error" role="alert">
+          <p className={FIELD_ERROR_CLASS} role="alert">
             {metadataError ?? serverFields.metadata}
           </p>
         )}
       </div>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
+        <div className={STATUS_ERROR_CLASS} role="alert">
           <p>
             {serverError.message}
             {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
           </p>
           {serverError.references.length > 0 && (
-            <ul>
+            <ul className="list-disc pl-5">
               {serverError.references.map((reference) => (
                 <li key={`${reference.object_type}-${reference.object_id}`}>
                   {reference.object_type}
@@ -387,21 +398,21 @@ export default function InterfaceForm({
           )}
           {serverError.versionConflict && onRefresh && (
             <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+              <Button onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
+              </Button>
             </p>
           )}
         </div>
       )}
 
-      <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+      <div className="flex items-center gap-3">
+        <Button type="primary" htmlType="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );

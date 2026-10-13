@@ -1,4 +1,15 @@
 import { useEffect, useState } from "react";
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Empty,
+  Space,
+  Spin,
+  Table,
+  Tag,
+  type TableProps,
+} from "antd";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import { listServices, type Service, type ServiceListResponse } from "../api/services";
@@ -48,6 +59,12 @@ type ActivityState =
   | { kind: "loading" }
   | { kind: "success"; data: ServiceEndpointActivityResponse }
   | { kind: "error"; message: string };
+
+/** Table 行数据类型（取自 ServiceEndpointListResponse.items 元素）。 */
+type EndpointItem = ServiceEndpointListResponse["items"][number];
+
+/** Activity Table 行数据类型（取自 ServiceEndpointActivityResponse.items 元素）。 */
+type ActivityItem = ServiceEndpointActivityResponse["items"][number];
 
 interface ServiceEndpointsPanelProps {
   /** 所属 Service（Endpoints 管理区作用域；service 归属创建后不可改，DR-157）。 */
@@ -349,290 +366,398 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
     return `${endpoint.protocol}/${endpoint.port} @ ${endpoint.ip_address.address}`;
   }
 
+  // 仅开启已删开关时追加 deleted_at 列（与原实现口径一致）
+  const deletedAtColumn: NonNullable<TableProps<EndpointItem>["columns"]>[number] = {
+    title: "deleted_at",
+    dataIndex: "deleted_at",
+    key: "deleted_at",
+    render: (value) =>
+      value != null ? (
+        <span className="font-mono text-xs">{value}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
+  };
+
+  const columns: TableProps<EndpointItem>["columns"] = [
+    {
+      title: "ip_address",
+      dataIndex: "ip_address",
+      key: "ip_address",
+      render: (_, endpoint) => (
+        <span>
+          <span className="font-mono text-xs">{endpoint.ip_address.address}</span>
+          {endpoint.deleted_at !== null && (
+            <Tag color="red" className="ml-2">
+              已删除
+            </Tag>
+          )}
+        </span>
+      ),
+    },
+    {
+      title: "interface",
+      key: "interface",
+      render: (_, endpoint) => (
+        <span className="font-mono text-xs">{endpoint.ip_address.interface.name}</span>
+      ),
+    },
+    {
+      title: "network",
+      key: "network",
+      render: (_, endpoint) => endpoint.ip_address.network.name,
+    },
+    {
+      title: "protocol",
+      dataIndex: "protocol",
+      key: "protocol",
+      render: (value) => <span className="font-mono text-xs">{value}</span>,
+    },
+    {
+      title: "port",
+      dataIndex: "port",
+      key: "port",
+      render: (value) => <span className="font-mono text-xs">{value}</span>,
+    },
+    {
+      title: "description",
+      dataIndex: "description",
+      key: "description",
+      render: (value) => value ?? <span className="text-gray-400">—</span>,
+    },
+    { title: "version", dataIndex: "version", key: "version" },
+    ...(showDeleted ? [deletedAtColumn] : []),
+    {
+      title: "操作",
+      key: "actions",
+      render: (_, endpoint) => (
+        <Space size={4}>
+          <Button
+            type="link"
+            size="small"
+            className="px-0"
+            onClick={() => {
+              setActivityPage(1);
+              setMode({ kind: "activity", endpoint });
+            }}
+          >
+            Activity
+          </Button>
+          {canWrite && endpoint.deleted_at === null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => {
+                setFormError(null);
+                setMode({ kind: "edit", endpoint });
+                setFormKey((key) => key + 1);
+              }}
+            >
+              编辑
+            </Button>
+          )}
+          {canDelete && endpoint.deleted_at === null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              danger
+              onClick={() => requestDelete(endpoint)}
+            >
+              删除
+            </Button>
+          )}
+          {canRestore && endpoint.deleted_at !== null && !serviceDeleted && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => requestRestore(endpoint)}
+            >
+              恢复
+            </Button>
+          )}
+        </Space>
+      ),
+    },
+  ];
+
+  const activityColumns: TableProps<ActivityItem>["columns"] = [
+    {
+      title: "created_at",
+      dataIndex: "created_at",
+      key: "created_at",
+      render: (value) => <span className="font-mono text-xs">{value}</span>,
+    },
+    {
+      title: "action",
+      dataIndex: "action",
+      key: "action",
+      render: (value) => <span className="font-mono text-xs">{value}</span>,
+    },
+    { title: "操作者", dataIndex: "operator_username", key: "operator_username" },
+    {
+      title: "变更前",
+      key: "before_data",
+      render: (_, item) => (
+        <span className="font-mono text-xs">{formatAuditData(item.before_data)}</span>
+      ),
+    },
+    {
+      title: "变更后",
+      key: "after_data",
+      render: (_, item) => (
+        <span className="font-mono text-xs">{formatAuditData(item.after_data)}</span>
+      ),
+    },
+  ];
+
   return (
     <>
-      <div className="table-toolbar">
-        <h3>
-          Endpoints（监听端点）— <span className="mono">{service.name}</span>
-          <span className="unset">（{service.resource.hostname}）</span>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-base font-semibold text-gray-900">
+          Endpoints（监听端点）— <span className="font-mono text-xs">{service.name}</span>
+          <span className="text-gray-400">（{service.resource.hostname}）</span>
         </h3>
-        <button type="button" onClick={onBack}>
-          返回服务列表
-        </button>
+        <Button onClick={onBack}>返回服务列表</Button>
       </div>
 
       {mode.kind === "list" && (
         <>
-          <div className="table-toolbar">
-            <span className="permissions-note">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-gray-500">
               经 GET /api/v1/service-endpoints?service_id 过滤（{service.id}）
             </span>
             <span>
               {canWrite && !serviceDeleted && (
-                <button
-                  type="button"
+                <Button
+                  type="primary"
                   onClick={() => {
                     setFormError(null);
                     setMode({ kind: "create" });
                   }}
                 >
                   新建端点
-                </button>
+                </Button>
               )}
             </span>
           </div>
 
           {serviceDeleted && (
-            <p className="status status-empty">
-              所属服务处于已删除状态：无法新建端点（服务端拒绝引用已删服务）；
-              其端点均为已删除状态，恢复端点需先恢复所属服务。
-            </p>
+            <Alert
+              className="mb-3"
+              type="warning"
+              showIcon
+              message="所属服务处于已删除状态：无法新建端点（服务端拒绝引用已删服务）；其端点均为已删除状态，恢复端点需先恢复所属服务。"
+            />
           )}
 
           {canViewDeleted && (
-            <div className="form-field checkbox-field deleted-toggle">
-              <label htmlFor="service-endpoints-deleted-toggle">
-                <input
-                  id="service-endpoints-deleted-toggle"
-                  type="checkbox"
-                  checked={showDeleted}
-                  onChange={(event) => setShowDeleted(event.target.checked)}
-                />
+            <div className="mb-3">
+              <Checkbox
+                id="service-endpoints-deleted-toggle"
+                checked={showDeleted}
+                onChange={(event) => setShowDeleted(event.target.checked)}
+              >
                 显示已删除端点（deleted=include，需 VIEW_DELETED）
-              </label>
+              </Checkbox>
             </div>
           )}
 
           {state.kind === "loading" && (
-            <p className="status status-loading">正在加载该服务的监听端点…</p>
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+              <Spin />
+              <span>正在加载该服务的监听端点…</span>
+            </div>
           )}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载端点列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <Alert
+              className="mb-3"
+              type="error"
+              showIcon
+              message={`加载端点列表失败：${state.message}`}
+              action={
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                {showDeleted
-                  ? "该服务暂无监听端点（含已删除）。"
-                  : "该服务暂无未删除的监听端点（非错误）。"}
-              </p>
+              <Empty
+                className="py-8"
+                description={
+                  showDeleted
+                    ? "该服务暂无监听端点（含已删除）。"
+                    : "该服务暂无未删除的监听端点（非错误）。"
+                }
+              />
             ) : (
               <>
                 {state.data.total > state.data.items.length && (
-                  <p className="status status-empty">
-                    端点总数 {state.data.total} 个，仅显示前 {state.data.items.length} 个
-                    （按 created_at 排序；列表分页上限 100）。
-                  </p>
+                  <Alert
+                    className="mb-3"
+                    type="info"
+                    showIcon
+                    message={`端点总数 ${state.data.total} 个，仅显示前 ${state.data.items.length} 个（按 created_at 排序；列表分页上限 100）。`}
+                  />
                 )}
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>ip_address</th>
-                        <th>interface</th>
-                        <th>network</th>
-                        <th>protocol</th>
-                        <th>port</th>
-                        <th>description</th>
-                        <th>version</th>
-                        {showDeleted && <th>deleted_at</th>}
-                        <th>操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {state.data.items.map((endpoint) => (
-                        <tr key={endpoint.id}>
-                          <td className="mono">
-                            {endpoint.ip_address.address}
-                            {endpoint.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
-                            )}
-                          </td>
-                          <td className="mono">{endpoint.ip_address.interface.name}</td>
-                          <td>{endpoint.ip_address.network.name}</td>
-                          <td className="mono">{endpoint.protocol}</td>
-                          <td className="mono">{endpoint.port}</td>
-                          <td>
-                            {endpoint.description ?? <span className="unset">—</span>}
-                          </td>
-                          <td>{endpoint.version}</td>
-                          {showDeleted && (
-                            <td className="mono">
-                              {endpoint.deleted_at ?? <span className="unset">—</span>}
-                            </td>
-                          )}
-                          <td>
-                            <button
-                              type="button"
-                              className="link-button"
-                              onClick={() => {
-                                setActivityPage(1);
-                                setMode({ kind: "activity", endpoint });
-                              }}
-                            >
-                              Activity
-                            </button>
-                            {canWrite && endpoint.deleted_at === null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => {
-                                  setFormError(null);
-                                  setMode({ kind: "edit", endpoint });
-                                  setFormKey((key) => key + 1);
-                                }}
-                              >
-                                编辑
-                              </button>
-                            )}
-                            {canDelete && endpoint.deleted_at === null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => requestDelete(endpoint)}
-                              >
-                                删除
-                              </button>
-                            )}
-                            {canRestore && endpoint.deleted_at !== null && !serviceDeleted && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => requestRestore(endpoint)}
-                              >
-                                恢复
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table<EndpointItem>
+                  rowKey="id"
+                  size="middle"
+                  pagination={false}
+                  scroll={{ x: "max-content" }}
+                  dataSource={state.data.items}
+                  columns={columns}
+                />
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {Object.keys(actionError.fields).length > 0 && (
-                  <ul>
-                    {Object.entries(actionError.fields).map(([field, message]) => (
-                      <li key={field}>
-                        {field}：{message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((item) => (
-                      <li key={`${item.object_type}-${item.object_id}`}>
-                        引用对象：{item.label ?? item.object_id}（{item.object_type}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflict.object_type === "service"
-                          ? `所属服务（${conflict.object_id}）仍处于已删除状态或已不存在`
-                          : conflict.object_type === "ip_address"
-                            ? `引用的 IP 地址（${conflict.object_id}）仍处于已删除状态或已不存在`
-                            : conflict.object_type === "interface"
-                              ? `IP 绑定的接口（${conflict.object_id}）仍处于已删除状态或已不存在`
-                              : `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态`}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
+          {(actionError !== null || action !== null) && (
+            <div className="mt-5 flex flex-col gap-3">
+              {actionError && (
+                <Alert
+                  type="error"
+                  showIcon
+                  message={actionError.message}
+                  description={
+                    <>
+                      {Object.keys(actionError.fields).length > 0 && (
+                        <ul className="list-disc pl-5">
+                          {Object.entries(actionError.fields).map(([field, message]) => (
+                            <li key={field}>
+                              {field}：{message}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {actionError.references.length > 0 && (
+                        <ul className="list-disc pl-5">
+                          {actionError.references.map((item) => (
+                            <li key={`${item.object_type}-${item.object_id}`}>
+                              引用对象：{item.label ?? item.object_id}（{item.object_type}）
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {actionError.dependencyConflicts.length > 0 && (
+                        <ul className="list-disc pl-5">
+                          {actionError.dependencyConflicts.map((conflict) => (
+                            <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                              {conflict.object_type === "service"
+                                ? `所属服务（${conflict.object_id}）仍处于已删除状态或已不存在`
+                                : conflict.object_type === "ip_address"
+                                  ? `引用的 IP 地址（${conflict.object_id}）仍处于已删除状态或已不存在`
+                                  : conflict.object_type === "interface"
+                                    ? `IP 绑定的接口（${conflict.object_id}）仍处于已删除状态或已不存在`
+                                    : `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态`}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {actionError.versionConflict && (
+                        <Button
+                          size="small"
+                          danger
+                          className="mt-2"
+                          disabled={actionBusy}
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                        >
+                          刷新最新数据
+                        </Button>
+                      )}
+                    </>
+                  }
+                />
+              )}
 
-            {action !== null && (
-              <div className="inline-confirm">
-                {action.kind === "delete" ? (
+              {action !== null && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
                   <span>
-                    确认软删除监听端点 {endpointLabel(action.endpoint)}？（不级联删除
-                    关联对象；同 IP 的 (protocol, port) 软删后释放可复用；version 递增）
+                    {action.kind === "delete" ? (
+                      <span>
+                        确认软删除监听端点 {endpointLabel(action.endpoint)}？（不级联删除
+                        关联对象；同 IP 的 (protocol, port) 软删后释放可复用；version 递增）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复监听端点 {endpointLabel(action.endpoint)}？（仅恢复自身，
+                        不级联、不自动恢复 Service / IP / 接口；将重检同 IP 监听唯一、
+                        依赖有效性与 IP 绑定归属，失败不覆盖新对象；version 递增）
+                      </span>
+                    )}
                   </span>
-                ) : (
-                  <span>
-                    确认恢复监听端点 {endpointLabel(action.endpoint)}？（仅恢复自身，
-                    不级联、不自动恢复 Service / IP / 接口；将重检同 IP 监听唯一、
-                    依赖有效性与 IP 绑定归属，失败不覆盖新对象；version 递增）
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            )}
-          </div>
+                  <Button
+                    type="primary"
+                    danger={action.kind === "delete"}
+                    onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
+                    disabled={actionBusy}
+                  >
+                    {actionBusy
+                      ? action.kind === "delete"
+                        ? "正在删除…"
+                        : "正在恢复…"
+                      : action.kind === "delete"
+                        ? "确认删除"
+                        : "确认恢复"}
+                  </Button>
+                  <Button onClick={() => setAction(null)} disabled={actionBusy}>
+                    取消
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
       {mode.kind === "create" &&
         (serviceOptions.kind === "loading" ? (
-          <p className="status status-loading">正在加载服务候选（创建表单的 service 选择器）…</p>
-        ) : serviceOptions.kind === "error" ? (
-          <div className="status status-error" role="alert">
-            <p>加载服务候选失败：{serviceOptions.message}</p>
-            <button
-              type="button"
-              onClick={() => setServiceReloadToken((token) => token + 1)}
-            >
-              重试
-            </button>
-            <button type="button" onClick={() => setMode({ kind: "list" })}>
-              返回列表
-            </button>
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+            <Spin />
+            <span>正在加载服务候选（创建表单的 service 选择器）…</span>
           </div>
+        ) : serviceOptions.kind === "error" ? (
+          <Alert
+            type="error"
+            showIcon
+            message={`加载服务候选失败：${serviceOptions.message}`}
+            action={
+              <Space size="small">
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setServiceReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+                <Button size="small" onClick={() => setMode({ kind: "list" })}>
+                  返回列表
+                </Button>
+              </Space>
+            }
+          />
         ) : (
           <>
             {serviceOptions.total > serviceOptions.services.length && (
-              <p className="status status-empty">
-                服务总数 {serviceOptions.total} 个，选择器仅列前 {serviceOptions.services.length}
-                个（按 name 排序；列表分页上限 100）；面板服务恒可选择。
-              </p>
+              <Alert
+                className="mb-3"
+                type="info"
+                showIcon
+                message={`服务总数 ${serviceOptions.total} 个，选择器仅列前 ${serviceOptions.services.length} 个（按 name 排序；列表分页上限 100）；面板服务恒可选择。`}
+              />
             )}
             <ServiceEndpointForm
               mode="create"
@@ -663,75 +788,65 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
 
       {mode.kind === "activity" && (
         <div>
-          <div className="table-toolbar">
-            <h4>
-              Activity — <span className="mono">{endpointLabel(mode.endpoint)}</span>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-base font-semibold text-gray-900">
+              Activity — <span className="font-mono text-xs">{endpointLabel(mode.endpoint)}</span>
             </h4>
-            <button type="button" onClick={() => setMode({ kind: "list" })}>
-              返回端点列表
-            </button>
+            <Button onClick={() => setMode({ kind: "list" })}>返回端点列表</Button>
           </div>
-          <p className="status">
+          <p className="mb-3 text-sm text-gray-500">
             操作流水（created_at 升序、同刻 id 升序；只读，无修改 / 删除入口；已删对象需
             VIEW_DELETED 才可查看）
           </p>
           {activityState.kind === "loading" && (
-            <p className="status status-loading">正在加载 Activity…</p>
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+              <Spin />
+              <span>正在加载 Activity…</span>
+            </div>
           )}
           {activityState.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载 Activity 失败：{activityState.message}</p>
-              <button
-                type="button"
-                onClick={() => setActivityReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <Alert
+              type="error"
+              showIcon
+              message={`加载 Activity 失败：${activityState.message}`}
+              action={
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setActivityReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
           {activityState.kind === "success" &&
             (activityState.data.items.length === 0 ? (
-              <p className="status status-empty">该端点暂无操作流水。</p>
+              <Empty className="py-8" description="该端点暂无操作流水。" />
             ) : (
               <>
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>created_at</th>
-                        <th>action</th>
-                        <th>操作者</th>
-                        <th>变更前</th>
-                        <th>变更后</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activityState.data.items.map((item) => (
-                        <tr key={item.id}>
-                          <td className="mono">{item.created_at}</td>
-                          <td className="mono">{item.action}</td>
-                          <td>{item.operator_username}</td>
-                          <td className="mono">{formatAuditData(item.before_data)}</td>
-                          <td className="mono">{formatAuditData(item.after_data)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="pagination">
+                <Table<ActivityItem>
+                  rowKey="id"
+                  size="middle"
+                  pagination={false}
+                  scroll={{ x: "max-content" }}
+                  dataSource={activityState.data.items}
+                  columns={activityColumns}
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-gray-600">
                   <span>
                     共 {activityState.data.total} 条 · 第 {activityState.data.page} /
                     {Math.max(1, Math.ceil(activityState.data.total / activityState.data.page_size))} 页
                   </span>
-                  <button
-                    type="button"
+                  <Button
+                    size="small"
                     disabled={activityState.data.page <= 1}
                     onClick={() => setActivityPage(activityState.data.page - 1)}
                   >
                     上一页
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    size="small"
                     disabled={
                       activityState.data.page >=
                       Math.max(1, Math.ceil(activityState.data.total / activityState.data.page_size))
@@ -739,7 +854,7 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
                     onClick={() => setActivityPage(activityState.data.page + 1)}
                   >
                     下一页
-                  </button>
+                  </Button>
                 </div>
               </>
             ))}

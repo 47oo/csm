@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
+import { Alert, Button, Form, Input, Select, Typography } from "antd";
 import { displayError, isApiError } from "../api/client";
 import { listIpAddresses } from "../api/ipAddresses";
 import { listInterfaces } from "../api/interfaces";
@@ -37,6 +38,11 @@ type IpOptionsState =
   | { kind: "loading" }
   | { kind: "success"; options: IpOption[]; truncated: boolean }
   | { kind: "error"; message: string };
+
+/** Tailwind 工具类（F017：替代原 permissions-note / status 系列样式）。 */
+const STATUS_NOTE_CLASS = "text-sm text-gray-500";
+const STATUS_ERROR_CLASS =
+  "flex flex-col items-start gap-2 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-700";
 
 interface ServiceEndpointFormProps {
   mode: "create" | "edit";
@@ -209,8 +215,8 @@ export default function ServiceEndpointForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCreate, values.service, ipReloadToken]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  // AntD Form onFinish 已 preventDefault；提交入口行为与原生 form onSubmit 一致
+  function handleSubmit() {
     if (submitting) {
       return;
     }
@@ -245,240 +251,240 @@ export default function ServiceEndpointForm({
   const currentIpAddress = endpoint?.ip_address ?? null;
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <Form layout="vertical" colon={false} noValidate onFinish={handleSubmit}>
       {isCreate ? (
-        <div className="form-field">
-          <label htmlFor="service-endpoint-service">
-            service（所属服务，必填；创建后不可更改）
-          </label>
-          <select
+        <Form.Item
+          htmlFor="service-endpoint-service"
+          label="service（所属服务，必填；创建后不可更改）"
+          validateStatus={(serviceError ?? serverFields.service) ? "error" : undefined}
+          help={serviceError ?? serverFields.service}
+        >
+          <Select
             id="service-endpoint-service"
-            name="service"
+            className="w-full"
             value={values.service}
-            onChange={(event) => changeService(event.target.value)}
+            onChange={(value: string) => changeService(value)}
             disabled={submitting}
-          >
-            <option value="">请选择服务…</option>
-            {services.some((item) => item.id === ownerService.id) || (
-              <option value={ownerService.id}>
-                {ownerService.name}（{ownerService.resource.hostname}；当前面板服务）
-              </option>
-            )}
-            {services.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}（{item.resource.hostname}）
-              </option>
-            ))}
-          </select>
-          {(serviceError ?? serverFields.service) && (
-            <p className="field-error" role="alert">
-              {serviceError ?? serverFields.service}
-            </p>
-          )}
-        </div>
+            options={[
+              { value: "", label: "请选择服务…" },
+              ...(services.some((item) => item.id === ownerService.id)
+                ? []
+                : [
+                    {
+                      value: ownerService.id,
+                      label: `${ownerService.name}（${ownerService.resource.hostname}；当前面板服务）`,
+                    },
+                  ]),
+              ...services.map((item) => ({
+                value: item.id,
+                label: `${item.name}（${item.resource.hostname}）`,
+              })),
+            ]}
+          />
+        </Form.Item>
       ) : (
-        <div className="form-field">
-          <label htmlFor="service-endpoint-service-readonly">
-            service（所属服务，创建后不可更改）
-          </label>
-          <output id="service-endpoint-service-readonly" className="mono">
+        <Form.Item
+          htmlFor="service-endpoint-service-readonly"
+          label="service（所属服务，创建后不可更改）"
+          validateStatus={serverFields.service ? "error" : undefined}
+          help={serverFields.service}
+        >
+          <Typography.Text id="service-endpoint-service-readonly" className="font-mono">
             {currentService !== null
               ? `${currentService.name}（${currentService.resource.hostname}）`
               : "未知（服务引用缺失）"}
-          </output>
-          {serverFields.service && (
-            <p className="field-error" role="alert">
-              {serverFields.service}
-            </p>
-          )}
-        </div>
+          </Typography.Text>
+        </Form.Item>
       )}
 
       {isCreate ? (
-        <div className="form-field">
-          <label htmlFor="service-endpoint-ip-address">
-            ip_address（引用 IP，必填；创建后不可更改；须已绑定该服务所属资源的接口）
-          </label>
-          <select
+        <Form.Item
+          htmlFor="service-endpoint-ip-address"
+          label="ip_address（引用 IP，必填；创建后不可更改；须已绑定该服务所属资源的接口）"
+          validateStatus={(ipAddressError ?? serverFields.ip_address) ? "error" : undefined}
+          help={ipAddressError ?? serverFields.ip_address}
+        >
+          <Select
             id="service-endpoint-ip-address"
-            name="ip_address"
+            className="w-full"
             value={values.ipAddress}
-            onChange={(event) => setField("ipAddress", event.target.value)}
+            onChange={(value: string) => setField("ipAddress", value)}
             disabled={submitting || values.service === "" || ipOptions.kind !== "success"}
-          >
-            <option value="">
-              {ipOptions.kind === "success" && ipOptions.options.length === 0
-                ? "无候选 IP（该资源无已绑定未删除的 IP）"
-                : "请选择 IP 地址…"}
-            </option>
-            {ipOptions.kind === "success" &&
-              ipOptions.options.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.address}（接口 {option.interfaceName} · 网络 {option.networkName}）
-                </option>
-              ))}
-          </select>
-          {(ipAddressError ?? serverFields.ip_address) && (
-            <p className="field-error" role="alert">
-              {ipAddressError ?? serverFields.ip_address}
+            options={[
+              {
+                value: "",
+                label:
+                  ipOptions.kind === "success" && ipOptions.options.length === 0
+                    ? "无候选 IP（该资源无已绑定未删除的 IP）"
+                    : "请选择 IP 地址…",
+              },
+              ...(ipOptions.kind === "success"
+                ? ipOptions.options.map((option) => ({
+                    value: option.id,
+                    label: `${option.address}（接口 ${option.interfaceName} · 网络 ${option.networkName}）`,
+                  }))
+                : []),
+            ]}
+          />
+          {ipOptions.kind === "idle" && (
+            <p className={STATUS_NOTE_CLASS}>
+              请先选择服务，再选择其归属资源上已绑定的 IP。
             </p>
           )}
-          {ipOptions.kind === "idle" && (
-            <p className="permissions-note">请先选择服务，再选择其归属资源上已绑定的 IP。</p>
-          )}
           {ipOptions.kind === "loading" && (
-            <p className="status status-loading">正在加载候选 IP（该服务所属资源的接口与已绑定 IP）…</p>
+            <p className={STATUS_NOTE_CLASS}>
+              正在加载候选 IP（该服务所属资源的接口与已绑定 IP）…
+            </p>
           )}
           {ipOptions.kind === "error" && (
-            <div className="status status-error" role="alert">
+            <div className={STATUS_ERROR_CLASS} role="alert">
               <p>加载候选 IP 失败：{ipOptions.message}</p>
-              <button
-                type="button"
+              <Button
+                size="small"
+                htmlType="button"
                 onClick={() => setIpReloadToken((token) => token + 1)}
                 disabled={submitting}
               >
                 重试
-              </button>
+              </Button>
             </div>
           )}
           {ipOptions.kind === "success" && ipOptions.truncated && (
-            <p className="status status-empty">
+            <p className={STATUS_NOTE_CLASS}>
               候选 IP 列表超过单页上限 100，仅显示前 {ipOptions.options.length} 条；服务端仍按全量校验归属与唯一。
             </p>
           )}
-        </div>
+        </Form.Item>
       ) : (
-        <div className="form-field">
-          <label htmlFor="service-endpoint-ip-address-readonly">
-            ip_address（引用 IP，创建后不可更改）
-          </label>
-          <output id="service-endpoint-ip-address-readonly" className="mono">
+        <Form.Item
+          htmlFor="service-endpoint-ip-address-readonly"
+          label="ip_address（引用 IP，创建后不可更改）"
+          validateStatus={serverFields.ip_address ? "error" : undefined}
+          help={serverFields.ip_address}
+        >
+          <Typography.Text id="service-endpoint-ip-address-readonly" className="font-mono">
             {currentIpAddress !== null
               ? `${currentIpAddress.address}（接口 ${currentIpAddress.interface.name} · 网络 ${currentIpAddress.network.name}）`
               : "未知（IP 引用缺失）"}
-          </output>
-          {serverFields.ip_address && (
-            <p className="field-error" role="alert">
-              {serverFields.ip_address}
-            </p>
-          )}
-        </div>
+          </Typography.Text>
+        </Form.Item>
       )}
 
-      <div className="form-field">
-        <label htmlFor="service-endpoint-protocol">
-          protocol（必填；仅 TCP / UDP 大写规范值）
-        </label>
-        <select
+      <Form.Item
+        htmlFor="service-endpoint-protocol"
+        label="protocol（必填；仅 TCP / UDP 大写规范值）"
+        validateStatus={fieldError("protocol") ? "error" : undefined}
+        help={fieldError("protocol")}
+      >
+        <Select
           id="service-endpoint-protocol"
-          name="protocol"
+          className="w-full"
           value={values.protocol}
-          onChange={(event) => setField("protocol", event.target.value as EndpointProtocol)}
+          onChange={(value: EndpointProtocol) => setField("protocol", value)}
           disabled={submitting}
-        >
-          <option value="TCP">TCP</option>
-          <option value="UDP">UDP</option>
-        </select>
-        {fieldError("protocol") && (
-          <p className="field-error" role="alert">
-            {fieldError("protocol")}
-          </p>
-        )}
-      </div>
+          options={[
+            { value: "TCP", label: "TCP" },
+            { value: "UDP", label: "UDP" },
+          ]}
+        />
+      </Form.Item>
 
-      <div className="form-field">
-        <label htmlFor="service-endpoint-port">port（必填；整数 1–65535，含端点）</label>
-        <input
+      <Form.Item
+        htmlFor="service-endpoint-port"
+        label="port（必填；整数 1–65535，含端点）"
+        validateStatus={fieldError("port") ? "error" : undefined}
+        help={fieldError("port")}
+      >
+        <Input
           id="service-endpoint-port"
-          name="port"
-          type="text"
           value={values.port}
           onChange={(event) => setField("port", event.target.value)}
           disabled={submitting}
           placeholder="如 6818；0、65536、负数、小数均非法（服务端同样校验）"
         />
-        {fieldError("port") && (
-          <p className="field-error" role="alert">
-            {fieldError("port")}
-          </p>
-        )}
-      </div>
+      </Form.Item>
 
-      <div className="form-field">
-        <label htmlFor="service-endpoint-description">description（描述，可选）</label>
-        <textarea
+      <Form.Item
+        htmlFor="service-endpoint-description"
+        label="description（描述，可选）"
+        validateStatus={serverFields.description ? "error" : undefined}
+        help={serverFields.description}
+      >
+        <Input.TextArea
           id="service-endpoint-description"
-          name="description"
           rows={3}
           value={values.description}
           onChange={(event) => setField("description", event.target.value)}
           disabled={submitting}
           placeholder="可选，无长度上限；编辑时清空表示删除描述（显式置 null）"
         />
-        {serverFields.description && (
-          <p className="field-error" role="alert">
-            {serverFields.description}
-          </p>
-        )}
-      </div>
+      </Form.Item>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
-          <p>
-            {serverError.message}
-            {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
-          </p>
-          {unmappedServerFields.length > 0 && (
-            <ul>
-              {unmappedServerFields.map(({ path, message }) => (
-                <li key={path}>
-                  {path}：{message}
-                </li>
-              ))}
-            </ul>
-          )}
-          {serverError.references.length > 0 && (
-            <ul>
-              {serverError.references.map((reference) => (
-                <li key={`${reference.object_type}-${reference.object_id}`}>
-                  引用对象：{reference.label ?? reference.object_id}（{reference.object_type}）
-                </li>
-              ))}
-            </ul>
-          )}
-          {serverError.dependencyConflicts.length > 0 && (
-            <ul>
-              {serverError.dependencyConflicts.map((conflict) => (
-                <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                  {conflict.object_type === "service"
-                    ? `所属服务（${conflict.object_id}）仍处于已删除状态或已不存在`
-                    : conflict.object_type === "ip_address"
-                      ? `引用的 IP 地址（${conflict.object_id}）仍处于已删除状态或已不存在`
-                      : conflict.object_type === "interface"
-                        ? `IP 绑定的接口（${conflict.object_id}）仍处于已删除状态或已不存在`
-                        : `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态`}
-                </li>
-              ))}
-            </ul>
-          )}
-          {serverError.versionConflict && onRefresh && (
-            <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
-                刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
-            </p>
-          )}
-        </div>
+        <Alert
+          type="error"
+          className="mb-6"
+          message={`${serverError.message}${
+            serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""
+          }`}
+          description={
+            unmappedServerFields.length > 0 ||
+            serverError.references.length > 0 ||
+            serverError.dependencyConflicts.length > 0 ||
+            (serverError.versionConflict && onRefresh) ? (
+              <div className="space-y-2">
+                {unmappedServerFields.length > 0 && (
+                  <ul className="list-disc pl-5">
+                    {unmappedServerFields.map(({ path, message }) => (
+                      <li key={path}>
+                        {path}：{message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {serverError.references.length > 0 && (
+                  <ul className="list-disc pl-5">
+                    {serverError.references.map((reference) => (
+                      <li key={`${reference.object_type}-${reference.object_id}`}>
+                        引用对象：{reference.label ?? reference.object_id}（{reference.object_type}）
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {serverError.dependencyConflicts.length > 0 && (
+                  <ul className="list-disc pl-5">
+                    {serverError.dependencyConflicts.map((conflict) => (
+                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                        {conflict.object_type === "service"
+                          ? `所属服务（${conflict.object_id}）仍处于已删除状态或已不存在`
+                          : conflict.object_type === "ip_address"
+                            ? `引用的 IP 地址（${conflict.object_id}）仍处于已删除状态或已不存在`
+                            : conflict.object_type === "interface"
+                              ? `IP 绑定的接口（${conflict.object_id}）仍处于已删除状态或已不存在`
+                              : `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态`}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {serverError.versionConflict && onRefresh && (
+                  <Button htmlType="button" onClick={onRefresh} disabled={submitting}>
+                    刷新最新数据（放弃本次未保存的修改，重做变更）
+                  </Button>
+                )}
+              </div>
+            ) : undefined
+          }
+        />
       )}
 
-      <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+      <div className="flex gap-3">
+        <Button type="primary" htmlType="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button htmlType="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
-    </form>
+    </Form>
   );
 }

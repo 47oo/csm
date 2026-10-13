@@ -1,4 +1,6 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
+import { Alert, Button, Empty, Form, Input, Select, Spin, Table } from "antd";
+import type { TableProps } from "antd";
 import {
   describeAuditQueryError,
   listAudit,
@@ -96,7 +98,7 @@ function formatAuditDataJson(data: Record<string, unknown> | null): string {
 }
 
 /**
- * 完整审计查询面板（F015，Contract §2；§22/T25/T26；DR-224）：
+ * 完整审计查询面板（F015，Contract §2；§22/T25/T26；DR-22）：
  * - 只读查询：GET /api/v1/audit（AUDIT_READ，仅 ADMIN）；过滤条件 AND 组合
  *   （operator 精确匹配 / object_type / object_id（须同现）/ action /
  *   created_from–created_to 闭区间，本地镜像校验见 auditQueryForm.ts）；
@@ -104,6 +106,9 @@ function formatAuditDataJson(data: Record<string, unknown> | null): string {
  *   同刻 id 升序由服务端保证）；空结果 200 显式区分，绝不把错误伪装成空列表；
  * - 行详情：完整 before/after 快照 JSON（不含密码 / 令牌，I-2）；
  * - 无修改 / 删除 / 清空入口（A8/A30/T36）；Audit 持续保留、查询幂等（A5/A9）。
+ *
+ * F017：控件层迁移 Ant Design + Tailwind（props / API 调用 / 过滤与分页参数 /
+ * 四态 / 权限 / 行详情 / 文案均保持不变）。
  */
 export default function AuditQueryPanel() {
   // 筛选表单草稿与本地校验错误：点击“筛选”才解析并应用（避免每次击键发请求）
@@ -147,8 +152,8 @@ export default function AuditQueryPanel() {
     };
   }, [query, reloadToken]);
 
-  function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /** 点击“筛选”才解析并应用草稿（提交时机由 AntD Form onFinish 接管）。 */
+  function applyFilters() {
     const parsed = parseAuditQueryFormValues(draft);
     if (!parsed.ok) {
       // 本地镜像校验失败（operator 超长 / object_id 缺 object_type / 非 UUID /
@@ -194,193 +199,262 @@ export default function AuditQueryPanel() {
     return draftErrors[key];
   }
 
+  /** 列定义（文案与数据口径同旧版；排序仅 created_at，由表头按钮切换）。 */
+  const columns: TableProps<AuditRow>["columns"] = [
+    {
+      title: (
+        <Button type="link" size="small" className="px-0 font-semibold" onClick={toggleOrder}>
+          created_at
+          {query.order === "asc" ? " ▲" : " ▼"}
+        </Button>
+      ),
+      dataIndex: "created_at",
+      key: "created_at",
+      width: 180,
+      render: (value: string) => <span className="font-mono">{value}</span>,
+    },
+    {
+      title: "action",
+      dataIndex: "action",
+      key: "action",
+      render: (value: string) => <span className="font-mono">{value}</span>,
+    },
+    {
+      title: "object_type",
+      dataIndex: "object_type",
+      key: "object_type",
+      render: (value: string) => <span className="font-mono">{value}</span>,
+    },
+    {
+      title: "object_id",
+      dataIndex: "object_id",
+      key: "object_id",
+      render: (value: string) => <span className="font-mono">{value}</span>,
+    },
+    {
+      title: "操作者",
+      key: "operator",
+      render: (_, row) => (
+        <span>
+          {row.operator_username}
+          {row.operator_user_id === null && (
+            <span className="ml-1 text-gray-400">（系统）</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      title: "变更前（摘要）",
+      key: "before_data",
+      width: 260,
+      render: (_, row) => (
+        <div className="max-w-64 text-xs leading-5 break-all">
+          {summarizeAuditData(row.before_data)}
+        </div>
+      ),
+    },
+    {
+      title: "变更后（摘要）",
+      key: "after_data",
+      width: 260,
+      render: (_, row) => (
+        <div className="max-w-64 text-xs leading-5 break-all">
+          {summarizeAuditData(row.after_data)}
+        </div>
+      ),
+    },
+    {
+      title: "操作",
+      key: "row-detail",
+      render: (_, row) => (
+        <Button
+          type="link"
+          size="small"
+          className="px-0"
+          onClick={() =>
+            setSelected((current) => (current?.id === row.id ? null : row))
+          }
+        >
+          {selected?.id === row.id ? "收起详情" : "详情"}
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div>
-      <p className="status">
+      <p className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm leading-6 text-gray-600">
         跨对象完整审计查询（只读；operator 精确匹配 operator_username，服务端
         trim+小写归一；object_id 须与 object_type 同现；created_from/created_to
         为闭区间、按 UTC 解释；同刻记录按 id 升序）。无修改 / 删除 / 清空入口，
         审计持续保留（§22）。
       </p>
 
-      <form className="filter-form" onSubmit={applyFilters}>
-        <div className="form-field">
-          <label htmlFor="audit-filter-operator">操作者（operator_username 精确匹配）</label>
-          <input
-            id="audit-filter-operator"
-            type="text"
-            value={draft.operator}
-            onChange={(event) => setDraft({ ...draft, operator: event.target.value })}
-            placeholder="如 user01（trim 后 ≤64 字符）"
-          />
-          {fieldError("operator") && (
-            <p className="field-error">{fieldError("operator")}</p>
-          )}
+      <Form layout="vertical" onFinish={applyFilters}>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div>
+            <label
+              htmlFor="audit-filter-operator"
+              className="mb-1 block text-sm text-gray-700"
+            >
+              操作者（operator_username 精确匹配）
+            </label>
+            <Input
+              id="audit-filter-operator"
+              value={draft.operator}
+              onChange={(event) => setDraft({ ...draft, operator: event.target.value })}
+              placeholder="如 user01（trim 后 ≤64 字符）"
+              status={fieldError("operator") ? "error" : undefined}
+            />
+            {fieldError("operator") && (
+              <p className="mt-1 text-xs text-red-500">{fieldError("operator")}</p>
+            )}
+          </div>
+          <div>
+            <label
+              htmlFor="audit-filter-object-type"
+              className="mb-1 block text-sm text-gray-700"
+            >
+              object_type
+            </label>
+            <Select<"" | AuditObjectType>
+              id="audit-filter-object-type"
+              className="w-full"
+              value={draft.objectType}
+              onChange={(value) => setDraft({ ...draft, objectType: value })}
+              options={[{ value: "", label: "全部（默认）" }, ...OBJECT_TYPE_OPTIONS]}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="audit-filter-object-id"
+              className="mb-1 block text-sm text-gray-700"
+            >
+              object_id（UUID，须与 object_type 同现）
+            </label>
+            <Input
+              id="audit-filter-object-id"
+              value={draft.objectId}
+              onChange={(event) => setDraft({ ...draft, objectId: event.target.value })}
+              placeholder="00000000-0000-0000-0000-000000000000"
+              className="font-mono"
+              status={fieldError("objectId") ? "error" : undefined}
+            />
+            {fieldError("objectId") && (
+              <p className="mt-1 text-xs text-red-500">{fieldError("objectId")}</p>
+            )}
+          </div>
+          <div>
+            <label
+              htmlFor="audit-filter-action"
+              className="mb-1 block text-sm text-gray-700"
+            >
+              action
+            </label>
+            <Select<"" | AuditAction>
+              id="audit-filter-action"
+              className="w-full"
+              value={draft.action}
+              onChange={(value) => setDraft({ ...draft, action: value })}
+              options={[{ value: "", label: "全部（默认）" }, ...ACTION_OPTIONS]}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="audit-filter-from"
+              className="mb-1 block text-sm text-gray-700"
+            >
+              created_from（UTC，闭区间含边界）
+            </label>
+            {/* 沿用 datetime-local 字符串语义，与 auditQueryForm 解析保持一致 */}
+            <Input
+              id="audit-filter-from"
+              type="datetime-local"
+              value={draft.createdFrom}
+              onChange={(event) => setDraft({ ...draft, createdFrom: event.target.value })}
+              status={fieldError("createdFrom") ? "error" : undefined}
+            />
+            {fieldError("createdFrom") && (
+              <p className="mt-1 text-xs text-red-500">{fieldError("createdFrom")}</p>
+            )}
+          </div>
+          <div>
+            <label
+              htmlFor="audit-filter-to"
+              className="mb-1 block text-sm text-gray-700"
+            >
+              created_to（UTC，闭区间含边界）
+            </label>
+            <Input
+              id="audit-filter-to"
+              type="datetime-local"
+              value={draft.createdTo}
+              onChange={(event) => setDraft({ ...draft, createdTo: event.target.value })}
+              status={fieldError("createdTo") ? "error" : undefined}
+            />
+            {fieldError("createdTo") && (
+              <p className="mt-1 text-xs text-red-500">{fieldError("createdTo")}</p>
+            )}
+          </div>
         </div>
-        <div className="form-field">
-          <label htmlFor="audit-filter-object-type">object_type</label>
-          <select
-            id="audit-filter-object-type"
-            value={draft.objectType}
-            onChange={(event) =>
-              setDraft({
-                ...draft,
-                objectType: event.target.value as "" | AuditObjectType,
-              })
-            }
-          >
-            <option value="">全部（默认）</option>
-            {OBJECT_TYPE_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+        <div className="mt-4 flex gap-2">
+          <Button type="primary" htmlType="submit">
+            筛选
+          </Button>
+          <Button onClick={resetFilters}>重置</Button>
         </div>
-        <div className="form-field">
-          <label htmlFor="audit-filter-object-id">object_id（UUID，须与 object_type 同现）</label>
-          <input
-            id="audit-filter-object-id"
-            type="text"
-            value={draft.objectId}
-            onChange={(event) => setDraft({ ...draft, objectId: event.target.value })}
-            placeholder="00000000-0000-0000-0000-000000000000"
-            className="mono"
-          />
-          {fieldError("objectId") && (
-            <p className="field-error">{fieldError("objectId")}</p>
-          )}
-        </div>
-        <div className="form-field">
-          <label htmlFor="audit-filter-action">action</label>
-          <select
-            id="audit-filter-action"
-            value={draft.action}
-            onChange={(event) =>
-              setDraft({ ...draft, action: event.target.value as "" | AuditAction })
-            }
-          >
-            <option value="">全部（默认）</option>
-            {ACTION_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="form-field">
-          <label htmlFor="audit-filter-from">created_from（UTC，闭区间含边界）</label>
-          <input
-            id="audit-filter-from"
-            type="datetime-local"
-            value={draft.createdFrom}
-            onChange={(event) => setDraft({ ...draft, createdFrom: event.target.value })}
-          />
-          {fieldError("createdFrom") && (
-            <p className="field-error">{fieldError("createdFrom")}</p>
-          )}
-        </div>
-        <div className="form-field">
-          <label htmlFor="audit-filter-to">created_to（UTC，闭区间含边界）</label>
-          <input
-            id="audit-filter-to"
-            type="datetime-local"
-            value={draft.createdTo}
-            onChange={(event) => setDraft({ ...draft, createdTo: event.target.value })}
-          />
-          {fieldError("createdTo") && (
-            <p className="field-error">{fieldError("createdTo")}</p>
-          )}
-        </div>
-        <div className="filter-actions">
-          <button type="submit">筛选</button>
-          <button type="button" onClick={resetFilters}>
-            重置
-          </button>
-        </div>
-      </form>
+      </Form>
 
       {state.kind === "loading" && (
-        <p className="status status-loading">正在加载审计记录…</p>
+        <div className="mt-2 flex items-center gap-3 py-6 text-gray-500">
+          <Spin />
+          <span>正在加载审计记录…</span>
+        </div>
       )}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载审计记录失败：{state.message}</p>
-          {Object.keys(state.fields).length > 0 && (
-            <ul>
-              {Object.entries(state.fields).map(([field, message]) => (
-                <li key={field}>
-                  {field}：{message}
-                </li>
-              ))}
-            </ul>
-          )}
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <Alert
+          className="mt-2"
+          type="error"
+          message={`加载审计记录失败：${state.message}`}
+          description={
+            <>
+              {Object.keys(state.fields).length > 0 && (
+                <ul className="list-disc pl-5">
+                  {Object.entries(state.fields).map(([field, message]) => (
+                    <li key={field}>
+                      {field}：{message}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Button
+                className="mt-2"
+                onClick={() => setReloadToken((token) => token + 1)}
+              >
+                重试
+              </Button>
+            </>
+          }
+        />
       )}
 
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            没有符合条件的审计记录（当前过滤 / 分页下无数据，非错误）。
-          </p>
+          <Empty
+            className="mt-8"
+            description="没有符合条件的审计记录（当前过滤 / 分页下无数据，非错误）。"
+          />
         ) : (
           <>
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>
-                      <button type="button" className="sort-button" onClick={toggleOrder}>
-                        created_at
-                        {query.order === "asc" ? " ▲" : " ▼"}
-                      </button>
-                    </th>
-                    <th>action</th>
-                    <th>object_type</th>
-                    <th>object_id</th>
-                    <th>操作者</th>
-                    <th>变更前（摘要）</th>
-                    <th>变更后（摘要）</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.data.items.map((row) => (
-                    <tr
-                      key={row.id}
-                      className={selected?.id === row.id ? "row-selected" : undefined}
-                    >
-                      <td className="mono">{row.created_at}</td>
-                      <td className="mono">{row.action}</td>
-                      <td className="mono">{row.object_type}</td>
-                      <td className="mono">{row.object_id}</td>
-                      <td>
-                        {row.operator_username}
-                        {row.operator_user_id === null && (
-                          <span className="unset">（系统）</span>
-                        )}
-                      </td>
-                      <td className="audit-snapshot">{summarizeAuditData(row.before_data)}</td>
-                      <td className="audit-snapshot">{summarizeAuditData(row.after_data)}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="link-button"
-                          onClick={() =>
-                            setSelected((current) => (current?.id === row.id ? null : row))
-                          }
-                        >
-                          {selected?.id === row.id ? "收起详情" : "详情"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="mt-2 overflow-x-auto">
+              <Table<AuditRow>
+                rowKey="id"
+                columns={columns}
+                dataSource={state.data.items}
+                pagination={false}
+                rowClassName={(row) => (selected?.id === row.id ? "[&>td]:bg-blue-50" : "")}
+              />
             </div>
             <Pagination
               page={state.data.page}
@@ -394,37 +468,45 @@ export default function AuditQueryPanel() {
         ))}
 
       {selected !== null && (
-        <div className="panel detail-panel">
-          <div className="table-toolbar">
-            <h3>
-              审计行详情 — <span className="mono">{selected.id}</span>
+        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-semibold">
+              审计行详情 — <span className="font-mono">{selected.id}</span>
             </h3>
-            <button type="button" onClick={() => setSelected(null)}>
-              关闭详情
-            </button>
+            <Button onClick={() => setSelected(null)}>关闭详情</Button>
           </div>
-          <dl className="detail-grid">
-            <dt>id</dt>
-            <dd className="mono">{selected.id}</dd>
-            <dt>action</dt>
-            <dd className="mono">{selected.action}</dd>
-            <dt>object_type</dt>
-            <dd className="mono">{selected.object_type}</dd>
-            <dt>object_id</dt>
-            <dd className="mono">{selected.object_id}</dd>
-            <dt>operator_user_id</dt>
-            <dd className="mono">
-              {selected.operator_user_id ?? <span className="unset">—（系统 / 引导写入）</span>}
+          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] items-start gap-x-6 gap-y-1 text-sm">
+            <dt className="text-gray-500">id</dt>
+            <dd className="font-mono">{selected.id}</dd>
+            <dt className="text-gray-500">action</dt>
+            <dd className="font-mono">{selected.action}</dd>
+            <dt className="text-gray-500">object_type</dt>
+            <dd className="font-mono">{selected.object_type}</dd>
+            <dt className="text-gray-500">object_id</dt>
+            <dd className="font-mono">{selected.object_id}</dd>
+            <dt className="text-gray-500">operator_user_id</dt>
+            <dd className="font-mono">
+              {selected.operator_user_id ?? (
+                <span className="text-gray-400">—（系统 / 引导写入）</span>
+              )}
             </dd>
-            <dt>operator_username</dt>
+            <dt className="text-gray-500">operator_username</dt>
             <dd>{selected.operator_username}</dd>
-            <dt>created_at</dt>
-            <dd className="mono">{selected.created_at}</dd>
+            <dt className="text-gray-500">created_at</dt>
+            <dd className="font-mono">{selected.created_at}</dd>
           </dl>
-          <h4 className="detail-section-title">before_data（变更前快照）</h4>
-          <pre className="json-block">{formatAuditDataJson(selected.before_data)}</pre>
-          <h4 className="detail-section-title">after_data（变更后快照）</h4>
-          <pre className="json-block">{formatAuditDataJson(selected.after_data)}</pre>
+          <h4 className="mt-4 mb-2 text-sm font-semibold text-gray-700">
+            before_data（变更前快照）
+          </h4>
+          <pre className="overflow-auto rounded-md bg-gray-950 p-3 font-mono text-xs leading-5 text-gray-100">
+            {formatAuditDataJson(selected.before_data)}
+          </pre>
+          <h4 className="mt-4 mb-2 text-sm font-semibold text-gray-700">
+            after_data（变更后快照）
+          </h4>
+          <pre className="overflow-auto rounded-md bg-gray-950 p-3 font-mono text-xs leading-5 text-gray-100">
+            {formatAuditDataJson(selected.after_data)}
+          </pre>
         </div>
       )}
     </div>
@@ -450,26 +532,28 @@ function Pagination({
 }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <div className="pagination">
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
       <span>
         共 {total} 条 · 第 {page} / {totalPages} 页
       </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
+      <Button disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
         上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
+      </Button>
+      <Button disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
         下一页
-      </button>
-      <label>
+      </Button>
+      <label className="flex items-center gap-2">
         每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
+        <Select<number>
+          className="w-20"
+          value={appliedPageSize}
+          onChange={(value) => onChangePageSize(value)}
+          options={[
+            { value: 20, label: "20" },
+            { value: 50, label: "50" },
+            { value: 100, label: "100" },
+          ]}
+        />
         条
       </label>
     </div>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Alert, Button, Card } from "antd";
 import type { User } from "../api/auth";
 import {
   createCluster,
@@ -66,17 +67,21 @@ export default function ClusterCreatePage({ user, onCancel, onCreated }: Cluster
   }
 
   return (
-    <section className="panel">
-      <div className="table-toolbar">
-        <h2>新建集群</h2>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+    <Card
+      title="新建集群"
+      className="w-full"
+      extra={
+        <Button htmlType="button" onClick={onCancel} disabled={submitting}>
           返回列表
-        </button>
-      </div>
+        </Button>
+      }
+    >
       {!canWrite ? (
-        <p className="status status-error" role="alert">
-          当前账号没有创建集群的权限（WRITE，服务端鉴权为准）。
-        </p>
+        <Alert
+          type="error"
+          showIcon
+          message="当前账号没有创建集群的权限（WRITE，服务端鉴权为准）。"
+        />
       ) : (
         <ClusterForm
           mode="create"
@@ -86,6 +91,6 @@ export default function ClusterCreatePage({ user, onCancel, onCreated }: Cluster
           onCancel={onCancel}
         />
       )}
-    </section>
+    </Card>
   );
 }

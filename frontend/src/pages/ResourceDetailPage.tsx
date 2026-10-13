@@ -1,4 +1,17 @@
 import { useEffect, useState, type ReactNode } from "react";
+import {
+  Alert,
+  Button,
+  Card,
+  Descriptions,
+  Empty,
+  Modal,
+  Spin,
+  Table,
+  Tag,
+  type DescriptionsProps,
+  type TableProps,
+} from "antd";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import {
@@ -12,6 +25,7 @@ import {
   type Resource,
   type ResourceActionError,
   type ResourceListResponse,
+  type ResourceStatus,
   type UpdateResourcePayload,
   type VirtualMachine,
 } from "../api/resources";
@@ -33,6 +47,32 @@ interface ResourceDetailPageProps {
   onBack: () => void;
   /** 关系跳转：打开另一资源详情（VM ↔ Host；携带 deleted 上下文）。 */
   onOpenResource: (id: string, deleted: boolean) => void;
+}
+
+/** 资源状态徽标配色（沿用旧版 badge-idle/alloc/down/unknown 的绿/蓝/红/灰）。 */
+const STATUS_TAG_COLOR: Record<ResourceStatus, string> = {
+  IDLE: "success",
+  ALLOC: "processing",
+  DOWN: "error",
+  UNKNOWN: "default",
+};
+
+/** F017：详情区块标题（Tailwind 替代旧 .detail-section-title；首个区块不加 mt-6）。 */
+function SectionTitle({ children, first = false }: { children: ReactNode; first?: boolean }) {
+  return (
+    <h3 className={`${first ? "" : "mt-6"} mb-1 text-base font-semibold text-gray-900`}>
+      {children}
+    </h3>
+  );
+}
+
+/** F017：JSON 展示块（Tailwind 替代旧 .json-block）。 */
+function JsonBlock({ value }: { value: unknown }) {
+  return (
+    <pre className="m-0 max-w-full overflow-x-auto rounded-md border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm">
+      {JSON.stringify(value, null, 2)}
+    </pre>
+  );
 }
 
 type DetailState =
@@ -155,7 +195,7 @@ function buildUpdatePayload(
 
 /** hardware 未知值占位（Contract §2.4：未知存 null，不以 0 代替）。 */
 function hardwareUnknown(): ReactNode {
-  return <span className="unset">—（未知）</span>;
+  return <span className="text-gray-400">—（未知）</span>;
 }
 
 /** 字符串字段：null / 缺失 → 占位，绝不伪装成空串。 */
@@ -198,43 +238,44 @@ function formatMemoryMiB(memoryMb: number): string {
 function HardwarePanel({ hardware }: { hardware: Hardware | null }) {
   const metadataEmpty =
     hardware === null || Object.keys(hardware.metadata).length === 0;
+  const items: DescriptionsProps["items"] = [
+    { key: "manufacturer", label: "manufacturer（厂商）", children: hardwareText(hardware?.manufacturer) },
+    { key: "model", label: "model（型号）", children: hardwareText(hardware?.model) },
+    { key: "serial_number", label: "serial_number（序列号）", children: hardwareText(hardware?.serial_number) },
+    { key: "cpu_model", label: "cpu_model（CPU 型号）", children: hardwareText(hardware?.cpu_model) },
+    { key: "cpu_sockets", label: "cpu_sockets（CPU 插槽数）", children: hardwareNumber(hardware?.cpu_sockets) },
+    {
+      key: "cpu_cores",
+      label: "cpu_cores（物理核心总数，不含超线程）",
+      children: hardwareNumber(hardware?.cpu_cores),
+    },
+    {
+      key: "memory_mb",
+      label: "memory_mb（内存容量）",
+      children: hardwareNumber(hardware?.memory_mb, formatMemoryMiB),
+    },
+    { key: "gpu_model", label: "gpu_model（GPU 型号）", children: hardwareText(hardware?.gpu_model) },
+    {
+      key: "gpu_count",
+      label: "gpu_count（GPU 数量）",
+      children: hardwareNumber(hardware?.gpu_count, (n) =>
+        n === 0 ? "0（明确无 GPU）" : String(n),
+      ),
+    },
+    {
+      key: "hardware_metadata",
+      label: "hardware.metadata（厂商特有扩展）",
+      children: metadataEmpty ? (
+        <span className="text-gray-400">—（无扩展数据）</span>
+      ) : (
+        <JsonBlock value={hardware?.metadata} />
+      ),
+    },
+  ];
   return (
     <>
-      <h3 className="detail-section-title">Hardware（硬件信息）</h3>
-      <dl className="detail-grid">
-        <dt>manufacturer（厂商）</dt>
-        <dd>{hardwareText(hardware?.manufacturer)}</dd>
-        <dt>model（型号）</dt>
-        <dd>{hardwareText(hardware?.model)}</dd>
-        <dt>serial_number（序列号）</dt>
-        <dd>{hardwareText(hardware?.serial_number)}</dd>
-        <dt>cpu_model（CPU 型号）</dt>
-        <dd>{hardwareText(hardware?.cpu_model)}</dd>
-        <dt>cpu_sockets（CPU 插槽数）</dt>
-        <dd>{hardwareNumber(hardware?.cpu_sockets)}</dd>
-        <dt>cpu_cores（物理核心总数，不含超线程）</dt>
-        <dd>{hardwareNumber(hardware?.cpu_cores)}</dd>
-        <dt>memory_mb（内存容量）</dt>
-        <dd>{hardwareNumber(hardware?.memory_mb, formatMemoryMiB)}</dd>
-        <dt>gpu_model（GPU 型号）</dt>
-        <dd>{hardwareText(hardware?.gpu_model)}</dd>
-        <dt>gpu_count（GPU 数量）</dt>
-        <dd>
-          {hardwareNumber(hardware?.gpu_count, (n) =>
-            n === 0 ? "0（明确无 GPU）" : String(n),
-          )}
-        </dd>
-        <dt>hardware.metadata（厂商特有扩展）</dt>
-        <dd>
-          {metadataEmpty ? (
-            <span className="unset">—（无扩展数据）</span>
-          ) : (
-            <pre className="json-block">
-              {JSON.stringify(hardware?.metadata, null, 2)}
-            </pre>
-          )}
-        </dd>
-      </dl>
+      <SectionTitle>Hardware（硬件信息）</SectionTitle>
+      <Descriptions column={1} items={items} contentStyle={{ overflowWrap: "anywhere" }} />
     </>
   );
 }
@@ -258,7 +299,7 @@ function vmNumber(
   render: (value: number) => string = (n) => String(n),
 ): ReactNode {
   if (value === null) {
-    return <span className="unset">—（未知）</span>;
+    return <span className="text-gray-400">—（未知）</span>;
   }
   return render(value);
 }
@@ -279,39 +320,52 @@ function VirtualMachinePanel({
   resourceDeleted: boolean;
   onOpenResource: (id: string, deleted: boolean) => void;
 }) {
+  const items: DescriptionsProps["items"] = [
+    {
+      key: "host",
+      label: "host（宿主机）",
+      children: (
+        <span>
+          <span className="font-mono">{virtualMachine.host.hostname}</span>
+          {!resourceDeleted && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => onOpenResource(virtualMachine.host_resource_id, false)}
+            >
+              查看宿主机
+            </Button>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "host_resource_id",
+      label: "host_resource_id",
+      children: <span className="font-mono">{virtualMachine.host_resource_id}</span>,
+    },
+    { key: "vcpu", label: "vcpu（vCPU 个数）", children: vmNumber(virtualMachine.vcpu) },
+    {
+      key: "memory_mb",
+      label: "memory_mb（内存容量）",
+      children: vmNumber(virtualMachine.memory_mb, formatMemoryMiB),
+    },
+    {
+      key: "disk_gb",
+      label: "disk_gb（磁盘容量）",
+      children: vmNumber(virtualMachine.disk_gb, formatDiskGb),
+    },
+    {
+      key: "hypervisor",
+      label: "hypervisor（虚拟化管理程序）",
+      children: virtualMachine.hypervisor ?? <span className="text-gray-400">—（未知）</span>,
+    },
+  ];
   return (
     <>
-      <h3 className="detail-section-title">Virtual Machine（虚拟机信息）</h3>
-      <dl className="detail-grid">
-        <dt>host（宿主机）</dt>
-        <dd>
-          <span className="mono">{virtualMachine.host.hostname}</span>
-          {!resourceDeleted && (
-            <>
-              {" "}
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => onOpenResource(virtualMachine.host_resource_id, false)}
-              >
-                查看宿主机
-              </button>
-            </>
-          )}
-        </dd>
-        <dt>host_resource_id</dt>
-        <dd className="mono">{virtualMachine.host_resource_id}</dd>
-        <dt>vcpu（vCPU 个数）</dt>
-        <dd>{vmNumber(virtualMachine.vcpu)}</dd>
-        <dt>memory_mb（内存容量）</dt>
-        <dd>{vmNumber(virtualMachine.memory_mb, formatMemoryMiB)}</dd>
-        <dt>disk_gb（磁盘容量）</dt>
-        <dd>{vmNumber(virtualMachine.disk_gb, formatDiskGb)}</dd>
-        <dt>hypervisor（虚拟化管理程序）</dt>
-        <dd>
-          {virtualMachine.hypervisor ?? <span className="unset">—（未知）</span>}
-        </dd>
-      </dl>
+      <SectionTitle>Virtual Machine（虚拟机信息）</SectionTitle>
+      <Descriptions column={1} items={items} contentStyle={{ overflowWrap: "anywhere" }} />
     </>
   );
 }
@@ -370,90 +424,185 @@ function HostVirtualMachinesPanel({
     };
   }, [hostId, reloadToken]);
 
+  /** 列定义（文案与数据口径同旧版 data-table；排序由服务端 hostname 升序保证）。 */
+  const columns: TableProps<Resource>["columns"] = [
+    {
+      title: "hostname",
+      dataIndex: "hostname",
+      key: "hostname",
+      render: (value: string) => <span className="font-mono">{value}</span>,
+    },
+    { title: "角色", dataIndex: "role", key: "role" },
+    {
+      title: "状态",
+      dataIndex: "status",
+      key: "status",
+      render: (value: ResourceStatus) => <Tag color={STATUS_TAG_COLOR[value]}>{value}</Tag>,
+    },
+    {
+      title: "vcpu",
+      key: "vcpu",
+      render: (_, vm) => vmNumber(vm.virtual_machine?.vcpu ?? null),
+    },
+    {
+      title: "memory_mb",
+      key: "memory_mb",
+      render: (_, vm) =>
+        vmNumber(vm.virtual_machine?.memory_mb ?? null, (n) => `${n} MiB`),
+    },
+    {
+      title: "disk_gb",
+      key: "disk_gb",
+      render: (_, vm) =>
+        vmNumber(vm.virtual_machine?.disk_gb ?? null, (n) =>
+          n === 0 ? "0 GiB（明确无磁盘）" : `${n} GiB`,
+        ),
+    },
+    {
+      title: "hypervisor",
+      key: "hypervisor",
+      render: (_, vm) =>
+        vm.virtual_machine?.hypervisor ?? <span className="text-gray-400">—</span>,
+    },
+    {
+      title: "操作",
+      key: "actions",
+      render: (_, vm) => (
+        <Button
+          type="link"
+          size="small"
+          className="px-0"
+          onClick={() => onOpenResource(vm.id, false)}
+        >
+          查看
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <>
-      <h3 className="detail-section-title">Virtual Machines（虚拟机）</h3>
+      <SectionTitle>Virtual Machines（虚拟机）</SectionTitle>
       {state.kind === "loading" && (
-        <p className="status status-loading">正在加载该宿主机上的虚拟机…</p>
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+          <Spin />
+          <span>正在加载该宿主机上的虚拟机…</span>
+        </div>
       )}
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载虚拟机列表失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <Alert
+          type="error"
+          showIcon
+          message={`加载虚拟机列表失败：${state.message}`}
+          action={
+            <Button size="small" danger onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            该宿主机上暂无未删除的虚拟机（非错误）。
-          </p>
+          <Empty
+            className="py-8"
+            description="该宿主机上暂无未删除的虚拟机（非错误）。"
+          />
         ) : (
           <>
             {state.data.total > state.data.items.length && (
-              <p className="status status-empty">
-                虚拟机总数 {state.data.total} 台，仅显示前 {state.data.items.length} 台
-                （按 hostname 排序；列表分页上限 100）。
-              </p>
+              <Alert
+                className="mb-3"
+                type="info"
+                showIcon
+                message={`虚拟机总数 ${state.data.total} 台，仅显示前 ${state.data.items.length} 台（按 hostname 排序；列表分页上限 100）。`}
+              />
             )}
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>hostname</th>
-                    <th>角色</th>
-                    <th>状态</th>
-                    <th>vcpu</th>
-                    <th>memory_mb</th>
-                    <th>disk_gb</th>
-                    <th>hypervisor</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.data.items.map((vm) => (
-                    <tr key={vm.id}>
-                      <td className="mono">{vm.hostname}</td>
-                      <td>{vm.role}</td>
-                      <td>
-                        <span className={`badge badge-${vm.status.toLowerCase()}`}>
-                          {vm.status}
-                        </span>
-                      </td>
-                      <td>{vmNumber(vm.virtual_machine?.vcpu ?? null)}</td>
-                      <td>
-                        {vmNumber(vm.virtual_machine?.memory_mb ?? null, (n) =>
-                          `${n} MiB`,
-                        )}
-                      </td>
-                      <td>
-                        {vmNumber(vm.virtual_machine?.disk_gb ?? null, (n) =>
-                          n === 0 ? "0 GiB（明确无磁盘）" : `${n} GiB`,
-                        )}
-                      </td>
-                      <td>
-                        {vm.virtual_machine?.hypervisor ?? (
-                          <span className="unset">—</span>
-                        )}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          onClick={() => onOpenResource(vm.id, false)}
-                        >
-                          查看
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table<Resource>
+              rowKey="id"
+              size="middle"
+              pagination={false}
+              scroll={{ x: "max-content" }}
+              dataSource={state.data.items}
+              columns={columns}
+            />
           </>
         ))}
     </>
   );
+}
+
+/** Overview 六要素（§18）：Hostname / Cluster / Type / Role / Status / Description。 */
+function overviewItems(resource: Resource): DescriptionsProps["items"] {
+  return [
+    {
+      key: "hostname",
+      label: "hostname",
+      children: <span className="font-mono">{resource.hostname}</span>,
+    },
+    {
+      key: "cluster",
+      label: "cluster",
+      children: (
+        <span>
+          <span className="font-mono">{resource.cluster.code}</span> — {resource.cluster.name}
+          <span className="text-gray-400">（id: {resource.cluster.id}）</span>
+        </span>
+      ),
+    },
+    {
+      key: "type",
+      label: "type",
+      children: <span className="font-mono">{resource.resource_type}</span>,
+    },
+    { key: "role", label: "role", children: resource.role },
+    {
+      key: "status",
+      label: "status",
+      children: (
+        <span>
+          <Tag color={STATUS_TAG_COLOR[resource.status]}>{resource.status}</Tag>
+          {resource.deleted_at !== null && (
+            <Tag color="red" className="ml-2">
+              已删除
+            </Tag>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "description",
+      label: "description",
+      children: resource.description ?? <span className="text-gray-400">未设置（null）</span>,
+    },
+  ];
+}
+
+/** 系统信息（metadata / version / created_at / updated_at / deleted_at）。 */
+function systemItems(resource: Resource): DescriptionsProps["items"] {
+  return [
+    { key: "metadata", label: "metadata", children: <JsonBlock value={resource.metadata} /> },
+    { key: "version", label: "version", children: resource.version },
+    {
+      key: "created_at",
+      label: "created_at",
+      children: <span className="font-mono">{resource.created_at}</span>,
+    },
+    {
+      key: "updated_at",
+      label: "updated_at",
+      children: <span className="font-mono">{resource.updated_at}</span>,
+    },
+    {
+      key: "deleted_at",
+      label: "deleted_at",
+      children:
+        resource.deleted_at !== null ? (
+          <span className="font-mono">{resource.deleted_at}</span>
+        ) : (
+          <span className="text-gray-400">未删除（null）</span>
+        ),
+    },
+  ];
 }
 
 /**
@@ -476,6 +625,11 @@ function HostVirtualMachinesPanel({
  *   dependency_deleted（所属 Cluster 仍软删或宿主机 Host 仍软删 / 缺失，DR-63）
  *   明确呈现；
  * - 操作按钮按服务端返回的 permissions 显示，隐藏不替代鉴权（服务端仍 403/404）。
+ *
+ * F017：控件层迁移 Ant Design + Tailwind（props / API 调用与参数 / 详情各区域 /
+ * 编辑与删除恢复流程 / 软删 / 权限门控 / 四态 / 文案均保持不变）。原行内二次确认
+ * 改为 Modal：确认框开启期间错误（含引用列表、依赖冲突列表、版本冲突刷新按钮）
+ * 在框内呈现，取消后仍保留在操作区，行为口径同迁移前（失败后确认框保持待确认状态）。
  */
 export default function ResourceDetailPage({
   resourceId,
@@ -627,221 +781,241 @@ export default function ResourceDetailPage({
       });
   }
 
+  // 操作错误提示（AntD Alert 自带 role="alert"）：确认框开启期间渲染在 Modal 内，
+  // 取消确认后保留在操作区展示（同迁移前的呈现位置与文案）
+  const actionErrorAlert = actionError ? (
+    <Alert
+      type="error"
+      showIcon
+      message={actionError.message}
+      description={
+        actionError.references.length > 0 ||
+        actionError.conflicts.length > 0 ||
+        actionError.versionConflict ? (
+          <>
+            {actionError.references.length > 0 && (
+              <ul className="mt-1 list-disc pl-5">
+                {actionError.references.map((reference) => (
+                  <li key={`${reference.object_type}-${reference.object_id}`}>
+                    {referenceItemText(reference)}（{reference.object_id}）
+                  </li>
+                ))}
+              </ul>
+            )}
+            {actionError.conflicts.length > 0 && (
+              <ul className="mt-1 list-disc pl-5">
+                {actionError.conflicts.map((conflict) => (
+                  <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                    {conflictItemText(conflict)}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {actionError.versionConflict && (
+              <Button
+                className="mt-2"
+                onClick={() => {
+                  setActionError(null);
+                  setReloadToken((token) => token + 1);
+                }}
+                disabled={actionBusy}
+              >
+                刷新最新数据
+              </Button>
+            )}
+          </>
+        ) : undefined
+      }
+    />
+  ) : null;
+
+  // 二次确认框的可见口径同迁移前的行内确认块：仅 Success + 查看模式渲染
+  const confirmVisible = state.kind === "success" && mode === "view";
+
+  // 删除确认文案（BARE_METAL 追加 VM 引用拒绝说明，口径同迁移前行内确认块）
+  const deleteConfirmTitle = `确认软删除该资源？（不级联删除关联对象；软删后同集群 hostname 可被新资源复用${
+    state.kind === "success" && state.resource.resource_type === "BARE_METAL"
+      ? "；若仍有未删除的虚拟机（VM）引用本宿主机，将被拒绝并到引用列表）"
+      : ")"
+  }`;
+
   return (
-    <section className="panel">
-      <div className="table-toolbar">
-        <h2>资源详情</h2>
-        <button type="button" onClick={onBack}>
-          返回列表
-        </button>
-      </div>
-
-      {state.kind === "loading" && (
-        <p className="status status-loading">正在加载资源详情…</p>
-      )}
-
-      {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载资源详情失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
-      )}
-
-      {state.kind === "success" && mode === "view" && (
-        <>
-          <h3 className="detail-section-title">Overview</h3>
-          <dl className="detail-grid">
-            <dt>hostname</dt>
-            <dd className="mono">{state.resource.hostname}</dd>
-            <dt>cluster</dt>
-            <dd>
-              <span className="mono">{state.resource.cluster.code}</span> —{" "}
-              {state.resource.cluster.name}
-              <span className="unset">（id: {state.resource.cluster.id}）</span>
-            </dd>
-            <dt>type</dt>
-            <dd className="mono">{state.resource.resource_type}</dd>
-            <dt>role</dt>
-            <dd>{state.resource.role}</dd>
-            <dt>status</dt>
-            <dd>
-              <span className={`badge badge-${state.resource.status.toLowerCase()}`}>
-                {state.resource.status}
-              </span>
-              {state.resource.deleted_at !== null && (
-                <span className="badge badge-deleted">已删除</span>
-              )}
-            </dd>
-            <dt>description</dt>
-            <dd>
-              {state.resource.description ?? <span className="unset">未设置（null）</span>}
-            </dd>
-          </dl>
-
-          {state.resource.resource_type === "BARE_METAL" && (
-            <HardwarePanel hardware={state.resource.hardware} />
-          )}
-
-          {state.resource.resource_type === "BARE_METAL" && (
-            <HostVirtualMachinesPanel hostId={state.resource.id} onOpenResource={onOpenResource} />
-          )}
-
-          {state.resource.resource_type === "VIRTUAL_MACHINE" &&
-            (state.resource.virtual_machine !== null ? (
-              <VirtualMachinePanel
-                virtualMachine={state.resource.virtual_machine}
-                resourceDeleted={state.resource.deleted_at !== null}
-                onOpenResource={onOpenResource}
-              />
-            ) : (
-              // 防御：契约 VM 响应必含 virtual_machine（§3）；null 仅在旧版后端出现
-              <p className="status status-empty">
-                该资源为虚拟机，但服务器未返回 virtual_machine 明细（可能后端版本过旧，Contract v3+）。
-              </p>
-            ))}
-
-          <InterfacesPanel resource={state.resource} user={user} />
-
-          <ServicesPanel resource={state.resource} user={user} />
-
-          <h3 className="detail-section-title">系统信息</h3>
-          <dl className="detail-grid">
-            <dt>metadata</dt>
-            <dd>
-              <pre className="json-block">{JSON.stringify(state.resource.metadata, null, 2)}</pre>
-            </dd>
-            <dt>version</dt>
-            <dd>{state.resource.version}</dd>
-            <dt>created_at</dt>
-            <dd className="mono">{state.resource.created_at}</dd>
-            <dt>updated_at</dt>
-            <dd className="mono">{state.resource.updated_at}</dd>
-            <dt>deleted_at</dt>
-            <dd className="mono">
-              {state.resource.deleted_at ?? <span className="unset">未删除（null）</span>}
-            </dd>
-          </dl>
-
-          <h3 className="detail-section-title">明细区域</h3>
-          <div className="placeholder-areas">
-            {PLACEHOLDER_AREAS.map((area) => (
-              <div key={area.title} className="placeholder-box">
-                <strong>{area.title}</strong>
-                <p>{area.note}</p>
-              </div>
-            ))}
+    <>
+      <Card
+        className="mt-6"
+        title="资源详情"
+        extra={
+          <Button htmlType="button" onClick={onBack}>
+            返回列表
+          </Button>
+        }
+      >
+        {state.kind === "loading" && (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+            <Spin />
+            <span>正在加载资源详情…</span>
           </div>
+        )}
 
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((reference) => (
-                      <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {referenceItemText(reference)}（{reference.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.conflicts.length > 0 && (
-                  <ul>
-                    {actionError.conflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflictItemText(conflict)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
+        {state.kind === "error" && (
+          <Alert
+            type="error"
+            showIcon
+            message={`加载资源详情失败：${state.message}`}
+            action={
+              <Button size="small" danger onClick={() => setReloadToken((token) => token + 1)}>
+                重试
+              </Button>
+            }
+          />
+        )}
+
+        {state.kind === "success" && mode === "view" && (
+          <>
+            <SectionTitle first>Overview</SectionTitle>
+            <Descriptions
+              column={1}
+              items={overviewItems(state.resource)}
+              contentStyle={{ overflowWrap: "anywhere" }}
+            />
+
+            {state.resource.resource_type === "BARE_METAL" && (
+              <HardwarePanel hardware={state.resource.hardware} />
+            )}
+
+            {state.resource.resource_type === "BARE_METAL" && (
+              <HostVirtualMachinesPanel hostId={state.resource.id} onOpenResource={onOpenResource} />
+            )}
+
+            {state.resource.resource_type === "VIRTUAL_MACHINE" &&
+              (state.resource.virtual_machine !== null ? (
+                <VirtualMachinePanel
+                  virtualMachine={state.resource.virtual_machine}
+                  resourceDeleted={state.resource.deleted_at !== null}
+                  onOpenResource={onOpenResource}
+                />
+              ) : (
+                // 防御：契约 VM 响应必含 virtual_machine（§3）；null 仅在旧版后端出现
+                <div className="mt-6">
+                  <Alert
+                    type="warning"
+                    showIcon
+                    message="该资源为虚拟机，但服务器未返回 virtual_machine 明细（可能后端版本过旧，Contract v3+）。"
+                  />
+                </div>
+              ))}
+
+            <div className="mt-6">
+              <InterfacesPanel resource={state.resource} user={user} />
+            </div>
+
+            <div className="mt-6">
+              <ServicesPanel resource={state.resource} user={user} />
+            </div>
+
+            <SectionTitle>系统信息</SectionTitle>
+            <Descriptions
+              column={1}
+              items={systemItems(state.resource)}
+              contentStyle={{ overflowWrap: "anywhere" }}
+            />
+
+            <SectionTitle>明细区域</SectionTitle>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+              {PLACEHOLDER_AREAS.map((area) => (
+                <div
+                  key={area.title}
+                  className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-3.5 py-3 text-gray-500"
+                >
+                  <strong className="text-sm text-gray-700">{area.title}</strong>
+                  <p className="mt-1 text-sm">{area.note}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex flex-col gap-4">
+              {action === null && actionErrorAlert}
+
+              {action === null && (
+                <div className="flex flex-wrap gap-3">
+                  {canWrite && state.resource.deleted_at === null && (
+                    <Button
                       onClick={() => {
-                        setActionError(null);
-                        setReloadToken((token) => token + 1);
+                        setFormError(null);
+                        setMode("edit");
                       }}
-                      disabled={actionBusy}
                     >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
+                      编辑
+                    </Button>
+                  )}
+                  {canDelete && state.resource.deleted_at === null && (
+                    <Button danger onClick={requestDelete}>
+                      删除资源
+                    </Button>
+                  )}
+                  {canRestore && state.resource.deleted_at !== null && (
+                    <Button onClick={requestRestore}>恢复资源</Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
-            {action === "delete" ? (
-              <div className="inline-confirm">
-                <span>
-                  确认软删除该资源？（不级联删除关联对象；软删后同集群 hostname 可被新资源复用
-                  {state.resource.resource_type === "BARE_METAL"
-                    ? "；若仍有未删除的虚拟机（VM）引用本宿主机，将被拒绝并到引用列表）"
-                    : ""}
-                  ）
-                </span>
-                <button type="button" onClick={confirmDelete} disabled={actionBusy}>
-                  {actionBusy ? "正在删除…" : "确认删除"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            ) : action === "restore" ? (
-              <div className="inline-confirm">
-                <span>
-                  确认恢复该资源？（恢复自身，不级联；将重检同集群 hostname 唯一性与所属集群有效性；version 递增）
-                </span>
-                <button type="button" onClick={confirmRestore} disabled={actionBusy}>
-                  {actionBusy ? "正在恢复…" : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            ) : (
-              <>
-                {canWrite && state.resource.deleted_at === null && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormError(null);
-                      setMode("edit");
-                    }}
-                  >
-                    编辑
-                  </button>
-                )}
-                {canDelete && state.resource.deleted_at === null && (
-                  <button type="button" onClick={requestDelete}>
-                    删除资源
-                  </button>
-                )}
-                {canRestore && state.resource.deleted_at !== null && (
-                  <button type="button" onClick={requestRestore}>
-                    恢复资源
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </>
-      )}
+        {state.kind === "success" && mode === "edit" && (
+          <ResourceForm
+            key={formKey}
+            mode="edit"
+            resource={state.resource}
+            submitting={submitting}
+            serverError={formError}
+            onSubmit={handleEditSubmit}
+            onCancel={() => setMode("view")}
+            onRefresh={refreshAfterConflict}
+          />
+        )}
+      </Card>
 
-      {state.kind === "success" && mode === "edit" && (
-        <ResourceForm
-          key={formKey}
-          mode="edit"
-          resource={state.resource}
-          submitting={submitting}
-          serverError={formError}
-          onSubmit={handleEditSubmit}
-          onCancel={() => setMode("view")}
-          onRefresh={refreshAfterConflict}
-        />
-      )}
-    </section>
+      {/* 删除二次确认（软删，Contract §6.5）：失败不自动关闭，错误在框内呈现 */}
+      <Modal
+        open={action === "delete" && confirmVisible}
+        title={deleteConfirmTitle}
+        okText={actionBusy ? "正在删除…" : "确认删除"}
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+        cancelButtonProps={{ disabled: actionBusy }}
+        confirmLoading={actionBusy}
+        maskClosable={false}
+        keyboard={false}
+        onOk={confirmDelete}
+        onCancel={() => {
+          if (!actionBusy) {
+            setAction(null);
+          }
+        }}
+      >
+        {actionErrorAlert}
+      </Modal>
+
+      {/* 恢复二次确认（RESTORE，Contract §6.6）：失败不自动关闭，错误在框内呈现 */}
+      <Modal
+        open={action === "restore" && confirmVisible}
+        title="确认恢复该资源？（恢复自身，不级联；将重检同集群 hostname 唯一性与所属集群有效性；version 递增）"
+        okText={actionBusy ? "正在恢复…" : "确认恢复"}
+        cancelText="取消"
+        cancelButtonProps={{ disabled: actionBusy }}
+        confirmLoading={actionBusy}
+        maskClosable={false}
+        keyboard={false}
+        onOk={confirmRestore}
+        onCancel={() => {
+          if (!actionBusy) {
+            setAction(null);
+          }
+        }}
+      >
+        {actionErrorAlert}
+      </Modal>
+    </>
   );
 }

@@ -1,4 +1,16 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  Alert,
+  Button,
+  Empty,
+  Form,
+  Input,
+  Select,
+  Spin,
+  Table,
+  Tag,
+  type TableProps,
+} from "antd";
 import type { Role, UserStatus } from "../api/auth";
 import {
   createUser,
@@ -90,9 +102,13 @@ function emptyCreateFormValues(): CreateFormValues {
   return { username: "", password: "", role: "VIEWER" };
 }
 
-/** status 徽标样式（复用现有徽标）。 */
-function statusBadgeClass(status: UserStatus): string {
-  return status === "ACTIVE" ? "badge badge-active" : "badge badge-inactive";
+/** status 徽标（ACTIVE 启用 / DISABLED 停用）。 */
+function statusBadge(status: UserStatus): ReactNode {
+  return status === "ACTIVE" ? (
+    <Tag color="success">{status}</Tag>
+  ) : (
+    <Tag color="default">{status}</Tag>
+  );
 }
 
 /** 创建表单本地校验（服务端 422 的本地镜像，快速反馈）。 */
@@ -133,6 +149,9 @@ function parseCreateFormValues(
  *   重改，不静默重试；
  * - 无删除账号、无改密 / 重置 / 注册入口（§4.5，I-9/I-10）；本面板仅对具
  *   USER_ADMIN 的角色渲染（SystemPage 门控；服务端仍鉴权）。
+ *
+ * F017：控件层迁移 Ant Design + Tailwind（props / API 调用与参数 / 创建 /
+ * 角色分配 / 停用启用行为 / 校验与错误文案 / 权限门控 / 四态 / 文案均不变）。
  */
 export default function AccountManagementPanel() {
   const [draft, setDraft] = useState<{ q: string; role: "" | Role; status: "" | UserStatus }>({
@@ -187,8 +206,8 @@ export default function AccountManagementPanel() {
     };
   }, [query, reloadToken]);
 
-  function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /** 点击“筛选”才应用草稿（AntD Form onFinish 已 preventDefault）。 */
+  function applyFilters() {
     setQuery((current) => ({
       ...current,
       q: draft.q,
@@ -221,10 +240,9 @@ export default function AccountManagementPanel() {
     setQuery((current) => ({ ...current, pageSize, page: 1 }));
   }
 
-  // ---- 创建（POST，Contract §4.3）----
+  // ---- 创建（POST，Contract §4.3；AntD Form onFinish 已 preventDefault）----
 
-  function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function handleCreateSubmit() {
     const parsed = parseCreateFormValues(createValues);
     if (!parsed.ok) {
       // 本地镜像校验失败：不发请求（服务端同样 422）
@@ -250,7 +268,7 @@ export default function AccountManagementPanel() {
       });
   }
 
-  // ---- 编辑（PATCH，Contract §4.4）----
+  // ---- 编辑（PATCH，Contract §4.4；AntD Form onFinish 已 preventDefault）----
 
   function openEdit(user: UserRow) {
     setEditServerError(null);
@@ -260,8 +278,7 @@ export default function AccountManagementPanel() {
     setMode({ kind: "edit", user });
   }
 
-  function handleEditSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function handleEditSubmit() {
     if (mode.kind !== "edit") {
       return;
     }
@@ -331,9 +348,57 @@ export default function AccountManagementPanel() {
     return createErrors[key];
   }
 
+  /** 可排序列表头（同字段切换 asc/desc，新字段默认 asc）。 */
+  const sortHeader = (field: UserSortField, label: string): ReactNode => (
+    <Button
+      type="link"
+      size="small"
+      className="px-0 font-semibold"
+      onClick={() => toggleSort(field)}
+    >
+      {label}
+      {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
+    </Button>
+  );
+
+  /** 列定义（文案与数据口径同旧版；排序经表头按钮，分页由下方 Pagination 承担）。 */
+  const columns: TableProps<UserRow>["columns"] = [
+    ...SORT_COLUMNS.map(({ field, label }) => {
+      if (field === "status") {
+        return {
+          title: sortHeader(field, label),
+          dataIndex: field,
+          key: field,
+          render: (value: UserStatus) => statusBadge(value),
+        };
+      }
+      return {
+        title: sortHeader(field, label),
+        dataIndex: field,
+        key: field,
+        render: (value: string) => <span className="font-mono">{value}</span>,
+      };
+    }),
+    { title: "version", dataIndex: "version", key: "version" },
+    {
+      title: "操作",
+      key: "actions",
+      render: (_, user: UserRow) => (
+        <Button
+          type="link"
+          size="small"
+          className="px-0"
+          onClick={() => openEdit(user)}
+        >
+          编辑
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div>
-      <p className="status">
+      <p className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm leading-6 text-gray-600">
         本地账号管理（仅 ADMIN）：创建账号并分配角色、变更角色、停用 / 启用账号。
         不开放自行注册；账号不物理删除（停用保留历史身份，既有审计不变）；
         无改密 / 重置入口（一期未实现）。停用会立即失效该账号全部现有会话，
@@ -342,10 +407,10 @@ export default function AccountManagementPanel() {
 
       {mode.kind === "list" && (
         <>
-          <div className="table-toolbar">
-            <h3>账号列表</h3>
-            <button
-              type="button"
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-semibold text-gray-900">账号列表</h3>
+            <Button
+              type="primary"
               onClick={() => {
                 setCreateValues(emptyCreateFormValues());
                 setCreateErrors({});
@@ -354,124 +419,106 @@ export default function AccountManagementPanel() {
               }}
             >
               新建账号
-            </button>
+            </Button>
           </div>
 
-          <form className="filter-form" onSubmit={applyFilters}>
-            <div className="form-field">
-              <label htmlFor="user-filter-q">模糊搜索（username 子串，大小写不敏感）</label>
-              <input
-                id="user-filter-q"
-                type="text"
-                value={draft.q}
-                onChange={(event) => setDraft({ ...draft, q: event.target.value })}
-                placeholder="大小写不敏感子串匹配"
-              />
+          <Form layout="vertical" onFinish={applyFilters}>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div>
+                <label
+                  htmlFor="user-filter-q"
+                  className="mb-1 block text-sm text-gray-700"
+                >
+                  模糊搜索（username 子串，大小写不敏感）
+                </label>
+                <Input
+                  id="user-filter-q"
+                  value={draft.q}
+                  onChange={(event) => setDraft({ ...draft, q: event.target.value })}
+                  placeholder="大小写不敏感子串匹配"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="user-filter-role"
+                  className="mb-1 block text-sm text-gray-700"
+                >
+                  role
+                </label>
+                <Select<"" | Role>
+                  id="user-filter-role"
+                  className="w-full"
+                  value={draft.role}
+                  onChange={(value) => setDraft({ ...draft, role: value })}
+                  options={[{ value: "", label: "全部（默认）" }, ...ROLE_OPTIONS]}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="user-filter-status"
+                  className="mb-1 block text-sm text-gray-700"
+                >
+                  status
+                </label>
+                <Select<"" | UserStatus>
+                  id="user-filter-status"
+                  className="w-full"
+                  value={draft.status}
+                  onChange={(value) => setDraft({ ...draft, status: value })}
+                  options={[{ value: "", label: "全部（默认）" }, ...STATUS_OPTIONS]}
+                />
+              </div>
             </div>
-            <div className="form-field">
-              <label htmlFor="user-filter-role">role</label>
-              <select
-                id="user-filter-role"
-                value={draft.role}
-                onChange={(event) => setDraft({ ...draft, role: event.target.value as "" | Role })}
-              >
-                <option value="">全部（默认）</option>
-                {ROLE_OPTIONS.map(({ value, label }) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+            <div className="mt-4 flex gap-2">
+              <Button type="primary" htmlType="submit">
+                筛选
+              </Button>
+              <Button onClick={resetFilters}>重置</Button>
             </div>
-            <div className="form-field">
-              <label htmlFor="user-filter-status">status</label>
-              <select
-                id="user-filter-status"
-                value={draft.status}
-                onChange={(event) =>
-                  setDraft({ ...draft, status: event.target.value as "" | UserStatus })
-                }
-              >
-                <option value="">全部（默认）</option>
-                {STATUS_OPTIONS.map(({ value, label }) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-actions">
-              <button type="submit">筛选</button>
-              <button type="button" onClick={resetFilters}>
-                重置
-              </button>
-            </div>
-          </form>
+          </Form>
 
           {state.kind === "loading" && (
-            <p className="status status-loading">正在加载账号列表…</p>
+            <div className="mt-2 flex items-center gap-3 py-6 text-gray-500">
+              <Spin />
+              <span>正在加载账号列表…</span>
+            </div>
           )}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载账号列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <Alert
+              className="mt-2"
+              type="error"
+              showIcon
+              message={`加载账号列表失败：${state.message}`}
+              action={
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                没有符合条件的账号（当前过滤 / 分页下无数据，非错误）。
-              </p>
+              <Empty
+                className="mt-8"
+                description="没有符合条件的账号（当前过滤 / 分页下无数据，非错误）。"
+              />
             ) : (
               <>
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        {SORT_COLUMNS.map(({ field, label }) => (
-                          <th key={field}>
-                            <button
-                              type="button"
-                              className="sort-button"
-                              onClick={() => toggleSort(field)}
-                            >
-                              {label}
-                              {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                            </button>
-                          </th>
-                        ))}
-                        <th>version</th>
-                        <th>操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {state.data.items.map((user) => (
-                        <tr key={user.id}>
-                          <td className="mono">{user.username}</td>
-                          <td className="mono">{user.role}</td>
-                          <td>
-                            <span className={statusBadgeClass(user.status)}>{user.status}</span>
-                          </td>
-                          <td className="mono">{user.created_at}</td>
-                          <td className="mono">{user.updated_at}</td>
-                          <td>{user.version}</td>
-                          <td>
-                            <button
-                              type="button"
-                              className="link-button"
-                              onClick={() => openEdit(user)}
-                            >
-                              编辑
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="mt-2 overflow-x-auto">
+                  <Table<UserRow>
+                    rowKey="id"
+                    size="middle"
+                    columns={columns}
+                    dataSource={state.data.items}
+                    pagination={false}
+                    scroll={{ x: "max-content" }}
+                  />
                 </div>
                 <Pagination
                   page={state.data.page}
@@ -487,37 +534,43 @@ export default function AccountManagementPanel() {
       )}
 
       {mode.kind === "create" && (
-        <form
-          className="account-form"
-          onSubmit={handleCreateSubmit}
-          noValidate
-        >
-          <div className="table-toolbar">
-            <h3>新建账号</h3>
-            <button type="button" onClick={() => setMode({ kind: "list" })} disabled={submitting}>
+        <Form layout="vertical" onFinish={handleCreateSubmit} noValidate>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-semibold text-gray-900">新建账号</h3>
+            <Button onClick={() => setMode({ kind: "list" })} disabled={submitting}>
               返回列表
-            </button>
+            </Button>
           </div>
 
-          <div className="form-field">
-            <label htmlFor="user-create-username">username</label>
-            <input
+          <div className="mb-4">
+            <label
+              htmlFor="user-create-username"
+              className="mb-1 block text-sm text-gray-700"
+            >
+              username
+            </label>
+            <Input
               id="user-create-username"
-              type="text"
               value={createValues.username}
               onChange={(event) =>
                 setCreateValues({ ...createValues, username: event.target.value })
               }
               placeholder="3–64 位小写字母 / 数字 / . _ -"
+              status={createFieldError("username") ? "error" : undefined}
             />
             {createFieldError("username") && (
-              <p className="field-error">{createFieldError("username")}</p>
+              <p className="mt-1 text-xs text-red-500">{createFieldError("username")}</p>
             )}
           </div>
 
-          <div className="form-field">
-            <label htmlFor="user-create-password">初始密码（8–128 字符；创建后不回显）</label>
-            <input
+          <div className="mb-4">
+            <label
+              htmlFor="user-create-password"
+              className="mb-1 block text-sm text-gray-700"
+            >
+              初始密码（8–128 字符；创建后不回显）
+            </label>
+            <Input
               id="user-create-password"
               type="password"
               value={createValues.password}
@@ -525,136 +578,140 @@ export default function AccountManagementPanel() {
                 setCreateValues({ ...createValues, password: event.target.value })
               }
               autoComplete="new-password"
+              status={createFieldError("password") ? "error" : undefined}
             />
             {createFieldError("password") && (
-              <p className="field-error">{createFieldError("password")}</p>
+              <p className="mt-1 text-xs text-red-500">{createFieldError("password")}</p>
             )}
           </div>
 
-          <div className="form-field">
-            <label htmlFor="user-create-role">role</label>
-            <select
-              id="user-create-role"
-              value={createValues.role}
-              onChange={(event) =>
-                setCreateValues({ ...createValues, role: event.target.value as Role })
-              }
+          <div className="mb-4">
+            <label
+              htmlFor="user-create-role"
+              className="mb-1 block text-sm text-gray-700"
             >
-              {ROLE_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              role
+            </label>
+            <Select<Role>
+              id="user-create-role"
+              className="w-full"
+              value={createValues.role}
+              onChange={(value) => setCreateValues({ ...createValues, role: value })}
+              options={ROLE_OPTIONS}
+              status={createFieldError("role") ? "error" : undefined}
+            />
             {createFieldError("role") && (
-              <p className="field-error">{createFieldError("role")}</p>
+              <p className="mt-1 text-xs text-red-500">{createFieldError("role")}</p>
             )}
           </div>
 
           {createServerError && (
-            <div className="status status-error" role="alert">
-              <p>{createServerError.message}</p>
-            </div>
+            <Alert
+              className="mb-4"
+              type="error"
+              showIcon
+              message={createServerError.message}
+            />
           )}
 
-          <div className="form-actions">
-            <button type="submit" disabled={submitting}>
+          <div className="flex gap-2">
+            <Button type="primary" htmlType="submit" disabled={submitting}>
               {submitting ? "正在创建…" : "创建账号"}
-            </button>
+            </Button>
           </div>
-        </form>
+        </Form>
       )}
 
       {mode.kind === "edit" && (
-        <form
-          className="account-form"
-          onSubmit={handleEditSubmit}
+        <Form
+          layout="vertical"
+          onFinish={handleEditSubmit}
           key={editFormKey}
           noValidate
         >
-          <div className="table-toolbar">
-            <h3>
-              编辑账号 — <span className="mono">{mode.user.username}</span>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-base font-semibold text-gray-900">
+              编辑账号 — <span className="font-mono">{mode.user.username}</span>
             </h3>
-            <button type="button" onClick={() => setMode({ kind: "list" })} disabled={submitting}>
+            <Button onClick={() => setMode({ kind: "list" })} disabled={submitting}>
               返回列表
-            </button>
+            </Button>
           </div>
 
-          <dl className="detail-grid">
-            <dt>username（不可修改）</dt>
-            <dd className="mono">{mode.user.username}</dd>
-            <dt>id</dt>
-            <dd className="mono">{mode.user.id}</dd>
-            <dt>version（乐观锁）</dt>
+          <dl className="mb-4 grid grid-cols-[max-content_minmax(0,1fr)] items-start gap-x-6 gap-y-1 text-sm">
+            <dt className="text-gray-500">username（不可修改）</dt>
+            <dd className="font-mono">{mode.user.username}</dd>
+            <dt className="text-gray-500">id</dt>
+            <dd className="font-mono">{mode.user.id}</dd>
+            <dt className="text-gray-500">version（乐观锁）</dt>
             <dd>{mode.user.version}</dd>
           </dl>
 
-          <div className="form-field">
-            <label htmlFor="user-edit-role">role</label>
-            <select
+          <div className="mb-4">
+            <label htmlFor="user-edit-role" className="mb-1 block text-sm text-gray-700">
+              role
+            </label>
+            <Select<Role>
               id="user-edit-role"
+              className="w-full"
               value={editValues.role}
-              onChange={(event) =>
-                setEditValues({ ...editValues, role: event.target.value as Role })
-              }
-            >
-              {ROLE_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setEditValues({ ...editValues, role: value })}
+              options={ROLE_OPTIONS}
+              status={editServerError?.fields.role ? "error" : undefined}
+            />
             {editServerError?.fields.role && (
-              <p className="field-error">{editServerError.fields.role}</p>
+              <p className="mt-1 text-xs text-red-500">{editServerError.fields.role}</p>
             )}
           </div>
 
-          <div className="form-field">
-            <label htmlFor="user-edit-status">status</label>
-            <select
+          <div className="mb-4">
+            <label htmlFor="user-edit-status" className="mb-1 block text-sm text-gray-700">
+              status
+            </label>
+            <Select<UserStatus>
               id="user-edit-status"
+              className="w-full"
               value={editValues.status}
-              onChange={(event) =>
-                setEditValues({ ...editValues, status: event.target.value as UserStatus })
-              }
-            >
-              {STATUS_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setEditValues({ ...editValues, status: value })}
+              options={STATUS_OPTIONS}
+              status={editServerError?.fields.status ? "error" : undefined}
+            />
             {editServerError?.fields.status && (
-              <p className="field-error">{editServerError.fields.status}</p>
+              <p className="mt-1 text-xs text-red-500">{editServerError.fields.status}</p>
             )}
           </div>
 
           {editNotice && (
-            <p className="status status-error" role="alert">
-              {editNotice}
-            </p>
+            <Alert className="mb-4" type="error" showIcon message={editNotice} />
           )}
 
           {editServerError && (
-            <div className="status status-error" role="alert">
-              <p>{editServerError.message}</p>
-              {editServerError.versionConflict && (
-                <p>
-                  <button type="button" onClick={refreshAfterConflict} disabled={submitting}>
+            <Alert
+              className="mb-4"
+              type="error"
+              showIcon
+              message={editServerError.message}
+              description={
+                editServerError.versionConflict ? (
+                  <Button
+                    className="mt-1"
+                    size="small"
+                    onClick={refreshAfterConflict}
+                    disabled={submitting}
+                  >
                     刷新最新数据
-                  </button>
-                </p>
-              )}
-            </div>
+                  </Button>
+                ) : undefined
+              }
+            />
           )}
 
-          <div className="form-actions">
-            <button type="submit" disabled={submitting}>
+          <div className="flex gap-2">
+            <Button type="primary" htmlType="submit" disabled={submitting}>
               {submitting ? "正在保存…" : "保存修改"}
-            </button>
+            </Button>
           </div>
-        </form>
+        </Form>
       )}
     </div>
   );
@@ -679,26 +736,28 @@ function Pagination({
 }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <div className="pagination">
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
       <span>
         共 {total} 条 · 第 {page} / {totalPages} 页
       </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
+      <Button disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
         上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
+      </Button>
+      <Button disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
         下一页
-      </button>
-      <label>
+      </Button>
+      <label className="flex items-center gap-2">
         每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
+        <Select<number>
+          className="w-20"
+          value={appliedPageSize}
+          onChange={(value) => onChangePageSize(value)}
+          options={[
+            { value: 20, label: "20" },
+            { value: 50, label: "50" },
+            { value: 100, label: "100" },
+          ]}
+        />
         条
       </label>
     </div>

@@ -1,4 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Empty,
+  Spin,
+  Table,
+  Tag,
+  type TableProps,
+} from "antd";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import type { Resource } from "../api/resources";
@@ -10,21 +20,24 @@ type ServiceListState =
   | { kind: "success"; data: ServiceListResponse }
   | { kind: "error"; message: string };
 
+/** Table 行数据类型（取自 ServiceListResponse.items 元素）。 */
+type ServiceItem = ServiceListResponse["items"][number];
+
 interface ServicesPanelProps {
   /** 所属 Resource（Services 归属创建后不可改；本区域只读，管理入口在 Services 页面）。 */
   resource: Resource;
   user: User;
 }
 
-/** status 徽标样式（与 ServicesPage 共用口径：UNKNOWN 复用 badge-unknown）。 */
+/** status 徽标（与 ServicesPage 共用口径：UNKNOWN 复用 badge-unknown）。 */
 function statusBadge(status: string): ReactNode {
-  const cls =
-    status === "RUNNING"
-      ? "badge badge-active"
-      : status === "STOPPED"
-        ? "badge badge-inactive"
-        : "badge badge-unknown";
-  return <span className={cls}>{status}</span>;
+  if (status === "RUNNING") {
+    return <Tag color="success">{status}</Tag>;
+  }
+  if (status === "STOPPED") {
+    return <Tag color="default">{status}</Tag>;
+  }
+  return <Tag color="warning">{status}</Tag>;
 }
 
 /**
@@ -76,102 +89,148 @@ export default function ServicesPanel({ resource, user }: ServicesPanelProps) {
     };
   }, [resource.id, showDeleted, reloadToken]);
 
+  // 仅开启已删开关时追加 deleted_at 列（与原实现口径一致）
+  const deletedAtColumn: NonNullable<TableProps<ServiceItem>["columns"]>[number] = {
+    title: "deleted_at",
+    dataIndex: "deleted_at",
+    key: "deleted_at",
+    render: (value) =>
+      value != null ? (
+        <span className="font-mono text-xs">{value}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
+  };
+
+  const columns: TableProps<ServiceItem>["columns"] = [
+    {
+      title: "name",
+      dataIndex: "name",
+      key: "name",
+      render: (_, service) => (
+        <span>
+          {service.name}
+          {service.deleted_at !== null && (
+            <Tag color="red" className="ml-2">
+              已删除
+            </Tag>
+          )}
+        </span>
+      ),
+    },
+    {
+      title: "status",
+      dataIndex: "status",
+      key: "status",
+      render: (value) => statusBadge(value),
+    },
+    {
+      title: "description",
+      dataIndex: "description",
+      key: "description",
+      render: (value) => value ?? <span className="text-gray-400">—</span>,
+    },
+    {
+      title: "created_at",
+      dataIndex: "created_at",
+      key: "created_at",
+      render: (value) => <span className="font-mono text-xs">{value}</span>,
+    },
+    {
+      title: "updated_at",
+      dataIndex: "updated_at",
+      key: "updated_at",
+      render: (value) => <span className="font-mono text-xs">{value}</span>,
+    },
+    { title: "version", dataIndex: "version", key: "version" },
+    ...(showDeleted ? [deletedAtColumn] : []),
+  ];
+
   return (
     <>
-      <h3 className="detail-section-title">Services（运行服务）</h3>
+      <h3 className="mb-1 text-base font-semibold text-gray-900">Services（运行服务）</h3>
 
-      <div className="table-toolbar">
-        <span className="permissions-note">
-          经 GET /api/v1/services?resource_id 过滤（{resource.hostname}）；登记 / 编辑 /
-          删除 / 恢复 / Activity 请前往 Services 页面
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs text-gray-500">
+          经 GET /api/v1/services?resource_id 过滤（{resource.hostname}）；登记 / 编辑 / 删除 /
+          恢复 / Activity 请前往 Services 页面
         </span>
       </div>
 
       {resourceDeleted && (
-        <p className="status status-empty">
-          所属资源处于已删除状态：服务的创建与恢复需先恢复所属资源（服务端重检依赖）。
-        </p>
+        <Alert
+          className="mb-3"
+          type="warning"
+          showIcon
+          message="所属资源处于已删除状态：服务的创建与恢复需先恢复所属资源（服务端重检依赖）。"
+        />
       )}
 
       {canViewDeleted && (
-        <div className="form-field checkbox-field deleted-toggle">
-          <label htmlFor="services-deleted-toggle">
-            <input
-              id="services-deleted-toggle"
-              type="checkbox"
-              checked={showDeleted}
-              onChange={(event) => setShowDeleted(event.target.checked)}
-            />
+        <div className="mb-3">
+          <Checkbox
+            id="services-deleted-toggle"
+            checked={showDeleted}
+            onChange={(event) => setShowDeleted(event.target.checked)}
+          >
             显示已删除服务（deleted=include，需 VIEW_DELETED）
-          </label>
+          </Checkbox>
         </div>
       )}
 
       {state.kind === "loading" && (
-        <p className="status status-loading">正在加载该资源的服务登记…</p>
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+          <Spin />
+          <span>正在加载该资源的服务登记…</span>
+        </div>
       )}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载服务列表失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <Alert
+          className="mb-3"
+          type="error"
+          showIcon
+          message={`加载服务列表失败：${state.message}`}
+          action={
+            <Button
+              size="small"
+              danger
+              onClick={() => setReloadToken((token) => token + 1)}
+            >
+              重试
+            </Button>
+          }
+        />
       )}
 
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            {showDeleted
-              ? "该资源暂无服务登记（含已删除）。"
-              : "该资源暂无未删除的服务登记（非错误）。"}
-          </p>
+          <Empty
+            className="py-8"
+            description={
+              showDeleted
+                ? "该资源暂无服务登记（含已删除）。"
+                : "该资源暂无未删除的服务登记（非错误）。"
+            }
+          />
         ) : (
           <>
             {state.data.total > state.data.items.length && (
-              <p className="status status-empty">
-                服务总数 {state.data.total} 条，仅显示前 {state.data.items.length} 条
-                （按 name 排序；列表分页上限 100）。
-              </p>
+              <Alert
+                className="mb-3"
+                type="info"
+                showIcon
+                message={`服务总数 ${state.data.total} 条，仅显示前 ${state.data.items.length} 条（按 name 排序；列表分页上限 100）。`}
+              />
             )}
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>name</th>
-                    <th>status</th>
-                    <th>description</th>
-                    <th>created_at</th>
-                    <th>updated_at</th>
-                    <th>version</th>
-                    {showDeleted && <th>deleted_at</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.data.items.map((service) => (
-                    <tr key={service.id}>
-                      <td>
-                        {service.name}
-                        {service.deleted_at !== null && (
-                          <span className="badge badge-deleted">已删除</span>
-                        )}
-                      </td>
-                      <td>{statusBadge(service.status)}</td>
-                      <td>{service.description ?? <span className="unset">—</span>}</td>
-                      <td className="mono">{service.created_at}</td>
-                      <td className="mono">{service.updated_at}</td>
-                      <td>{service.version}</td>
-                      {showDeleted && (
-                        <td className="mono">
-                          {service.deleted_at ?? <span className="unset">—</span>}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table<ServiceItem>
+              rowKey="id"
+              size="middle"
+              pagination={false}
+              scroll={{ x: "max-content" }}
+              dataSource={state.data.items}
+              columns={columns}
+            />
           </>
         ))}
     </>

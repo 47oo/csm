@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Alert, Button, Card, Empty, Select, Spin, Table, Upload } from "antd";
+import type { TableProps } from "antd";
 import { displayError, isApiError } from "../api/client";
 import {
   describeImportError,
@@ -8,8 +10,10 @@ import {
   importResources,
   validateResourceImport,
   type ImportActionError,
+  type ImportColumnSpec,
   type ImportCreateResponse,
   type ImportFormat,
+  type ImportRowError,
   type ImportTemplate,
   type ImportTemplatesResponse,
   type ImportValidateResponse,
@@ -53,6 +57,76 @@ interface ResourceImportPanelProps {
   onImported?: () => void;
 }
 
+/** 文件格式选项（§2：csv / xlsx；文案同旧版）。 */
+const FORMAT_OPTIONS: { value: ImportFormat; label: string }[] = [
+  { value: "csv", label: "CSV（UTF-8，逗号分隔，兼容 BOM）" },
+  { value: "xlsx", label: "Excel（.xlsx，取首个工作表，不执行公式 / 宏）" },
+];
+
+/** 模板逐列说明表列定义（# 为展示序号；列名 / 必填 / 类型 / 说明 / 示例同旧版）。 */
+const TEMPLATE_TABLE_COLUMNS: TableProps<ImportColumnSpec>["columns"] = [
+  {
+    title: "#",
+    key: "index",
+    width: 48,
+    render: (_, __, index) => <span className="font-mono">{index + 1}</span>,
+  },
+  {
+    title: "列名",
+    dataIndex: "name",
+    key: "name",
+    render: (value: string) => <span className="font-mono">{value}</span>,
+  },
+  {
+    title: "必填",
+    key: "required",
+    render: (_, column) => templateColumnRequiredLabel(column),
+  },
+  {
+    title: "类型 · 单位 / 枚举",
+    key: "type",
+    width: 150,
+    render: (_, column) => templateColumnTypeLabel(column),
+  },
+  {
+    title: "说明",
+    dataIndex: "description",
+    key: "description",
+    width: 280,
+  },
+  {
+    title: "示例",
+    dataIndex: "example",
+    key: "example",
+    render: (value: string) => <span className="font-mono">{value}</span>,
+  },
+];
+
+/** 行错误表列定义（行号 / 字段 / 原因 / 关联行；原因列可换行）。 */
+const IMPORT_ERROR_TABLE_COLUMNS: TableProps<ImportRowError>["columns"] = [
+  {
+    title: "行号",
+    dataIndex: "row",
+    key: "row",
+    render: (value: number) => <span className="font-mono">{value}</span>,
+  },
+  {
+    title: "字段",
+    dataIndex: "field",
+    key: "field",
+    render: (value: string) => <span className="font-mono">{value}</span>,
+  },
+  { title: "原因", dataIndex: "reason", key: "reason", width: 260 },
+  {
+    title: "关联行",
+    dataIndex: "related_row",
+    key: "related_row",
+    render: (value: number | null) => (
+      <span className="font-mono">{value === null ? "—" : value}</span>
+    ),
+  },
+];
+
 /**
  * 资源批量导入面板（F014，Contract：docs/api/F014.md v1；产品 §24/§2.2）：
  * - 两步流程：先「预校验」（只读、无副作用、不写 Audit），一次性展示全部
@@ -69,6 +143,9 @@ interface ResourceImportPanelProps {
  *   逐列说明含必填、类型、单位（MiB/GiB）、枚举与示例；可下载表头行 CSV。
  * - 面板入口由 ResourcesPage 按 IMPORT 权限显示；隐藏不替代服务端校验
  *   （VIEWER 调用仍 403，§1.1/I-11）。
+ *
+ * F017：控件层迁移 Ant Design + Tailwind（props / API 调用 / 模板下载 /
+ * 预校验与错误表 / 整批提交与回滚 / 四态 / 权限 / 文案均保持不变）。
  */
 export default function ResourceImportPanel({ onImported }: ResourceImportPanelProps) {
   const [values, setValues] = useState<ImportFormValues>(emptyImportFormValues);
@@ -209,69 +286,96 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
   }
 
   return (
-    <section className="panel">
-      <h2>批量导入资源（CSV / Excel .xlsx，仅新增）</h2>
-      <p className="permissions-note">
+    <Card title="批量导入资源（CSV / Excel .xlsx，仅新增）" className="w-full">
+      <p className="mb-4 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm leading-6 text-gray-600">
         两步导入：先「预校验」（只读，不写入任何数据、不写审计），一次性查看全部错误行；
         预校验通过（0 错误）后「确认导入」，服务端将在写入前基于最新状态再次校验，
         任一行失败整批回滚，不产生部分成功。同步导入上限：单文件 ≤{" "}
         {IMPORT_MAX_FILE_BYTES} 字节（5 MiB）、数据行数 ≤ {IMPORT_MAX_ROWS}（超限在解析前拒绝）。
       </p>
 
-      <div className="form-field">
-        <label htmlFor="resource-import-format">文件格式（必选）</label>
-        <select
+      <div className="mb-4 max-w-md">
+        <label htmlFor="resource-import-format" className="mb-1 block text-sm text-gray-700">
+          文件格式（必选）
+        </label>
+        <Select<ImportFormat>
           id="resource-import-format"
+          className="w-full"
           value={values.format}
-          onChange={(event) => changeInput({ format: event.target.value as ImportFormat })}
+          onChange={(value) => changeInput({ format: value })}
           disabled={busy}
-        >
-          <option value="csv">CSV（UTF-8，逗号分隔，兼容 BOM）</option>
-          <option value="xlsx">Excel（.xlsx，取首个工作表，不执行公式 / 宏）</option>
-        </select>
+          status={(localErrors.format ?? serverFormatError) ? "error" : undefined}
+          options={FORMAT_OPTIONS}
+        />
         {(localErrors.format ?? serverFormatError) && (
-          <p className="field-error" role="alert">
+          <p className="mt-1 text-xs text-red-500">
             {localErrors.format ?? serverFormatError}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="resource-import-file">导入文件（必选）</label>
-        <input
+      <div className="mb-4">
+        <label htmlFor="resource-import-file" className="mb-1 block text-sm text-gray-700">
+          导入文件（必选）
+        </label>
+        {/* beforeUpload 捕获原生 File 并返回 false 阻止自动上传（等价旧版
+            input[type=file] 的 change → files[0]）；受控 fileList 仅展示
+            values.file，移除即 changeInput({ file: null }) → 既有结果重置。 */}
+        <Upload
           id="resource-import-file"
-          type="file"
           accept={values.format === "csv" ? ".csv" : ".xlsx"}
-          onChange={(event) => changeInput({ file: event.target.files?.[0] ?? null })}
+          maxCount={1}
+          beforeUpload={(file) => {
+            changeInput({ file });
+            return false;
+          }}
+          onRemove={() => {
+            changeInput({ file: null });
+          }}
+          fileList={
+            values.file === null
+              ? []
+              : [{ uid: "resource-import-file", name: values.file.name, status: "done" }]
+          }
           disabled={busy}
-        />
+        >
+          <Button disabled={busy}>选择文件</Button>
+        </Upload>
         {localErrors.file && (
-          <p className="field-error" role="alert">
-            {localErrors.file}
-          </p>
+          <p className="mt-1 text-xs text-red-500">{localErrors.file}</p>
         )}
       </div>
 
-      <div className="form-actions">
-        <button type="button" onClick={handleValidate} disabled={busy}>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Button
+          type="primary"
+          onClick={handleValidate}
+          disabled={busy}
+          loading={validateState.kind === "loading"}
+        >
           {validateState.kind === "loading" ? "正在预校验…" : "预校验（不写入数据）"}
-        </button>
-        <button type="button" onClick={handleImport} disabled={!canConfirm || busy}>
+        </Button>
+        <Button
+          onClick={handleImport}
+          disabled={!canConfirm || busy}
+          loading={importState.kind === "loading"}
+        >
           {importState.kind === "loading" ? "正在导入…" : "确认导入"}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
           onClick={() => setShowTemplates((visible) => !visible)}
           disabled={busy}
         >
           {showTemplates ? "收起模板说明" : "查看模板与逐列说明"}
-        </button>
+        </Button>
       </div>
 
       {showTemplates && (
-        <div className="import-templates">
-          <h3 className="detail-section-title">导入模板（表头第 1 行，列名与顺序冻结）</h3>
-          <p className="permissions-note">
+        <div className="mt-6">
+          <h3 className="mb-2 text-base font-semibold">
+            导入模板（表头第 1 行，列名与顺序冻结）
+          </h3>
+          <p className="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm leading-6 text-gray-600">
             表头须与模板列名、顺序完全一致（缺失 / 多余 / 顺序不符会被拒绝，不按列名重排）；
             可选列留空 = 省略（默认值生效，非必填 → null）；枚举取大写规范值；
             memory_mb 单位 MiB、disk_gb 单位 GiB（未知留空存 null，不以 0 代替）。
@@ -279,64 +383,55 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
           </p>
 
           {templatesState.kind === "loading" && (
-            <p className="status status-loading">正在加载模板规范…</p>
+            <div className="flex items-center gap-3 py-3 text-gray-500">
+              <Spin />
+              <span>正在加载模板规范…</span>
+            </div>
           )}
 
           {templatesState.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载模板规范失败：{templatesState.message}</p>
-              <button
-                type="button"
-                onClick={() => setTemplatesReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <Alert
+              type="error"
+              showIcon
+              message={`加载模板规范失败：${templatesState.message}`}
+              description={
+                <Button
+                  className="mt-2"
+                  onClick={() => setTemplatesReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {templatesState.kind === "success" &&
             (templatesState.data.templates.length === 0 ? (
-              <p className="status status-empty">
-                服务端未返回任何模板定义（与契约不符，请联系管理员核对后端版本）。
-              </p>
+              <Empty
+                className="mt-2"
+                description="服务端未返回任何模板定义（与契约不符，请联系管理员核对后端版本）。"
+              />
             ) : (
               templatesState.data.templates.map((template) => (
-                <div key={template.resource_type} className="import-template-block">
-                  <div className="table-toolbar">
-                    <h3>
+                <div
+                  key={template.resource_type}
+                  className="mt-4 rounded-lg border border-gray-200 p-4"
+                >
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">
                       {template.resource_type} 模板（{template.columns.length} 列）
                     </h3>
-                    <button type="button" onClick={() => downloadTemplateCsv(template)}>
+                    <Button onClick={() => downloadTemplateCsv(template)}>
                       下载 CSV 模板（表头行）
-                    </button>
+                    </Button>
                   </div>
-                  <div className="table-wrap">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>#</th>
-                          <th>列名</th>
-                          <th>必填</th>
-                          <th>类型 · 单位 / 枚举</th>
-                          <th>说明</th>
-                          <th>示例</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {template.columns.map((column, index) => (
-                          <tr key={column.name}>
-                            <td className="mono">{index + 1}</td>
-                            <td className="mono">{column.name}</td>
-                            <td>{templateColumnRequiredLabel(column)}</td>
-                            <td className="import-col-type">
-                              {templateColumnTypeLabel(column)}
-                            </td>
-                            <td className="import-col-desc">{column.description}</td>
-                            <td className="mono">{column.example}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="overflow-x-auto">
+                    <Table<ImportColumnSpec>
+                      rowKey="name"
+                      columns={TEMPLATE_TABLE_COLUMNS}
+                      dataSource={template.columns}
+                      pagination={false}
+                    />
                   </div>
                 </div>
               ))
@@ -344,81 +439,102 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
         </div>
       )}
 
-      <h3 className="detail-section-title">预校验结果</h3>
+      <h3 className="mt-6 mb-2 text-base font-semibold">预校验结果</h3>
 
       {validateState.kind === "idle" && (
-        <p className="status status-empty">
-          尚未预校验。选择文件后点击「预校验」查看全部错误行（只读，不写入任何数据）。
-        </p>
+        <Empty
+          className="mt-2"
+          description="尚未预校验。选择文件后点击「预校验」查看全部错误行（只读，不写入任何数据）。"
+        />
       )}
 
       {validateState.kind === "loading" && (
-        <p className="status status-loading">正在预校验（解析文件并逐行校验，不写入数据）…</p>
+        <div className="flex items-center gap-3 py-3 text-gray-500">
+          <Spin />
+          <span>正在预校验（解析文件并逐行校验，不写入数据）…</span>
+        </div>
       )}
 
       {validateState.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>预校验失败：{validateState.described.message}</p>
-        </div>
+        <Alert
+          className="mt-2"
+          type="error"
+          showIcon
+          message={`预校验失败：${validateState.described.message}`}
+        />
       )}
 
       {validateState.kind === "success" && (
         <>
-          <p className="status">
-            预校验完成（{validateState.data.format}）：共 {validateState.data.total_rows} 行数据，
-            可导入 {validateState.data.importable_rows} 行，错误 {validateState.data.error_count} 项。
+          <p className="mt-2 text-sm leading-6 text-gray-600">
+            预校验完成（{validateState.data.format}）：共 {validateState.data.total_rows} 行数据， 可导入{" "}
+            {validateState.data.importable_rows} 行，错误 {validateState.data.error_count} 项。
           </p>
           {validateState.data.errors_truncated && (
-            <p className="status status-empty">
-              错误较多：仅显示前 {validateState.data.errors.length} 条
-              （共 {validateState.data.error_count} 项，超出服务端预览上限）；修复后请重新预校验。
-            </p>
+            <Alert
+              className="mt-2"
+              type="warning"
+              showIcon
+              message={`错误较多：仅显示前 ${validateState.data.errors.length} 条 （共 ${validateState.data.error_count} 项，超出服务端预览上限）；修复后请重新预校验。`}
+            />
           )}
           {validateState.data.error_count === 0 ? (
-            <p className="status status-ok">
-              预校验通过：未发现行错误。可点击「确认导入」；写入时服务端将基于最新状态
-              再次校验，若状态变化导致冲突仍会整批回滚。
-            </p>
+            <Alert
+              className="mt-2"
+              type="success"
+              showIcon
+              message="预校验通过：未发现行错误。可点击「确认导入」；写入时服务端将基于最新状态 再次校验，若状态变化导致冲突仍会整批回滚。"
+            />
           ) : (
             <>
-              <p className="status status-error" role="alert">
-                预校验发现 {validateState.data.error_count} 项错误：存在错误行时整批不可能成功，
-                「确认导入」不可用；请修正文件后重新预校验。
-              </p>
+              <Alert
+                className="mt-2"
+                type="error"
+                showIcon
+                message={`预校验发现 ${validateState.data.error_count} 项错误：存在错误行时整批不可能成功， 「确认导入」不可用；请修正文件后重新预校验。`}
+              />
               <ImportErrorsTable result={validateState.data} />
             </>
           )}
         </>
       )}
 
-      <h3 className="detail-section-title">写入结果</h3>
+      <h3 className="mt-6 mb-2 text-base font-semibold">写入结果</h3>
 
       {importState.kind === "idle" && (
-        <p className="status status-empty">尚未导入（需先通过预校验）。</p>
+        <Empty className="mt-2" description="尚未导入（需先通过预校验）。" />
       )}
 
       {importState.kind === "loading" && (
-        <p className="status status-loading">正在导入（事务内再次校验并整批写入）…</p>
+        <div className="flex items-center gap-3 py-3 text-gray-500">
+          <Spin />
+          <span>正在导入（事务内再次校验并整批写入）…</span>
+        </div>
       )}
 
       {importState.kind === "success" && (
-        <p className="status status-ok" role="status">
-          导入成功：已创建 {importState.data.created} 条资源（共 {importState.data.total_rows}{" "}
-          行，整批成功）。如需导入另一批资源，请重新选择文件并预校验。
-        </p>
+        <Alert
+          className="mt-2"
+          type="success"
+          showIcon
+          message={`导入成功：已创建 ${importState.data.created} 条资源（共 ${importState.data.total_rows} 行，整批成功）。如需导入另一批资源，请重新选择文件并预校验。`}
+        />
       )}
 
       {importState.kind === "error" && (
         <>
-          <div className="status status-error" role="alert">
-            <p>{importState.described.message}</p>
-          </div>
+          <Alert
+            className="mt-2"
+            type="error"
+            showIcon
+            message={importState.described.message}
+          />
           {importState.described.validationFailed !== null && (
             <ImportErrorsTable result={importState.described.validationFailed} />
           )}
         </>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -428,27 +544,14 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
  */
 function ImportErrorsTable({ result }: { result: ImportValidationResult }) {
   return (
-    <div className="import-errors-wrap">
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>行号</th>
-            <th>字段</th>
-            <th>原因</th>
-            <th>关联行</th>
-          </tr>
-        </thead>
-        <tbody>
-          {result.errors.map((rowError, index) => (
-            <tr key={`${rowError.row}-${rowError.field}-${index}`}>
-              <td className="mono">{rowError.row}</td>
-              <td className="mono">{rowError.field}</td>
-              <td className="import-error-reason">{rowError.reason}</td>
-              <td className="mono">{rowError.related_row === null ? "—" : rowError.related_row}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="mt-2 overflow-x-auto">
+      <Table<ImportRowError>
+        rowKey={(rowError, index) => `${rowError.row}-${rowError.field}-${index ?? 0}`}
+        columns={IMPORT_ERROR_TABLE_COLUMNS}
+        dataSource={result.errors}
+        pagination={false}
+        scroll={{ y: 360 }}
+      />
     </div>
   );
 }

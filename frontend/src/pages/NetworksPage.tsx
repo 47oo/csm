@@ -1,4 +1,18 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  Alert,
+  Button,
+  Card,
+  Empty,
+  Form,
+  Input,
+  Modal,
+  Select,
+  Spin,
+  Table,
+  Tag,
+  type TableProps,
+} from "antd";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import { listClusters, type Cluster } from "../api/clusters";
@@ -82,6 +96,47 @@ const SORT_COLUMNS: { field: NetworkSortField; label: string }[] = [
   { field: "updated_at", label: "更新时间" },
 ];
 
+/** 排序列单元格渲染（cidr / 时间列等宽字体；status 徽标化，name 附“已删除”标记）。 */
+const SORT_CELL_RENDER: { [F in NetworkSortField]: (network: Network) => ReactNode } = {
+  name: (network) => (
+    <span>
+      {network.name}
+      {network.deleted_at !== null && (
+        <Tag color="red" className="ml-2">
+          已删除
+        </Tag>
+      )}
+    </span>
+  ),
+  cidr: (network) => <span className="font-mono">{network.cidr}</span>,
+  status: (network) => (
+    <Tag color={network.status === "ACTIVE" ? "success" : "default"}>{network.status}</Tag>
+  ),
+  created_at: (network) => <span className="font-mono">{network.created_at}</span>,
+  updated_at: (network) => <span className="font-mono">{network.updated_at}</span>,
+};
+
+/** 状态过滤下拉选项（“全部（默认）” + 两种状态；文案与迁移前一致）。 */
+const STATUS_FILTER_OPTIONS: { value: "" | NetworkStatus; label: string }[] = [
+  { value: "", label: "全部（默认）" },
+  { value: "ACTIVE", label: "ACTIVE" },
+  { value: "INACTIVE", label: "INACTIVE" },
+];
+
+/** auto_allocate 过滤下拉选项（空 = 全部，true / false 精确过滤）。 */
+const AUTO_ALLOCATE_FILTER_OPTIONS: { value: "" | "true" | "false"; label: string }[] = [
+  { value: "", label: "全部（默认）" },
+  { value: "true", label: "true（允许自动分配）" },
+  { value: "false", label: "false（不允许）" },
+];
+
+/** 软删可见性选项（exclude 默认 | include | only；后两者需 VIEW_DELETED）。 */
+const DELETED_MODE_OPTIONS: { value: DeletedMode; label: string }[] = [
+  { value: "exclude", label: "未删除（默认）" },
+  { value: "include", label: "全部（含已删除）" },
+  { value: "only", label: "仅已删除" },
+];
+
 /**
  * CONFLICT range_overlap / reference_exists 单条明细的呈现文案
  * （Contract §1.2）：network=重叠网络（label=name）；ip_pool/ip_address=
@@ -123,6 +178,9 @@ function conflictItemText(item: {
  * - 删除（DELETE_OBJECT，软删不级联）：被未删 Pool/IP 引用 → 409 reference_exists；
  * - 恢复（RESTORE，ADMIN）：409 not_deleted / unique_conflict / dependency_deleted
  *   （所属 Cluster 仍删）/ range_overlap 明确呈现。
+ *
+ * F017：控件层迁移 Ant Design + Tailwind（props / API 调用 / 组合过滤与排序分页
+ * 参数 / 四态 / 权限门控 / 软删开关 / 增删改与二次确认 / 全部文案保持不变）。
  */
 export default function NetworksPage({ user }: NetworksPageProps) {
   const canWrite = user.permissions.includes("WRITE");
@@ -371,8 +429,8 @@ export default function NetworksPage({ user }: NetworksPageProps) {
       });
   }
 
-  function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /** 点击“筛选”才应用草稿（提交时机由 AntD Form onFinish 接管）。 */
+  function applyFilters() {
     setQuery((current) => ({
       ...current,
       q: draft.q,
@@ -420,351 +478,429 @@ export default function NetworksPage({ user }: NetworksPageProps) {
   const clusters = clusterOptions.kind === "success" ? clusterOptions.clusters : [];
   const showDeletedColumn = query.deleted !== "exclude";
 
-  return (
-    <section className="panel">
-      <div className="table-toolbar">
-        <h2>Networks（网络）</h2>
-        {canWrite && mode.kind === "list" && (
-          <button
-            type="button"
-            onClick={() => {
-              setFormError(null);
-              setMode({ kind: "create" });
-            }}
+  /** 集群过滤下拉选项（“全部（默认）” + 未删除集群，文案同迁移前）。 */
+  const clusterFilterOptions = [
+    { value: "", label: "全部（默认）" },
+    ...clusters.map((cluster) => ({
+      value: cluster.id,
+      label: `${cluster.code} — ${cluster.name}`,
+    })),
+  ];
+
+  /** 仅开启软删可见性（include / only）时追加 deleted_at 列（与原实现口径一致）。 */
+  const deletedAtColumn: NonNullable<TableProps<Network>["columns"]>[number] = {
+    title: "deleted_at",
+    dataIndex: "deleted_at",
+    key: "deleted_at",
+    render: (value: string | null) =>
+      value !== null ? (
+        <span className="font-mono">{value}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
+  };
+
+  /** 列定义（文案与数据口径同旧版；排序由表头按钮切换，不用 AntD 内置 sorter）。 */
+  const columns: TableProps<Network>["columns"] = [
+    {
+      title: "cluster",
+      key: "cluster",
+      render: (_: unknown, network: Network) => (
+        <span>
+          <span className="font-mono">{network.cluster.code}</span>
+          <span className="text-gray-400">（{network.cluster.name}）</span>
+        </span>
+      ),
+    },
+    ...SORT_COLUMNS.map(
+      ({ field, label }): NonNullable<TableProps<Network>["columns"]>[number] => ({
+        title: (
+          <Button
+            type="link"
+            size="small"
+            className="px-0 font-semibold"
+            onClick={() => toggleSort(field)}
           >
-            新建网络
-          </button>
-        )}
-      </div>
-
-      {mode.kind === "list" && (
+            {label}
+            {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
+          </Button>
+        ),
+        dataIndex: field,
+        key: field,
+        render: (_: unknown, network: Network) => SORT_CELL_RENDER[field](network),
+      }),
+    ),
+    {
+      title: "gateway",
+      dataIndex: "gateway",
+      key: "gateway",
+      render: (value: string | null) =>
+        value !== null ? (
+          <span className="font-mono">{value}</span>
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+    {
+      title: "auto_allocate",
+      dataIndex: "auto_allocate",
+      key: "auto_allocate",
+      render: (value: boolean) => (value ? "true" : "false"),
+    },
+    { title: "version", dataIndex: "version", key: "version" },
+    ...(showDeletedColumn ? [deletedAtColumn] : []),
+    {
+      title: "操作",
+      key: "actions",
+      render: (_: unknown, network: Network) => (
         <>
-          {clusterOptions.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载集群下拉失败：{clusterOptions.message}</p>
-              <button
-                type="button"
-                onClick={() => setClusterReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+          {canWrite && network.deleted_at === null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => {
+                setFormError(null);
+                setMode({ kind: "edit", network });
+                setFormKey((key) => key + 1);
+              }}
+            >
+              编辑
+            </Button>
           )}
-
-          <form className="filter-form" onSubmit={applyFilters}>
-            <div className="form-field">
-              <label htmlFor="network-filter-q">模糊搜索（name 子串，大小写不敏感）</label>
-              <input
-                id="network-filter-q"
-                type="text"
-                value={draft.q}
-                onChange={(event) => setDraft({ ...draft, q: event.target.value })}
-                placeholder="大小写不敏感子串匹配"
-              />
-            </div>
-            <div className="form-field">
-              <label htmlFor="network-filter-cluster">所属集群</label>
-              <select
-                id="network-filter-cluster"
-                value={draft.clusterId}
-                onChange={(event) => setDraft({ ...draft, clusterId: event.target.value })}
-                disabled={clusterOptions.kind !== "success"}
-              >
-                <option value="">全部（默认）</option>
-                {clusters.map((cluster) => (
-                  <option key={cluster.id} value={cluster.id}>
-                    {cluster.code} — {cluster.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-field">
-              <label htmlFor="network-filter-status">状态</label>
-              <select
-                id="network-filter-status"
-                value={draft.status}
-                onChange={(event) =>
-                  setDraft({ ...draft, status: event.target.value as "" | NetworkStatus })
-                }
-              >
-                <option value="">全部（默认）</option>
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="INACTIVE">INACTIVE</option>
-              </select>
-            </div>
-            <div className="form-field">
-              <label htmlFor="network-filter-auto">auto_allocate</label>
-              <select
-                id="network-filter-auto"
-                value={draft.autoAllocate}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    autoAllocate: event.target.value as "" | "true" | "false",
-                  })
-                }
-              >
-                <option value="">全部（默认）</option>
-                <option value="true">true（允许自动分配）</option>
-                <option value="false">false（不允许）</option>
-              </select>
-            </div>
-            <div className="filter-actions">
-              <button type="submit">筛选</button>
-              <button type="button" onClick={resetFilters}>
-                重置
-              </button>
-            </div>
-          </form>
-
-          {canViewDeleted && (
-            <div className="form-field deleted-toggle">
-              <label htmlFor="network-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-              <select
-                id="network-deleted-mode"
-                value={query.deleted}
-                onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
-              >
-                <option value="exclude">未删除（默认）</option>
-                <option value="include">全部（含已删除）</option>
-                <option value="only">仅已删除</option>
-              </select>
-            </div>
+          {canDelete && network.deleted_at === null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => requestDelete(network)}
+            >
+              删除
+            </Button>
           )}
-
-          {state.kind === "loading" && (
-            <p className="status status-loading">正在加载网络列表…</p>
+          {canRestore && network.deleted_at !== null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => requestRestore(network)}
+            >
+              恢复
+            </Button>
           )}
-
-          {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载网络列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
-          )}
-
-          {state.kind === "success" &&
-            (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                没有符合条件的网络（当前过滤 / 分页下无数据，非错误）。
-              </p>
-            ) : (
-              <>
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>cluster</th>
-                        {SORT_COLUMNS.map(({ field, label }) => (
-                          <th key={field}>
-                            <button
-                              type="button"
-                              className="sort-button"
-                              onClick={() => toggleSort(field)}
-                            >
-                              {label}
-                              {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                            </button>
-                          </th>
-                        ))}
-                        <th>gateway</th>
-                        <th>auto_allocate</th>
-                        <th>version</th>
-                        {showDeletedColumn && <th>deleted_at</th>}
-                        <th>操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {state.data.items.map((network) => (
-                        <tr key={network.id}>
-                          <td>
-                            <span className="mono">{network.cluster.code}</span>
-                            <span className="unset">（{network.cluster.name}）</span>
-                          </td>
-                          <td>
-                            {network.name}
-                            {network.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
-                            )}
-                          </td>
-                          <td className="mono">{network.cidr}</td>
-                          <td>
-                            <span className={`badge badge-${network.status.toLowerCase()}`}>
-                              {network.status}
-                            </span>
-                          </td>
-                          <td className="mono">{network.created_at}</td>
-                          <td className="mono">{network.updated_at}</td>
-                          <td className="mono">
-                            {network.gateway ?? <span className="unset">—</span>}
-                          </td>
-                          <td>{network.auto_allocate ? "true" : "false"}</td>
-                          <td>{network.version}</td>
-                          {showDeletedColumn && (
-                            <td className="mono">
-                              {network.deleted_at ?? <span className="unset">—</span>}
-                            </td>
-                          )}
-                          <td>
-                            {canWrite && network.deleted_at === null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => {
-                                  setFormError(null);
-                                  setMode({ kind: "edit", network });
-                                  setFormKey((key) => key + 1);
-                                }}
-                              >
-                                编辑
-                              </button>
-                            )}
-                            {canDelete && network.deleted_at === null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => requestDelete(network)}
-                              >
-                                删除
-                              </button>
-                            )}
-                            {canRestore && network.deleted_at !== null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => requestRestore(network)}
-                              >
-                                恢复
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <Pagination
-                  page={state.data.page}
-                  pageSize={state.data.page_size}
-                  total={state.data.total}
-                  appliedPageSize={query.pageSize}
-                  onGotoPage={gotoPage}
-                  onChangePageSize={changePageSize}
-                />
-              </>
-            ))}
-
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((reference) => (
-                      <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {conflictItemText(reference)}（{reference.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.rangeConflicts.length > 0 && (
-                  <ul>
-                    {actionError.rangeConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflictItemText(conflict)}（{conflict.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflictItemText(conflict)}（{conflict.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
-
-            {action !== null && (
-              <div className="inline-confirm">
-                {action.kind === "delete" ? (
-                  <span>
-                    确认软删除网络 {action.network.name}？（不级联删除关联对象；同集群内名称软删后可复用；
-                    若仍有未删除的地址池或 IP 引用，将被拒绝并显示引用列表）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复网络 {action.network.name}？（仅恢复自身，不级联；将重检同集群名称唯一性、
-                    所属集群有效性与 CIDR 不重叠，失败不覆盖新对象；version 递增）
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            )}
-          </div>
         </>
-      )}
+      ),
+    },
+  ];
 
-      {mode.kind === "create" && (
-        <NetworkForm
-          mode="create"
-          clusters={clusters}
-          submitting={submitting}
-          serverError={formError}
-          onSubmit={handleCreateSubmit}
-          onCancel={() => setMode({ kind: "list" })}
-        />
-      )}
+  // 操作错误提示（AntD Alert 自带 role="alert"）：确认框开启期间渲染在 Modal 内，
+  // 取消确认后保留在列表区展示（同迁移前的呈现位置与文案）
+  const actionErrorAlert = actionError ? (
+    <Alert
+      type="error"
+      message={actionError.message}
+      description={
+        actionError.references.length > 0 ||
+        actionError.rangeConflicts.length > 0 ||
+        actionError.dependencyConflicts.length > 0 ||
+        actionError.versionConflict ? (
+          <>
+            {actionError.references.length > 0 && (
+              <ul className="mt-1 list-disc pl-5">
+                {actionError.references.map((reference) => (
+                  <li key={`${reference.object_type}-${reference.object_id}`}>
+                    {conflictItemText(reference)}（{reference.object_id}）
+                  </li>
+                ))}
+              </ul>
+            )}
+            {actionError.rangeConflicts.length > 0 && (
+              <ul className="mt-1 list-disc pl-5">
+                {actionError.rangeConflicts.map((conflict) => (
+                  <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                    {conflictItemText(conflict)}（{conflict.object_id}）
+                  </li>
+                ))}
+              </ul>
+            )}
+            {actionError.dependencyConflicts.length > 0 && (
+              <ul className="mt-1 list-disc pl-5">
+                {actionError.dependencyConflicts.map((conflict) => (
+                  <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                    {conflictItemText(conflict)}（{conflict.object_id}）
+                  </li>
+                ))}
+              </ul>
+            )}
+            {actionError.versionConflict && (
+              <Button
+                className="mt-2"
+                onClick={() => {
+                  setActionError(null);
+                  setAction(null);
+                  setReloadToken((token) => token + 1);
+                }}
+                disabled={actionBusy}
+              >
+                刷新最新数据
+              </Button>
+            )}
+          </>
+        ) : undefined
+      }
+    />
+  ) : null;
 
-      {mode.kind === "edit" && (
-        <NetworkForm
-          key={formKey}
-          mode="edit"
-          clusters={clusters}
-          network={mode.network}
-          submitting={submitting}
-          serverError={formError}
-          onSubmit={handleEditSubmit}
-          onCancel={() => setMode({ kind: "list" })}
-          onRefresh={refreshAfterConflict}
-        />
-      )}
-    </section>
+  // 二次确认框的可见口径同迁移前的行内确认块：仅列表模式渲染
+  const confirmVisible = mode.kind === "list";
+
+  return (
+    <>
+      <Card
+        className="mt-6"
+        title="Networks（网络）"
+        extra={
+          canWrite && mode.kind === "list" ? (
+            <Button
+              type="primary"
+              onClick={() => {
+                setFormError(null);
+                setMode({ kind: "create" });
+              }}
+            >
+              新建网络
+            </Button>
+          ) : undefined
+        }
+      >
+        {mode.kind === "list" && (
+          <>
+            {clusterOptions.kind === "error" && (
+              <Alert
+                className="mb-4"
+                type="error"
+                showIcon
+                message={`加载集群下拉失败：${clusterOptions.message}`}
+                action={
+                  <Button
+                    size="small"
+                    danger
+                    onClick={() => setClusterReloadToken((token) => token + 1)}
+                  >
+                    重试
+                  </Button>
+                }
+              />
+            )}
+
+            <Form
+              onFinish={applyFilters}
+              className="flex flex-wrap items-end gap-x-4 gap-y-3 border-b border-gray-100 pb-4"
+            >
+              <div className="flex w-56 flex-col gap-1">
+                <label htmlFor="network-filter-q" className="text-sm text-gray-700">
+                  模糊搜索（name 子串，大小写不敏感）
+                </label>
+                <Input
+                  id="network-filter-q"
+                  value={draft.q}
+                  onChange={(event) => setDraft({ ...draft, q: event.target.value })}
+                  placeholder="大小写不敏感子串匹配"
+                />
+              </div>
+              <div className="flex w-64 flex-col gap-1">
+                <label htmlFor="network-filter-cluster" className="text-sm text-gray-700">
+                  所属集群
+                </label>
+                <Select<string>
+                  id="network-filter-cluster"
+                  className="w-full"
+                  value={draft.clusterId}
+                  onChange={(value) => setDraft({ ...draft, clusterId: value })}
+                  disabled={clusterOptions.kind !== "success"}
+                  options={clusterFilterOptions}
+                />
+              </div>
+              <div className="flex w-40 flex-col gap-1">
+                <label htmlFor="network-filter-status" className="text-sm text-gray-700">
+                  状态
+                </label>
+                <Select<"" | NetworkStatus>
+                  id="network-filter-status"
+                  className="w-full"
+                  value={draft.status}
+                  onChange={(value) => setDraft({ ...draft, status: value })}
+                  options={STATUS_FILTER_OPTIONS}
+                />
+              </div>
+              <div className="flex w-56 flex-col gap-1">
+                <label htmlFor="network-filter-auto" className="text-sm text-gray-700">
+                  auto_allocate
+                </label>
+                <Select<"" | "true" | "false">
+                  id="network-filter-auto"
+                  className="w-full"
+                  value={draft.autoAllocate}
+                  onChange={(value) => setDraft({ ...draft, autoAllocate: value })}
+                  options={AUTO_ALLOCATE_FILTER_OPTIONS}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button type="primary" htmlType="submit">
+                  筛选
+                </Button>
+                <Button onClick={resetFilters}>重置</Button>
+              </div>
+            </Form>
+
+            {canViewDeleted && (
+              <div className="mt-4 flex w-56 flex-col gap-1">
+                <label htmlFor="network-deleted-mode" className="text-sm text-gray-700">
+                  软删可见性（需 VIEW_DELETED 权限）
+                </label>
+                <Select<DeletedMode>
+                  id="network-deleted-mode"
+                  value={query.deleted}
+                  onChange={(value) => changeDeleted(value)}
+                  options={DELETED_MODE_OPTIONS}
+                />
+              </div>
+            )}
+
+            {state.kind === "loading" && (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+                <Spin />
+                <span>正在加载网络列表…</span>
+              </div>
+            )}
+
+            {state.kind === "error" && (
+              <Alert
+                className="mt-4"
+                type="error"
+                showIcon
+                message={`加载网络列表失败：${state.message}`}
+                action={
+                  <Button
+                    size="small"
+                    danger
+                    onClick={() => setReloadToken((token) => token + 1)}
+                  >
+                    重试
+                  </Button>
+                }
+              />
+            )}
+
+            {state.kind === "success" &&
+              (state.data.items.length === 0 ? (
+                <Empty
+                  className="py-8"
+                  description="没有符合条件的网络（当前过滤 / 分页下无数据，非错误）。"
+                />
+              ) : (
+                <>
+                  <Table<Network>
+                    className="mt-4"
+                    rowKey="id"
+                    size="middle"
+                    pagination={false}
+                    scroll={{ x: "max-content" }}
+                    dataSource={state.data.items}
+                    columns={columns}
+                  />
+                  <Pagination
+                    page={state.data.page}
+                    pageSize={state.data.page_size}
+                    total={state.data.total}
+                    appliedPageSize={query.pageSize}
+                    onGotoPage={gotoPage}
+                    onChangePageSize={changePageSize}
+                  />
+                </>
+              ))}
+
+            {action === null && actionErrorAlert && (
+              <div className="mt-4">{actionErrorAlert}</div>
+            )}
+          </>
+        )}
+
+        {mode.kind === "create" && (
+          <NetworkForm
+            mode="create"
+            clusters={clusters}
+            submitting={submitting}
+            serverError={formError}
+            onSubmit={handleCreateSubmit}
+            onCancel={() => setMode({ kind: "list" })}
+          />
+        )}
+
+        {mode.kind === "edit" && (
+          <NetworkForm
+            key={formKey}
+            mode="edit"
+            clusters={clusters}
+            network={mode.network}
+            submitting={submitting}
+            serverError={formError}
+            onSubmit={handleEditSubmit}
+            onCancel={() => setMode({ kind: "list" })}
+            onRefresh={refreshAfterConflict}
+          />
+        )}
+      </Card>
+
+      {/* 删除二次确认（软删，Contract §6.5）：失败不自动关闭，错误在框内呈现 */}
+      <Modal
+        open={action !== null && action.kind === "delete" && confirmVisible}
+        title={
+          action !== null && action.kind === "delete"
+            ? `确认软删除网络 ${action.network.name}？（不级联删除关联对象；同集群内名称软删后可复用；若仍有未删除的地址池或 IP 引用，将被拒绝并显示引用列表）`
+            : ""
+        }
+        okText={actionBusy ? "正在删除…" : "确认删除"}
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+        cancelButtonProps={{ disabled: actionBusy }}
+        confirmLoading={actionBusy}
+        maskClosable={false}
+        keyboard={false}
+        onOk={confirmDelete}
+        onCancel={() => {
+          if (!actionBusy) {
+            setAction(null);
+          }
+        }}
+      >
+        {actionErrorAlert}
+      </Modal>
+
+      {/* 恢复二次确认（RESTORE，Contract §6.6）：失败不自动关闭，错误在框内呈现 */}
+      <Modal
+        open={action !== null && action.kind === "restore" && confirmVisible}
+        title={
+          action !== null && action.kind === "restore"
+            ? `确认恢复网络 ${action.network.name}？（仅恢复自身，不级联；将重检同集群名称唯一性、所属集群有效性与 CIDR 不重叠，失败不覆盖新对象；version 递增）`
+            : ""
+        }
+        okText={actionBusy ? "正在恢复…" : "确认恢复"}
+        cancelText="取消"
+        cancelButtonProps={{ disabled: actionBusy }}
+        confirmLoading={actionBusy}
+        maskClosable={false}
+        keyboard={false}
+        onOk={confirmRestore}
+        onCancel={() => {
+          if (!actionBusy) {
+            setAction(null);
+          }
+        }}
+      >
+        {actionErrorAlert}
+      </Modal>
+    </>
   );
 }
 
@@ -777,6 +913,7 @@ interface PaginationProps {
   onChangePageSize: (pageSize: number) => void;
 }
 
+/** 分页条（AntD Button / Select 承担控件，文案与行为同迁移前）。 */
 function Pagination({
   page,
   pageSize,
@@ -787,26 +924,28 @@ function Pagination({
 }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <div className="pagination">
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
       <span>
         共 {total} 条 · 第 {page} / {totalPages} 页
       </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
+      <Button disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
         上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
+      </Button>
+      <Button disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
         下一页
-      </button>
-      <label>
+      </Button>
+      <label className="flex items-center gap-2">
         每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
+        <Select<number>
+          className="w-20"
+          value={appliedPageSize}
+          onChange={(value) => onChangePageSize(value)}
+          options={[
+            { value: 20, label: "20" },
+            { value: 50, label: "50" },
+            { value: 100, label: "100" },
+          ]}
+        />
         条
       </label>
     </div>

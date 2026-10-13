@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Alert, Card, Tabs } from "antd";
 import type { User } from "../api/auth";
 import AccountManagementPanel from "../components/AccountManagementPanel";
 import DeletedObjectsPanel from "../components/DeletedObjectsPanel";
@@ -28,46 +29,51 @@ export default function SystemPage({ user }: SystemPageProps) {
 
   if (!canUserAdmin && !canViewDeleted) {
     return (
-      <section className="panel">
-        <h2>System（系统管理）</h2>
-        <p className="status status-error" role="alert">
-          没有权限访问系统管理（账号管理需 USER_ADMIN、已删对象管理需 VIEW_DELETED）。
-          导航入口对无权限角色隐藏，服务端仍按权限矩阵拒绝越权请求（FORBIDDEN）。
-        </p>
-      </section>
+      <Card title="System（系统管理）">
+        <Alert
+          role="alert"
+          type="error"
+          message="没有权限访问系统管理（账号管理需 USER_ADMIN、已删对象管理需 VIEW_DELETED）。 导航入口对无权限角色隐藏，服务端仍按权限矩阵拒绝越权请求（FORBIDDEN）。"
+        />
+      </Card>
     );
   }
 
   return (
-    <section className="panel">
-      <h2>System（系统管理）</h2>
-      <div className="system-tabs" role="tablist" aria-label="系统管理分区">
-        {canUserAdmin && (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "account"}
-            className={activeTab === "account" ? "nav-link nav-link-active" : "nav-link"}
-            onClick={() => setTab("account")}
-          >
-            账号管理
-          </button>
-        )}
-        {canViewDeleted && (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "deleted"}
-            className={activeTab === "deleted" ? "nav-link nav-link-active" : "nav-link"}
-            onClick={() => setTab("deleted")}
-          >
-            已删对象管理
-          </button>
-        )}
-      </div>
-
-      {activeTab === "account" && canUserAdmin && <AccountManagementPanel />}
-      {activeTab === "deleted" && canViewDeleted && <DeletedObjectsPanel user={user} />}
-    </section>
+    <Card title="System（系统管理）">
+      {/* items 按权限裁剪；children 保持原条件渲染（激活且有权限才挂载，
+          切换 Tab 即卸载），避免 rc-tabs 默认保留已渲染面板导致状态残留 */}
+      <Tabs
+        aria-label="系统管理分区"
+        activeKey={activeTab}
+        onChange={(key) => setTab(key as SystemTab)}
+        items={[
+          ...(canUserAdmin
+            ? [
+                {
+                  key: "account",
+                  label: "账号管理",
+                  children:
+                    activeTab === "account" && canUserAdmin ? (
+                      <AccountManagementPanel />
+                    ) : null,
+                },
+              ]
+            : []),
+          ...(canViewDeleted
+            ? [
+                {
+                  key: "deleted",
+                  label: "已删对象管理",
+                  children:
+                    activeTab === "deleted" && canViewDeleted ? (
+                      <DeletedObjectsPanel user={user} />
+                    ) : null,
+                },
+              ]
+            : []),
+        ]}
+      />
+    </Card>
   );
 }

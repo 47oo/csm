@@ -1,4 +1,17 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  Alert,
+  Button,
+  Card,
+  Empty,
+  Form,
+  Input,
+  Select,
+  Spin,
+  Table,
+  Tag,
+  type TableProps,
+} from "antd";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import { listNetworks, type Network } from "../api/networks";
@@ -79,6 +92,51 @@ const SORT_COLUMNS: { field: IpPoolSortField; label: string }[] = [
   { field: "updated_at", label: "更新时间" },
 ];
 
+/** 分配模式徽标配色（沿用旧版 badge-manual/auto/reserved 的灰/蓝/红）。 */
+const ALLOCATION_MODE_TAG_COLOR: Record<IpPoolAllocationMode, string> = {
+  MANUAL: "default",
+  AUTO: "processing",
+  RESERVED: "error",
+};
+
+/** 排序列单元格渲染（地址 / 时间等宽字体；name 附“已删除”标记；模式徽标化）。 */
+const SORT_CELL_RENDER: { [F in IpPoolSortField]: (ipPool: IpPool) => ReactNode } = {
+  name: (ipPool) => (
+    <span>
+      {ipPool.name}
+      {ipPool.deleted_at !== null && (
+        <Tag color="red" className="ml-2">
+          已删除
+        </Tag>
+      )}
+    </span>
+  ),
+  start_address: (ipPool) => <span className="font-mono">{ipPool.start_address}</span>,
+  end_address: (ipPool) => <span className="font-mono">{ipPool.end_address}</span>,
+  allocation_mode: (ipPool) => (
+    <Tag color={ALLOCATION_MODE_TAG_COLOR[ipPool.allocation_mode]}>
+      {ipPool.allocation_mode}
+    </Tag>
+  ),
+  created_at: (ipPool) => <span className="font-mono">{ipPool.created_at}</span>,
+  updated_at: (ipPool) => <span className="font-mono">{ipPool.updated_at}</span>,
+};
+
+/** allocation_mode 过滤下拉选项（文案与迁移前一致）。 */
+const ALLOCATION_MODE_FILTER_OPTIONS: { value: "" | IpPoolAllocationMode; label: string }[] = [
+  { value: "", label: "全部（默认）" },
+  { value: "MANUAL", label: "MANUAL（仅手动）" },
+  { value: "AUTO", label: "AUTO（自动与手动）" },
+  { value: "RESERVED", label: "RESERVED（保留）" },
+];
+
+/** 软删可见性选项（exclude 默认 | include | only；后两者需 VIEW_DELETED）。 */
+const DELETED_MODE_OPTIONS: { value: DeletedMode; label: string }[] = [
+  { value: "exclude", label: "未删除（默认）" },
+  { value: "include", label: "全部（含已删除）" },
+  { value: "only", label: "仅已删除" },
+];
+
 /**
  * F009 IP Pools 地址池管理页（Contract §4/§5/§6）：
  * - 列表：GET /api/v1/ip-pools（分页 page/page_size 1–100、排序白名单、过滤
@@ -96,6 +154,11 @@ const SORT_COLUMNS: { field: IpPoolSortField; label: string }[] = [
  * - 恢复（RESTORE）：409 not_deleted / unique_conflict / dependency_deleted
  *   （所属 Network 仍删）/ 422（Network cidr 变更后越界）/ range_overlap /
  *   address_in_use 明确呈现。
+ *
+ * F017：控件层迁移 Ant Design + Tailwind（props / API 调用与参数 / 过滤排序
+ * 分页与软删语义 / 四态 / 权限门控 / 删除恢复确认与冲突呈现 / 文案均保持
+ * 不变）。排序仍由表头按钮切换，不用 AntD 内置 sorter；行内二次确认沿用
+ * 迁移前交互（失败后确认区保持待确认状态，错误在上方 Alert 呈现）。
  */
 export default function IpPoolsPage({ user }: IpPoolsPageProps) {
   const canWrite = user.permissions.includes("WRITE");
@@ -332,8 +395,8 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
       });
   }
 
-  function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /** 点击“筛选”才应用草稿（提交时机由 AntD Form onFinish 接管）。 */
+  function applyFilters() {
     setQuery((current) => ({
       ...current,
       q: draft.q,
@@ -379,215 +442,242 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
   const networks = networkOptions.kind === "success" ? networkOptions.networks : [];
   const showDeletedColumn = query.deleted !== "exclude";
 
+  /** 仅开启软删可见性（include / only）时追加 deleted_at 列（与原实现口径一致）。 */
+  const deletedAtColumn: NonNullable<TableProps<IpPool>["columns"]>[number] = {
+    title: "deleted_at",
+    dataIndex: "deleted_at",
+    key: "deleted_at",
+    render: (value: string | null) =>
+      value !== null ? (
+        <span className="font-mono">{value}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
+  };
+
+  /** 列定义（文案与数据口径同旧版；排序由表头按钮切换，不用 AntD 内置 sorter）。 */
+  const columns: TableProps<IpPool>["columns"] = [
+    {
+      title: "network",
+      key: "network",
+      render: (_, ipPool) => (
+        <span>
+          <span className="font-mono">{ipPool.network.name}</span>
+          <span className="text-gray-400">（{ipPool.network.cidr}）</span>
+        </span>
+      ),
+    },
+    ...SORT_COLUMNS.map(
+      ({ field, label }): NonNullable<TableProps<IpPool>["columns"]>[number] => ({
+        title: (
+          <Button
+            type="link"
+            size="small"
+            className="px-0 font-semibold"
+            onClick={() => toggleSort(field)}
+          >
+            {label}
+            {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
+          </Button>
+        ),
+        dataIndex: field,
+        key: field,
+        render: (_: unknown, ipPool: IpPool) => SORT_CELL_RENDER[field](ipPool),
+      }),
+    ),
+    { title: "version", dataIndex: "version", key: "version" },
+    ...(showDeletedColumn ? [deletedAtColumn] : []),
+    {
+      title: "操作",
+      key: "actions",
+      render: (_, ipPool) => (
+        <>
+          {canWrite && ipPool.deleted_at === null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => {
+                setFormError(null);
+                setMode({ kind: "edit", ipPool });
+                setFormKey((key) => key + 1);
+              }}
+            >
+              编辑
+            </Button>
+          )}
+          {canDelete && ipPool.deleted_at === null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => requestDelete(ipPool)}
+            >
+              删除
+            </Button>
+          )}
+          {canRestore && ipPool.deleted_at !== null && (
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={() => requestRestore(ipPool)}
+            >
+              恢复
+            </Button>
+          )}
+        </>
+      ),
+    },
+  ];
+
   return (
-    <section className="panel">
-      <div className="table-toolbar">
-        <h2>IP Pools（地址池）</h2>
-        {canWrite && mode.kind === "list" && (
-          <button
-            type="button"
+    <Card
+      title="IP Pools（地址池）"
+      extra={
+        canWrite && mode.kind === "list" ? (
+          <Button
+            type="primary"
             onClick={() => {
               setFormError(null);
               setMode({ kind: "create" });
             }}
           >
             新建地址池
-          </button>
-        )}
-      </div>
-
+          </Button>
+        ) : undefined
+      }
+    >
       {mode.kind === "list" && (
         <>
           {networkOptions.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载网络下拉失败：{networkOptions.message}</p>
-              <button
-                type="button"
-                onClick={() => setNetworkReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <Alert
+              className="mb-4"
+              type="error"
+              showIcon
+              message={`加载网络下拉失败：${networkOptions.message}`}
+              action={
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setNetworkReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
 
-          <form className="filter-form" onSubmit={applyFilters}>
-            <div className="form-field">
-              <label htmlFor="ip-pool-filter-q">模糊搜索（name 子串，大小写不敏感）</label>
-              <input
+          <Form
+            onFinish={applyFilters}
+            className="flex flex-wrap items-end gap-x-4 gap-y-3 border-b border-gray-100 pb-4"
+          >
+            <div className="flex w-56 flex-col gap-1">
+              <label htmlFor="ip-pool-filter-q" className="text-sm text-gray-700">
+                模糊搜索（name 子串，大小写不敏感）
+              </label>
+              <Input
                 id="ip-pool-filter-q"
-                type="text"
                 value={draft.q}
                 onChange={(event) => setDraft({ ...draft, q: event.target.value })}
                 placeholder="大小写不敏感子串匹配"
               />
             </div>
-            <div className="form-field">
-              <label htmlFor="ip-pool-filter-network">所属网络</label>
-              <select
+            <div className="flex w-56 flex-col gap-1">
+              <label htmlFor="ip-pool-filter-network" className="text-sm text-gray-700">
+                所属网络
+              </label>
+              <Select<string>
                 id="ip-pool-filter-network"
+                className="w-full"
                 value={draft.networkId}
-                onChange={(event) => setDraft({ ...draft, networkId: event.target.value })}
+                onChange={(value) => setDraft({ ...draft, networkId: value })}
                 disabled={networkOptions.kind !== "success"}
-              >
-                <option value="">全部（默认）</option>
-                {networks.map((network) => (
-                  <option key={network.id} value={network.id}>
-                    {network.name}（{network.cidr}）
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "全部（默认）" },
+                  ...networks.map((network) => ({
+                    value: network.id,
+                    label: `${network.name}（${network.cidr}）`,
+                  })),
+                ]}
+              />
             </div>
-            <div className="form-field">
-              <label htmlFor="ip-pool-filter-mode">allocation_mode</label>
-              <select
+            <div className="flex w-52 flex-col gap-1">
+              <label htmlFor="ip-pool-filter-mode" className="text-sm text-gray-700">
+                allocation_mode
+              </label>
+              <Select<"" | IpPoolAllocationMode>
                 id="ip-pool-filter-mode"
+                className="w-full"
                 value={draft.allocationMode}
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    allocationMode: event.target.value as "" | IpPoolAllocationMode,
-                  })
-                }
-              >
-                <option value="">全部（默认）</option>
-                <option value="MANUAL">MANUAL（仅手动）</option>
-                <option value="AUTO">AUTO（自动与手动）</option>
-                <option value="RESERVED">RESERVED（保留）</option>
-              </select>
+                onChange={(value) => setDraft({ ...draft, allocationMode: value })}
+                options={ALLOCATION_MODE_FILTER_OPTIONS}
+              />
             </div>
-            <div className="filter-actions">
-              <button type="submit">筛选</button>
-              <button type="button" onClick={resetFilters}>
-                重置
-              </button>
+            <div className="flex gap-2">
+              <Button type="primary" htmlType="submit">
+                筛选
+              </Button>
+              <Button onClick={resetFilters}>重置</Button>
             </div>
-          </form>
+          </Form>
 
           {canViewDeleted && (
-            <div className="form-field deleted-toggle">
-              <label htmlFor="ip-pool-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-              <select
+            <div className="mt-4 flex w-56 flex-col gap-1">
+              <label htmlFor="ip-pool-deleted-mode" className="text-sm text-gray-700">
+                软删可见性（需 VIEW_DELETED 权限）
+              </label>
+              <Select<DeletedMode>
                 id="ip-pool-deleted-mode"
                 value={query.deleted}
-                onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
-              >
-                <option value="exclude">未删除（默认）</option>
-                <option value="include">全部（含已删除）</option>
-                <option value="only">仅已删除</option>
-              </select>
+                onChange={(value) => changeDeleted(value)}
+                options={DELETED_MODE_OPTIONS}
+              />
             </div>
           )}
 
           {state.kind === "loading" && (
-            <p className="status status-loading">正在加载地址池列表…</p>
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+              <Spin />
+              <span>正在加载地址池列表…</span>
+            </div>
           )}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载地址池列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <Alert
+              className="mt-4"
+              type="error"
+              showIcon
+              message={`加载地址池列表失败：${state.message}`}
+              action={
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => setReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                没有符合条件的地址池（当前过滤 / 分页下无数据，非错误）。
-              </p>
+              <Empty
+                className="py-8"
+                description="没有符合条件的地址池（当前过滤 / 分页下无数据，非错误）。"
+              />
             ) : (
               <>
-                <div className="table-wrap">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>network</th>
-                        {SORT_COLUMNS.map(({ field, label }) => (
-                          <th key={field}>
-                            <button
-                              type="button"
-                              className="sort-button"
-                              onClick={() => toggleSort(field)}
-                            >
-                              {label}
-                              {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                            </button>
-                          </th>
-                        ))}
-                        <th>version</th>
-                        {showDeletedColumn && <th>deleted_at</th>}
-                        <th>操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {state.data.items.map((ipPool) => (
-                        <tr key={ipPool.id}>
-                          <td>
-                            <span className="mono">{ipPool.network.name}</span>
-                            <span className="unset">（{ipPool.network.cidr}）</span>
-                          </td>
-                          <td>
-                            {ipPool.name}
-                            {ipPool.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
-                            )}
-                          </td>
-                          <td className="mono">{ipPool.start_address}</td>
-                          <td className="mono">{ipPool.end_address}</td>
-                          <td>
-                            <span
-                              className={`badge badge-${ipPool.allocation_mode.toLowerCase()}`}
-                            >
-                              {ipPool.allocation_mode}
-                            </span>
-                          </td>
-                          <td className="mono">{ipPool.created_at}</td>
-                          <td className="mono">{ipPool.updated_at}</td>
-                          <td>{ipPool.version}</td>
-                          {showDeletedColumn && (
-                            <td className="mono">
-                              {ipPool.deleted_at ?? <span className="unset">—</span>}
-                            </td>
-                          )}
-                          <td>
-                            {canWrite && ipPool.deleted_at === null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => {
-                                  setFormError(null);
-                                  setMode({ kind: "edit", ipPool });
-                                  setFormKey((key) => key + 1);
-                                }}
-                              >
-                                编辑
-                              </button>
-                            )}
-                            {canDelete && ipPool.deleted_at === null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => requestDelete(ipPool)}
-                              >
-                                删除
-                              </button>
-                            )}
-                            {canRestore && ipPool.deleted_at !== null && (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => requestRestore(ipPool)}
-                              >
-                                恢复
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table<IpPool>
+                  className="mt-4"
+                  rowKey="id"
+                  size="middle"
+                  pagination={false}
+                  scroll={{ x: "max-content" }}
+                  dataSource={state.data.items}
+                  columns={columns}
+                />
                 <Pagination
                   page={state.data.page}
                   pageSize={state.data.page_size}
@@ -599,100 +689,111 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {actionError.rangeConflicts.length > 0 && (
-                  <ul>
-                    {actionError.rangeConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        重叠地址池：
-                        {conflict.label ? `${conflict.label}（` : "("}
-                        {conflict.start_address} – {conflict.end_address}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.occupancy !== null && (
-                  <>
-                    <p>
-                      占用冲突共 {actionError.occupancy.count} 个未删除 IP 地址
-                      {actionError.occupancy.truncated
-                        ? "（以下明细已被截断，仅显示前若干条；完整明细可通过 IP 地址列表查询）"
-                        : "："}
-                    </p>
-                    {actionError.occupancy.conflicts.length > 0 && (
-                      <ul>
-                        {actionError.occupancy.conflicts.map((item) => (
-                          <li key={`${item.object_type}-${item.object_id}`}>
-                            {occupancyItemText(item)}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        所属网络仍处于已删除状态或已不存在（{conflict.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
+          {(actionError !== null || action !== null) && (
+            <div className="mt-5 flex flex-col gap-3">
+              {actionError && (
+                <Alert
+                  type="error"
+                  showIcon
+                  message={actionError.message}
+                  description={
+                    <>
+                      {actionError.rangeConflicts.length > 0 && (
+                        <ul className="list-disc pl-5">
+                          {actionError.rangeConflicts.map((conflict) => (
+                            <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                              重叠地址池：
+                              {conflict.label ? `${conflict.label}（` : "("}
+                              {conflict.start_address} – {conflict.end_address}）
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {actionError.occupancy !== null && (
+                        <>
+                          <p>
+                            占用冲突共 {actionError.occupancy.count} 个未删除 IP 地址
+                            {actionError.occupancy.truncated
+                              ? "（以下明细已被截断，仅显示前若干条；完整明细可通过 IP 地址列表查询）"
+                              : "："}
+                          </p>
+                          {actionError.occupancy.conflicts.length > 0 && (
+                            <ul className="list-disc pl-5">
+                              {actionError.occupancy.conflicts.map((item) => (
+                                <li key={`${item.object_type}-${item.object_id}`}>
+                                  {occupancyItemText(item)}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </>
+                      )}
+                      {actionError.dependencyConflicts.length > 0 && (
+                        <ul className="list-disc pl-5">
+                          {actionError.dependencyConflicts.map((conflict) => (
+                            <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                              所属网络仍处于已删除状态或已不存在（{conflict.object_id}）
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {actionError.versionConflict && (
+                        <Button
+                          size="small"
+                          danger
+                          className="mt-2"
+                          disabled={actionBusy}
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                        >
+                          刷新最新数据
+                        </Button>
+                      )}
+                    </>
+                  }
+                />
+              )}
 
-            {action !== null && (
-              <div className="inline-confirm">
-                {action.kind === "delete" ? (
+              {action !== null && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
                   <span>
-                    确认软删除地址池 {action.ipPool.name}？（不级联删除关联对象；不回收、
-                    不删除已分配的 IP 地址；同网络内名称与地址范围软删后可复用）
+                    {action.kind === "delete" ? (
+                      <span>
+                        确认软删除地址池 {action.ipPool.name}？（不级联删除关联对象；不回收、
+                        不删除已分配的 IP 地址；同网络内名称与地址范围软删后可复用）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复地址池 {action.ipPool.name}？（仅恢复自身，不级联；将重检同网络
+                        名称唯一性、所属网络有效性、起止仍属网络 CIDR、范围不重叠，RESERVED
+                        另检占用冲突，失败不覆盖新对象；version 递增）
+                      </span>
+                    )}
                   </span>
-                ) : (
-                  <span>
-                    确认恢复地址池 {action.ipPool.name}？（仅恢复自身，不级联；将重检同网络
-                    名称唯一性、所属网络有效性、起止仍属网络 CIDR、范围不重叠，RESERVED
-                    另检占用冲突，失败不覆盖新对象；version 递增）
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            )}
-          </div>
+                  <Button
+                    type="primary"
+                    danger={action.kind === "delete"}
+                    onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
+                    disabled={actionBusy}
+                  >
+                    {actionBusy
+                      ? action.kind === "delete"
+                        ? "正在删除…"
+                        : "正在恢复…"
+                      : action.kind === "delete"
+                        ? "确认删除"
+                        : "确认恢复"}
+                  </Button>
+                  <Button onClick={() => setAction(null)} disabled={actionBusy}>
+                    取消
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -720,7 +821,7 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
           onRefresh={refreshAfterConflict}
         />
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -763,6 +864,7 @@ interface PaginationProps {
   onChangePageSize: (pageSize: number) => void;
 }
 
+/** 分页条（AntD Button / Select 承担控件，文案与行为同迁移前）。 */
 function Pagination({
   page,
   pageSize,
@@ -773,26 +875,28 @@ function Pagination({
 }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <div className="pagination">
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-600">
       <span>
         共 {total} 条 · 第 {page} / {totalPages} 页
       </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
+      <Button disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
         上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
+      </Button>
+      <Button disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
         下一页
-      </button>
-      <label>
+      </Button>
+      <label className="flex items-center gap-2">
         每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
+        <Select<number>
+          className="w-20"
+          value={appliedPageSize}
+          onChange={(value) => onChangePageSize(value)}
+          options={[
+            { value: 20, label: "20" },
+            { value: 50, label: "50" },
+            { value: 100, label: "100" },
+          ]}
+        />
         条
       </label>
     </div>

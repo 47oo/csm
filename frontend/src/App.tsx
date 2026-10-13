@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Alert, Button, Card, Spin } from "antd";
 import { me, type User } from "./api/auth";
 import { displayError, isApiError, setUnauthorizedHandler } from "./api/client";
 import LoginPage from "./pages/LoginPage";
@@ -62,29 +63,33 @@ export default function App() {
 
   if (phase.kind === "boot-loading") {
     return (
-      <main>
-        <h1>CSM</h1>
-        <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
-        <section className="panel">
-          <p className="status status-loading">正在恢复登录态…</p>
-        </section>
+      <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">CSM</h1>
+        <p className="mt-2 text-sm text-gray-500">Cluster Source Manager · 资源事实数据源</p>
+        <Card className="mt-8 w-full max-w-md">
+          <div className="flex items-center justify-center gap-3 text-gray-600">
+            <Spin />
+            <span>正在恢复登录态…</span>
+          </div>
+        </Card>
       </main>
     );
   }
 
   if (phase.kind === "boot-error") {
     return (
-      <main>
-        <h1>CSM</h1>
-        <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
-        <section className="panel">
-          <p className="status status-error" role="alert">
-            恢复登录态失败：{phase.message}
-          </p>
-          <button type="button" onClick={() => setBootAttempt((attempt) => attempt + 1)}>
-            重试
-          </button>
-        </section>
+      <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900">CSM</h1>
+        <p className="mt-2 text-sm text-gray-500">Cluster Source Manager · 资源事实数据源</p>
+        <Card className="mt-8 w-full max-w-md">
+          {/* Ant Design Alert 自带 role="alert"，保留无障碍错误语义 */}
+          <Alert type="error" showIcon message={`恢复登录态失败：${phase.message}`} />
+          <div className="mt-4">
+            <Button type="primary" onClick={() => setBootAttempt((attempt) => attempt + 1)}>
+              重试
+            </Button>
+          </div>
+        </Card>
       </main>
     );
   }

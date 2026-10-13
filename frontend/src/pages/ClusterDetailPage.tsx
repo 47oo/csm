@@ -1,4 +1,14 @@
 import { useEffect, useState } from "react";
+import {
+  Alert,
+  Button,
+  Card,
+  Descriptions,
+  Modal,
+  Spin,
+  Tag,
+  type DescriptionsProps,
+} from "antd";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import {
@@ -75,6 +85,67 @@ function buildUpdatePayload(
 }
 
 /**
+ * 详情字段展示（Contract §3/§5）：基础字段全量展示，null 显式标注“未设置 /
+ * 未删除”，不伪装为空值；status 徽标化并附“已删除”标记（口径同列表页）。
+ */
+function clusterDetailItems(cluster: Cluster): DescriptionsProps["items"] {
+  return [
+    { key: "id", label: "id", children: <span className="font-mono">{cluster.id}</span> },
+    { key: "code", label: "code", children: <span className="font-mono">{cluster.code}</span> },
+    { key: "name", label: "name", children: cluster.name },
+    {
+      key: "status",
+      label: "status",
+      children: (
+        <span>
+          <Tag color={cluster.status === "ACTIVE" ? "success" : "default"}>{cluster.status}</Tag>
+          {cluster.deleted_at !== null && (
+            <Tag color="red" className="ml-2">
+              已删除
+            </Tag>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "description",
+      label: "description",
+      children: cluster.description ?? <span className="text-gray-400">未设置（null）</span>,
+    },
+    {
+      key: "metadata",
+      label: "metadata",
+      children: (
+        <pre className="m-0 max-w-full overflow-x-auto rounded-md border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm">
+          {JSON.stringify(cluster.metadata, null, 2)}
+        </pre>
+      ),
+    },
+    { key: "version", label: "version", children: cluster.version },
+    {
+      key: "created_at",
+      label: "created_at",
+      children: <span className="font-mono">{cluster.created_at}</span>,
+    },
+    {
+      key: "updated_at",
+      label: "updated_at",
+      children: <span className="font-mono">{cluster.updated_at}</span>,
+    },
+    {
+      key: "deleted_at",
+      label: "deleted_at",
+      children:
+        cluster.deleted_at !== null ? (
+          <span className="font-mono">{cluster.deleted_at}</span>
+        ) : (
+          <span className="text-gray-400">未删除（null）</span>
+        ),
+    },
+  ];
+}
+
+/**
  * F003 集群详情页（Contract §3/§5/§6.3–§6.6）：
  * - 基础字段全量展示（null 显式标注“未设置”，不伪装为空值）；
  * - 编辑：PATCH 带 version；仅变化字段；code 不可改（前端不提供编辑）；
@@ -82,6 +153,11 @@ function buildUpdatePayload(
  * - 删除（软删，DELETE_OBJECT）：需确认，409 CONFLICT reference_exists 展示引用；
  * - 恢复（RESTORE，ADMIN）：需确认，带 version；
  * - 操作按钮按服务端返回的 permissions 显示，隐藏不替代鉴权（服务端仍 403/404）。
+ *
+ * F017：控件层迁移 Ant Design + Tailwind（props / API 调用 / 详情字段与 null 标注 /
+ * 编辑与删除恢复流程 / 软删 / 权限门控 / 四态 / 文案均保持不变）。原行内二次确认
+ * 改为 Modal：确认框开启期间错误（含引用列表、版本冲突刷新按钮）在框内呈现，
+ * 取消后仍保留在操作区，行为口径同迁移前（失败后确认框保持待确认状态）。
  */
 export default function ClusterDetailPage({
   clusterId,
@@ -231,157 +307,171 @@ export default function ClusterDetailPage({
       });
   }
 
+  // 操作错误提示（AntD Alert 自带 role="alert"）：确认框开启期间渲染在 Modal 内，
+  // 取消确认后保留在操作区展示（同迁移前的呈现位置与文案）
+  const actionErrorAlert = actionError ? (
+    <Alert
+      type="error"
+      message={actionError.message}
+      description={
+        actionError.references.length > 0 || actionError.versionConflict ? (
+          <>
+            {actionError.references.length > 0 && (
+              <ul className="mt-1 list-disc pl-5">
+                {actionError.references.map((reference) => (
+                  <li key={`${reference.object_type}-${reference.object_id}`}>
+                    {reference.object_type}：{reference.label}（{reference.object_id}）
+                  </li>
+                ))}
+              </ul>
+            )}
+            {actionError.versionConflict && (
+              <Button
+                className="mt-2"
+                onClick={() => {
+                  setActionError(null);
+                  setReloadToken((token) => token + 1);
+                }}
+                disabled={actionBusy}
+              >
+                刷新最新数据
+              </Button>
+            )}
+          </>
+        ) : undefined
+      }
+    />
+  ) : null;
+
+  // 二次确认框的可见口径同迁移前的行内确认块：仅 Success + 查看模式渲染
+  const confirmVisible = state.kind === "success" && mode === "view";
+
   return (
-    <section className="panel">
-      <div className="table-toolbar">
-        <h2>集群详情</h2>
-        <button type="button" onClick={onBack}>
-          返回列表
-        </button>
-      </div>
-
-      {state.kind === "loading" && (
-        <p className="status status-loading">正在加载集群详情…</p>
-      )}
-
-      {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载集群详情失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
-      )}
-
-      {state.kind === "success" && mode === "view" && (
-        <>
-          <dl className="detail-grid">
-            <dt>id</dt>
-            <dd className="mono">{state.cluster.id}</dd>
-            <dt>code</dt>
-            <dd className="mono">{state.cluster.code}</dd>
-            <dt>name</dt>
-            <dd>{state.cluster.name}</dd>
-            <dt>status</dt>
-            <dd>
-              <span className={`badge badge-${state.cluster.status.toLowerCase()}`}>
-                {state.cluster.status}
-              </span>
-              {state.cluster.deleted_at !== null && (
-                <span className="badge badge-deleted">已删除</span>
-              )}
-            </dd>
-            <dt>description</dt>
-            <dd>
-              {state.cluster.description ?? <span className="unset">未设置（null）</span>}
-            </dd>
-            <dt>metadata</dt>
-            <dd>
-              <pre className="json-block">{JSON.stringify(state.cluster.metadata, null, 2)}</pre>
-            </dd>
-            <dt>version</dt>
-            <dd>{state.cluster.version}</dd>
-            <dt>created_at</dt>
-            <dd className="mono">{state.cluster.created_at}</dd>
-            <dt>updated_at</dt>
-            <dd className="mono">{state.cluster.updated_at}</dd>
-            <dt>deleted_at</dt>
-            <dd className="mono">
-              {state.cluster.deleted_at ?? <span className="unset">未删除（null）</span>}
-            </dd>
-          </dl>
-
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((reference) => (
-                      <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {reference.object_type}：{reference.label}（{reference.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
-
-            {action === "delete" ? (
-              <div className="inline-confirm">
-                <span>确认软删除该集群？（不级联删除关联对象；软删后 code 不可复用）</span>
-                <button type="button" onClick={confirmDelete} disabled={actionBusy}>
-                  {actionBusy ? "正在删除…" : "确认删除"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            ) : action === "restore" ? (
-              <div className="inline-confirm">
-                <span>确认恢复该集群？（恢复自身，不级联；version 递增）</span>
-                <button type="button" onClick={confirmRestore} disabled={actionBusy}>
-                  {actionBusy ? "正在恢复…" : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            ) : (
-              <>
-                {canWrite && state.cluster.deleted_at === null && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormError(null);
-                      setMode("edit");
-                    }}
-                  >
-                    编辑
-                  </button>
-                )}
-                {canDelete && state.cluster.deleted_at === null && (
-                  <button type="button" onClick={requestDelete}>
-                    删除集群
-                  </button>
-                )}
-                {canRestore && state.cluster.deleted_at !== null && (
-                  <button type="button" onClick={requestRestore}>
-                    恢复集群
-                  </button>
-                )}
-              </>
-            )}
+    <>
+      <Card
+        className="mt-6"
+        title="集群详情"
+        extra={
+          <Button htmlType="button" onClick={onBack}>
+            返回列表
+          </Button>
+        }
+      >
+        {state.kind === "loading" && (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+            <Spin />
+            <span>正在加载集群详情…</span>
           </div>
-        </>
-      )}
+        )}
 
-      {state.kind === "success" && mode === "edit" && (
-        <ClusterForm
-          key={formKey}
-          mode="edit"
-          cluster={state.cluster}
-          submitting={submitting}
-          serverError={formError}
-          onSubmit={handleEditSubmit}
-          onCancel={() => setMode("view")}
-          onRefresh={refreshAfterConflict}
-        />
-      )}
-    </section>
+        {state.kind === "error" && (
+          <Alert
+            type="error"
+            showIcon
+            message={`加载集群详情失败：${state.message}`}
+            action={
+              <Button
+                size="small"
+                danger
+                onClick={() => setReloadToken((token) => token + 1)}
+              >
+                重试
+              </Button>
+            }
+          />
+        )}
+
+        {state.kind === "success" && mode === "view" && (
+          <>
+            <Descriptions
+              column={1}
+              items={clusterDetailItems(state.cluster)}
+              contentStyle={{ overflowWrap: "anywhere" }}
+            />
+
+            <div className="mt-5 flex flex-col gap-4">
+              {action === null && actionErrorAlert}
+
+              {action === null && (
+                <div className="flex flex-wrap gap-3">
+                  {canWrite && state.cluster.deleted_at === null && (
+                    <Button
+                      onClick={() => {
+                        setFormError(null);
+                        setMode("edit");
+                      }}
+                    >
+                      编辑
+                    </Button>
+                  )}
+                  {canDelete && state.cluster.deleted_at === null && (
+                    <Button danger onClick={requestDelete}>
+                      删除集群
+                    </Button>
+                  )}
+                  {canRestore && state.cluster.deleted_at !== null && (
+                    <Button onClick={requestRestore}>恢复集群</Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {state.kind === "success" && mode === "edit" && (
+          <ClusterForm
+            key={formKey}
+            mode="edit"
+            cluster={state.cluster}
+            submitting={submitting}
+            serverError={formError}
+            onSubmit={handleEditSubmit}
+            onCancel={() => setMode("view")}
+            onRefresh={refreshAfterConflict}
+          />
+        )}
+      </Card>
+
+      {/* 删除二次确认（软删，Contract §6.5）：失败不自动关闭，错误在框内呈现 */}
+      <Modal
+        open={action === "delete" && confirmVisible}
+        title="确认软删除该集群？（不级联删除关联对象；软删后 code 不可复用）"
+        okText={actionBusy ? "正在删除…" : "确认删除"}
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+        cancelButtonProps={{ disabled: actionBusy }}
+        confirmLoading={actionBusy}
+        maskClosable={false}
+        keyboard={false}
+        onOk={confirmDelete}
+        onCancel={() => {
+          if (!actionBusy) {
+            setAction(null);
+          }
+        }}
+      >
+        {actionErrorAlert}
+      </Modal>
+
+      {/* 恢复二次确认（RESTORE，Contract §6.6）：失败不自动关闭，错误在框内呈现 */}
+      <Modal
+        open={action === "restore" && confirmVisible}
+        title="确认恢复该集群？（恢复自身，不级联；version 递增）"
+        okText={actionBusy ? "正在恢复…" : "确认恢复"}
+        cancelText="取消"
+        cancelButtonProps={{ disabled: actionBusy }}
+        confirmLoading={actionBusy}
+        maskClosable={false}
+        keyboard={false}
+        onOk={confirmRestore}
+        onCancel={() => {
+          if (!actionBusy) {
+            setAction(null);
+          }
+        }}
+      >
+        {actionErrorAlert}
+      </Modal>
+    </>
   );
 }
