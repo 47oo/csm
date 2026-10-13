@@ -1116,8 +1116,8 @@ features:
   - F016
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: IMPLEMENTATION：Frontend 按 architecture.md §3 迁移全部页面/组件到 Ant Design + Tailwind，并本地验证 typecheck/build/smoke。
+  current_stage: TEST
+  next_action: TEST 阶段：tester 按 TD-1 §2/§3 独立执行 A1–A16 与负向场景，输出 TEST 执行结果。
   git:
     base_branch: v3
     branch: feature/F017-frontend-ui-antd-tailwind
@@ -1134,7 +1134,7 @@ features:
     test_design: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
-    frontend: PENDING
+    frontend: COMPLETE
     test: PENDING
     review: PENDING
   not_required:
@@ -1150,6 +1150,8 @@ features:
     - docs/database/f017-frontend-ui.md
     test_design:
     - docs/features/F017/test-report.md#test-design
+    frontend:
+    - docs/features/F017/implementation.md
 - id: F018
   title: 前端改造后一期整体验收复验
   kind: FEATURE
@@ -1331,9 +1333,9 @@ execution:
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
   current_feature: F017
-  current_stage: IMPLEMENTATION
-  last_result: F017 CONTRACT 定稿 READY FOR IMPLEMENTATION（architect 签核 #7.5；TD-1 已裁定并入文档）。
-  next_action: IMPLEMENTATION：Frontend 执行迁移并本地验证。
+  current_stage: TEST
+  last_result: F017 IMPLEMENTATION COMPLETE（FRONTEND COMPLETE，见 docs/features/F017/implementation.md；typecheck/build/smoke 264 通过）。
+  next_action: TEST 阶段：tester 独立执行执行验证。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
