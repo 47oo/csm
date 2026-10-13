@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Alert, Button, Card, Spin } from "antd";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import { listClusters, type Cluster } from "../api/clusters";
@@ -153,36 +154,56 @@ export default function ResourceCreatePage({ user, onCancel, onCreated }: Resour
   const content = () => {
     if (!canWrite) {
       return (
-        <p className="status status-error" role="alert">
-          当前账号没有创建资源的权限（WRITE，服务端鉴权为准）。
-        </p>
+        <Alert
+          type="error"
+          showIcon
+          message="当前账号没有创建资源的权限（WRITE，服务端鉴权为准）。"
+        />
       );
     }
     if (clusterOptions.kind === "loading") {
-      return <p className="status status-loading">正在加载可选集群…</p>;
+      return (
+        <div className="flex items-center gap-3 py-6 text-gray-500">
+          <Spin />
+          <span>正在加载可选集群…</span>
+        </div>
+      );
     }
     if (clusterOptions.kind === "error") {
       return (
-        <div className="status status-error" role="alert">
-          <p>加载集群列表失败（创建资源需选择所属集群）：{clusterOptions.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <Alert
+          type="error"
+          showIcon
+          message={`加载集群列表失败（创建资源需选择所属集群）：${clusterOptions.message}`}
+          action={
+            <Button
+              size="small"
+              danger
+              onClick={() => setReloadToken((token) => token + 1)}
+            >
+              重试
+            </Button>
+          }
+        />
       );
     }
     return (
       <>
         {clusterOptions.clusters.length === 0 && (
-          <p className="status status-empty">
-            当前没有可选集群：请先在 Clusters 中创建集群，再登记资源。
-          </p>
+          <Alert
+            className="mb-3"
+            type="warning"
+            showIcon
+            message="当前没有可选集群：请先在 Clusters 中创建集群，再登记资源。"
+          />
         )}
         {clusterOptions.total > clusterOptions.clusters.length && (
-          <p className="status status-empty">
-            集群总数 {clusterOptions.total} 个，下拉仅显示前 {clusterOptions.clusters.length} 个
-            （按 code 排序；列表分页上限 100）。
-          </p>
+          <Alert
+            className="mb-3"
+            type="info"
+            showIcon
+            message={`集群总数 ${clusterOptions.total} 个，下拉仅显示前 ${clusterOptions.clusters.length} 个 （按 code 排序；列表分页上限 100）。`}
+          />
         )}
         <ResourceForm
           mode="create"
@@ -197,14 +218,16 @@ export default function ResourceCreatePage({ user, onCancel, onCreated }: Resour
   };
 
   return (
-    <section className="panel">
-      <div className="table-toolbar">
-        <h2>新建资源</h2>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+    <Card
+      title="新建资源"
+      className="w-full"
+      extra={
+        <Button htmlType="button" onClick={onCancel} disabled={submitting}>
           返回列表
-        </button>
-      </div>
+        </Button>
+      }
+    >
       {content()}
-    </section>
+    </Card>
   );
 }
