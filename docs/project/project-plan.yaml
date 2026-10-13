@@ -1180,8 +1180,8 @@ features:
   - F017
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT：产出 docs/features/F018/product.md。
+  current_stage: ARCHITECTURE
+  next_action: ARCHITECTURE：architect 产出 docs/features/F018/architecture.md（验收方案与 layers）。
   git:
     base_branch: v3
     branch: feature/F018-post-ui-acceptance
@@ -1192,7 +1192,7 @@ features:
     frontend: false
   api_required: false
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -1206,6 +1206,9 @@ features:
     database: 验收型 Feature 无 Schema 交付。
     backend: 无新增后端实现，仅复验。
     frontend: 无新增前端页面/组件，仅构建与验收；如 ARCHITECTURE 阶段判定需 frontend layer 再复核。
+  evidence:
+    product:
+    - docs/features/F018/product.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1343,9 +1346,9 @@ execution:
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
   current_feature: F018
-  current_stage: PRODUCT
-  last_result: F018 Preflight 完成；分支 feature/F018-post-ui-acceptance（start 6e69593）。
-  next_action: PRODUCT 阶段：product-manager 产出 docs/features/F018/product.md。
+  current_stage: ARCHITECTURE
+  last_result: F018 PRODUCT COMPLETE（docs/features/F018/product.md，READY FOR ARCHITECT）。
+  next_action: ARCHITECTURE 阶段：architect 产出 architecture.md。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
