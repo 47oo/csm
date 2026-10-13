@@ -1,3 +1,6 @@
+import { Button, Input } from "../components/ui/controls";
+import { ErrorState } from "../components/ui/feedback";
+import { SurfaceCard } from "../components/ui/surfaces";
 import { useState, type FormEvent } from "react";
 import { login, type User } from "../api/auth";
 import { isApiError, type ApiErrorDetails } from "../api/client";
@@ -81,12 +84,11 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       <h1>CSM</h1>
       <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
 
-      <section className="panel">
-        <h2>登录</h2>
+      <SurfaceCard className="panel" title="登录">
         <form onSubmit={handleSubmit}>
           <div className="form-field">
             <label htmlFor="login-username">用户名</label>
-            <input
+            <Input
               id="login-username"
               name="username"
               type="text"
@@ -99,7 +101,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
           <div className="form-field">
             <label htmlFor="login-password">密码</label>
-            <input
+            <Input
               id="login-password"
               name="password"
               type="password"
@@ -112,26 +114,30 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
 
           {error && (
-            <div className="form-error status status-error" role="alert">
-              <p>
-                登录失败：{error.message}
-                {error.code ? `（${error.code}）` : ""}
-              </p>
-              {error.fields.length > 0 && (
-                <ul>
-                  {error.fields.map((fieldMessage) => (
-                    <li key={fieldMessage}>{fieldMessage}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <ErrorState
+              message={
+                <div className="form-error">
+                  <p>
+                    登录失败：{error.message}
+                    {error.code ? `（${error.code}）` : ""}
+                  </p>
+                  {error.fields.length > 0 && (
+                    <ul>
+                      {error.fields.map((fieldMessage) => (
+                        <li key={fieldMessage}>{fieldMessage}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              }
+            />
           )}
 
-          <button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting}>
             {submitting ? "正在登录…" : "登录"}
-          </button>
+          </Button>
         </form>
-      </section>
+      </SurfaceCard>
     </main>
   );
 }

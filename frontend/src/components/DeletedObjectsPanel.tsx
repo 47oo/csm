@@ -1,3 +1,6 @@
+import { Button, Select, DataTable } from "./ui/controls";
+import { EmptyState, ErrorState, InfoState, LoadingState, WarningState } from "./ui/feedback";
+import { ServerPagination as Pagination } from "./ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import type { User } from "../api/auth";
 import {
@@ -168,17 +171,12 @@ export default function DeletedObjectsPanel({ user }: DeletedObjectsPanelProps) 
 
   return (
     <div>
-      <p className="status">
-        跨 8 类对象（Cluster / Resource / Interface / Network / IP Pool / IP Address /
-        Service / ServiceEndpoint）的已软删对象统一视图（不含用户账号；账号以停用
-        代替删除）。恢复按对象类型调用其所属域的既有恢复端点：仅恢复当前对象、
-        不级联；将重检唯一性与依赖有效性，失败不覆盖新对象。
-      </p>
+      <InfoState message="跨 8 类对象（Cluster / Resource / Interface / Network / IP Pool / IP Address / Service / ServiceEndpoint）的已软删对象统一视图（不含用户账号；账号以停用代替删除）。恢复按对象类型调用其所属域的既有恢复端点：仅恢复当前对象、不级联；将重检唯一性与依赖有效性，失败不覆盖新对象。" />
 
       <form className="filter-form" onSubmit={applyFilters}>
         <div className="form-field">
           <label htmlFor="deleted-filter-object-type">object_type</label>
-          <select
+          <Select
             id="deleted-filter-object-type"
             value={draft.objectType}
             onChange={(event) =>
@@ -191,38 +189,36 @@ export default function DeletedObjectsPanel({ user }: DeletedObjectsPanelProps) 
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="filter-actions">
-          <button type="submit">筛选</button>
-          <button type="button" onClick={resetFilters}>
+          <Button type="submit">筛选</Button>
+          <Button type="button" onClick={resetFilters}>
             重置
-          </button>
+          </Button>
         </div>
       </form>
 
-      {state.kind === "loading" && (
-        <p className="status status-loading">正在加载已删除对象…</p>
-      )}
+      {state.kind === "loading" && <LoadingState label="正在加载已删除对象…" />}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载已删除对象失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={`加载已删除对象失败：${state.message}`}
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
 
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            没有已删除对象（当前过滤 / 分页下无数据，非错误）。
-          </p>
+          <EmptyState description="没有已删除对象（当前过滤 / 分页下无数据，非错误）。" />
         ) : (
           <>
             <div className="table-wrap">
-              <table className="data-table">
+              <DataTable className="data-table">
                 <thead>
                   <tr>
                     <th>object_type</th>
@@ -231,10 +227,10 @@ export default function DeletedObjectsPanel({ user }: DeletedObjectsPanelProps) 
                     <th>object_id</th>
                     <th>version</th>
                     <th>
-                      <button type="button" className="sort-button" onClick={toggleOrder}>
+                      <Button type="button" className="sort-button" onClick={toggleOrder}>
                         deleted_at
                         {query.order === "asc" ? " ▲" : " ▼"}
-                      </button>
+                      </Button>
                     </th>
                     <th>操作</th>
                   </tr>
@@ -256,13 +252,13 @@ export default function DeletedObjectsPanel({ user }: DeletedObjectsPanelProps) 
                       <td className="mono">{item.deleted_at}</td>
                       <td>
                         {canRestore ? (
-                          <button
+                          <Button
                             type="button"
                             className="link-button"
                             onClick={() => requestRestore(item)}
                           >
                             恢复
-                          </button>
+                          </Button>
                         ) : (
                           <span className="unset">—</span>
                         )}
@@ -270,7 +266,7 @@ export default function DeletedObjectsPanel({ user }: DeletedObjectsPanelProps) 
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             </div>
             <Pagination
               page={state.data.page}
@@ -285,11 +281,11 @@ export default function DeletedObjectsPanel({ user }: DeletedObjectsPanelProps) 
 
       <div className="detail-actions">
         {actionError && (
-          <div className="status status-error action-error" role="alert">
+          <ErrorState message={<div className="form-error">
             <p>{actionError.message}</p>
             {actionError.versionConflict && (
               <p>
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setActionError(null);
@@ -299,73 +295,28 @@ export default function DeletedObjectsPanel({ user }: DeletedObjectsPanelProps) 
                   disabled={actionBusy}
                 >
                   刷新最新数据
-                </button>
+                </Button>
               </p>
             )}
-          </div>
+          </div>} />
         )}
 
         {action !== null && (
-          <div className="inline-confirm">
+          <WarningState message={<div className="inline-confirm">
             <span>
               确认恢复 {OBJECT_TYPE_LABELS[action.item.object_type]}
               「{action.item.label}」？（仅恢复当前对象、不级联；将按该对象类型的
               既有规则重检唯一性与依赖有效性，失败不覆盖新对象；version 递增）
             </span>
-            <button type="button" onClick={confirmRestore} disabled={actionBusy}>
+            <Button type="button" onClick={confirmRestore} disabled={actionBusy}>
               {actionBusy ? "正在恢复…" : "确认恢复"}
-            </button>
-            <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
+            </Button>
+            <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
               取消
-            </button>
-          </div>
+            </Button>
+          </div>} />
         )}
       </div>
-    </div>
-  );
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
     </div>
   );
 }

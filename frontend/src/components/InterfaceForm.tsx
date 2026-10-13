@@ -1,3 +1,5 @@
+import { Button, Input, Select, TextArea } from "./ui/controls";
+import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
 import { useEffect, useState, type FormEvent } from "react";
 import { displayError, isApiError } from "../api/client";
 import { listInterfaces, type Interface, type InterfaceActionError, type InterfaceTypeValue } from "../api/interfaces";
@@ -191,7 +193,7 @@ export default function InterfaceForm({
         <label htmlFor="interface-name">
           name（必填；区分大小写保留输入，同资源内未删除唯一；禁内部空白 / 控制字符，≤64）
         </label>
-        <input
+        <Input
           id="interface-name"
           name="name"
           type="text"
@@ -209,7 +211,7 @@ export default function InterfaceForm({
 
       <div className="form-field">
         <label htmlFor="interface-type">interface_type（类型，可选，默认 OTHER；不据名称推断）</label>
-        <select
+        <Select
           id="interface-type"
           name="interface_type"
           value={values.interface_type}
@@ -221,7 +223,7 @@ export default function InterfaceForm({
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
         {serverFields.interface_type && (
           <p className="field-error" role="alert">
             {serverFields.interface_type}
@@ -233,23 +235,21 @@ export default function InterfaceForm({
         <label htmlFor="interface-parent">
           parent_interface（父接口，可选；须为本资源内未删除的其它接口，留空 = 根接口）
         </label>
-        {parentOptions.kind === "loading" && (
-          <p className="status status-loading">正在加载接口列表…</p>
-        )}
+        {parentOptions.kind === "loading" && <LoadingState label="正在加载接口列表…" />}
         {parentOptions.kind === "error" && (
-          <div className="status status-error" role="alert">
-            <p>加载父接口候选失败：{parentOptions.message}</p>
-            <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-              重试
-            </button>
-          </div>
+          <ErrorState
+            message={`加载父接口候选失败：${parentOptions.message}`}
+            action={
+              <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                重试
+              </Button>
+            }
+          />
         )}
         {parentOptions.kind === "success" && parentItems.length === 0 && (
-          <p className="status status-empty">
-            本资源暂无其它未删除接口：留空即为根接口（首个接口无父）。
-          </p>
+          <EmptyState description="本资源暂无其它未删除接口：留空即为根接口（首个接口无父）。" />
         )}
-        <select
+        <Select
           id="interface-parent"
           name="parent_interface"
           value={values.parent_interface}
@@ -265,12 +265,9 @@ export default function InterfaceForm({
               {item.name}（{item.interface_type}）
             </option>
           ))}
-        </select>
+        </Select>
         {parentOptions.kind === "success" && parentOptions.total > parentOptions.items.length && (
-          <p className="status status-empty">
-            接口总数 {parentOptions.total} 个，下拉仅显示前 {parentOptions.items.length} 个
-            （按 name 排序；列表分页上限 100）。
-          </p>
+          <InfoState message={`接口总数 ${parentOptions.total} 个，下拉仅显示前 ${parentOptions.items.length} 个（按 name 排序；列表分页上限 100）。`} />
         )}
         {fieldError("parent_interface") && (
           <p className="field-error" role="alert">
@@ -283,7 +280,7 @@ export default function InterfaceForm({
         <label htmlFor="interface-mac">
           mac_address（MAC 地址，可选；无格式校验、保留输入大小写，≤64）
         </label>
-        <input
+        <Input
           id="interface-mac"
           name="mac_address"
           type="text"
@@ -302,7 +299,7 @@ export default function InterfaceForm({
       {INTERFACE_INT_FIELDS.map((field) => (
         <div className="form-field" key={field.key}>
           <label htmlFor={`interface-${field.key}`}>{field.label}</label>
-          <input
+          <Input
             id={`interface-${field.key}`}
             name={field.key}
             type="text"
@@ -321,7 +318,7 @@ export default function InterfaceForm({
 
       <div className="form-field checkbox-field">
         <label htmlFor="interface-enabled">
-          <input
+          <Input
             id="interface-enabled"
             name="enabled"
             type="checkbox"
@@ -335,7 +332,7 @@ export default function InterfaceForm({
 
       <div className="form-field">
         <label htmlFor="interface-description">description（描述，可选）</label>
-        <textarea
+        <TextArea
           id="interface-description"
           name="description"
           rows={3}
@@ -353,7 +350,7 @@ export default function InterfaceForm({
 
       <div className="form-field">
         <label htmlFor="interface-metadata">metadata（JSON 对象，可选；接口自有扩展，整值替换）</label>
-        <textarea
+        <TextArea
           id="interface-metadata"
           name="metadata"
           rows={5}
@@ -370,38 +367,38 @@ export default function InterfaceForm({
       </div>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
-          <p>
-            {serverError.message}
-            {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
-          </p>
-          {serverError.references.length > 0 && (
-            <ul>
-              {serverError.references.map((reference) => (
-                <li key={`${reference.object_type}-${reference.object_id}`}>
-                  {reference.object_type}
-                  {reference.label ? `：${reference.label}` : ""}（{reference.object_id}）
-                </li>
-              ))}
-            </ul>
-          )}
-          {serverError.versionConflict && onRefresh && (
-            <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+        <ErrorState
+          message={
+            <div className="form-error">
+              <p>{serverError.message}{serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}</p>
+              {serverError.references.length > 0 && (
+                <ul>
+                  {serverError.references.map((reference) => (
+                    <li key={`${reference.object_type}-${reference.object_id}`}>
+                      {reference.object_type}{reference.label ? `：${reference.label}` : ""}（{reference.object_id}）
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          }
+          action={
+            serverError.versionConflict && onRefresh ? (
+              <Button type="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
-            </p>
-          )}
-        </div>
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button type="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );

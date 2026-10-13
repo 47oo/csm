@@ -1,3 +1,6 @@
+import { Button } from "../components/ui/controls";
+import { ErrorState } from "../components/ui/feedback";
+import { SurfaceCard } from "../components/ui/surfaces";
 import { useState } from "react";
 import type { User } from "../api/auth";
 import AccountManagementPanel from "../components/AccountManagementPanel";
@@ -28,22 +31,19 @@ export default function SystemPage({ user }: SystemPageProps) {
 
   if (!canUserAdmin && !canViewDeleted) {
     return (
-      <section className="panel">
+      <SurfaceCard className="panel">
         <h2>System（系统管理）</h2>
-        <p className="status status-error" role="alert">
-          没有权限访问系统管理（账号管理需 USER_ADMIN、已删对象管理需 VIEW_DELETED）。
-          导航入口对无权限角色隐藏，服务端仍按权限矩阵拒绝越权请求（FORBIDDEN）。
-        </p>
-      </section>
+        <ErrorState message="没有权限访问系统管理（账号管理需 USER_ADMIN、已删对象管理需 VIEW_DELETED）。导航入口对无权限角色隐藏，服务端仍按权限矩阵拒绝越权请求（FORBIDDEN）。" />
+      </SurfaceCard>
     );
   }
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <h2>System（系统管理）</h2>
       <div className="system-tabs" role="tablist" aria-label="系统管理分区">
         {canUserAdmin && (
-          <button
+          <Button
             type="button"
             role="tab"
             aria-selected={activeTab === "account"}
@@ -51,10 +51,10 @@ export default function SystemPage({ user }: SystemPageProps) {
             onClick={() => setTab("account")}
           >
             账号管理
-          </button>
+          </Button>
         )}
         {canViewDeleted && (
-          <button
+          <Button
             type="button"
             role="tab"
             aria-selected={activeTab === "deleted"}
@@ -62,12 +62,12 @@ export default function SystemPage({ user }: SystemPageProps) {
             onClick={() => setTab("deleted")}
           >
             已删对象管理
-          </button>
+          </Button>
         )}
       </div>
 
       {activeTab === "account" && canUserAdmin && <AccountManagementPanel />}
       {activeTab === "deleted" && canViewDeleted && <DeletedObjectsPanel user={user} />}
-    </section>
+    </SurfaceCard>
   );
 }

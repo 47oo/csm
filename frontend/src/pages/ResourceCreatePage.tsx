@@ -1,3 +1,6 @@
+import { Button } from "../components/ui/controls";
+import { EmptyState, ErrorState, InfoState, LoadingState } from "../components/ui/feedback";
+import { SurfaceCard } from "../components/ui/surfaces";
 import { useEffect, useState } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -152,37 +155,32 @@ export default function ResourceCreatePage({ user, onCancel, onCreated }: Resour
 
   const content = () => {
     if (!canWrite) {
-      return (
-        <p className="status status-error" role="alert">
-          当前账号没有创建资源的权限（WRITE，服务端鉴权为准）。
-        </p>
-      );
+      return <ErrorState message="当前账号没有创建资源的权限（WRITE，服务端鉴权为准）。" />;
     }
     if (clusterOptions.kind === "loading") {
-      return <p className="status status-loading">正在加载可选集群…</p>;
+      return <LoadingState label="正在加载可选集群…" />;
     }
     if (clusterOptions.kind === "error") {
       return (
-        <div className="status status-error" role="alert">
-          <p>加载集群列表失败（创建资源需选择所属集群）：{clusterOptions.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={`加载集群列表失败（创建资源需选择所属集群）：${clusterOptions.message}`}
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       );
     }
     return (
       <>
         {clusterOptions.clusters.length === 0 && (
-          <p className="status status-empty">
-            当前没有可选集群：请先在 Clusters 中创建集群，再登记资源。
-          </p>
+          <EmptyState description="当前没有可选集群：请先在 Clusters 中创建集群，再登记资源。" />
         )}
         {clusterOptions.total > clusterOptions.clusters.length && (
-          <p className="status status-empty">
-            集群总数 {clusterOptions.total} 个，下拉仅显示前 {clusterOptions.clusters.length} 个
-            （按 code 排序；列表分页上限 100）。
-          </p>
+          <InfoState
+            message={`集群总数 ${clusterOptions.total} 个，下拉仅显示前 ${clusterOptions.clusters.length} 个（按 code 排序；列表分页上限 100）。`}
+          />
         )}
         <ResourceForm
           mode="create"
@@ -197,14 +195,14 @@ export default function ResourceCreatePage({ user, onCancel, onCreated }: Resour
   };
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <div className="table-toolbar">
         <h2>新建资源</h2>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        <Button type="button" onClick={onCancel} disabled={submitting}>
           返回列表
-        </button>
+        </Button>
       </div>
       {content()}
-    </section>
+    </SurfaceCard>
   );
 }

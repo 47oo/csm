@@ -1,4 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Button, Input, DataTable } from "./ui/controls";
+import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
+import { StatusTag, statusTone } from "./ui/surfaces";
+import { useEffect, useState } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import type { Resource } from "../api/resources";
@@ -14,17 +17,6 @@ interface ServicesPanelProps {
   /** 所属 Resource（Services 归属创建后不可改；本区域只读，管理入口在 Services 页面）。 */
   resource: Resource;
   user: User;
-}
-
-/** status 徽标样式（与 ServicesPage 共用口径：UNKNOWN 复用 badge-unknown）。 */
-function statusBadge(status: string): ReactNode {
-  const cls =
-    status === "RUNNING"
-      ? "badge badge-active"
-      : status === "STOPPED"
-        ? "badge badge-inactive"
-        : "badge badge-unknown";
-  return <span className={cls}>{status}</span>;
 }
 
 /**
@@ -88,15 +80,13 @@ export default function ServicesPanel({ resource, user }: ServicesPanelProps) {
       </div>
 
       {resourceDeleted && (
-        <p className="status status-empty">
-          所属资源处于已删除状态：服务的创建与恢复需先恢复所属资源（服务端重检依赖）。
-        </p>
+        <InfoState message="所属资源处于已删除状态：服务的创建与恢复需先恢复所属资源（服务端重检依赖）。" />
       )}
 
       {canViewDeleted && (
         <div className="form-field checkbox-field deleted-toggle">
           <label htmlFor="services-deleted-toggle">
-            <input
+            <Input
               id="services-deleted-toggle"
               type="checkbox"
               checked={showDeleted}
@@ -107,36 +97,35 @@ export default function ServicesPanel({ resource, user }: ServicesPanelProps) {
         </div>
       )}
 
-      {state.kind === "loading" && (
-        <p className="status status-loading">正在加载该资源的服务登记…</p>
-      )}
+      {state.kind === "loading" && <LoadingState label="正在加载该资源的服务登记…" />}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载服务列表失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={`加载服务列表失败：${state.message}`}
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
 
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            {showDeleted
-              ? "该资源暂无服务登记（含已删除）。"
-              : "该资源暂无未删除的服务登记（非错误）。"}
-          </p>
+          <EmptyState
+            description={
+              showDeleted
+                ? "该资源暂无服务登记（含已删除）。"
+                : "该资源暂无未删除的服务登记（非错误）。"
+            }
+          />
         ) : (
           <>
             {state.data.total > state.data.items.length && (
-              <p className="status status-empty">
-                服务总数 {state.data.total} 条，仅显示前 {state.data.items.length} 条
-                （按 name 排序；列表分页上限 100）。
-              </p>
+              <InfoState message={`服务总数 ${state.data.total} 条，仅显示前 ${state.data.items.length} 条（按 name 排序；列表分页上限 100）。`} />
             )}
             <div className="table-wrap">
-              <table className="data-table">
+              <DataTable className="data-table">
                 <thead>
                   <tr>
                     <th>name</th>
@@ -154,10 +143,10 @@ export default function ServicesPanel({ resource, user }: ServicesPanelProps) {
                       <td>
                         {service.name}
                         {service.deleted_at !== null && (
-                          <span className="badge badge-deleted">已删除</span>
+                          <StatusTag tone="error">已删除</StatusTag>
                         )}
                       </td>
-                      <td>{statusBadge(service.status)}</td>
+                      <td><StatusTag tone={statusTone(service.status)}>{service.status}</StatusTag></td>
                       <td>{service.description ?? <span className="unset">—</span>}</td>
                       <td className="mono">{service.created_at}</td>
                       <td className="mono">{service.updated_at}</td>
@@ -170,7 +159,7 @@ export default function ServicesPanel({ resource, user }: ServicesPanelProps) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             </div>
           </>
         ))}

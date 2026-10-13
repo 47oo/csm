@@ -1,5 +1,7 @@
 import type { User } from "../api/auth";
 import AuditQueryPanel from "../components/AuditQueryPanel";
+import { ErrorState } from "../components/ui/feedback";
+import { SurfaceCard } from "../components/ui/surfaces";
 
 interface AuditPageProps {
   user: User;
@@ -15,16 +17,13 @@ export default function AuditPage({ user }: AuditPageProps) {
   const canAudit = user.permissions.includes("AUDIT_READ");
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <h2>Audit（完整审计查询）</h2>
       {canAudit ? (
         <AuditQueryPanel />
       ) : (
-        <p className="status status-error" role="alert">
-          没有权限查询完整审计（需 AUDIT_READ 权限）。导航入口对无权限角色隐藏，
-          服务端仍按权限矩阵拒绝越权请求（FORBIDDEN）。
-        </p>
+        <ErrorState message="没有权限查询完整审计（需 AUDIT_READ 权限）。导航入口对无权限角色隐藏，服务端仍按权限矩阵拒绝越权请求（FORBIDDEN）。" />
       )}
-    </section>
+    </SurfaceCard>
   );
 }

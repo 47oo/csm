@@ -1,3 +1,6 @@
+import { Button, Input, DataTable } from "./ui/controls";
+import { EmptyState, ErrorState, InfoState, LoadingState, WarningState } from "./ui/feedback";
+import { StatusTag } from "./ui/surfaces";
 import { useEffect, useState, type ReactNode } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -307,7 +310,7 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
             </span>
             <span>
               {canWrite && !resourceDeleted && (
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setFormError(null);
@@ -315,21 +318,19 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                   }}
                 >
                   新建接口
-                </button>
+                </Button>
               )}
             </span>
           </div>
 
           {resourceDeleted && (
-            <p className="status status-empty">
-              所属资源处于已删除状态：无法新建接口（服务端拒绝引用已删资源），恢复接口需先恢复所属资源。
-            </p>
+            <InfoState message="所属资源处于已删除状态：无法新建接口（服务端拒绝引用已删资源），恢复接口需先恢复所属资源。" />
           )}
 
           {canViewDeleted && (
             <div className="form-field checkbox-field deleted-toggle">
               <label htmlFor="interfaces-deleted-toggle">
-                <input
+                <Input
                   id="interfaces-deleted-toggle"
                   type="checkbox"
                   checked={showDeleted}
@@ -340,36 +341,35 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
             </div>
           )}
 
-          {state.kind === "loading" && (
-            <p className="status status-loading">正在加载该资源的网络接口…</p>
-          )}
+          {state.kind === "loading" && <LoadingState label="正在加载该资源的网络接口…" />}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载接口列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载接口列表失败：${state.message}`}
+              action={
+                <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                {showDeleted
-                  ? "该资源暂无接口登记（含已删除）。"
-                  : "该资源暂无未删除的接口登记（非错误）。"}
-              </p>
+              <EmptyState
+                description={
+                  showDeleted
+                    ? "该资源暂无接口登记（含已删除）。"
+                    : "该资源暂无未删除的接口登记（非错误）。"
+                }
+              />
             ) : (
               <>
                 {state.data.total > state.data.items.length && (
-                  <p className="status status-empty">
-                    接口总数 {state.data.total} 个，仅显示前 {state.data.items.length} 个
-                    （按 created_at 排序；列表分页上限 100）。
-                  </p>
+                  <InfoState message={`接口总数 ${state.data.total} 个，仅显示前 ${state.data.items.length} 个（按 created_at 排序；列表分页上限 100）。`} />
                 )}
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         <th>name</th>
@@ -389,7 +389,7 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                           <td className="mono">
                             {iface.name}
                             {iface.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
+                              <StatusTag tone="error">已删除</StatusTag>
                             )}
                           </td>
                           <td>{iface.interface_type}</td>
@@ -406,9 +406,9 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                             )}
                           </td>
                           <td>
-                            <span className={`badge ${iface.enabled ? "badge-active" : "badge-inactive"}`}>
+                            <StatusTag tone={iface.enabled ? "success" : "default"}>
                               {iface.enabled ? "启用" : "停用"}
-                            </span>
+                            </StatusTag>
                           </td>
                           {showDeleted && (
                             <td className="mono">
@@ -417,7 +417,7 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                           )}
                           <td>
                             {canWrite && iface.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => {
@@ -427,38 +427,39 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                                 }}
                               >
                                 编辑
-                              </button>
+                              </Button>
                             )}
                             {canDelete && iface.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
+                                danger
                                 className="link-button"
                                 onClick={() => requestDelete(iface)}
                               >
                                 删除
-                              </button>
+                              </Button>
                             )}
                             {canRestore && iface.deleted_at !== null && !resourceDeleted && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => requestRestore(iface)}
                               >
                                 恢复
-                              </button>
+                              </Button>
                             )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
               </>
             ))}
 
           <div className="detail-actions">
             {actionError && (
-              <div className="status status-error action-error" role="alert">
+              <ErrorState message={<div className="form-error">
                 <p>{actionError.message}</p>
                 {actionError.references.length > 0 && (
                   <ul>
@@ -482,7 +483,7 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                 )}
                 {actionError.versionConflict && (
                   <p>
-                    <button
+                    <Button
                       type="button"
                       onClick={() => {
                         setActionError(null);
@@ -492,14 +493,14 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                       disabled={actionBusy}
                     >
                       刷新最新数据
-                    </button>
+                    </Button>
                   </p>
                 )}
-              </div>
+              </div>} />
             )}
 
             {action !== null && (
-              <div className="inline-confirm">
+              <WarningState message={<div className="inline-confirm">
                 {action.kind === "delete" ? (
                   <span>
                     确认软删除接口 {action.iface.name}？（不级联删除关联对象；同资源内名称软删后可复用；
@@ -511,8 +512,9 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                     所属资源与父接口有效性，失败不覆盖新对象；version 递增）
                   </span>
                 )}
-                <button
+                <Button
                   type="button"
+                  danger={action.kind === "delete"}
                   onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
                   disabled={actionBusy}
                 >
@@ -523,11 +525,11 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                     : action.kind === "delete"
                       ? "确认删除"
                       : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
+                </Button>
+                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
                   取消
-                </button>
-              </div>
+                </Button>
+              </div>} />
             )}
           </div>
         </>

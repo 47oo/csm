@@ -1,3 +1,5 @@
+import { Button, Input, Select, TextArea } from "./ui/controls";
+import { ErrorState } from "./ui/feedback";
 import { useEffect, useState, type FormEvent } from "react";
 import type { Network } from "../api/networks";
 import type { Resource } from "../api/resources";
@@ -298,7 +300,7 @@ export default function IpAddressForm({
         <label htmlFor="ip-address-network">
           network（所属网络，必填；创建后不可更改；新增分配要求网络 ACTIVE）
         </label>
-        <select
+        <Select
           id="ip-address-network"
           name="network"
           value={values.network}
@@ -317,7 +319,7 @@ export default function IpAddressForm({
               {item.name}（{item.cidr}）
             </option>
           ))}
-        </select>
+        </Select>
         {(networkError ?? serverFields.network) && (
           <p className="field-error" role="alert">
             {networkError ?? serverFields.network}
@@ -373,7 +375,7 @@ export default function IpAddressForm({
           <label htmlFor="ip-address-address">
             address（必填；单个裸 IPv4 主机地址，不带掩码；须属所属网络 CIDR）
           </label>
-          <input
+          <Input
             id="ip-address-address"
             name="address"
             type="text"
@@ -396,7 +398,7 @@ export default function IpAddressForm({
             <label htmlFor="ip-address-pool">
               ip_pool（必填；该网络的 AUTO 地址池；服务端在池范围内按地址升序自动选址）
             </label>
-            <select
+            <Select
               id="ip-address-pool"
               name="ip_pool"
               value={values.ip_pool}
@@ -425,7 +427,7 @@ export default function IpAddressForm({
                     </option>
                   );
                 })}
-            </select>
+            </Select>
             {(poolError ?? serverFields.ip_pool) && (
               <p className="field-error" role="alert">
                 {poolError ?? serverFields.ip_pool}
@@ -486,7 +488,7 @@ export default function IpAddressForm({
             <label htmlFor="ip-address-interface-resource">
               绑定接口 · 第 1 步：选择资源（仅列出与该 IP 同集群的未删除资源）
             </label>
-            <select
+            <Select
               id="ip-address-interface-resource"
               value={selectedResourceId}
               onChange={(event) => {
@@ -512,7 +514,7 @@ export default function IpAddressForm({
                     {ipAddress.interface.resource.hostname}（当前绑定接口所属资源，不在候选列表）
                   </option>
                 )}
-            </select>
+            </Select>
             {resourceOptions.kind === "error" && (
               <p className="field-error" role="alert">
                 {resourceOptions.message}
@@ -531,7 +533,7 @@ export default function IpAddressForm({
             <label htmlFor="ip-address-interface">
               绑定接口 · 第 2 步：interface（空选 = 解绑 / 保持未绑定，IP 继续占用不被释放）
             </label>
-            <select
+            <Select
               id="ip-address-interface"
               name="interface"
               value={values.interface}
@@ -552,7 +554,7 @@ export default function IpAddressForm({
                     {ipAddress.interface.name}（当前绑定，不在该资源接口列表）
                   </option>
                 )}
-            </select>
+            </Select>
             {interfaceOptions.kind === "error" && (
               <p className="field-error" role="alert">
                 {interfaceOptions.message}
@@ -582,7 +584,7 @@ export default function IpAddressForm({
 
       <div className="form-field">
         <label htmlFor="ip-address-description">description（描述，可选）</label>
-        <textarea
+        <TextArea
           id="ip-address-description"
           name="description"
           rows={3}
@@ -599,41 +601,38 @@ export default function IpAddressForm({
       </div>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
-          <p>
-            {serverError.message}
-            {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
-          </p>
-          {unmappedServerFields.length > 0 && (
-            <ul>
-              {unmappedServerFields.map(({ path, message }) => (
-                <li key={path}>
-                  {path}：{message}
-                </li>
-              ))}
-            </ul>
-          )}
-          {serverError.references.length > 0 && (
-            <ul>
-              {serverError.references.map((item) => (
-                <li key={`${item.object_type}-${item.object_id}`}>
-                  引用对象：{item.label ?? item.object_id}（{item.object_type}）
-                </li>
-              ))}
-            </ul>
-          )}
-          {serverError.versionConflict && onRefresh && (
-            <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+        <ErrorState
+          message={
+            <div className="form-error">
+              <p>{serverError.message}{serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}</p>
+              {unmappedServerFields.length > 0 && (
+                <ul>
+                  {unmappedServerFields.map(({ path, message }) => <li key={path}>{path}：{message}</li>)}
+                </ul>
+              )}
+              {serverError.references.length > 0 && (
+                <ul>
+                  {serverError.references.map((item) => (
+                    <li key={`${item.object_type}-${item.object_id}`}>
+                      引用对象：{item.label ?? item.object_id}（{item.object_type}）
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          }
+          action={
+            serverError.versionConflict && onRefresh ? (
+              <Button type="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
-            </p>
-          )}
-        </div>
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting}>
           {submitting
             ? isCreate
               ? "正在分配…"
@@ -643,10 +642,10 @@ export default function IpAddressForm({
                 ? "手动分配"
                 : "自动分配"
               : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button type="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -1,3 +1,6 @@
+import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { EmptyState, ErrorState, LoadingState, WarningState } from "../components/ui/feedback";
+import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -380,11 +383,11 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
   const showDeletedColumn = query.deleted !== "exclude";
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <div className="table-toolbar">
         <h2>IP Pools（地址池）</h2>
         {canWrite && mode.kind === "list" && (
-          <button
+          <Button
             type="button"
             onClick={() => {
               setFormError(null);
@@ -392,28 +395,27 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
             }}
           >
             新建地址池
-          </button>
+          </Button>
         )}
       </div>
 
       {mode.kind === "list" && (
         <>
           {networkOptions.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载网络下拉失败：{networkOptions.message}</p>
-              <button
-                type="button"
-                onClick={() => setNetworkReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载网络下拉失败：${networkOptions.message}`}
+              action={
+                <Button type="button" onClick={() => setNetworkReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           <form className="filter-form" onSubmit={applyFilters}>
             <div className="form-field">
               <label htmlFor="ip-pool-filter-q">模糊搜索（name 子串，大小写不敏感）</label>
-              <input
+              <Input
                 id="ip-pool-filter-q"
                 type="text"
                 value={draft.q}
@@ -423,7 +425,7 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
             </div>
             <div className="form-field">
               <label htmlFor="ip-pool-filter-network">所属网络</label>
-              <select
+              <Select
                 id="ip-pool-filter-network"
                 value={draft.networkId}
                 onChange={(event) => setDraft({ ...draft, networkId: event.target.value })}
@@ -435,11 +437,11 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
                     {network.name}（{network.cidr}）
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="form-field">
               <label htmlFor="ip-pool-filter-mode">allocation_mode</label>
-              <select
+              <Select
                 id="ip-pool-filter-mode"
                 value={draft.allocationMode}
                 onChange={(event) =>
@@ -453,20 +455,20 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
                 <option value="MANUAL">MANUAL（仅手动）</option>
                 <option value="AUTO">AUTO（自动与手动）</option>
                 <option value="RESERVED">RESERVED（保留）</option>
-              </select>
+              </Select>
             </div>
             <div className="filter-actions">
-              <button type="submit">筛选</button>
-              <button type="button" onClick={resetFilters}>
+              <Button type="submit">筛选</Button>
+              <Button type="button" onClick={resetFilters}>
                 重置
-              </button>
+              </Button>
             </div>
           </form>
 
           {canViewDeleted && (
             <div className="form-field deleted-toggle">
               <label htmlFor="ip-pool-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-              <select
+              <Select
                 id="ip-pool-deleted-mode"
                 value={query.deleted}
                 onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
@@ -474,45 +476,43 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
                 <option value="exclude">未删除（默认）</option>
                 <option value="include">全部（含已删除）</option>
                 <option value="only">仅已删除</option>
-              </select>
+              </Select>
             </div>
           )}
 
-          {state.kind === "loading" && (
-            <p className="status status-loading">正在加载地址池列表…</p>
-          )}
+          {state.kind === "loading" && <LoadingState label="正在加载地址池列表…" />}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载地址池列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载地址池列表失败：${state.message}`}
+              action={
+                <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                没有符合条件的地址池（当前过滤 / 分页下无数据，非错误）。
-              </p>
+              <EmptyState description="没有符合条件的地址池（当前过滤 / 分页下无数据，非错误）。" />
             ) : (
               <>
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         <th>network</th>
                         {SORT_COLUMNS.map(({ field, label }) => (
                           <th key={field}>
-                            <button
+                            <Button
                               type="button"
                               className="sort-button"
                               onClick={() => toggleSort(field)}
                             >
                               {label}
                               {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                            </button>
+                            </Button>
                           </th>
                         ))}
                         <th>version</th>
@@ -530,17 +530,15 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
                           <td>
                             {ipPool.name}
                             {ipPool.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
+                              <StatusTag tone="error">已删除</StatusTag>
                             )}
                           </td>
                           <td className="mono">{ipPool.start_address}</td>
                           <td className="mono">{ipPool.end_address}</td>
                           <td>
-                            <span
-                              className={`badge badge-${ipPool.allocation_mode.toLowerCase()}`}
-                            >
+                            <StatusTag tone={statusTone(ipPool.allocation_mode)}>
                               {ipPool.allocation_mode}
-                            </span>
+                            </StatusTag>
                           </td>
                           <td className="mono">{ipPool.created_at}</td>
                           <td className="mono">{ipPool.updated_at}</td>
@@ -552,7 +550,7 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
                           )}
                           <td>
                             {canWrite && ipPool.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => {
@@ -562,31 +560,32 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
                                 }}
                               >
                                 编辑
-                              </button>
+                              </Button>
                             )}
                             {canDelete && ipPool.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
+                                danger
                                 className="link-button"
                                 onClick={() => requestDelete(ipPool)}
                               >
                                 删除
-                              </button>
+                              </Button>
                             )}
                             {canRestore && ipPool.deleted_at !== null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => requestRestore(ipPool)}
                               >
                                 恢复
-                              </button>
+                              </Button>
                             )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
                 <Pagination
                   page={state.data.page}
@@ -601,7 +600,7 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
 
           <div className="detail-actions">
             {actionError && (
-              <div className="status status-error action-error" role="alert">
+              <ErrorState message={<div className="form-error">
                 <p>{actionError.message}</p>
                 {actionError.rangeConflicts.length > 0 && (
                   <ul>
@@ -644,7 +643,7 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
                 )}
                 {actionError.versionConflict && (
                   <p>
-                    <button
+                    <Button
                       type="button"
                       onClick={() => {
                         setActionError(null);
@@ -654,14 +653,14 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
                       disabled={actionBusy}
                     >
                       刷新最新数据
-                    </button>
+                    </Button>
                   </p>
                 )}
-              </div>
+              </div>} />
             )}
 
             {action !== null && (
-              <div className="inline-confirm">
+              <WarningState message={<div className="inline-confirm">
                 {action.kind === "delete" ? (
                   <span>
                     确认软删除地址池 {action.ipPool.name}？（不级联删除关联对象；不回收、
@@ -674,8 +673,9 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
                     另检占用冲突，失败不覆盖新对象；version 递增）
                   </span>
                 )}
-                <button
+                <Button
                   type="button"
+                  danger={action.kind === "delete"}
                   onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
                   disabled={actionBusy}
                 >
@@ -686,11 +686,11 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
                     : action.kind === "delete"
                       ? "确认删除"
                       : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
+                </Button>
+                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
                   取消
-                </button>
-              </div>
+                </Button>
+              </div>} />
             )}
           </div>
         </>
@@ -720,7 +720,7 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
           onRefresh={refreshAfterConflict}
         />
       )}
-    </section>
+    </SurfaceCard>
   );
 }
 
@@ -752,49 +752,4 @@ function occupancyItemText(item: {
     parts.push(`资源（${item.resource_id}）`);
   }
   return parts.join(" — ");
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
-    </div>
-  );
 }

@@ -1,3 +1,5 @@
+import { Button, Input, Select, TextArea } from "./ui/controls";
+import { ErrorState } from "./ui/feedback";
 import { useState, type FormEvent } from "react";
 import type { Resource } from "../api/resources";
 import type { Service, ServiceActionError, ServiceStatus } from "../api/services";
@@ -128,7 +130,7 @@ export default function ServiceForm({
           <label htmlFor="service-resource">
             resource（所属资源，必填；创建后不可更改）
           </label>
-          <select
+          <Select
             id="service-resource"
             name="resource"
             value={values.resource}
@@ -141,7 +143,7 @@ export default function ServiceForm({
                 {item.hostname}（{item.cluster.code}）
               </option>
             ))}
-          </select>
+          </Select>
           {(resourceError ?? serverFields.resource) && (
             <p className="field-error" role="alert">
               {resourceError ?? serverFields.resource}
@@ -171,7 +173,7 @@ export default function ServiceForm({
         <label htmlFor="service-name">
           name（必填；大小写不敏感，同资源未删除唯一；允许中文与内部空格，≤255）
         </label>
-        <input
+        <Input
           id="service-name"
           name="name"
           type="text"
@@ -191,7 +193,7 @@ export default function ServiceForm({
         <label htmlFor="service-status">
           status（人工维护的登记状态；不由名称或外部监控推导 / 自动转换）
         </label>
-        <select
+        <Select
           id="service-status"
           name="status"
           value={values.status}
@@ -201,7 +203,7 @@ export default function ServiceForm({
           <option value="UNKNOWN">UNKNOWN（状态未知，默认）</option>
           <option value="RUNNING">RUNNING（运行中，人工登记）</option>
           <option value="STOPPED">STOPPED（已停止，人工登记）</option>
-        </select>
+        </Select>
         {serverFields.status && (
           <p className="field-error" role="alert">
             {serverFields.status}
@@ -211,7 +213,7 @@ export default function ServiceForm({
 
       <div className="form-field">
         <label htmlFor="service-description">description（描述，可选）</label>
-        <textarea
+        <TextArea
           id="service-description"
           name="description"
           rows={3}
@@ -231,7 +233,7 @@ export default function ServiceForm({
         <label htmlFor="service-metadata">
           metadata（JSON 对象，可选，默认 {}；整值替换，Service 自有）
         </label>
-        <textarea
+        <TextArea
           id="service-metadata"
           name="metadata"
           rows={4}
@@ -248,46 +250,43 @@ export default function ServiceForm({
       </div>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
-          <p>
-            {serverError.message}
-            {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
-          </p>
-          {unmappedServerFields.length > 0 && (
-            <ul>
-              {unmappedServerFields.map(({ path, message }) => (
-                <li key={path}>
-                  {path}：{message}
-                </li>
-              ))}
-            </ul>
-          )}
-          {serverError.references.length > 0 && (
-            <ul>
-              {serverError.references.map((reference) => (
-                <li key={`${reference.object_type}-${reference.object_id}`}>
-                  引用端点：{reference.label ?? reference.object_id}（{reference.object_type}）
-                </li>
-              ))}
-            </ul>
-          )}
-          {serverError.versionConflict && onRefresh && (
-            <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+        <ErrorState
+          message={
+            <div className="form-error">
+              <p>{serverError.message}{serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}</p>
+              {unmappedServerFields.length > 0 && (
+                <ul>
+                  {unmappedServerFields.map(({ path, message }) => <li key={path}>{path}：{message}</li>)}
+                </ul>
+              )}
+              {serverError.references.length > 0 && (
+                <ul>
+                  {serverError.references.map((reference) => (
+                    <li key={`${reference.object_type}-${reference.object_id}`}>
+                      引用端点：{reference.label ?? reference.object_id}（{reference.object_type}）
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          }
+          action={
+            serverError.versionConflict && onRefresh ? (
+              <Button type="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
-            </p>
-          )}
-        </div>
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button type="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );

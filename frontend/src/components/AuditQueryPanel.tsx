@@ -1,3 +1,6 @@
+import { Button, Input, Select, DataTable } from "./ui/controls";
+import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
+import { ServerPagination as Pagination, SurfaceCard } from "./ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   describeAuditQueryError,
@@ -196,17 +199,12 @@ export default function AuditQueryPanel() {
 
   return (
     <div>
-      <p className="status">
-        跨对象完整审计查询（只读；operator 精确匹配 operator_username，服务端
-        trim+小写归一；object_id 须与 object_type 同现；created_from/created_to
-        为闭区间、按 UTC 解释；同刻记录按 id 升序）。无修改 / 删除 / 清空入口，
-        审计持续保留（§22）。
-      </p>
+      <InfoState message="跨对象完整审计查询（只读；operator 精确匹配 operator_username，服务端 trim+小写归一；object_id 须与 object_type 同现；created_from/created_to 为闭区间、按 UTC 解释；同刻记录按 id 升序）。无修改 / 删除 / 清空入口，审计持续保留（§22）。" />
 
       <form className="filter-form" onSubmit={applyFilters}>
         <div className="form-field">
           <label htmlFor="audit-filter-operator">操作者（operator_username 精确匹配）</label>
-          <input
+          <Input
             id="audit-filter-operator"
             type="text"
             value={draft.operator}
@@ -219,7 +217,7 @@ export default function AuditQueryPanel() {
         </div>
         <div className="form-field">
           <label htmlFor="audit-filter-object-type">object_type</label>
-          <select
+          <Select
             id="audit-filter-object-type"
             value={draft.objectType}
             onChange={(event) =>
@@ -235,11 +233,11 @@ export default function AuditQueryPanel() {
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="form-field">
           <label htmlFor="audit-filter-object-id">object_id（UUID，须与 object_type 同现）</label>
-          <input
+          <Input
             id="audit-filter-object-id"
             type="text"
             value={draft.objectId}
@@ -253,7 +251,7 @@ export default function AuditQueryPanel() {
         </div>
         <div className="form-field">
           <label htmlFor="audit-filter-action">action</label>
-          <select
+          <Select
             id="audit-filter-action"
             value={draft.action}
             onChange={(event) =>
@@ -266,11 +264,11 @@ export default function AuditQueryPanel() {
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="form-field">
           <label htmlFor="audit-filter-from">created_from（UTC，闭区间含边界）</label>
-          <input
+          <Input
             id="audit-filter-from"
             type="datetime-local"
             value={draft.createdFrom}
@@ -282,7 +280,7 @@ export default function AuditQueryPanel() {
         </div>
         <div className="form-field">
           <label htmlFor="audit-filter-to">created_to（UTC，闭区间含边界）</label>
-          <input
+          <Input
             id="audit-filter-to"
             type="datetime-local"
             value={draft.createdTo}
@@ -293,51 +291,51 @@ export default function AuditQueryPanel() {
           )}
         </div>
         <div className="filter-actions">
-          <button type="submit">筛选</button>
-          <button type="button" onClick={resetFilters}>
+          <Button type="submit">筛选</Button>
+          <Button type="button" onClick={resetFilters}>
             重置
-          </button>
+          </Button>
         </div>
       </form>
 
-      {state.kind === "loading" && (
-        <p className="status status-loading">正在加载审计记录…</p>
-      )}
+      {state.kind === "loading" && <LoadingState label="正在加载审计记录…" />}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载审计记录失败：{state.message}</p>
-          {Object.keys(state.fields).length > 0 && (
-            <ul>
-              {Object.entries(state.fields).map(([field, message]) => (
-                <li key={field}>
-                  {field}：{message}
-                </li>
-              ))}
-            </ul>
-          )}
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={
+            <>
+              <p>加载审计记录失败：{state.message}</p>
+              {Object.keys(state.fields).length > 0 && (
+                <ul>
+                  {Object.entries(state.fields).map(([field, message]) => (
+                    <li key={field}>{field}：{message}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          }
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
 
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            没有符合条件的审计记录（当前过滤 / 分页下无数据，非错误）。
-          </p>
+          <EmptyState description="没有符合条件的审计记录（当前过滤 / 分页下无数据，非错误）。" />
         ) : (
           <>
             <div className="table-wrap">
-              <table className="data-table">
+              <DataTable className="data-table">
                 <thead>
                   <tr>
                     <th>
-                      <button type="button" className="sort-button" onClick={toggleOrder}>
+                      <Button type="button" className="sort-button" onClick={toggleOrder}>
                         created_at
                         {query.order === "asc" ? " ▲" : " ▼"}
-                      </button>
+                      </Button>
                     </th>
                     <th>action</th>
                     <th>object_type</th>
@@ -367,7 +365,7 @@ export default function AuditQueryPanel() {
                       <td className="audit-snapshot">{summarizeAuditData(row.before_data)}</td>
                       <td className="audit-snapshot">{summarizeAuditData(row.after_data)}</td>
                       <td>
-                        <button
+                        <Button
                           type="button"
                           className="link-button"
                           onClick={() =>
@@ -375,12 +373,12 @@ export default function AuditQueryPanel() {
                           }
                         >
                           {selected?.id === row.id ? "收起详情" : "详情"}
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             </div>
             <Pagination
               page={state.data.page}
@@ -394,14 +392,14 @@ export default function AuditQueryPanel() {
         ))}
 
       {selected !== null && (
-        <div className="panel detail-panel">
+        <SurfaceCard className="panel detail-panel">
           <div className="table-toolbar">
             <h3>
               审计行详情 — <span className="mono">{selected.id}</span>
             </h3>
-            <button type="button" onClick={() => setSelected(null)}>
+            <Button type="button" onClick={() => setSelected(null)}>
               关闭详情
-            </button>
+            </Button>
           </div>
           <dl className="detail-grid">
             <dt>id</dt>
@@ -425,53 +423,8 @@ export default function AuditQueryPanel() {
           <pre className="json-block">{formatAuditDataJson(selected.before_data)}</pre>
           <h4 className="detail-section-title">after_data（变更后快照）</h4>
           <pre className="json-block">{formatAuditDataJson(selected.after_data)}</pre>
-        </div>
+        </SurfaceCard>
       )}
-    </div>
-  );
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
     </div>
   );
 }

@@ -1,3 +1,6 @@
+import { Button } from "../components/ui/controls";
+import { ErrorState } from "../components/ui/feedback";
+import { SurfaceCard } from "../components/ui/surfaces";
 import { useState } from "react";
 import type { User } from "../api/auth";
 import {
@@ -66,17 +69,15 @@ export default function ClusterCreatePage({ user, onCancel, onCreated }: Cluster
   }
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <div className="table-toolbar">
         <h2>新建集群</h2>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        <Button type="button" onClick={onCancel} disabled={submitting}>
           返回列表
-        </button>
+        </Button>
       </div>
       {!canWrite ? (
-        <p className="status status-error" role="alert">
-          当前账号没有创建集群的权限（WRITE，服务端鉴权为准）。
-        </p>
+        <ErrorState message="当前账号没有创建集群的权限（WRITE，服务端鉴权为准）。" />
       ) : (
         <ClusterForm
           mode="create"
@@ -86,6 +87,6 @@ export default function ClusterCreatePage({ user, onCancel, onCreated }: Cluster
           onCancel={onCancel}
         />
       )}
-    </section>
+    </SurfaceCard>
   );
 }

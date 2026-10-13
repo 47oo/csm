@@ -1,3 +1,6 @@
+import { Button, Input, Select } from "./ui/controls";
+import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
+import { ServerPagination, StatusTag, SurfaceCard, statusTone } from "./ui/surfaces";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { User } from "../api/auth";
 import type { DeletedMode } from "../api/clusters";
@@ -104,9 +107,7 @@ function ResultRow({
       <>
         <span className="mono">{resource.resource_type}</span>
         <span>{resource.role}</span>
-        <span className={`badge badge-${resource.status.toLowerCase()}`}>
-          {resource.status}
-        </span>
+        <StatusTag tone={statusTone(resource.status)}>{resource.status}</StatusTag>
         <span>
           cluster：<span className="mono">{resource.cluster.code}</span>
           <span className="unset">（{resource.cluster.name}）</span>
@@ -114,9 +115,9 @@ function ResultRow({
       </>
     );
     actions = (
-      <button type="button" onClick={() => onOpenResource(resource.id, deletedFlag)}>
+      <Button type="button" onClick={() => onOpenResource(resource.id, deletedFlag)}>
         查看资源
-      </button>
+      </Button>
     );
   } else if (item.object_type === "cluster" && item.cluster !== null) {
     // matched_field = code | name：仅高亮实际命中的那个展示值（§2.2 判定规则）
@@ -137,14 +138,14 @@ function ResultRow({
       );
     meta = (
       <>
-        <span className={`badge badge-${cluster.status.toLowerCase()}`}>{cluster.status}</span>
+        <StatusTag tone={statusTone(cluster.status)}>{cluster.status}</StatusTag>
         <span className="unset">Cluster 不展开其下 Resources，详情见 Cluster Detail（I-12）</span>
       </>
     );
     actions = (
-      <button type="button" onClick={() => onOpenCluster(cluster.id, deletedFlag)}>
+      <Button type="button" onClick={() => onOpenCluster(cluster.id, deletedFlag)}>
         查看集群
-      </button>
+      </Button>
     );
   } else if (item.object_type === "ip_address" && item.ip_address !== null) {
     // IP 精确匹配命中（§2.4）：address 即 matched_value，整值高亮
@@ -179,13 +180,13 @@ function ResultRow({
     );
     actions =
       boundResource !== null ? (
-        <button type="button" onClick={() => onOpenResource(boundResource.id, deletedFlag)}>
+        <Button type="button" onClick={() => onOpenResource(boundResource.id, deletedFlag)}>
           查看所属资源
-        </button>
+        </Button>
       ) : (
-        <button type="button" onClick={() => onOpenNetworkIps(ip.network.id)}>
+        <Button type="button" onClick={() => onOpenNetworkIps(ip.network.id)}>
           查看所属网络 IP
-        </button>
+        </Button>
       );
   } else if (item.object_type === "service" && item.service !== null && item.resource !== null) {
     // service 行嵌入承载 Resource（§2.2）；matched_field 恒为 name
@@ -198,7 +199,7 @@ function ResultRow({
     );
     meta = (
       <>
-        <span className={`badge badge-${service.status.toLowerCase()}`}>{service.status}</span>
+        <StatusTag tone={statusTone(service.status)}>{service.status}</StatusTag>
         <span>
           承载资源：<span className="mono">{carrier.hostname}</span>
         </span>
@@ -208,9 +209,9 @@ function ResultRow({
       </>
     );
     actions = (
-      <button type="button" onClick={() => onOpenResource(carrier.id, deletedFlag)}>
+      <Button type="button" onClick={() => onOpenResource(carrier.id, deletedFlag)}>
         查看所属资源
-      </button>
+      </Button>
     );
   } else {
     // 防御：契约 typed 行保证 object_type 与嵌套对象对应（§2.2）；形状不符原样呈现
@@ -221,7 +222,7 @@ function ResultRow({
 
   return (
     <li className="search-result-item">
-      <span className="badge badge-type">{OBJECT_TYPE_LABELS[item.object_type]}</span>
+      <StatusTag tone="blue">{OBJECT_TYPE_LABELS[item.object_type]}</StatusTag>
       <div className="search-result-main">
         {main}
         <div className="search-result-meta">{meta}</div>
@@ -358,14 +359,14 @@ export default function GlobalSearch({
   }
 
   return (
-    <section className="panel" aria-label="全局搜索">
+    <SurfaceCard className="panel" aria-label="全局搜索">
       <h2>全局搜索</h2>
       <form className="filter-form" onSubmit={handleSubmit}>
         <div className="form-field">
           <label htmlFor="global-search-q">
             搜索（hostname / IP / Cluster / Service，模糊匹配；IP 为整址精确匹配）
           </label>
-          <input
+          <Input
             id="global-search-q"
             type="text"
             value={draft.q}
@@ -379,7 +380,7 @@ export default function GlobalSearch({
         </div>
         <div className="form-field">
           <label htmlFor="global-search-type">类型（可输入筛选，留空 = 全部）</label>
-          <input
+          <Input
             id="global-search-type"
             type="text"
             list="global-search-type-options"
@@ -402,17 +403,17 @@ export default function GlobalSearch({
           )}
         </div>
         <div className="filter-actions">
-          <button type="submit">搜索</button>
-          <button type="button" onClick={resetSearch}>
+          <Button type="submit">搜索</Button>
+          <Button type="button" onClick={resetSearch}>
             重置
-          </button>
+          </Button>
         </div>
       </form>
 
       {canViewDeleted && (
         <div className="form-field deleted-toggle">
           <label htmlFor="global-search-deleted">软删可见性（需 VIEW_DELETED 权限）</label>
-          <select
+          <Select
             id="global-search-deleted"
             value={deletedMode}
             onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
@@ -420,40 +421,41 @@ export default function GlobalSearch({
             <option value="exclude">未删除（默认）</option>
             <option value="include">全部（含已删除）</option>
             <option value="only">仅已删除</option>
-          </select>
+          </Select>
         </div>
       )}
 
       {state.kind === "idle" && (
-        <p className="status status-loading">
-          输入关键字后点击「搜索」：hostname / Service name 模糊匹配，IP 整址精确匹配，
-          Cluster code / name 匹配（大小写不敏感，归一化与唯一性同口径）。
-        </p>
+        <InfoState message="输入关键字后点击「搜索」：hostname / Service name 模糊匹配，IP 整址精确匹配，Cluster code / name 匹配（大小写不敏感，归一化与唯一性同口径）。" />
       )}
 
-      {state.kind === "loading" && <p className="status status-loading">正在搜索…</p>}
+      {state.kind === "loading" && <LoadingState label="正在搜索…" />}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>搜索失败：{state.error.message}</p>
-          {serverGeneralErrors.length > 0 && (
-            <ul>
-              {serverGeneralErrors.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          )}
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={
+            <>
+              <p>搜索失败：{state.error.message}</p>
+              {serverGeneralErrors.length > 0 && (
+                <ul>
+                  {serverGeneralErrors.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          }
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
 
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            没有匹配的结果（当前关键字与过滤条件下无数据，非错误）。
-          </p>
+          <EmptyState description="没有匹配的结果（当前关键字与过滤条件下无数据，非错误）。" />
         ) : (
           <>
             <ul className="search-results">
@@ -469,42 +471,16 @@ export default function GlobalSearch({
                 />
               ))}
             </ul>
-            <div className="pagination">
-              <span>
-                共 {state.data.total} 条 · 第 {state.data.page} /{" "}
-                {Math.max(1, Math.ceil(state.data.total / state.data.page_size))} 页
-              </span>
-              <button
-                type="button"
-                disabled={state.data.page <= 1}
-                onClick={() => gotoPage(state.data.page - 1)}
-              >
-                上一页
-              </button>
-              <button
-                type="button"
-                disabled={
-                  state.data.page >= Math.max(1, Math.ceil(state.data.total / state.data.page_size))
-                }
-                onClick={() => gotoPage(state.data.page + 1)}
-              >
-                下一页
-              </button>
-              <label>
-                每页
-                <select
-                  value={String(applied?.pageSize ?? DEFAULT_PAGE_SIZE)}
-                  onChange={(event) => changePageSize(Number(event.target.value))}
-                >
-                  <option value="20">20</option>
-                  <option value="50">50</option>
-                  <option value="100">100</option>
-                </select>
-                条
-              </label>
-            </div>
+            <ServerPagination
+              page={state.data.page}
+              pageSize={state.data.page_size}
+              total={state.data.total}
+              appliedPageSize={applied?.pageSize ?? DEFAULT_PAGE_SIZE}
+              onGotoPage={gotoPage}
+              onChangePageSize={changePageSize}
+            />
           </>
         ))}
-    </section>
+    </SurfaceCard>
   );
 }

@@ -1,3 +1,6 @@
+import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { EmptyState, ErrorState, LoadingState } from "../components/ui/feedback";
+import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -180,19 +183,19 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
 
   return (
     <>
-      <section className="panel">
+      <SurfaceCard className="panel">
         <div className="table-toolbar">
           <h2>Resources（资源）</h2>
           <div className="filter-actions">
             {canImport && (
-              <button type="button" onClick={() => setShowImport((visible) => !visible)}>
+              <Button type="button" onClick={() => setShowImport((visible) => !visible)}>
                 {showImport ? "收起批量导入" : "批量导入…"}
-              </button>
+              </Button>
             )}
             {canWrite && (
-              <button type="button" onClick={onCreate}>
+              <Button type="button" onClick={onCreate}>
                 新建资源
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -200,7 +203,7 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
         <form className="filter-form" onSubmit={applyFilters}>
           <div className="form-field">
             <label htmlFor="resource-filter-q">模糊搜索（hostname 子串）</label>
-            <input
+            <Input
               id="resource-filter-q"
               type="text"
               value={draft.q}
@@ -210,7 +213,7 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
           </div>
           <div className="form-field">
             <label htmlFor="resource-filter-cluster">集群 code 精确过滤</label>
-            <input
+            <Input
               id="resource-filter-cluster"
               type="text"
               value={draft.cluster}
@@ -220,7 +223,7 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
           </div>
           <div className="form-field">
             <label htmlFor="resource-filter-type">类型</label>
-            <select
+            <Select
               id="resource-filter-type"
               value={draft.type}
               onChange={(event) =>
@@ -230,11 +233,11 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               <option value="">全部（默认）</option>
               <option value="BARE_METAL">BARE_METAL（物理机）</option>
               <option value="VIRTUAL_MACHINE">VIRTUAL_MACHINE（虚拟机）</option>
-            </select>
+            </Select>
           </div>
           <div className="form-field">
             <label htmlFor="resource-filter-role">角色</label>
-            <select
+            <Select
               id="resource-filter-role"
               value={draft.role}
               onChange={(event) =>
@@ -249,11 +252,11 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               <option value="SERVICE">SERVICE</option>
               <option value="GPU">GPU</option>
               <option value="OTHER">OTHER</option>
-            </select>
+            </Select>
           </div>
           <div className="form-field">
             <label htmlFor="resource-filter-status">状态</label>
-            <select
+            <Select
               id="resource-filter-status"
               value={draft.status}
               onChange={(event) =>
@@ -265,20 +268,20 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               <option value="ALLOC">ALLOC</option>
               <option value="DOWN">DOWN</option>
               <option value="UNKNOWN">UNKNOWN</option>
-            </select>
+            </Select>
           </div>
           <div className="filter-actions">
-            <button type="submit">筛选</button>
-            <button type="button" onClick={resetFilters}>
+            <Button type="submit">筛选</Button>
+            <Button type="button" onClick={resetFilters}>
               重置
-            </button>
+            </Button>
           </div>
         </form>
 
         {canViewDeleted && (
           <div className="form-field deleted-toggle">
             <label htmlFor="resource-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-            <select
+            <Select
               id="resource-deleted-mode"
               value={query.deleted}
               onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
@@ -286,40 +289,38 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               <option value="exclude">未删除（默认）</option>
               <option value="include">全部（含已删除）</option>
               <option value="only">仅已删除</option>
-            </select>
+            </Select>
           </div>
         )}
 
-        {state.kind === "loading" && (
-          <p className="status status-loading">正在加载资源列表…</p>
-        )}
+        {state.kind === "loading" && <LoadingState label="正在加载资源列表…" />}
 
         {state.kind === "error" && (
-          <div className="status status-error" role="alert">
-            <p>加载资源列表失败：{state.message}</p>
-            <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-              重试
-            </button>
-          </div>
+          <ErrorState
+            message={`加载资源列表失败：${state.message}`}
+            action={
+              <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                重试
+              </Button>
+            }
+          />
         )}
 
         {state.kind === "success" &&
           (state.data.items.length === 0 ? (
-            <p className="status status-empty">
-              没有符合条件的资源（当前过滤 / 分页下无数据，非错误）。
-            </p>
+            <EmptyState description="没有符合条件的资源（当前过滤 / 分页下无数据，非错误）。" />
           ) : (
             <>
               <div className="table-wrap">
-                <table className="data-table">
+                <DataTable className="data-table">
                   <thead>
                     <tr>
                       {SORT_COLUMNS.map(({ field, label }) => (
                         <th key={field}>
-                          <button type="button" className="sort-button" onClick={() => toggleSort(field)}>
+                          <Button type="button" className="sort-button" onClick={() => toggleSort(field)}>
                             {label}
                             {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                          </button>
+                          </Button>
                         </th>
                       ))}
                       <th>所属集群</th>
@@ -334,15 +335,13 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
                         <td className="mono">
                           {resource.hostname}
                           {resource.deleted_at !== null && (
-                            <span className="badge badge-deleted">已删除</span>
+                            <StatusTag tone="error">已删除</StatusTag>
                           )}
                         </td>
                         <td>{resource.resource_type}</td>
                         <td>{resource.role}</td>
                         <td>
-                          <span className={`badge badge-${resource.status.toLowerCase()}`}>
-                            {resource.status}
-                          </span>
+                          <StatusTag tone={statusTone(resource.status)}>{resource.status}</StatusTag>
                         </td>
                         <td className="mono">{resource.created_at}</td>
                         <td className="mono">{resource.updated_at}</td>
@@ -354,14 +353,14 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
                           <td className="mono">{resource.deleted_at ?? "—"}</td>
                         )}
                         <td>
-                          <button type="button" onClick={() => onOpenResource(resource)}>
+                          <Button type="button" onClick={() => onOpenResource(resource)}>
                             查看
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </DataTable>
               </div>
               <Pagination
                 page={state.data.page}
@@ -373,56 +372,11 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               />
             </>
           ))}
-      </section>
+      </SurfaceCard>
 
       {showImport && (
         <ResourceImportPanel onImported={() => setReloadToken((token) => token + 1)} />
       )}
     </>
-  );
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
-    </div>
   );
 }

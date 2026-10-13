@@ -1,3 +1,5 @@
+import { Button, Input, Select, TextArea } from "./ui/controls";
+import { ErrorState, InfoState, LoadingState } from "./ui/feedback";
 import { useEffect, useState, type FormEvent } from "react";
 import { displayError, isApiError } from "../api/client";
 import { listIpAddresses } from "../api/ipAddresses";
@@ -251,7 +253,7 @@ export default function ServiceEndpointForm({
           <label htmlFor="service-endpoint-service">
             service（所属服务，必填；创建后不可更改）
           </label>
-          <select
+          <Select
             id="service-endpoint-service"
             name="service"
             value={values.service}
@@ -269,7 +271,7 @@ export default function ServiceEndpointForm({
                 {item.name}（{item.resource.hostname}）
               </option>
             ))}
-          </select>
+          </Select>
           {(serviceError ?? serverFields.service) && (
             <p className="field-error" role="alert">
               {serviceError ?? serverFields.service}
@@ -299,7 +301,7 @@ export default function ServiceEndpointForm({
           <label htmlFor="service-endpoint-ip-address">
             ip_address（引用 IP，必填；创建后不可更改；须已绑定该服务所属资源的接口）
           </label>
-          <select
+          <Select
             id="service-endpoint-ip-address"
             name="ip_address"
             value={values.ipAddress}
@@ -317,7 +319,7 @@ export default function ServiceEndpointForm({
                   {option.address}（接口 {option.interfaceName} · 网络 {option.networkName}）
                 </option>
               ))}
-          </select>
+          </Select>
           {(ipAddressError ?? serverFields.ip_address) && (
             <p className="field-error" role="alert">
               {ipAddressError ?? serverFields.ip_address}
@@ -327,24 +329,24 @@ export default function ServiceEndpointForm({
             <p className="permissions-note">请先选择服务，再选择其归属资源上已绑定的 IP。</p>
           )}
           {ipOptions.kind === "loading" && (
-            <p className="status status-loading">正在加载候选 IP（该服务所属资源的接口与已绑定 IP）…</p>
+            <LoadingState label="正在加载候选 IP（该服务所属资源的接口与已绑定 IP）…" />
           )}
           {ipOptions.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载候选 IP 失败：{ipOptions.message}</p>
-              <button
-                type="button"
-                onClick={() => setIpReloadToken((token) => token + 1)}
-                disabled={submitting}
-              >
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载候选 IP 失败：${ipOptions.message}`}
+              action={
+                <Button
+                  type="button"
+                  onClick={() => setIpReloadToken((token) => token + 1)}
+                  disabled={submitting}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
           {ipOptions.kind === "success" && ipOptions.truncated && (
-            <p className="status status-empty">
-              候选 IP 列表超过单页上限 100，仅显示前 {ipOptions.options.length} 条；服务端仍按全量校验归属与唯一。
-            </p>
+            <InfoState message={`候选 IP 列表超过单页上限 100，仅显示前 ${ipOptions.options.length} 条；服务端仍按全量校验归属与唯一。`} />
           )}
         </div>
       ) : (
@@ -369,7 +371,7 @@ export default function ServiceEndpointForm({
         <label htmlFor="service-endpoint-protocol">
           protocol（必填；仅 TCP / UDP 大写规范值）
         </label>
-        <select
+        <Select
           id="service-endpoint-protocol"
           name="protocol"
           value={values.protocol}
@@ -378,7 +380,7 @@ export default function ServiceEndpointForm({
         >
           <option value="TCP">TCP</option>
           <option value="UDP">UDP</option>
-        </select>
+        </Select>
         {fieldError("protocol") && (
           <p className="field-error" role="alert">
             {fieldError("protocol")}
@@ -388,7 +390,7 @@ export default function ServiceEndpointForm({
 
       <div className="form-field">
         <label htmlFor="service-endpoint-port">port（必填；整数 1–65535，含端点）</label>
-        <input
+        <Input
           id="service-endpoint-port"
           name="port"
           type="text"
@@ -406,7 +408,7 @@ export default function ServiceEndpointForm({
 
       <div className="form-field">
         <label htmlFor="service-endpoint-description">description（描述，可选）</label>
-        <textarea
+        <TextArea
           id="service-endpoint-description"
           name="description"
           rows={3}
@@ -423,7 +425,7 @@ export default function ServiceEndpointForm({
       </div>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
+        <ErrorState message={<div className="form-error">
           <p>
             {serverError.message}
             {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
@@ -463,21 +465,21 @@ export default function ServiceEndpointForm({
           )}
           {serverError.versionConflict && onRefresh && (
             <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+              <Button type="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
+              </Button>
             </p>
           )}
-        </div>
+        </div>} />
       )}
 
       <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button type="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );

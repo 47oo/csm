@@ -1,3 +1,5 @@
+import { Button, Input, Select, TextArea } from "./ui/controls";
+import { ErrorState, InfoState } from "./ui/feedback";
 import { useState, type FormEvent } from "react";
 import type {
   Resource,
@@ -276,7 +278,7 @@ export default function ResourceForm({
       {isCreate ? (
         <div className="form-field">
           <label htmlFor="resource-cluster">cluster（所属集群，必填，创建后不可修改）</label>
-          <select
+          <Select
             id="resource-cluster"
             name="cluster"
             value={cluster}
@@ -293,7 +295,7 @@ export default function ResourceForm({
                 {item.code} — {item.name}
               </option>
             ))}
-          </select>
+          </Select>
           {(localErrors.cluster ?? serverFields.cluster) && (
             <p className="field-error" role="alert">
               {localErrors.cluster ?? serverFields.cluster}
@@ -312,7 +314,7 @@ export default function ResourceForm({
 
       <div className="form-field">
         <label htmlFor="resource-hostname">hostname（必填；允许 Unicode 与“.”，禁内部空白 / 控制字符，≤253）</label>
-        <input
+        <Input
           id="resource-hostname"
           name="hostname"
           type="text"
@@ -331,7 +333,7 @@ export default function ResourceForm({
       {isCreate ? (
         <div className="form-field">
           <label htmlFor="resource-type">resource_type（必填，创建后不可修改）</label>
-          <select
+          <Select
             id="resource-type"
             name="resource_type"
             value={resourceType}
@@ -343,7 +345,7 @@ export default function ResourceForm({
                 {option.label}
               </option>
             ))}
-          </select>
+          </Select>
           {serverFields.resource_type && (
             <p className="field-error" role="alert">
               {serverFields.resource_type}
@@ -359,7 +361,7 @@ export default function ResourceForm({
 
       <div className="form-field">
         <label htmlFor="resource-role">role（角色，可选，默认 OTHER）</label>
-        <select
+        <Select
           id="resource-role"
           name="role"
           value={role}
@@ -371,7 +373,7 @@ export default function ResourceForm({
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
         {serverFields.role && (
           <p className="field-error" role="alert">
             {serverFields.role}
@@ -381,7 +383,7 @@ export default function ResourceForm({
 
       <div className="form-field">
         <label htmlFor="resource-status">status（状态，可选，默认 UNKNOWN，人工维护）</label>
-        <select
+        <Select
           id="resource-status"
           name="status"
           value={status}
@@ -393,7 +395,7 @@ export default function ResourceForm({
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
         {serverFields.status && (
           <p className="field-error" role="alert">
             {serverFields.status}
@@ -403,7 +405,7 @@ export default function ResourceForm({
 
       <div className="form-field">
         <label htmlFor="resource-description">description（描述，可选）</label>
-        <textarea
+        <TextArea
           id="resource-description"
           name="description"
           rows={3}
@@ -421,7 +423,7 @@ export default function ResourceForm({
 
       <div className="form-field">
         <label htmlFor="resource-metadata">metadata（JSON 对象，可选）</label>
-        <textarea
+        <TextArea
           id="resource-metadata"
           name="metadata"
           rows={5}
@@ -440,10 +442,7 @@ export default function ResourceForm({
       {isBareMetal && (
         <>
           <h3 className="detail-section-title">hardware（硬件信息，可选；仅 BARE_METAL）</h3>
-          <p className="status status-empty">
-            全部字段可选：留空 = 未登记（null，不以 0 代替；编辑时留空 = 清空该字段）；
-            gpu_count 填 0 表示明确无 GPU；memory_mb 单位 MiB；cpu_cores 为整机物理核心总数（不含超线程）。
-          </p>
+          <InfoState message="全部字段可选：留空 = 未登记（null，不以 0 代替；编辑时留空 = 清空该字段）；gpu_count 填 0 表示明确无 GPU；memory_mb 单位 MiB；cpu_cores 为整机物理核心总数（不含超线程）。" />
           {serverFields.hardware && (
             <p className="field-error" role="alert">
               {serverFields.hardware}
@@ -452,7 +451,7 @@ export default function ResourceForm({
           {HARDWARE_INPUT_FIELDS.map((field) => (
             <div className="form-field" key={field.key}>
               <label htmlFor={`resource-hardware-${field.key}`}>{field.label}</label>
-              <input
+              <Input
                 id={`resource-hardware-${field.key}`}
                 name={`hardware.${field.key}`}
                 type="text"
@@ -474,7 +473,7 @@ export default function ResourceForm({
             <label htmlFor="resource-hardware-metadata">
               hardware.metadata（厂商特有 / 低频扩展，JSON 对象，可选）
             </label>
-            <textarea
+            <TextArea
               id="resource-hardware-metadata"
               name="hardware.metadata"
               rows={5}
@@ -514,28 +513,25 @@ export default function ResourceForm({
       )}
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
-          <p>
-            {serverError.message}
-            {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
-          </p>
-          {serverError.versionConflict && onRefresh && (
-            <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+        <ErrorState
+          message={`${serverError.message}${serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}`}
+          action={
+            serverError.versionConflict && onRefresh ? (
+              <Button type="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
-            </p>
-          )}
-        </div>
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button type="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );

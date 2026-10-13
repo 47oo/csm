@@ -1,3 +1,6 @@
+import { Button, DataTable } from "../components/ui/controls";
+import { EmptyState, ErrorState, InfoState, LoadingState, WarningState } from "../components/ui/feedback";
+import { StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type ReactNode } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -289,13 +292,13 @@ function VirtualMachinePanel({
           {!resourceDeleted && (
             <>
               {" "}
-              <button
+              <Button
                 type="button"
                 className="link-button"
                 onClick={() => onOpenResource(virtualMachine.host_resource_id, false)}
               >
                 查看宿主机
-              </button>
+              </Button>
             </>
           )}
         </dd>
@@ -373,32 +376,29 @@ function HostVirtualMachinesPanel({
   return (
     <>
       <h3 className="detail-section-title">Virtual Machines（虚拟机）</h3>
-      {state.kind === "loading" && (
-        <p className="status status-loading">正在加载该宿主机上的虚拟机…</p>
-      )}
+      {state.kind === "loading" && <LoadingState label="正在加载该宿主机上的虚拟机…" />}
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载虚拟机列表失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={`加载虚拟机列表失败：${state.message}`}
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            该宿主机上暂无未删除的虚拟机（非错误）。
-          </p>
+          <EmptyState description="该宿主机上暂无未删除的虚拟机（非错误）。" />
         ) : (
           <>
             {state.data.total > state.data.items.length && (
-              <p className="status status-empty">
-                虚拟机总数 {state.data.total} 台，仅显示前 {state.data.items.length} 台
-                （按 hostname 排序；列表分页上限 100）。
-              </p>
+              <InfoState
+                message={`虚拟机总数 ${state.data.total} 台，仅显示前 ${state.data.items.length} 台（按 hostname 排序；列表分页上限 100）。`}
+              />
             )}
             <div className="table-wrap">
-              <table className="data-table">
+              <DataTable className="data-table">
                 <thead>
                   <tr>
                     <th>hostname</th>
@@ -417,9 +417,7 @@ function HostVirtualMachinesPanel({
                       <td className="mono">{vm.hostname}</td>
                       <td>{vm.role}</td>
                       <td>
-                        <span className={`badge badge-${vm.status.toLowerCase()}`}>
-                          {vm.status}
-                        </span>
+                        <StatusTag tone={statusTone(vm.status)}>{vm.status}</StatusTag>
                       </td>
                       <td>{vmNumber(vm.virtual_machine?.vcpu ?? null)}</td>
                       <td>
@@ -438,17 +436,17 @@ function HostVirtualMachinesPanel({
                         )}
                       </td>
                       <td>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => onOpenResource(vm.id, false)}
                         >
                           查看
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             </div>
           </>
         ))}
@@ -628,25 +626,25 @@ export default function ResourceDetailPage({
   }
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <div className="table-toolbar">
         <h2>资源详情</h2>
-        <button type="button" onClick={onBack}>
+        <Button type="button" onClick={onBack}>
           返回列表
-        </button>
+        </Button>
       </div>
 
-      {state.kind === "loading" && (
-        <p className="status status-loading">正在加载资源详情…</p>
-      )}
+      {state.kind === "loading" && <LoadingState label="正在加载资源详情…" />}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载资源详情失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={`加载资源详情失败：${state.message}`}
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
 
       {state.kind === "success" && mode === "view" && (
@@ -667,11 +665,9 @@ export default function ResourceDetailPage({
             <dd>{state.resource.role}</dd>
             <dt>status</dt>
             <dd>
-              <span className={`badge badge-${state.resource.status.toLowerCase()}`}>
-                {state.resource.status}
-              </span>
+              <StatusTag tone={statusTone(state.resource.status)}>{state.resource.status}</StatusTag>
               {state.resource.deleted_at !== null && (
-                <span className="badge badge-deleted">已删除</span>
+                <StatusTag tone="error">已删除</StatusTag>
               )}
             </dd>
             <dt>description</dt>
@@ -697,9 +693,7 @@ export default function ResourceDetailPage({
               />
             ) : (
               // 防御：契约 VM 响应必含 virtual_machine（§3）；null 仅在旧版后端出现
-              <p className="status status-empty">
-                该资源为虚拟机，但服务器未返回 virtual_machine 明细（可能后端版本过旧，Contract v3+）。
-              </p>
+              <EmptyState description="该资源为虚拟机，但服务器未返回 virtual_machine 明细（可能后端版本过旧，Contract v3+）。" />
             ))}
 
           <InterfacesPanel resource={state.resource} user={user} />
@@ -736,7 +730,7 @@ export default function ResourceDetailPage({
 
           <div className="detail-actions">
             {actionError && (
-              <div className="status status-error action-error" role="alert">
+              <ErrorState message={<div className="form-error">
                 <p>{actionError.message}</p>
                 {actionError.references.length > 0 && (
                   <ul>
@@ -758,7 +752,7 @@ export default function ResourceDetailPage({
                 )}
                 {actionError.versionConflict && (
                   <p>
-                    <button
+                    <Button
                       type="button"
                       onClick={() => {
                         setActionError(null);
@@ -767,14 +761,14 @@ export default function ResourceDetailPage({
                       disabled={actionBusy}
                     >
                       刷新最新数据
-                    </button>
+                    </Button>
                   </p>
                 )}
-              </div>
+              </div>} />
             )}
 
             {action === "delete" ? (
-              <div className="inline-confirm">
+              <WarningState message={<div className="inline-confirm">
                 <span>
                   确认软删除该资源？（不级联删除关联对象；软删后同集群 hostname 可被新资源复用
                   {state.resource.resource_type === "BARE_METAL"
@@ -782,29 +776,29 @@ export default function ResourceDetailPage({
                     : ""}
                   ）
                 </span>
-                <button type="button" onClick={confirmDelete} disabled={actionBusy}>
+                <Button type="button" danger onClick={confirmDelete} disabled={actionBusy}>
                   {actionBusy ? "正在删除…" : "确认删除"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
+                </Button>
+                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
                   取消
-                </button>
-              </div>
+                </Button>
+              </div>} />
             ) : action === "restore" ? (
-              <div className="inline-confirm">
+              <WarningState message={<div className="inline-confirm">
                 <span>
                   确认恢复该资源？（恢复自身，不级联；将重检同集群 hostname 唯一性与所属集群有效性；version 递增）
                 </span>
-                <button type="button" onClick={confirmRestore} disabled={actionBusy}>
+                <Button type="button" onClick={confirmRestore} disabled={actionBusy}>
                   {actionBusy ? "正在恢复…" : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
+                </Button>
+                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
                   取消
-                </button>
-              </div>
+                </Button>
+              </div>} />
             ) : (
               <>
                 {canWrite && state.resource.deleted_at === null && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => {
                       setFormError(null);
@@ -812,17 +806,17 @@ export default function ResourceDetailPage({
                     }}
                   >
                     编辑
-                  </button>
+                  </Button>
                 )}
                 {canDelete && state.resource.deleted_at === null && (
-                  <button type="button" onClick={requestDelete}>
+                  <Button type="button" danger onClick={requestDelete}>
                     删除资源
-                  </button>
+                  </Button>
                 )}
                 {canRestore && state.resource.deleted_at !== null && (
-                  <button type="button" onClick={requestRestore}>
+                  <Button type="button" onClick={requestRestore}>
                     恢复资源
-                  </button>
+                  </Button>
                 )}
               </>
             )}
@@ -842,6 +836,6 @@ export default function ResourceDetailPage({
           onRefresh={refreshAfterConflict}
         />
       )}
-    </section>
+    </SurfaceCard>
   );
 }

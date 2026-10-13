@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { Alert } from "antd";
 import { getHealth, type Health } from "../api/client";
+import { ErrorState, LoadingState } from "./ui/feedback";
+import { SurfaceCard } from "./ui/surfaces";
 
 type HealthState =
   | { kind: "loading" }
@@ -36,19 +39,20 @@ export default function HealthPanel() {
   }, []);
 
   return (
-    <section className="panel">
-      <h2>后端健康状态</h2>
+    <SurfaceCard className="panel" title="后端健康状态">
       {health.kind === "loading" && (
-        <p className="status status-loading">正在检查后端服务…</p>
+        <LoadingState label="正在检查后端服务…" />
       )}
       {health.kind === "ok" && (
-        <p className="status status-ok">
-          后端服务正常（status: {health.data.status}，service: {health.data.service}）
-        </p>
+        <Alert
+          message={`后端服务正常（status: ${health.data.status}，service: ${health.data.service}）`}
+          showIcon
+          type="success"
+        />
       )}
       {health.kind === "error" && (
-        <p className="status status-error">后端服务不可用：{health.message}</p>
+        <ErrorState message={`后端服务不可用：${health.message}`} />
       )}
-    </section>
+    </SurfaceCard>
   );
 }
