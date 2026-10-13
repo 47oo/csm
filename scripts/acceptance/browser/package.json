@@ -1,0 +1,10 @@
+{
+  "name": "csm-f018-browser-acceptance",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "F018 test-only headless browser acceptance harness (not production).",
+  "dependencies": {
+    "playwright-core": "1.64.0"
+  }
+}

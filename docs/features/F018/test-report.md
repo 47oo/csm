@@ -239,3 +239,83 @@ rm -rf scripts/acceptance/artifacts/run-<utc>/backup scripts/acceptance/artifact
 `TEST DESIGN READY`（TD-1）——R-1..R-10 / AC-1..AC-10 已逐条映射到可观察判据与自动/人工执行步骤；Compose 尝试+失败录制与等价替代栈、健康判据、差异声明已定；浏览器工具引入范围（test-only `playwright-core` + 缓存 Chromium + 非 root 本地库抽取）与 **NOT TESTED 规则**已固定；`run_f018_acceptance.sh` / `f018_browser_check.mjs` 落点与复用、清理纪律、环境与不可验证项明确。**READY 仅表示方案可验证，不代表测试已运行、不填充执行 PASS、不批准实现或合并、不构成 `project.acceptance=COMPLETE`。**
 
 GIT: NONE
+
+---
+
+## Test Execution
+
+- **版本**：TE-1（2026-10-13）
+- **角色**：Tester（TEST 模式）
+- **结论**：`READY FOR REVIEW`
+- **Basis**：`docs/features/F018/{product,architecture}.md`（architecture §1/§3/§4/§7；CONTRACT `NOT_REQUIRED`）；本文件 `#test-design`（TD-1）；`docs/database/f018-acceptance.md` v1（`NOT_REQUIRED`，单 head `0013_search_indexes`）；`docs/features/F016/test-report.md`（等价替代栈 §2.2/§2.4、REUSE 锚点 `#32-c1c15-上线验收`/`#33-目标查询场景`）；`docs/project/{handoff,implementation-rules,project-state,git-workflow}.md`；`.pi/skills/data-integrity/SKILL.md`。
+- **工作区/基线**：分支 `feature/F018-post-ui-acceptance`，HEAD `344ebeebd28afc58b220fe2ca46f1b3b5385625c`（只读核对）。
+- **产物**：`scripts/acceptance/run_f018_acceptance.sh`、`scripts/acceptance/browser/{f018_browser_check.mjs,package.json,package-lock.json}`（test-only，未改生产代码）；运行产物 `scripts/acceptance/artifacts/run-20261013T062456Z/`（`compose-up.log`、`typecheck.log`、`build.log`、`smoke.log`、`health.txt`、`browser/`）。
+
+### 环境
+
+- 宿主：Ubuntu 24.04，`docker 29.8.0`、`node v22.23.2`/`npm 12.0.2`。
+- 镜像（已缓存，无需 pull）：`postgres:16`、`nginx:1.27-alpine`、`csm-f007-test`。
+- 网络限制：Docker Hub 不可达（`auth.docker.io` token i/o timeout）→ `docker build`/Compose 不可用（实测，见下）；改用 architecture §1.2 等价替代栈。
+- 浏览器：宿主缓存 Playwright Chromium `chromium_headless_shell-1234`，缺 4 个系统库（`libnspr4.so`/`libnss3.so`/`libnssutil3.so`/`libasound.so.2`）；非 root 经 `apt-get download libnspr4 libnss3 libasound2t64` + `dpkg-deb -x` 抽取并以 `LD_LIBRARY_PATH` 启动；`playwright-core@1.64.0` 装在 `scripts/acceptance/browser/node_modules`（git-ignored）。无 root、无 `sudo`。
+
+### 栈启动结果（Compose 尝试 + 等价替代栈 + 差异声明）
+
+| 步骤 | 命令 | 结果 |
+| --- | --- | --- |
+| Compose 尝试 | `docker compose -p csm_f018 up -d --build` | **退出码 1**（`failed to fetch anonymous token … dial tcp … i/o timeout`），归档 `scripts/acceptance/artifacts/run-20261013T062456Z/compose-up.log`（含 `EXIT_CODE=1`）；随后 `docker compose -p csm_f018 down -v` |
+| 等价替代栈 | network `f018-acceptance-net`；`postgres:16`（库 `csm_f018_acc`，别名 `db`）→ `csm-f007-test` 挂 `./backend` + `alembic upgrade head` + `bootstrap_admin` + `uvicorn`（别名 `backend`）→ 本地 `npm run build` 产物由 `nginx:1.27-alpine` 服务（别名 `frontend`）→ 入口 `nginx:1.27-alpine -p 18080:80` 挂**未改动**的 `deploy/nginx/nginx.conf` | 全部启动成功 |
+| 健康/入口 | `/healthz`=200(body `ok`)、`/api/v1/health/ready`=200、`/`=200、`/clusters`=200 且与 `/` 同一入口（SPA fallback）；`alembic current`=`0013_search_indexes (head)` | **PASS**（`health.txt`） |
+
+**与 Compose 的差异声明**（A13 同构，未以替代栈冒充 Compose）：镜像构建（复用缓存镜像 + bind-mount vs `docker build`）；代码来源（现场挂载候选 HEAD vs 镜像内置）；配置注入（`-e` vs `.env`）；编排（脚本时序 + 就绪轮询 vs `depends_on`）；前端（本地产物 + 静态服务 vs 镜像内构建）；卷（独立库 `csm_f018_acc` 无命名卷 vs `pgdata` 命名卷）；入口路由/同源（同一 `deploy/nginx/nginx.conf`，端口 18080，语义一致）。
+
+### 验收映射 AC-1..AC-10（TE-1 结果）
+
+| AC | 结果 | 证据 |
+| --- | --- | --- |
+| AC-1 | **PASS** | `npm run typecheck` rc=0（`typecheck.log`）；`npm run build` rc=0（`build.log`）；`find frontend/dist -name '*.css' -size +0c`=1；`npm run smoke:client`=`264 passed, 0 failed`（`smoke.log`）；`grep -c "await test(" smoke-client.mjs`=264（断言无删减） |
+| AC-2 | **PASS** | 经入口真 HTTP：`/healthz`=200 `ok`、`/api/v1/health/ready`=200、`/`=200 含 `<div id="root"></div>` 与 `<title>CSM</title>`、`/clusters`=200 且 body 与 `/` 逐字节一致（SPA fallback 生效） |
+| AC-3 | **PASS（浏览器真实渲染）** | layer 唯一序 `properties, theme, base, antd, components, utilities`（5 个共享层相对序正确，无 `legacy`；`properties` 为 Tailwind v4 内部层，位于最前）；`.ant-btn` 规则确在 `@layer antd` 内且按钮 classList 含 `ant-btn`（`computed-style.json`）；注入 `class="ant-btn px-0"` 探针 `padding-left=0px` → utilities 覆盖 antd（`utility-override.json`）；preflight `body{margin:0px;box-sizing:border-box}`（`preflight.json`）；截图 `ac3-layer-order.png` |
+| AC-4 | **PASS（浏览器真实渲染）** | VIEWER 会话：`/auth/me` permissions 无 `AUDIT_READ`/`USER_ADMIN`/`VIEW_DELETED`，导航无 Audit/System，直接访问 `/audit` 仅回到应用壳未渲染 Audit 面板；ADMIN 会话导航含 Audit/System；截图 `ac4-viewer-nav.png`/`ac4-admin-nav.png` |
+| AC-5 | **PASS（浏览器真实渲染，四态齐）** | Loading（真实响应延迟 800ms 后仍成功）`ac5-loading.png`；Success（真实行含种子 cluster `F18C-<runId>`）`ac5-success.png`；Empty（真实过滤命中 0，AntD Empty 文案）`ac5-empty.png`；Error（**真实杀掉 `f018-backend` 容器**触发的真实不可达错误，Alert `加载集群列表失败…`）`ac5-error.png`；均与实际请求状态一致 |
+| AC-6 | **PASS（浏览器 + 真 HTTP）** | 401：清 Cookie 后触发受保护请求 → 全局回登录页（`input[autocomplete=username]` 出现，`ac6-401-relogin.png`）；403：EDITOR 提交前经真 API 降级为 VIEWER → 表单呈现「没有权限执行该操作…FORBIDDEN」（`ac6-403-forbidden.png`）；409：真 API 提升 version 后提交陈旧编辑 → 呈现「该资源已被其他人修改…」（`ac6-409-version-conflict.png`）；422：提交内含空格的非法 hostname（本地校验仅拦空值）→ 服务端 `VALIDATION_ERROR` 字段错误呈现（`ac6-422-validation.png`）；同源真 HTTP 另确认 403/409/422 状态码与错误码（`http-error-semantics.json`） |
+| AC-7 | **PASS** | 静态：`frontend/src/pages/AuditPage.tsx`/`components/AuditQueryPanel.tsx` 无修改/删除/清空控件与处理器；浏览器 ADMIN 打开 Audit 页，交互控件仅为查询/重置/排序/详情/分页，无删除/清空/修改控件（`audit-controls.json`，`ac7-audit-page.png`） |
+| AC-8 | **PASS** | 浏览器网络日志：类型过滤请求 `…/resources?type=BARE_METAL&deleted=exclude&page=1&page_size=20&sort=created_at&order=desc`；点击「类型」表头排序请求 `…&sort=resource_type&order=asc`；`type` 过滤名与 `resource_type` 排序字段不可互换（`network-params.json`，`ac8-resources-params.png`） |
+| AC-9 | **PASS（数据层 REUSE + 界面抽样）** | 数据层：`REUSE` `docs/features/F016/test-report.md#32-c1c15-上线验收` / `#33-目标查询场景`（F016 TE-1 真 HTTP 执行，C1–C15 + Q1–Q9 数据层，`40 passed`）；界面呈现：浏览器确认 Clusters 列表、Resources 列表、Audit 查询页均经真实 API 渲染有数据（`ac9-pages.png`）。C15 为 F016 实际执行汇总（非局部拼接） |
+| AC-10 | **PASS** | ClustersPage 表头与表体首行列左偏移逐列一致（`heads ['code','name','status','创建时间 ▼','更新时间','version','操作']` vs `cells [193,302,490,573,859,1144,1219]`，容差 ≤2px，`equal=true`）；F017 R-1/D-4 的 `version`/`created_at`/`updated_at` 列对齐修正确认（`clusters-columns.json`，`ac10-clusters.png`） |
+
+### 数据库 / 接口 / 前端 / 集成结果
+
+- **数据库**：F018 无 Schema/迁移/约束/索引变更；`alembic current`=`0013_search_indexes (head)`（无新增 head），与 `docs/database/f018-acceptance.md` `NOT_REQUIRED` 一致。无破坏性变更、无既有数据影响。
+- **接口**：无新增/变更 Endpoint；浏览器全部经入口真 HTTP（`Origin=http://localhost:18080` 同源写请求，CSRF 同源口径实际生效）；错误语义 403 `FORBIDDEN`、409 `VERSION_CONFLICT{current_version}`、422 `VALIDATION_ERROR{fields}` 与契约一致。
+- **前端**：`typecheck`/`build`/`smoke:client`（264/264）机制层 + 19 项真实渲染 DOM 校验全绿（`browser/browser-summary.json`：executed 19 / passed 19 / failed 0 / NOT TESTED 0）。
+- **集成**：Nginx 入口 → Frontend(dist) / FastAPI → PostgreSQL 在一次真实拓扑内联调；SPA fallback、入口标记、真实 API 数据、真实错误/异常态一致。
+
+### Cleanup 纪律执行结果
+
+- 脚本结束（无 `F018_KEEP=1`）自动执行：`DROP DATABASE csm_f018_acc` → `docker rm -f f018-nginx f018-frontend f018-backend f018-db` → `docker network rm f018-acceptance-net` → 删除 `run-<utc>/browser-libs`。
+- 断言：`docker ps -a` / `docker network ls` / `docker volume ls` 均无 `f018-*` 残留（实测输出 `none`）。`frontend/dist` 与 `scripts/acceptance/artifacts/**`（含 `browser/node_modules`）为 git-ignored 构建/测试产物；`browser-libs` 已删除。
+- 本轮实际清理运行：`run-20261013T062456Z`（失败 Compose 路径先 `docker compose -p csm_f018 down -v`）。
+
+### 未执行 / Blocked
+
+| 项 | 状态 | 原因 / 条件 | 责任者 | 恢复动作 |
+| --- | --- | --- | --- | --- |
+| `docker build` / `docker compose up -d` 首选路径 | **BLOCKED（已录制，非缺陷）** | Docker Hub 不可达（token i/o timeout） | 环境 / 协调器 | 网络可达后按 `scripts/acceptance/run_f018_acceptance.sh` 首选路径复跑 |
+
+无其他 NOT TESTED 项：AC-3..AC-10 的浏览器判据均已在真实渲染中执行并给出截图/JSON 证据。
+
+### Defects
+
+无。全部自动项与浏览器 DOM 项通过，未发现实现缺陷；无阻塞/必须修复问题。
+
+**NOTE（非缺陷观察）**：编译产物中出现 Tailwind v4 内部 `@layer properties`，位于 `theme` 之前；5 个共享层（`theme→base→antd→components→utilities`）相对顺序正确且无 `legacy`，utility 覆盖 AntD 已由运行时探针验证，不影响 D04-7 语义，仅作记录。
+
+### 项目状态一致性
+
+本轮未修改 `docs/project/project-plan.yaml` 等状态文件，未触发 `scripts/validate_project_state.py`；`project.acceptance` 由协调器核验后写入，Tester 不写（A11/§5.5）。
+
+### 结论
+
+`READY FOR REVIEW`——TE-1 在真实等价部署拓扑上独立执行：Compose 失败已如实录制并切换替代栈并附差异声明；AC-1/AC-2 机制与入口项通过；AC-3..AC-10 全部在真实浏览器渲染中执行并通过（19/19），无 NOT TESTED 遗留（除环境性 Compose 首选路径 BLOCKED）；数据层 C1–C15/Q1–Q9 按 TD 以 F016 TE-1 真 HTTP 证据 REUSE。**本报告供协调器核验后写 `project.acceptance.evidence`；`COMPLETE` 由协调器写入，COMPLETE≠发布授权。**
+
+GIT: NONE
