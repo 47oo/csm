@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { Alert, Button, Form, Input, Select } from "antd";
 import type {
   Resource,
   ResourceActionError,
@@ -172,6 +173,11 @@ const HARDWARE_INPUT_FIELDS: {
  *   → hostname 字段级错误；422 → details.fields 字段级错误（hardware /
  *   virtual_machine 为点路径 <对象>.<field>，如 hardware.cpu_cores、
  *   virtual_machine.host_resource_id）。
+ *
+ * 迁移说明（AntD + Tailwind）：本地校验仍仅在提交时触发（不使用 antd rules），
+ * 以保持原有行为——错误文案只在下次提交时更新，字段级错误优先级为本地 ?? 服务端。
+ * cluster 下拉保留 value="" 占位选项（等价原生 <option value="">“请选择集群”），
+ * 表单值仍为 "" 字符串；受控值形状（ResourceFormValues）与提交行为不变。
  */
 export default function ResourceForm({
   mode,
@@ -212,8 +218,7 @@ export default function ResourceForm({
   const isBareMetal = resourceType === "BARE_METAL";
   const isVirtualMachine = resourceType === "VIRTUAL_MACHINE";
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function handleSubmit() {
     if (submitting) {
       return;
     }
@@ -270,211 +275,237 @@ export default function ResourceForm({
   }
 
   const serverFields = serverError?.fields ?? {};
+  const clusterError = localErrors.cluster ?? serverFields.cluster;
+  const hostnameError = localErrors.hostname ?? serverFields.hostname;
+  const metadataError = localErrors.metadata ?? serverFields.metadata;
+  const hardwareMetadataError =
+    localErrors.hardware?.metadata ?? serverFields["hardware.metadata"];
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <Form
+      layout="vertical"
+      colon={false}
+      onFinish={handleSubmit}
+      noValidate
+      className="space-y-4"
+    >
       {isCreate ? (
-        <div className="form-field">
-          <label htmlFor="resource-cluster">cluster（所属集群，必填，创建后不可修改）</label>
-          <select
+        <div>
+          <label htmlFor="resource-cluster" className="mb-1 block text-sm font-medium">
+            cluster（所属集群，必填，创建后不可修改）
+          </label>
+          <Select
             id="resource-cluster"
-            name="cluster"
             value={cluster}
-            onChange={(event) => {
-              setCluster(event.target.value);
+            onChange={(value) => {
+              setCluster(value);
               // 换集群后宿主候选随集群重新加载；旧宿主不再属于新集群，重置选择
               setVirtualMachine((prev) => ({ ...prev, host_resource_id: "" }));
             }}
             disabled={submitting}
-          >
-            <option value="">请选择集群</option>
-            {(clusters ?? []).map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.code} — {item.name}
-              </option>
-            ))}
-          </select>
-          {(localErrors.cluster ?? serverFields.cluster) && (
-            <p className="field-error" role="alert">
-              {localErrors.cluster ?? serverFields.cluster}
+            status={clusterError ? "error" : undefined}
+            className="w-full"
+            options={[
+              { value: "", label: "请选择集群" },
+              ...(clusters ?? []).map((item) => ({
+                value: item.id,
+                label: `${item.code} — ${item.name}`,
+              })),
+            ]}
+          />
+          {clusterError && (
+            <p className="mt-1 text-sm text-red-600" role="alert">
+              {clusterError}
             </p>
           )}
         </div>
       ) : (
-        <div className="form-field">
-          <span className="field-label">cluster（创建后不可修改）</span>
-          <p className="readonly-value mono">
+        <div>
+          <span className="mb-1 block text-sm font-medium">cluster（创建后不可修改）</span>
+          <p className="break-all font-mono text-sm text-gray-900">
             {resource?.cluster.code} — {resource?.cluster.name}
-            <span className="unset">（id: {resource?.cluster.id}）</span>
+            <span className="text-gray-400">（id: {resource?.cluster.id}）</span>
           </p>
         </div>
       )}
 
-      <div className="form-field">
-        <label htmlFor="resource-hostname">hostname（必填；允许 Unicode 与“.”，禁内部空白 / 控制字符，≤253）</label>
-        <input
+      <div>
+        <label htmlFor="resource-hostname" className="mb-1 block text-sm font-medium">
+          hostname（必填；允许 Unicode 与“.”，禁内部空白 / 控制字符，≤253）
+        </label>
+        <Input
           id="resource-hostname"
           name="hostname"
-          type="text"
           value={hostname}
           onChange={(event) => setHostname(event.target.value)}
           disabled={submitting}
+          status={hostnameError ? "error" : undefined}
           placeholder="如 cn001；服务端归一化为小写存储，同集群内唯一"
         />
-        {(localErrors.hostname ?? serverFields.hostname) && (
-          <p className="field-error" role="alert">
-            {localErrors.hostname ?? serverFields.hostname}
+        {hostnameError && (
+          <p className="mt-1 text-sm text-red-600" role="alert">
+            {hostnameError}
           </p>
         )}
       </div>
 
       {isCreate ? (
-        <div className="form-field">
-          <label htmlFor="resource-type">resource_type（必填，创建后不可修改）</label>
-          <select
+        <div>
+          <label htmlFor="resource-type" className="mb-1 block text-sm font-medium">
+            resource_type（必填，创建后不可修改）
+          </label>
+          <Select<ResourceType>
             id="resource-type"
-            name="resource_type"
             value={resourceType}
-            onChange={(event) => setResourceType(event.target.value as ResourceType)}
+            onChange={(value) => setResourceType(value)}
             disabled={submitting}
-          >
-            {RESOURCE_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            status={serverFields.resource_type ? "error" : undefined}
+            className="w-full"
+            options={RESOURCE_TYPE_OPTIONS}
+          />
           {serverFields.resource_type && (
-            <p className="field-error" role="alert">
+            <p className="mt-1 text-sm text-red-600" role="alert">
               {serverFields.resource_type}
             </p>
           )}
         </div>
       ) : (
-        <div className="form-field">
-          <span className="field-label">resource_type（创建后不可修改）</span>
-          <p className="readonly-value mono">{resource?.resource_type}</p>
+        <div>
+          <span className="mb-1 block text-sm font-medium">resource_type（创建后不可修改）</span>
+          <p className="break-all font-mono text-sm text-gray-900">{resource?.resource_type}</p>
         </div>
       )}
 
-      <div className="form-field">
-        <label htmlFor="resource-role">role（角色，可选，默认 OTHER）</label>
-        <select
+      <div>
+        <label htmlFor="resource-role" className="mb-1 block text-sm font-medium">
+          role（角色，可选，默认 OTHER）
+        </label>
+        <Select<ResourceRole>
           id="resource-role"
-          name="role"
           value={role}
-          onChange={(event) => setRole(event.target.value as ResourceRole)}
+          onChange={(value) => setRole(value)}
           disabled={submitting}
-        >
-          {ROLE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          status={serverFields.role ? "error" : undefined}
+          className="w-full"
+          options={ROLE_OPTIONS}
+        />
         {serverFields.role && (
-          <p className="field-error" role="alert">
+          <p className="mt-1 text-sm text-red-600" role="alert">
             {serverFields.role}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="resource-status">status（状态，可选，默认 UNKNOWN，人工维护）</label>
-        <select
+      <div>
+        <label htmlFor="resource-status" className="mb-1 block text-sm font-medium">
+          status（状态，可选，默认 UNKNOWN，人工维护）
+        </label>
+        <Select<ResourceStatus>
           id="resource-status"
-          name="status"
           value={status}
-          onChange={(event) => setStatus(event.target.value as ResourceStatus)}
+          onChange={(value) => setStatus(value)}
           disabled={submitting}
-        >
-          {STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          status={serverFields.status ? "error" : undefined}
+          className="w-full"
+          options={STATUS_OPTIONS}
+        />
         {serverFields.status && (
-          <p className="field-error" role="alert">
+          <p className="mt-1 text-sm text-red-600" role="alert">
             {serverFields.status}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="resource-description">description（描述，可选）</label>
-        <textarea
+      <div>
+        <label htmlFor="resource-description" className="mb-1 block text-sm font-medium">
+          description（描述，可选）
+        </label>
+        <Input.TextArea
           id="resource-description"
           name="description"
           rows={3}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           disabled={submitting}
+          status={serverFields.description ? "error" : undefined}
           placeholder="可选；编辑时清空表示删除描述（显式置 null）"
         />
         {serverFields.description && (
-          <p className="field-error" role="alert">
+          <p className="mt-1 text-sm text-red-600" role="alert">
             {serverFields.description}
           </p>
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="resource-metadata">metadata（JSON 对象，可选）</label>
-        <textarea
+      <div>
+        <label htmlFor="resource-metadata" className="mb-1 block text-sm font-medium">
+          metadata（JSON 对象，可选）
+        </label>
+        <Input.TextArea
           id="resource-metadata"
           name="metadata"
           rows={5}
           value={metadataText}
           onChange={(event) => setMetadataText(event.target.value)}
           disabled={submitting}
+          status={metadataError ? "error" : undefined}
           placeholder={'可选，例如 {"rack": "R42"}；留空视为 {}'}
         />
-        {(localErrors.metadata ?? serverFields.metadata) && (
-          <p className="field-error" role="alert">
-            {localErrors.metadata ?? serverFields.metadata}
+        {metadataError && (
+          <p className="mt-1 text-sm text-red-600" role="alert">
+            {metadataError}
           </p>
         )}
       </div>
 
       {isBareMetal && (
         <>
-          <h3 className="detail-section-title">hardware（硬件信息，可选；仅 BARE_METAL）</h3>
-          <p className="status status-empty">
-            全部字段可选：留空 = 未登记（null，不以 0 代替；编辑时留空 = 清空该字段）；
-            gpu_count 填 0 表示明确无 GPU；memory_mb 单位 MiB；cpu_cores 为整机物理核心总数（不含超线程）。
-          </p>
-          {serverFields.hardware && (
-            <p className="field-error" role="alert">
-              {serverFields.hardware}
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">
+              hardware（硬件信息，可选；仅 BARE_METAL）
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              全部字段可选：留空 = 未登记（null，不以 0 代替；编辑时留空 = 清空该字段）；
+              gpu_count 填 0 表示明确无 GPU；memory_mb 单位 MiB；cpu_cores 为整机物理核心总数（不含超线程）。
             </p>
-          )}
+            {serverFields.hardware && (
+              <p className="mt-1 text-sm text-red-600" role="alert">
+                {serverFields.hardware}
+              </p>
+            )}
+          </div>
           {HARDWARE_INPUT_FIELDS.map((field) => (
-            <div className="form-field" key={field.key}>
-              <label htmlFor={`resource-hardware-${field.key}`}>{field.label}</label>
-              <input
+            <div key={field.key}>
+              <label htmlFor={`resource-hardware-${field.key}`} className="mb-1 block text-sm font-medium">
+                {field.label}
+              </label>
+              <Input
                 id={`resource-hardware-${field.key}`}
                 name={`hardware.${field.key}`}
-                type="text"
                 value={hardware[field.key]}
                 onChange={(event) =>
                   setHardware((prev) => ({ ...prev, [field.key]: event.target.value }))
                 }
                 disabled={submitting}
+                status={
+                  localErrors.hardware?.[field.key] ?? serverFields[`hardware.${field.key}`]
+                    ? "error"
+                    : undefined
+                }
                 placeholder={field.placeholder}
               />
               {(localErrors.hardware?.[field.key] ?? serverFields[`hardware.${field.key}`]) && (
-                <p className="field-error" role="alert">
+                <p className="mt-1 text-sm text-red-600" role="alert">
                   {localErrors.hardware?.[field.key] ?? serverFields[`hardware.${field.key}`]}
                 </p>
               )}
             </div>
           ))}
-          <div className="form-field">
-            <label htmlFor="resource-hardware-metadata">
+          <div>
+            <label htmlFor="resource-hardware-metadata" className="mb-1 block text-sm font-medium">
               hardware.metadata（厂商特有 / 低频扩展，JSON 对象，可选）
             </label>
-            <textarea
+            <Input.TextArea
               id="resource-hardware-metadata"
               name="hardware.metadata"
               rows={5}
@@ -483,11 +514,12 @@ export default function ResourceForm({
                 setHardware((prev) => ({ ...prev, metadata: event.target.value }))
               }
               disabled={submitting}
+              status={hardwareMetadataError ? "error" : undefined}
               placeholder={'可选，例如 {"psu": "2000W"}；留空视为 {}；与 Resource 的 metadata 相互独立（整值替换）'}
             />
-            {(localErrors.hardware?.metadata ?? serverFields["hardware.metadata"]) && (
-              <p className="field-error" role="alert">
-                {localErrors.hardware?.metadata ?? serverFields["hardware.metadata"]}
+            {hardwareMetadataError && (
+              <p className="mt-1 text-sm text-red-600" role="alert">
+                {hardwareMetadataError}
               </p>
             )}
           </div>
@@ -514,29 +546,30 @@ export default function ResourceForm({
       )}
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
-          <p>
-            {serverError.message}
-            {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
-          </p>
-          {serverError.versionConflict && onRefresh && (
-            <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+        <Alert
+          type="error"
+          role="alert"
+          message={`${serverError.message}${
+            serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""
+          }`}
+          description={
+            serverError.versionConflict && onRefresh ? (
+              <Button htmlType="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
-            </p>
-          )}
-        </div>
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
-      <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+      <div className="flex gap-3">
+        <Button type="primary" htmlType="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button htmlType="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
-    </form>
+    </Form>
   );
 }
