@@ -23,6 +23,6 @@
 | F015 | Audit 查询、已删除对象管理与系统功能 | FEATURE | P1 | DONE | F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012 | — | docs/product/requirements-v3.md#21-逻辑删除, docs/product/requirements-v3.md#22-audit-log, docs/product/requirements-v3.md#23-用户与权限, docs/product/requirements-v3.md#28-前端 |
 | F016 | 一期集成验收与交付 | FEATURE | P0 | DONE | F001, F002, F003, F004, F005, F006, F007, F008, F009, F010, F011, F012, F013, F014, F015 | — | docs/product/requirements-v3.md#31-测试, docs/product/requirements-v3.md#32-上线验收, docs/product/requirements-v3.md#33-目标查询场景, docs/product/requirements-v3.md#30-部署, docs/product/requirements-v3.md#22-audit-log |
 | F017 | 前端 UI 体系改造（Ant Design + Tailwind CSS） | FEATURE | P0 | DONE | F016 | — | docs/product/requirements-v3.md#28-前端, docs/product/requirements-v3.md#29-技术栈, docs/product/requirements-v3.md#31-测试, docs/product/requirements-v3.md#32-上线验收 |
-| F018 | 前端改造后一期整体验收复验 | FEATURE | P0 | IN_PROGRESS | F017 | — | docs/product/requirements-v3.md#28-前端, docs/product/requirements-v3.md#29-技术栈, docs/product/requirements-v3.md#30-部署, docs/product/requirements-v3.md#31-测试, docs/product/requirements-v3.md#32-上线验收, docs/product/requirements-v3.md#33-目标查询场景 |
+| F018 | 前端改造后一期整体验收复验 | FEATURE | P0 | IN_REVIEW | F017 | — | docs/product/requirements-v3.md#28-前端, docs/product/requirements-v3.md#29-技术栈, docs/product/requirements-v3.md#30-部署, docs/product/requirements-v3.md#31-测试, docs/product/requirements-v3.md#32-上线验收, docs/product/requirements-v3.md#33-目标查询场景 |
 
-统计：BLOCKED=0；CANCELLED=0；DONE=17；DRAFT=0；IN_PROGRESS=1；IN_REVIEW=0；READY=0。
+统计：BLOCKED=0；CANCELLED=0；DONE=17；DRAFT=0；IN_PROGRESS=0；IN_REVIEW=1；READY=0。
