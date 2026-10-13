@@ -1180,8 +1180,8 @@ features:
   - F017
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: CONTRACT
-  next_action: CONTRACT 定稿：architect 核对 Database / Test Design 并签核 READY FOR IMPLEMENTATION。
+  current_stage: TEST
+  next_action: TEST 阶段：tester 执行 F018 验收（test-only 脚本、等价替代栈、前端复验）。
   git:
     base_branch: v3
     branch: feature/F018-post-ui-acceptance
@@ -1352,9 +1352,9 @@ execution:
     authorized_on: '2026-10-12'
     basis: 用户于 2026-10-12 批准计划 revision 5 时同次明确『授权实施』；范围 F017/F018（F018 依赖 F017）。
   current_feature: F018
-  current_stage: CONTRACT
-  last_result: F018 DATABASE NOT_REQUIRED（docs/database/f018-acceptance.md）与 TEST DESIGN READY（docs/features/F018/test-report.md#test-design）。
-  next_action: CONTRACT 定稿：architect 签核 READY FOR IMPLEMENTATION。
+  current_stage: TEST
+  last_result: F018 CONTRACT READY FOR IMPLEMENTATION（architect 签核；Contract NOT_REQUIRED）。
+  next_action: TEST 阶段：tester 执行验收。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

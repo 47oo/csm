@@ -74,3 +74,12 @@ api_required: false
 - **Architect 定稿**：取得 Database（NOT_REQUIRED）与 Test Design 后核对约束/错误/事务/验收一致性，签核最终设计并给 `READY FOR IMPLEMENTATION`。
 
 无 Blocking Questions，无新增业务规则，无 API/Schema/部署语义变更。**Status：`READY FOR DESIGN`。**
+
+## 7. CONTRACT 最终设计签核
+
+- **签核者**：Architect；**日期**：2026-10-15；**Status**：`READY FOR IMPLEMENTATION`。
+- **Contract 状态**：`NOT_REQUIRED`（api_required=false；不新建 docs/api/F018.md，本文件即无 API 最终签核载体）。
+- **上游依据**：requirements-v3.md revision 4（§28–§33）CONFIRMED；plan_revision 5（F018，layers 全 false、api_required=false、contract:NOT_REQUIRED）；product.md（READY FOR ARCHITECT）；本文件 §2–§6；F017 architecture.md §5 V5–V7 与 review-report §6；F016 test-report（等价替代栈锚点）。
+- **核对输入**：docs/database/f018-acceptance.md v1（`NOT_REQUIRED`，DB-F018-1..3，单 head `0013_search_indexes`）；docs/features/F018/test-report.md#test-design（TD-1 `TEST DESIGN READY`）。
+- **覆盖范围**：R-1..R-10 / AC-1..AC-10 复验设计（Compose 首选 + F016 §5.3 等价替代栈、健康/SPA fallback、前端 typecheck/build/smoke:client、浏览器 test-only 工具与 NOT TESTED 规则、脚本落点与清理纪律）。一致确认：无 Schema/迁移/约束/索引变更；无 API/字段/错误语义变更；无业务规则与 layer 变更（浏览器工具落 `scripts/acceptance/browser/`，属 TEST 基础设施）。
+- **结论**：约束、错误、事务与验收一致，无 Blocking；签核最终设计，`READY FOR IMPLEMENTATION`。实现由 TEST 阶段（test-only 脚本）承担，Tester 不写 `project.acceptance`。
