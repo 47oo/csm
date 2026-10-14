@@ -1132,8 +1132,8 @@ features:
   - F015
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: ARCHITECTURE Gate：认证解析扩展、Schema 影响、layers 与 Contract 骨架
+  current_stage: DATABASE
+  next_action: DATABASE 与 TEST_DESIGN Gate（可并行）
   git:
     base_branch: codex/v3.1
     branch: feature/F017-api-key
@@ -1145,7 +1145,7 @@ features:
   api_required: true
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: PENDING
     test_design: PENDING
     contract: PENDING
@@ -1156,6 +1156,8 @@ features:
   evidence:
     product:
     - docs/features/F017/product.md
+    architecture:
+    - docs/features/F017/architecture.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1281,9 +1283,9 @@ execution:
       5，并授权按 .pi/prompts/feature.md 自动实施新增 F017 API Key 机器凭据；范围仅 F017，F001–F016 保持
       DONE。历史 revision 4 授权（F001–F016，2026-10-06）已完成。
   current_feature: F017
-  current_stage: ARCHITECTURE
-  last_result: PRODUCT Gate 完成（READY FOR ARCHITECT，docs/features/F017/product.md）；无阻塞问题
-  next_action: F017 ARCHITECTURE Gate
+  current_stage: DATABASE
+  last_result: ARCHITECTURE Gate 完成（READY FOR DESIGN，docs/features/F017/architecture.md）；DR-301–DR-318
+  next_action: F017 DATABASE 与 TEST_DESIGN Gate
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
