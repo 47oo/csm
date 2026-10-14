@@ -13,6 +13,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -29,9 +30,18 @@ import {
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.ts";
+import { runTaskBatch, type TaskExecutor, type TaskRunOutcome } from "./batch.ts";
+import { manageTermination } from "./proc-manager.ts";
+import {
+	type DeclarationConflict,
+	type PlannedTask,
+	type TaskStatus,
+	planTasks,
+	sharedDeclarationRegistry,
+} from "./task-plan.ts";
 
 const MAX_PARALLEL_TASKS = 8;
-const MAX_CONCURRENCY = 4;
+const DEFAULT_CONCURRENCY = 4;
 const COLLAPSED_ITEM_COUNT = 10;
 const PER_TASK_OUTPUT_CAP = 50 * 1024;
 
@@ -150,7 +160,8 @@ interface SingleResult {
 	agent: string;
 	agentSource: "user" | "project" | "unknown";
 	task: string;
-	exitCode: number;
+	status: TaskStatus;
+	exitCode: number | null;
 	messages: Message[];
 	stderr: string;
 	usage: UsageStats;
@@ -179,8 +190,21 @@ function getFinalOutput(messages: Message[]): string {
 	return "";
 }
 
+function getTaskStatus(result: SingleResult): TaskStatus {
+	if (result.status) return result.status;
+	// Compatibility for tool details stored by the original extension.
+	if (result.exitCode === -1) return "running";
+	return result.exitCode === 0 ? "completed" : "failed";
+}
+
 function isFailedResult(result: SingleResult): boolean {
-	return result.exitCode !== 0 || result.stopReason === "error" || result.stopReason === "aborted";
+	const status = getTaskStatus(result);
+	return status === "failed" || status === "aborted";
+}
+
+function isRunningResult(result: SingleResult): boolean {
+	const status = getTaskStatus(result);
+	return status === "queued" || status === "running";
 }
 
 function getResultOutput(result: SingleResult): string {
@@ -188,6 +212,14 @@ function getResultOutput(result: SingleResult): string {
 		return result.errorMessage || result.stderr || getFinalOutput(result.messages) || "(no output)";
 	}
 	return getFinalOutput(result.messages) || "(no output)";
+}
+
+function formatDeclarationConflicts(conflicts: DeclarationConflict[]): string {
+	return conflicts.map((conflict) => `- ${conflict.message}`).join("\n");
+}
+
+function emptyUsage(): UsageStats {
+	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 };
 }
 
 function truncateParallelOutput(output: string): string {
@@ -214,26 +246,6 @@ function getDisplayItems(messages: Message[]): DisplayItem[] {
 		}
 	}
 	return items;
-}
-
-async function mapWithConcurrencyLimit<TIn, TOut>(
-	items: TIn[],
-	concurrency: number,
-	fn: (item: TIn, index: number) => Promise<TOut>,
-): Promise<TOut[]> {
-	if (items.length === 0) return [];
-	const limit = Math.max(1, Math.min(concurrency, items.length));
-	const results: TOut[] = new Array(items.length);
-	let nextIndex = 0;
-	const workers = new Array(limit).fill(null).map(async () => {
-		while (true) {
-			const current = nextIndex++;
-			if (current >= items.length) return;
-			results[current] = await fn(items[current], current);
-		}
-	});
-	await Promise.all(workers);
-	return results;
 }
 
 async function writePromptToTempFile(agentName: string, prompt: string): Promise<{ dir: string; filePath: string }> {
@@ -289,6 +301,7 @@ async function runSingleAgent(
 			agent: agentName,
 			agentSource: "unknown",
 			task,
+			status: "failed",
 			exitCode: 1,
 			messages: [],
 			stderr: `Unknown agent: "${agentName}". Available agents: ${available}.`,
@@ -313,7 +326,8 @@ async function runSingleAgent(
 		agent: agentName,
 		agentSource: agent.source,
 		task,
-		exitCode: 0,
+		status: "running",
+		exitCode: null,
 		messages: [],
 		stderr: "",
 		usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
@@ -345,10 +359,13 @@ async function runSingleAgent(
 			const invocation = getPiInvocation(args);
 			const proc = spawn(invocation.command, invocation.args, {
 				cwd: cwd ?? defaultCwd,
+				detached: process.platform !== "win32",
 				shell: false,
 				stdio: ["ignore", "pipe", "pipe"],
 			});
+			const termination = manageTermination(proc);
 			let buffer = "";
+			let settled = false;
 
 			const processLine = (line: string) => {
 				if (!line.trim()) return;
@@ -387,6 +404,17 @@ async function runSingleAgent(
 				}
 			};
 
+			const finish = (code: number) => {
+				if (settled) return;
+				settled = true;
+				if (signal) signal.removeEventListener("abort", killProc);
+				resolve(code);
+			};
+			const killProc = () => {
+				wasAborted = true;
+				termination.terminate();
+			};
+
 			proc.stdout.on("data", (data) => {
 				buffer += data.toString();
 				const lines = buffer.split("\n");
@@ -400,28 +428,26 @@ async function runSingleAgent(
 
 			proc.on("close", (code) => {
 				if (buffer.trim()) processLine(buffer);
-				resolve(code ?? 0);
+				finish(code ?? 0);
 			});
 
-			proc.on("error", () => {
-				resolve(1);
+			proc.on("error", (error) => {
+				currentResult.errorMessage = error instanceof Error ? error.message : String(error);
+				finish(1);
 			});
 
 			if (signal) {
-				const killProc = () => {
-					wasAborted = true;
-					proc.kill("SIGTERM");
-					setTimeout(() => {
-						if (!proc.killed) proc.kill("SIGKILL");
-					}, 5000);
-				};
 				if (signal.aborted) killProc();
 				else signal.addEventListener("abort", killProc, { once: true });
 			}
 		});
 
 		currentResult.exitCode = exitCode;
-		if (wasAborted) throw new Error("Subagent was aborted");
+		currentResult.status = wasAborted || currentResult.stopReason === "aborted"
+			? "aborted"
+			: exitCode !== 0 || currentResult.stopReason === "error"
+				? "failed"
+				: "completed";
 		return currentResult;
 	} finally {
 		if (tmpPromptPath)
@@ -443,6 +469,15 @@ const TaskItem = Type.Object({
 	agent: Type.String({ description: "Name of the agent to invoke" }),
 	task: Type.String({ description: "Task to delegate to the agent" }),
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process" })),
+	id: Type.Optional(Type.String({ description: "Stable task identifier, unique within this batch" })),
+	writeScope: Type.Optional(
+		Type.Array(Type.String(), {
+			description: "Relative file or directory paths this task may write; overlapping scopes are rejected",
+		}),
+	),
+	resources: Type.Optional(
+		Type.Array(Type.String(), { description: "Exclusive resource names held for the duration of this batch" }),
+	),
 });
 
 const ChainItem = Type.Object({
@@ -452,15 +487,26 @@ const ChainItem = Type.Object({
 });
 
 const AgentScopeSchema = StringEnum(["user", "project", "both"] as const, {
-	description: 'Which agent directories to use. Default: "user". Use "both" to include project-local agents.',
-	default: "user",
+	description: 'Which agent directories to use. Default: "project" for this project-local extension.',
+	default: "project",
 });
 
 const SubagentParams = Type.Object({
 	agent: Type.Optional(Type.String({ description: "Name of the agent to invoke (for single mode)" })),
 	task: Type.Optional(Type.String({ description: "Task to delegate (for single mode)" })),
-	tasks: Type.Optional(Type.Array(TaskItem, { description: "Array of {agent, task} for parallel execution" })),
+	tasks: Type.Optional(
+		Type.Array(TaskItem, {
+			description: "Parallel tasks with optional id, writeScope, and exclusive resources",
+		}),
+	),
 	chain: Type.Optional(Type.Array(ChainItem, { description: "Array of {agent, task} for sequential execution" })),
+	concurrency: Type.Optional(
+		Type.Integer({
+			minimum: 1,
+			maximum: MAX_PARALLEL_TASKS,
+			description: `Maximum tasks running in this batch. Default: ${DEFAULT_CONCURRENCY}; max: ${MAX_PARALLEL_TASKS}.`,
+		}),
+	),
 	agentScope: Type.Optional(AgentScopeSchema),
 	confirmProjectAgents: Type.Optional(
 		Type.Boolean({ description: "Prompt before running project-local agents. Default: true.", default: true }),
@@ -475,13 +521,14 @@ export default function (pi: ExtensionAPI) {
 		description: [
 			"Delegate tasks to specialized subagents with isolated context.",
 			"Modes: single (agent + task), parallel (tasks array), chain (sequential with {previous} placeholder).",
-			`Default agent scope is "user" (from ${path.join(getAgentDir(), "agents")}).`,
-			`To enable project-local agents in ${CONFIG_DIR_NAME}/agents, set agentScope: "both" (or "project").`,
+			`Default agent scope is "project" (from ${CONFIG_DIR_NAME}/agents); use "both" to include ${path.join(getAgentDir(), "agents")}.`,
+			`Parallel batches accept up to ${MAX_PARALLEL_TASKS} tasks and default to ${DEFAULT_CONCURRENCY} concurrent processes.`,
+			"Declare writeScope and resources for parallel writers so conflicting batches are rejected before spawn.",
 		].join(" "),
 		parameters: SubagentParams,
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			const agentScope: AgentScope = params.agentScope ?? "user";
+			const agentScope: AgentScope = params.agentScope ?? "project";
 			const dispatchDefaults: DispatchDefaults = {
 				model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined,
 				thinkingLevel: ctx.thinkingLevel,
@@ -611,78 +658,141 @@ export default function (pi: ExtensionAPI) {
 							},
 						],
 						details: makeDetails("parallel")([]),
+						isError: true,
 					};
 
-				// Track all results for streaming updates
-				const allResults: SingleResult[] = new Array(params.tasks.length);
-
-				// Initialize placeholder results
-				for (let i = 0; i < params.tasks.length; i++) {
-					allResults[i] = {
-						agent: params.tasks[i].agent,
-						agentSource: "unknown",
-						task: params.tasks[i].task,
-						exitCode: -1, // -1 = still running
-						messages: [],
-						stderr: "",
-						usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 },
+				const plan = planTasks(params.tasks, ctx.cwd);
+				if (plan.conflicts.length > 0) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Parallel batch rejected before spawn:\n${formatDeclarationConflicts(plan.conflicts)}`,
+							},
+						],
+						details: makeDetails("parallel")([]),
+						isError: true,
 					};
 				}
 
-				const emitParallelUpdate = () => {
-					if (onUpdate) {
-						const running = allResults.filter((r) => r.exitCode === -1).length;
-						const done = allResults.filter((r) => r.exitCode !== -1).length;
-						onUpdate({
-							content: [
-								{ type: "text", text: `Parallel: ${done}/${allResults.length} done, ${running} running...` },
-							],
-							details: makeDetails("parallel")([...allResults]),
-						});
-					}
+				const ownerId = randomUUID();
+				const registryConflicts = sharedDeclarationRegistry.register({
+					ownerId,
+					resources: plan.tasks.flatMap((task) =>
+						task.resources.map((name) => ({ name, taskId: task.id })),
+					),
+					writeScopes: plan.tasks.flatMap((task) =>
+						task.writeScope.map((scopePath) => ({ path: scopePath, taskId: task.id })),
+					),
+				});
+				if (registryConflicts.length > 0) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Parallel batch conflicts with in-flight work:\n${formatDeclarationConflicts(registryConflicts)}`,
+							},
+						],
+						details: makeDetails("parallel")([]),
+						isError: true,
+					};
+				}
+
+				const placeholder = (task: PlannedTask, status: TaskStatus, reason = ""): SingleResult => ({
+					agent: task.agent,
+					agentSource: agents.find((agent) => agent.name === task.agent)?.source ?? "unknown",
+					task: task.task,
+					status,
+					exitCode: null,
+					messages: [],
+					stderr: reason,
+					usage: emptyUsage(),
+				});
+
+				const executor: TaskExecutor<SingleResult> = {
+					start(task, report) {
+						const controller = new AbortController();
+						const settled = runSingleAgent(
+							ctx.cwd,
+							dispatchDefaults,
+							agents,
+							task.agent,
+							task.task,
+							task.cwd,
+							undefined,
+							controller.signal,
+							(partial) => {
+								const result = partial.details?.results[0];
+								if (result) report(result);
+							},
+							makeDetails("parallel"),
+						)
+							.then<TaskRunOutcome<SingleResult>>((result) => ({
+								status:
+									result.status === "completed"
+										? "completed"
+										: result.status === "aborted"
+											? "aborted"
+											: "failed",
+								result,
+							}))
+							.catch<TaskRunOutcome<SingleResult>>((error) => ({
+								status: "failed",
+								result: {
+									...placeholder(task, "failed", error instanceof Error ? error.message : String(error)),
+									errorMessage: error instanceof Error ? error.message : String(error),
+								},
+							}));
+						return { settled, terminate: () => controller.abort() };
+					},
+					abortedResult: (task, reason) => placeholder(task, "aborted", reason),
 				};
 
-				const results = await mapWithConcurrencyLimit(params.tasks, MAX_CONCURRENCY, async (t, index) => {
-					const result = await runSingleAgent(
-						ctx.cwd,
-						dispatchDefaults,
-						agents,
-						t.agent,
-						t.task,
-						t.cwd,
-						undefined,
+				try {
+					const batch = await runTaskBatch({
+						tasks: plan.tasks,
+						concurrency: params.concurrency ?? DEFAULT_CONCURRENCY,
+						executor,
 						signal,
-						// Per-task update callback
-						(partial) => {
-							if (partial.details?.results[0]) {
-								allResults[index] = partial.details.results[0];
-								emitParallelUpdate();
-							}
+						onUpdate: (slots) => {
+							if (!onUpdate) return;
+							const results = slots.map(
+								(slot, index) => slot.result ?? placeholder(plan.tasks[index], slot.status, slot.abortReason ?? ""),
+							);
+							const running = results.filter(isRunningResult).length;
+							const done = results.length - running;
+							onUpdate({
+								content: [
+									{ type: "text", text: `Parallel: ${done}/${results.length} done, ${running} running...` },
+								],
+								details: makeDetails("parallel")(results),
+							});
 						},
-						makeDetails("parallel"),
+					});
+					const results = batch.slots.map(
+						(slot, index) => slot.result ?? placeholder(plan.tasks[index], slot.status, slot.abortReason ?? ""),
 					);
-					allResults[index] = result;
-					emitParallelUpdate();
-					return result;
-				});
-
-				const successCount = results.filter((r) => !isFailedResult(r)).length;
-				const summaries = results.map((r) => {
-					const output = truncateParallelOutput(getResultOutput(r));
-					const status = isFailedResult(r)
-						? `failed${r.stopReason && r.stopReason !== "end" ? ` (${r.stopReason})` : ""}`
-						: "completed";
-					return `### [${r.agent}] ${status}\n\n${output}`;
-				});
-				return {
-					content: [
-						{
-							type: "text",
-							text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n---\n\n")}`,
-						},
-					],
-					details: makeDetails("parallel")(results),
-				};
+					const successCount = results.filter((result) => getTaskStatus(result) === "completed").length;
+					const summaries = results.map((result) => {
+						const output = truncateParallelOutput(getResultOutput(result));
+						return `### [${result.agent}] ${getTaskStatus(result)}\n\n${output}`;
+					});
+					const infrastructureErrors = batch.errors.length
+						? `\n\nScheduler errors:\n${batch.errors.map((error) => `- ${String(error)}`).join("\n")}`
+						: "";
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n---\n\n")}${infrastructureErrors}`,
+							},
+						],
+						details: makeDetails("parallel")(results),
+						isError: successCount !== results.length || batch.errors.length > 0,
+					};
+				} finally {
+					sharedDeclarationRegistry.release(ownerId);
+				}
 			}
 
 			if (params.agent && params.task) {
@@ -702,7 +812,7 @@ export default function (pi: ExtensionAPI) {
 				if (isError) {
 					const errorMsg = getResultOutput(result);
 					return {
-						content: [{ type: "text", text: `Agent ${result.stopReason || "failed"}: ${errorMsg}` }],
+						content: [{ type: "text", text: `Agent ${result.stopReason || getTaskStatus(result)}: ${errorMsg}` }],
 						details: makeDetails("single")([result]),
 						isError: true,
 					};
@@ -721,7 +831,7 @@ export default function (pi: ExtensionAPI) {
 		},
 
 		renderCall(args, theme, _context) {
-			const scope: AgentScope = args.agentScope ?? "user";
+			const scope: AgentScope = args.agentScope ?? "project";
 			if (args.chain && args.chain.length > 0) {
 				let text =
 					theme.fg("toolTitle", theme.bold("subagent ")) +
@@ -792,7 +902,11 @@ export default function (pi: ExtensionAPI) {
 			if (details.mode === "single" && details.results.length === 1) {
 				const r = details.results[0];
 				const isError = isFailedResult(r);
-				const icon = isError ? theme.fg("error", "✗") : theme.fg("success", "✓");
+				const icon = isRunningResult(r)
+					? theme.fg("warning", "⏳")
+					: isError
+						? theme.fg("error", "✗")
+						: theme.fg("success", "✓");
 				const displayItems = getDisplayItems(r.messages);
 				const finalOutput = getFinalOutput(r.messages);
 
@@ -837,7 +951,8 @@ export default function (pi: ExtensionAPI) {
 				let text = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
 				if (isError && r.stopReason) text += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
 				if (isError && r.errorMessage) text += `\n${theme.fg("error", `Error: ${r.errorMessage}`)}`;
-				else if (displayItems.length === 0) text += `\n${theme.fg("muted", "(no output)")}`;
+				else if (displayItems.length === 0)
+					text += `\n${theme.fg("muted", isRunningResult(r) ? "(running...)" : "(no output)")}`;
 				else {
 					text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`;
 					if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
@@ -861,8 +976,13 @@ export default function (pi: ExtensionAPI) {
 			};
 
 			if (details.mode === "chain") {
-				const successCount = details.results.filter((r) => r.exitCode === 0).length;
-				const icon = successCount === details.results.length ? theme.fg("success", "✓") : theme.fg("error", "✗");
+				const successCount = details.results.filter((r) => getTaskStatus(r) === "completed").length;
+				const chainRunning = details.results.some(isRunningResult);
+				const icon = chainRunning
+					? theme.fg("warning", "⏳")
+					: successCount === details.results.length
+						? theme.fg("success", "✓")
+						: theme.fg("error", "✗");
 
 				if (expanded) {
 					const container = new Container();
@@ -878,7 +998,11 @@ export default function (pi: ExtensionAPI) {
 					);
 
 					for (const r of details.results) {
-						const rIcon = r.exitCode === 0 ? theme.fg("success", "✓") : theme.fg("error", "✗");
+						const rIcon = isRunningResult(r)
+							? theme.fg("warning", "⏳")
+							: isFailedResult(r)
+								? theme.fg("error", "✗")
+								: theme.fg("success", "✓");
 						const displayItems = getDisplayItems(r.messages);
 						const finalOutput = getFinalOutput(r.messages);
 
@@ -930,7 +1054,11 @@ export default function (pi: ExtensionAPI) {
 					theme.fg("toolTitle", theme.bold("chain ")) +
 					theme.fg("accent", `${successCount}/${details.results.length} steps`);
 				for (const r of details.results) {
-					const rIcon = r.exitCode === 0 ? theme.fg("success", "✓") : theme.fg("error", "✗");
+					const rIcon = isRunningResult(r)
+						? theme.fg("warning", "⏳")
+						: isFailedResult(r)
+							? theme.fg("error", "✗")
+							: theme.fg("success", "✓");
 					const displayItems = getDisplayItems(r.messages);
 					text += `\n\n${theme.fg("muted", `─── Step ${r.step}: `)}${theme.fg("accent", r.agent)} ${rIcon}`;
 					if (displayItems.length === 0) text += `\n${theme.fg("muted", "(no output)")}`;
@@ -943,9 +1071,9 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			if (details.mode === "parallel") {
-				const running = details.results.filter((r) => r.exitCode === -1).length;
-				const successCount = details.results.filter((r) => r.exitCode !== -1 && !isFailedResult(r)).length;
-				const failCount = details.results.filter((r) => r.exitCode !== -1 && isFailedResult(r)).length;
+				const running = details.results.filter(isRunningResult).length;
+				const successCount = details.results.filter((r) => getTaskStatus(r) === "completed").length;
+				const failCount = details.results.filter(isFailedResult).length;
 				const isRunning = running > 0;
 				const icon = isRunning
 					? theme.fg("warning", "⏳")
@@ -956,7 +1084,7 @@ export default function (pi: ExtensionAPI) {
 					? `${successCount + failCount}/${details.results.length} done, ${running} running`
 					: `${successCount}/${details.results.length} tasks`;
 
-				if (expanded && !isRunning) {
+				if (expanded) {
 					const container = new Container();
 					container.addChild(
 						new Text(
@@ -967,7 +1095,11 @@ export default function (pi: ExtensionAPI) {
 					);
 
 					for (const r of details.results) {
-						const rIcon = isFailedResult(r) ? theme.fg("error", "✗") : theme.fg("success", "✓");
+						const rIcon = isRunningResult(r)
+							? theme.fg("warning", "⏳")
+							: isFailedResult(r)
+								? theme.fg("error", "✗")
+								: theme.fg("success", "✓");
 						const displayItems = getDisplayItems(r.messages);
 						const finalOutput = getFinalOutput(r.messages);
 
@@ -1011,16 +1143,15 @@ export default function (pi: ExtensionAPI) {
 				// Collapsed view (or still running)
 				let text = `${icon} ${theme.fg("toolTitle", theme.bold("parallel "))}${theme.fg("accent", status)}`;
 				for (const r of details.results) {
-					const rIcon =
-						r.exitCode === -1
-							? theme.fg("warning", "⏳")
-							: isFailedResult(r)
-								? theme.fg("error", "✗")
-								: theme.fg("success", "✓");
+					const rIcon = isRunningResult(r)
+						? theme.fg("warning", "⏳")
+						: isFailedResult(r)
+							? theme.fg("error", "✗")
+							: theme.fg("success", "✓");
 					const displayItems = getDisplayItems(r.messages);
 					text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", r.agent)} ${rIcon}`;
 					if (displayItems.length === 0)
-						text += `\n${theme.fg("muted", r.exitCode === -1 ? "(running...)" : "(no output)")}`;
+						text += `\n${theme.fg("muted", isRunningResult(r) ? "(running...)" : "(no output)")}`;
 					else text += `\n${renderDisplayItems(displayItems, 5)}`;
 				}
 				if (!isRunning) {
