@@ -1132,8 +1132,8 @@ features:
   - F015
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT Gate：确认 §23.1 需求与验收，交 Architect
+  current_stage: ARCHITECTURE
+  next_action: ARCHITECTURE Gate：认证解析扩展、Schema 影响、layers 与 Contract 骨架
   git:
     base_branch: codex/v3.1
     branch: feature/F017-api-key
@@ -1144,7 +1144,7 @@ features:
     frontend: true
   api_required: true
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: PENDING
     test_design: PENDING
@@ -1153,6 +1153,9 @@ features:
     frontend: PENDING
     test: PENDING
     review: PENDING
+  evidence:
+    product:
+    - docs/features/F017/product.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1278,10 +1281,9 @@ execution:
       5，并授权按 .pi/prompts/feature.md 自动实施新增 F017 API Key 机器凭据；范围仅 F017，F001–F016 保持
       DONE。历史 revision 4 授权（F001–F016，2026-10-06）已完成。
   current_feature: F017
-  current_stage: PRODUCT
-  last_result: F017 Preflight 完成（feature/F017-api-key，base 77fbb4c）；project=IN_PROGRESS，进入
-    PRODUCT
-  next_action: F017 PRODUCT Gate
+  current_stage: ARCHITECTURE
+  last_result: PRODUCT Gate 完成（READY FOR ARCHITECT，docs/features/F017/product.md）；无阻塞问题
+  next_action: F017 ARCHITECTURE Gate
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
