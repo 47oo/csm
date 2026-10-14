@@ -19,6 +19,8 @@ argument-hint: "[任务或 Feature ID]"
 
 V3 一期的产品入口为 `docs/product/requirements-v3.md`，领域关系先查 `docs/product/domain-model.md`。每个 Gate 核对当前条款版本及 §35 的确认记录/剩余问题，不从旧版本补齐输入；已经确认的枚举、恢复范围和技术栈直接引用，尚未确定的业务行为不能由实现自行裁定。
 
+`layers.frontend=true` 或任务涉及前端设计、实现、测试、Review 时，要求对应角色加载 `.pi/skills/frontend-ui/SKILL.md`，并以 `frontend/package.json` 与现有 Vite/主题/共享 UI 接线核对 Ant Design、Tailwind CSS 的实际版本和用法；Prompt 不重复维护组件与样式细则。
+
 ## 1. 入口与阶段复用
 
 独立调用也要求项目已批准、Feature READY 或合法恢复目标；从 implement-project 调用时复用其恢复信息。按 Git Workflow 执行 Preflight / 创建或恢复分支；新任务在 Preflight 成功后设置 project=IN_PROGRESS、Feature=IN_PROGRESS、execution.current_feature，并将两个 current_stage 设为 PRODUCT；恢复任务从 next_action 继续，不重置已完成阶段。每个重要阶段按状态规范更新结果与证据，并按 Git Workflow 保存检查点。
