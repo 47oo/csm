@@ -5,13 +5,32 @@ project:
     path: docs/product/requirements-v3.md
     revision: 4
   plan_revision: 5
-  status: DRAFT
+  status: ACCEPTED
   approval:
-    plan_revision: null
-    feature_ids: []
-    approved_by: null
-    approved_on: null
-    basis: null
+    plan_revision: 5
+    feature_ids:
+    - F001
+    - F002
+    - F003
+    - F004
+    - F005
+    - F006
+    - F007
+    - F008
+    - F009
+    - F010
+    - F011
+    - F012
+    - F013
+    - F014
+    - F015
+    - F016
+    - F017
+    approved_by: 用户
+    approved_on: '2026-10-14'
+    basis: 用户于 2026-10-14 确认 API Key 需求三项决策（引入非 Cookie 机器凭据、绑定现有账号、继承角色且遵循 §23），并回复「按推荐执行」与「批准计划自动实施」：批准
+      docs/project/project-plan.yaml revision 5 全部 F001–F017（新增 F017 API Key 机器凭据，F001–F016
+      保持 DONE），并授权自动实施 F017。确认来源：本次会话用户指令。
   acceptance:
     status: COMPLETE
     evidence:
@@ -1112,7 +1131,7 @@ features:
   - F002
   - F015
   blocking_decisions: []
-  status: DRAFT
+  status: READY
   current_stage: null
   next_action: null
   layers:
@@ -1244,49 +1263,34 @@ decisions_required:
     行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 pending_changes: []
 execution:
-  mode: CONTINUOUS
+  mode: SINGLE
   authorization:
-    plan_revision: 4
+    plan_revision: 5
     feature_ids:
-    - F001
-    - F002
-    - F003
-    - F004
-    - F005
-    - F006
-    - F007
-    - F008
-    - F009
-    - F010
-    - F011
-    - F012
-    - F013
-    - F014
-    - F015
-    - F016
+    - F017
     authorized_by: 用户
-    authorized_on: '2026-10-06'
-    basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
-      全部 16 个 Feature）；发现问题按推荐修正后继续执行。
+    authorized_on: '2026-10-14'
+    basis: 用户于 2026-10-14 回复「批准计划自动实施」：批准 docs/project/project-plan.yaml revision
+      5，并授权按 .pi/prompts/feature.md 自动实施新增 F017 API Key 机器凭据；范围仅 F017，F001–F016 保持
+      DONE。历史 revision 4 授权（F001–F016，2026-10-06）已完成。
   current_feature: null
   current_stage: null
-  last_result: F016 DONE（merge e1cb7d3；一期集成验收 APPROVED WITH FOLLOW-UP）；项目全部 F001–F016
-    交付，project.acceptance=COMPLETE
-  next_action: null
+  last_result: 计划 revision 5 获批（含新增 F017）；一期 F001–F016 仍 DONE、project.acceptance=COMPLETE
+  next_action: 启动 F017：Preflight 后进入 PRODUCT Gate
   repair_rounds: 0
 planning_status:
-  status: DRAFT
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 16
-    DRAFT: 1
+    DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F017
   blocked_draft_features:
     BLOCKED: []
-    DRAFT:
-    - F017
+    DRAFT: []
