@@ -3,11 +3,11 @@ project:
   version: V3 phase 1
   requirements:
     path: docs/product/requirements-v3.md
-    revision: 3
-  plan_revision: 4
-  status: DONE
+    revision: 4
+  plan_revision: 5
+  status: ACCEPTED
   approval:
-    plan_revision: 4
+    plan_revision: 5
     feature_ids:
     - F001
     - F002
@@ -25,11 +25,12 @@ project:
     - F014
     - F015
     - F016
+    - F017
     approved_by: 用户
-    approved_on: '2026-10-06'
-    basis: 用户于 2026-10-06 批准：『后续如果没有问题，就按计划执行 implement-project，如果还有问题，则给个推荐，按推荐修改后，再执行
-      implement-project，这里批准开始』。对象为 docs/project/project-plan.yaml revision 4 全部 16
-      个 Feature；协调器核验定稿发现 5 处缺陷，按预授权以推荐方案修正后落地本批准。确认来源：本次会话用户指令。
+    approved_on: '2026-10-14'
+    basis: 用户于 2026-10-14 确认 API Key 需求三项决策（引入非 Cookie 机器凭据、绑定现有账号、继承角色且遵循 §23），并回复「按推荐执行」与「批准计划自动实施」：批准
+      docs/project/project-plan.yaml revision 5 全部 F001–F017（新增 F017 API Key 机器凭据，F001–F016
+      保持 DONE），并授权自动实施 F017。确认来源：本次会话用户指令。
   acceptance:
     status: COMPLETE
     evidence:
@@ -1106,6 +1107,48 @@ features:
     - docs/features/F016/test-report.md#test-execution
     review:
     - docs/features/F016/review-report.md
+- id: F017
+  title: API Key 机器凭据
+  kind: FEATURE
+  priority: P0
+  milestone: M8 API 机器访问
+  scope: 新增 api_keys 表与迁移；audit_logs 增加可空 Key 标签列；扩展认证解析支持 API Key 与 csm_session Cookie
+    双凭据并存；API Key 服务（高熵明文仅创建响应返回一次、SHA-256 哈希存储、有效期默认 90 天上限 365 天、吊销）；仅 ADMIN 的创建/列表/吊销端点并复用
+    §23 USER_ADMIN，不新增权限项；审计写入绑定账号 username 与 Key 标签；日志与响应脱敏；ADMIN 管理界面；修订 docs/api/F002.md
+    的认证载体口径并新增 docs/api/F017.md Contract。明确不做 scope-down、不新增账号或角色类型、不支持永不过期、不改变 Cookie
+    认证行为。
+  acceptance: 通过 T42–T49；有效 API Key 无 Cookie 可创建 BareMetal 与 VM；无效/过期/吊销一律 401 且不泄露存在性、401
+    先于 403；Key 权限不超出绑定账号角色；审计可归属到绑定账号 username 与 Key 标签；明文仅创建响应一次且库内仅存哈希；吊销与账号停用即时失效；Cookie
+    认证不回归；真实 PostgreSQL 验证迁移与约束。
+  requirements:
+  - docs/product/requirements-v3.md#231-api-key-机器凭据
+  - docs/product/requirements-v3.md#22-audit-log
+  - docs/product/requirements-v3.md#23-用户与权限
+  - docs/product/requirements-v3.md#25-api
+  - docs/product/requirements-v3.md#31-测试
+  - docs/product/requirements-v3.md#32-上线验收
+  depends_on:
+  - F002
+  - F015
+  blocking_decisions: []
+  status: READY
+  current_stage: null
+  next_action: null
+  layers:
+    database: true
+    backend: true
+    frontend: true
+  api_required: true
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1190,7 +1233,9 @@ decisions_required:
   - F012
   - F014
   owner: Architect / Database
-  basis: 专业设计已签核：docs/architecture/d01-conventions.md v11（READY，Architect 2026-10-09）覆盖 F003–F012 的字段字典/hostname/数值上限/时间/单位/归一化口径；F014 CONTRACT v1 §12 记录「D01 已最终核对关闭」（导入字段口径逐项一致、无新增/偏离；D01 v11 无字段变更）。原 status OPEN 为滞后记录，由协调器按 change-control 依已完成的专业签核更正为 CONFIRMED，不改变任何已批准行为。
+  basis: 专业设计已签核：docs/architecture/d01-conventions.md v11（READY，Architect 2026-10-09）覆盖
+    F003–F012 的字段字典/hostname/数值上限/时间/单位/归一化口径；F014 CONTRACT v1 §12 记录「D01 已最终核对关闭」（导入字段口径逐项一致、无新增/偏离；D01
+    v11 无字段变更）。原 status OPEN 为滞后记录，由协调器按 change-control 依已完成的专业签核更正为 CONFIRMED，不改变任何已批准行为。
 - id: D02
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
   status: CONFIRMED
@@ -1218,38 +1263,23 @@ decisions_required:
     行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 pending_changes: []
 execution:
-  mode: CONTINUOUS
+  mode: SINGLE
   authorization:
-    plan_revision: 4
+    plan_revision: 5
     feature_ids:
-    - F001
-    - F002
-    - F003
-    - F004
-    - F005
-    - F006
-    - F007
-    - F008
-    - F009
-    - F010
-    - F011
-    - F012
-    - F013
-    - F014
-    - F015
-    - F016
+    - F017
     authorized_by: 用户
-    authorized_on: '2026-10-06'
-    basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
-      全部 16 个 Feature）；发现问题按推荐修正后继续执行。
+    authorized_on: '2026-10-14'
+    basis: 用户于 2026-10-14 回复「批准计划自动实施」：批准 docs/project/project-plan.yaml revision
+      5，并授权按 .pi/prompts/feature.md 自动实施新增 F017 API Key 机器凭据；范围仅 F017，F001–F016 保持
+      DONE。历史 revision 4 授权（F001–F016，2026-10-06）已完成。
   current_feature: null
   current_stage: null
-  last_result: F016 DONE（merge e1cb7d3；一期集成验收 APPROVED WITH FOLLOW-UP）；项目全部 F001–F016
-    交付，project.acceptance=COMPLETE
-  next_action: null
+  last_result: 计划 revision 5 获批（含新增 F017）；一期 F001–F016 仍 DONE、project.acceptance=COMPLETE
+  next_action: 启动 F017：Preflight 后进入 PRODUCT Gate
   repair_rounds: 0
 planning_status:
-  status: DONE
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -1258,8 +1288,9 @@ planning_status:
     DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F017
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []

@@ -1,6 +1,6 @@
 # CSM V3 一期需求
 
-版本：V3 phase 1 / revision 3。来源：用户于 2026-10-06 提供的《CSM V3 一期需求说明》，对 Q01–Q10 建议的确认，以及本次对剩余六项建议的明确确认：“按照推荐建议修改这6项”。确认范围与修订记录见 §35.1。
+版本：V3 phase 1 / revision 4。来源：用户于 2026-10-06 提供的《CSM V3 一期需求说明》，对 Q01–Q10 建议的确认；2026-10-06 对剩余六项建议的明确确认：“按照推荐建议修改这6项”；以及 2026-10-14 确认新增 §23.1 API Key 机器凭据。确认范围与修订记录见 §35.1。
 
 本文件是一期范围、产品规则和验收要求的权威来源。原说明正文中的“CSM V1”统一解释为标题指定的“CSM V3 一期”；已确认的 REST 前缀 `/api/v1/` 是独立 API 版本，不随产品版本改成 v3。
 
@@ -287,6 +287,30 @@ CONFIRMED：一期本地账号登录，部署时初始化首个 ADMIN，不开�
 
 CONFIRMED：多人编辑使用版本冲突检查。提交的版本过期时拒绝覆盖，提示刷新后重新修改；前端不能静默用新版本重试覆盖。具体认证、版本标识、错误码及审计一致性由 Architect 在契约中设计，服务端必须执行鉴权和冲突检查。
 
+### 23.1 API Key 机器凭据
+
+本节为 V3 一期交付后新增范围（revision 4）。
+
+CONFIRMED：新增 **API Key** 作为非 Cookie 的机器凭据，供外部自动化在**无浏览器交互**下调用 CSM API。API Key 与既有 `csm_session` Cookie 认证**并存**：同一 API 集合同时接受两种认证载体；不废除、不削弱 Cookie 认证，Cookie 的登录、登出、过期与 CSRF 行为保持不变。
+
+CONFIRMED：API Key 必须绑定一个已存在且状态为 ACTIVE 的用户账号；**不新增人类账号以外的账号或角色类型**，API Key 不构成独立主体。
+
+CONFIRMED：API Key 的有效权限等于绑定账号的角色权限，**完全遵循 §23 权限矩阵，不产生新的权限语义**；本期**不支持创建时限定更小范围（scope-down）**。API Key 仍受对象状态、不可变字段与关系约束限制。
+
+CONFIRMED：使用 API Key 的写操作，Audit Log 的 operator 记录**绑定账号的 username**，并附该 API Key 的**标签**；账号停用后其全部 API Key 立即失效。
+
+CONFIRMED 对象与生命周期：
+
+* 特征至少包括：所属账号、可读标签（label）、凭据哈希、创建时间、过期时间、吊销时间、创建人。API Key 不纳入业务对象软删除/恢复（§21），采用**吊销**语义。
+* 创建、查看、吊销：**仅 ADMIN** 可为已存在且 ACTIVE 的账号创建，并查看与吊销；复用 §23「用户、角色、系统设置」权限，不新增权限项。
+* 明文：凭据明文仅在**创建成功响应中返回一次**，此后任何列表/详情均不返回。
+* 过期：创建时**必须设置有效期**，默认 90 天，上限 365 天，**不支持永不过期**；过期凭据按失效处理。
+* 吊销：吊销后**立即失效**，不可重新启用。
+
+CONFIRMED 明确排除：服务账号、机器账号、匿名账号或人类账号以外的新角色类型；OAuth / OIDC / SSO / 外部身份联合；Cluster 级或资源实例级复杂 RBAC；API Key 的浏览器交互登录；对 Cookie 认证既有行为的任何改变。
+
+CONFIRMED：API Key 明文、哈希及任何等效凭据**不得**出现在日志、审计记录、错误响应或列表/详情接口中，仅创建响应一次返回。
+
 ## 24. 批量导入
 
 CONFIRMED：支持 CSV 和 Excel `.xlsx`，一期只做资源新增导入，不按 hostname 自动更新或覆盖现有资源。提供固定模板与逐列说明；示例列 `cluster, hostname, resource_type, role, status, manufacturer, model, cpu_model, cpu_cores, memory_mb, gpu_model, gpu_count`，VM 模板须含 Host 引用，完整模板由 §35 D03 承接。
@@ -383,6 +407,14 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 | T39 | cpu_cores 表示整机物理核心总数，不含超线程；VM 登记不因总 vCPU/内存超过 Host 容量而被拒绝；speed_mbps 表示标称速率而非实时流量 |
 | T40 | 名称去首尾空白，空名/控制字符失败；Interface 内部空白失败且名称区分大小写；Network/Pool/Service 大小写不敏感，保留中文和内部普通空格，不自动合并内部空格 |
 | T41 | Network/Pool/Service 删除后名称可复用，作用域内存活对象仍保证唯一；名称被复用时旧对象恢复失败且新对象不被覆盖；Cluster code 仍不可复用 |
+| T42 | 有效 API Key 在无 Cookie 情况下可调用读/写端点并返回 200/201；识别身份等于绑定账号 |
+| T43 | API Key 继承角色：VIEWER Key 写操作 403；EDITOR Key 可写不可删除/释放/恢复；ADMIN Key 可执行 §23 ADMIN 行操作；任意 Key 均不越权 |
+| T44 | API Key 缺失/格式非法/哈希不匹配/已吊销/已过期一律 401，不泄露存在性；401 先于 403 |
+| T45 | API Key 写操作审计 operator 为绑定账号 username 且含 Key 标签；创建与吊销 Key 本身各产生审计记录 |
+| T46 | API Key 明文仅创建响应返回一次；数据库仅存不可逆哈希；日志、审计、列表/详情与错误响应中无可还原明文 |
+| T47 | 吊销后后续请求立即 401；绑定账号停用后其全部 API Key 立即失效 |
+| T48 | API Key 必须设置有效期，默认 90 天、上限 365 天；缺少有效期或超过上限创建失败；不支持永不过期 |
+| T49 | 引入 API Key 后 Cookie 认证不回归：登录/登出/`/auth/me`、CSRF 同源口径与 401/403 语义与 F002 契约一致 |
 
 还须覆盖查询关系、列表交互、本地登录和初始 ADMIN、时间契约及真实 Compose 部署。D01–D03 专业设计完成后细化对应测试步骤与数据，不把尚未执行的预期写成 PASS。本节定义必须执行的用例，不是已经执行的测试报告。
 
@@ -390,7 +422,7 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 
 CONFIRMED：能创建 Cluster、BareMetal、VM 并关联 Host，维护 Interface / Network / Pool / Service，手动和自动分配 IP；按 hostname / IP / Cluster / Service 找到 Resource；详情显示 Cluster / 硬件 / Interface / IP / Network / VM 或 Host / Service。
 
-能阻止重复 hostname / IP、跨 Cluster Host / IP 绑定及非法 CIDR 地址；提供逻辑删除及 ADMIN 恢复、Audit Log、基础权限、本地登录、编辑版本冲突检查和 CSV / .xlsx 整批新增导入。Network / Pool、Endpoint 及恢复行为满足本 revision 的约束，包括地址边界与容量、保留范围/网关并发冲突、Cluster 停用维护、字段单位与名称规则；审计持续保留且纳入备份。一期范围内的全部必需能力不能因优先级低而从上线验收中删除。§31 与以上验收都需真实证据；上线条件不等于自动发布授权。
+能阻止重复 hostname / IP、跨 Cluster Host / IP 绑定及非法 CIDR 地址；提供逻辑删除及 ADMIN 恢复、Audit Log、基础权限、本地登录、编辑版本冲突检查和 CSV / .xlsx 整批新增导入。API Key 机器凭据支持无浏览器认证、按绑定账号角色鉴权、吊销即时生效，且 Cookie 认证不回归。Network / Pool、Endpoint 及恢复行为满足本 revision 的约束，包括地址边界与容量、保留范围/网关并发冲突、Cluster 停用维护、字段单位与名称规则；审计持续保留且纳入备份。一期范围内的全部必需能力不能因优先级低而从上线验收中删除。§31 与以上验收都需真实证据；上线条件不等于自动发布授权。
 
 ## 33. 目标查询场景
 
@@ -410,6 +442,7 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 | --- | --- |
 | revision 2 / 2026-10-06 | 用户在收到 Q01–Q10 推荐规则后回复“按照推荐的建议进行修改”；替代 revision 1 中对应建议/冲突条款 |
 | revision 3 / 2026-10-06 | 用户在收到剩余六项逐项建议后回复“按照推荐建议修改这6项”；确认 Q02-A、Q04-A、Q04-B、Q07-A、Q10-A、Q10-B，替代 revision 2 对这些问题的 OPEN 描述；具体决策索引见 §35.2 |
+| revision 4 / 2026-10-14 | 用户确认新增“API Key 机器凭据”需求：引入非 Cookie 机器凭据并与 Cookie 并存；绑定现有用户账号、不新增账号/角色类型；继承绑定账号角色并完全遵循 §23 权限矩阵、不做 scope-down；审计记录绑定账号 username 与 Key 标签；仅 ADMIN 创建/查看/吊销；明文仅创建响应返回一次；必须设置有效期（默认 90 天、上限 365 天、不支持永不过期）；吊销与账号停用即时失效。新增 §23.1 与 T42–T49，替代此前无机器凭据的范围描述 |
 
 | 原 ID | 已确认内容所在条款 | 尚需处理的部分 |
 | --- | --- | --- |
@@ -453,6 +486,8 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ## 36. 文档建立状态
 
-> 本节为**状态记录**（2026-10 更新），不改动本文件中的任何业务规则（§1–§35）；需求基线仍为 revision 3。
+> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 4。
 
-需求基线为 revision 3；六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
+需求基线为 revision 4：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49），作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写 F001–F016 的已 DONE 范围与证据。
+
+revision 3 的内容继续成立：六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
