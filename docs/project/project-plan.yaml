@@ -1193,8 +1193,8 @@ features:
   - F013
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST_DESIGN
-  next_action: TEST_DESIGN Gate：A1–A12 可执行判据与真 PG 要点
+  current_stage: CONTRACT
+  next_action: CONTRACT Gate：将 docs/api/F013.md 修订为 v2 并返回 READY FOR IMPLEMENTATION
   git:
     base_branch: codex/v3.1
     branch: feature/F018-search-columns
@@ -1211,7 +1211,7 @@ features:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
+    test_design: COMPLETE
     contract: PENDING
     backend: PENDING
     frontend: PENDING
@@ -1222,6 +1222,8 @@ features:
     - docs/features/F018/product.md
     architecture:
     - docs/features/F018/architecture.md
+    test_design:
+    - docs/features/F018/test-report.md#test-design
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1346,9 +1348,9 @@ execution:
     basis: 用户于 2026-10-15 回复「批准并执行」：批准 docs/project/project-plan.yaml revision 6，并授权按
       .pi/prompts/feature.md 自动实施新增 F018 全局搜索字段组合展示；范围仅 F018，F001–F017 保持 DONE。
   current_feature: F018
-  current_stage: TEST_DESIGN
-  last_result: ARCHITECTURE Gate 完成（READY FOR DESIGN，docs/features/F018/architecture.md）；DR-319–DR-331
-  next_action: F018 TEST_DESIGN Gate
+  current_stage: CONTRACT
+  last_result: TEST DESIGN READY（docs/features/F018/test-report.md TD-1）；DATABASE NOT_REQUIRED（无 Schema/索引/迁移）
+  next_action: F018 CONTRACT Gate
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
