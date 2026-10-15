@@ -164,4 +164,129 @@ F018 为**纯只读派生视图**：无写入入口、无新实体/关系/状态
 
 ## Test Execution
 
-_（待 IMPLEMENTATION 完成后由 Tester 的 TEST 模式填充；当前未执行。）_
+- **版本**：TE-1
+- **日期**：2026-10-15
+- **角色**：Tester（TEST 模式，独立实际验证）
+- **结论**：`READY FOR REVIEW`
+- **被测版本**：commit `c0b9a13`（`feature/F018-search-columns`，`feat(F018): implement search field combination display`）；工作区仅 `?? backend/tests/integration/test_search_related_tester_acceptance.py`（本 Tester 新增，未提交）
+- **依据**：`docs/api/F013.md` v2（§2.9、§4、§5）；`docs/features/F018/product.md` A1–A12；`architecture.md` DR-319–DR-331；本文件 TD-1；`implementation.md`；`docs/product/requirements-v3.md` revision 5 §17.1/T50–T53；`docs/project/implementation-rules.md`；`.pi/skills/data-integrity/SKILL.md`。
+- **独立性**：全部用例在 Tester 自建 PostgreSQL 容器（`csm-f018-tester-pg`）独立执行，未复用开发者所在实例或结果；结果由 Tester 亲自运行命令获得。
+
+### 1. Environment
+
+| 项 | 值 |
+| --- | --- |
+| PostgreSQL | 16.15（Debian），独立容器 `csm-f018-tester-pg`，`localhost:55433`，库名 `csm_f018_test`（含 `test`，满足 DB-D10 guard） |
+| 后端 | Python 3 / pytest 8，`TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:55433/csm_f018_test`；`alembic upgrade head`（head = `0014_api_keys`，F018 无新迁移） |
+| 前端 | Node v24.14.0，`npm run typecheck` / `build`（vite 5.4.21、tsc）/ `smoke:client` |
+| 数据库隔离 | 测试 session 夹具重建 `public` schema 并 `alembic upgrade head`，结束重建；与生产 `DATABASE_URL` 不同、库名含 `test`，未在生产或未知库执行 |
+
+### 2. 执行命令与结果（Tester 实跑）
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| 1 | `pytest tests/integration/test_search_related.py -q` | **24 passed** |
+| 2 | `pytest tests/integration/test_search_related_tester_acceptance.py -q`（本 Tester 新增，9 例） | **9 passed** |
+| 3 | `pytest test_search_related.py test_search_related_tester_acceptance.py test_search.py test_f013_tester_acceptance.py test_migrations.py -q` | **64 passed, 1 skipped**（skip = `test_migrations.py:105` 超级用户不满足非 superuser owner，DB-D11，既有） |
+| 4 | `pytest -q`（后端全量） | 第一次：1 failed（`test_ip_addresses.py::test_concurrent_gateway_change_and_allocation`，F010 并发，见 Defect NOTE-1）、640 passed、2 skipped；单独复跑该例 4/4 passed；**第二次全量：650 passed, 2 skipped**（650 = 641 + 本 Tester 新增 9） |
+| 5 | `npm run typecheck` | 通过（无输出） |
+| 6 | `npm run build` | 通过（1597 modules；仅既有 chunk >500kB 提示） |
+| 7 | `npm run smoke:client` | **285 passed, 0 failed**（含 F018 的 9 例：v2 解析 + F1–F8） |
+| 8 | `alembic heads` | `0014_api_keys (head)`，F018 未新增迁移 |
+
+### 3. 验收映射（A1–A12 / T50–T53 / V1–V18）
+
+| 验收 | 验证项 | 证据（用例 / 命令） | 结果 |
+| --- | --- | --- | --- |
+| A1 / T50 | V1 固定超集 | `test_resource_row_related_superset`；`test_fixed_superset_independent_of_query` | PASS |
+| A2 / T50 | V2 确定性排序 | `test_related_ordering_collate_c_and_inet_numeric`（重复 3 次）；`test_ordering_matches_raw_sql`（raw SQL 交叉核对 `COLLATE "C"` + `inet`） | PASS |
+| A3 / T50 | V3 上限 10 + 总数 | `test_related_limit_and_total`（23）；`test_related_limit_boundary[10/11]` | PASS |
+| A4 / T51 | V4 多网卡/多 IP 展开 | `test_two_interfaces_two_ips_each`（4 行、id 唯一） | PASS |
+| A5 / T51 | V5 无关联为空 | `test_no_interface_is_empty`、`test_interface_without_ip_is_empty` | PASS |
+| A6 / T51 | V6 超限提示 | 服务端 `test_related_limit_and_total`（10 + 23）；前端 `smoke F5`（23→13）；组件文本在 `GlobalSearch.tsx` 静态核对 | PASS（服务端/机制级）；真实浏览器 DOM **NOT TESTED** |
+| A7 / T52 | V7 软删继承 | `test_deleted_association_exclude_include_only`（exclude 隐藏、ADMIN include/only 显示、VIEWER→403）、`..._restore_reappears` | PASS |
+| A8 / T52 | V8 未绑定 IP 不出现 | `test_unbound_ip_not_in_related_but_searchable` | PASS |
+| A9 / T53 | V9 不改结果集/去重/序/分页/total | `test_related_does_not_change_result_set`、`test_pagination_associations_are_page_scoped`、`test_search_related_tester...test_unknown_fields_param_is_ignored`；F013 回归 `test_search.py` | PASS |
+| A10 / T53 | V10 只读无审计幂等 | `test_related_search_is_idempotent_and_writes_no_audit`（`audit_logs` 前后不变）；`test_search_route_is_get_only`（仅 GET） | PASS |
+| A11 / §17.1 | V11 九字段白名单 + localStorage | `smoke F1/F2/F3`；源码 `globalSearchFields.ts` 恰九字段、键 `csm.globalSearch.fields.v1` | PASS（机制级）；真实浏览器 localStorage **NOT TESTED** |
+| A12 / §17.1 | V12 未选择 = F013 展示 | `smoke F4`；默认字段与 F013 旧版 resource 行（hostname/type/role/status/cluster）逐项核对（`git show c0b9a13^:...GlobalSearch.tsx`） | PASS（机制级/静态） |
+| 补充 | V13 固定超集不随查询变化 | `test_fixed_superset_independent_of_query` | PASS |
+| 补充 | V14 非 resource 行结构不变 | `test_non_resource_rows_have_null_related`、`test_non_resource_rows_related_null_and_total_distinct`（cluster 行 resource=null；ip/service 嵌入 resource 两字段 null） | PASS |
+| 补充 | V15 只读路由 | `test_search_route_is_get_only`（`/api/v1/search` methods == {GET}） | PASS |
+| 补充 | V16 错误语义/顺序 | `test_error_ordering_401_before_validation`、`test_error_ordering_403_before_422`；`test_invalid_parameters_are_422` | PASS |
+| 补充 | V17 `related_total` vs 顶层 total | `test_non_resource_rows_related_null_and_total_distinct`、`test_related_does_not_change_result_set` | PASS |
+| 补充 | V18 无 N+1 / 执行计划 | `test_related_loading_has_no_n_plus_1`（语句数 1 资源与 6 资源相同、≤15）；`test_related_explain_references_existing_indexes`（真 PG `EXPLAIN` 命中现有索引） | PASS |
+
+### 4. 边界与生命周期用例（B1–B22）
+
+| 编号 | 结果 | 证据 |
+| --- | --- | --- |
+| B1 多网卡字节序 | PASS | `test_related_ordering_collate_c_and_inet_numeric`、`test_ordering_matches_raw_sql` |
+| B2 多 IP 数值序 | PASS | 同上（`10.13.1.9 < 10.13.1.10 < 10.13.2.1`） |
+| B3 无 IP | PASS | `test_interface_without_ip_is_empty` |
+| B4 超上限 >10 | PASS | `test_related_limit_and_total`、`test_related_limit_boundary`；`smoke F5` |
+| B5 同 (name,address) tiebreak | PASS | `test_same_name_and_address_tiebreak_by_id`（经 `include` 构造，末键 `id ASC`） |
+| B6 exclude 隐藏已删关联 | PASS | `test_deleted_association_exclude_include_only` |
+| B7 include/only（ADMIN） | PASS | 同上 |
+| B8 无 VIEW_DELETED | PASS | 同上（VIEWER 403 `permission`） |
+| B9 未绑定 IP 不出现 | PASS | `test_unbound_ip_not_in_related_but_searchable` |
+| B10 中文与空格名称 | PASS | `test_non_ascii_names_are_verbatim` |
+| B11 只读无审计 | PASS | `test_related_search_is_idempotent_and_writes_no_audit` |
+| B12 重复调用幂等 | PASS | 同上（两次响应逐字节相等） |
+| B13 展示字段不改结果集 | PASS | `test_related_does_not_change_result_set` |
+| B14 前端组合无新参数 | PASS（机制级/静态） | `smoke F7`；`test_unknown_fields_param_is_ignored`；`search.ts` 仅设 q/type/deleted/page/page_size |
+| B15 localStorage 损坏/写失败回退 | PASS（机制级） | `smoke F3` |
+| B16 「还有 N 条」边界 | PASS（机制级） | `smoke F5`（≤10 不提；11→1；23→13） |
+| B17 非 resource 行不变 | PASS | `smoke F6`；`test_non_resource_rows_have_null_related` |
+| B18 related_total 与顶层 total 独立 | PASS | `test_non_resource_rows_related_null_and_total_distinct` |
+| B19 恢复重现 | PASS | `test_deleted_association_restore_reappears` |
+| B20 分页页内关联正确 | PASS | `test_pagination_associations_are_page_scoped`（3 页 page_size=1，无串页） |
+| B21 interface_type 枚举 | PASS | `test_interface_type_echoed`（七值逐一） |
+| B22 未选择 = F013 展示 | PASS（机制级） | `smoke F4`；默认组合静态核对 |
+
+### 5. 前端机制级用例（F1–F8，`smoke:client`）
+
+F1 白名单九字段/未知过滤、F2 写入约定键并读回、F3 存储失败静默回退、F4 默认组合 = F013、F5「还有 N 条」、F6 选择仅作用 resource 行、F7 不改请求 URL、F8 related/related_total 缺失/null/形状不符安全回退：**8/8 PASS**（另加 v2 响应解析 1 例，共 9 例）。
+
+### 6. 数据库 / 接口 / 前端 / 集成结果
+
+- **数据库（真实 PostgreSQL 16.15）**：F018 无 Schema/索引/迁移（`database=false`）；F018 commit 未触碰 `backend/alembic/**`，`alembic heads` 仍为 `0014_api_keys`。排序 `COLLATE "C"` 与 `inet` 数值序经 raw SQL 交叉核对一致；软删三模式实际过滤效果经真 PG 验证；`audit_logs` 搜索前后无变化。无写入副作用。
+- **接口**：`GET /api/v1/search` 行为与 F013 v1 一致（结果集/去重/顶层序/分页/`total` 回归通过，`test_search.py` 全绿）；仅新增 `resource.related`/`resource.related_total`（加法兼容）；非 resource 行嵌套 `resource` 两字段为 `null`；错误顺序 401→403→422、错误码集不新增；路由仅 `GET`。
+- **前端**：`typecheck`、`build`、`smoke:client`（285/0）全部通过；字段白名单/localStorage 回退/「还有 N 条」/非 resource 行不变/请求不变均由纯逻辑模块机制级覆盖。
+- **集成**：后端真实 API 集成（ASGI + 真 PG）覆盖 T50–T53；前端未接真实浏览器（无 DOM 测试工具链），见 §8。
+
+### 7. Defects
+
+| ID | Severity | Layer | Location | 证据/复现 | 期望 vs 实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| F018-TE-NOTE-1 | NOTE | Backend 测试基础设施 | `tests/integration/test_ip_addresses.py::test_concurrent_gateway_change_and_allocation`（F010，非 F018） | 后端全量首跑 1 次失败（`['gateway','allocated']` 两个并发成功）；单例复跑 4/4 通过、第二次全量 650 passed | 期望并发仅 1 成功；实际偶发 2 成功 | 与 F018 无关的时序敏感并发用例；不阻塞 F018 | Backend / 协调器 | 否（F018 范围外） |
+
+无 BLOCKER / HIGH / MEDIUM / LOW 缺陷；F018 范围内未发现实现缺陷。
+
+### 8. 未验证项 / 限制
+
+1. **真实浏览器 DOM 交互 NOT TESTED**：仓库无 vitest/jsdom/Playwright 等 DOM 测试工具链，字段选择器勾选跨真实刷新持久化、布局/窄屏、焦点与可访问性未在真实浏览器执行。替代证据：纯逻辑模块 `globalSearchFields.ts` 的机制级冒烟（F1–F8）+ `tsc` 类型检查 + `vite build` + 后端真实 API 集成；组件渲染路径经源码静态核对（`RelatedSection`、「还有 N 条」文本、字段作用域 `fieldSelectionAppliesTo`）。
+2. **前端字段选择器真实 API 集成 NOT TESTED**：未运行真实前后端联调（无浏览器/端到端环境）；`smoke` 以受控 fixture 断言请求 URL 不含字段参数。此项对应 TD-1 的 F018-TD-OPEN-7，Tester 判定不阻塞——字段选择为纯客户端展示，服务端不接收字段参数，后端契约已由真实 API 集成覆盖。
+3. **`test_migrations.py` 的 V3b（非 superuser owner）SKIPPED**：容器角色为 superuser，DB-D11 既有跳过，非 F018 引入。
+4. **`test_f016_acceptance.py` 默认 SKIPPED**（需 `F016_ACCEPTANCE=1`），非 F018 范围。
+
+### 9. 结论
+
+A1–A12 / T50–T53、TD-1 的 V1–V18、B1–B22、F1–F8 均逐项映射并实际执行通过（前端 DOM 交互除外，已列明替代证据）。真实 PostgreSQL 证据（排序/软删/执行计划无 N+1/审计无写入）齐备；未发现 F018 范围内缺陷。
+
+**结论：`READY FOR REVIEW`。**（`READY` 仅代表 Tester 验证通过，不代替协调器 Gate 与合并批准；测试代码 `backend/tests/integration/test_search_related_tester_acceptance.py` 属 Review 范围。）
+
+### Git 声明
+
+```text
+GIT: git rev-parse --short HEAD
+GIT: git status --short
+GIT: git branch --show-current
+GIT: git log --oneline -8
+GIT: git show --stat c0b9a13
+GIT: git show --stat c0b9a13 --name-only
+GIT: git show c0b9a13^:frontend/src/components/GlobalSearch.tsx
+GIT: git log --oneline -1 -- backend/alembic/versions/
+```
+
+以上均为只读命令，未执行任何改变 Git 状态的写操作；`docs/features/F018/test-report.md` 的 Test Execution 部分由 Tester 写入，`backend/tests/integration/test_search_related_tester_acceptance.py` 为新增未跟踪文件，未 `git add` / commit / 切分支。
