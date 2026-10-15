@@ -168,4 +168,140 @@ A1–A8 ↔ T42–T49 已逐条映射到可执行判据、测试层、真 PG 环
 
 ## Test Execution
 
-_（待 IMPLEMENTATION 完成后由 Tester 的 TEST 模式填充；当前未执行。）_
+- **角色**：Tester（TEST 模式，独立执行）
+- **日期**：2026-10-15
+- **被测版本**：`5f370b0`（`feat(F017): implement API key machine credential`），工作区干净
+- **依据**：`docs/api/F017.md` v1；`docs/database/f017-api-key.md` v1（DB-D301–DB-D316）；`docs/features/F017/{product,architecture}.md`（A1–A8、DR-301–DR-318）；TD-1（V1–V15、B1–B22）；`docs/project/implementation-rules.md`；`.pi/skills/data-integrity/SKILL.md`；`docs/project/handoff.md`。
+- **结论**：`READY FOR REVIEW`
+
+### 1. 环境
+
+| 项 | 值 |
+| --- | --- |
+| 数据库 | 真实 PostgreSQL **16.15**（`docker run postgres:16`，库名 `csm_test`，端口 55432，`TEST_DATABASE_URL` 指向） |
+| 迁移 | Alembic head = `0014_api_keys`；会话夹具重建 `public` schema 后 `upgrade head` |
+| 应用 | 生产 `create_app()`，仅覆写 `get_db`；ASGI `TestClient`（真 HTTP） |
+| Python | 3.12 / SQLAlchemy 2.0.34 / psycopg 3.2.13 / alembic 1.14.1 / pytest 7.4.4 |
+| Node | v24.14.0 / npm 11.9.0（Vite 5.4 / TypeScript 5.6） |
+| 证据边界 | 约束/唯一/FK/CHECK/append-only/迁移/认证矩阵断言只以真 PG 执行，未使用 Mock/SQLite |
+
+### 2. 命令与结果（独立复跑，不复用开发者结果）
+
+| 命令 | 结果 |
+| --- | --- |
+| `pytest tests/integration/test_api_keys.py tests/integration/test_api_key_constraints.py` | 20 passed |
+| `pytest tests/integration/test_migrations.py` | 4 passed, 1 skipped |
+| `pytest tests/integration/test_f017_migrations.py`（新增，0014 专属） | 1 passed |
+| `pytest tests/integration/test_f017_tester_acceptance.py`（新增，独立验收） | 15 passed（连跑 3 次稳定） |
+| `pytest tests/integration/test_auth.py` + F017 全集（F002 Cookie 回归） | 62 passed |
+| **`pytest -q`（后端全量）** | **617 passed, 2 skipped**（2 次全量 + 1 次含新增用例；skip 为既有：F016 已禁用、V3b 因连接角色为 superuser） |
+| `npm run typecheck` | 通过（0 错误） |
+| `npm run build` | 通过 |
+| `npm run smoke:client` | 276 passed, 0 failed（含 F017 机制级 15 例；既有 261 例无回归） |
+
+> 新增测试代码（属 Tester 范围，`backend/tests/**`）：`test_f017_tester_acceptance.py`、`test_f017_migrations.py`。未修改业务实现、Schema、契约或产品文档。
+
+### 3. 验收映射（A1–A8 ↔ T42–T49 / V1–V15）
+
+| 验收 | V | 判据要点 | 证据（真 PG + 真 HTTP） | 结果 |
+| --- | --- | --- | --- | --- |
+| A1/T42 | V1 | 无 Cookie + 有效 Bearer → 读 200 / 写 201；`/auth/me` 身份=绑定账号 | test_api_keys.py::test_bearer_identity_and_ignores_cookie；test_f017_tester_acceptance.py::test_bearer_priority_over_cookie | **PASS** |
+| A2/T43 | V2 | VIEWER/EDITOR/ADMIN 逐格与 `ROLE_PERMISSIONS` 一致；越权 403 | test_api_keys.py::test_api_keys_permission_matrix（EDITOR 写 201、`/audit` 403） | **PASS** |
+| A3/T44 | V3 | 缺失/空/格式非法/未知 hash/已吊销/已过期/账号 DISABLED → 401 且等价；无效 Key→401 先于 403 | test_api_keys.py::test_invalid_and_revoked_keys_are_equivalent_401、test_expired_and_disabled_bound_account_are_401；tester::test_auth_error_responses_are_equivalent_and_401_before_403 | **PASS** |
+| A4/T45 | V4 | Key 写审计 operator=绑定账号+标签；创建/吊销各一条 `object_type=api_key` | test_api_keys.py::test_audit_semantics | **PASS** |
+| A5/T46 | V5 | 明文仅 201 一次；库仅 `key_hash`；其余出口无明文/hash；日志无泄露 | test_api_keys.py::test_create_returns_plaintext_once；tester::test_responses_and_logs_never_expose_plaintext_or_hash、test_database_has_no_plaintext_column | **PASS** |
+| A6/T47 | V6a/V6b | 吊销提交后下一请求即 401；停用后全部 Key 401 | test_api_keys.py::test_invalid_and_revoked_keys_are_equivalent_401、test_expired_and_disabled_bound_account_are_401；tester::test_reenable_account_restores_unrevoked_key | **PASS** |
+| A7/T48 | V7 | 省略→≈90；1/90/365→201；0/负/null/366/非整数→422；DB 拒 >365d | test_api_keys.py::test_create_validation、test_default_validity_is_90_days；constraints::test_api_key_check_constraints | **PASS** |
+| A8/T49 | V8 | F002 用例全绿；Cookie 行为不变；Bearer 免 CSRF；Bearer 忽略 Cookie | test_auth.py 全绿；test_api_keys.py::test_bearer_requests_are_csrf_exempt；见 §6 | **PASS** |
+
+| 补充 | 判据要点 | 证据 | 结果 |
+| --- | --- | --- | --- |
+| V9 | 列表/详情形态、过滤/排序/分页、404/422；永不含 hash/明文 | test_api_keys.py::test_list_filters_sort_and_detail；tester::test_responses_and_logs_never_expose_plaintext_or_hash | **PASS** |
+| V10 | 仅 ADMIN；VIEWER/EDITOR 403、匿名 401 | test_api_keys.py::test_api_keys_permission_matrix | **PASS** |
+| V11 | `user_id` 不存在/DISABLED/非 UUID→422；label 非法→422；label 不唯一允许 | test_api_keys.py::test_create_validation | **PASS** |
+| V12 | 无 PATCH/DELETE/restore/enable（404/405） | test_api_keys.py::test_no_update_delete_restore_endpoints | **PASS** |
+| V13 | 未知 id→404；重复吊销→409 `already_revoked` 且不写审计；EXPIRED 可吊销 | test_api_keys.py::test_revoke_semantics；tester::test_concurrent_revoke_yields_single_success | **PASS** |
+| V14 | 多种无效凭据 401 响应体等价，不泄露存在性 | tester::test_auth_error_responses_are_equivalent_and_401_before_403 | **PASS** |
+| V15 | 只读端点无写副作用；带 Key `logout` 无害 no-op | tester::test_read_only_endpoints_have_no_write_side_effects | **PASS** |
+
+### 4. 边界与并发/即时性（B1–B22）
+
+| 编号 | 场景 | 证据 | 结果 |
+| --- | --- | --- | --- |
+| B1 | 吊销后立即 401 | test_api_keys.py::test_invalid_and_revoked_keys_are_equivalent_401 | **PASS** |
+| B2 | 并发吊销 + 认证读取 | tester::test_concurrent_revoke_yields_single_success（两真连接：恰一 200、一 409；UPDATE 审计仅 1 条） | **PASS** |
+| B3 | 账号停用 → 全部 Key 即时失效，`revoked_at` 保持 NULL | test_expired_and_disabled_bound_account_are_401；tester::test_reenable_account_restores_unrevoked_key（断言 `revoked_at IS NULL`） | **PASS** |
+| B4 | 重复吊销 → 409，审计不新增、`revoked_at` 不变 | test_revoke_semantics；tester::test_concurrent_revoke_yields_single_success | **PASS** |
+| B5 | 状态派生 REVOKED 优先于 EXPIRED；过滤一致 | tester::test_status_derivation_revoked_priority_and_expiry_boundary | **PASS** |
+| B6 | `expires_at <= now` 视为过期 | tester::test_expires_at_equals_now_is_expired（详情 EXPIRED + Bearer 401） | **PASS** |
+| B7 | 有效期边界 1/365 成功；366/0/负/null/非整数 422 | test_create_validation | **PASS** |
+| B8 | 缺省 90 天 | test_default_validity_is_90_days（`expires-created == 90d`） | **PASS** |
+| B9 | 明文一次性；再次创建生成不同明文 | test_create_returns_plaintext_once；tester 脱敏用例 | **PASS** |
+| B10 | 并发创建 hash 两两不同；重复 hash 被唯一约束拒 | tester::test_concurrent_create_produces_distinct_hashes（5 真连接）；constraints::test_api_key_key_hash_unique | **PASS** |
+| B11 | 401 先于 403 | test_invalid_key_is_401_before_403；tester V14 | **PASS** |
+| B12 | Bearer 优先；有效 Cookie+无效 Bearer→401；有效 Bearer+他账号 Cookie→Bearer 身份 | tester::test_bearer_priority_over_cookie；test_bearer_identity_and_ignores_cookie | **PASS** |
+| B13 | 非 Bearer Authorization 忽略，走 Cookie | tester::test_non_bearer_authorization_falls_back_to_cookie | **PASS** |
+| B14 | 空 token/无前缀/非法字符 → 401 等价 | tester V14；test_invalid_and_revoked_keys_are_equivalent_401 | **PASS** |
+| B15 | 停用后再启用（F017-OPEN-1 默认）：未吊销 Key 恢复可用、不自动吊销 | tester::test_reenable_account_restores_unrevoked_key | **PASS** |
+| B16 | 创建不改变账号 `status`/`version`/`updated_at` | tester::test_create_does_not_change_account | **PASS** |
+| B17 | 列表/详情只读，行数内容不变 | tester::test_read_only_endpoints_have_no_write_side_effects | **PASS** |
+| B18 | 审计同事务原子性：成功同提交可见；失败零残留 | test_audit_semantics（成功）；tester::test_failed_create_leaves_zero_residue、test_concurrent_revoke_yields_single_success | **PASS** |
+| B19 | 用 Key 写操作审计 operator=绑定账号、标签=Key 标签；Cookie 路径 NULL | test_audit_semantics | **PASS** |
+| B20 | DISABLED 账号创建→422 | test_create_validation | **PASS** |
+| B21 | GET 免 CSRF；Cookie 跨源 403 csrf；Bearer 跨源放行 | test_bearer_requests_are_csrf_exempt；test_auth.py::test_csrf_rejects_cross_origin 等 | **PASS** |
+| B22 | downgrade 丢列/表；up/down/up 单 head 无残留 | test_f017_migrations.py（0013 窄降级）；test_migrations.py（全链 up/down/up） | **PASS** |
+
+### 5. 数据库 / 约束 / 迁移结果（真 PG）
+
+- **约束拒绝（V-DB-F017-2）**：非法 `key_hash` 格式/长度、空/纯空白 `label`、`expires_at <= created_at`、`expires_at > created_at+366d`、`revoked_at < created_at` 均抛 `DBAPIError`；合法边界（`+365 days`、`revoked_at == created_at`、255 字符 label）通过 → **PASS**。
+- **唯一/FK（V-DB-F017-3/4）**：重复 `key_hash` 被 `uq_api_keys_key_hash` 拒；删除持 Key 用户被 FK RESTRICT 拒 → **PASS**。
+- **append-only + 增列（V-DB-F017-5/7/8）**：NULL `api_key_label` 允许、空串/纯空白被 CHECK 拒；增列后 `UPDATE`/`DELETE audit_logs` 仍被触发器拒；`object_type='api_key'` 可插入；`id` 默认 UUID → **PASS**。
+- **索引与无多余索引（V-DB-F017-9）**：`ix_api_keys_user_id`、`ix_api_keys_created_by` 存在；无 `expires_at`/`label` 索引；`EXPLAIN` 在禁用 seqscan 时命中 `uq_api_keys_key_hash` 等值 → **PASS**。
+- **迁移（V-DB-F017-1/B22）**：`alembic heads` 唯一 `0014_api_keys`；`downgrade 0013_search_indexes` 后 `api_keys` 表、两条索引、`audit_logs.api_key_label` 列与 CHECK 全部消失且既有对象保留；re-upgrade 恢复 → **PASS**。
+- 未验证：认证计划在**代表性大数据量**下的 `EXPLAIN (ANALYZE)` 成本基线（TD-1 §4 预期项）本次仅在 50 行小表 + `enable_seqscan=off` 下验证索引可用，未做规模基线。
+
+### 6. Cookie 认证回归（T49 / V8）
+
+`test_auth.py`（18 用例）在真 PG + 真 HTTP 下全绿：登录建会话、登录失败不可区分、无注册端点、逐角色权限矩阵、停用账号登录/旧会话、会话过期无滑动、登出删会话、Cookie 属性/生产 Secure、敏感信息不泄露、CSRF 同源/Sec-Fetch-Site/allowlist、401/403 信封。新增断言：纯 Cookie POST 跨源仍 403 `csrf`；Bearer POST 跨源放行；同一请求有效 Cookie + 无效 Bearer → 401（Bearer 优先、不回退 Cookie）。**Cookie 行为与 F002 契约一致，无回归 → PASS**。
+
+### 7. 接口 / 前端 / 集成结果
+
+- **接口**：四端点（list/detail/create/revoke）成功/错误/权限/分页/排序/过滤/48x 语义与 `docs/api/F017.md` v1 逐项一致；响应 `ApiKeyRow` 字段与类型、ISO-8601 UTC 正确；`key_hash`/明文从不出现 → **PASS**。
+- **脱敏**：`SENSITIVE_FIELDS` 含 `api_key/api_key_hash/key_hash/plaintext/bearer/authorization`；201 明文与 `sha256(明文)` 在 list/detail/revoke/错误响应全文及 `caplog` 捕获文本中均未出现；DB 无明文列 → **PASS**。
+- **前端**：`typecheck`/`build`/`smoke:client`（276 passed）通过；创建响应 `plaintext` 仅创建面板一次性展示（`navigator.clipboard` 复制，无 `localStorage`/`console` 持久化或打印）；错误解析覆盖 401/403/404/409/422 且 409 `already_revoked` 不静默重试 → **PASS（机制级）**。
+- **集成**：后端真 PG 端到端（真 HTTP + DB 终态）已覆盖；前端 `smoke:client` 为契约级 Mock 客户端，非真实 API。
+
+### 8. Defects
+
+| ID | Severity | Layer | Location | 证据 | 期望 vs 实际 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| OBS-F017-1 | LOW（非 F017 缺陷） | Test/DB 并发 | `backend/tests/integration/test_ip_addresses.py::test_concurrent_gateway_change_and_allocation` | 首次全量运行 1 failed；单跑 3/3 通过、该文件单跑 38/38 通过、随后两次全量均 617 passed | 期望并发用例稳定；实际为偶发 `['gateway','allocated']` 双成功 | 既有 IP 分配并发用例（非本 Feature 改动文件，`git show --stat 5f370b0` 未触及） | 否（不阻塞 F017；建议独立跟进 flaky） |
+
+- F017 范围内**未发现必须修复的实现缺陷**。
+
+### 9. 未验证项
+
+| 项 | 状态 | 理由 / 替代证据 |
+| --- | --- | --- |
+| 真实浏览器 DOM/E2E（弹层焦点、剪贴板、窄屏、一次性明文关闭即清除的视觉行为） | **NOT TESTED** | 环境无浏览器/无 Playwright 驱动；替代证据：`typecheck`/`build`/`smoke:client` 机制级断言 + 后端契约集成。 |
+| 前端对真实后端的端到端联调 | **NOT TESTED** | `smoke:client` 使用 Mock 客户端；后端四端点已由真 PG 集成覆盖，跨端契约一致性由同一 Contract 判据保证，但未启动真实前后端串联。 |
+| 认证查询计划规模基线 `EXPLAIN (ANALYZE)` | **NOT TESTED** | 仅小表验证索引可用；未构造代表性数据量。 |
+| V3b `pg_trgm` 非 superuser 安装路径 | **SKIPPED（既有）** | 本次连接角色为 superuser，`test_migrations.py` 按既有规则 skip；与 F017 无关。 |
+| 前端 `user_id`/`status` 过滤与服务端真实组合 | **PARTIAL** | 机制级断言覆盖查询串构造；服务端组合过滤由后端 `test_list_filters_sort_and_detail` 覆盖，未做前端→真实 API 串联。 |
+
+### 10. 结论
+
+A1–A8（T42–T49）/ V1–V15 在真实 PostgreSQL + 真 HTTP 下逐项 **PASS**；B1–B22 全部 **PASS**；F002 Cookie 回归无回归；约束/唯一/FK/append-only/迁移以真 PG 为证据；日志/响应/审计/DB 脱敏成立。无必须修复缺陷；未验证项已明确列出且不影响 F017 验收（浏览器 DOM 与真实前后端串联为替代证据已说明）。
+
+**`READY FOR REVIEW`**。本报告不批准合并；Merge Gate 由协调器按 `docs/project/git-workflow.md` 执行。
+
+### 11. Git 声明
+
+本次仅执行以下**只读** Git 命令，未执行任何 `add`/`commit`/`switch`/`merge` 或其他改变 Git 状态的命令：
+
+```text
+GIT: git rev-parse --short HEAD
+GIT: git status --short
+GIT: git log --oneline -3
+GIT: git show --stat HEAD
+```
