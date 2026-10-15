@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 5
   plan_revision: 6
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 6
     feature_ids:
@@ -1192,9 +1192,13 @@ features:
   depends_on:
   - F013
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: null
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: PRODUCT Gate：确认 §17.1 验收与范围，交 Architect
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F018-search-columns
+    start_commit: ce91adb3dec222a65425ccaa29e77b961c7adbc1
   layers:
     database: false
     backend: true
@@ -1336,24 +1340,24 @@ execution:
     authorized_on: '2026-10-15'
     basis: 用户于 2026-10-15 回复「批准并执行」：批准 docs/project/project-plan.yaml revision 6，并授权按
       .pi/prompts/feature.md 自动实施新增 F018 全局搜索字段组合展示；范围仅 F018，F001–F017 保持 DONE。
-  current_feature: null
-  current_stage: null
-  last_result: 计划 revision 6 获批（含新增 F018）；F001–F017 仍 DONE、project.acceptance=COMPLETE
-  next_action: 启动 F018：Preflight 后进入 PRODUCT Gate
+  current_feature: F018
+  current_stage: PRODUCT
+  last_result: F018 Preflight 完成（feature/F018-search-columns，base ce91adb）；project=IN_PROGRESS，进入
+    PRODUCT
+  next_action: F018 PRODUCT Gate
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 17
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F018
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
