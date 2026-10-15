@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 5
   plan_revision: 6
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 6
     feature_ids:
@@ -1192,13 +1192,15 @@ features:
   depends_on:
   - F013
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: REVIEW：独立审查候选 HEAD（test READY FOR REVIEW）
+  status: DONE
+  current_stage: null
+  next_action: null
   git:
     base_branch: codex/v3.1
     branch: feature/F018-search-columns
     start_commit: ce91adb3dec222a65425ccaa29e77b961c7adbc1
+    head_commit: 33d0fea3147fe4754aff117cacc77792da31fd76
+    merge_commit: d424440623a593254b74997b2e714e06f6ab3b0b
   layers:
     database: false
     backend: true
@@ -1216,7 +1218,7 @@ features:
     backend: COMPLETE
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F018/product.md
@@ -1232,6 +1234,8 @@ features:
     - docs/features/F018/implementation.md#frontend
     test:
     - docs/features/F018/test-report.md#test-execution
+    review:
+    - docs/features/F018/review-report.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1346,31 +1350,24 @@ decisions_required:
     行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 pending_changes: []
 execution:
-  mode: SINGLE
-  authorization:
-    plan_revision: 6
-    feature_ids:
-    - F018
-    authorized_by: 用户
-    authorized_on: '2026-10-15'
-    basis: 用户于 2026-10-15 回复「批准并执行」：批准 docs/project/project-plan.yaml revision 6，并授权按
-      .pi/prompts/feature.md 自动实施新增 F018 全局搜索字段组合展示；范围仅 F018，F001–F017 保持 DONE。
-  current_feature: F018
-  current_stage: REVIEW
-  last_result: TEST READY FOR REVIEW（真 PG 全套 650 passed/2 skipped；V1–V18、B1–B22、F1–F8
-    全 PASS）
-  next_action: F018 REVIEW
+  mode: null
+  authorization: null
+  current_feature: null
+  current_stage: null
+  last_result: F018 DONE（merge d424440；review APPROVED WITH FOLLOW-UP）；项目全部 F001–F018
+    交付，project.acceptance=COMPLETE
+  next_action: null
   repair_rounds: 0
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 17
+    DONE: 18
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
