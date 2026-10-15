@@ -202,6 +202,17 @@
  *   选、label trim / 禁控制字符 / ≤255、有效期整数 1..365 含端点、无永不过
  *   期）、创建载荷构造、服务端 422 字段名 → 表单键映射。
  *
+ * F018 追加（Contract：docs/api/F013.md v2 §2.9，前端机制级）：
+ * - src/api/search.ts 的 SearchResourceRef 增补 related / related_total 类型
+ *   与 v2 响应解析（resource 行固定超集；非 resource 行嵌套 resource 恒 null）；
+ * - src/components/globalSearchFields.ts（纯逻辑，无 JSX）：九字段白名单与
+ *   未知字段过滤（F1）、localStorage 约定键 JSON 数组写入与刷新读回（F2）、
+ *   存储抛错/键缺失/JSON 损坏/非数组/未知字段静默回退（F3）、默认组合 =
+ *   F013 现有展示（F4）、「还有 N 条」= related_total − 展示行数且 ≤10 不
+ *   提示（F5）、字段选择仅作用 resource 行（F6）、字段选择不改变 /search
+ *   请求 URL/参数（F7）、related/related_total 缺失/null/形状不符的安全
+ *   解析（F8）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -371,6 +382,24 @@ import {
   parseGlobalSearchFormValues,
   searchFormFieldFromPath,
 } from "../src/components/globalSearchForm.ts";
+import {
+  DEFAULT_GLOBAL_SEARCH_FIELDS,
+  GLOBAL_SEARCH_FIELD_KEYS,
+  GLOBAL_SEARCH_FIELD_OPTIONS,
+  GLOBAL_SEARCH_FIELDS_STORAGE_KEY,
+  effectiveGlobalSearchFields,
+  fieldSelectionAppliesTo,
+  hasRelatedFields,
+  isGlobalSearchFieldKey,
+  parseGlobalSearchFieldPreference,
+  readGlobalSearchFieldPreference,
+  relatedAvailable,
+  relatedRowViews,
+  relatedRows,
+  relatedTotal,
+  remainingRelatedCount,
+  writeGlobalSearchFieldPreference,
+} from "../src/components/globalSearchFields.ts";
 import {
   describeImportError,
   getImportTemplates,
@@ -5540,6 +5569,363 @@ await test("F013 highlightSegments：ASCII 大小写不敏感子串；非子串�
     { text: "集群 ", hit: false },
     { text: "gpu07", hit: true },
     { text: "01", hit: false },
+  ]);
+});
+
+// ---------- F018 全局搜索字段组合 机制级（Contract：docs/api/F013.md v2 §2.9） ----------
+
+/** 受控 localStorage 替身（记录写入快照，供约定键 / JSON 形态断言）。 */
+function memoryStorage() {
+  const store = new Map();
+  return {
+    store,
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => {
+      store.set(key, value);
+    },
+  };
+}
+
+/** 抛错存储替身（如禁用 Cookie 的 SecurityError / 配额超限）。 */
+function throwingStorage() {
+  return {
+    getItem: () => {
+      throw new Error("SecurityError");
+    },
+    setItem: () => {
+      throw new Error("QuotaExceededError");
+    },
+  };
+}
+
+/** F018 resource 最小样本（related 访问器用例在此基础上展开覆盖）。 */
+const F018_RESOURCE_BASE = {
+  id: "r-uuid-1",
+  hostname: "gpu0701",
+  resource_type: "BARE_METAL",
+  role: "COMPUTE",
+  status: "IDLE",
+  cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+};
+
+/** 构造 F018 关联行样本（每个已绑定 Interface 的 IPAddress 一行，§2.9）。 */
+function f018RelatedRow(id, address = "10.10.1.9") {
+  return {
+    id,
+    interface: { id: `if-${id}`, name: "ib0", interface_type: "PHYSICAL" },
+    ip_address: { id, address },
+    network: { id: "n-uuid-1", name: "ib" },
+  };
+}
+
+/** F018 v2 搜索响应样本（§2.9：resource 行 related 固定超集；非 resource 行嵌套 resource 恒 null）。 */
+const F018_SEARCH_RESPONSE_FIXTURE = {
+  items: [
+    {
+      object_type: "resource",
+      id: "r-uuid-1",
+      matched_field: "hostname",
+      matched_value: "gpu0701",
+      resource: {
+        ...F018_RESOURCE_BASE,
+        related: Array.from({ length: 10 }, (_, index) =>
+          f018RelatedRow(`ip-uuid-${index}`, `10.10.1.${9 + index}`),
+        ),
+        related_total: 23, // 截断前总数：10 行 + 「还有 13 条」（§2.9 示例）
+      },
+      cluster: null,
+      ip_address: null,
+      service: null,
+    },
+    {
+      object_type: "service",
+      id: "s-uuid-1",
+      matched_field: "name",
+      matched_value: "slurmd",
+      resource: {
+        ...F018_RESOURCE_BASE,
+        related: null, // 非 resource 行嵌套 resource 恒 null（§2.9/A12/V14）
+        related_total: null,
+      },
+      cluster: null,
+      ip_address: null,
+      service: { id: "s-uuid-1", name: "slurmd", status: "RUNNING" },
+    },
+  ],
+  page: 1,
+  page_size: 20,
+  total: 2,
+};
+
+await test("F018 search v2 响应解析：resource 行 related/related_total；非 resource 行嵌套 resource 恒 null", async () => {
+  respond = () => jsonResponse(200, F018_SEARCH_RESPONSE_FIXTURE);
+  const data = await search({ q: "gpu" });
+  assert.equal(data.total, 2);
+  const [resourceRow, serviceRow] = data.items;
+  // resource 行：固定超集（字段集不随查询/所选字段变化，A1/A9）
+  assert.equal(resourceRow.object_type, "resource");
+  assert.equal(resourceRow.resource.related.length, 10); // 服务端上限 10（DR-321）
+  assert.equal(resourceRow.resource.related_total, 23); // 截断前总数
+  assert.equal(resourceRow.resource.related[0].interface.name, "ib0");
+  assert.equal(resourceRow.resource.related[0].interface.interface_type, "PHYSICAL");
+  assert.equal(resourceRow.resource.related[0].ip_address.address, "10.10.1.9");
+  assert.equal(resourceRow.resource.related[0].network.name, "ib");
+  // 「还有 N 条」：N = related_total − 展示行数 = 23 − 10 = 13（A6）
+  assert.equal(remainingRelatedCount(resourceRow.resource), 13);
+  // 非 resource 行：结构与展示不变，嵌套 resource 的 related/related_total 恒 null（§2.9）
+  assert.equal(serviceRow.object_type, "service");
+  assert.equal(serviceRow.resource.related, null);
+  assert.equal(serviceRow.resource.related_total, null);
+  assert.equal(relatedAvailable(serviceRow.resource), false);
+  assert.equal(remainingRelatedCount(serviceRow.resource), 0);
+});
+
+await test("F018 F1：字段白名单恰九字段；未知字段被过滤（§17.1/A11）", async () => {
+  // 恰九字段，与需求字段集一一对应（「网络类型」= Network 名称）
+  assert.equal(GLOBAL_SEARCH_FIELD_KEYS.length, 9);
+  assert.equal(GLOBAL_SEARCH_FIELD_OPTIONS.length, 9);
+  assert.deepEqual(GLOBAL_SEARCH_FIELD_KEYS, [
+    "hostname",
+    "resource_type",
+    "role",
+    "status",
+    "cluster",
+    "interface_name",
+    "interface_type",
+    "ip_address",
+    "network_name",
+  ]);
+  for (const key of GLOBAL_SEARCH_FIELD_KEYS) {
+    assert.equal(isGlobalSearchFieldKey(key), true);
+  }
+  // 白名单外一律 false（含大小写变体：不归一化存储/用户输入）
+  for (const bad of ["bogus", "HOSTNAME", "Interface name", "", null, undefined, 1, {}, ["hostname"]]) {
+    assert.equal(isGlobalSearchFieldKey(bad), false);
+  }
+  // 解析层：未知字段被过滤（不整体丢弃合法项）、去重、按白名单顺序规范化
+  assert.deepEqual(
+    parseGlobalSearchFieldPreference(JSON.stringify(["ip_address", "bogus", "hostname", "ip_address"])),
+    ["hostname", "ip_address"],
+  );
+  assert.equal(parseGlobalSearchFieldPreference(null), null);
+});
+
+await test("F018 F2：选择写入约定键（JSON 数组）并刷新读回（A11/DR-326）", async () => {
+  const storage = memoryStorage();
+  // 初始无偏好
+  assert.equal(readGlobalSearchFieldPreference(storage), null);
+  // 选择 → 写入约定键 csm.globalSearch.fields.v1，值为 JSON 字符串数组
+  const written = writeGlobalSearchFieldPreference(
+    ["ip_address", "hostname", "network_name"],
+    storage,
+  );
+  assert.equal(written, true);
+  assert.deepEqual([...storage.store.keys()], [GLOBAL_SEARCH_FIELDS_STORAGE_KEY]);
+  assert.equal(
+    storage.store.get(GLOBAL_SEARCH_FIELDS_STORAGE_KEY),
+    '["hostname","ip_address","network_name"]', // 白名单顺序规范化后序列化
+  );
+  // 「刷新」后从同一存储读回：偏好沿用（A11）
+  assert.deepEqual(readGlobalSearchFieldPreference(storage), [
+    "hostname",
+    "ip_address",
+    "network_name",
+  ]);
+  // 修改选择后再次写入读回：偏好更新
+  writeGlobalSearchFieldPreference(["interface_name", "interface_type"], storage);
+  assert.deepEqual(readGlobalSearchFieldPreference(storage), [
+    "interface_name",
+    "interface_type",
+  ]);
+  // 默认环境（Node 无 localStorage）：读 null、写 false，均不抛错
+  assert.equal(readGlobalSearchFieldPreference(), null);
+  assert.equal(writeGlobalSearchFieldPreference(["hostname"]), false);
+});
+
+await test("F018 F3：存储抛错/键缺失/JSON 损坏/非数组/未知字段 → 静默回退不抛错（DR-326）", async () => {
+  const storage = memoryStorage();
+  // 键缺失：无偏好 → 默认组合（会话内 F013 展示）
+  assert.equal(readGlobalSearchFieldPreference(storage), null);
+  assert.deepEqual(
+    effectiveGlobalSearchFields(readGlobalSearchFieldPreference(storage)),
+    [...DEFAULT_GLOBAL_SEARCH_FIELDS],
+  );
+  // JSON 损坏 / 非数组（字符串/数字/对象）：同样回退，不抛错
+  for (const bad of ["{oops", '"hostname"', "42", '{"hostname":1}', ""]) {
+    storage.store.set(GLOBAL_SEARCH_FIELDS_STORAGE_KEY, bad);
+    assert.equal(
+      readGlobalSearchFieldPreference(storage),
+      null,
+      `存储值 ${JSON.stringify(bad)} 应静默回退 null`,
+    );
+  }
+  // 未知字段被过滤：剩余合法字段保留（F1 交叉），不整体丢弃
+  storage.store.set(
+    GLOBAL_SEARCH_FIELDS_STORAGE_KEY,
+    JSON.stringify(["hostname", "bogus", "ip_address"]),
+  );
+  assert.deepEqual(readGlobalSearchFieldPreference(storage), ["hostname", "ip_address"]);
+  // 全未知 → 空选择 = 默认组合（A12：未选择字段时保持现有展示）
+  storage.store.set(GLOBAL_SEARCH_FIELDS_STORAGE_KEY, JSON.stringify(["bogus"]));
+  assert.deepEqual(readGlobalSearchFieldPreference(storage), []);
+  assert.deepEqual(effectiveGlobalSearchFields([]), [...DEFAULT_GLOBAL_SEARCH_FIELDS]);
+  // 存储抛错（如禁用 Cookie）：读 null、写 false，均不抛错、不阻断搜索
+  const broken = throwingStorage();
+  assert.equal(readGlobalSearchFieldPreference(broken), null);
+  assert.equal(writeGlobalSearchFieldPreference(["hostname"], broken), false);
+});
+
+await test("F018 F4：默认组合 == F013 现有 resource 行展示（A12，无回归）", async () => {
+  // F013 既有展示：hostname 主值 + resource_type / role / status / cluster 上下文
+  assert.deepEqual([...DEFAULT_GLOBAL_SEARCH_FIELDS], [
+    "hostname",
+    "resource_type",
+    "role",
+    "status",
+    "cluster",
+  ]);
+  // 无偏好 / 空选择 → 默认组合
+  assert.deepEqual(effectiveGlobalSearchFields(null), [...DEFAULT_GLOBAL_SEARCH_FIELDS]);
+  assert.deepEqual(effectiveGlobalSearchFields([]), [...DEFAULT_GLOBAL_SEARCH_FIELDS]);
+  // 有偏好时按偏好（含仅关联字段：resource 行只展开关联列）
+  assert.deepEqual(effectiveGlobalSearchFields(["ip_address"]), ["ip_address"]);
+  // 默认组合不含关联字段：不展开 related（B22：未选择 = F013 展示，无额外请求）
+  assert.equal(hasRelatedFields(DEFAULT_GLOBAL_SEARCH_FIELDS), false);
+});
+
+await test("F018 F5：「还有 N 条」= related_total − 展示行数；≤10 不提示（DR-321/A6/B16）", async () => {
+  const rows10 = Array.from({ length: 10 }, (_, index) => f018RelatedRow(`ip-${index}`));
+  const rows3 = Array.from({ length: 3 }, (_, index) => f018RelatedRow(`ip-${index}`));
+  // 23→13、11→1（超上限显式提示，不静默截断）
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10, related_total: 23 }),
+    13,
+  );
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10, related_total: 11 }),
+    1,
+  );
+  // ≤10 不提示（恰 10 / 上限内 / 无关联）
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10, related_total: 10 }),
+    0,
+  );
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows3, related_total: 3 }),
+    0,
+  );
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: [], related_total: 0 }),
+    0,
+  );
+  // related_total 缺失 / null / 非数值：不提示（安全回退，不伪造总数）
+  assert.equal(remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10 }), 0);
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10, related_total: null }),
+    0,
+  );
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10, related_total: "23" }),
+    0,
+  );
+});
+
+await test("F018 F6：字段选择仅作用 resource 行；其余行不变（DR-327/B17）", async () => {
+  assert.equal(fieldSelectionAppliesTo("resource"), true);
+  for (const other of ["cluster", "ip_address", "service"]) {
+    assert.equal(fieldSelectionAppliesTo(other), false);
+  }
+  // 关联字段检测：仅基础字段 → 不展开关联；含任一关联字段 → 展开
+  assert.equal(hasRelatedFields(DEFAULT_GLOBAL_SEARCH_FIELDS), false);
+  assert.equal(hasRelatedFields(["hostname", "resource_type"]), false);
+  assert.equal(hasRelatedFields(["hostname", "ip_address"]), true);
+  assert.equal(hasRelatedFields(["interface_type"]), true);
+  assert.equal(hasRelatedFields([]), false);
+});
+
+await test("F018 F7：字段选择不改变 /search 请求 URL/参数（A9/B14）", async () => {
+  const storage = memoryStorage();
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  // 偏好一：仅基础字段
+  writeGlobalSearchFieldPreference(["hostname", "status"], storage);
+  await search({ q: "gpu07", type: "resource", deleted: "exclude", page: 1, page_size: 20 });
+  // 偏好二：含关联字段（触发展开）
+  writeGlobalSearchFieldPreference(
+    ["ip_address", "network_name", "role", "status", "cluster"],
+    storage,
+  );
+  const query = buildSearchQuery({
+    q: "gpu07",
+    type: "resource",
+    deleted: "exclude",
+    page: 1,
+    pageSize: 20,
+  });
+  await search(query);
+  assert.equal(calls.length, 2);
+  // 两次请求 URL 完全一致：字段组合不进入查询参数（展示层扩展）
+  assert.equal(
+    calls[0].url,
+    "/api/v1/search?q=gpu07&type=resource&deleted=exclude&page=1&page_size=20",
+  );
+  assert.equal(calls[1].url, calls[0].url);
+  // URL 仅含 Contract §2.1 查询参数（无 fields 等新参数）
+  const params = new URL(calls[1].url, "http://localhost").searchParams;
+  for (const key of params.keys()) {
+    assert.ok(
+      ["q", "type", "deleted", "page", "page_size"].includes(key),
+      `不应出现 Contract 之外的查询参数：${key}`,
+    );
+  }
+});
+
+await test("F018 F8：related/related_total 缺失/null/形状不符 → 安全回退（不抛错、不伪造）", async () => {
+  // 缺失（旧后端 F013 v1 响应无此两键）：无关联区块、无提示
+  assert.equal(relatedAvailable({ ...F018_RESOURCE_BASE }), false);
+  assert.deepEqual(relatedRows({ ...F018_RESOURCE_BASE }), []);
+  assert.equal(relatedTotal({ ...F018_RESOURCE_BASE }), null);
+  assert.equal(remainingRelatedCount({ ...F018_RESOURCE_BASE }), 0);
+  // null（非 resource 行嵌套 resource 的契约形态，§2.9）
+  assert.equal(
+    relatedAvailable({ ...F018_RESOURCE_BASE, related: null, related_total: null }),
+    false,
+  );
+  assert.equal(relatedTotal({ ...F018_RESOURCE_BASE, related_total: null }), null);
+  // 形状不符（非数组 / 非数值 / 负数）：不抛错、回退空集合与无提示
+  assert.equal(
+    relatedAvailable({ ...F018_RESOURCE_BASE, related: "nope", related_total: "23" }),
+    false,
+  );
+  assert.deepEqual(relatedRows({ ...F018_RESOURCE_BASE, related: "nope" }), []);
+  assert.equal(relatedTotal({ ...F018_RESOURCE_BASE, related_total: "23" }), null);
+  assert.equal(relatedTotal({ ...F018_RESOURCE_BASE, related_total: -1 }), null);
+  assert.equal(remainingRelatedCount({ ...F018_RESOURCE_BASE, related: "nope", related_total: 23 }), 0);
+  // 行级形状不符：单元格回退 null（组件呈现未知占位，不伪造值）
+  const malformed = relatedRowViews({
+    ...F018_RESOURCE_BASE,
+    related: [{ id: "ip-x" }],
+    related_total: 1,
+  });
+  assert.equal(malformed.length, 1);
+  assert.equal(malformed[0].key, "ip-x");
+  assert.equal(malformed[0].interfaceName, null);
+  assert.equal(malformed[0].interfaceType, null);
+  assert.equal(malformed[0].ipAddress, null);
+  assert.equal(malformed[0].networkName, null);
+  // 合法行：原样回显（interface_type 不改写，B21）
+  const views = relatedRowViews({
+    ...F018_RESOURCE_BASE,
+    related: [f018RelatedRow("ip-uuid-9", "10.10.1.9")],
+    related_total: 1,
+  });
+  assert.deepEqual(views, [
+    {
+      key: "ip-uuid-9",
+      interfaceName: "ib0",
+      interfaceType: "PHYSICAL",
+      ipAddress: "10.10.1.9",
+      networkName: "ib",
+    },
   ]);
 });
 

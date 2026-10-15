@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 5
   plan_revision: 6
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 6
     feature_ids:
@@ -1192,9 +1192,13 @@ features:
   depends_on:
   - F013
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: null
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：独立审查候选 HEAD（test READY FOR REVIEW）
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F018-search-columns
+    start_commit: ce91adb3dec222a65425ccaa29e77b961c7adbc1
   layers:
     database: false
     backend: true
@@ -1204,15 +1208,30 @@ features:
     database: 无新表/列/约束/索引/迁移；关联查询命中既有 ix_interfaces_resource_id、ix_ip_addresses_interface_id
       与 networks PK
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
-    frontend: PENDING
-    test: PENDING
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
+    test: COMPLETE
     review: PENDING
+  evidence:
+    product:
+    - docs/features/F018/product.md
+    architecture:
+    - docs/features/F018/architecture.md
+    test_design:
+    - docs/features/F018/test-report.md#test-design
+    contract:
+    - docs/api/F013.md
+    backend:
+    - docs/features/F018/implementation.md#backend
+    frontend:
+    - docs/features/F018/implementation.md#frontend
+    test:
+    - docs/features/F018/test-report.md#test-execution
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1336,13 +1355,14 @@ execution:
     authorized_on: '2026-10-15'
     basis: 用户于 2026-10-15 回复「批准并执行」：批准 docs/project/project-plan.yaml revision 6，并授权按
       .pi/prompts/feature.md 自动实施新增 F018 全局搜索字段组合展示；范围仅 F018，F001–F017 保持 DONE。
-  current_feature: null
-  current_stage: null
-  last_result: 计划 revision 6 获批（含新增 F018）；F001–F017 仍 DONE、project.acceptance=COMPLETE
-  next_action: 启动 F018：Preflight 后进入 PRODUCT Gate
+  current_feature: F018
+  current_stage: REVIEW
+  last_result: TEST READY FOR REVIEW（真 PG 全套 650 passed/2 skipped；V1–V18、B1–B22、F1–F8
+    全 PASS）
+  next_action: F018 REVIEW
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -1350,10 +1370,9 @@ planning_status:
     DONE: 17
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F018
+    IN_REVIEW: 1
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []

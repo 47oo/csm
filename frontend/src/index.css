@@ -400,6 +400,68 @@ mark {
   font-weight: 600;
 }
 
+/* ---------- F018 搜索结果字段组合（复用既有风格，最小样式） ---------- */
+
+/* 字段选择器（九字段多选，仅作用 resource 结果行，DR-327） */
+.search-fields-toggle {
+  margin: 1rem 0 0;
+  padding: 0.5rem 0.75rem 0.625rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.search-fields-toggle legend {
+  padding: 0 0.25rem;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.search-fields-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+}
+
+.search-fields-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  color: #374151;
+}
+
+.search-fields-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+}
+
+/* resource 行关联展开（每已绑定 IP 一行，最多 10 行 + 超限提示，DR-321） */
+.search-related {
+  margin-top: 0.4rem;
+}
+
+.search-related-list {
+  margin: 0.15rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-related-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.75rem;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+/* 超限提示：显式呈现截断（不静默，A6），与顶层分页 total 区分（B18） */
+.search-related-more {
+  display: block;
+  margin-top: 0.2rem;
+  color: #92400e;
+  font-size: 0.85rem;
+}
+
 /* ---------- F014 批量导入（复用既有风格，最小样式） ---------- */
 
 /* 预校验 / 整批失败错误表：区域内滚动（行号/字段/原因/关联行），原因列可换行 */
