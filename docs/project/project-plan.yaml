@@ -5,13 +5,33 @@ project:
     path: docs/product/requirements-v3.md
     revision: 5
   plan_revision: 6
-  status: DRAFT
+  status: ACCEPTED
   approval:
-    plan_revision: null
-    feature_ids: []
-    approved_by: null
-    approved_on: null
-    basis: null
+    plan_revision: 6
+    feature_ids:
+    - F001
+    - F002
+    - F003
+    - F004
+    - F005
+    - F006
+    - F007
+    - F008
+    - F009
+    - F010
+    - F011
+    - F012
+    - F013
+    - F014
+    - F015
+    - F016
+    - F017
+    - F018
+    approved_by: 用户
+    approved_on: '2026-10-15'
+    basis: 用户于 2026-10-15 确认搜索结果字段组合需求 BQ1–BQ5（仅全局搜索结果、字段集合与多值展开、上限 10 与排序、本地偏好、无导出/视图、关联继承软删与权限），回复「按推荐执行」与「批准并执行」：批准
+      docs/project/project-plan.yaml revision 6 全部 F001–F018（新增 F018 全局搜索字段组合展示，F001–F017
+      保持 DONE），并授权自动实施 F018。确认来源：本次会话用户指令。
   acceptance:
     status: COMPLETE
     evidence:
@@ -1172,7 +1192,7 @@ features:
   depends_on:
   - F013
   blocking_decisions: []
-  status: DRAFT
+  status: READY
   current_stage: null
   next_action: null
   layers:
@@ -1186,7 +1206,7 @@ features:
   implementation:
     product: PENDING
     architecture: PENDING
-    database: PENDING
+    database: NOT_REQUIRED
     test_design: PENDING
     contract: PENDING
     backend: PENDING
@@ -1307,27 +1327,33 @@ decisions_required:
     行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 pending_changes: []
 execution:
-  mode: null
-  authorization: null
+  mode: SINGLE
+  authorization:
+    plan_revision: 6
+    feature_ids:
+    - F018
+    authorized_by: 用户
+    authorized_on: '2026-10-15'
+    basis: 用户于 2026-10-15 回复「批准并执行」：批准 docs/project/project-plan.yaml revision 6，并授权按
+      .pi/prompts/feature.md 自动实施新增 F018 全局搜索字段组合展示；范围仅 F018，F001–F017 保持 DONE。
   current_feature: null
   current_stage: null
-  last_result: F017 DONE（merge 71ba3dc；review APPROVED WITH FOLLOW-UP）；项目全部 F001–F017
-    交付，project.acceptance=COMPLETE
-  next_action: null
+  last_result: 计划 revision 6 获批（含新增 F018）；F001–F017 仍 DONE、project.acceptance=COMPLETE
+  next_action: 启动 F018：Preflight 后进入 PRODUCT Gate
   repair_rounds: 0
 planning_status:
-  status: DRAFT
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 17
-    DRAFT: 1
+    DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F018
   blocked_draft_features:
     BLOCKED: []
-    DRAFT:
-    - F018
+    DRAFT: []
