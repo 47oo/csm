@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 4
   plan_revision: 5
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 5
     feature_ids:
@@ -1131,13 +1131,15 @@ features:
   - F002
   - F015
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: REVIEW：独立审查候选 HEAD（test READY FOR REVIEW）
+  status: DONE
+  current_stage: null
+  next_action: null
   git:
     base_branch: codex/v3.1
     branch: feature/F017-api-key
     start_commit: 77fbb4c494c9d65ea9006c77c8ee11fbab8089c0
+    head_commit: 0ef28636c7ecaacd4e384b2fedffc4bd96fd8be8
+    merge_commit: 71ba3dcc9921013a4764672e96544cec3d6fc405
   layers:
     database: true
     backend: true
@@ -1152,7 +1154,7 @@ features:
     backend: COMPLETE
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F017/product.md
@@ -1170,6 +1172,8 @@ features:
     - docs/features/F017/implementation.md#frontend
     test:
     - docs/features/F017/test-report.md#test-execution
+    review:
+    - docs/features/F017/review-report.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1284,32 +1288,24 @@ decisions_required:
     行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 pending_changes: []
 execution:
-  mode: SINGLE
-  authorization:
-    plan_revision: 5
-    feature_ids:
-    - F017
-    authorized_by: 用户
-    authorized_on: '2026-10-14'
-    basis: 用户于 2026-10-14 回复「批准计划自动实施」：批准 docs/project/project-plan.yaml revision
-      5，并授权按 .pi/prompts/feature.md 自动实施新增 F017 API Key 机器凭据；范围仅 F017，F001–F016 保持
-      DONE。历史 revision 4 授权（F001–F016，2026-10-06）已完成。
-  current_feature: F017
-  current_stage: REVIEW
-  last_result: TEST READY FOR REVIEW（真 PG 全套 617 passed/2 skipped；A1–A8、V1–V15、B1–B22
-    全 PASS；Cookie 回归无回归）
-  next_action: F017 REVIEW
+  mode: null
+  authorization: null
+  current_feature: null
+  current_stage: null
+  last_result: F017 DONE（merge 71ba3dc；review APPROVED WITH FOLLOW-UP）；项目全部 F001–F017
+    交付，project.acceptance=COMPLETE
+  next_action: null
   repair_rounds: 0
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 16
+    DONE: 17
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
