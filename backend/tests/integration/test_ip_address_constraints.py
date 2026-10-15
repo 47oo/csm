@@ -179,8 +179,8 @@ def _seed(engine, tag: str, cidr: str = "10.0.0.0/8"):
 
 
 def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0013_search_indexes"
-    assert _alembic_versions(pg_engine) == ["0013_search_indexes"]
+    assert alembic_runner.head_revision() == "0014_api_keys"
+    assert _alembic_versions(pg_engine) == ["0014_api_keys"]
     assert "ip_addresses" in _tables(pg_engine)
     extensions_before = _extensions(pg_engine)
 
@@ -207,7 +207,7 @@ def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
 
     alembic_runner.upgrade("head")
     assert "ip_addresses" in _tables(pg_engine)
-    assert _alembic_versions(pg_engine) == ["0013_search_indexes"]
+    assert _alembic_versions(pg_engine) == ["0014_api_keys"]
 
 
 def test_migration_0010_has_no_create_extension():

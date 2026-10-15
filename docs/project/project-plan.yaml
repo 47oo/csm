@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 4
   plan_revision: 5
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 5
     feature_ids:
@@ -1131,24 +1131,45 @@ features:
   - F002
   - F015
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: null
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：独立审查候选 HEAD（test READY FOR REVIEW）
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F017-api-key
+    start_commit: 77fbb4c494c9d65ea9006c77c8ee11fbab8089c0
   layers:
     database: true
     backend: true
     frontend: true
   api_required: true
   implementation:
-    product: PENDING
-    architecture: PENDING
-    database: PENDING
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
-    frontend: PENDING
-    test: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
+    database: COMPLETE
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
+    test: COMPLETE
     review: PENDING
+  evidence:
+    product:
+    - docs/features/F017/product.md
+    architecture:
+    - docs/features/F017/architecture.md
+    database:
+    - docs/database/f017-api-key.md
+    test_design:
+    - docs/features/F017/test-report.md#test-design
+    contract:
+    - docs/api/F017.md
+    backend:
+    - docs/features/F017/implementation.md#backend
+    frontend:
+    - docs/features/F017/implementation.md#frontend
+    test:
+    - docs/features/F017/test-report.md#test-execution
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1273,13 +1294,14 @@ execution:
     basis: 用户于 2026-10-14 回复「批准计划自动实施」：批准 docs/project/project-plan.yaml revision
       5，并授权按 .pi/prompts/feature.md 自动实施新增 F017 API Key 机器凭据；范围仅 F017，F001–F016 保持
       DONE。历史 revision 4 授权（F001–F016，2026-10-06）已完成。
-  current_feature: null
-  current_stage: null
-  last_result: 计划 revision 5 获批（含新增 F017）；一期 F001–F016 仍 DONE、project.acceptance=COMPLETE
-  next_action: 启动 F017：Preflight 后进入 PRODUCT Gate
+  current_feature: F017
+  current_stage: REVIEW
+  last_result: TEST READY FOR REVIEW（真 PG 全套 617 passed/2 skipped；A1–A8、V1–V15、B1–B22
+    全 PASS；Cookie 回归无回归）
+  next_action: F017 REVIEW
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -1287,10 +1309,9 @@ planning_status:
     DONE: 16
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F017
+    IN_REVIEW: 1
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []

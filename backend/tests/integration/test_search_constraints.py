@@ -58,8 +58,8 @@ def _trgm_indexes(engine) -> dict[str, dict]:
 
 def test_migration_0013_up_down_up_single_head(pg_engine, alembic_runner):
     """V-DB-139/143: single head, symmetric up/down/up, extensions unchanged."""
-    assert alembic_runner.head_revision() == "0013_search_indexes"
-    assert _alembic_versions(pg_engine) == ["0013_search_indexes"]
+    assert alembic_runner.head_revision() == "0014_api_keys"
+    assert _alembic_versions(pg_engine) == ["0014_api_keys"]
     extensions_before = _extensions(pg_engine)
     assert "pg_trgm" in extensions_before
     assert set(_trgm_indexes(pg_engine)) == TRGM_INDEXES
@@ -72,7 +72,7 @@ def test_migration_0013_up_down_up_single_head(pg_engine, alembic_runner):
 
     alembic_runner.upgrade("head")
     assert set(_trgm_indexes(pg_engine)) == TRGM_INDEXES
-    assert _alembic_versions(pg_engine) == ["0013_search_indexes"]
+    assert _alembic_versions(pg_engine) == ["0014_api_keys"]
     assert _extensions(pg_engine) == extensions_before
 
 

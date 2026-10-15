@@ -191,6 +191,17 @@
  *   UTC 归一为 ISO-8601、from≤to 闭区间）、buildAuditQuery 参数序列化、
  *   422 点路径 → 表单键映射（snake→camel；分页/排序参数不映射）。
  *
+ * F017 追加（Contract：docs/api/F017.md v1，前端机制级）：
+ * - src/api/apiKeys.ts 的 URL / method / body 构造（§4：列表查询串
+ *   （user_id/status/q/分页/sort/order AND 组合、空串项不发）、GET 详情、
+ *   POST 创建 201 {api_key}（body 恰含 user_id/label/validity_days）、POST
+ *   /{id}/revoke 无请求体）；describeApiKeyQueryError 的 401/403/422/网络层
+ *   兑底；describeApiKeyActionError 的 409 already_revoked（→ 刷新列表，
+ *   不静默重试）/ 422（fields）/ 403 / 404 语义；
+ * - src/components/apiKeyForm.ts（纯逻辑，无 JSX）：创建表单值解析（账号必
+ *   选、label trim / 禁控制字符 / ≤255、有效期整数 1..365 含端点、无永不过
+ *   期）、创建载荷构造、服务端 422 字段名 → 表单键映射。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -399,6 +410,20 @@ import {
   parseAuditQueryFormValues,
   parseIso8601UtcInput,
 } from "../src/components/auditQueryForm.ts";
+import {
+  createApiKey,
+  describeApiKeyActionError,
+  describeApiKeyQueryError,
+  getApiKey,
+  listApiKeys,
+  revokeApiKey,
+} from "../src/api/apiKeys.ts";
+import {
+  apiKeyFormFieldFromPath,
+  buildCreateApiKeyInput,
+  emptyApiKeyFormValues,
+  parseApiKeyFormValues,
+} from "../src/components/apiKeyForm.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -6522,6 +6547,307 @@ await test("F015 auditQueryFieldFromPath：422 参数名（snake）→ 表单键
   // 未知路径 / 嵌套路径 → null
   assert.equal(auditQueryFieldFromPath("unknown"), null);
   assert.equal(auditQueryFieldFromPath("object_id.x"), "objectId"); // 顶层直通
+});
+
+// ---------- F017 API Key 机制级（Contract：docs/api/F017.md v1） ----------
+
+/** ApiKeyRow 头具（Contract §2；永不包含 key_hash / 明文）。 */
+const API_KEY_ROW_FIXTURE = {
+  id: "b1c2d3e4-0000-4000-8000-000000000001",
+  user_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0015",
+  username: "user01",
+  label: "ci-runner",
+  status: "ACTIVE",
+  created_at: "2026-10-14T08:00:00+00:00",
+  expires_at: "2027-01-12T08:00:00+00:00",
+  revoked_at: null,
+  created_by: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0001",
+  created_by_username: "admin",
+};
+
+await test("F017 listApiKeys 默认：GET /api/v1/api-keys，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listApiKeys();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/api-keys");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F017 listApiKeys 组合查询：user_id/status/q/分页/排序（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listApiKeys({
+    user_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0015",
+    status: "ACTIVE",
+    q: "runner",
+    page: 2,
+    page_size: 50,
+    sort: "expires_at",
+    order: "asc",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/api-keys?user_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0015&status=ACTIVE" +
+      "&q=runner&page=2&page_size=50&sort=expires_at&order=asc",
+  );
+});
+
+await test("F017 listApiKeys 空串过滤项不发（q=''/user_id=''）；空结果 total=0", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listApiKeys({ q: "", user_id: "" });
+  assert.equal(calls[0].url, "/api/v1/api-keys");
+  assert.equal(data.total, 0);
+});
+
+await test("F017 getApiKey：GET /api-keys/{id}；200 解析 {api_key}（无 key_hash/明文）", async () => {
+  respond = () => jsonResponse(200, { api_key: API_KEY_ROW_FIXTURE });
+  const { api_key } = await getApiKey(API_KEY_ROW_FIXTURE.id);
+  assert.equal(api_key.label, "ci-runner");
+  assert.equal(api_key.status, "ACTIVE");
+  assert.equal("key_hash" in api_key, false);
+  assert.equal("plaintext" in api_key, false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, `/api/v1/api-keys/${API_KEY_ROW_FIXTURE.id}`);
+  assert.equal(calls[0].init.method, "GET");
+});
+
+await test("F017 createApiKey：POST /api-keys + JSON body（恰含 user_id/label/validity_days）；201 解析 plaintext", async () => {
+  respond = () =>
+    jsonResponse(201, {
+      api_key: { ...API_KEY_ROW_FIXTURE, plaintext: "csm_ak_example_token" },
+    });
+  const { api_key } = await createApiKey({
+    user_id: API_KEY_ROW_FIXTURE.user_id,
+    label: "ci-runner",
+    validity_days: 90,
+  });
+  assert.equal(api_key.plaintext, "csm_ak_example_token"); // 仅创建响应携带
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/api-keys");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    user_id: API_KEY_ROW_FIXTURE.user_id,
+    label: "ci-runner",
+    validity_days: 90,
+  });
+});
+
+await test("F017 revokeApiKey：POST /api-keys/{id}/revoke 无请求体；200 解析 {api_key}（REVOKED）", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      api_key: {
+        ...API_KEY_ROW_FIXTURE,
+        status: "REVOKED",
+        revoked_at: "2026-10-15T08:00:00+00:00",
+      },
+    });
+  const { api_key } = await revokeApiKey(API_KEY_ROW_FIXTURE.id);
+  assert.equal(api_key.status, "REVOKED");
+  assert.equal(api_key.revoked_at, "2026-10-15T08:00:00+00:00");
+  assert.equal("plaintext" in api_key, false); // 吊销响应不含明文
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, `/api/v1/api-keys/${API_KEY_ROW_FIXTURE.id}/revoke`);
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.body, undefined); // 无请求体（Contract §4.4）
+  assert.equal(calls[0].init.headers["Content-Type"], undefined);
+});
+
+await test("F017 describeApiKeyQueryError：401/403/422/网络层兑底；不重试", async () => {
+  respond = () =>
+    jsonResponse(401, {
+      error: { code: "AUTH_REQUIRED", message: "未认证或会话已过期", details: {} },
+    });
+  const unauthorized = await expectApiError(listApiKeys());
+  const unauthorizedDescribed = describeApiKeyQueryError(unauthorized);
+  assert.ok(unauthorizedDescribed.message.includes("重新登录"));
+  assert.equal(handlerCalls, 1); // 401 触发全局处理器（清登录态）
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const forbidden = await expectApiError(listApiKeys());
+  const forbiddenDescribed = describeApiKeyQueryError(forbidden);
+  assert.ok(forbiddenDescribed.message.includes("USER_ADMIN"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "参数校验失败",
+        details: { fields: [{ field: "q", message: "超长" }] },
+      },
+    });
+  const invalid = await expectApiError(listApiKeys({ q: "x".repeat(256) }));
+  const invalidDescribed = describeApiKeyQueryError(invalid);
+  assert.ok(invalidDescribed.message.includes("VALIDATION_ERROR"));
+
+  const networkDescribed = describeApiKeyQueryError(new TypeError("Failed to fetch"));
+  assert.ok(networkDescribed.message.includes("无法连接服务器"));
+  assert.equal(calls.length, 3); // 每次恰好一次调用，不重试（网络层兑底不发起请求）
+});
+
+await test("F017 describeApiKeyActionError：409 already_revoked / 422 fields / 403 / 404；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: { code: "CONFLICT", message: "Conflict", details: { reason: "already_revoked" } },
+    });
+  const revoked = await expectApiError(revokeApiKey(API_KEY_ROW_FIXTURE.id));
+  const revokedDescribed = describeApiKeyActionError(revoked);
+  assert.equal(revokedDescribed.alreadyRevoked, true);
+  assert.ok(revokedDescribed.message.includes("已被吊销"));
+  assert.ok(revokedDescribed.message.includes("不会自动重试"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: {
+          fields: [
+            { field: "user_id", message: "账号不存在或非启用状态" },
+            { field: "validity_days", message: "须为 1..365 整数" },
+          ],
+        },
+      },
+    });
+  const invalid = await expectApiError(
+    createApiKey({ user_id: "x", label: "ci", validity_days: 400 }),
+  );
+  const invalidDescribed = describeApiKeyActionError(invalid);
+  assert.equal(invalidDescribed.alreadyRevoked, false);
+  assert.equal(invalidDescribed.fields.user_id, "账号不存在或非启用状态");
+  assert.equal(invalidDescribed.fields.validity_days, "须为 1..365 整数");
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const forbidden = await expectApiError(createApiKey({ user_id: "x", label: "ci" }));
+  assert.ok(describeApiKeyActionError(forbidden).message.includes("USER_ADMIN"));
+
+  respond = () =>
+    jsonResponse(404, { error: { code: "NOT_FOUND", message: "Not found", details: {} } });
+  const notFound = await expectApiError(revokeApiKey("not-a-uuid"));
+  assert.ok(describeApiKeyActionError(notFound).message.includes("不存在"));
+
+  const networkDescribed = describeApiKeyActionError(new TypeError("Failed to fetch"));
+  assert.ok(networkDescribed.message.includes("无法连接服务器"));
+  assert.equal(calls.length, 4); // 每次恰好一次调用，不重试（网络层兑底不发起请求）
+});
+
+await test("F017 parseApiKeyFormValues：合法值（label trim / 有效期默认 90 / 边界 1 与 365）", async () => {
+  const parsed = parseApiKeyFormValues({
+    userId: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0015",
+    label: "  ci-runner  ",
+    validityDays: 90,
+  });
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.fields, {
+    userId: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0015",
+    label: "ci-runner", // 服务端同样 trim 后校验 / 存储
+    validityDays: 90,
+  });
+
+  // 默认值即合法（缺省 90，Contract §4.3）
+  const defaults = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    userId: "u1",
+    label: "k",
+  });
+  assert.equal(defaults.ok, true);
+  assert.equal(defaults.fields.validityDays, 90);
+
+  // 边界含端点：1 与 365 均合法；label 允许中文与内部空格不合并
+  for (const validityDays of [1, 365]) {
+    const boundary = parseApiKeyFormValues({
+      ...emptyApiKeyFormValues(),
+      userId: "u1",
+      label: "ci runner 中文",
+      validityDays,
+    });
+    assert.equal(boundary.ok, true, `validityDays=${validityDays} 应合法`);
+  }
+});
+
+await test("F017 parseApiKeyFormValues：非法输入本地拦截（未选账号 / label 空·控制字符·超长 / 有效期 空·0·负·366·非整数）", async () => {
+  const noUser = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    label: "k",
+    validityDays: 90,
+  });
+  assert.equal(noUser.ok, false);
+  assert.ok(noUser.errors.userId.includes("选择绑定账号"));
+
+  const blankLabel = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    userId: "u1",
+    label: "   ",
+    validityDays: 90,
+  });
+  assert.ok(blankLabel.errors.label.includes("不能为空"));
+
+  const controlLabel = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    userId: "u1",
+    label: "ci\u0000runner", // Unicode Cc
+    validityDays: 90,
+  });
+  assert.ok(controlLabel.errors.label.includes("控制字符"));
+
+  const longLabel = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    userId: "u1",
+    label: "k".repeat(256),
+    validityDays: 90,
+  });
+  assert.ok(longLabel.errors.label.includes("255"));
+
+  // 恰好 255 code point：合法
+  const exactLabel = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    userId: "u1",
+    label: "k".repeat(255),
+    validityDays: 90,
+  });
+  assert.equal(exactLabel.ok, true);
+
+  for (const validityDays of [null, 0, -1, 366, 1.5]) {
+    const bad = parseApiKeyFormValues({
+      ...emptyApiKeyFormValues(),
+      userId: "u1",
+      label: "k",
+      validityDays,
+    });
+    assert.equal(bad.ok, false, `validityDays=${validityDays} 应本地拦截`);
+    assert.ok(bad.errors.validityDays !== undefined);
+  }
+});
+
+await test("F017 apiKeyFormFieldFromPath：422 字段名（snake）→ 表单键；分页/排序/未知 → null", async () => {
+  assert.equal(apiKeyFormFieldFromPath("user_id"), "userId");
+  assert.equal(apiKeyFormFieldFromPath("label"), "label");
+  assert.equal(apiKeyFormFieldFromPath("validity_days"), "validityDays");
+  // 分页 / 排序参数无对应表单控件：不强行映射（页面在通用错误区呈现）
+  assert.equal(apiKeyFormFieldFromPath("page"), null);
+  assert.equal(apiKeyFormFieldFromPath("page_size"), null);
+  assert.equal(apiKeyFormFieldFromPath("sort"), null);
+  assert.equal(apiKeyFormFieldFromPath("order"), null);
+  // 未知路径 → null
+  assert.equal(apiKeyFormFieldFromPath("unknown"), null);
+});
+
+await test("F017 buildCreateApiKeyInput：恰含 user_id/label/validity_days（Contract §4.3）", async () => {
+  assert.deepEqual(
+    buildCreateApiKeyInput({ userId: "u1", label: "ci-runner", validityDays: 90 }),
+    { user_id: "u1", label: "ci-runner", validity_days: 90 },
+  );
+  assert.deepEqual(
+    buildCreateApiKeyInput({ userId: "u2", label: "backup", validityDays: 365 }),
+    { user_id: "u2", label: "backup", validity_days: 365 },
+  );
 });
 
 // 还原全局状态

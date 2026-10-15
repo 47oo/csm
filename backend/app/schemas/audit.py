@@ -25,6 +25,7 @@ AuditObjectType = Literal[
     "service",
     "service_endpoint",
     "user",
+    "api_key",
 ]
 AuditAction = Literal["CREATE", "UPDATE", "DELETE", "RESTORE"]
 AuditSort = Literal["created_at"]
@@ -42,6 +43,7 @@ class AuditRow(BaseModel):
     object_id: uuid.UUID
     operator_user_id: uuid.UUID | None
     operator_username: str
+    api_key_label: str | None
     before_data: dict | None
     after_data: dict | None
     created_at: datetime
@@ -67,6 +69,7 @@ def build_audit_row(row: AuditLog) -> AuditRow:
         object_id=row.object_id,
         operator_user_id=row.operator_user_id,
         operator_username=row.operator_username,
+        api_key_label=row.api_key_label,
         before_data=row.before_data,
         after_data=row.after_data,
         created_at=row.created_at,
