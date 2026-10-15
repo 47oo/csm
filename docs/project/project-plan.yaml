@@ -3,11 +3,11 @@ project:
   version: V3 phase 1
   requirements:
     path: docs/product/requirements-v3.md
-    revision: 4
-  plan_revision: 5
-  status: DONE
+    revision: 5
+  plan_revision: 6
+  status: ACCEPTED
   approval:
-    plan_revision: 5
+    plan_revision: 6
     feature_ids:
     - F001
     - F002
@@ -26,11 +26,12 @@ project:
     - F015
     - F016
     - F017
+    - F018
     approved_by: 用户
-    approved_on: '2026-10-14'
-    basis: 用户于 2026-10-14 确认 API Key 需求三项决策（引入非 Cookie 机器凭据、绑定现有账号、继承角色且遵循 §23），并回复「按推荐执行」与「批准计划自动实施」：批准
-      docs/project/project-plan.yaml revision 5 全部 F001–F017（新增 F017 API Key 机器凭据，F001–F016
-      保持 DONE），并授权自动实施 F017。确认来源：本次会话用户指令。
+    approved_on: '2026-10-15'
+    basis: 用户于 2026-10-15 确认搜索结果字段组合需求 BQ1–BQ5（仅全局搜索结果、字段集合与多值展开、上限 10 与排序、本地偏好、无导出/视图、关联继承软删与权限），回复「按推荐执行」与「批准并执行」：批准
+      docs/project/project-plan.yaml revision 6 全部 F001–F018（新增 F018 全局搜索字段组合展示，F001–F017
+      保持 DONE），并授权自动实施 F018。确认来源：本次会话用户指令。
   acceptance:
     status: COMPLETE
     evidence:
@@ -1174,6 +1175,44 @@ features:
     - docs/features/F017/test-report.md#test-execution
     review:
     - docs/features/F017/review-report.md
+- id: F018
+  title: 全局搜索字段组合展示
+  kind: FEATURE
+  priority: P1
+  milestone: M9 搜索字段组合
+  scope: 扩展 GET /api/v1/search 的 resource 结果行，按分页结果批量聚合关联 Interface / IPAddress /
+    Network（无 N+1），返回固定超集：关联数组（每个已绑定 IP 一行，含 interface{id,name,interface_type}、ip_address{id,address}、network{id,name}）与截断前总数；确定性排序
+    interface.name ASC → IP 地址数值 ASC → id ASC；每 Resource 上限 10 行；关联严格继承软删与权限口径；前端全局搜索结果增加字段选择器与多值展开，超出显示「还有
+    N 条」，偏好存 localStorage；不改匹配语义、结果集、去重、顶层排序、分页与 total，仍只读无审计，无 Schema/索引/迁移。明确不做：导出、命名/共享视图、各域列表列自定义、账号级服务端偏好、新实体/关系/权限/错误码。
+  acceptance: 通过 T50–T53；resource 行返回关联且排序与上限确定、返回截断前总数；多网卡/多 IP 正确展开、无关联不伪造；关联继承
+    deleted 口径且无 VIEW_DELETED 仍 403；改变展示组合不改变结果集/去重/排序/分页/total；只读无 Audit；既有 F013
+    行为无回归。
+  requirements:
+  - docs/product/requirements-v3.md#171-搜索结果字段组合
+  depends_on:
+  - F013
+  blocking_decisions: []
+  status: READY
+  current_stage: null
+  next_action: null
+  layers:
+    database: false
+    backend: true
+    frontend: true
+  api_required: true
+  not_required:
+    database: 无新表/列/约束/索引/迁移；关联查询命中既有 ix_interfaces_resource_id、ix_ip_addresses_interface_id
+      与 networks PK
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: NOT_REQUIRED
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1288,16 +1327,22 @@ decisions_required:
     行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 pending_changes: []
 execution:
-  mode: null
-  authorization: null
+  mode: SINGLE
+  authorization:
+    plan_revision: 6
+    feature_ids:
+    - F018
+    authorized_by: 用户
+    authorized_on: '2026-10-15'
+    basis: 用户于 2026-10-15 回复「批准并执行」：批准 docs/project/project-plan.yaml revision 6，并授权按
+      .pi/prompts/feature.md 自动实施新增 F018 全局搜索字段组合展示；范围仅 F018，F001–F017 保持 DONE。
   current_feature: null
   current_stage: null
-  last_result: F017 DONE（merge 71ba3dc；review APPROVED WITH FOLLOW-UP）；项目全部 F001–F017
-    交付，project.acceptance=COMPLETE
-  next_action: null
+  last_result: 计划 revision 6 获批（含新增 F018）；F001–F017 仍 DONE、project.acceptance=COMPLETE
+  next_action: 启动 F018：Preflight 后进入 PRODUCT Gate
   repair_rounds: 0
 planning_status:
-  status: DONE
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -1306,8 +1351,9 @@ planning_status:
     DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F018
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []

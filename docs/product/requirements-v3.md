@@ -1,6 +1,6 @@
 # CSM V3 一期需求
 
-版本：V3 phase 1 / revision 4。来源：用户于 2026-10-06 提供的《CSM V3 一期需求说明》，对 Q01–Q10 建议的确认；2026-10-06 对剩余六项建议的明确确认：“按照推荐建议修改这6项”；以及 2026-10-14 确认新增 §23.1 API Key 机器凭据。确认范围与修订记录见 §35.1。
+版本：V3 phase 1 / revision 5。来源：用户于 2026-10-06 提供的《CSM V3 一期需求说明》，对 Q01–Q10 建议的确认；2026-10-06 对剩余六项建议的明确确认：“按照推荐建议修改这6项”；2026-10-14 确认新增 §23.1 API Key 机器凭据；2026-10-15 确认新增 §17.1 搜索结果字段组合。确认范围与修订记录见 §35.1。
 
 本文件是一期范围、产品规则和验收要求的权威来源。原说明正文中的“CSM V1”统一解释为标题指定的“CSM V3 一期”；已确认的 REST 前缀 `/api/v1/` 是独立 API 版本，不随产品版本改成 v3。
 
@@ -221,6 +221,26 @@ CONFIRMED：首页统一搜索入口，至少支持 hostname、IP、Cluster、Se
 
 SN、MAC、Role、GPU Model 搜索为后续扩展，本期不强制。数据库使用 pg_trgm（§26）；GIN Index 为建议方案，具体索引在数据库设计中签核。
 
+### 17.1 搜索结果字段组合（revision 5）
+
+本节为 V3 一期交付后新增范围。
+
+CONFIRMED：全局搜索结果支持使用者**自定义组合展示字段**（仅展示层，不改变查询语义）。使用者可在预定义字段集合内选择要展示的内容；未选择时保持现有展示（无回归）。
+
+CONFIRMED 可组合字段集合：hostname、resource_type、role、status、cluster、Interface name、Interface interface_type、IP address、Network name。其中**「网络类型」按 Network 名称解释**（如管理网 / IB，符合 §33 口径）；需要网卡类型时单独选择 Interface interface_type。
+
+CONFIRMED：`GET /api/v1/search` 的 resource 结果行返回上述字段的固定超集（含关联的 Interface / IPAddress / Network），使前端任意字段组合无需再次请求；单台 Resource 的关联按「每个已绑定 IP 一行」展开，行内包含 Interface name / interface_type、IP address、Network name。
+
+CONFIRMED：关联行的顺序为 `interface.name ASC → IP 地址数值 ASC → id ASC`（确定性全序）；每台 Resource 的关联行展示上限为 10，服务端同时返回截断前总数，超出时界面需显式提示「还有 N 条」，不静默截断。
+
+CONFIRMED 适用边界：
+
+* 仅作用于**全局搜索结果**（§17），不扩展到各域列表页。
+* 组合偏好仅**浏览器本地**保存，不引入账号级服务端偏好；不提供导出或命名/共享视图（本期明确排除）。
+* 关联字段**严格继承结果行的软删口径与权限**：默认 `deleted=exclude` 时不展示已删关联对象；`include`/`only` 需 `VIEW_DELETED`（ADMIN），否则仍 403 `FORBIDDEN{reason:"permission"}`；无 VIEW_DELETED 用户不得见到已删关联。
+* 只改变展示：匹配语义、结果集、去重、顶层排序与分页（含 `total`）与现有行为一致；仍为只读、无写入口、不产生 Audit。
+* 不引入新实体、关系、状态或权限；字段语义沿用 §7、§10、§11、§13 与 F007/F008/F010 各域口径。
+
 ## 18. Resource Detail
 
 CONFIRMED：核心详情页包含 Overview、Hardware、Interfaces、IP Addresses、Virtual Machines、Services、Activity。
@@ -415,6 +435,10 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 | T47 | 吊销后后续请求立即 401；绑定账号停用后其全部 API Key 立即失效 |
 | T48 | API Key 始终具有有效期：请求省略有效期时默认 90 天；提供超过 365 天、0 或负值创建失败；不支持永不过期 |
 | T49 | 引入 API Key 后 Cookie 认证不回归：登录/登出/`/auth/me`、CSRF 同源口径与 401/403 语义与 F002 契约一致 |
+| T50 | 全局搜索 resource 行返回关联 Interface/IP/Network；顺序为 interface.name → IP 数值 → id；每个 Resource 最多 10 行且返回截断前总数 |
+| T51 | 多网卡/多 IP 正确展开；无关联时为空且不伪造；超出上限时界面显式提示「还有 N 条」 |
+| T52 | 关联字段继承软删口径：`exclude` 不展示已删关联；`include`/`only` 无 VIEW_DELETED 仍 403；未绑定 IP 不出现在任何 Resource 关联行 |
+| T53 | 改变展示字段组合不改变结果集、去重、顶层排序、分页与 total；仍只读、不产生 Audit |
 
 还须覆盖查询关系、列表交互、本地登录和初始 ADMIN、时间契约及真实 Compose 部署。D01–D03 专业设计完成后细化对应测试步骤与数据，不把尚未执行的预期写成 PASS。本节定义必须执行的用例，不是已经执行的测试报告。
 
@@ -422,7 +446,7 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 
 CONFIRMED：能创建 Cluster、BareMetal、VM 并关联 Host，维护 Interface / Network / Pool / Service，手动和自动分配 IP；按 hostname / IP / Cluster / Service 找到 Resource；详情显示 Cluster / 硬件 / Interface / IP / Network / VM 或 Host / Service。
 
-能阻止重复 hostname / IP、跨 Cluster Host / IP 绑定及非法 CIDR 地址；提供逻辑删除及 ADMIN 恢复、Audit Log、基础权限、本地登录、编辑版本冲突检查和 CSV / .xlsx 整批新增导入。API Key 机器凭据支持无浏览器认证、按绑定账号角色鉴权、吊销即时生效，且 Cookie 认证不回归。Network / Pool、Endpoint 及恢复行为满足本 revision 的约束，包括地址边界与容量、保留范围/网关并发冲突、Cluster 停用维护、字段单位与名称规则；审计持续保留且纳入备份。一期范围内的全部必需能力不能因优先级低而从上线验收中删除。§31 与以上验收都需真实证据；上线条件不等于自动发布授权。
+能阻止重复 hostname / IP、跨 Cluster Host / IP 绑定及非法 CIDR 地址；提供逻辑删除及 ADMIN 恢复、Audit Log、基础权限、本地登录、编辑版本冲突检查和 CSV / .xlsx 整批新增导入。API Key 机器凭据支持无浏览器认证、按绑定账号角色鉴权、吊销即时生效，且 Cookie 认证不回归。全局搜索支持自定义组合展示字段（含关联网卡 / IP / 网络）。Network / Pool、Endpoint 及恢复行为满足本 revision 的约束，包括地址边界与容量、保留范围/网关并发冲突、Cluster 停用维护、字段单位与名称规则；审计持续保留且纳入备份。一期范围内的全部必需能力不能因优先级低而从上线验收中删除。§31 与以上验收都需真实证据；上线条件不等于自动发布授权。
 
 ## 33. 目标查询场景
 
@@ -443,6 +467,7 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 | revision 2 / 2026-10-06 | 用户在收到 Q01–Q10 推荐规则后回复“按照推荐的建议进行修改”；替代 revision 1 中对应建议/冲突条款 |
 | revision 3 / 2026-10-06 | 用户在收到剩余六项逐项建议后回复“按照推荐建议修改这6项”；确认 Q02-A、Q04-A、Q04-B、Q07-A、Q10-A、Q10-B，替代 revision 2 对这些问题的 OPEN 描述；具体决策索引见 §35.2 |
 | revision 4 / 2026-10-14 | 用户确认新增“API Key 机器凭据”需求：引入非 Cookie 机器凭据并与 Cookie 并存；绑定现有用户账号、不新增账号/角色类型；继承绑定账号角色并完全遵循 §23 权限矩阵、不做 scope-down；审计记录绑定账号 username 与 Key 标签；仅 ADMIN 创建/查看/吊销；明文仅创建响应返回一次；必须设置有效期（默认 90 天、上限 365 天、不支持永不过期）；吊销与账号停用即时失效。新增 §23.1 与 T42–T49，替代此前无机器凭据的范围描述 |
+| revision 5 / 2026-10-15 | 用户确认新增“全局搜索可自定义组合展示字段”：仅作用于全局搜索结果；字段集含 hostname/resource_type/role/status/cluster 与 Interface name/interface_type、IP address、Network name（「网络类型」按 Network 名称解释）；resource 行返回固定超集，关联按每 IP 一行展开，顺序 interface.name→IP 数值→id，每 Resource 上限 10 并返回总数；偏好仅浏览器本地，无导出/命名视图；关联严格继承软删与权限口径；不改匹配/结果集/去重/排序/分页，仍只读。新增 §17.1 与 T50–T53，替代 §17 中无字段组合的描述 |
 
 | 原 ID | 已确认内容所在条款 | 尚需处理的部分 |
 | --- | --- | --- |
@@ -486,8 +511,8 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ## 36. 文档建立状态
 
-> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 4。
+> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 5。
 
-需求基线为 revision 4：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49），作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写 F001–F016 的已 DONE 范围与证据。
+需求基线为 revision 5：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53），均作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写 F001–F016 的已 DONE 范围与证据。
 
 revision 3 的内容继续成立：六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
