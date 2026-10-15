@@ -1132,8 +1132,8 @@ features:
   - F015
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: DATABASE
-  next_action: DATABASE 与 TEST_DESIGN Gate（可并行）
+  current_stage: CONTRACT
+  next_action: CONTRACT Gate：定稿 docs/api/F017.md 并修订 F002/F015 契约，返回 READY FOR IMPLEMENTATION
   git:
     base_branch: codex/v3.1
     branch: feature/F017-api-key
@@ -1146,8 +1146,8 @@ features:
   implementation:
     product: COMPLETE
     architecture: COMPLETE
-    database: PENDING
-    test_design: PENDING
+    database: COMPLETE
+    test_design: COMPLETE
     contract: PENDING
     backend: PENDING
     frontend: PENDING
@@ -1158,6 +1158,10 @@ features:
     - docs/features/F017/product.md
     architecture:
     - docs/features/F017/architecture.md
+    database:
+    - docs/database/f017-api-key.md
+    test_design:
+    - docs/features/F017/test-report.md#test-design
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1283,9 +1287,9 @@ execution:
       5，并授权按 .pi/prompts/feature.md 自动实施新增 F017 API Key 机器凭据；范围仅 F017，F001–F016 保持
       DONE。历史 revision 4 授权（F001–F016，2026-10-06）已完成。
   current_feature: F017
-  current_stage: DATABASE
-  last_result: ARCHITECTURE Gate 完成（READY FOR DESIGN，docs/features/F017/architecture.md）；DR-301–DR-318
-  next_action: F017 DATABASE 与 TEST_DESIGN Gate
+  current_stage: CONTRACT
+  last_result: DATABASE READY FOR DATABASE IMPLEMENTATION（docs/database/f017-api-key.md v1）、TEST DESIGN READY（docs/features/F017/test-report.md TD-1）
+  next_action: F017 CONTRACT Gate
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
