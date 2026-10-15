@@ -4,6 +4,7 @@ import { ServerPagination, StatusTag, SurfaceCard, statusTone } from "./ui/surfa
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { User } from "../api/auth";
 import type { DeletedMode } from "../api/clusters";
+import type { SearchResourceRef } from "../api/search";
 import {
   describeSearchError,
   search,
@@ -19,6 +20,19 @@ import {
   searchFormFieldFromPath,
   type GlobalSearchTypeFilter,
 } from "./globalSearchForm";
+import {
+  GLOBAL_SEARCH_FIELD_OPTIONS,
+  effectiveGlobalSearchFields,
+  fieldSelectionAppliesTo,
+  hasRelatedFields,
+  readGlobalSearchFieldPreference,
+  relatedAvailable,
+  relatedRowViews,
+  relatedTotal,
+  remainingRelatedCount,
+  writeGlobalSearchFieldPreference,
+  type GlobalSearchFieldKey,
+} from "./globalSearchFields";
 
 interface GlobalSearchProps {
   user: User;
@@ -75,11 +89,75 @@ function Highlighted({ text, query }: { text: string; query: string }) {
   );
 }
 
+/**
+ * F018 resource 行关联展开（Contract v2 §2.9）：按生效字段渲染 related 行
+ * （interface name / interface_type、IP、Network，每个已绑定 IP 一行，
+ * 服务端最多返回 10 行且已按固定全序排序）；超限时显式提示
+ * 「还有 N 条」（N = related_total − 展示行数，DR-321/A6，不静默截断）；
+ * 无关联行为空集合时显式空态（不伪造占位行，A5）；related 缺失 / 非数组
+ * （旧后端 v1 响应 / 形状不符）时静默省略本区块（F8 安全回退，不阻断展示）。
+ * 仅在选择了任一关联字段时展开（未选 = F013 展示，A12）。
+ */
+function RelatedSection({
+  resource,
+  fields,
+}: {
+  resource: SearchResourceRef;
+  fields: readonly GlobalSearchFieldKey[];
+}) {
+  if (!hasRelatedFields(fields) || !relatedAvailable(resource)) {
+    return null;
+  }
+  const rows = relatedRowViews(resource);
+  const remaining = remainingRelatedCount(resource);
+  return (
+    <div className="search-related">
+      <span className="search-related-label">关联（每已绑定 IP 一行，最多 10 行）：</span>
+      {rows.length > 0 ? (
+        <ul className="search-related-list">
+          {rows.map((row, index) => (
+            <li key={row.key === "" ? index : row.key}>
+              {fields.includes("interface_name") && (
+                <span>
+                  interface：<span className="mono">{row.interfaceName ?? "—"}</span>
+                </span>
+              )}
+              {fields.includes("interface_type") && (
+                <span>
+                  type：<span className="mono">{row.interfaceType ?? "—"}</span>
+                </span>
+              )}
+              {fields.includes("ip_address") && (
+                <span>
+                  IP：<span className="mono">{row.ipAddress ?? "—"}</span>
+                </span>
+              )}
+              {fields.includes("network_name") && (
+                <span>
+                  network：<span className="mono">{row.networkName ?? "—"}</span>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <span className="unset">无已绑定 IP 关联</span>
+      )}
+      {remaining > 0 && (
+        <span className="search-related-more">
+          还有 {remaining} 条关联未展示（该资源关联共 {relatedTotal(resource)} 条，每台最多展示 10 行）
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** 单条搜索结果行（typed 行，Contract §2.2/§2.3）：类型标签 + 高亮命中值 + 上下文 + 跳转。 */
 function ResultRow({
   item,
   highlightQuery,
   deletedFlag,
+  fields,
   onOpenResource,
   onOpenCluster,
   onOpenNetworkIps,
@@ -87,33 +165,47 @@ function ResultRow({
   item: SearchItem;
   highlightQuery: string;
   deletedFlag: boolean;
+  /** F018 生效字段组合（仅作用 resource 行，DR-327；其余行不消费）。 */
+  fields: readonly GlobalSearchFieldKey[];
   onOpenResource: (id: string, deleted: boolean) => void;
   onOpenCluster: (id: string, deleted: boolean) => void;
   onOpenNetworkIps: (networkId: string) => void;
 }) {
   let main: ReactNode = null;
   let meta: ReactNode = null;
+  let related: ReactNode = null;
   let actions: ReactNode = null;
 
-  if (item.object_type === "resource" && item.resource !== null) {
-    // resource 行仅由 hostname 命中产生（matched_field 恒为 hostname，§2.3）
+  // 字段选择仅作用 resource 行（DR-327/F6）；cluster / ip_address / service
+  // 行展示不因字段选择改变（F013 行为）
+  if (fieldSelectionAppliesTo(item.object_type) && item.resource !== null) {
+    // resource 行仅由 hostname 命中产生（matched_field 恒为 hostname，§2.3）；
+    // F018：按生效字段组合展示（默认 = F013 既有展示，A12）
     const resource = item.resource;
-    main = (
-      <span className="mono search-result-value">
-        <Highlighted text={resource.hostname} query={highlightQuery} />
-      </span>
-    );
+    main =
+      fields.includes("hostname") ? (
+        <span className="mono search-result-value">
+          <Highlighted text={resource.hostname} query={highlightQuery} />
+        </span>
+      ) : null;
     meta = (
       <>
-        <span className="mono">{resource.resource_type}</span>
-        <span>{resource.role}</span>
-        <StatusTag tone={statusTone(resource.status)}>{resource.status}</StatusTag>
-        <span>
-          cluster：<span className="mono">{resource.cluster.code}</span>
-          <span className="unset">（{resource.cluster.name}）</span>
-        </span>
+        {fields.includes("resource_type") && (
+          <span className="mono">{resource.resource_type}</span>
+        )}
+        {fields.includes("role") && <span>{resource.role}</span>}
+        {fields.includes("status") && (
+          <StatusTag tone={statusTone(resource.status)}>{resource.status}</StatusTag>
+        )}
+        {fields.includes("cluster") && (
+          <span>
+            cluster：<span className="mono">{resource.cluster.code}</span>
+            <span className="unset">（{resource.cluster.name}）</span>
+          </span>
+        )}
       </>
     );
+    related = <RelatedSection resource={resource} fields={fields} />;
     actions = (
       <Button type="button" onClick={() => onOpenResource(resource.id, deletedFlag)}>
         查看资源
@@ -226,6 +318,7 @@ function ResultRow({
       <div className="search-result-main">
         {main}
         <div className="search-result-meta">{meta}</div>
+        {related}
       </div>
       <div className="search-result-actions">{actions}</div>
     </li>
@@ -245,7 +338,12 @@ function ResultRow({
  * - Loading / Success / Empty / Error（含未知 reason）显式区分，错误绝不
  *   伪装为空结果；软删可见性开关仅对具 VIEW_DELETED 的角色显示（服务端
  *   仍鉴权，隐藏不替代）；
- * - 只读：无任何新增 / 修改 / 删除 / 恢复入口（A21）。
+ * - 只读：无任何新增 / 修改 / 删除 / 恢复入口（A21）；
+ * - F018 字段组合（Contract v2 §2.9）：Resource 行九字段可选展示（选择器仅
+ *   作用 resource 行，DR-327）+ 关联每已绑定 IP 一行展开（≤ 10 行，超限
+ *   显式提示「还有 N 条」）；偏好仅存浏览器本地（localStorage），读写失败
+ *   静默回退默认展示（= F013，A11/A12）；字段选择不改变查询参数与结果集
+ *   （A9/F7）。
  */
 export default function GlobalSearch({
   user,
@@ -264,6 +362,12 @@ export default function GlobalSearch({
   const [applied, setApplied] = useState<AppliedSearch | null>(null);
   const [state, setState] = useState<SearchState>({ kind: "idle" });
   const [reloadToken, setReloadToken] = useState(0);
+  // F018 字段偏好：null = 无已存偏好（未使用选择器 / 存储不可用 / 偏好损坏），
+  // 展示默认组合；仅在挂载时读取一次（DR-326）
+  const [fieldPreference, setFieldPreference] = useState<GlobalSearchFieldKey[] | null>(() =>
+    readGlobalSearchFieldPreference(),
+  );
+  const selectedFields = effectiveGlobalSearchFields(fieldPreference);
 
   useEffect(() => {
     if (applied === null) {
@@ -341,6 +445,23 @@ export default function GlobalSearch({
     setApplied((current) =>
       current === null ? current : { ...current, pageSize, page: 1 },
     );
+  }
+
+  /**
+   * F018 字段选择：仅改变 resource 行展示（DR-327），不进入查询参数与
+   * applied（A9/F7）；偏好写入 localStorage，失败静默（会话内仍生效，
+   * DR-326）；至少保留一个字段（空选择 = 默认组合，A12，选择器不产生
+   * 无字段状态：最后一个勾选字段禁用取消）。
+   */
+  function changeField(field: GlobalSearchFieldKey, checked: boolean) {
+    const next = checked
+      ? [...selectedFields, field]
+      : selectedFields.filter((key) => key !== field);
+    if (next.length === 0) {
+      return;
+    }
+    setFieldPreference(next);
+    writeGlobalSearchFieldPreference(next);
   }
 
   // 服务端 422 字段错误：q/type 落到输入框下方；其余（deleted/page/page_size/
@@ -425,6 +546,33 @@ export default function GlobalSearch({
         </div>
       )}
 
+      {/* F018 字段选择器：九字段多选，仅作用 resource 结果行（DR-327）；
+          偏好仅浏览器本地，读写失败静默回退（DR-326） */}
+      <fieldset className="search-fields-toggle">
+        <legend>Resource 行展示字段（仅作用 resource 结果行）</legend>
+        <div className="search-fields-options">
+          {GLOBAL_SEARCH_FIELD_OPTIONS.map((option) => {
+            const checked = selectedFields.includes(option.value);
+            return (
+              <label key={option.value} htmlFor={`global-search-field-${option.value}`}>
+                <Input
+                  id={`global-search-field-${option.value}`}
+                  type="checkbox"
+                  checked={checked}
+                  disabled={checked && selectedFields.length === 1}
+                  onChange={(event) => changeField(option.value, event.target.checked)}
+                />
+                {option.label}
+              </label>
+            );
+          })}
+        </div>
+        <p className="unset search-fields-note">
+          偏好仅保存在本浏览器（localStorage），刷新后沿用；未选择时保持默认展示
+          （hostname / 类型 / 角色 / 状态 / 集群）。存储不可用时仅当前会话生效，不影响搜索。
+        </p>
+      </fieldset>
+
       {state.kind === "idle" && (
         <InfoState message="输入关键字后点击「搜索」：hostname / Service name 模糊匹配，IP 整址精确匹配，Cluster code / name 匹配（大小写不敏感，归一化与唯一性同口径）。" />
       )}
@@ -465,6 +613,7 @@ export default function GlobalSearch({
                   item={item}
                   highlightQuery={state.highlightQuery}
                   deletedFlag={state.deletedFlag}
+                  fields={selectedFields}
                   onOpenResource={onOpenResource}
                   onOpenCluster={onOpenCluster}
                   onOpenNetworkIps={onOpenNetworkIps}

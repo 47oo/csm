@@ -1193,8 +1193,8 @@ features:
   - F013
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: IMPLEMENTATION：Backend 与 Frontend 并行（backend/** 与 frontend/**）
+  current_stage: TEST
+  next_action: TEST：Tester 独立执行 T50–T53 与真实 PostgreSQL 验证
   git:
     base_branch: codex/v3.1
     branch: feature/F018-search-columns
@@ -1213,8 +1213,8 @@ features:
     database: NOT_REQUIRED
     test_design: COMPLETE
     contract: COMPLETE
-    backend: PENDING
-    frontend: PENDING
+    backend: COMPLETE
+    frontend: COMPLETE
     test: PENDING
     review: PENDING
   evidence:
@@ -1226,6 +1226,10 @@ features:
     - docs/features/F018/test-report.md#test-design
     contract:
     - docs/api/F013.md
+    backend:
+    - docs/features/F018/implementation.md#backend
+    frontend:
+    - docs/features/F018/implementation.md#frontend
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1350,9 +1354,9 @@ execution:
     basis: 用户于 2026-10-15 回复「批准并执行」：批准 docs/project/project-plan.yaml revision 6，并授权按
       .pi/prompts/feature.md 自动实施新增 F018 全局搜索字段组合展示；范围仅 F018，F001–F017 保持 DONE。
   current_feature: F018
-  current_stage: IMPLEMENTATION
-  last_result: CONTRACT READY FOR IMPLEMENTATION（docs/api/F013.md v2）
-  next_action: F018 IMPLEMENTATION（Backend 与 Frontend 并行）
+  current_stage: TEST
+  last_result: IMPLEMENTATION 完成：Backend BACKEND COMPLETE（真 PG 全套 641 passed/2 skipped）、Frontend FRONTEND COMPLETE（typecheck/build/smoke 285 passed）
+  next_action: F018 TEST
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
