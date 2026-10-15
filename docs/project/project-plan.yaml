@@ -3,34 +3,15 @@ project:
   version: V3 phase 1
   requirements:
     path: docs/product/requirements-v3.md
-    revision: 4
-  plan_revision: 5
-  status: DONE
+    revision: 5
+  plan_revision: 6
+  status: DRAFT
   approval:
-    plan_revision: 5
-    feature_ids:
-    - F001
-    - F002
-    - F003
-    - F004
-    - F005
-    - F006
-    - F007
-    - F008
-    - F009
-    - F010
-    - F011
-    - F012
-    - F013
-    - F014
-    - F015
-    - F016
-    - F017
-    approved_by: 用户
-    approved_on: '2026-10-14'
-    basis: 用户于 2026-10-14 确认 API Key 需求三项决策（引入非 Cookie 机器凭据、绑定现有账号、继承角色且遵循 §23），并回复「按推荐执行」与「批准计划自动实施」：批准
-      docs/project/project-plan.yaml revision 5 全部 F001–F017（新增 F017 API Key 机器凭据，F001–F016
-      保持 DONE），并授权自动实施 F017。确认来源：本次会话用户指令。
+    plan_revision: null
+    feature_ids: []
+    approved_by: null
+    approved_on: null
+    basis: null
   acceptance:
     status: COMPLETE
     evidence:
@@ -1174,6 +1155,44 @@ features:
     - docs/features/F017/test-report.md#test-execution
     review:
     - docs/features/F017/review-report.md
+- id: F018
+  title: 全局搜索字段组合展示
+  kind: FEATURE
+  priority: P1
+  milestone: M9 搜索字段组合
+  scope: 扩展 GET /api/v1/search 的 resource 结果行，按分页结果批量聚合关联 Interface / IPAddress /
+    Network（无 N+1），返回固定超集：关联数组（每个已绑定 IP 一行，含 interface{id,name,interface_type}、ip_address{id,address}、network{id,name}）与截断前总数；确定性排序
+    interface.name ASC → IP 地址数值 ASC → id ASC；每 Resource 上限 10 行；关联严格继承软删与权限口径；前端全局搜索结果增加字段选择器与多值展开，超出显示「还有
+    N 条」，偏好存 localStorage；不改匹配语义、结果集、去重、顶层排序、分页与 total，仍只读无审计，无 Schema/索引/迁移。明确不做：导出、命名/共享视图、各域列表列自定义、账号级服务端偏好、新实体/关系/权限/错误码。
+  acceptance: 通过 T50–T53；resource 行返回关联且排序与上限确定、返回截断前总数；多网卡/多 IP 正确展开、无关联不伪造；关联继承
+    deleted 口径且无 VIEW_DELETED 仍 403；改变展示组合不改变结果集/去重/排序/分页/total；只读无 Audit；既有 F013
+    行为无回归。
+  requirements:
+  - docs/product/requirements-v3.md#171-搜索结果字段组合
+  depends_on:
+  - F013
+  blocking_decisions: []
+  status: DRAFT
+  current_stage: null
+  next_action: null
+  layers:
+    database: false
+    backend: true
+    frontend: true
+  api_required: true
+  not_required:
+    database: 无新表/列/约束/索引/迁移；关联查询命中既有 ix_interfaces_resource_id、ix_ip_addresses_interface_id
+      与 networks PK
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1297,17 +1316,18 @@ execution:
   next_action: null
   repair_rounds: 0
 planning_status:
-  status: DONE
+  status: DRAFT
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 17
-    DRAFT: 0
+    DRAFT: 1
     IN_PROGRESS: 0
     IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: []
+    DRAFT:
+    - F018
