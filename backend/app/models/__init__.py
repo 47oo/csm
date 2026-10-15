@@ -9,6 +9,7 @@ F006 adds ``virtual_machine_details``; F007 adds ``interfaces``; F008 adds
 
 from __future__ import annotations
 
+from app.models.api_key import ApiKey
 from app.models.audit_log import AuditLog
 from app.models.bare_metal_detail import BareMetalDetail
 from app.models.base import Base, SoftDeleteMixin
@@ -25,6 +26,7 @@ from app.models.user import User, UserStatus
 from app.models.virtual_machine_detail import VirtualMachineDetail
 
 __all__ = [
+    "ApiKey",
     "AuditLog",
     "BareMetalDetail",
     "Base",

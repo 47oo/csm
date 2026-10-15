@@ -88,6 +88,8 @@ AUDITABLE_FIELDS: dict[str, tuple[str, ...]] = {
     # F015/O-6: account events. Snapshots are deliberately limited to the
     # non-sensitive profile fields; password material is never auditable.
     "user": ("username", "role", "status"),
+    # F017/DR-316: API Key lifecycle. Never contains ``key_hash``/plaintext.
+    "api_key": ("user_id", "label", "expires_at", "revoked_at"),
 }
 
 
@@ -113,6 +115,7 @@ def record(
     row = AuditLog(
         operator_user_id=operator.user_id if operator is not None else None,
         operator_username=operator.username if operator is not None else "system",
+        api_key_label=operator.api_key_label if operator is not None else None,
         action=action,
         object_type=object_type,
         object_id=object_id,

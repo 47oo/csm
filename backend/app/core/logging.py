@@ -23,6 +23,12 @@ SENSITIVE_FIELDS = frozenset(
         "set-cookie",
         "session",
         "initial_admin_password",
+        # F017/DR-310: API Key credential material never appears in logs.
+        "api_key",
+        "api_key_hash",
+        "key_hash",
+        "plaintext",
+        "bearer",
     }
 )
 
