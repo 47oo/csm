@@ -1193,8 +1193,8 @@ features:
   - F013
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT Gate：确认 §17.1 验收与范围，交 Architect
+  current_stage: ARCHITECTURE
+  next_action: ARCHITECTURE Gate：响应扩展方案、排序/上限/软删口径与 layers
   git:
     base_branch: codex/v3.1
     branch: feature/F018-search-columns
@@ -1208,7 +1208,7 @@ features:
     database: 无新表/列/约束/索引/迁移；关联查询命中既有 ix_interfaces_resource_id、ix_ip_addresses_interface_id
       与 networks PK
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -1217,6 +1217,9 @@ features:
     frontend: PENDING
     test: PENDING
     review: PENDING
+  evidence:
+    product:
+    - docs/features/F018/product.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1341,10 +1344,9 @@ execution:
     basis: 用户于 2026-10-15 回复「批准并执行」：批准 docs/project/project-plan.yaml revision 6，并授权按
       .pi/prompts/feature.md 自动实施新增 F018 全局搜索字段组合展示；范围仅 F018，F001–F017 保持 DONE。
   current_feature: F018
-  current_stage: PRODUCT
-  last_result: F018 Preflight 完成（feature/F018-search-columns，base ce91adb）；project=IN_PROGRESS，进入
-    PRODUCT
-  next_action: F018 PRODUCT Gate
+  current_stage: ARCHITECTURE
+  last_result: PRODUCT Gate 完成（READY FOR ARCHITECT，docs/features/F018/product.md）；无阻塞问题
+  next_action: F018 ARCHITECTURE Gate
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
