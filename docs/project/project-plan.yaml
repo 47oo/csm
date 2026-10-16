@@ -5,13 +5,34 @@ project:
     path: docs/product/requirements-v3.md
     revision: 6
   plan_revision: 7
-  status: DRAFT
+  status: ACCEPTED
   approval:
-    plan_revision: null
-    feature_ids: []
-    approved_by: null
-    approved_on: null
-    basis: null
+    plan_revision: 7
+    feature_ids:
+    - F001
+    - F002
+    - F003
+    - F004
+    - F005
+    - F006
+    - F007
+    - F008
+    - F009
+    - F010
+    - F011
+    - F012
+    - F013
+    - F014
+    - F015
+    - F016
+    - F017
+    - F018
+    - F019
+    approved_by: 用户
+    approved_on: '2026-10-15'
+    basis: 用户于 2026-10-15 确认接口侧选择绑定需求 BQ1–BQ5（仅绑定已存在同 Cluster 未绑定 IP、创建成功后就地绑定、不在流程内新建/自动分配、逐条绑定允许部分成功、本期不做接口侧解绑/转移），先回复「按推荐执行」，再回复「批准并启动」：批准
+      docs/project/project-plan.yaml revision 7 全部 F001–F019（新增 F019 接口侧选择并绑定 IP，F001–F018
+      保持 DONE），并授权自动实施 F019。确认来源：本次会话用户指令。
   acceptance:
     status: COMPLETE
     evidence:
@@ -1237,7 +1258,7 @@ features:
   - F007
   - F010
   blocking_decisions: []
-  status: DRAFT
+  status: READY
   current_stage: null
   next_action: null
   layers:
@@ -1382,18 +1403,18 @@ execution:
   next_action: null
   repair_rounds: 0
 planning_status:
-  status: DRAFT
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 18
-    DRAFT: 1
+    DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F019
   blocked_draft_features:
     BLOCKED: []
-    DRAFT:
-    - F019
+    DRAFT: []
