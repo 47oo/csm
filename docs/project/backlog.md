@@ -26,6 +26,6 @@
 | F018 | 全局搜索字段组合展示 | FEATURE | P1 | DONE | F013 | — | docs/product/requirements-v3.md#171-搜索结果字段组合 |
 | F019 | 接口侧选择并绑定 IP | FEATURE | P1 | DONE | F007, F010 | — | docs/product/requirements-v3.md#134-接口侧选择绑定, docs/product/requirements-v3.md#14-ip-完整性, docs/product/requirements-v3.md#21-逻辑删除 |
 | F020 | 二次确认统一为模态对话框 | FEATURE | P1 | DONE | — | — | docs/product/requirements-v3.md#28-前端 |
-| F021 | Resources 列表页行内删除 | FEATURE | P1 | IN_PROGRESS | F004, F020 | — | docs/product/requirements-v3.md#23-用户与权限, docs/product/requirements-v3.md#28-前端 |
+| F021 | Resources 列表页行内删除 | FEATURE | P1 | IN_REVIEW | F004, F020 | — | docs/product/requirements-v3.md#23-用户与权限, docs/product/requirements-v3.md#28-前端 |
 
-统计：BLOCKED=0；CANCELLED=0；DONE=20；DRAFT=0；IN_PROGRESS=1；IN_REVIEW=0；READY=0。
+统计：BLOCKED=0；CANCELLED=0；DONE=20；DRAFT=0；IN_PROGRESS=0；IN_REVIEW=1；READY=0。
