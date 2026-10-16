@@ -25,11 +25,25 @@ import {
   type InterfaceFormValues,
 } from "./interfaceForm";
 import { parseMetadataText } from "./ClusterForm";
+import { listIpAddresses, type IpAddressListResponse } from "../api/ipAddresses";
+import InterfaceIpBindingPanel from "./InterfaceIpBindingPanel";
+import {
+  buildInterfaceBoundIpsQuery,
+  canOpenInterfaceIpBinding,
+  interfaceIpTotalBoundary,
+  type InterfaceIpBindingSummary,
+} from "./interfaceIpSelection";
 
 /** 接口列表加载状态（分页上限 100，Contract §4）。 */
 type InterfaceListState =
   | { kind: "loading" }
   | { kind: "success"; data: InterfaceListResponse }
+  | { kind: "error"; message: string };
+
+/** 接口已绑定 IP 懒加载缓存状态（按 interface_id 缓存，DR-335；避免逐行 N+1）。 */
+type BoundIpsState =
+  | { kind: "loading" }
+  | { kind: "success"; data: IpAddressListResponse }
   | { kind: "error"; message: string };
 
 /** 面板交互模式：列表 / 创建表单 / 编辑表单。 */
@@ -87,6 +101,14 @@ function interfaceNumber(value: number | null): ReactNode {
  * - 操作按钮按服务端返回的 permissions 显示，隐藏不替代鉴权；所属资源已
  *   软删时隐藏新建 / 恢复入口（服务端确定性拒绝：创建 422 field="resource"、
  *   恢复 409 dependency_deleted），编辑 / 删除未删接口契约未禁止、照常提供。
+ * - 接口侧 IP 绑定（F019，复用 F010 Contract）：未删接口行「绑定 IP」入口仅
+ *   在 WRITE 且未软删时渲染（canOpenInterfaceIpBinding，VIEWER 不显示；
+ *   服务端仍鉴权）；弹层内候选仅同 Cluster、未绑定、未删，跨页多选后逐条
+ *   PATCH {interface,version}，部分成功逐条呈现、不静默重试；
+ * - 接口行「已绑定 IP」懒加载展示（READ，全角色）：
+ *   listIpAddresses({interface_id, deleted:"exclude", sort:"address",
+ *   order:"asc", page_size:100})，按 interface_id 缓存、绑定成功后失效重取；
+ *   total>items 显式提示，不静默截断（DR-335/T56）。
  */
 export default function InterfacesPanel({ resource, user }: InterfacesPanelProps) {
   const canWrite = user.permissions.includes("WRITE");
@@ -107,6 +129,15 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<InterfaceActionError | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+
+  // ---- 接口侧 IP 绑定（F019）----
+
+  /** 绑定弹层目标接口（仅 canOpenInterfaceIpBinding 门控下设置）。 */
+  const [bindingTarget, setBindingTarget] = useState<Interface | null>(null);
+  /** 当前展开「已绑定 IP」展示的接口（懒加载，按需触发）。 */
+  const [boundView, setBoundView] = useState<{ id: string; name: string } | null>(null);
+  /** 已绑定 IP 按接口缓存（DR-335；绑定成功后失效重取，避免逐行 N+1）。 */
+  const [boundIps, setBoundIps] = useState<Record<string, BoundIpsState>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -298,6 +329,122 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
       });
   }
 
+  // ---- 接口侧 IP 绑定（F019，复用 F010 Contract §4/§6.1/§6.5）----
+
+  /** 懒加载某接口的已绑定 IP（DR-335：interface_id + 未删 + address 升序，单页上限 100）。 */
+  function loadBoundIps(interfaceId: string) {
+    setBoundIps((prev) => ({ ...prev, [interfaceId]: { kind: "loading" } }));
+    listIpAddresses(buildInterfaceBoundIpsQuery(interfaceId))
+      .then((data) => {
+        setBoundIps((prev) => ({ ...prev, [interfaceId]: { kind: "success", data } }));
+      })
+      .catch((error: unknown) => {
+        // 加载失败显式呈现、可重试，不伪装成空列表（T56）
+        setBoundIps((prev) => ({
+          ...prev,
+          [interfaceId]: {
+            kind: "error",
+            message: isApiError(error)
+              ? `${error.message}（${error.code ?? `HTTP ${error.status}`}）`
+              : displayError(error),
+          },
+        }));
+      });
+  }
+
+  /** 展开 / 收起某接口的「已绑定 IP」（READ，全角色；未缓存或缓存错误时懒加载）。 */
+  function toggleBoundIps(iface: Interface) {
+    if (boundView?.id === iface.id) {
+      setBoundView(null);
+      return;
+    }
+    setBoundView({ id: iface.id, name: iface.name });
+    const cached = boundIps[iface.id];
+    if (cached === undefined || cached.kind === "error") {
+      loadBoundIps(iface.id);
+    }
+  }
+
+  /** 绑定提交完成（含部分成功）：有成功项才失效该接口已绑定缓存并按需重取（DR-345）。 */
+  function handleBindingCompleted(ifaceId: string, summary: InterfaceIpBindingSummary) {
+    if (summary.succeeded === 0) {
+      return; // 全部失败：服务端状态未变化，缓存不失效
+    }
+    setBoundIps((prev) => {
+      const next = { ...prev };
+      delete next[ifaceId];
+      return next;
+    });
+    if (boundView !== null && boundView.id === ifaceId) {
+      loadBoundIps(ifaceId);
+    }
+  }
+
+  /** 已绑定 IP 展示（懒加载缓存命中即展示；错误可重试，不伪装为空；total>items 提示）。 */
+  function renderBoundIps(interfaceId: string, state: BoundIpsState | undefined) {
+    if (state === undefined || state.kind === "loading") {
+      return <LoadingState label="正在加载该接口已绑定的 IP…" />;
+    }
+    if (state.kind === "error") {
+      return (
+        <ErrorState
+          message={`加载已绑定 IP 失败：${state.message}`}
+          action={
+            <Button type="button" onClick={() => loadBoundIps(interfaceId)}>
+              重试
+            </Button>
+          }
+        />
+      );
+    }
+    const data = state.data;
+    if (data.items.length === 0) {
+      return <EmptyState description="该接口暂无绑定的 IP 地址（未删除口径，非错误）。" />;
+    }
+    return (
+      <>
+        {interfaceIpTotalBoundary(data.total, data.items.length) === "truncated" && (
+          <InfoState
+            message={`该接口已绑定 ${data.total} 个 IP，仅显示前 ${data.items.length} 个（单次加载分页上限 100，不静默截断）。`}
+          />
+        )}
+        <div className="table-wrap">
+          <DataTable className="data-table" aria-label="接口已绑定 IP 列表">
+            <thead>
+              <tr>
+                <th>address</th>
+                <th>network</th>
+                <th>ip_pool（来源）</th>
+                <th>description</th>
+                <th>version</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((ip) => (
+                <tr key={ip.id}>
+                  <td className="mono">{ip.address}</td>
+                  <td>
+                    <span className="mono">{ip.network.name}</span>
+                    <span className="unset">（{ip.network.cidr}）</span>
+                  </td>
+                  <td>
+                    {ip.ip_pool !== null ? (
+                      ip.ip_pool.name
+                    ) : (
+                      <span className="unset">池外（手动）</span>
+                    )}
+                  </td>
+                  <td>{ip.description ?? <span className="unset">—</span>}</td>
+                  <td>{ip.version}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <h3 className="detail-section-title">Interfaces（网络接口）</h3>
@@ -416,6 +563,26 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                             </td>
                           )}
                           <td>
+                            <Button
+                              type="button"
+                              className="link-button"
+                              onClick={() => toggleBoundIps(iface)}
+                            >
+                              {boundView?.id === iface.id ? "收起已绑定 IP" : "已绑定 IP"}
+                            </Button>
+                            {/* 绑定入口仅 WRITE 且接口未软删时渲染（DR-337/DR-338；VIEWER 不显示，服务端仍鉴权） */}
+                            {canOpenInterfaceIpBinding(canWrite, iface.deleted_at) && (
+                              <Button
+                                type="button"
+                                className="link-button"
+                                onClick={() => {
+                                  setFormError(null);
+                                  setBindingTarget(iface);
+                                }}
+                              >
+                                绑定 IP
+                              </Button>
+                            )}
                             {canWrite && iface.deleted_at === null && (
                               <Button
                                 type="button"
@@ -456,6 +623,30 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                 </div>
               </>
             ))}
+
+          {boundView !== null && (
+            <div className="detail-actions">
+              <div className="table-toolbar">
+                <h4>
+                  已绑定 IP — <span className="mono">{boundView.name}</span>
+                  <span className="unset">（interface_id 过滤，未删除口径，按 address 升序；懒加载并按接口缓存）</span>
+                </h4>
+                <span>
+                  <Button
+                    type="button"
+                    onClick={() => loadBoundIps(boundView.id)}
+                    disabled={boundIps[boundView.id]?.kind === "loading"}
+                  >
+                    刷新
+                  </Button>
+                  <Button type="button" onClick={() => setBoundView(null)}>
+                    关闭
+                  </Button>
+                </span>
+              </div>
+              {renderBoundIps(boundView.id, boundIps[boundView.id])}
+            </div>
+          )}
 
           <div className="detail-actions">
             {actionError && (
@@ -557,6 +748,16 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
           onSubmit={handleEditSubmit}
           onCancel={() => setMode({ kind: "list" })}
           onRefresh={refreshAfterConflict}
+        />
+      )}
+
+      {/* F019：接口侧选择并绑定 IP（弹层内完成候选选择与逐条提交；仅未删接口 + WRITE 入口可到达） */}
+      {bindingTarget !== null && (
+        <InterfaceIpBindingPanel
+          iface={{ id: bindingTarget.id, name: bindingTarget.name }}
+          cluster={{ id: resource.cluster.id, code: resource.cluster.code }}
+          onClose={() => setBindingTarget(null)}
+          onCompleted={handleBindingCompleted}
         />
       )}
     </>
