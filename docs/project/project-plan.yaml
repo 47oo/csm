@@ -1259,8 +1259,8 @@ features:
   - F010
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: CONTRACT
-  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
+  current_stage: IMPLEMENTATION
+  next_action: 调用 frontend 实现 F019（候选选择器、逐条绑定、接口侧已绑定展示）
   git:
     base_branch: codex/v3.1
     branch: feature/F019-interface-ip-binding
@@ -1416,9 +1416,9 @@ execution:
     authorized_on: '2026-10-15'
     basis: 用户于 2026-10-15 先回复「按推荐执行」确认 BQ1–BQ5，再回复「批准并启动」，批准计划 revision 7 并授权实施 F019。
   current_feature: F019
-  current_stage: CONTRACT
-  last_result: F019 TEST DESIGN READY（TD-1，AC1–AC7/T54–T58 映射 F019-T01–T13，边界 B1–B20）。
-  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
+  current_stage: IMPLEMENTATION
+  last_result: F019 CONTRACT 签核 READY FOR IMPLEMENTATION（Contract NOT_REQUIRED，见 architecture.md §9）；TEST DESIGN TD-1 READY。
+  next_action: 调用 frontend 实现 F019（候选选择器、逐条绑定、接口侧已绑定展示）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

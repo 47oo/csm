@@ -188,3 +188,15 @@ layers: {database: false, backend: false, frontend: true}
 **结论**：无 Blocking Questions；`READY FOR DESIGN`。下一步 TEST_DESIGN；无 Database Gate；Contract `NOT_REQUIRED`。
 
 GIT: NONE
+---
+
+## 9. 最终设计签核（CONTRACT Gate）
+
+- **签核者**：Architect
+- **结果**：`READY FOR IMPLEMENTATION`
+- **签核版本**：F019 Design v1（本文件）；Contract `NOT_REQUIRED`
+- **核对的 Database**：`NOT_REQUIRED`（无 Schema/Migration；数据行为由 F010 v1 既有约束/触发器承担）
+- **核对的 Test Design**：`docs/features/F019/test-report.md` TD-1
+- **上游依据**：requirements-v3.md revision 6 §13.4（T54–T58）；F019 product v1（AC1–AC7）；project-plan.yaml revision 7（用户 2026-10-15 批准）
+- **覆盖 Feature**：F019
+- **一致性**：AC1–AC7 ↔ T54–T58 ↔ DR-332–DR-345 ↔ F019-T01–T13 无缺口/矛盾；Contract=NOT_REQUIRED、Database=NOT_REQUIRED、Backend=NOT_REQUIRED 均成立；PROPOSED 项不影响正确性与可验收性。
