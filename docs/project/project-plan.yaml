@@ -1259,8 +1259,8 @@ features:
   - F010
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: 调用 architect 产出 F019 Feature 架构设计（docs/features/F019/architecture.md）
+  current_stage: TEST_DESIGN
+  next_action: 调用 tester 产出 F019 测试设计（docs/features/F019/test-report.md#test-design）
   git:
     base_branch: codex/v3.1
     branch: feature/F019-interface-ip-binding
@@ -1278,17 +1278,19 @@ features:
     contract: 无 API 变化，F007/F010 契约不变；最小使用说明落 docs/features/F019/architecture.md
   implementation:
     product: COMPLETE
-    architecture: PENDING
-    database: PENDING
+    architecture: COMPLETE
+    database: NOT_REQUIRED
     test_design: PENDING
-    contract: PENDING
-    backend: PENDING
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
     frontend: PENDING
     test: PENDING
     review: PENDING
   evidence:
     product:
     - docs/features/F019/product.md
+    architecture:
+    - docs/features/F019/architecture.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1412,9 +1414,9 @@ execution:
     authorized_on: '2026-10-15'
     basis: 用户于 2026-10-15 先回复「按推荐执行」确认 BQ1–BQ5，再回复「批准并启动」，批准计划 revision 7 并授权实施 F019。
   current_feature: F019
-  current_stage: ARCHITECTURE
-  last_result: F019 PRODUCT 复用完成（需求澄清报告 + BQ1–BQ5 已确认）；产品文档 docs/features/F019/product.md 就绪。
-  next_action: 调用 architect 产出 F019 Feature 架构设计（docs/features/F019/architecture.md）
+  current_stage: TEST_DESIGN
+  last_result: F019 ARCHITECTURE READY FOR DESIGN（纯前端编排，复用 F010 GET/PATCH；database/backend/contract NOT_REQUIRED）。
+  next_action: 调用 tester 产出 F019 测试设计（docs/features/F019/test-report.md#test-design）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
