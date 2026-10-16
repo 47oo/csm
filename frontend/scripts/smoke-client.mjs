@@ -233,6 +233,15 @@
  *   不自动重试，T06c）、reset（取消 / 关闭释放、重开可再提交，T06b）、
  *   createConfirmCommitGuard 实例隔离（T06d）。
  *
+ * F021 追加（Contract NOT_REQUIRED；docs/features/F021/architecture.md
+ * DR-371/DR-380，前端机制级 M5/M6）：
+ * - src/components/resourceActionMessages.ts（纯逻辑，无 JSX）：资源写操作
+ *   错误明细呈现文案（自 ResourceDetailPage 逐字抽取，行为不变；详情页与
+ *   ResourcesPage 行内删除对话框共用）——referenceItemText（resource=
+ *   「虚拟机（VM）：<label>」、无 label 仅类型、未知 object_type 原样）；
+ *   conflictItemText（cluster / resource 已知文案、未知通用文案）。
+ *   M1–M4 / M7 回归由既有 F004 / F006 / F020 用例覆盖。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -490,6 +499,10 @@ import {
 import {
   createConfirmCommitGuard,
 } from "../src/components/confirmDialogState.ts";
+import {
+  conflictItemText,
+  referenceItemText,
+} from "../src/components/resourceActionMessages.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -7577,6 +7590,41 @@ await test("F020 T06d：实例隔离——多个对话框的守卫互不影响",
   // 重置 second 后可再次占用
   second.reset();
   assert.equal(second.tryBegin(), true);
+});
+
+// ---------- F021 资源操作文案共享模块 机制级（DR-371/DR-380，Contract NOT_REQUIRED） ----------
+
+await test("F021 M5：referenceItemText——resource=「虚拟机（VM）：<label>」、无 label 仅类型、未知 object_type 原样", async () => {
+  assert.equal(typeof referenceItemText, "function");
+  // resource（F006 DR-62：引用来源为未删除的虚拟机，label=VM hostname）
+  assert.equal(
+    referenceItemText({ object_type: "resource", label: "vm001" }),
+    "虚拟机（VM）：vm001",
+  );
+  // 无 label（null）→ 仅类型文案
+  assert.equal(referenceItemText({ object_type: "resource", label: null }), "虚拟机（VM）");
+  // 未知 object_type 原样展示（不伪装成已知类型）；label 拼接 / 缺省两种形态
+  assert.equal(referenceItemText({ object_type: "widget", label: "w1" }), "widget：w1");
+  assert.equal(referenceItemText({ object_type: "widget", label: null }), "widget");
+});
+
+await test("F021 M6：conflictItemText——cluster / resource 已知文案、未知通用文案", async () => {
+  assert.equal(typeof conflictItemText, "function");
+  // cluster（F004：恢复时所属 Cluster 仍软删）
+  assert.equal(
+    conflictItemText({ object_type: "cluster", object_id: "c1" }),
+    "所属集群（c1）仍处于已删除状态，需先恢复该集群后再恢复资源。",
+  );
+  // resource（F006 DR-63：恢复 VM 时宿主机 Host 仍软删 / 缺失，不覆盖新对象）
+  assert.equal(
+    conflictItemText({ object_type: "resource", object_id: "r1" }),
+    "宿主机（Host，r1）仍处于已删除状态或已不存在；需先恢复宿主机后再恢复该虚拟机（恢复不会覆盖宿主机或其上新对象）。",
+  );
+  // 未知 object_type → 通用文案
+  assert.equal(
+    conflictItemText({ object_type: "widget", object_id: "w1" }),
+    "依赖对象 widget（w1）仍处于已删除状态，需先恢复该依赖对象。",
+  );
 });
 
 // 还原全局状态

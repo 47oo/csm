@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 7
   plan_revision: 9
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 9
     feature_ids:
@@ -1378,9 +1378,15 @@ features:
   - F004
   - F020
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: null
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: 调用 reviewer 独立 Review F021 候选（HEAD 冻结）
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F021-resource-list-delete
+    start_commit: 156a5dfdc73673e8acd395c299b2a1745128d8ff
+    head_commit: null
+    merge_commit: null
   layers:
     database: false
     backend: false
@@ -1391,15 +1397,26 @@ features:
     backend: 无服务端改动；复用既有 DELETE /api/v1/resources/{id}
     contract: 无 API 变化；复用既有 F004 v3 契约
   implementation:
-    product: PENDING
-    architecture: PENDING
-    database: PENDING
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
-    frontend: PENDING
-    test: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: COMPLETE
+    test: COMPLETE
     review: PENDING
+  evidence:
+    product:
+    - docs/features/F021/product.md
+    architecture:
+    - docs/features/F021/architecture.md
+    test_design:
+    - docs/features/F021/test-report.md#test-design
+    frontend:
+    - docs/features/F021/implementation.md#frontend
+    test:
+    - docs/features/F021/test-report.md#test-execution
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1516,21 +1533,21 @@ pending_changes: []
 execution:
   mode: SINGLE
   authorization:
-    plan_revision: 8
+    plan_revision: 9
     feature_ids:
-    - F020
+    - F021
     authorized_by: 用户
     authorized_on: '2026-10-15'
-    basis: 用户于 2026-10-15 先确认 F020 范围（含释放 IP 与恢复）「按推荐执行」，再回复「批准」批准计划 revision 8，随后回复「开始实施吧」授权实施
-      F020。
-  current_feature: null
-  current_stage: null
-  last_result: F020 DONE（merge 7e24f45；review APPROVED，repair round 1）；全部 F001–F020
-    交付，project.acceptance=COMPLETE。
-  next_action: null
-  repair_rounds: 1
+    basis: 用户于 2026-10-15 提出在 Resource 列表页添加删除按钮，product-manager 澄清与 Architect 评估无阻塞后，回复「批准并实施」：批准计划
+      revision 9 并授权实施 F021。
+  current_feature: F021
+  current_stage: REVIEW
+  last_result: F021 TEST READY FOR REVIEW（S1–S10 全 PASS；typecheck/build/smoke 299
+    passed；后端全量 664 passed,2 skipped；无缺陷；浏览器 DOM NOT TESTED）。
+  next_action: 调用 reviewer 独立 Review F021 候选（HEAD 冻结）
+  repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -1538,10 +1555,9 @@ planning_status:
     DONE: 20
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F021
+    IN_REVIEW: 1
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
