@@ -1,4 +1,5 @@
 import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, InfoState, LoadingState, SuccessState, WarningState } from "../components/ui/feedback";
 import { ServerPagination as Pagination, StatusTag, SurfaceCard } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
@@ -835,89 +836,87 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <ErrorState message={<div className="form-error">
-                <p>{actionError.message}</p>
-                {Object.keys(actionError.fields).length > 0 && (
-                  <ul>
-                    {Object.entries(actionError.fields).map(([field, message]) => (
-                      <li key={field}>
-                        {field}：{message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((item) => (
-                      <li key={`${item.object_type}-${item.object_id}`}>
-                        引用对象：{item.label ?? item.object_id}（{item.object_type}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {dependencyConflictText(conflict.object_type, conflict.object_id)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </Button>
-                  </p>
-                )}
-              </div>} />
-            )}
-
+          {/* F020：释放 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action !== null}
+            title={action?.kind === "release" ? "释放 IP 地址" : "恢复 IP 地址"}
+            okText={action?.kind === "release" ? "确认释放" : "确认恢复"}
+            danger={action?.kind === "release"}
+            confirmLoading={actionBusy}
+            onConfirm={action?.kind === "release" ? confirmRelease : confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
             {action !== null && (
-              <WarningState message={<div className="inline-confirm">
-                {action.kind === "release" ? (
-                  <span>
-                    确认释放 IP 地址 {action.ipAddress.address}？（软删除释放，不级联；被未删除
-                    Endpoint 引用时将被拒绝；不自动解绑其它对象；同集群内该地址软删后可复用）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复 IP 地址 {action.ipAddress.address}？（仅恢复自身，不级联；将重检同集群
-                    地址唯一、所属网络与绑定接口有效性、地址仍属网络 CIDR，失败不覆盖新对象；
-                    version 递增）
-                  </span>
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    action.kind === "release" ? (
+                      <span>
+                        确认释放 IP 地址 {action.ipAddress.address}？（软删除释放，不级联；被未删除
+                        Endpoint 引用时将被拒绝；不自动解绑其它对象；同集群内该地址软删后可复用）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复 IP 地址 {action.ipAddress.address}？（仅恢复自身，不级联；将重检同集群
+                        地址唯一、所属网络与绑定接口有效性、地址仍属网络 CIDR，失败不覆盖新对象；
+                        version 递增）
+                      </span>
+                    )
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {Object.keys(actionError.fields).length > 0 && (
+                      <ul>
+                        {Object.entries(actionError.fields).map(([field, message]) => (
+                          <li key={field}>
+                            {field}：{message}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((item) => (
+                          <li key={`${item.object_type}-${item.object_id}`}>
+                            引用对象：{item.label ?? item.object_id}（{item.object_type}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.dependencyConflicts.length > 0 && (
+                      <ul>
+                        {actionError.dependencyConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {dependencyConflictText(conflict.object_type, conflict.object_id)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
                 )}
-                <Button
-                  type="button"
-                  danger={action.kind === "release"}
-                  onClick={action.kind === "release" ? confirmRelease : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "release"
-                      ? "正在释放…"
-                      : "正在恢复…"
-                    : action.kind === "release"
-                      ? "确认释放"
-                      : "确认恢复"}
-                </Button>
-                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </Button>
-              </div>} />
+              </div>
             )}
-          </div>
+          </ConfirmDialog>
         </>
       )}
 

@@ -1,4 +1,5 @@
 import { Button, Input, DataTable } from "./ui/controls";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { EmptyState, ErrorState, InfoState, LoadingState, WarningState } from "./ui/feedback";
 import { StatusTag } from "./ui/surfaces";
 import { useEffect, useState, type ReactNode } from "react";
@@ -648,81 +649,79 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
             </div>
           )}
 
-          <div className="detail-actions">
-            {actionError && (
-              <ErrorState message={<div className="form-error">
-                <p>{actionError.message}</p>
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((reference) => (
-                      <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {referenceItemText(reference)}（{reference.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.conflicts.length > 0 && (
-                  <ul>
-                    {actionError.conflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflict.object_type === "resource"
-                          ? `所属资源（${conflict.object_id}）仍处于已删除状态或已不存在`
-                          : `父接口（${conflict.object_id}）仍处于已删除状态或已不存在`}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </Button>
-                  </p>
-                )}
-              </div>} />
-            )}
-
+          {/* F020：删除 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action !== null}
+            title={action?.kind === "delete" ? "删除接口" : "恢复接口"}
+            okText={action?.kind === "delete" ? "确认删除" : "确认恢复"}
+            danger={action?.kind === "delete"}
+            confirmLoading={actionBusy}
+            onConfirm={action?.kind === "delete" ? confirmDelete : confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
             {action !== null && (
-              <WarningState message={<div className="inline-confirm">
-                {action.kind === "delete" ? (
-                  <span>
-                    确认软删除接口 {action.iface.name}？（不级联删除关联对象；同资源内名称软删后可复用；
-                    若仍有未删除的子接口或 IP 引用，将被拒绝并显示引用列表）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复接口 {action.iface.name}？（仅恢复自身，不级联；将重检同资源名称唯一性、
-                    所属资源与父接口有效性，失败不覆盖新对象；version 递增）
-                  </span>
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    action.kind === "delete" ? (
+                      <span>
+                        确认软删除接口 {action.iface.name}？（不级联删除关联对象；同资源内名称软删后可复用；
+                        若仍有未删除的子接口或 IP 引用，将被拒绝并显示引用列表）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复接口 {action.iface.name}？（仅恢复自身，不级联；将重检同资源名称唯一性、
+                        所属资源与父接口有效性，失败不覆盖新对象；version 递增）
+                      </span>
+                    )
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((reference) => (
+                          <li key={`${reference.object_type}-${reference.object_id}`}>
+                            {referenceItemText(reference)}（{reference.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.conflicts.length > 0 && (
+                      <ul>
+                        {actionError.conflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {conflict.object_type === "resource"
+                              ? `所属资源（${conflict.object_id}）仍处于已删除状态或已不存在`
+                              : `父接口（${conflict.object_id}）仍处于已删除状态或已不存在`}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
                 )}
-                <Button
-                  type="button"
-                  danger={action.kind === "delete"}
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </Button>
-                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </Button>
-              </div>} />
+              </div>
             )}
-          </div>
+          </ConfirmDialog>
         </>
       )}
 

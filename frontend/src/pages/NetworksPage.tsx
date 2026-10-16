@@ -1,4 +1,5 @@
 import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, LoadingState, WarningState } from "../components/ui/feedback";
 import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
@@ -655,88 +656,86 @@ export default function NetworksPage({ user }: NetworksPageProps) {
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <ErrorState message={<div className="form-error">
-                <p>{actionError.message}</p>
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((reference) => (
-                      <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {conflictItemText(reference)}（{reference.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.rangeConflicts.length > 0 && (
-                  <ul>
-                    {actionError.rangeConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflictItemText(conflict)}（{conflict.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflictItemText(conflict)}（{conflict.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </Button>
-                  </p>
-                )}
-              </div>} />
-            )}
-
+          {/* F020：删除 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action !== null}
+            title={action?.kind === "delete" ? "删除网络" : "恢复网络"}
+            okText={action?.kind === "delete" ? "确认删除" : "确认恢复"}
+            danger={action?.kind === "delete"}
+            confirmLoading={actionBusy}
+            onConfirm={action?.kind === "delete" ? confirmDelete : confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
             {action !== null && (
-              <WarningState message={<div className="inline-confirm">
-                {action.kind === "delete" ? (
-                  <span>
-                    确认软删除网络 {action.network.name}？（不级联删除关联对象；同集群内名称软删后可复用；
-                    若仍有未删除的地址池或 IP 引用，将被拒绝并显示引用列表）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复网络 {action.network.name}？（仅恢复自身，不级联；将重检同集群名称唯一性、
-                    所属集群有效性与 CIDR 不重叠，失败不覆盖新对象；version 递增）
-                  </span>
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    action.kind === "delete" ? (
+                      <span>
+                        确认软删除网络 {action.network.name}？（不级联删除关联对象；同集群内名称软删后可复用；
+                        若仍有未删除的地址池或 IP 引用，将被拒绝并显示引用列表）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复网络 {action.network.name}？（仅恢复自身，不级联；将重检同集群名称唯一性、
+                        所属集群有效性与 CIDR 不重叠，失败不覆盖新对象；version 递增）
+                      </span>
+                    )
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((reference) => (
+                          <li key={`${reference.object_type}-${reference.object_id}`}>
+                            {conflictItemText(reference)}（{reference.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.rangeConflicts.length > 0 && (
+                      <ul>
+                        {actionError.rangeConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {conflictItemText(conflict)}（{conflict.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.dependencyConflicts.length > 0 && (
+                      <ul>
+                        {actionError.dependencyConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {conflictItemText(conflict)}（{conflict.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
                 )}
-                <Button
-                  type="button"
-                  danger={action.kind === "delete"}
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </Button>
-                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </Button>
-              </div>} />
+              </div>
             )}
-          </div>
+          </ConfirmDialog>
         </>
       )}
 

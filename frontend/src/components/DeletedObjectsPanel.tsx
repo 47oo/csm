@@ -1,4 +1,5 @@
 import { Button, Select, DataTable } from "./ui/controls";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { EmptyState, ErrorState, InfoState, LoadingState, WarningState } from "./ui/feedback";
 import { ServerPagination as Pagination } from "./ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
@@ -279,44 +280,54 @@ export default function DeletedObjectsPanel({ user }: DeletedObjectsPanelProps) 
           </>
         ))}
 
-      <div className="detail-actions">
-        {actionError && (
-          <ErrorState message={<div className="form-error">
-            <p>{actionError.message}</p>
-            {actionError.versionConflict && (
-              <p>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setActionError(null);
-                    setAction(null);
-                    setReloadToken((token) => token + 1);
-                  }}
-                  disabled={actionBusy}
-                >
-                  刷新最新数据
-                </Button>
-              </p>
-            )}
-          </div>} />
-        )}
-
+      {/* F020：恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+      <ConfirmDialog
+        open={action !== null}
+        title={
+          action !== null ? `恢复 ${OBJECT_TYPE_LABELS[action.item.object_type]}` : "恢复"
+        }
+        okText="确认恢复"
+        confirmLoading={actionBusy}
+        onConfirm={confirmRestore}
+        onCancel={() => {
+          setAction(null);
+          setActionError(null);
+        }}
+      >
         {action !== null && (
-          <WarningState message={<div className="inline-confirm">
-            <span>
-              确认恢复 {OBJECT_TYPE_LABELS[action.item.object_type]}
-              「{action.item.label}」？（仅恢复当前对象、不级联；将按该对象类型的
-              既有规则重检唯一性与依赖有效性，失败不覆盖新对象；version 递增）
-            </span>
-            <Button type="button" onClick={confirmRestore} disabled={actionBusy}>
-              {actionBusy ? "正在恢复…" : "确认恢复"}
-            </Button>
-            <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-              取消
-            </Button>
-          </div>} />
+          <div className="detail-actions">
+            <WarningState
+              message={
+                <span>
+                  确认恢复 {OBJECT_TYPE_LABELS[action.item.object_type]}
+                  「{action.item.label}」？（仅恢复当前对象、不级联；将按该对象类型的
+                  既有规则重检唯一性与依赖有效性，失败不覆盖新对象；version 递增）
+                </span>
+              }
+            />
+            {actionError && (
+              <ErrorState message={<div className="form-error">
+                <p>{actionError.message}</p>
+                {actionError.versionConflict && (
+                  <p>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setActionError(null);
+                        setAction(null);
+                        setReloadToken((token) => token + 1);
+                      }}
+                      disabled={actionBusy}
+                    >
+                      刷新最新数据
+                    </Button>
+                  </p>
+                )}
+              </div>} />
+            )}
+          </div>
         )}
-      </div>
+      </ConfirmDialog>
     </div>
   );
 }
