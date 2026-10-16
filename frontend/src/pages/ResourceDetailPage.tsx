@@ -771,7 +771,8 @@ export default function ResourceDetailPage({
                 <WarningState
                   message={
                     <span>
-                      确认软删除该资源？（不级联删除关联对象；软删后同集群 hostname 可被新资源复用
+                      确认软删除资源 {state.resource.hostname}？（不级联删除关联对象；软删后
+                      同集群 hostname 可被新资源复用
                       {state.resource.resource_type === "BARE_METAL"
                         ? "；若仍有未删除的虚拟机（VM）引用本宿主机，将被拒绝并到引用列表）"
                         : ""}
@@ -806,6 +807,7 @@ export default function ResourceDetailPage({
                           type="button"
                           onClick={() => {
                             setActionError(null);
+                            setAction(null);
                             setReloadToken((token) => token + 1);
                           }}
                           disabled={actionBusy}
@@ -835,7 +837,8 @@ export default function ResourceDetailPage({
                 <WarningState
                   message={
                     <span>
-                      确认恢复该资源？（恢复自身，不级联；将重检同集群 hostname 唯一性与所属集群有效性；version 递增）
+                      确认恢复资源 {state.resource.hostname}？（恢复自身，不级联；将重检同集群
+                      hostname 唯一性与所属集群有效性；version 递增）
                     </span>
                   }
                 />
@@ -866,6 +869,7 @@ export default function ResourceDetailPage({
                           type="button"
                           onClick={() => {
                             setActionError(null);
+                            setAction(null);
                             setReloadToken((token) => token + 1);
                           }}
                           disabled={actionBusy}

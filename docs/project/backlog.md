@@ -25,6 +25,6 @@
 | F017 | API Key 机器凭据 | FEATURE | P0 | DONE | F002, F015 | — | docs/product/requirements-v3.md#231-api-key-机器凭据, docs/product/requirements-v3.md#22-audit-log, docs/product/requirements-v3.md#23-用户与权限, docs/product/requirements-v3.md#25-api, docs/product/requirements-v3.md#31-测试, docs/product/requirements-v3.md#32-上线验收 |
 | F018 | 全局搜索字段组合展示 | FEATURE | P1 | DONE | F013 | — | docs/product/requirements-v3.md#171-搜索结果字段组合 |
 | F019 | 接口侧选择并绑定 IP | FEATURE | P1 | DONE | F007, F010 | — | docs/product/requirements-v3.md#134-接口侧选择绑定, docs/product/requirements-v3.md#14-ip-完整性, docs/product/requirements-v3.md#21-逻辑删除 |
-| F020 | 二次确认统一为模态对话框 | FEATURE | P1 | IN_REVIEW | — | — | docs/product/requirements-v3.md#28-前端 |
+| F020 | 二次确认统一为模态对话框 | FEATURE | P1 | IN_PROGRESS | — | — | docs/product/requirements-v3.md#28-前端 |
 
-统计：BLOCKED=0；CANCELLED=0；DONE=19；DRAFT=0；IN_PROGRESS=0；IN_REVIEW=1；READY=0。
+统计：BLOCKED=0；CANCELLED=0；DONE=19；DRAFT=0；IN_PROGRESS=1；IN_REVIEW=0；READY=0。

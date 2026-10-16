@@ -1315,9 +1315,9 @@ features:
   - docs/product/requirements-v3.md#28-前端
   depends_on: []
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: 调用 reviewer 独立 Review F020 候选（HEAD 冻结）
+  status: IN_PROGRESS
+  current_stage: IMPLEMENTATION
+  next_action: 修复完成后重跑 tester 验证（扩展 F020-T02 对象标识判据）；repair round 1
   git:
     base_branch: codex/v3.1
     branch: feature/F020-confirm-modal
@@ -1478,11 +1478,12 @@ execution:
     basis: 用户于 2026-10-15 先确认 F020 范围（含释放 IP 与恢复）「按推荐执行」，再回复「批准」批准计划 revision 8，随后回复「开始实施吧」授权实施
       F020。
   current_feature: F020
-  current_stage: REVIEW
-  last_result: F020 TEST READY FOR REVIEW（S1–S8 全 PASS；typecheck/build/smoke 297 passed；后端全量
-    664 passed,2 skipped；无缺陷；浏览器 DOM NOT TESTED）。
-  next_action: 调用 reviewer 独立 Review F020 候选（HEAD 冻结）
-  repair_rounds: 0
+  current_stage: IMPLEMENTATION
+  last_result: F020 Review CHANGES REQUIRED（REV-F020-1 MEDIUM：ResourceDetailPage/ClusterDetailPage
+    4 处对话框缺 hostname/code；REV-F020-2 测试判据缺口；REV-F020-3 LOW）。已修复 4 处标识 + 统一刷新关闭行为；待重测与重新
+    Review。
+  next_action: 修复完成后重跑 tester 验证（扩展 F020-T02 对象标识判据）；repair round 1
+  repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
@@ -1491,8 +1492,8 @@ planning_status:
     CANCELLED: 0
     DONE: 19
     DRAFT: 0
-    IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_PROGRESS: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:

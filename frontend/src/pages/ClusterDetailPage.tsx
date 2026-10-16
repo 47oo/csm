@@ -334,7 +334,9 @@ export default function ClusterDetailPage({
               <div className="detail-actions">
                 <WarningState
                   message={
-                    <span>确认软删除该集群？（不级联删除关联对象；软删后 code 不可复用）</span>
+                    <span>
+                      确认软删除集群 {state.cluster.code}？（不级联删除关联对象；软删后 code 不可复用）
+                    </span>
                   }
                 />
                 {actionError && (
@@ -355,6 +357,7 @@ export default function ClusterDetailPage({
                           type="button"
                           onClick={() => {
                             setActionError(null);
+                            setAction(null);
                             setReloadToken((token) => token + 1);
                           }}
                           disabled={actionBusy}
@@ -382,7 +385,9 @@ export default function ClusterDetailPage({
             {action === "restore" && (
               <div className="detail-actions">
                 <WarningState
-                  message={<span>确认恢复该集群？（恢复自身，不级联；version 递增）</span>}
+                  message={
+                    <span>确认恢复集群 {state.cluster.code}？（恢复自身，不级联；version 递增）</span>
+                  }
                 />
                 {actionError && (
                   <ErrorState message={<div className="form-error">
@@ -402,6 +407,7 @@ export default function ClusterDetailPage({
                           type="button"
                           onClick={() => {
                             setActionError(null);
+                            setAction(null);
                             setReloadToken((token) => token + 1);
                           }}
                           disabled={actionBusy}
