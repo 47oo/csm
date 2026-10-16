@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 6
   plan_revision: 7
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 7
     feature_ids:
@@ -1258,9 +1258,15 @@ features:
   - F007
   - F010
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: null
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: 调用 product-manager 产出 F019 产品需求与验收（docs/features/F019/product.md）
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F019-interface-ip-binding
+    start_commit: 0db18320fd59ac48cef1c3f86dd41b783b2b2ddd
+    head_commit: null
+    merge_commit: null
   layers:
     database: false
     backend: false
@@ -1394,27 +1400,31 @@ decisions_required:
     行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 pending_changes: []
 execution:
-  mode: null
-  authorization: null
-  current_feature: null
-  current_stage: null
-  last_result: F018 DONE（merge d424440；review APPROVED WITH FOLLOW-UP）；项目全部 F001–F018
-    交付，project.acceptance=COMPLETE
-  next_action: null
+  mode: SINGLE
+  authorization:
+    plan_revision: 7
+    feature_ids:
+    - F019
+    authorized_by: 用户
+    authorized_on: '2026-10-15'
+    basis: 用户于 2026-10-15 先回复「按推荐执行」确认 BQ1–BQ5，再回复「批准并启动」，批准计划 revision 7 并授权实施 F019。
+  current_feature: F019
+  current_stage: PRODUCT
+  last_result: 计划 revision 7 批准（merge 0db1832，F019 READY）；启动 F019，进入 PRODUCT。
+  next_action: 调用 product-manager 产出 F019 产品需求与验收（docs/features/F019/product.md）
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 18
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F019
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
