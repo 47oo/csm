@@ -1316,8 +1316,8 @@ features:
   depends_on: []
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST_DESIGN
-  next_action: 调用 tester 产出 F020 测试设计（docs/features/F020/test-report.md#test-design）
+  current_stage: CONTRACT
+  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
   git:
     base_branch: codex/v3.1
     branch: feature/F020-confirm-modal
@@ -1337,7 +1337,7 @@ features:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
+    test_design: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: PENDING
@@ -1348,6 +1348,8 @@ features:
     - docs/features/F020/product.md
     architecture:
     - docs/features/F020/architecture.md
+    test_design:
+    - docs/features/F020/test-report.md#test-design
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1472,9 +1474,9 @@ execution:
     basis: 用户于 2026-10-15 先确认 F020 范围（含释放 IP 与恢复）「按推荐执行」，再回复「批准」批准计划 revision 8，随后回复「开始实施吧」授权实施
       F020。
   current_feature: F020
-  current_stage: TEST_DESIGN
-  last_result: F020 ARCHITECTURE READY FOR DESIGN（新增共享 ui/ConfirmDialog，11 处内联确认改用；backend/database/contract NOT_REQUIRED）。
-  next_action: 调用 tester 产出 F020 测试设计（docs/features/F020/test-report.md#test-design）
+  current_stage: CONTRACT
+  last_result: F020 TEST DESIGN READY（TD-1，AC1–AC7/T59–T63 映射 F020-T01–T12；采纳 DR-363 纯守卫模块；建议静态断言 + 真浏览器清单）。
+  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
