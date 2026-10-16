@@ -1379,8 +1379,8 @@ features:
   - F020
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST_DESIGN
-  next_action: 调用 tester 产出 F021 测试设计（docs/features/F021/test-report.md#test-design）
+  current_stage: CONTRACT
+  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
   git:
     base_branch: codex/v3.1
     branch: feature/F021-resource-list-delete
@@ -1400,7 +1400,7 @@ features:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
+    test_design: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: PENDING
@@ -1411,6 +1411,8 @@ features:
     - docs/features/F021/product.md
     architecture:
     - docs/features/F021/architecture.md
+    test_design:
+    - docs/features/F021/test-report.md#test-design
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1535,9 +1537,9 @@ execution:
     basis: 用户于 2026-10-15 提出在 Resource 列表页添加删除按钮，product-manager 澄清与 Architect 评估无阻塞后，回复「批准并实施」：批准计划
       revision 9 并授权实施 F021。
   current_feature: F021
-  current_stage: TEST_DESIGN
-  last_result: F021 ARCHITECTURE READY FOR DESIGN（Resources 列表行内删除，复用 ConfirmDialog/deleteResource；抽取共享文案助手；backend/database/contract NOT_REQUIRED）。
-  next_action: 调用 tester 产出 F021 测试设计（docs/features/F021/test-report.md#test-design）
+  current_stage: CONTRACT
+  last_result: F021 TEST DESIGN READY（TD-1，AC1–AC9 映射；静态 S1–S10 + smoke M1–M8 + 集成回归 + 人工浏览器清单）。
+  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
