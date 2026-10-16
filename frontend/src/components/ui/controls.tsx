@@ -52,6 +52,7 @@ export function Input({ type, checked, onChange, ...props }: InputHTMLAttributes
   if (type === "checkbox") {
     return (
       <Checkbox
+        aria-label={props["aria-label"]}
         checked={checked}
         disabled={props.disabled}
         id={props.id}

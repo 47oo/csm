@@ -213,6 +213,18 @@
  *   请求 URL/参数（F7）、related/related_total 缺失/null/形状不符的安全
  *   解析（F8）。
  *
+ * F019 追加（复用 Contract：docs/api/F010.md v1 §4/§6.1/§6.5，Contract
+ * NOT_REQUIRED，前端机制级 IP-F1–F8）：
+ * - src/components/interfaceIpSelection.ts（纯逻辑，无 JSX）：选择集合以
+ *   IP id 为键增删与跨页保留（IP-F1）、候选查询参数恰含 cluster_id/
+ *   bound=false/deleted=exclude/q/分页/sort=address/order=asc（IP-F2）及
+ *   其经 listIpAddresses 的 §6.1 查询串序列化（IP-F3）、已绑定查询
+ *   interface_id+deleted=exclude+address 升序+page_size=100（IP-F4）、提交
+ *   载荷每项恰 {version,interface} 且按地址升序串行不中止/不重试（IP-F5）、
+ *   部分成功汇总不折叠为整体成功（IP-F6）、total 边界 total>items/==items/
+ *   ==0（IP-F7）、权限/软删门控仅 WRITE 且未软删渲染入口（IP-F8，服务端
+ *   仍鉴权）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -453,6 +465,20 @@ import {
   emptyApiKeyFormValues,
   parseApiKeyFormValues,
 } from "../src/components/apiKeyForm.ts";
+import {
+  addInterfaceIpCandidate,
+  buildInterfaceBoundIpsQuery,
+  buildInterfaceIpBindingRequests,
+  buildInterfaceIpCandidateQuery,
+  canOpenInterfaceIpBinding,
+  emptyInterfaceIpSelection,
+  interfaceIpCandidateFromIpAddress,
+  interfaceIpSelectionCandidates,
+  interfaceIpTotalBoundary,
+  removeInterfaceIpCandidate,
+  submitInterfaceIpBindingRequests,
+  summarizeInterfaceIpBindingOutcomes,
+} from "../src/components/interfaceIpSelection.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -7234,6 +7260,261 @@ await test("F017 buildCreateApiKeyInput：恰含 user_id/label/validity_days（C
     buildCreateApiKeyInput({ userId: "u2", label: "backup", validityDays: 365 }),
     { user_id: "u2", label: "backup", validity_days: 365 },
   );
+});
+
+// ---------- F019 接口侧 IP 绑定 机制级（复用 Contract：docs/api/F010.md v1 §4/§6.1/§6.5） ----------
+
+/** F019 候选行最小样本（IPAddress 响应行；interface=null / deleted_at=null 即可绑定候选）。 */
+function f019IpAddressRow(id, address, version = 1) {
+  return {
+    id,
+    network: { id: "net-uuid-1", name: "ib", cidr: "10.10.0.0/16" },
+    cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+    address,
+    interface: null,
+    ip_pool: null,
+    description: null,
+    version,
+    created_at: "2026-10-15T08:00:00Z",
+    updated_at: "2026-10-15T08:00:00Z",
+    deleted_at: null,
+  };
+}
+
+await test("F019 IP-F1：选择集合以 id 为键增删、跨页保留快照、重复选择刷新 version", async () => {
+  let selection = emptyInterfaceIpSelection();
+  assert.equal(selection.size, 0);
+  // 第 1 页选两个（快照恰含 id/address/version）
+  selection = addInterfaceIpCandidate(selection, { id: "ip-1", address: "10.10.1.50", version: 3 });
+  selection = addInterfaceIpCandidate(selection, { id: "ip-2", address: "10.10.1.100", version: 1 });
+  // 第 2 页再选一个：跨页保留（切页 / 改搜索不清空由组件持有同一集合实现）
+  selection = addInterfaceIpCandidate(selection, { id: "ip-3", address: "10.10.1.9", version: 2 });
+  assert.equal(selection.size, 3);
+  assert.deepEqual(selection.get("ip-2"), { id: "ip-2", address: "10.10.1.100", version: 1 });
+  // 重复加入同 id：刷新快照（version 更新后重选以最新为准），不产生重复项
+  selection = addInterfaceIpCandidate(selection, { id: "ip-1", address: "10.10.1.50", version: 4 });
+  assert.equal(selection.size, 3);
+  assert.equal(selection.get("ip-1").version, 4);
+  // 移除未选项：原样返回同一引用
+  assert.equal(removeInterfaceIpCandidate(selection, "ip-x"), selection);
+  // 移除已选项
+  selection = removeInterfaceIpCandidate(selection, "ip-2");
+  assert.equal(selection.size, 2);
+  assert.equal(selection.has("ip-2"), false);
+  // 已选列表按 address 数值升序（9 < 50；字符串序会误判 "50" < "9"，镜像服务端 sort=address）
+  assert.deepEqual(interfaceIpSelectionCandidates(selection).map((item) => item.address), [
+    "10.10.1.9",
+    "10.10.1.50",
+  ]);
+  // 从响应行提取快照：仅 id/address/version
+  assert.deepEqual(interfaceIpCandidateFromIpAddress(f019IpAddressRow("ip-9", "10.10.1.9", 7)), {
+    id: "ip-9",
+    address: "10.10.1.9",
+    version: 7,
+  });
+});
+
+await test("F019 IP-F2：候选查询参数恰含 cluster_id/bound=false/deleted=exclude/q/分页/sort=address/order=asc", async () => {
+  const query = buildInterfaceIpCandidateQuery("c-uuid-1", { q: "  10.10.1. ", page: 2, pageSize: 50 });
+  assert.deepEqual(query, {
+    cluster_id: "c-uuid-1",
+    bound: false,
+    deleted: "exclude",
+    q: "10.10.1.", // trim；空串由 listIpAddresses 视为未提供（F010 §4）
+    page: 2,
+    page_size: 50,
+    sort: "address",
+    order: "asc",
+  });
+  // 恰 8 键：不夹带 network_id/interface_id/ip_pool_id/address 等其它过滤
+  assert.deepEqual(Object.keys(query).sort(), [
+    "bound",
+    "cluster_id",
+    "deleted",
+    "order",
+    "page",
+    "page_size",
+    "q",
+    "sort",
+  ]);
+  // 无 q / 分页缺省：q=""（client 不发）、page=1、page_size=20
+  const defaults = buildInterfaceIpCandidateQuery("c-uuid-1");
+  assert.equal(defaults.q, "");
+  assert.equal(defaults.page, 1);
+  assert.equal(defaults.page_size, 20);
+});
+
+await test("F019 IP-F3：候选查询经 listIpAddresses 序列化为 Contract §6.1 查询串；空白 q 不发", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listIpAddresses(buildInterfaceIpCandidateQuery("c-uuid-1", { q: "10.10.1", page: 2, pageSize: 50 }));
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/ip-addresses?cluster_id=c-uuid-1&bound=false&q=10.10.1&deleted=exclude" +
+      "&page=2&page_size=50&sort=address&order=asc",
+  );
+  assert.equal(calls[0].init.method, "GET");
+  // 纯空白 q：trim 后为空串 → 视为未提供，查询串不含 q（F010 §4）
+  await listIpAddresses(buildInterfaceIpCandidateQuery("c-uuid-1", { q: "   " }));
+  assert.equal(
+    calls[1].url,
+    "/api/v1/ip-addresses?cluster_id=c-uuid-1&bound=false&deleted=exclude" +
+      "&page=1&page_size=20&sort=address&order=asc",
+  );
+});
+
+await test("F019 IP-F4：已绑定查询恰含 interface_id/deleted=exclude/sort=address/order=asc/page=1/page_size=100", async () => {
+  const query = buildInterfaceBoundIpsQuery("if-uuid-1");
+  assert.deepEqual(query, {
+    interface_id: "if-uuid-1",
+    deleted: "exclude",
+    sort: "address",
+    order: "asc",
+    page: 1,
+    page_size: 100,
+  });
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 100, total: 0 });
+  await listIpAddresses(query);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/ip-addresses?interface_id=if-uuid-1&deleted=exclude&page=1&page_size=100" +
+      "&sort=address&order=asc",
+  );
+});
+
+await test("F019 IP-F5：提交载荷每项恰 {version,interface}、按地址升序串行不中止、每项恰一次不重试", async () => {
+  let selection = emptyInterfaceIpSelection();
+  selection = addInterfaceIpCandidate(selection, { id: "ip-a", address: "10.10.1.50", version: 2 });
+  selection = addInterfaceIpCandidate(selection, { id: "ip-b", address: "10.10.1.9", version: 5 });
+  selection = addInterfaceIpCandidate(selection, { id: "ip-c", address: "10.10.1.10", version: 1 });
+  const requests = buildInterfaceIpBindingRequests(selection, "if-uuid-1");
+  // address 数值升序：9 < 10 < 50（提交顺序，架构 §7.1-9）
+  assert.deepEqual(requests.map((item) => item.address), ["10.10.1.9", "10.10.1.10", "10.10.1.50"]);
+  // 每项恰 {id,address,version,interface}（PATCH 载荷 = version + interface，不含 description 等其它键）
+  for (const request of requests) {
+    assert.deepEqual(request, {
+      id: request.id,
+      address: request.address,
+      version: request.version,
+      interface: "if-uuid-1",
+    });
+  }
+
+  // 受控 PATCH：第 1 项（ip-b）409 VERSION_CONFLICT，其余 200 → 串行、不中止、每项恰一次
+  respond = (input) => {
+    const id = String(input).split("/").pop();
+    if (id === "ip-b") {
+      return jsonResponse(409, {
+        error: {
+          code: "VERSION_CONFLICT",
+          message: "Version conflict",
+          details: { current_version: 6 },
+        },
+      });
+    }
+    return jsonResponse(200, { ip_address: f019IpAddressRow(id, "10.10.1.1", 9) });
+  };
+  const outcomes = await submitInterfaceIpBindingRequests(requests, (request) =>
+    updateIpAddress(request.id, { version: request.version, interface: request.interface }),
+  );
+  // 恰一次 / 项，不重试；顺序 = 请求顺序（串行 await，非并行）
+  assert.equal(calls.length, 3);
+  assert.deepEqual(
+    calls.map((call) => call.url),
+    ["/api/v1/ip-addresses/ip-b", "/api/v1/ip-addresses/ip-c", "/api/v1/ip-addresses/ip-a"],
+  );
+  const versionById = new Map(requests.map((request) => [request.id, request.version]));
+  for (const call of calls) {
+    assert.equal(call.init.method, "PATCH");
+    const id = call.url.split("/").pop();
+    // 载荷恰含 version + interface（F010 §6.5 exclude_unset；快照 version 随选择携带）
+    assert.deepEqual(JSON.parse(call.init.body), {
+      version: versionById.get(id),
+      interface: "if-uuid-1",
+    });
+  }
+  // 逐项结果：失败携带原始错误，成功 error=null（409 后不中止其余）
+  assert.deepEqual(outcomes.map((outcome) => outcome.address), ["10.10.1.9", "10.10.1.10", "10.10.1.50"]);
+  assert.deepEqual(
+    outcomes.map((outcome) => outcome.ok),
+    [false, true, true],
+  );
+  assert.ok(isApiError(outcomes[0].error));
+  assert.equal(outcomes[0].error.details.current_version, 6);
+  assert.equal(outcomes[1].error, null);
+  assert.equal(outcomes[2].error, null);
+  // 失败原因呈现复用 describeIpAddressActionError：409 → 刷新重选、不静默重试（T58/AC6）
+  const described = describeIpAddressActionError(outcomes[0].error);
+  assert.equal(described.versionConflict, true);
+  assert.equal(described.currentVersion, 6);
+  assert.ok(described.message.includes("刷新"));
+  assert.ok(described.message.includes("不会自动重试"));
+  // 网络层错误（fetch reject）同样逐项捕获、不伪装成成功
+  const networkOutcomes = await submitInterfaceIpBindingRequests(
+    [requests[1]],
+    () => Promise.reject(new TypeError("Failed to fetch")),
+  );
+  assert.deepEqual(
+    networkOutcomes.map((outcome) => ({ ok: outcome.ok, error: outcome.error?.constructor?.name })),
+    [{ ok: false, error: "TypeError" }],
+  );
+});
+
+await test("F019 IP-F6：部分成功汇总——全成功才整体成功；计数逐项核对；空提交不误报", async () => {
+  // 部分成功：不折叠为整体成功（T55/AC3）
+  assert.deepEqual(
+    summarizeInterfaceIpBindingOutcomes([
+      { id: "a", address: "10.0.0.1", ok: true, error: null },
+      { id: "b", address: "10.0.0.2", ok: false, error: new Error("x") },
+      { id: "c", address: "10.0.0.3", ok: true, error: null },
+    ]),
+    { total: 3, succeeded: 2, failed: 1, allSucceeded: false },
+  );
+  // 全成功 → 整体成功
+  assert.deepEqual(
+    summarizeInterfaceIpBindingOutcomes([
+      { id: "a", address: "10.0.0.1", ok: true, error: null },
+    ]),
+    { total: 1, succeeded: 1, failed: 0, allSucceeded: true },
+  );
+  // 全失败
+  assert.deepEqual(
+    summarizeInterfaceIpBindingOutcomes([
+      { id: "a", address: "10.0.0.1", ok: false, error: new Error("x") },
+    ]),
+    { total: 1, succeeded: 0, failed: 1, allSucceeded: false },
+  );
+  // 空提交：不误报整体成功（提交前由空选择禁用拦截）
+  assert.deepEqual(summarizeInterfaceIpBindingOutcomes([]), {
+    total: 0,
+    succeeded: 0,
+    failed: 0,
+    allSucceeded: false,
+  });
+});
+
+await test("F019 IP-F7：total 边界——total>items 截断 / ==items 完整 / ==0 空态（不静默截断）", async () => {
+  // total>items：显式提示截断（分页上限 100 边界，T56/B 边界 100/101）
+  assert.equal(interfaceIpTotalBoundary(101, 100), "truncated");
+  assert.equal(interfaceIpTotalBoundary(21, 20), "truncated");
+  // total==items：完整
+  assert.equal(interfaceIpTotalBoundary(100, 100), "complete");
+  assert.equal(interfaceIpTotalBoundary(1, 1), "complete");
+  assert.equal(interfaceIpTotalBoundary(0, 0), "empty");
+  // 服务端形状异常防御：total>0 而 items=0（不伪装成完整；按空态呈现，页面另有错误 / 刷新入口）
+  assert.equal(interfaceIpTotalBoundary(5, 0), "empty");
+});
+
+await test("F019 IP-F8：权限 / 软删门控——仅 WRITE 且接口未软删渲染入口（服务端仍鉴权）", async () => {
+  // WRITE + 未删 → 显示
+  assert.equal(canOpenInterfaceIpBinding(true, null), true);
+  // VIEWER（无 WRITE）→ 不显示（直接调用仍被服务端 403 拒绝，F010 §1.3/T57/AC5）
+  assert.equal(canOpenInterfaceIpBinding(false, null), false);
+  // WRITE + 软删接口 → 不显示（已删接口 PATCH 引用关系被 422 field="interface" 拒绝）
+  assert.equal(canOpenInterfaceIpBinding(true, "2026-10-15T08:00:00Z"), false);
+  // 无 WRITE 且软删 → 不显示
+  assert.equal(canOpenInterfaceIpBinding(false, "2026-10-15T08:00:00Z"), false);
 });
 
 // 还原全局状态
