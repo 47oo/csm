@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 7
   plan_revision: 9
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 9
     feature_ids:
@@ -1378,15 +1378,15 @@ features:
   - F004
   - F020
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: 调用 reviewer 独立 Review F021 候选（HEAD 冻结）
+  status: DONE
+  current_stage: null
+  next_action: null
   git:
     base_branch: codex/v3.1
     branch: feature/F021-resource-list-delete
     start_commit: 156a5dfdc73673e8acd395c299b2a1745128d8ff
-    head_commit: null
-    merge_commit: null
+    head_commit: 28622e22e4b8db221e95a5ce309df477b4c2157e
+    merge_commit: 224fe0ff9812180eb7989107ca92f3cfed65ad9e
   layers:
     database: false
     backend: false
@@ -1405,7 +1405,7 @@ features:
     backend: NOT_REQUIRED
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F021/product.md
@@ -1417,6 +1417,8 @@ features:
     - docs/features/F021/implementation.md#frontend
     test:
     - docs/features/F021/test-report.md#test-execution
+    review:
+    - docs/features/F021/review-report.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1540,22 +1542,22 @@ execution:
     authorized_on: '2026-10-15'
     basis: 用户于 2026-10-15 提出在 Resource 列表页添加删除按钮，product-manager 澄清与 Architect 评估无阻塞后，回复「批准并实施」：批准计划
       revision 9 并授权实施 F021。
-  current_feature: F021
-  current_stage: REVIEW
-  last_result: F021 TEST READY FOR REVIEW（S1–S10 全 PASS；typecheck/build/smoke 299
-    passed；后端全量 664 passed,2 skipped；无缺陷；浏览器 DOM NOT TESTED）。
-  next_action: 调用 reviewer 独立 Review F021 候选（HEAD 冻结）
+  current_feature: null
+  current_stage: null
+  last_result: F021 DONE（merge 224fe0f；review APPROVED WITH FOLLOW-UP）；全部 F001–F021
+    交付，project.acceptance=COMPLETE。
+  next_action: null
   repair_rounds: 0
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 20
+    DONE: 21
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
