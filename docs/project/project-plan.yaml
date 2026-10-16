@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 6
   plan_revision: 7
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 7
     feature_ids:
@@ -1258,15 +1258,15 @@ features:
   - F007
   - F010
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: 调用 reviewer 独立 Review F019 候选（HEAD 冻结）
+  status: DONE
+  current_stage: null
+  next_action: null
   git:
     base_branch: codex/v3.1
     branch: feature/F019-interface-ip-binding
     start_commit: 0db18320fd59ac48cef1c3f86dd41b783b2b2ddd
-    head_commit: null
-    merge_commit: null
+    head_commit: f270d283606f35bcd5a5a7a28704a13ab7846d54
+    merge_commit: 2b53e045c120724c5ff5cd81e92c87e16325498e
   layers:
     database: false
     backend: false
@@ -1285,7 +1285,7 @@ features:
     backend: NOT_REQUIRED
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F019/product.md
@@ -1297,6 +1297,8 @@ features:
     - docs/features/F019/implementation.md#frontend
     test:
     - docs/features/F019/test-report.md#test-execution
+    review:
+    - docs/features/F019/review-report.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1419,23 +1421,22 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-15'
     basis: 用户于 2026-10-15 先回复「按推荐执行」确认 BQ1–BQ5，再回复「批准并启动」，批准计划 revision 7 并授权实施 F019。
-  current_feature: F019
-  current_stage: REVIEW
-  last_result: F019 TEST READY FOR REVIEW（真 PG 集成 test_f019_interface_ip_binding.py
-    14 passed；后端全量 664 passed；前端 smoke 293 passed；无必须修复缺陷）。Review 结果为 APPROVED WITH
-    FOLLOW-UP（REV-F019-1/2 NOTE、REV-F019-3 浏览器补验跟进）。
-  next_action: Merge Gate：将批准候选合入 codex/v3.1，保存 Review Report 与最终状态提交
+  current_feature: null
+  current_stage: null
+  last_result: F019 DONE（merge 2b53e04；review APPROVED WITH FOLLOW-UP）；全部 F001–F019
+    交付，project.acceptance=COMPLETE。
+  next_action: null
   repair_rounds: 0
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 18
+    DONE: 19
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
