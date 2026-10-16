@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 7
   plan_revision: 8
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 8
     feature_ids:
@@ -1315,15 +1315,15 @@ features:
   - docs/product/requirements-v3.md#28-前端
   depends_on: []
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: 调用 reviewer 重新 Review F020 修复后候选（HEAD 冻结）
+  status: DONE
+  current_stage: null
+  next_action: null
   git:
     base_branch: codex/v3.1
     branch: feature/F020-confirm-modal
     start_commit: 0bd9e24fa50f80731de2f701df149be7ebe3d246
-    head_commit: null
-    merge_commit: null
+    head_commit: f9f0806706e63c081119fe528bb75a687fb14389
+    merge_commit: 7e24f45787a27cfc32f81c0b59a27480c625ce71
   layers:
     database: false
     backend: false
@@ -1342,7 +1342,7 @@ features:
     backend: NOT_REQUIRED
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F020/product.md
@@ -1354,6 +1354,8 @@ features:
     - docs/features/F020/implementation.md#frontend
     test:
     - docs/features/F020/test-report.md#test-execution
+    review:
+    - docs/features/F020/review-report.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1477,22 +1479,22 @@ execution:
     authorized_on: '2026-10-15'
     basis: 用户于 2026-10-15 先确认 F020 范围（含释放 IP 与恢复）「按推荐执行」，再回复「批准」批准计划 revision 8，随后回复「开始实施吧」授权实施
       F020。
-  current_feature: F020
-  current_stage: REVIEW
-  last_result: F020 repair round 1 复测 READY FOR REVIEW（REV-F020-1/2/3 均关闭；S1–S8 PASS；typecheck/build/smoke
-    297 passed；无缺陷）。
-  next_action: 调用 reviewer 重新 Review F020 修复后候选（HEAD 冻结）
+  current_feature: null
+  current_stage: null
+  last_result: F020 DONE（merge 7e24f45；review APPROVED，repair round 1）；全部 F001–F020
+    交付，project.acceptance=COMPLETE。
+  next_action: null
   repair_rounds: 1
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 19
+    DONE: 20
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
