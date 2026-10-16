@@ -3,35 +3,15 @@ project:
   version: V3 phase 1
   requirements:
     path: docs/product/requirements-v3.md
-    revision: 5
-  plan_revision: 6
-  status: DONE
+    revision: 6
+  plan_revision: 7
+  status: DRAFT
   approval:
-    plan_revision: 6
-    feature_ids:
-    - F001
-    - F002
-    - F003
-    - F004
-    - F005
-    - F006
-    - F007
-    - F008
-    - F009
-    - F010
-    - F011
-    - F012
-    - F013
-    - F014
-    - F015
-    - F016
-    - F017
-    - F018
-    approved_by: 用户
-    approved_on: '2026-10-15'
-    basis: 用户于 2026-10-15 确认搜索结果字段组合需求 BQ1–BQ5（仅全局搜索结果、字段集合与多值展开、上限 10 与排序、本地偏好、无导出/视图、关联继承软删与权限），回复「按推荐执行」与「批准并执行」：批准
-      docs/project/project-plan.yaml revision 6 全部 F001–F018（新增 F018 全局搜索字段组合展示，F001–F017
-      保持 DONE），并授权自动实施 F018。确认来源：本次会话用户指令。
+    plan_revision: null
+    feature_ids: []
+    approved_by: null
+    approved_on: null
+    basis: null
   acceptance:
     status: COMPLETE
     evidence:
@@ -1236,6 +1216,49 @@ features:
     - docs/features/F018/test-report.md#test-execution
     review:
     - docs/features/F018/review-report.md
+- id: F019
+  title: 接口侧选择并绑定 IP
+  kind: FEATURE
+  priority: P1
+  milestone: M10 接口侧 IP 绑定
+  scope: 在 Interface 创建成功后，于接口视图（Resource Detail 的 Interfaces 区域 / 接口列表）内选择并绑定 IP，减少在接口与
+    IP 页面之间跳转。候选仅「同 Cluster、未绑定（interface 为空）且未删除」的 IPAddress；支持按 IP 地址搜索与分页、跨页多选；复用既有
+    GET /api/v1/ip-addresses（cluster_id+bound=false+deleted=exclude+q）与 PATCH /api/v1/ip-addresses/{id}（interface+version）逐条绑定；允许部分成功并逐条呈现成功/失败及原因，不静默重试；接口侧展示已绑定
+    IP（interface_id 过滤，懒加载）。明确不做：新增端点/查询参数、Interface 响应嵌套 IP、批量事务、从接口侧解绑/转移、流程内手动输入或自动分配
+    IP、跨 Cluster 候选；无 Schema/索引/迁移，无契约修订。
+  acceptance: 通过 T54–T58；候选仅同 Cluster 未绑定未删除 IP；多选逐条绑定且各产生 UPDATE Audit、部分失败逐条呈现且不静默重试；空态/错误态显式区分、不静默截断；VIEWER
+    不可绑定且服务端仍拒绝，绑定不改变 IP 占用/address/Network 且不触发 Endpoint 引用拒绝；并发绑定不产生重复绑定（后到者 409
+    VERSION_CONFLICT）；既有 IP 页面手动/自动分配、解绑/转移、容量与 Audit 无回归。
+  requirements:
+  - docs/product/requirements-v3.md#134-接口侧选择绑定
+  - docs/product/requirements-v3.md#14-ip-完整性
+  - docs/product/requirements-v3.md#21-逻辑删除
+  depends_on:
+  - F007
+  - F010
+  blocking_decisions: []
+  status: DRAFT
+  current_stage: null
+  next_action: null
+  layers:
+    database: false
+    backend: false
+    frontend: true
+  api_required: false
+  not_required:
+    database: 无新表/列/约束/索引/迁移；绑定仅置既有可空列 ip_addresses.interface_id，唯一/Cluster 一致性/可分配边界由既有索引与触发器覆盖
+    backend: 无服务端改动；候选与绑定复用既有 GET /api/v1/ip-addresses 与 PATCH /api/v1/ip-addresses/{id}
+    contract: 无 API 变化，F007/F010 契约不变；最小使用说明落 docs/features/F019/architecture.md
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1359,17 +1382,18 @@ execution:
   next_action: null
   repair_rounds: 0
 planning_status:
-  status: DONE
+  status: DRAFT
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 18
-    DRAFT: 0
+    DRAFT: 1
     IN_PROGRESS: 0
     IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: []
+    DRAFT:
+    - F019

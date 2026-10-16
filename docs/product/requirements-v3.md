@@ -195,6 +195,17 @@ CONFIRMED：用户输入 IPv4，系统检查合法性和冲突。允许在 AUTO 
 
 CONFIRMED：解绑只移除 Interface 关系，IP 记录继续占用；释放是软删除 IP 记录，按 ADMIN 删除权限控制。解绑、转移或释放 IP 前必须先处理引用它的 Endpoint。删除后的 IP 可重新分配；恢复旧 IP 时重新检查冲突，不覆盖新占用记录。
 
+### 13.4 接口侧选择绑定（revision 6）
+
+CONFIRMED：在 Interface 创建成功后，可在该 Interface 的视图（Resource Detail 的 Interfaces 区域 / 接口列表）中直接选择 IP 地址并绑定，减少在接口与 IP 页面之间跳转。绑定语义与 IP 侧绑定一致，仅改变发起入口。
+
+* 候选集合：仅「与 Interface 所属 Resource 同 Cluster、当前未绑定任何 Interface（interface 为空）且未删除」的 IPAddress 可被选择；不显示跨 Cluster IP，不显示已绑定到其它 Interface 的 IP。候选可按 IP 地址搜索与分页；界面显式提示总数与分页边界，不静默截断。
+* 绑定时点：在 Interface 创建成功后于接口视图中就地进行；不在创建表单内预先选择，不将 Interface 创建与 IP 绑定合并为同一操作。创建失败不产生绑定；创建成功而绑定失败时 Interface 保留，并如实呈现绑定失败。
+* 范围：仅绑定已存在的未绑定 IP，不在该流程内手动输入新 IP 或发起自动分配；分配入口仍为 §13.1 / §13.2。
+* 批量与部分成功：一次可选择多个候选；绑定逐条提交，允许部分成功；界面逐条呈现成功与失败及原因，不静默重试、不静默覆盖。
+* 权限与完整性：绑定仍按 §23 需 `WRITE`；同 Cluster（§14）、未删除唯一性、Endpoint 引用检查（§16 / §21）及软删口径不因入口方向改变。绑定只编辑 Interface 关系，不改变 IP 的占用、地址与 Network。
+* 本期不提供从接口侧解绑或转移到其它 Interface；解绑 / 转移仍从 IP 侧发起（§13.3）。
+
 ## 14. IP 完整性
 
 CONFIRMED：IP 必须属于关联 Network 的 CIDR。同 Cluster 全局 IP 唯一，即使经不同 Network / Pool 分配也不能重复；不同 Cluster 可使用相同 IP。
@@ -439,6 +450,11 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 | T51 | 多网卡/多 IP 正确展开；无关联时为空且不伪造；超出上限时界面显式提示「还有 N 条」 |
 | T52 | 关联字段继承软删口径：`exclude` 不展示已删关联；`include`/`only` 无 VIEW_DELETED 仍 403；未绑定 IP 不出现在任何 Resource 关联行 |
 | T53 | 改变展示字段组合不改变结果集、去重、顶层排序、分页与 total；仍只读、不产生 Audit |
+| T54 | 接口创建成功后，接口侧候选仅包含同 Cluster、未绑定（interface 为空）且未删除的 IP；跨 Cluster IP、已绑定到其它接口的 IP 与已删除 IP 不出现在候选 |
+| T55 | 从接口侧选择多个候选绑定后，各 IP 的绑定关系与提交一致且各产生 UPDATE Audit；批量部分失败时逐条呈现成功项与失败项及原因，部分成功不显示为整体成功，不静默重试 |
+| T56 | 候选为空显示明确空状态、候选加载失败可重试且不伪装为空列表；候选总数超出单页上限时显式提示而不静默截断 |
+| T57 | VIEWER 不显示绑定入口且直接调用绑定仍被服务端拒绝；绑定不改变 IP 占用、address 与 Network，不触发 Endpoint 引用拒绝 |
+| T58 | 接口侧流程仅绑定：不在该流程内手动输入新 IP 或自动分配；不提供接口侧解绑 / 转移（入口保持 IP 侧）；并发绑定同一候选不产生重复绑定，后到者 409 VERSION_CONFLICT |
 
 还须覆盖查询关系、列表交互、本地登录和初始 ADMIN、时间契约及真实 Compose 部署。D01–D03 专业设计完成后细化对应测试步骤与数据，不把尚未执行的预期写成 PASS。本节定义必须执行的用例，不是已经执行的测试报告。
 
@@ -468,6 +484,7 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 | revision 3 / 2026-10-06 | 用户在收到剩余六项逐项建议后回复“按照推荐建议修改这6项”；确认 Q02-A、Q04-A、Q04-B、Q07-A、Q10-A、Q10-B，替代 revision 2 对这些问题的 OPEN 描述；具体决策索引见 §35.2 |
 | revision 4 / 2026-10-14 | 用户确认新增“API Key 机器凭据”需求：引入非 Cookie 机器凭据并与 Cookie 并存；绑定现有用户账号、不新增账号/角色类型；继承绑定账号角色并完全遵循 §23 权限矩阵、不做 scope-down；审计记录绑定账号 username 与 Key 标签；仅 ADMIN 创建/查看/吊销；明文仅创建响应返回一次；必须设置有效期（默认 90 天、上限 365 天、不支持永不过期）；吊销与账号停用即时失效。新增 §23.1 与 T42–T49，替代此前无机器凭据的范围描述 |
 | revision 5 / 2026-10-15 | 用户确认新增“全局搜索可自定义组合展示字段”：仅作用于全局搜索结果；字段集含 hostname/resource_type/role/status/cluster 与 Interface name/interface_type、IP address、Network name（「网络类型」按 Network 名称解释）；resource 行返回固定超集，关联按每 IP 一行展开，顺序 interface.name→IP 数值→id，每 Resource 上限 10 并返回总数；偏好仅浏览器本地，无导出/命名视图；关联严格继承软删与权限口径；不改匹配/结果集/去重/排序/分页，仍只读。新增 §17.1 与 T50–T53，替代 §17 中无字段组合的描述 |
+| revision 6 / 2026-10-15 | 用户收到接口侧绑定需求「允许在创建接口后选择 IP 地址，减少跳转」及 BQ1–BQ5 选项后回复“按推荐执行”，确认为：在接口创建成功后于接口视图内选择并绑定 IP；候选仅同 Cluster、未绑定且未删除的 IP；仅绑定已存在未绑定 IP，不在该流程内手动输入或自动分配；逐条绑定、允许部分成功并逐条呈现，不静默重试；本期不提供接口侧解绑 / 转移；权限、同 Cluster、唯一性、Endpoint 引用与软删口径不因入口方向改变。新增 §13.4 与 T54–T58 |
 
 | 原 ID | 已确认内容所在条款 | 尚需处理的部分 |
 | --- | --- | --- |
@@ -511,8 +528,8 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ## 36. 文档建立状态
 
-> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 5。
+> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 6。
 
-需求基线为 revision 5：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53），均作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写 F001–F016 的已 DONE 范围与证据。
+需求基线为 revision 6：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53）、revision 6 新增 §13.4 接口侧选择绑定（T54–T58），均作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写 F001–F016 的已 DONE 范围与证据。
 
 revision 3 的内容继续成立：六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
