@@ -118,3 +118,15 @@ layers: {database: false, backend: false, frontend: true}
 **结论**：无 Blocking Questions；Database/Backend/Contract `NOT_REQUIRED`；`READY FOR DESIGN`。
 
 GIT: NONE
+---
+
+## 10. 最终设计签核（CONTRACT Gate）
+
+- **签核者**：Architect；**结果**：`READY FOR IMPLEMENTATION`
+- **签核版本**：F021 Design v1（本文件）；Contract `NOT_REQUIRED`
+- **核对的 Database / Backend**：均 `NOT_REQUIRED`
+- **核对的 Test Design**：`docs/features/F021/test-report.md` TD-1
+- **上游依据**：requirements-v3.md revision 7 §23/§21/§28（T59–T63）；F021 product v1（AC1–AC9）；project-plan.yaml revision 9（用户 2026-10-15 批准）
+- **覆盖 Feature**：F021
+- **PROPOSED 项裁定**：采纳 DR-371/DR-380（共享模块 `resourceActionMessages.ts`）；DR-374 conflicts 防御性渲染保留。
+- **一致性**：AC1–AC9 ↔ T59–T63 ↔ DR-365–DR-381 ↔ T01–T09 无缺口/矛盾；Contract/Database/Backend NOT_REQUIRED 成立。

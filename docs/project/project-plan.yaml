@@ -1379,8 +1379,8 @@ features:
   - F020
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: CONTRACT
-  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
+  current_stage: IMPLEMENTATION
+  next_action: 调用 frontend 实现 F021（抽取共享文案模块 + ResourceDetailPage 改 import + ResourcesPage 行内删除与 ConfirmDialog）
   git:
     base_branch: codex/v3.1
     branch: feature/F021-resource-list-delete
@@ -1537,9 +1537,9 @@ execution:
     basis: 用户于 2026-10-15 提出在 Resource 列表页添加删除按钮，product-manager 澄清与 Architect 评估无阻塞后，回复「批准并实施」：批准计划
       revision 9 并授权实施 F021。
   current_feature: F021
-  current_stage: CONTRACT
-  last_result: F021 TEST DESIGN READY（TD-1，AC1–AC9 映射；静态 S1–S10 + smoke M1–M8 + 集成回归 + 人工浏览器清单）。
-  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
+  current_stage: IMPLEMENTATION
+  last_result: F021 CONTRACT 签核 READY FOR IMPLEMENTATION（Contract/Database/Backend NOT_REQUIRED，见 architecture.md §10）；采纳 DR-371/380。
+  next_action: 调用 frontend 实现 F021（抽取共享文案模块 + ResourceDetailPage 改 import + ResourcesPage 行内删除与 ConfirmDialog）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
