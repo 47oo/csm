@@ -1259,8 +1259,8 @@ features:
   - F010
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST
-  next_action: 调用 tester 执行 F019 集成与机制级验证（F019-T01–T13）
+  current_stage: REVIEW
+  next_action: 调用 reviewer 独立 Review F019 候选（HEAD 冻结）
   git:
     base_branch: codex/v3.1
     branch: feature/F019-interface-ip-binding
@@ -1284,7 +1284,7 @@ features:
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: COMPLETE
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   evidence:
     product:
@@ -1295,6 +1295,8 @@ features:
     - docs/features/F019/test-report.md#test-design
     frontend:
     - docs/features/F019/implementation.md#frontend
+    test:
+    - docs/features/F019/test-report.md#test-execution
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1418,9 +1420,9 @@ execution:
     authorized_on: '2026-10-15'
     basis: 用户于 2026-10-15 先回复「按推荐执行」确认 BQ1–BQ5，再回复「批准并启动」，批准计划 revision 7 并授权实施 F019。
   current_feature: F019
-  current_stage: TEST
-  last_result: F019 FRONTEND COMPLETE（interfaceIpSelection.ts / InterfaceIpBindingPanel.tsx / InterfacesPanel.tsx；typecheck+build+smoke 293 passed）。
-  next_action: 调用 tester 执行 F019 集成与机制级验证（F019-T01–T13）
+  current_stage: REVIEW
+  last_result: F019 TEST READY FOR REVIEW（真 PG 集成 test_f019_interface_ip_binding.py 14 passed；后端全量 664 passed；前端 smoke 293 passed；无必须修复缺陷）。
+  next_action: 调用 reviewer 独立 Review F019 候选（HEAD 冻结）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
