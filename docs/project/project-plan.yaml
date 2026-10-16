@@ -1259,8 +1259,8 @@ features:
   - F010
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: 调用 product-manager 产出 F019 产品需求与验收（docs/features/F019/product.md）
+  current_stage: ARCHITECTURE
+  next_action: 调用 architect 产出 F019 Feature 架构设计（docs/features/F019/architecture.md）
   git:
     base_branch: codex/v3.1
     branch: feature/F019-interface-ip-binding
@@ -1277,7 +1277,7 @@ features:
     backend: 无服务端改动；候选与绑定复用既有 GET /api/v1/ip-addresses 与 PATCH /api/v1/ip-addresses/{id}
     contract: 无 API 变化，F007/F010 契约不变；最小使用说明落 docs/features/F019/architecture.md
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: PENDING
     test_design: PENDING
@@ -1286,6 +1286,9 @@ features:
     frontend: PENDING
     test: PENDING
     review: PENDING
+  evidence:
+    product:
+    - docs/features/F019/product.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1409,9 +1412,9 @@ execution:
     authorized_on: '2026-10-15'
     basis: 用户于 2026-10-15 先回复「按推荐执行」确认 BQ1–BQ5，再回复「批准并启动」，批准计划 revision 7 并授权实施 F019。
   current_feature: F019
-  current_stage: PRODUCT
-  last_result: 计划 revision 7 批准（merge 0db1832，F019 READY）；启动 F019，进入 PRODUCT。
-  next_action: 调用 product-manager 产出 F019 产品需求与验收（docs/features/F019/product.md）
+  current_stage: ARCHITECTURE
+  last_result: F019 PRODUCT 复用完成（需求澄清报告 + BQ1–BQ5 已确认）；产品文档 docs/features/F019/product.md 就绪。
+  next_action: 调用 architect 产出 F019 Feature 架构设计（docs/features/F019/architecture.md）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
