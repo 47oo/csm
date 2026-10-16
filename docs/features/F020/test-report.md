@@ -147,9 +147,11 @@ None。未发现 BLOCKER/HIGH/MEDIUM/LOW 缺陷；无必须修复项。
 | --- | --- | --- |
 | F020-ISSUE-1 | 人工浏览器清单（弹层/遮罩/Esc/双击/焦点/loading/权限 UI）合并前应在真实浏览器上执行确认（TD-1 §5 / architecture §6.3） | 协调器 / Frontend |
 
-## H. 结论
+## H. 结论（TE-1）
 
 **`READY FOR REVIEW`**：全部机器可执行验收项（S1–S8、前端三命令、真 PG 回归）通过，无必须修复缺陷；浏览器 DOM 交互按 TD-1 声明为不可机测项并如实标 **NOT TESTED** 及替代证据。本报告不批准合并。
+
+> 后续：Review 阶段判定 CHANGES REQUIRED（REV-F020-1/2/3），本 TE-1 结论已被下方「Repair round 1」复测取代；TE-1 记录与证据保留不改。
 
 GIT: git status --short
 GIT: git rev-parse --short HEAD
@@ -160,3 +162,112 @@ GIT: git diff ef28edf^ ef28edf -- frontend/src/index.css
 GIT: git diff ef28edf^ ef28edf -- frontend/src/pages frontend/src/components
 GIT: git diff --name-only ef28edf^ ef28edf -- backend/tests
 GIT: git status --porcelain --ignored frontend/dist
+
+---
+
+# Test Execution — Repair round 1（TE-2）
+
+- **版本**：TE-2（repair round 1，2026-10-15）
+- **结论**：**`READY FOR REVIEW`**（残留浏览器 DOM 项仍标 NOT TESTED；本报告不批准合并，Merge Gate 由协调器执行）
+- **执行对象**：F020 修复提交 `483102c`（`feature/F020-confirm-modal`），工作区干净
+- **Base**：`codex/v3.1` = `0bd9e24`；前次候选 `ef28edf` / 前次测试 `33a9a33`
+- **复测范围**：Review 缺陷 REV-F020-1（MEDIUM，4 处对话框缺对象标识，已修复）与 REV-F020-2（F020-T02 判据缺口，本轮扩展）；REV-F020-3（LOW，刷新按钮未关闭对话框，已同轮统一）一并核对。
+- **Basis**：Test Design TD-1；`product.md` v1（AC1–AC7）；`architecture.md` DR-346–DR-364（DR-361：`title`「<操作> <对象类型>」，正文保留对象标识/软删/引用提示）；需求 revision 7 §28/§31（T59–T63，T60/T62 要求对话框含**对象标识**）。Contract/Database/Backend `NOT_REQUIRED`。
+
+## R1. REV-F020-1 独立核对（修复：对话框正文含当前对象标识）
+
+修复提交 `483102c` 仅改动 `frontend/src/pages/ResourceDetailPage.tsx` 与 `ClusterDetailPage.tsx`（`git diff --name-only 33a9a33 483102c -- frontend`，无其他前端源文件）。逐处核对：
+
+| 位置 | 操作 | title | 正文对象标识 | 结果 |
+| --- | --- | --- | --- | --- |
+| `ResourceDetailPage.tsx:757` | 删除资源 | 删除资源 | `确认软删除资源 {state.resource.hostname}？…`（保留软删/引用提示；BARE_METAL 追加 VM 引用说明） | **PASS** |
+| `ResourceDetailPage.tsx:824` | 恢复资源 | 恢复资源 | `确认恢复资源 {state.resource.hostname}？…`（保留重检说明） | **PASS** |
+| `ClusterDetailPage.tsx:321` | 删除集群 | 删除集群 | `确认软删除集群 {state.cluster.code}？…`（保留不级联/code 不可复用说明） | **PASS** |
+| `ClusterDetailPage.tsx:374` | 恢复集群 | 恢复集群 | `确认恢复集群 {state.cluster.code}？…`（保留不级联/version 递增说明） | **PASS** |
+
+REV-F020-1 的 4 处缺标识已全部补齐，文案与危险样式（删除 `danger`、恢复非 `danger`）及既有软删/引用提示无删减。
+
+## R2. REV-F020-3 核对（刷新按钮关闭对话框）
+
+全部 11 处「刷新最新数据」按钮点击回调均含 `setActionError(null)` + `setAction(null)` + `setReloadToken(…)`（`setAction(null)` 关闭对话框）；ApiKey 的「刷新列表」对应 `setRevokeTarget(null)` 关闭对话框。与其余 7 处一致。
+
+位置：`NetworksPage:723`、`IpPoolsPage:679`、`ResourceDetailPage:813/875`、`IpAddressesPage:904`、`ServicesPage:739`、`ClusterDetailPage:363/413`、`DeletedObjectsPanel:315`、`InterfacesPanel:709`、`ServiceEndpointsPanel:594`（11 处）；`ApiKeyManagementPanel:695`（刷新列表）。**PASS**
+
+## R3. F020-T02 判据扩展（REV-F020-2：逐一核对全部 ConfirmDialog 使用点）
+
+对全部 12 个 `<ConfirmDialog` 使用点逐一核对 `title`/正文是否含对象标识或可接受的操作对象描述：
+
+| # | 位置 | 操作 | title | 正文对象标识 | 结果 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `NetworksPage:660` | 删除/恢复网络 | 删除网络 / 恢复网络 | `action.network.name` | **PASS** |
+| 2 | `IpPoolsPage:603` | 删除/恢复地址池 | 删除地址池 / 恢复地址池 | `action.ipPool.name` | **PASS** |
+| 3 | `ResourceDetailPage:757` | 删除资源 | 删除资源 | `state.resource.hostname` | **PASS** |
+| 4 | `ResourceDetailPage:824` | 恢复资源 | 恢复资源 | `state.resource.hostname` | **PASS** |
+| 5 | `IpAddressesPage:840` | 释放/恢复 IP | 释放 IP 地址 / 恢复 IP 地址 | `action.ipAddress.address` | **PASS** |
+| 6 | `ServicesPage:674` | 删除/恢复服务 | 删除服务 / 恢复服务 | `action.service.name` | **PASS** |
+| 7 | `ClusterDetailPage:321` | 删除集群 | 删除集群 | `state.cluster.code` | **PASS** |
+| 8 | `ClusterDetailPage:374` | 恢复集群 | 恢复集群 | `state.cluster.code` | **PASS** |
+| 9 | `DeletedObjectsPanel:284` | 恢复已删对象 | `恢复 <对象类型>` | `「{action.item.label}」`（+ 对象类型） | **PASS** |
+| 10 | `ApiKeyManagementPanel:663` | 吊销 API Key | 吊销 API Key | `「{revokeTarget.label}」`（+ 绑定账号 `username`、状态） | **PASS** |
+| 11 | `InterfacesPanel:653` | 删除/恢复接口 | 删除接口 / 恢复接口 | `action.iface.name` | **PASS** |
+| 12 | `ServiceEndpointsPanel:524` | 删除/恢复监听端点 | 删除监听端点 / 恢复监听端点 | `endpointLabel(action.endpoint)` | **PASS** |
+
+12/12 均含对象标识或可接受的操作对象描述（第 9/10 处为名称+类型/名称+账号+状态，符合 DR-361）。**未发现遗漏，无新增缺陷放行阻塞。** 前次 TE-1 因未逐一核对对象标识而将 AC2 判为 PASS 的判据缺口（REV-F020-2）已在本轮闭合。
+
+## R4. 静态断言 S1–S8 复跑
+
+| ID | 判据 | 实际 | 结果 |
+| --- | --- | --- | --- |
+| S1 | `frontend/src` 内 `.inline-confirm` 命中=0 | 0（`grep` 退出码 1，无匹配） | **PASS** |
+| S2 | `index.css` 不含 `.inline-confirm` | `grep -c` → 0 | **PASS** |
+| S3 | `<ConfirmDialog` 使用点=12 | 12 | **PASS** |
+| S4 | `onCancel` → `setAction(null)`+清 `actionError`，不发请求 | 11 处 `setAction(null)`+`setActionError(null)`，ApiKey 为 `closeRevoke`；无请求调用 | **PASS** |
+| S5 | `onConfirm` 指向既有 `confirmDelete/confirmRelease/confirmRestore/confirmRevoke` | 12 处逐项核对通过 | **PASS** |
+| S6 | `WarningState` 仍导出且被非本 Feature 引用 | `ui/feedback.tsx` 导出；11 文件引用 | **PASS** |
+| S7 | 无新增 client 调用/请求构造改动；`confirm*` 未改 | `git diff --name-only 0bd9e24 483102c -- frontend/src/api backend docs/api` 为空 | **PASS** |
+| S8 | `ConfirmDialog` 不 import `../api/*`、不持业务状态、不构造请求 | 仅 import `antd`、`react`、`../confirmDialogState.ts` | **PASS** |
+
+## R5. 前端三命令（独立复跑，对象 `483102c`）
+
+| 命令 | 结果 |
+| --- | --- |
+| `npm run typecheck` | PASS（`tsc --noEmit` 无输出） |
+| `npm run build` | PASS（1601 modules，`built in 16.41s`；仅 chunk>500kB 既有告警） |
+| `npm run smoke:client` | **297 passed, 0 failed**（含 F020 T06a–T06d） |
+
+## R6. 后端回归
+
+`git diff --name-only 0bd9e24 483102c -- backend docs/api frontend/src/api` 输出为空；`git log --oneline 0bd9e24..483102c -- frontend/src/api` 为空。本次修复无后端 / API / Contract 改动，删除/释放/恢复端点与载荷逐字复用，无需重复全量真 PG 回归（TE-1 全量 664 passed,2 skipped 仍有效，未被本修复触及）。
+
+## R7. 验收映射更新（AC2）
+
+| 验收 / 条款 | 前次（TE-1） | 本轮（TE-2） | 说明 |
+| --- | --- | --- | --- |
+| AC2 / T60 / T62 | PASS（判据缺口，未逐一核对对象标识） | **PASS（判据已闭合）** | 12/12 ConfirmDialog 均含对象标识/可接受描述；4 处新增标识；danger/okText 与操作对应 |
+| AC1 / T59 / S1–S3 | PASS | **PASS** | 内联 0 残留、CSS 删除、12 处对话框 |
+| AC3 / T62 / T63 / S7 + smoke | PASS | **PASS** | client/api 零改动；`confirm*` 未改；297 smoke |
+| AC4–AC7 | PASS（机制级/后端）或 NOT TESTED（浏览器） | 维持不变 | 本轮未触及交互接线；浏览器项见下 |
+
+## R8. 未验证项（NOT TESTED，维持）
+
+弹层/遮罩渲染、取消/Esc/遮罩/双击/loading 事件接线、焦点捕获与归还、真浏览器→真实 API 端到端、浏览器权限 UI 均仍为 **NOT TESTED**（本仓库无 DOM/E2E 工具，TD-1 §6 预先列为不可机测项；替代证据同 TE-1 §E）。本轮新增标识/关闭行为仅为静态文案与回调核对，未在真实浏览器触发。
+
+## R9. Defects
+
+None。REV-F020-1（MEDIUM）与 REV-F020-3（LOW）经独立核对确认已修复；REV-F020-2 判据缺口已闭合，未发现新缺陷。
+
+## R10. 结论
+
+**`READY FOR REVIEW`**：REV-F020-1/2/3 已独立验证关闭；S1–S8、前端三命令（297 passed）通过；无后端改动；无必须修复缺陷。浏览器 DOM 项如实标 NOT TESTED 并保留替代证据。本报告不批准合并。
+
+GIT: git log --oneline -8
+GIT: git status --short
+GIT: git rev-parse --short HEAD
+GIT: git branch --show-current
+GIT: git show --stat --oneline 483102c
+GIT: git diff 33a9a33 483102c
+GIT: git diff --stat 0bd9e24 483102c -- frontend/src/api backend/ docs/api
+GIT: git log --oneline 0bd9e24..483102c -- frontend/src/api
+GIT: git diff --name-only 33a9a33 483102c -- frontend
+GIT: git diff --name-only 0bd9e24 483102c -- backend docs/api frontend/src/api
+GIT: git status --porcelain
