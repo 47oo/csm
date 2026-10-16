@@ -5,13 +5,35 @@ project:
     path: docs/product/requirements-v3.md
     revision: 7
   plan_revision: 8
-  status: DRAFT
+  status: ACCEPTED
   approval:
-    plan_revision: null
-    feature_ids: []
-    approved_by: null
-    approved_on: null
-    basis: null
+    plan_revision: 8
+    feature_ids:
+    - F001
+    - F002
+    - F003
+    - F004
+    - F005
+    - F006
+    - F007
+    - F008
+    - F009
+    - F010
+    - F011
+    - F012
+    - F013
+    - F014
+    - F015
+    - F016
+    - F017
+    - F018
+    - F019
+    - F020
+    approved_by: 用户
+    approved_on: '2026-10-15'
+    basis: 用户于 2026-10-15 反馈「删除的二次确认做弹出框，不在下面显示，容易看不到」，并就范围（是否含释放 IP、是否含恢复）回复「按推荐执行」，随后回复「批准」：批准
+      docs/project/project-plan.yaml revision 8 全部 F001–F020（新增 F020 二次确认统一为模态对话框，F001–F019
+      保持 DONE）。确认来源：本次会话用户指令。
   acceptance:
     status: COMPLETE
     evidence:
@@ -1293,7 +1315,7 @@ features:
   - docs/product/requirements-v3.md#28-前端
   depends_on: []
   blocking_decisions: []
-  status: DRAFT
+  status: READY
   current_stage: null
   next_action: null
   layers:
@@ -1444,18 +1466,18 @@ execution:
   next_action: null
   repair_rounds: 0
 planning_status:
-  status: DRAFT
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 19
-    DRAFT: 1
+    DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F020
   blocked_draft_features:
     BLOCKED: []
-    DRAFT:
-    - F020
+    DRAFT: []
