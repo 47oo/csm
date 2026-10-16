@@ -1,13 +1,17 @@
 import { Button, Input, Select, DataTable } from "../components/ui/controls";
-import { EmptyState, ErrorState, LoadingState } from "../components/ui/feedback";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
+import { EmptyState, ErrorState, LoadingState, WarningState } from "../components/ui/feedback";
 import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import {
+  deleteResource,
+  describeResourceActionError,
   listResources,
   type DeletedMode,
   type Resource,
+  type ResourceActionError,
   type ResourceListResponse,
   type ResourceRole,
   type ResourceSortField,
@@ -15,6 +19,7 @@ import {
   type ResourceType,
   type SortOrder,
 } from "../api/resources";
+import { conflictItemText, referenceItemText } from "../components/resourceActionMessages.ts";
 import ResourceImportPanel from "../components/ResourceImportPanel";
 
 interface ResourcesPageProps {
@@ -74,12 +79,15 @@ const SORT_COLUMNS: { field: ResourceSortField; label: string }[] = [
  * - Loading / Success / Empty / Error 显式区分：错误绝不伪装成空列表；
  * - 403（如无 VIEW_DELETED 却请求 include/only）/ 422 / 500 明确呈现并允许重试；
  * - F014：工具栏提供 CSV / .xlsx 批量导入入口（仅 IMPORT 权限显示，服务端仍
- *   鉴权；面板内预校验 → 确认导入，成功后刷新列表）。
+ *   鉴权；面板内预校验 → 确认导入，成功后刷新列表）；
+ * - F021：行内单行删除入口（仅 DELETE_OBJECT 且未删行显示；复用详情页删除
+ *   语义与 ConfirmDialog 二次确认；409 引用 / 版本冲突在对话框内呈现）。
  */
 export default function ResourcesPage({ user, onOpenResource, onCreate }: ResourcesPageProps) {
   const canViewDeleted = user.permissions.includes("VIEW_DELETED");
   const canWrite = user.permissions.includes("WRITE");
   const canImport = user.permissions.includes("IMPORT");
+  const canDelete = user.permissions.includes("DELETE_OBJECT");
   const [showImport, setShowImport] = useState(false);
 
   const [query, setQuery] = useState<AppliedQuery>(DEFAULT_QUERY);
@@ -92,6 +100,11 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
     status: DEFAULT_QUERY.status,
   });
   const [state, setState] = useState<ListState>({ kind: "loading" });
+  const [action, setAction] = useState<{ kind: "delete"; resource: Resource } | null>(
+    null,
+  ); // 二次确认中
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<ResourceActionError | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
@@ -130,6 +143,36 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
       cancelled = true;
     };
   }, [query, reloadToken]);
+
+  // ---- 删除（软删，DELETE_OBJECT，Contract §6.5；F021 行内入口）----
+
+  function requestDelete(resource: Resource) {
+    setActionError(null);
+    setAction({ kind: "delete", resource });
+  }
+
+  function confirmDelete() {
+    if (action === null) {
+      return;
+    }
+    const resource = action.resource;
+    setActionBusy(true);
+    setActionError(null);
+    deleteResource(resource.id, resource.version)
+      .then(() => {
+        // 204：软删成功（不级联）；关闭对话框并重载列表（过滤/排序/分页 query 全保留）
+        setAction(null);
+        setReloadToken((token) => token + 1);
+      })
+      .catch((error: unknown) => {
+        // 409 reference_exists（宿主机被未删 VM 引用）/ VERSION_CONFLICT
+        // 在对话框内明确呈现；保持对话框打开，不静默重试
+        setActionError(describeResourceActionError(error));
+      })
+      .finally(() => {
+        setActionBusy(false);
+      });
+  }
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -356,6 +399,16 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
                           <Button type="button" onClick={() => onOpenResource(resource)}>
                             查看
                           </Button>
+                          {canDelete && resource.deleted_at === null && (
+                            <Button
+                              type="button"
+                              danger
+                              className="link-button"
+                              onClick={() => requestDelete(resource)}
+                            >
+                              删除
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -372,6 +425,76 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               />
             </>
           ))}
+
+        {/* F020/F021：行内删除二次确认模态（复用 ConfirmDialog；请求语义与详情页
+            删除一致，错误块随正文呈现；取消 / 关闭不发请求） */}
+        <ConfirmDialog
+          open={action !== null}
+          title="删除资源"
+          okText="确认删除"
+          danger
+          confirmLoading={actionBusy}
+          onConfirm={confirmDelete}
+          onCancel={() => {
+            setAction(null);
+            setActionError(null);
+          }}
+        >
+          {action !== null && (
+            <div className="detail-actions">
+              <WarningState
+                message={
+                  <span>
+                    确认软删除资源 {action.resource.hostname}？（不级联删除关联对象；软删后
+                    同集群 hostname 可被新资源复用
+                    {action.resource.resource_type === "BARE_METAL"
+                      ? "；若仍有未删除的虚拟机（VM）引用本宿主机，将被拒绝并显示引用列表"
+                      : ""}
+                    ）
+                  </span>
+                }
+              />
+              {actionError && (
+                <ErrorState message={<div className="form-error">
+                  <p>{actionError.message}</p>
+                  {actionError.references.length > 0 && (
+                    <ul>
+                      {actionError.references.map((reference) => (
+                        <li key={`${reference.object_type}-${reference.object_id}`}>
+                          {referenceItemText(reference)}（{reference.object_id}）
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {actionError.conflicts.length > 0 && (
+                    <ul>
+                      {actionError.conflicts.map((conflict) => (
+                        <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                          {conflictItemText(conflict)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {actionError.versionConflict && (
+                    <p>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setActionError(null);
+                          setAction(null);
+                          setReloadToken((token) => token + 1);
+                        }}
+                        disabled={actionBusy}
+                      >
+                        刷新最新数据
+                      </Button>
+                    </p>
+                  )}
+                </div>} />
+              )}
+            </div>
+          )}
+        </ConfirmDialog>
       </SurfaceCard>
 
       {showImport && (

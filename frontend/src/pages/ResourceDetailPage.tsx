@@ -28,6 +28,7 @@ import {
   buildVirtualMachinePatch,
   parseVirtualMachineFormValues,
 } from "../components/virtualMachine";
+import { conflictItemText, referenceItemText } from "../components/resourceActionMessages.ts";
 
 interface ResourceDetailPageProps {
   resourceId: string;
@@ -56,35 +57,6 @@ function detailLoadErrorMessage(error: unknown): string {
     return displayError(error);
   }
   return "无法连接服务器，请稍后重试";
-}
-
-/**
- * CONFLICT reference_exists 单条引用的呈现文案（F006 DR-62：Resource 的
- * 引用来源为未删除的虚拟机，object_type="resource"，label=VM hostname）。
- * 未知 object_type 原样展示，不伪装成已知类型。
- */
-function referenceItemText(reference: {
-  object_type: string;
-  label: string | null;
-}): string {
-  const typeText =
-    reference.object_type === "resource" ? "虚拟机（VM）" : reference.object_type;
-  return reference.label ? `${typeText}：${reference.label}` : typeText;
-}
-
-/**
- * CONFLICT dependency_deleted 单条冲突的呈现文案（按 object_type 区分：
- * F004 所属 Cluster 仍软删；F006 恢复 VM 时宿主机 Host 仍软删 / 缺失，DR-63）。
- * 恢复均不覆盖新对象；未知 object_type 用通用文案。
- */
-function conflictItemText(conflict: { object_type: string; object_id: string }): string {
-  if (conflict.object_type === "cluster") {
-    return `所属集群（${conflict.object_id}）仍处于已删除状态，需先恢复该集群后再恢复资源。`;
-  }
-  if (conflict.object_type === "resource") {
-    return `宿主机（Host，${conflict.object_id}）仍处于已删除状态或已不存在；需先恢复宿主机后再恢复该虚拟机（恢复不会覆盖宿主机或其上新对象）。`;
-  }
-  return `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态，需先恢复该依赖对象。`;
 }
 
 /**
