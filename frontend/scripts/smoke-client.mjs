@@ -225,6 +225,14 @@
  *   ==0（IP-F7）、权限/软删门控仅 WRITE 且未软删渲染入口（IP-F8，服务端
  *   仍鉴权）。
  *
+ * F020 追加（Contract NOT_REQUIRED；docs/features/F020/architecture.md
+ * DR-354/DR-363，前端机制级 T06a–T06d）：
+ * - src/components/confirmDialogState.ts（纯逻辑，无 JSX）：二次确认对话框
+ *   一次性提交守卫——tryBegin once-only（confirmLoading 回落前的双击 / 回车
+ *   连发重复确认返回 false，T06a）、settle（提交结束释放、允许再次手动触发、
+ *   不自动重试，T06c）、reset（取消 / 关闭释放、重开可再提交，T06b）、
+ *   createConfirmCommitGuard 实例隔离（T06d）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -479,6 +487,9 @@ import {
   submitInterfaceIpBindingRequests,
   summarizeInterfaceIpBindingOutcomes,
 } from "../src/components/interfaceIpSelection.ts";
+import {
+  createConfirmCommitGuard,
+} from "../src/components/confirmDialogState.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -7515,6 +7526,57 @@ await test("F019 IP-F8：权限 / 软删门控——仅 WRITE 且接口未软删
   assert.equal(canOpenInterfaceIpBinding(true, "2026-10-15T08:00:00Z"), false);
   // 无 WRITE 且软删 → 不显示
   assert.equal(canOpenInterfaceIpBinding(false, "2026-10-15T08:00:00Z"), false);
+});
+
+// ---------- F020 二次确认提交守卫机制级（DR-354/DR-363，Contract NOT_REQUIRED） ----------
+
+await test("F020 T06a：tryBegin once-only——首次 true、占用期间重复 false（双击 / 回车连发忽略）", async () => {
+  const guard = createConfirmCommitGuard();
+  assert.equal(guard.isInFlight(), false);
+  // 首次确认派发：占用并放行
+  assert.equal(guard.tryBegin(), true);
+  assert.equal(guard.isInFlight(), true);
+  // confirmLoading 回落前的重复确认（双击 / 回车连发）全部忽略
+  assert.equal(guard.tryBegin(), false);
+  assert.equal(guard.tryBegin(), false);
+  assert.equal(guard.isInFlight(), true);
+});
+
+await test("F020 T06b：取消 / 关闭 reset 后可再次 begin（对话框重开可再次提交）", async () => {
+  const guard = createConfirmCommitGuard();
+  assert.equal(guard.tryBegin(), true);
+  guard.reset(); // 取消 / 关闭对话框（不发请求）
+  assert.equal(guard.isInFlight(), false);
+  // 对话框重开后可再次提交
+  assert.equal(guard.tryBegin(), true);
+  assert.equal(guard.isInFlight(), true);
+});
+
+await test("F020 T06c：settle（成功或失败）后可再次 begin——释放守卫且不自动重试", async () => {
+  const guard = createConfirmCommitGuard();
+  assert.equal(guard.tryBegin(), true);
+  guard.settle(); // 提交结束（confirmLoading 回落）
+  assert.equal(guard.isInFlight(), false);
+  // settle 本身不派发新提交；允许用户再次手动触发
+  assert.equal(guard.tryBegin(), true);
+  assert.equal(guard.isInFlight(), true);
+});
+
+await test("F020 T06d：实例隔离——多个对话框的守卫互不影响", async () => {
+  const first = createConfirmCommitGuard();
+  const second = createConfirmCommitGuard();
+  // first 占用不影响 second
+  assert.equal(first.tryBegin(), true);
+  assert.equal(second.tryBegin(), true);
+  assert.equal(first.tryBegin(), false);
+  assert.equal(second.tryBegin(), false);
+  // 释放 first 不影响 second 的占用
+  first.settle();
+  assert.equal(first.tryBegin(), true);
+  assert.equal(second.tryBegin(), false);
+  // 重置 second 后可再次占用
+  second.reset();
+  assert.equal(second.tryBegin(), true);
 });
 
 // 还原全局状态

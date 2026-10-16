@@ -1,4 +1,5 @@
 import { Button, Input, DataTable } from "./ui/controls";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { EmptyState, ErrorState, InfoState, LoadingState, WarningState } from "./ui/feedback";
 import { StatusTag } from "./ui/surfaces";
 import { useEffect, useState } from "react";
@@ -519,95 +520,93 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <ErrorState message={<div className="form-error">
-                <p>{actionError.message}</p>
-                {Object.keys(actionError.fields).length > 0 && (
-                  <ul>
-                    {Object.entries(actionError.fields).map(([field, message]) => (
-                      <li key={field}>
-                        {field}：{message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((item) => (
-                      <li key={`${item.object_type}-${item.object_id}`}>
-                        引用对象：{item.label ?? item.object_id}（{item.object_type}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflict.object_type === "service"
-                          ? `所属服务（${conflict.object_id}）仍处于已删除状态或已不存在`
-                          : conflict.object_type === "ip_address"
-                            ? `引用的 IP 地址（${conflict.object_id}）仍处于已删除状态或已不存在`
-                            : conflict.object_type === "interface"
-                              ? `IP 绑定的接口（${conflict.object_id}）仍处于已删除状态或已不存在`
-                              : `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态`}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </Button>
-                  </p>
-                )}
-              </div>} />
-            )}
-
+          {/* F020：删除 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action !== null}
+            title={action?.kind === "delete" ? "删除监听端点" : "恢复监听端点"}
+            okText={action?.kind === "delete" ? "确认删除" : "确认恢复"}
+            danger={action?.kind === "delete"}
+            confirmLoading={actionBusy}
+            onConfirm={action?.kind === "delete" ? confirmDelete : confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
             {action !== null && (
-              <WarningState message={<div className="inline-confirm">
-                {action.kind === "delete" ? (
-                  <span>
-                    确认软删除监听端点 {endpointLabel(action.endpoint)}？（不级联删除
-                    关联对象；同 IP 的 (protocol, port) 软删后释放可复用；version 递增）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复监听端点 {endpointLabel(action.endpoint)}？（仅恢复自身，
-                    不级联、不自动恢复 Service / IP / 接口；将重检同 IP 监听唯一、
-                    依赖有效性与 IP 绑定归属，失败不覆盖新对象；version 递增）
-                  </span>
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    action.kind === "delete" ? (
+                      <span>
+                        确认软删除监听端点 {endpointLabel(action.endpoint)}？（不级联删除
+                        关联对象；同 IP 的 (protocol, port) 软删后释放可复用；version 递增）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复监听端点 {endpointLabel(action.endpoint)}？（仅恢复自身，
+                        不级联、不自动恢复 Service / IP / 接口；将重检同 IP 监听唯一、
+                        依赖有效性与 IP 绑定归属，失败不覆盖新对象；version 递增）
+                      </span>
+                    )
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {Object.keys(actionError.fields).length > 0 && (
+                      <ul>
+                        {Object.entries(actionError.fields).map(([field, message]) => (
+                          <li key={field}>
+                            {field}：{message}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((item) => (
+                          <li key={`${item.object_type}-${item.object_id}`}>
+                            引用对象：{item.label ?? item.object_id}（{item.object_type}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.dependencyConflicts.length > 0 && (
+                      <ul>
+                        {actionError.dependencyConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {conflict.object_type === "service"
+                              ? `所属服务（${conflict.object_id}）仍处于已删除状态或已不存在`
+                              : conflict.object_type === "ip_address"
+                                ? `引用的 IP 地址（${conflict.object_id}）仍处于已删除状态或已不存在`
+                                : conflict.object_type === "interface"
+                                  ? `IP 绑定的接口（${conflict.object_id}）仍处于已删除状态或已不存在`
+                                  : `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态`}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
                 )}
-                <Button
-                  type="button"
-                  danger={action.kind === "delete"}
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </Button>
-                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </Button>
-              </div>} />
+              </div>
             )}
-          </div>
+          </ConfirmDialog>
         </>
       )}
 

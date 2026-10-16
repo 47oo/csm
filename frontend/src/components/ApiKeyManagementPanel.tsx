@@ -1,6 +1,7 @@
 import { InputNumber, Modal } from "antd";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button, Input, Select, DataTable } from "./ui/controls";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import {
   EmptyState,
   ErrorState,
@@ -658,18 +659,15 @@ export default function ApiKeyManagementPanel() {
         )}
       </Modal>
 
-      {/* 吊销确认对话框（Contract §4.4：立即生效且不可恢复） */}
-      <Modal
+      {/* 吊销确认对话框（Contract §4.4：立即生效且不可恢复；F020 起经由共享 ConfirmDialog，语义不变） */}
+      <ConfirmDialog
         open={revokeTarget !== null}
         title="吊销 API Key"
-        onOk={confirmRevoke}
-        onCancel={closeRevoke}
         okText="确认吊销"
-        cancelText="取消"
-        okButtonProps={{ danger: true }}
+        danger
         confirmLoading={revokeBusy}
-        cancelButtonProps={{ disabled: revokeBusy }}
-        maskClosable={!revokeBusy}
+        onConfirm={confirmRevoke}
+        onCancel={closeRevoke}
       >
         {revokeTarget !== null && (
           <div className="detail-actions">
@@ -704,7 +702,7 @@ export default function ApiKeyManagementPanel() {
             )}
           </div>
         )}
-      </Modal>
+      </ConfirmDialog>
     </div>
   );
 }

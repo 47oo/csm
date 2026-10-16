@@ -1,4 +1,5 @@
 import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, LoadingState, WarningState } from "../components/ui/feedback";
 import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
@@ -598,101 +599,99 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <ErrorState message={<div className="form-error">
-                <p>{actionError.message}</p>
-                {actionError.rangeConflicts.length > 0 && (
-                  <ul>
-                    {actionError.rangeConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        重叠地址池：
-                        {conflict.label ? `${conflict.label}（` : "("}
-                        {conflict.start_address} – {conflict.end_address}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.occupancy !== null && (
-                  <>
-                    <p>
-                      占用冲突共 {actionError.occupancy.count} 个未删除 IP 地址
-                      {actionError.occupancy.truncated
-                        ? "（以下明细已被截断，仅显示前若干条；完整明细可通过 IP 地址列表查询）"
-                        : "："}
-                    </p>
-                    {actionError.occupancy.conflicts.length > 0 && (
+          {/* F020：删除 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action !== null}
+            title={action?.kind === "delete" ? "删除地址池" : "恢复地址池"}
+            okText={action?.kind === "delete" ? "确认删除" : "确认恢复"}
+            danger={action?.kind === "delete"}
+            confirmLoading={actionBusy}
+            onConfirm={action?.kind === "delete" ? confirmDelete : confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
+            {action !== null && (
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    action.kind === "delete" ? (
+                      <span>
+                        确认软删除地址池 {action.ipPool.name}？（不级联删除关联对象；不回收、
+                        不删除已分配的 IP 地址；同网络内名称与地址范围软删后可复用）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复地址池 {action.ipPool.name}？（仅恢复自身，不级联；将重检同网络
+                        名称唯一性、所属网络有效性、起止仍属网络 CIDR、范围不重叠，RESERVED
+                        另检占用冲突，失败不覆盖新对象；version 递增）
+                      </span>
+                    )
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {actionError.rangeConflicts.length > 0 && (
                       <ul>
-                        {actionError.occupancy.conflicts.map((item) => (
-                          <li key={`${item.object_type}-${item.object_id}`}>
-                            {occupancyItemText(item)}
+                        {actionError.rangeConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            重叠地址池：
+                            {conflict.label ? `${conflict.label}（` : "("}
+                            {conflict.start_address} – {conflict.end_address}）
                           </li>
                         ))}
                       </ul>
                     )}
-                  </>
+                    {actionError.occupancy !== null && (
+                      <>
+                        <p>
+                          占用冲突共 {actionError.occupancy.count} 个未删除 IP 地址
+                          {actionError.occupancy.truncated
+                            ? "（以下明细已被截断，仅显示前若干条；完整明细可通过 IP 地址列表查询）"
+                            : "："}
+                        </p>
+                        {actionError.occupancy.conflicts.length > 0 && (
+                          <ul>
+                            {actionError.occupancy.conflicts.map((item) => (
+                              <li key={`${item.object_type}-${item.object_id}`}>
+                                {occupancyItemText(item)}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                    {actionError.dependencyConflicts.length > 0 && (
+                      <ul>
+                        {actionError.dependencyConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            所属网络仍处于已删除状态或已不存在（{conflict.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
                 )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        所属网络仍处于已删除状态或已不存在（{conflict.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </Button>
-                  </p>
-                )}
-              </div>} />
+              </div>
             )}
-
-            {action !== null && (
-              <WarningState message={<div className="inline-confirm">
-                {action.kind === "delete" ? (
-                  <span>
-                    确认软删除地址池 {action.ipPool.name}？（不级联删除关联对象；不回收、
-                    不删除已分配的 IP 地址；同网络内名称与地址范围软删后可复用）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复地址池 {action.ipPool.name}？（仅恢复自身，不级联；将重检同网络
-                    名称唯一性、所属网络有效性、起止仍属网络 CIDR、范围不重叠，RESERVED
-                    另检占用冲突，失败不覆盖新对象；version 递增）
-                  </span>
-                )}
-                <Button
-                  type="button"
-                  danger={action.kind === "delete"}
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </Button>
-                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </Button>
-              </div>} />
-            )}
-          </div>
+          </ConfirmDialog>
         </>
       )}
 

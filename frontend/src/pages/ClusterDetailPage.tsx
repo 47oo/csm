@@ -1,4 +1,5 @@
 import { Button } from "../components/ui/controls";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { ErrorState, LoadingState, WarningState } from "../components/ui/feedback";
 import { StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState } from "react";
@@ -293,81 +294,133 @@ export default function ClusterDetailPage({
           </dl>
 
           <div className="detail-actions">
-            {actionError && (
-              <ErrorState message={<div className="form-error">
-                <p>{actionError.message}</p>
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((reference) => (
-                      <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {reference.object_type}：{reference.label}（{reference.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </Button>
-                  </p>
-                )}
-              </div>} />
+            {canWrite && state.cluster.deleted_at === null && (
+              <Button
+                type="button"
+                onClick={() => {
+                  setFormError(null);
+                  setMode("edit");
+                }}
+              >
+                编辑
+              </Button>
             )}
-
-            {action === "delete" ? (
-              <WarningState message={<div className="inline-confirm">
-                <span>确认软删除该集群？（不级联删除关联对象；软删后 code 不可复用）</span>
-                <Button type="button" danger onClick={confirmDelete} disabled={actionBusy}>
-                  {actionBusy ? "正在删除…" : "确认删除"}
-                </Button>
-                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </Button>
-              </div>} />
-            ) : action === "restore" ? (
-              <WarningState message={<div className="inline-confirm">
-                <span>确认恢复该集群？（恢复自身，不级联；version 递增）</span>
-                <Button type="button" onClick={confirmRestore} disabled={actionBusy}>
-                  {actionBusy ? "正在恢复…" : "确认恢复"}
-                </Button>
-                <Button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </Button>
-              </div>} />
-            ) : (
-              <>
-                {canWrite && state.cluster.deleted_at === null && (
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      setFormError(null);
-                      setMode("edit");
-                    }}
-                  >
-                    编辑
-                  </Button>
-                )}
-                {canDelete && state.cluster.deleted_at === null && (
-                  <Button type="button" danger onClick={requestDelete}>
-                    删除集群
-                  </Button>
-                )}
-                {canRestore && state.cluster.deleted_at !== null && (
-                  <Button type="button" onClick={requestRestore}>
-                    恢复集群
-                  </Button>
-                )}
-              </>
+            {canDelete && state.cluster.deleted_at === null && (
+              <Button type="button" danger onClick={requestDelete}>
+                删除集群
+              </Button>
+            )}
+            {canRestore && state.cluster.deleted_at !== null && (
+              <Button type="button" onClick={requestRestore}>
+                恢复集群
+              </Button>
             )}
           </div>
+
+          {/* F020：删除 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action === "delete"}
+            title="删除集群"
+            okText="确认删除"
+            danger
+            confirmLoading={actionBusy}
+            onConfirm={confirmDelete}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
+            {action === "delete" && (
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    <span>
+                      确认软删除集群 {state.cluster.code}？（不级联删除关联对象；软删后 code 不可复用）
+                    </span>
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((reference) => (
+                          <li key={`${reference.object_type}-${reference.object_id}`}>
+                            {reference.object_type}：{reference.label}（{reference.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
+                )}
+              </div>
+            )}
+          </ConfirmDialog>
+          <ConfirmDialog
+            open={action === "restore"}
+            title="恢复集群"
+            okText="确认恢复"
+            confirmLoading={actionBusy}
+            onConfirm={confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
+            {action === "restore" && (
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    <span>确认恢复集群 {state.cluster.code}？（恢复自身，不级联；version 递增）</span>
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((reference) => (
+                          <li key={`${reference.object_type}-${reference.object_id}`}>
+                            {reference.object_type}：{reference.label}（{reference.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
+                )}
+              </div>
+            )}
+          </ConfirmDialog>
         </>
       )}
 

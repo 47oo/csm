@@ -224,13 +224,6 @@ h1 {
   align-self: flex-start;
 }
 
-.inline-confirm {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 .form-actions {
   @apply mt-4 flex flex-wrap gap-3;
 }
