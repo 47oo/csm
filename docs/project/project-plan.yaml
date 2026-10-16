@@ -1316,8 +1316,8 @@ features:
   depends_on: []
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: CONTRACT
-  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
+  current_stage: IMPLEMENTATION
+  next_action: 调用 frontend 实现 F020（新增 ui/ConfirmDialog + confirmDialogState；改造 11 处内联确认并迁移 ApiKey 吐销；删除 .inline-confirm）
   git:
     base_branch: codex/v3.1
     branch: feature/F020-confirm-modal
@@ -1474,9 +1474,9 @@ execution:
     basis: 用户于 2026-10-15 先确认 F020 范围（含释放 IP 与恢复）「按推荐执行」，再回复「批准」批准计划 revision 8，随后回复「开始实施吧」授权实施
       F020。
   current_feature: F020
-  current_stage: CONTRACT
-  last_result: F020 TEST DESIGN READY（TD-1，AC1–AC7/T59–T63 映射 F020-T01–T12；采纳 DR-363 纯守卫模块；建议静态断言 + 真浏览器清单）。
-  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
+  current_stage: IMPLEMENTATION
+  last_result: F020 CONTRACT 签核 READY FOR IMPLEMENTATION（Contract/Database/Backend NOT_REQUIRED，见 architecture.md §10）；采纳 DR-363（守卫模块）与 DR-357（ApiKey 吊销迁移）；TEST DESIGN TD-1 READY。
+  next_action: 调用 frontend 实现 F020（新增 ui/ConfirmDialog + confirmDialogState；改造 11 处内联确认并迁移 ApiKey 吐销；删除 .inline-confirm）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

@@ -134,3 +134,15 @@ layers: {database: false, backend: false, frontend: true}
 **结论**：无 Blocking Questions；Contract/Database/Backend `NOT_REQUIRED`；`READY FOR DESIGN`。
 
 GIT: NONE
+---
+
+## 10. 最终设计签核（CONTRACT Gate）
+
+- **签核者**：Architect；**结果**：`READY FOR IMPLEMENTATION`
+- **签核版本**：F020 Design v1（本文件）；Contract `NOT_REQUIRED`
+- **核对的 Database / Backend**：均 `NOT_REQUIRED`（无 Schema/迁移/服务端改动）
+- **核对的 Test Design**：`docs/features/F020/test-report.md` TD-1
+- **上游依据**：requirements-v3.md revision 7 §28（T59–T63）；F020 product v1（AC1–AC7）；project-plan.yaml revision 8（用户 2026-10-15 批准）
+- **覆盖 Feature**：F020
+- **PROPOSED 项裁定**：采纳 DR-363（`confirmDialogState.ts` 纯守卫模块）；采纳 DR-357（`ApiKeyManagementPanel` 吊销确认迁移为 `ConfirmDialog`，与已批准 scope 文本「同步迁移该处」一致）；DR-348/DR-361 按默认实现。
+- **一致性**：AC1–AC7 ↔ T59–T63 ↔ DR-346–DR-364 ↔ F020-T01–T12 无缺口/矛盾；Contract/Database/Backend NOT_REQUIRED 成立。
