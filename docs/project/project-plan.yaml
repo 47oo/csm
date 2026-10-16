@@ -4,10 +4,10 @@ project:
   requirements:
     path: docs/product/requirements-v3.md
     revision: 7
-  plan_revision: 8
-  status: DONE
+  plan_revision: 9
+  status: ACCEPTED
   approval:
-    plan_revision: 8
+    plan_revision: 9
     feature_ids:
     - F001
     - F002
@@ -29,11 +29,13 @@ project:
     - F018
     - F019
     - F020
+    - F021
     approved_by: 用户
     approved_on: '2026-10-15'
-    basis: 用户于 2026-10-15 反馈「删除的二次确认做弹出框，不在下面显示，容易看不到」，并就范围（是否含释放 IP、是否含恢复）回复「按推荐执行」，随后回复「批准」：批准
-      docs/project/project-plan.yaml revision 8 全部 F001–F020（新增 F020 二次确认统一为模态对话框，F001–F019
-      保持 DONE）。确认来源：本次会话用户指令。
+    basis: 用户于 2026-10-15 要求在 Resource 列表页添加删除按钮；product-manager 澄清无阻塞（推荐单行删除、仅 Resource
+      列表），Architect 评估为纯前端、复用 F020 ConfirmDialog 与 F004 deleteResource。用户回复「批准并实施」：批准
+      docs/project/project-plan.yaml revision 9 全部 F001–F021（新增 F021 Resources 列表页行内删除，F001–F020
+      保持 DONE），并授权实施 F021。确认来源：本次会话用户指令。
   acceptance:
     status: COMPLETE
     evidence:
@@ -1356,6 +1358,48 @@ features:
     - docs/features/F020/test-report.md#test-execution
     review:
     - docs/features/F020/review-report.md
+- id: F021
+  title: Resources 列表页行内删除
+  kind: FEATURE
+  priority: P1
+  milestone: M12 列表删除入口
+  scope: 在 Resource 列表页 frontend/src/pages/ResourcesPage.tsx 行内「操作」列新增单行「删除」按钮（仅 deleted_at=null
+    且具备 DELETE_OBJECT 时显示）；点击复用 F020 ConfirmDialog 模态确认（含 hostname 对象标识、软删/引用检查提示、确认删除危险样式、取消不发请求、提交中不可重复）；确认调用既有
+    DELETE /api/v1/resources/{id}?version=N；成功 204 后关闭对话框并保留过滤/排序/分页重载列表；失败（409 reference_exists
+    / VERSION_CONFLICT）在对话框内按 describeResourceActionError 呈现引用列表/版本冲突且对象未删；抽取 ResourceDetailPage
+    的引用/冲突文案助手为共享模块避免复制分叉。明确不做：批量/多选删除、列表内恢复、其它列表页删除、改删除语义/权限/Audit/端点/载荷。
+  acceptance: 映射 §28 T59–T63、§23、F004 §6.5；未删除行且具 DELETE_OBJECT 显示删除按钮，已删行/无权限不显示；确认仅发一次删除请求、取消/Esc/遮罩不发请求；成功刷新且保留查询；reference_exists（含
+    references 列表）/VERSION_CONFLICT 在对话框内呈现且对象未删；VIEWER 服务端仍 403；其它列表页行为不变、删除语义/权限/Audit
+    无回归。
+  requirements:
+  - docs/product/requirements-v3.md#23-用户与权限
+  - docs/product/requirements-v3.md#28-前端
+  depends_on:
+  - F004
+  - F020
+  blocking_decisions: []
+  status: READY
+  current_stage: null
+  next_action: null
+  layers:
+    database: false
+    backend: false
+    frontend: true
+  api_required: false
+  not_required:
+    database: 无新表/列/约束/索引/迁移；复用既有资源软删与引用检查
+    backend: 无服务端改动；复用既有 DELETE /api/v1/resources/{id}
+    contract: 无 API 变化；复用既有 F004 v3 契约
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1486,7 +1530,7 @@ execution:
   next_action: null
   repair_rounds: 1
 planning_status:
-  status: DONE
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -1495,8 +1539,9 @@ planning_status:
     DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F021
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
