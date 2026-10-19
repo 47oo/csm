@@ -144,3 +144,15 @@ api_required: true
 DR-401–DR-431 覆盖端点/权限、统一宽模板、Network 解析、分组/合并、staging 重构、单事务+SAVEPOINT、再校验、并发兜底、约束归因、上限/错误码复用、F014 兼容、前端与数据层。无 Blocking；§8 为 Database 非阻塞裁决项。`READY FOR DESIGN`。
 
 GIT: NONE
+---
+
+## 11. DATABASE Gate 复核结果（database=NOT_REQUIRED）
+
+来源：`docs/database/f023-import.md`（Database，NOT_REQUIRED）。
+- §8.1 Network 解析可由既有 `uq_networks_cluster_id_name_key` / `ix_networks_cluster_id` / `excl_networks_cluster_id_cidr` 承载，**不新增索引**。
+- §8.2 **F023-DB-01（MEDIUM）**：跨批次存在 `40P01` 死锁窗口；CONTRACT/Backend 须定稿确定性锁序（写入前按稳定键升序、在 SAVEPOINT 之外一次性获取全部 `networks`/Host 行锁；捕获 40P01 整批回滚、可重试、不静默重试）。
+- §8.3 **F023-DB-02（LOW）**：`diag.constraint_name` 仅对 UNIQUE/CHECK/FK；`fn/trg_ip_addresses_cidr_contains`/`_cluster_consistent`/`_interface_cluster` 用 `RAISE EXCEPTION` 不设 `constraint_name`，**DR-422 须订正**为按 RAISE 消息/SQLSTATE `restrict_violation` 归因（复用 `ip_address.py::_translate_integrity_error` 文本分支）。
+- §8.4 `layers.database=false` / NOT_REQUIRED 成立：无新表/列/约束/触发器/索引/迁移。
+- §8.3 结论：SAVEPOINT 内触发器抛错可捕获回滚、不污染外层事务。
+
+CONTRACT Gate 须吸收 F023-DB-01/02 后定稿 `docs/api/F023.md`。

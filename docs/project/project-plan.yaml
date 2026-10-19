@@ -1517,8 +1517,8 @@ features:
   - F014
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: DATABASE
-  next_action: 调用 database 复核 database=NOT_REQUIRED（Network 解析索引/锁序/SAVEPOINT 归因）并调用 tester 产出 TEST_DESIGN
+  current_stage: CONTRACT
+  next_action: 调用 architect 定稿契约 docs/api/F023.md（READY，吸收 F023-DB-01/02）并做最终设计签核
   git:
     base_branch: codex/v3.1
     branch: feature/F023-import-interfaces-ips
@@ -1536,8 +1536,8 @@ features:
   implementation:
     product: COMPLETE
     architecture: COMPLETE
-    database: PENDING
-    test_design: PENDING
+    database: NOT_REQUIRED
+    test_design: COMPLETE
     contract: PENDING
     backend: PENDING
     frontend: PENDING
@@ -1548,6 +1548,10 @@ features:
     - docs/features/F023/product.md
     architecture:
     - docs/features/F023/architecture.md
+    database:
+    - docs/database/f023-import.md
+    test_design:
+    - docs/features/F023/test-report.md#test-design
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1672,9 +1676,9 @@ execution:
     basis: 用户于 2026-10-15 提出「多节点使用模板提交时应支持网卡以及 IP 地址分配」，BQ1–BQ7 回复「按推荐执行」，随后回复「1.
       是 2. 是」批准计划 revision 11 并授权实施 F023。
   current_feature: F023
-  current_stage: DATABASE
-  last_result: F023 ARCHITECTURE READY FOR DESIGN（独立第三套模板+三端点+独立契约；非提交 staging 重构；单事务按资源组 SAVEPOINT；database 待复核 NOT_REQUIRED）。
-  next_action: 调用 database 复核 database=NOT_REQUIRED 并调用 tester 产出 TEST_DESIGN
+  current_stage: CONTRACT
+  last_result: F023 DATABASE NOT_REQUIRED（无 Schema；F023-DB-01/02 交 CONTRACT；见 database/f023-import.md）；TEST DESIGN READY（TD-1）。
+  next_action: 调用 architect 定稿契约 docs/api/F023.md（READY）并做最终设计签核
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
