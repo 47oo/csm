@@ -1447,8 +1447,8 @@ features:
   - F019
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: 调用 frontend 实现 F022（resourceIpAddresses.ts + ResourceIpAddressesPanel.tsx + ResourceDetailPage 挂载）
+  current_stage: TEST
+  next_action: 调用 tester 执行 F022 验证（静态 S1–S5 + smoke M1–M7 + 真 PG 集成 P1–P9 + 人工浏览器）
   git:
     base_branch: codex/v3.1
     branch: feature/F022-resource-detail-ip-area
@@ -1471,7 +1471,7 @@ features:
     test_design: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
-    frontend: PENDING
+    frontend: COMPLETE
     test: PENDING
     review: PENDING
   evidence:
@@ -1481,6 +1481,8 @@ features:
     - docs/features/F022/architecture.md
     test_design:
     - docs/features/F022/test-report.md#test-design
+    frontend:
+    - docs/features/F022/implementation.md#frontend
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1605,9 +1607,9 @@ execution:
     basis: 用户于 2026-10-15 要求在 Resource 明细区域实现 IP 地址与分配明细，product-manager 与 Architect
       评估无阻塞后，回复「批准并实施」：批准计划 revision 10 并授权实施 F022。
   current_feature: F022
-  current_stage: IMPLEMENTATION
-  last_result: F022 CONTRACT 签核 READY FOR IMPLEMENTATION（Contract/Database/Backend NOT_REQUIRED，见 architecture.md §10）。
-  next_action: 调用 frontend 实现 F022（resourceIpAddresses.ts + ResourceIpAddressesPanel.tsx + ResourceDetailPage 挂载）
+  current_stage: TEST
+  last_result: F022 FRONTEND COMPLETE（resourceIpAddresses.ts + ResourceIpAddressesPanel.tsx + ResourceDetailPage 挂载；typecheck/build/smoke 306 passed；S1–S5 通过）。
+  next_action: 调用 tester 执行 F022 验证（静态 S1–S5 + smoke M1–M7 + 真 PG 集成 P1–P9 + 人工浏览器）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

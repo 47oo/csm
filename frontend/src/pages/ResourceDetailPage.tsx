@@ -22,6 +22,7 @@ import {
 import ResourceForm, { type ResourceFormValues } from "../components/ResourceForm";
 import InterfacesPanel from "../components/InterfacesPanel";
 import ServicesPanel from "../components/ServicesPanel";
+import ResourceIpAddressesPanel from "../components/ResourceIpAddressesPanel";
 import { parseMetadataText } from "../components/ClusterForm";
 import { buildHardwarePatch, parseHardwareFormValues } from "../components/hardware";
 import {
@@ -214,11 +215,6 @@ function HardwarePanel({ hardware }: { hardware: Hardware | null }) {
     </>
   );
 }
-
-/** F008+ 交付的 Detail 区域（Contract §9：Hardware 随 F005、Virtual Machines 随 F006、Interfaces 随 F007、Services 随 F011 交付，其余占位）。 */
-const PLACEHOLDER_AREAS: { title: string; note: string }[] = [
-  { title: "IP 地址（IP）", note: "IP 地址与分配明细，后续 Feature 提供" },
-];
 
 /**
  * disk_gb 展示（Contract §2.5 / D01 §5.5）：标注 GiB 单位；0 = 明确无磁盘，
@@ -438,7 +434,8 @@ function HostVirtualMachinesPanel({
  *   列出接口（name/type/mac/speed/mtu/enabled，未知「—」非 0）+ 创建/编辑/
  *   删除/恢复（DR-84）；Services 区域（F011，§18）：GET /api/v1/
  *   services?resource_id=<id> 只读列出该资源的服务登记（管理入口在 Services
- *   页面）；IP 区域占位（F008+；IP/Network 聚合列归 F013）；
+ *   页面）；IP Addresses 区域（F022，§18）：只读聚合各未删除接口绑定的
+ *   IP（逐接口查询合并，按 interface.name / IP 数值 / id 确定性排序）；
  * - 编辑：PATCH 带 version；仅变化字段；cluster / resource_type 不可改（只读展示）；
  *   409 VERSION_CONFLICT → 提示刷新后重改（不静默重试）；
  * - 删除（软删，DELETE_OBJECT）：需确认，409 VERSION_CONFLICT / reference_exists
@@ -673,6 +670,9 @@ export default function ResourceDetailPage({
 
           <ServicesPanel resource={state.resource} user={user} />
 
+          {/* F022：IP Addresses 区域（只读聚合各未删除接口绑定的 IP，替换原占位） */}
+          <ResourceIpAddressesPanel resource={state.resource} user={user} />
+
           <h3 className="detail-section-title">系统信息</h3>
           <dl className="detail-grid">
             <dt>metadata</dt>
@@ -690,16 +690,6 @@ export default function ResourceDetailPage({
               {state.resource.deleted_at ?? <span className="unset">未删除（null）</span>}
             </dd>
           </dl>
-
-          <h3 className="detail-section-title">明细区域</h3>
-          <div className="placeholder-areas">
-            {PLACEHOLDER_AREAS.map((area) => (
-              <div key={area.title} className="placeholder-box">
-                <strong>{area.title}</strong>
-                <p>{area.note}</p>
-              </div>
-            ))}
-          </div>
 
           <div className="detail-actions">
             {canWrite && state.resource.deleted_at === null && (

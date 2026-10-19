@@ -242,6 +242,17 @@
  *   conflictItemText（cluster / resource 已知文案、未知通用文案）。
  *   M1–M4 / M7 回归由既有 F004 / F006 / F020 用例覆盖。
  *
+ * F022 追加（Contract NOT_REQUIRED；docs/features/F022/architecture.md
+ * DR-382–DR-400，前端机制级 M1–M7；复用 F007 §4/§6.1 与 F010 §4/§6.1）：
+ * - src/components/resourceIpAddresses.ts（纯逻辑，无 JSX）：接口列表查询恰含
+ *   resource_id/deleted=exclude/sort=name/order=asc/page/page_size=100 及其
+ *   经 listInterfaces 的 §6.1 查询串序列化（M1）、逐接口 IP 查询与 F019
+ *   buildInterfaceBoundIpsQuery 深相等（M2）、合并行数=Σ各接口 IP 数且软删 /
+ *   加载失败接口不产生行（M3）、比较器全序 interface.name 码序（含大小写）
+ *   → IP 数值（跨网段）→ id 兕底（M4）、边界三态与聚合任一 truncated 即
+ *   truncated / 接口列表超安全上限（M5）、部分失败汇总不折叠（M6）、
+ *   ip_pool=null→「池外（手动）」、description=null→「—」标签（M7）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -503,6 +514,21 @@ import {
   conflictItemText,
   referenceItemText,
 } from "../src/components/resourceActionMessages.ts";
+import {
+  buildResourceInterfaceIpsQuery,
+  buildResourceInterfacesQuery,
+  collectResourceIpTruncations,
+  compareResourceIpAddressesAscending,
+  compareResourceIpRows,
+  mergeResourceIpRows,
+  RESOURCE_INTERFACES_MAX_PAGES,
+  RESOURCE_INTERFACES_PAGE_SIZE,
+  RESOURCE_IP_DESCRIPTION_NULL_LABEL,
+  RESOURCE_IP_LOAD_CONCURRENCY,
+  RESOURCE_IP_POOL_NULL_LABEL,
+  resourceInterfacesListBoundary,
+  summarizeResourceIpInterfaceLoads,
+} from "../src/components/resourceIpAddresses.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -7625,6 +7651,242 @@ await test("F021 M6：conflictItemText——cluster / resource 已知文案、�
     conflictItemText({ object_type: "widget", object_id: "w1" }),
     "依赖对象 widget（w1）仍处于已删除状态，需先恢复该依赖对象。",
   );
+});
+
+// ---------- F022 Resource 详情 IP Addresses 区域 机制级（DR-382–DR-400，Contract NOT_REQUIRED） ----------
+
+/** F022 IP 行样本（interface 嵌套形状不影响合并：归属以接口列表为准，DR-384）。 */
+function f022IpRow(id, address, overrides = {}) {
+  return {
+    id,
+    network: { id: "net-uuid-1", name: "ib", cidr: "10.10.0.0/16" },
+    cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+    address,
+    interface: null,
+    ip_pool: null,
+    description: null,
+    version: 1,
+    created_at: "2026-10-15T08:00:00Z",
+    updated_at: "2026-10-15T08:00:00Z",
+    deleted_at: null,
+    ...overrides,
+  };
+}
+
+/** F022 接口样本（mergeResourceIpRows 为结构性子集：{id,name,deleted_at} 即可）。 */
+function f022Interface(id, name, deletedAt = null) {
+  return { id, name, deleted_at: deletedAt };
+}
+
+await test("F022 M1：接口列表查询恰含 resource_id/deleted=exclude/sort=name/order=asc/page/page_size=100；经 listInterfaces 序列化", async () => {
+  const query = buildResourceInterfacesQuery("r-uuid-1", 2);
+  assert.deepEqual(query, {
+    resource_id: "r-uuid-1",
+    deleted: "exclude",
+    sort: "name",
+    order: "asc",
+    page: 2,
+    page_size: 100,
+  });
+  // 恰 7 键：不夹带 q/interface_type/enabled/parent_interface_id 等其它过滤项（F007 §4）
+  assert.deepEqual(Object.keys(query).sort(), [
+    "deleted",
+    "order",
+    "page",
+    "page_size",
+    "resource_id",
+    "sort",
+  ]);
+  // 默认 page=1；单页大小 = 分页上限 100；安全上限 50 页（DR-383）；有界并发 ≤6（DR-398）
+  assert.equal(buildResourceInterfacesQuery("r-uuid-1").page, 1);
+  assert.equal(RESOURCE_INTERFACES_PAGE_SIZE, 100);
+  assert.ok(RESOURCE_INTERFACES_PAGE_SIZE <= 100);
+  assert.equal(RESOURCE_INTERFACES_MAX_PAGES, 50);
+  assert.ok(RESOURCE_IP_LOAD_CONCURRENCY <= 6);
+  // 序列化（F007 §6.1）：resource_id + deleted=exclude + 分页 + sort=name + order=asc
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 100, total: 0 });
+  await listInterfaces(query);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/interfaces?resource_id=r-uuid-1&deleted=exclude&page=2&page_size=100&sort=name&order=asc",
+  );
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F022 M2：逐接口 IP 查询与 F019 buildInterfaceBoundIpsQuery 深相等（interface_id/deleted=exclude/sort=address/order=asc/page=1/page_size=100）", async () => {
+  const query = buildResourceInterfaceIpsQuery("if-uuid-9");
+  // 复用 F019 导出、不另造口径（DR-382/DR-400）：与 buildInterfaceBoundIpsQuery 深相等
+  assert.deepEqual(query, buildInterfaceBoundIpsQuery("if-uuid-9"));
+  assert.deepEqual(query, {
+    interface_id: "if-uuid-9",
+    deleted: "exclude",
+    sort: "address",
+    order: "asc",
+    page: 1,
+    page_size: 100,
+  });
+  // 序列化（F010 §6.1）
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 100, total: 0 });
+  await listIpAddresses(query);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/ip-addresses?interface_id=if-uuid-9&deleted=exclude&page=1&page_size=100" +
+      "&sort=address&order=asc",
+  );
+  assert.equal(calls[0].init.method, "GET");
+});
+
+await test("F022 M3：合并行数 = Σ 各未删接口 IP 数；归属正确；软删 / 加载失败接口不产生行", async () => {
+  const interfaces = [
+    f022Interface("if-1", "eth0"),
+    f022Interface("if-2", "ib0"),
+    f022Interface("if-3", "old0", "2026-10-15T08:00:00Z"), // 已软删（防御，DR-391）
+    f022Interface("if-miss", "bond0"), // 加载失败（无加载结果，DR-389 另行警告）
+  ];
+  const ipsByInterfaceId = new Map([
+    ["if-1", [f022IpRow("ip-a", "10.10.1.50"), f022IpRow("ip-b", "10.10.1.9")]],
+    ["if-2", [f022IpRow("ip-c", "192.168.10.1")]],
+    // 软删接口即便误传结果也不产生行
+    ["if-3", [f022IpRow("ip-d", "10.10.1.1")]],
+  ]);
+  const rows = mergeResourceIpRows(interfaces, ipsByInterfaceId);
+  // 行数 = 2（eth0） + 1（ib0）；软删 if-3 与失败 if-miss 不产生行
+  assert.equal(rows.length, 3);
+  // 归属正确 + 总排序：interface.name 码序（eth0 < ib0）→ IP 数值（9 < 50）
+  assert.deepEqual(
+    rows.map((row) => [row.interfaceName, row.ip.address, row.interfaceId]),
+    [
+      ["eth0", "10.10.1.9", "if-1"],
+      ["eth0", "10.10.1.50", "if-1"],
+      ["ib0", "192.168.10.1", "if-2"],
+    ],
+  );
+  // 空接口列表 → 空行集（空态由呈现层显式区分，不伪装成错误）
+  assert.deepEqual(mergeResourceIpRows([], ipsByInterfaceId), []);
+});
+
+await test("F022 M4：比较器全序——interface.name 码序（含大小写）→ IP 数值（跨网段）→ id 兕底", async () => {
+  const row = (interfaceName, address, id) => ({
+    interfaceId: `if-${id}`,
+    interfaceName,
+    ip: f022IpRow(id, address),
+  });
+  // interface.name 码序、区分大小写（同 F007 sort=name：大写码点在前，ETH0 < eth0）
+  assert.equal(compareResourceIpRows(row("ETH0", "10.0.0.1", "ip-1"), row("eth0", "10.0.0.1", "ip-2")), -1);
+  assert.equal(compareResourceIpRows(row("eth0", "10.0.0.1", "ip-2"), row("ETH0", "10.0.0.1", "ip-1")), 1);
+  // IP 数值序（跨网段）：10.0.0.9 < 10.0.0.50（字符串序会误判 "50" < "9"；镜像 F019 返回数值差，断言取符号）
+  assert.equal(Math.sign(compareResourceIpAddressesAscending("10.0.0.9", "10.0.0.50")), -1);
+  assert.equal(Math.sign(compareResourceIpAddressesAscending("10.0.0.50", "10.0.0.9")), 1);
+  assert.equal(compareResourceIpAddressesAscending("10.0.0.9", "10.0.0.9"), 0);
+  assert.equal(Math.sign(compareResourceIpAddressesAscending("10.0.0.9", "192.168.0.1")), -1);
+  // 同接口同地址 → id 兜底（确定性全序，DR-385）
+  assert.equal(compareResourceIpRows(row("eth0", "10.0.0.1", "ip-a"), row("eth0", "10.0.0.1", "ip-b")), -1);
+  assert.equal(compareResourceIpRows(row("eth0", "10.0.0.1", "ip-b"), row("eth0", "10.0.0.1", "ip-a")), 1);
+  assert.equal(compareResourceIpRows(row("eth0", "10.0.0.1", "ip-a"), row("eth0", "10.0.0.1", "ip-a")), 0);
+  // 乱序全集排序得到确定性全序：Eth1 < VLAN10 < eth0（码点 E < V < e）；eth0 内 9 < 10 < 50（数值）
+  const shuffled = [
+    row("eth0", "10.0.0.50", "ip-3"),
+    row("VLAN10", "172.16.0.2", "ip-4"),
+    row("eth0", "10.0.0.9", "ip-1"),
+    row("Eth1", "10.0.0.1", "ip-5"),
+    row("eth0", "10.0.0.10", "ip-2"),
+  ];
+  assert.deepEqual(
+    [...shuffled].sort(compareResourceIpRows).map((item) => `${item.interfaceName}/${item.ip.address}`),
+    ["Eth1/10.0.0.1", "VLAN10/172.16.0.2", "eth0/10.0.0.9", "eth0/10.0.0.10", "eth0/10.0.0.50"],
+  );
+  // 反对称性全对核对（total order 性质；SameValue 语义下 -0 归一为 0）
+  for (const left of shuffled) {
+    for (const right of shuffled) {
+      const forward = Math.sign(compareResourceIpRows(left, right));
+      const backward = Math.sign(compareResourceIpRows(right, left));
+      assert.equal(forward, backward === 0 ? 0 : -backward);
+    }
+  }
+});
+
+await test("F022 M5：边界三态（复用 interfaceIpTotalBoundary）——聚合任一 truncated 即产生提示条目；接口列表超安全上限即 truncated", async () => {
+  // 单接口三态：total>items 截断 / ==items 完整 / ==0 空态（不静默截断）
+  assert.equal(interfaceIpTotalBoundary(101, 100), "truncated");
+  assert.equal(interfaceIpTotalBoundary(21, 20), "truncated");
+  assert.equal(interfaceIpTotalBoundary(100, 100), "complete");
+  assert.equal(interfaceIpTotalBoundary(0, 0), "empty");
+  // 聚合：任一 truncated 即 truncated（产生条目，携带总数与已展示数）
+  assert.deepEqual(
+    collectResourceIpTruncations([
+      { interfaceName: "eth0", total: 101, itemCount: 100 },
+      { interfaceName: "ib0", total: 3, itemCount: 3 },
+    ]),
+    [{ interfaceName: "eth0", total: 101, shown: 100 }],
+  );
+  // 全 complete / empty → 不产生条目
+  assert.deepEqual(
+    collectResourceIpTruncations([
+      { interfaceName: "eth0", total: 3, itemCount: 3 },
+      { interfaceName: "ib0", total: 0, itemCount: 0 },
+    ]),
+    [],
+  );
+  assert.deepEqual(collectResourceIpTruncations([]), []);
+  // 多个截断接口逐条产生，不静默丢弃
+  assert.equal(
+    collectResourceIpTruncations([
+      { interfaceName: "eth0", total: 150, itemCount: 100 },
+      { interfaceName: "ib0", total: 120, itemCount: 100 },
+    ]).length,
+    2,
+  );
+  // 接口列表：达安全上限仍未覆盖 total → truncated（DR-383：显式提示总数，不静默截断）
+  assert.equal(
+    resourceInterfacesListBoundary(6000, RESOURCE_INTERFACES_MAX_PAGES * 100),
+    "truncated",
+  );
+  assert.equal(resourceInterfacesListBoundary(250, 250), "complete");
+  assert.equal(resourceInterfacesListBoundary(1, 1), "complete");
+  assert.equal(resourceInterfacesListBoundary(0, 0), "complete");
+});
+
+await test("F022 M6：部分失败汇总——全失败→allFailed（呈现层转 Error 可重试）；部分失败→anyFailed+失败清单；不折叠", async () => {
+  const failure = (id, name) => ({ interfaceId: id, interfaceName: name, message: "HTTP 500" });
+  // 部分失败：3 个接口 1 个失败 → 保留已加载行 + 警告（不折叠为整体成功 / 整体失败）
+  assert.deepEqual(summarizeResourceIpInterfaceLoads(3, [failure("if-1", "eth0")]), {
+    interfaceCount: 3,
+    succeeded: 2,
+    failed: 1,
+    allFailed: false,
+    anyFailed: true,
+  });
+  // 全失败 → allFailed（呈现层整体 Error，可重试重取全部）
+  assert.deepEqual(
+    summarizeResourceIpInterfaceLoads(2, [failure("if-1", "eth0"), failure("if-2", "ib0")]),
+    { interfaceCount: 2, succeeded: 0, failed: 2, allFailed: true, anyFailed: true },
+  );
+  // 全成功
+  assert.deepEqual(summarizeResourceIpInterfaceLoads(2, []), {
+    interfaceCount: 2,
+    succeeded: 2,
+    failed: 0,
+    allFailed: false,
+    anyFailed: false,
+  });
+  // 无接口（接口列表为空 → 无逐接口请求）：不误报全失败（空态另行呈现）
+  assert.deepEqual(summarizeResourceIpInterfaceLoads(0, []), {
+    interfaceCount: 0,
+    succeeded: 0,
+    failed: 0,
+    allFailed: false,
+    anyFailed: false,
+  });
+});
+
+await test("F022 M7：展示标签——ip_pool=null → 「池外（手动）」、description=null → 「—」（不以空串代替）", async () => {
+  assert.equal(RESOURCE_IP_POOL_NULL_LABEL, "池外（手动）");
+  assert.ok(RESOURCE_IP_POOL_NULL_LABEL.length > 0);
+  assert.equal(RESOURCE_IP_DESCRIPTION_NULL_LABEL, "—");
+  assert.ok(RESOURCE_IP_DESCRIPTION_NULL_LABEL.length > 0);
 });
 
 // 还原全局状态
