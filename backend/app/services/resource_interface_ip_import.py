@@ -1023,6 +1023,15 @@ def _acquire_locks(db: "Session", groups: list[PreparedGroup]) -> None:
 def _app_error_field(exc: AppError) -> str:
     raw = _raw_field(exc)
     if raw is None:
+        # ``Conflict.unique_conflict(field=...)`` (e.g. the concurrent loser's
+        # ``unique_conflict("address")``) sets ``details["field"]`` instead of
+        # the ``details["fields"]`` point-path; fall back to it (F023 local).
+        details = getattr(exc, "details", None)
+        if isinstance(details, dict):
+            field_value = details.get("field")
+            if isinstance(field_value, str) and field_value:
+                raw = field_value
+    if raw is None:
         return "resource_type"
     mapped = {
         "address": "ip",
