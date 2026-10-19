@@ -181,3 +181,103 @@ GIT: git rev-parse --short HEAD
 GIT: git status --short
 GIT: git diff --stat
 GIT: git ls-files --others --exclude-standard backend/tests
+
+---
+
+# Test Execution — Repair Round 1（F023-TEST-01 复测）
+
+- **版本**：TR-1-R1（修复后重测）；日期 2026-10-19
+- **结论**：`READY FOR REVIEW`
+- **修复提交**：`37284b6`（fix(F023): attribute Conflict field to row column (F023-TEST-01)）；**Base** `codex/v3.1` = `db6b659`；**候选 HEAD** = `37284b6`（工作区干净，仅 `.agents/` 未跟踪）。
+- **核对输入**：Contract `docs/api/F023.md` v1；`docs/features/F023/implementation.md`；TD-1；缺陷 F023-TEST-01。修复仅改 `backend/app/services/resource_interface_ip_import.py::_app_error_field`（回退读取 `AppError.details["field"]`），未改 Schema / 产品规则 / 测试。
+- 上文 TD-1（Test Design）与 TR-1（首轮执行记录，含 F023-TEST-01 FAIL、F023-TEST-02 LOW）完整保留；TR-1 的 `RETURN TO IMPLEMENTATION` 结论已被本节取代，其 F023-TEST-01 判定失效范围仅限该缺陷行。
+
+## Environment（Repair Round 1）
+
+| 项 | 值 |
+| --- | --- |
+| 数据库 | 真 PostgreSQL `csmtest-db-1`，库 `csm_test`，网络 `csmtest_default` |
+| 后端镜像 | 重建 `docker build --target test -t csm-backend-f023r1 ./backend`（构建上下文 = HEAD `37284b6`）；镜像内 `_app_error_field` 已含 `details["field"]` 回退（`docker run … inspect.getsource` 核对 `HAS_FALLBACK`） |
+| 集成命令 | `docker run --rm --network csmtest_default -e TEST_DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm_test' -e DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm' -e PYTHONDONTWRITEBYTECODE=1 csm-backend-f023r1 pytest <target> -q -p no:cacheprovider` |
+| 前端 | `cd frontend && npm run typecheck && npm run build && npm run smoke:client` |
+| 说明 | 未对生产库执行任何测试（DB-D10 guard 生效）。测试文件 `backend/tests/integration/test_f023_resource_interface_ip_import.py` 为已提交内容，本轮未新增/修改测试代码（`git diff --stat` 为空）。 |
+
+## 1. 缺陷复测（F023-TEST-01）
+
+| 验证项 | 方法 | 结果 | 证据 |
+| --- | --- | --- | --- |
+| 并发重叠 IP 失败批 `field="ip"` | `test_pg05c_concurrent_ip_loser_attribution` 独立执行 | **PASS（缺陷关闭）** | 失败批行错误 `field="ip"`（`_find_error(details, "ip")` 命中）；修复前为 `field="resource_type"` |
+| 并发重叠 IP 恰一成功、无残留 | `test_pg05b_concurrent_overlapping_ip` | PASS | 恰一成功；resource/interface/ip 各 +1、audit +3 |
+| 并发重叠 hostname 归因不回归 | `test_pg05a_concurrent_overlapping_hostname` | PASS | 失败方 `field="hostname"`；恰一成功无残留 |
+| 同 Cluster 唯一 `(cluster, ip)` 仍成立 | PG-05b + PG-12 | PASS | 并发/API 两路径唯一性范围一致 |
+| 整批回滚零残留仍成立 | `test_pg10_whole_batch_rollback_zero_residue` | PASS | 各表 + audit 计数不变 |
+| `-k pg05` 三项 | `pytest … -k pg05 -v` | **3 passed, 25 deselected** | 5.24s |
+
+**结论**：F023-TEST-01（MEDIUM）已在 `37284b6` 修复并经独立复测确认，字段归因符合 Contract §11 / DR-422；原子性与唯一性不变量保持。
+
+## 2. 验收映射（A1–A10 / T64–T72）复测状态
+
+| 验收 | 对应用例 | TR-1 | Repair Round 1 |
+| --- | --- | --- | --- |
+| A1/T64（多节点多行 Resource/Interface/IP + Audit） | `test_pg01_*`、`test_u02_*` | PASS | **PASS** |
+| A2/T65（IP 归属/跨 Cluster/越界/Network 解析） | `test_pg03_*`、`test_pg04_*`、`test_pg04b_*` | PASS | **PASS** |
+| A3/T66（同 hostname 合并、同接口多 IP 去重） | `test_pg01_*`、`test_pg07_*`、`test_pg13_*` | PASS | **PASS** |
+| A4/T67（重复/非法行含行号/字段/原因） | `test_pg06_*`、`test_pg08_*`、`test_pg13_*`、`test_pg05c_*` | PASS（常规）/ FAIL（并发 IP） | **PASS**（并发 IP 归因已修复） |
+| A5/T68（任一错误整批回滚零残留） | `test_pg10_*` | PASS | **PASS** |
+| A6/T69（写入再校验） | `test_pg11_*`、`test_pg11b_*` | PASS | **PASS** |
+| A7/T70（VM Host 四条件 + 批外快照） | `test_pg07_vm_host_conditions_and_batch_external` | PASS | **PASS** |
+| A8/T71（与 API 唯一性一致/无独立直写 SQL） | `test_pg12_*`、`test_reg01_no_direct_write_sql` | PASS | **PASS** |
+| A9/T72（权限 401/403、列序 422、413） | `test_pg14_permissions_templates_shape` | PASS | **PASS** |
+| A10（F014 无回归/路由清单） | `test_reg02_route_inventory` + 回归套件 | PASS | **PASS** |
+
+A1–A10 / T64–T72 全部 PASS，无 BLOCKED / NOT TESTED（BROWSER 例外见 §4）。
+
+## 3. 执行结果（独立复现）
+
+| 目标 | 实际数字 | 结果 |
+| --- | --- | --- |
+| F023 集成文件 `tests/integration/test_f023_resource_interface_ip_import.py` | **28 passed**, 1 warning in 279.89s | PASS |
+| 全量 `tests/` | **700 passed, 2 skipped**, 1 warning in 850.99s | PASS |
+| `-k pg05` | 3 passed, 25 deselected | PASS |
+| 前端三命令 | `typecheck` 通过；`build` 通过（`✓ built in 12.73s`）；`smoke:client` **319 passed, 0 failed** | PASS |
+
+跳过项（与 TR-1 一致，非阻塞）：`test_f016_acceptance.py`（需 `F016_ACCEPTANCE=1`）、`test_migrations.py`（需非超级用户 DB owner 行使 V3b / DB-D11）。
+
+## 4. 前端浏览器（B-01…07）
+
+当前环境无浏览器 DOM/E2E 工具，B-01…07 **NOT TESTED**（模板查看/下载、预校验错误表、确认导入成功、写入期冲突整批失败、VM Host 缺失、VIEWER 无入口、超限提示）。前端机制级 smoke 已覆盖 API 契约、字段映射与确认门控；真实浏览器交互待具备工具后验证。
+
+## 5. Defects（Repair Round 1）
+
+| ID | 级别 | 状态 | 说明 |
+| --- | --- | --- | --- |
+| F023-TEST-01 | MEDIUM | **CLOSED / VERIFIED** | `37284b6` 使并发重叠 IP 失败批归因 `field="ip"`；`test_pg05c_*` 复测 PASS；原子性与唯一性不变量保持。 |
+| F023-TEST-02 | LOW（观察） | **OPEN（不阻塞）** | Network 解析未按批缓存（`_parse_row` 每行点查）；行为正确，`validate=36.98s`（5000 行）观测；Contract §9 缓存为优化项，按既定处理不阻塞。 |
+
+## 6. 未验证项（NOT TESTED）
+
+- B-01…07：真实浏览器 DOM/E2E（无工具）。
+- 精确 5000 行生产硬件性能 SLA（Contract 未给数值；仅真 PG 基线与兜底上限）。
+- F016 整体上线端到端验收（归 F016）。
+
+## 7. 结论
+
+`READY FOR REVIEW`
+
+- F023-TEST-01 MEDIUM 已修复并独立复测确认（`test_pg05c_*` PASS），无必须修复问题。
+- F023 集成 28 passed；全量 700 passed, 2 skipped；前端 319 passed；A1–A10 / T64–T72 全部 PASS。
+- F023-TEST-02 LOW 按既定处理，不阻塞；B-01…07 因缺工具标 NOT TESTED。
+- Tester 未修改任何生产实现、Schema 或产品规则。
+
+## 8. Git（Repair Round 1）
+
+本轮仅重建测试镜像并按只读方式读取源码，未修改生产实现、Schema、测试或配置；`.agents/` 为非交付工具产物，未触碰。
+
+GIT: git log --oneline -5
+GIT: git show 37284b6 --stat
+GIT: git show 37284b6
+GIT: git status --short
+GIT: git rev-parse --short HEAD
+GIT: git rev-parse --short db6b659
+GIT: git diff --stat
+GIT: git ls-files --others --exclude-standard backend/tests docs/features/F023
