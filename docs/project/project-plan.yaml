@@ -5,13 +5,38 @@ project:
     path: docs/product/requirements-v3.md
     revision: 7
   plan_revision: 10
-  status: DRAFT
+  status: ACCEPTED
   approval:
-    plan_revision: null
-    feature_ids: []
-    approved_by: null
-    approved_on: null
-    basis: null
+    plan_revision: 10
+    feature_ids:
+    - F001
+    - F002
+    - F003
+    - F004
+    - F005
+    - F006
+    - F007
+    - F008
+    - F009
+    - F010
+    - F011
+    - F012
+    - F013
+    - F014
+    - F015
+    - F016
+    - F017
+    - F018
+    - F019
+    - F020
+    - F021
+    - F022
+    approved_by: 用户
+    approved_on: '2026-10-15'
+    basis: 用户于 2026-10-15 要求在 Resource 明细区域实现 IP 地址与分配明细；product-manager 判定为补齐 §18
+      已确认区域（无阻塞），Architect 评估为纯前端、前端逐接口查询、复用 F007/F010 GET。用户回复「批准并实施」：批准 docs/project/project-plan.yaml
+      revision 10 全部 F001–F022（新增 F022 Resource 详情页 IP Addresses 区域，F001–F021 保持 DONE），并授权实施
+      F022。确认来源：本次会话用户指令。
   acceptance:
     status: COMPLETE
     evidence:
@@ -1421,7 +1446,7 @@ features:
   - F010
   - F019
   blocking_decisions: []
-  status: DRAFT
+  status: READY
   current_stage: null
   next_action: null
   layers:
@@ -1573,18 +1598,18 @@ execution:
   next_action: null
   repair_rounds: 0
 planning_status:
-  status: DRAFT
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 21
-    DRAFT: 1
+    DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F022
   blocked_draft_features:
     BLOCKED: []
-    DRAFT:
-    - F022
+    DRAFT: []
