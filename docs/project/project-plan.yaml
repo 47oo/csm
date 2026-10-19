@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 8
   plan_revision: 11
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 11
     feature_ids:
@@ -1516,15 +1516,15 @@ features:
   - F010
   - F014
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: 调用 reviewer 独立 Review F023 修复后候选（HEAD 冻结）
+  status: DONE
+  current_stage: null
+  next_action: null
   git:
     base_branch: codex/v3.1
     branch: feature/F023-import-interfaces-ips
     start_commit: db6b6595aa9ae638c911ca31860f4d76492fef75
-    head_commit: null
-    merge_commit: null
+    head_commit: df3aee0565914f1a7a77e55914d50b285aa54f48
+    merge_commit: f859e3c19f9bae794c0b2b275c4fc2ca6cb0eee1
   layers:
     database: false
     backend: true
@@ -1542,7 +1542,7 @@ features:
     backend: COMPLETE
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F023/product.md
@@ -1560,6 +1560,8 @@ features:
     - docs/features/F023/implementation.md#frontend
     test:
     - docs/features/F023/test-report.md#test-execution
+    review:
+    - docs/features/F023/review-report.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1683,22 +1685,22 @@ execution:
     authorized_on: '2026-10-15'
     basis: 用户于 2026-10-15 提出「多节点使用模板提交时应支持网卡以及 IP 地址分配」，BQ1–BQ7 回复「按推荐执行」，随后回复「1.
       是 2. 是」批准计划 revision 11 并授权实施 F023。
-  current_feature: F023
-  current_stage: REVIEW
-  last_result: F023 repair round 1 复测 READY FOR REVIEW（F023-TEST-01 关闭；F023 集成 28
-    passed；全量 700 passed,2 skipped；前端 319 passed）。
-  next_action: 调用 reviewer 独立 Review F023 修复后候选（HEAD 冻结）
+  current_feature: null
+  current_stage: null
+  last_result: F023 DONE（merge f859e3c；review APPROVED WITH FOLLOW-UP）；全部 F001–F023
+    交付，project.acceptance=COMPLETE。
+  next_action: null
   repair_rounds: 1
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 22
+    DONE: 23
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
