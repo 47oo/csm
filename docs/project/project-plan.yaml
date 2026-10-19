@@ -1518,7 +1518,7 @@ features:
   blocking_decisions: []
   status: IN_PROGRESS
   current_stage: IMPLEMENTATION
-  next_action: 调用 backend 与 frontend 实现 F023（backend: 导入服务/端点/staging 重构/契约；frontend: 导入面板）
+  next_action: 调用 backend 与 frontend 实现 F023（后端导入服务/端点/staging 重构/契约；前端导入面板）
   git:
     base_branch: codex/v3.1
     branch: feature/F023-import-interfaces-ips
