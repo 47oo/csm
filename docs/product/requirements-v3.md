@@ -346,7 +346,7 @@ CONFIRMED：API Key 明文、哈希及任何等效凭据**不得**出现在日�
 
 CONFIRMED：支持 CSV 和 Excel `.xlsx`，一期只做资源新增导入，不按 hostname 自动更新或覆盖现有资源。提供固定模板与逐列说明；示例列 `cluster, hostname, resource_type, role, status, manufacturer, model, cpu_model, cpu_cores, memory_mb, gpu_model, gpu_count`，VM 模板须含 Host 引用，完整模板由 §35 D03 承接。
 
-Interface、IPAddress、Network 导入为后续扩展。导入必须走与普通 API 相同的 Service Layer 业务校验，禁止跳过服务层直接写数据库。
+Interface 与 IPAddress 的导入已在 revision 8 扩展（见 §24.1）；Network 导入仍为后续扩展。导入必须走与普通 API 相同的 Service Layer 业务校验，禁止跳过服务层直接写数据库。
 
 CONFIRMED 导入流程：
 
@@ -354,6 +354,19 @@ CONFIRMED 导入流程：
 2. 正式写入时再次校验，防止预校验后状态变化。整批成功或整批回滚，不产生部分成功；回滚不能留下未成功创建对象的业务变更记录。
 3. VM Host 必须已存在且满足 §9；首次迁移先导入裸金属，再导入 VM，不在同一批次隐式创建 Host。
 4. 一期同步处理，设置文件大小和行数上限；具体上限由部署资源和性能验证确定并记入契约。预校验与写入同样执行 §23 的权限检查。
+
+### 24.1 资源 + 网卡 + IP 批量导入（revision 8）
+
+CONFIRMED：在资源新增导入中支持同时登记网卡（Interface）与 IP 地址，示例行 `vm001,eth0,192.168.1.1/24`（资源 + 网卡 + IP）。以下规则确定后交专业设计冻结列集/列序/上限（D03 类）。
+
+* 模板结构：每行一个「资源 + 网卡 + IP」三元组；同一 `hostname` 的多行合并为**一个** Resource；同一资源内 Interface 按 `name` 去重；同一 Interface 多行 = 多 IP。
+* Network 处理：模板须能唯一确定 IP 所属 Network（通过 Network 名称/CIDR 列，或 IP 的 `/mask` 与同 Cluster 已存在 Network 匹配）；IP 必须落在该 Network 的 CIDR 内并满足 §11.1 地址边界；Network **必须已存在**；不存在时整批失败。导入**不创建** Network / IP Pool / Cluster / Host。
+* IP 分配：导入内**新建并绑定** IP（手动分配语义，按 §13.2 / §14 校验：属 CIDR、非 gateway、非 RESERVED、禁用段排除、同 Cluster 唯一、绑定同 Cluster）；导入内**不触发**自动分配（§13.1）。
+* Interface 创建：导入内创建 Interface（复用 §4.1/§10 名称归一化与同资源唯一、大小写区分）；`interface_type` 默认 `OTHER`，**不按名称推断**；列至少含 `name`（必填）与可选 `interface_type` / `mac_address` / `speed_mbps` / `mtu` / `enabled`；一期**不纳入** `parent_interface`。
+* 跨对象原子性：Resource + Interface + IPAddress 整批成功或整批回滚，不产生部分成功；回滚不留未成功对象的业务变更记录（无 Activity / Audit 残留）。
+* 其余沿用 §24：两步流程（预校验→确认→写入再校验）、错误含行号/字段/原因、VM Host 必须已存在且满足 §9（不在同批次隐式创建 Host）、同一 Service Layer、`IMPORT` 权限（§23）、同步与大小/行数上限。
+* 模板：新增**独立第三套**「资源 + 网卡 + IP」模板（以 `resource_type` 区分 BM/VM），**不改动** F014 已冻结的 BM 14 列 / VM 10 列模板与其历史行为。
+* 明确边界：本期仅「资源 + 网卡 + IP」；不含 Service / Endpoint / Cluster 导入；不导入或创建 Network / IP Pool。
 
 ## 25. API
 
@@ -462,6 +475,15 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 | T61 | 请求进行中确认按钮呈加载态且不可重复提交（含双击、遮罩、Esc）；非提交态按 Esc 或点击遮罩可关闭且不执行 |
 | T62 | 确认对话框包含对象标识、软删说明与引用检查提示；删除被引用或版本冲突等错误按既有方式在对话框内呈现且对象状态不变 |
 | T63 | 二次确认形态改变不改变需要二次确认的操作集合、权限门禁、引用检查、Audit 与请求载荷 / 端点；既有删除 / 释放 / 恢复行为无回归 |
+| T64 | 以「资源 + 网卡 + IP」模板一次提交多节点多行，每个节点正确生成 Resource、其 `eth0` Interface 与 `192.168.1.1/24` IP，且 IP 绑定到该 Interface |
+| T65 | 生成的 IP 属于模板引用的正确 Network 且与该 Resource 同 Cluster；IP 不在 Network CIDR 内、或跨 Cluster 时整批失败 |
+| T66 | 同一 hostname 多行 = 一个 Resource 多 Interface/多 IP；同一 Interface 多行 = 一个 Interface 多 IP，去重正确 |
+| T67 | 重复（同 Cluster hostname、同资源 interface name、同 Cluster IP）或非法行报错，错误含行号、字段、原因 |
+| T68 | 任一行写入失败时整批回滚，无部分成功、无 Resource / Interface / IP / Audit 残留 |
+| T69 | 预校验通过 → 用户确认 → 写入前再次校验；预校验后状态变化导致冲突时写入失败（不静默覆盖） |
+| T70 | VM 行的 Host 必须已存在且同 Cluster；不存在时整批失败，不隐式创建 Host / Network / Pool / Cluster |
+| T71 | 导入复用与普通 API 相同的 Service Layer 校验：API 与导入对 hostname / interface name / IP 唯一性结果一致（不得绕过） |
+| T72 | 无 `IMPORT` 权限被拒绝；未定义列 / 缺列 / 列序不符按契约 422；超限 413 |
 
 还须覆盖查询关系、列表交互、本地登录和初始 ADMIN、时间契约及真实 Compose 部署。D01–D03 专业设计完成后细化对应测试步骤与数据，不把尚未执行的预期写成 PASS。本节定义必须执行的用例，不是已经执行的测试报告。
 
@@ -493,6 +515,7 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 | revision 5 / 2026-10-15 | 用户确认新增“全局搜索可自定义组合展示字段”：仅作用于全局搜索结果；字段集含 hostname/resource_type/role/status/cluster 与 Interface name/interface_type、IP address、Network name（「网络类型」按 Network 名称解释）；resource 行返回固定超集，关联按每 IP 一行展开，顺序 interface.name→IP 数值→id，每 Resource 上限 10 并返回总数；偏好仅浏览器本地，无导出/命名视图；关联严格继承软删与权限口径；不改匹配/结果集/去重/排序/分页，仍只读。新增 §17.1 与 T50–T53，替代 §17 中无字段组合的描述 |
 | revision 6 / 2026-10-15 | 用户收到接口侧绑定需求「允许在创建接口后选择 IP 地址，减少跳转」及 BQ1–BQ5 选项后回复“按推荐执行”，确认为：在接口创建成功后于接口视图内选择并绑定 IP；候选仅同 Cluster、未绑定且未删除的 IP；仅绑定已存在未绑定 IP，不在该流程内手动输入或自动分配；逐条绑定、允许部分成功并逐条呈现，不静默重试；本期不提供接口侧解绑 / 转移；权限、同 Cluster、唯一性、Endpoint 引用与软删口径不因入口方向改变。新增 §13.4 与 T54–T58 |
 | revision 7 / 2026-10-15 | 用户反馈「删除的二次确认做弹出框，不在下面显示，容易看不到」，并就范围（是否含释放 IP、是否含恢复）回复“按推荐执行”，确认为：删除（软删）、释放 IP（软删）与恢复的二次确认统一改为模态对话框，以既有吊销 API Key 弹层为一致样式基准；不改删除 / 释放 / 恢复语义、权限、引用检查、Audit、错误呈现与需要二次确认的操作集合。新增 §28 条款与 T59–T63 |
+| revision 8 / 2026-10-15 | 用户提出「多节点使用模板提交时应支持网卡以及 IP 地址分配（如 vm001,eth0,192.168.1.1/24）」，并就 BQ1–BQ7 回复“按推荐执行”，确认为：每行一个「资源+网卡+IP」三元组、同 hostname 合并为一个 Resource；IP 属已存在 Network（显式引用或以 /mask 匹配）且不创建 Network；导入内新建并绑定 IP（手动分配语义）且不触发自动分配；导入内创建 Interface（默认 OTHER，一期不含 parent_interface）；Resource+Interface+IP 跨对象整批原子回滚；沿用 §24 两步流程/错误口径/VM Host 规则/同一 Service Layer/IMPORT 权限；新增独立第三套模板且不改动 F014 已冻结模板；一期仅「资源+网卡+IP」。新增 §24.1 与 T64–T72 |
 
 | 原 ID | 已确认内容所在条款 | 尚需处理的部分 |
 | --- | --- | --- |
@@ -536,8 +559,8 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ## 36. 文档建立状态
 
-> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 7。
+> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 8。
 
-需求基线为 revision 7：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53）、revision 6 新增 §13.4 接口侧选择绑定（T54–T58）、revision 7 新增 §28 二次确认模态对话框条款（T59–T63），均作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写 F001–F016 的已 DONE 范围与证据。
+需求基线为 revision 8：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53）、revision 6 新增 §13.4 接口侧选择绑定（T54–T58）、revision 7 新增 §28 二次确认模态对话框条款（T59–T63）、revision 8 新增 §24.1 资源+网卡+IP 批量导入（T64–T72），均作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写 F001–F016 的已 DONE 范围与证据。
 
 revision 3 的内容继续成立：六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
