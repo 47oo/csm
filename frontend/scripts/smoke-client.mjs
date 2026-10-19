@@ -253,6 +253,21 @@
  *   truncated / 接口列表超安全上限（M5）、部分失败汇总不折叠（M6）、
  *   ip_pool=null→「池外（手动）」、description=null→「—」标签（M7）。
  *
+ * F023 追加（Contract：docs/api/F023.md v1，前端机制级）：
+ * - src/api/imports.ts 的 F023 三端点（§3/§4/§5：POST /imports/resource-
+ *   interfaces-ips/validate、POST /imports/resource-interfaces-ips（FormData：
+ *   file+format）、GET /imports/resource-interfaces-ips/templates（单一模板
+ *   key=resource_interfaces_ips，列描述含 applies_to、type 含 boolean））；
+ *   describeImportError(scope="resource-interfaces-ips") 的 401/403
+ *   （permission|csrf）/ 413（IMPORT_FILE_TOO_LARGE / IMPORT_ROW_LIMIT_EXCEEDED）/
+ *   422（IMPORT_INVALID_FILE reason+列清单 / IMPORT_VALIDATION_FAILED 行错误明细
+ *   与「未创建任何资源、网卡或 IP」整批回滚文案 / VALIDATION_ERROR field=format）
+ *   / 网络层兑底；默认 scope（F014）文案不变；details 形状不符不伪造；
+ * - src/components/resourceInterfaceIpImportForm.ts（纯逻辑，无 JSX）：本地快速
+ *   反馈（空输入 / 非法 format / .xlsx 扩展名 / 5 MiB 上限）、输入指纹（文件 /
+ *   格式变化即失效）、确认导入门控（预校验 0 错误 + 指纹一致 + 未成功导入）、
+ *   冻结 26 列表头文本与 CSV 生成、适用行 / 类型（含 boolean）标签。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -443,9 +458,13 @@ import {
 import {
   describeImportError,
   getImportTemplates,
+  getResourceInterfaceIpImportTemplate,
   IMPORT_MAX_FILE_BYTES,
+  IMPORT_MAX_ROWS,
   importResources,
+  importResourceInterfacesIps,
   validateResourceImport,
+  validateResourceInterfaceIpImport,
 } from "../src/api/imports.ts";
 import {
   buildTemplateCsv,
@@ -456,6 +475,19 @@ import {
   templateColumnTypeLabel,
   templateColumnRequiredLabel,
 } from "../src/components/importForm.ts";
+import {
+  buildResourceInterfaceIpTemplateHeaderCsv,
+  canConfirmResourceInterfaceIpImport,
+  emptyResourceInterfaceIpImportFormValues,
+  parseResourceInterfaceIpImportFormValues,
+  RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS,
+  resourceInterfaceIpColumnAppliesToLabel,
+  resourceInterfaceIpColumnTypeLabel,
+  resourceInterfaceIpColumnRequiredLabel,
+  resourceInterfaceIpImportFormFieldFromPath,
+  resourceInterfaceIpImportTargetKey,
+  resourceInterfaceIpTemplateHeaderCsvFrom,
+} from "../src/components/resourceInterfaceIpImportForm.ts";
 import {
   describeAuditQueryError,
   listAudit,
@@ -7887,6 +7919,470 @@ await test("F022 M7：展示标签——ip_pool=null → 「池外（手动）�
   assert.ok(RESOURCE_IP_POOL_NULL_LABEL.length > 0);
   assert.equal(RESOURCE_IP_DESCRIPTION_NULL_LABEL, "—");
   assert.ok(RESOURCE_IP_DESCRIPTION_NULL_LABEL.length > 0);
+});
+
+// ---------------------------------------------------------------------------
+// F023：「资源+网卡+IP」三元组导入（Contract：docs/api/F023.md v1）
+// ---------------------------------------------------------------------------
+
+/** 构造最小三元组 CSV 测试文件（multipart file 字段）。 */
+function tripleImportCsvFile(name = "resource-interfaces-ips.csv") {
+  return new File(
+    ["cluster,hostname,resource_type,name,ip\nN96P,vm001,VIRTUAL_MACHINE,eth0,192.168.1.1/24\n"],
+    name,
+    { type: "text/csv" },
+  );
+}
+
+await test("F023 getResourceInterfaceIpImportTemplate：GET /imports/resource-interfaces-ips/templates；单一模板 key=resource_interfaces_ips、列含 applies_to", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      template: {
+        key: "resource_interfaces_ips",
+        columns: [
+          { name: "cluster", required: true, applies_to: ["BARE_METAL", "VIRTUAL_MACHINE"], target: "resource.cluster", type: "string", unit: null, enum: null, description: "Cluster code (case-insensitive) or UUID; must exist and be undeleted", example: "N96P" },
+          { name: "host", required: true, applies_to: ["VIRTUAL_MACHINE"], target: "virtual_machine.host_resource_id", type: "string", unit: null, enum: null, description: "Existing BARE_METAL host in the same cluster; must be empty on BM rows", example: "cn001" },
+          { name: "memory_mb", required: false, applies_to: ["BARE_METAL", "VIRTUAL_MACHINE"], target: "hardware.memory_mb", type: "integer", unit: "MiB", enum: null, description: "Memory in MiB; BM→hardware, VM→virtual_machine", example: "262144" },
+          { name: "enabled", required: false, applies_to: ["BARE_METAL", "VIRTUAL_MACHINE"], target: "interface.enabled", type: "boolean", unit: null, enum: null, description: "true/false (case-insensitive) or 1/0; empty→true", example: "true" },
+        ],
+      },
+    });
+  const data = await getResourceInterfaceIpImportTemplate();
+  assert.equal(data.template.key, "resource_interfaces_ips");
+  assert.equal(data.template.columns.length, 4);
+  assert.deepEqual(data.template.columns[0].applies_to, ["BARE_METAL", "VIRTUAL_MACHINE"]);
+  assert.deepEqual(data.template.columns[1].applies_to, ["VIRTUAL_MACHINE"]);
+  assert.equal(data.template.columns[2].unit, "MiB");
+  assert.equal(data.template.columns[3].type, "boolean");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resource-interfaces-ips/templates");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F023 validateResourceInterfaceIpImport：POST multipart（file+format）到 /imports/resource-interfaces-ips/validate；响应复用 F014 形状", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      format: "csv",
+      total_rows: 5,
+      importable_rows: 3,
+      error_count: 2,
+      errors: [
+        { row: 4, field: "ip", reason: "duplicate (cluster, ip) within file (also at row 2)", related_row: 2 },
+        { row: 5, field: "network", reason: "network cannot be determined: network column empty and ip has no /mask", related_row: null },
+      ],
+      errors_truncated: false,
+    });
+  const file = tripleImportCsvFile();
+  const data = await validateResourceInterfaceIpImport(file, "csv");
+  assert.equal(data.format, "csv");
+  assert.equal(data.total_rows, 5);
+  assert.equal(data.importable_rows, 3);
+  assert.equal(data.error_count, 2);
+  assert.equal(data.errors[0].field, "ip");
+  assert.equal(data.errors[0].related_row, 2);
+  assert.equal(data.errors[1].related_row, null);
+  assert.equal(data.errors_truncated, false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resource-interfaces-ips/validate");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  // multipart：body 为 FormData；不得手动设置 Content-Type（boundary 由 fetch 生成）
+  assert.ok(calls[0].init.body instanceof FormData, "body 应为 FormData（multipart）");
+  assert.ok(
+    !("Content-Type" in (calls[0].init.headers ?? {})),
+    "不得手动设置 Content-Type（boundary 由 fetch 生成）",
+  );
+  assert.equal(calls[0].init.headers["Accept"], "application/json");
+  assert.equal(calls[0].init.body.get("format"), "csv");
+  const uploaded = calls[0].init.body.get("file");
+  assert.ok(uploaded instanceof File, "file 字段应为文件对象");
+  assert.equal(uploaded.name, "resource-interfaces-ips.csv");
+  assert.equal(uploaded.size, file.size);
+});
+
+await test("F023 importResourceInterfacesIps：POST /imports/resource-interfaces-ips；201 解析 {created,total_rows,interfaces_created,ip_addresses_created}", async () => {
+  respond = () =>
+    jsonResponse(201, { created: 3, total_rows: 5, interfaces_created: 4, ip_addresses_created: 5 });
+  const file = new File(
+    [new Uint8Array([0x50, 0x4b, 0x03, 0x04])],
+    "resource-interfaces-ips.xlsx",
+    { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+  );
+  const data = await importResourceInterfacesIps(file, "xlsx");
+  assert.equal(data.created, 3);
+  assert.equal(data.total_rows, 5);
+  assert.equal(data.interfaces_created, 4);
+  assert.equal(data.ip_addresses_created, 5);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resource-interfaces-ips");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  assert.ok(calls[0].init.body instanceof FormData);
+  assert.equal(calls[0].init.body.get("format"), "xlsx");
+  assert.equal(calls[0].init.body.get("file").name, "resource-interfaces-ips.xlsx");
+});
+
+await test("F023 上传 401 / 403（permission | csrf）：describeImportError(scope=resource-interfaces-ips) 明确文案、不重试", async () => {
+  respond = () =>
+    jsonResponse(401, {
+      error: { code: "AUTH_REQUIRED", message: "未认证或会话已过期", details: {} },
+    });
+  const unauthorized = describeImportError(
+    await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.ok(unauthorized.message.includes("重新登录"));
+  assert.equal(handlerCalls, 1);
+  assert.equal(calls.length, 1);
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "Forbidden", details: { reason: "permission" } },
+    });
+  const permission = describeImportError(
+    await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.ok(permission.message.includes("导入权限"));
+  assert.equal(handlerCalls, 1); // 403 不触发 401 处理器
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "Forbidden", details: { reason: "csrf" } },
+    });
+  const csrf = describeImportError(
+    await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.ok(csrf.message.includes("csrf"));
+});
+
+await test("F023 413 IMPORT_FILE_TOO_LARGE / IMPORT_ROW_LIMIT_EXCEEDED：携带上限值、无部分导入语义（上限复用 F014 签核值）", async () => {
+  respond = () =>
+    jsonResponse(413, {
+      error: { code: "IMPORT_FILE_TOO_LARGE", message: "File too large", details: { limit_bytes: 5242880 } },
+    });
+  const fileErr = describeImportError(
+    await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.equal(fileErr.code, "IMPORT_FILE_TOO_LARGE");
+  assert.equal(fileErr.limitBytes, IMPORT_MAX_FILE_BYTES);
+  assert.ok(fileErr.message.includes("未导入任何数据"));
+
+  respond = () =>
+    jsonResponse(413, {
+      error: { code: "IMPORT_ROW_LIMIT_EXCEEDED", message: "Row limit exceeded", details: { limit_rows: 5000 } },
+    });
+  const rowErr = describeImportError(
+    await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.equal(rowErr.limitRows, IMPORT_MAX_ROWS);
+  assert.ok(rowErr.message.includes("未导入任何数据"));
+});
+
+await test("F023 422 IMPORT_INVALID_FILE：reason 映射与缺失 / 未定义列拼接（表头 26 列冻结，不按列名重排）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_INVALID_FILE",
+        message: "Invalid file",
+        details: { reason: "missing_columns", missing_columns: ["resource_type", "name", "ip"] },
+      },
+    });
+  const missing = describeImportError(
+    await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.equal(missing.invalidFile.reason, "missing_columns");
+  assert.deepEqual(missing.invalidFile.missingColumns, ["resource_type", "name", "ip"]);
+  assert.ok(missing.message.includes("缺失列"));
+  assert.ok(missing.message.includes("IMPORT_INVALID_FILE"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_INVALID_FILE",
+        message: "Invalid file",
+        details: { reason: "unknown_columns", unknown_columns: ["rack"] },
+      },
+    });
+  const unknown = describeImportError(
+    await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.deepEqual(unknown.invalidFile.unknownColumns, ["rack"]);
+  assert.ok(unknown.message.includes("未定义列"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: { code: "IMPORT_INVALID_FILE", message: "Invalid file", details: { reason: "column_order" } },
+    });
+  const order = describeImportError(
+    await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.ok(order.message.includes("顺序"));
+});
+
+await test("F023 422 IMPORT_VALIDATION_FAILED：整批回滚 +「未创建任何资源、网卡或 IP」（无部分成功）；行错误明细与预校验同形状；默认 scope（F014）文案不变", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_VALIDATION_FAILED",
+        message: "Import validation failed",
+        details: {
+          total_rows: 5,
+          importable_rows: 3,
+          error_count: 2,
+          errors: [
+            { row: 3, field: "hostname", reason: "resource already exists in this cluster (no update/overwrite)", related_row: null },
+            { row: 4, field: "ip", reason: "duplicate (cluster, ip) within file (also at row 2)", related_row: 2 },
+          ],
+          errors_truncated: true,
+        },
+      },
+    });
+  const err = await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv"));
+  const described = describeImportError(err, "resource-interfaces-ips");
+  assert.equal(described.code, "IMPORT_VALIDATION_FAILED");
+  assert.ok(described.validationFailed !== null, "应解析出行错误明细");
+  assert.equal(described.validationFailed.total_rows, 5);
+  assert.equal(described.validationFailed.importable_rows, 3);
+  assert.equal(described.validationFailed.error_count, 2);
+  assert.equal(described.validationFailed.errors[1].related_row, 2);
+  assert.equal(described.validationFailed.errors_truncated, true);
+  // 无部分成功语义：整批回滚、未创建任何资源、网卡或 IP
+  assert.ok(described.message.includes("整批失败"));
+  assert.ok(described.message.includes("回滚"));
+  assert.ok(described.message.includes("未创建任何资源、网卡或 IP"));
+
+  // details 形状不符：不伪造行错误明细，回滚文案仍在
+  respond = () =>
+    jsonResponse(422, {
+      error: { code: "IMPORT_VALIDATION_FAILED", message: "Import validation failed", details: {} },
+    });
+  const shapeMismatch = describeImportError(
+    await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.equal(shapeMismatch.validationFailed, null);
+  assert.ok(shapeMismatch.message.includes("回滚"));
+  assert.ok(shapeMismatch.message.includes("未创建任何资源、网卡或 IP"));
+
+  // 默认 scope（F014）文案不受 F023 扩展影响（「未创建任何资源」，不提网卡 / IP）
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_VALIDATION_FAILED",
+        message: "Import validation failed",
+        details: { total_rows: 1, importable_rows: 0, error_count: 1, errors: [], errors_truncated: false },
+      },
+    });
+  const f014Scope = describeImportError(
+    await expectApiError(importResources(tripleImportCsvFile(), "csv")),
+  );
+  assert.ok(f014Scope.message.includes("未创建任何资源"));
+  assert.ok(!f014Scope.message.includes("网卡"), "默认 scope 不应出现网卡 / IP 字样");
+});
+
+await test("F023 422 VALIDATION_ERROR field=format：字段级错误（服务端大小写不敏感，客户端恒发小写规范值）；422 点路径 → 表单键", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: { fields: [{ field: "format", message: "format 必须为 csv 或 xlsx" }] },
+      },
+    });
+  const err = await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv"));
+  const described = describeImportError(err, "resource-interfaces-ips");
+  assert.equal(described.fields.format, "format 必须为 csv 或 xlsx");
+  assert.equal(described.validationFailed, null);
+  assert.equal(resourceInterfaceIpImportFormFieldFromPath("format"), "format");
+  assert.equal(resourceInterfaceIpImportFormFieldFromPath("file"), null);
+  assert.equal(resourceInterfaceIpImportFormFieldFromPath("format.x"), null);
+  assert.equal(resourceInterfaceIpImportFormFieldFromPath(""), null);
+});
+
+await test("F023 parseResourceInterfaceIpImportFormValues：空输入不发请求；非法 format 防御；.xlsx 扩展名；大小上限本地拦截", async () => {
+  const empty = parseResourceInterfaceIpImportFormValues(emptyResourceInterfaceIpImportFormValues());
+  assert.equal(empty.ok, false);
+  assert.ok(empty.errors.file.includes("选择"), "未选文件应本地报错（不发起请求）");
+
+  // format 下拉恒合法；防御自由输入的非法值（服务端同样 422 field="format"）
+  const badFormat = parseResourceInterfaceIpImportFormValues({
+    format: "xls",
+    file: tripleImportCsvFile(),
+  });
+  assert.equal(badFormat.ok, false);
+  assert.ok(badFormat.errors.format);
+
+  // format=xlsx 仅接受 .xlsx（.xls 拒绝、大小写不敏感）
+  const xls = parseResourceInterfaceIpImportFormValues({
+    format: "xlsx",
+    file: new File(["x"], "triple.xls"),
+  });
+  assert.equal(xls.ok, false);
+  assert.ok(xls.errors.file.includes(".xlsx"));
+  const upper = parseResourceInterfaceIpImportFormValues({
+    format: "xlsx",
+    file: new File(["x"], "triple.XLSX"),
+  });
+  assert.equal(upper.ok, true);
+
+  // 文件大小超上限本地拦截（§14 复用 F014 签核值 5,242,880 字节；恰好等于上限通过）
+  const big = new File(["x"], "big.csv");
+  Object.defineProperty(big, "size", { value: IMPORT_MAX_FILE_BYTES + 1 });
+  const tooBig = parseResourceInterfaceIpImportFormValues({ format: "csv", file: big });
+  assert.equal(tooBig.ok, false);
+  assert.ok(tooBig.errors.file.includes("5242880"));
+  assert.ok(tooBig.errors.file.includes("IMPORT_FILE_TOO_LARGE"));
+  const exact = new File(["x"], "exact.csv");
+  Object.defineProperty(exact, "size", { value: IMPORT_MAX_FILE_BYTES });
+  assert.equal(parseResourceInterfaceIpImportFormValues({ format: "csv", file: exact }).ok, true);
+
+  // 合法最小输入通过（csv 不限扩展名）
+  const ok = parseResourceInterfaceIpImportFormValues({
+    format: "csv",
+    file: tripleImportCsvFile("triple"),
+  });
+  assert.equal(ok.ok, true);
+});
+
+await test("F023 resourceInterfaceIpImportTargetKey：file+format 指纹（文件名 / 大小 / 修改时间 + 格式），变化即失效", async () => {
+  const fileA = new File(["a,b\n"], "a.csv");
+  const fileB = new File(["a,b\n"], "a.csv", { lastModified: 12345 });
+  const keyA = resourceInterfaceIpImportTargetKey({ format: "csv", file: fileA });
+  assert.ok(keyA !== null);
+  assert.equal(keyA, resourceInterfaceIpImportTargetKey({ format: "csv", file: fileA }));
+  assert.notEqual(keyA, resourceInterfaceIpImportTargetKey({ format: "xlsx", file: fileA }));
+  assert.notEqual(keyA, resourceInterfaceIpImportTargetKey({ format: "csv", file: fileB }));
+  assert.notEqual(
+    keyA,
+    resourceInterfaceIpImportTargetKey({ format: "csv", file: new File(["a,b\n"], "b.csv") }),
+  );
+  assert.equal(resourceInterfaceIpImportTargetKey({ format: "csv", file: null }), null);
+});
+
+await test("F023 canConfirmResourceInterfaceIpImport：确认门控（预校验 0 错误 + 指纹一致 + 未成功导入才可用）", async () => {
+  const key = "csv:a.csv:4:1700000000000";
+  // 预校验成功且 0 错误、指纹一致、未成功导入 → 可用
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey: key,
+      currentKey: key,
+      importSucceeded: false,
+    }),
+    true,
+  );
+  // 未完成预校验 → 不可用
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: null,
+      validatedKey: key,
+      currentKey: key,
+      importSucceeded: false,
+    }),
+    false,
+  );
+  // 预校验存在错误行 → 不可用（存在错误行时整批不可能成功，不进入写入）
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 2 },
+      validatedKey: key,
+      currentKey: key,
+      importSucceeded: false,
+    }),
+    false,
+  );
+  // 指纹失效（文件 / 格式已变化，旧预校验结果不适用于当前输入）→ 不可用
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey: key,
+      currentKey: "csv:b.csv:8:1700000000999",
+      importSucceeded: false,
+    }),
+    false,
+  );
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey: null,
+      currentKey: null,
+      importSucceeded: false,
+    }),
+    false,
+  );
+  // 本次导入已成功（同一文件再导入会因现存冲突被服务端整批拒绝，§11）→ 不可用
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey: key,
+      currentKey: key,
+      importSucceeded: true,
+    }),
+    false,
+  );
+});
+
+await test("F023 模板表头文本：冻结 26 列列名与顺序（§6/D03 签核）；表头行 CSV 生成", async () => {
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.length, 26);
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[0], "cluster");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[1], "hostname");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[2], "resource_type");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[5], "host");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[7], "memory_mb");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[17], "gpu_count");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[18], "name");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[19], "interface_type");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[23], "enabled");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[24], "network");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[25], "ip");
+  assert.equal(
+    buildResourceInterfaceIpTemplateHeaderCsv(),
+    "cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor," +
+      "manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,gpu_model,gpu_count," +
+      "name,interface_type,mac_address,speed_mbps,mtu,enabled,network,ip\n",
+  );
+  // 服务端响应列名 → 同一表头行 CSV（下载用，§6）
+  assert.equal(
+    resourceInterfaceIpTemplateHeaderCsvFrom(["cluster", "hostname"]),
+    "cluster,hostname\n",
+  );
+});
+
+await test("F023 模板列渲染辅助：适用行标签（BM / VM）、类型标签（含 boolean · 单位 / 枚举）、必填标签", async () => {
+  assert.equal(
+    resourceInterfaceIpColumnAppliesToLabel({ applies_to: ["BARE_METAL", "VIRTUAL_MACHINE"] }),
+    "BM / VM",
+  );
+  assert.equal(resourceInterfaceIpColumnAppliesToLabel({ applies_to: ["VIRTUAL_MACHINE"] }), "仅 VM");
+  assert.equal(resourceInterfaceIpColumnAppliesToLabel({ applies_to: ["BARE_METAL"] }), "仅 BM");
+  assert.equal(resourceInterfaceIpColumnAppliesToLabel({ applies_to: [] }), "—");
+
+  assert.equal(
+    resourceInterfaceIpColumnTypeLabel({ type: "boolean", unit: null, enum: null }),
+    "boolean",
+  );
+  assert.equal(
+    resourceInterfaceIpColumnTypeLabel({ type: "integer", unit: "MiB", enum: null }),
+    "integer · MiB",
+  );
+  assert.equal(
+    resourceInterfaceIpColumnTypeLabel({
+      type: "enum",
+      unit: null,
+      enum: ["BARE_METAL", "VIRTUAL_MACHINE"],
+    }),
+    "enum（BARE_METAL | VIRTUAL_MACHINE）",
+  );
+  assert.equal(resourceInterfaceIpColumnRequiredLabel({ required: true }), "必填");
+  assert.ok(resourceInterfaceIpColumnRequiredLabel({ required: false }).includes("省略"));
 });
 
 // 还原全局状态

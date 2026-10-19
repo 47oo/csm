@@ -1517,8 +1517,8 @@ features:
   - F014
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: 调用 backend 与 frontend 实现 F023（后端导入服务/端点/staging 重构/契约；前端导入面板）
+  current_stage: TEST
+  next_action: 调用 tester 执行 F023 独立验证（真 PG 原子回滚/并发/唯一性/Network 解析 + 前端 + 人工浏览器）
   git:
     base_branch: codex/v3.1
     branch: feature/F023-import-interfaces-ips
@@ -1539,8 +1539,8 @@ features:
     database: NOT_REQUIRED
     test_design: COMPLETE
     contract: COMPLETE
-    backend: PENDING
-    frontend: PENDING
+    backend: COMPLETE
+    frontend: COMPLETE
     test: PENDING
     review: PENDING
   evidence:
@@ -1554,6 +1554,10 @@ features:
     - docs/features/F023/test-report.md#test-design
     contract:
     - docs/api/F023.md
+    backend:
+    - docs/features/F023/implementation.md#backend
+    frontend:
+    - docs/features/F023/implementation.md#frontend
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1678,9 +1682,9 @@ execution:
     basis: 用户于 2026-10-15 提出「多节点使用模板提交时应支持网卡以及 IP 地址分配」，BQ1–BQ7 回复「按推荐执行」，随后回复「1.
       是 2. 是」批准计划 revision 11 并授权实施 F023。
   current_feature: F023
-  current_stage: IMPLEMENTATION
-  last_result: F023 CONTRACT READY（docs/api/F023.md v1：冻结 26 列模板、Network 解析、分组/原子性/锁序/归因；吸收 F023-DB-01/02）；READY FOR IMPLEMENTATION。
-  next_action: 调用 backend 与 frontend 实现 F023
+  current_stage: TEST
+  last_result: F023 IMPLEMENTATION COMPLETE（backend + frontend；真 PG 回归 672 passed,2 skipped；前端 smoke 319 passed）。
+  next_action: 调用 tester 执行 F023 独立验证（真 PG 原子回滚/并发/唯一性/Network 解析 + 前端 + 人工浏览器）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

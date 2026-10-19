@@ -1,24 +1,35 @@
 /**
- * Import API（F014，Contract：docs/api/F014.md v1，READY）。
+ * Import API（F014，Contract：docs/api/F014.md v1，READY；F023，Contract：
+ * docs/api/F023.md v1，READY）。
  *
- * 端点（Contract §3/§4/§5）：
+ * F014 端点（Contract §3/§4/§5）：
  * - POST /imports/resources/validate   预校验（IMPORT；无副作用幂等，不写 Audit）
  * - POST /imports/resources            写入（IMPORT；整批成功 201 或整批回滚 422）
  * - GET  /imports/resources/templates  模板规范（READ 全角色；只读幂等）
  *
+ * F023 端点（「资源+网卡+IP」三元组导入，Contract §1/§3/§4/§5）：
+ * - POST /imports/resource-interfaces-ips/validate   预校验（IMPORT；无副作用幂等）
+ * - POST /imports/resource-interfaces-ips            写入（IMPORT；整批成功 201 或整批回滚 422）
+ * - GET  /imports/resource-interfaces-ips/templates  统一宽模板规范（READ 全角色；
+ *   template.key 恒为 "resource_interfaces_ips"，26 列冻结）
+ *
  * 注意：
- * - validate / resources 为 multipart/form-data（file 二进制 + format 字符串），
+ * - validate / 写入端点均为 multipart/form-data（file 二进制 + format 字符串），
  *   经 requestUpload 发送（不手动设置 Content-Type，boundary 由 fetch 生成）；
- *   服务端不落盘、不留临时文件，写入端点重新上传同一文件并完整重校验（§4/§8）。
- * - 写入「整批成功或整批回滚」：成功 201 {"created","total_rows"}；存在行错误
+ *   服务端不落盘、不留临时文件，写入端点重新上传同一文件并完整重校验
+ *   （F014 §4/§8；F023 §2/§12.2）。
+ * - 写入「整批成功或整批回滚」：F014 成功 201 {"created","total_rows"}；F023
+ *   成功 201 {"created","total_rows","interfaces_created","ip_addresses_created"}
+ *   （created=按 (cluster,hostname) 合并后的 Resource 数，§4）；存在行错误
  *   → 422 IMPORT_VALIDATION_FAILED（details 携带与预校验同形状的聚合错误列表），
- *   无部分成功语义（§4/I-1）。
+ *   无部分成功语义（F014 §4；F023 §4/§12.1）。
  * - 文件级致命错误（超限 413 / 不可解析或表头不符 422 IMPORT_INVALID_FILE）无
  *   errors 列表；行级错误聚合返回，1-based 文件行号、field 为模板列名、
- *   related_row 指向文件内重复的另一行（§1.2）。
+ *   related_row 指向文件内重复 / 组内冲突的另一行（F014 §1.2；F023 §1.2）。
  * - 401 / 403（permission|csrf）/ 422 VALIDATION_ERROR（format 缺失或非法）/
- *   500 沿用 F002 口径；页面呈现统一走 describeImportError。
- * - 上限为 Contract §10 签核值（契约值，服务端权威；本地仅快速反馈镜像）。
+ *   500 沿用 F002 口径；页面呈现统一走 describeImportError（F023 经 scope
+ *   参数区分整批回滚文案中的对象清单）。
+ * - 上限复用 F014 签核值（契约值，服务端权威；本地仅快速反馈镜像）。
  * - 本文件 import 显式带 .ts 扩展名：scripts/smoke-client.mjs 以 Node
  *   type stripping 直接加载本模块做机制级冒烟（Vite 构建同样支持）。
  */
@@ -144,6 +155,96 @@ export function getImportTemplates(): Promise<ImportTemplatesResponse> {
   return request<ImportTemplatesResponse>("/imports/resources/templates");
 }
 
+// ---------------------------------------------------------------------------
+// F023「资源+网卡+IP」三元组批量导入（Contract：docs/api/F023.md v1，READY）
+// ---------------------------------------------------------------------------
+
+/** F023 统一宽模板 key（Contract §5：templates 响应 template.key 恒为该字面量）。 */
+export type ResourceInterfaceIpTemplateKey = "resource_interfaces_ips";
+
+/** F023 模板列适用行类型（Contract §5/§6 applies_to；逐行由 resource_type 判定，允许混排）。 */
+export type ResourceInterfaceIpColumnAppliesTo = "BARE_METAL" | "VIRTUAL_MACHINE";
+
+/**
+ * F023 模板列描述（Contract §5）：较 F014 ImportColumnSpec 增加 applies_to
+ * （适用行类型清单，§6.1）；type 额外含 boolean（enabled 列，§6 #24）。
+ */
+export interface ResourceInterfaceIpColumnSpec {
+  name: string;
+  required: boolean;
+  /** 适用行类型（两类均适用时同时列出，如 ["BARE_METAL","VIRTUAL_MACHINE"]）。 */
+  applies_to: ResourceInterfaceIpColumnAppliesTo[];
+  target: string;
+  type: "string" | "integer" | "enum" | "boolean";
+  /** 单位（MiB / GiB / Mbps / bytes），无单位为 null。 */
+  unit: string | null;
+  /** 枚举允许值（大写规范值），不适用为 null。 */
+  enum: string[] | null;
+  description: string;
+  example: string;
+}
+
+/** F023 单套统一宽模板（Contract §5/§6：26 列冻结列名与顺序；resource_type 逐行区分 BM/VM）。 */
+export interface ResourceInterfaceIpTemplate {
+  key: ResourceInterfaceIpTemplateKey;
+  columns: ResourceInterfaceIpColumnSpec[];
+}
+
+/** GET /imports/resource-interfaces-ips/templates 200 响应（Contract §5：单套模板，非数组）。 */
+export interface ResourceInterfaceIpTemplatesResponse {
+  template: ResourceInterfaceIpTemplate;
+}
+
+/**
+ * POST /imports/resource-interfaces-ips 201 响应（Contract §4：整批成功）：
+ * - created = 新建 Resource 对象数（按 (cluster,hostname) 合并后组数）；
+ * - interfaces_created = 去重后 Interface 数（同资源按 name 去重）；
+ * - ip_addresses_created = 新建 IP 数（每行恰 1 个，成功时 == total_rows）。
+ */
+export interface ResourceInterfaceIpImportResponse {
+  created: number;
+  total_rows: number;
+  interfaces_created: number;
+  ip_addresses_created: number;
+}
+
+/**
+ * 预校验：POST /api/v1/imports/resource-interfaces-ips/validate（IMPORT；无副作用、
+ * 幂等、不写 Audit、不加锁，Contract §3）。响应形状与 F014 validate 相同
+ * （format/total_rows/importable_rows/error_count/errors/errors_truncated）。
+ */
+export function validateResourceInterfaceIpImport(
+  file: File,
+  format: ImportFormat,
+): Promise<ImportValidateResponse> {
+  return requestUpload<ImportValidateResponse>("/imports/resource-interfaces-ips/validate", {
+    body: buildImportFormData(file, format),
+  });
+}
+
+/**
+ * 写入：POST /api/v1/imports/resource-interfaces-ips（IMPORT；同一事务内再校验，
+ * 整批成功 201 或整批回滚 422 IMPORT_VALIDATION_FAILED，无部分成功，Contract §4/§12）。
+ */
+export function importResourceInterfacesIps(
+  file: File,
+  format: ImportFormat,
+): Promise<ResourceInterfaceIpImportResponse> {
+  return requestUpload<ResourceInterfaceIpImportResponse>("/imports/resource-interfaces-ips", {
+    body: buildImportFormData(file, format),
+  });
+}
+
+/**
+ * 模板规范：GET /api/v1/imports/resource-interfaces-ips/templates（READ 全角色；
+ * 只读、无 Audit、幂等，Contract §5）。单一统一宽模板（key=resource_interfaces_ips）。
+ */
+export function getResourceInterfaceIpImportTemplate(): Promise<
+  ResourceInterfaceIpTemplatesResponse
+> {
+  return request<ResourceInterfaceIpTemplatesResponse>("/imports/resource-interfaces-ips/templates");
+}
+
 /** details 数值提取（缺失 / 非数值 → null，不伪造）。 */
 function parseNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -209,10 +310,21 @@ const IMPORT_INVALID_FILE_REASON_MESSAGES: Record<string, string> = {
   column_order: "列顺序与模板不一致：表头须与冻结模板的列名、顺序完全一致（不按列名自动重排）",
 };
 
+/** 导入错误呈现的批次范围：决定整批回滚文案中的对象清单（F014 / F023 端点不同）。 */
+export type ImportErrorScope = "resources" | "resource-interfaces-ips";
+
+/** 整批回滚文案的对象清单（F023 §4：Resource/Interface/IPAddress 整批回滚零残留）。 */
+const IMPORT_ROLLBACK_LABELS: Record<ImportErrorScope, string> = {
+  resources: "未创建任何资源",
+  "resource-interfaces-ips": "未创建任何资源、网卡或 IP",
+};
+
 /**
- * 面向页面的导入错误描述（Contract §1.2/§3/§4；不抛出、不重试）：
+ * 面向页面的导入错误描述（F014/F023 Contract §1.2/§3/§4；不抛出、不重试）：
  * - 422 IMPORT_VALIDATION_FAILED → validationFailed 携带整批回滚的行错误明细
- *   （与预校验 errors 同形状）；文案明确「整批回滚、未创建任何资源」；
+ *   （与预校验 errors 同形状）；文案明确「整批回滚」与未创建的对象清单
+ *   （scope 默认 F014「未创建任何资源」；F023 传 "resource-interfaces-ips"
+ *   →「未创建任何资源、网卡或 IP」）；
  * - 422 IMPORT_INVALID_FILE → invalidFile 携带 reason 与缺失 / 未定义列清单；
  * - 413 → limitBytes / limitRows 携带 details 上限值；
  * - 422 VALIDATION_ERROR → fields（field="format" 缺失 / 非法）；
@@ -233,8 +345,11 @@ export interface ImportActionError {
   fields: Record<string, string>;
 }
 
-/** 把导入错误归类为页面可直接呈现的结构（不抛出、不重试）。 */
-export function describeImportError(error: unknown): ImportActionError {
+/** 把导入错误归类为页面可直接呈现的结构（不抛出、不重试；scope 见 ImportErrorScope）。 */
+export function describeImportError(
+  error: unknown,
+  scope: ImportErrorScope = "resources",
+): ImportActionError {
   if (!isApiError(error)) {
     // 网络层错误（fetch reject）：固定文案，不伪装成业务结果
     return {
@@ -303,10 +418,10 @@ export function describeImportError(error: unknown): ImportActionError {
       result.message =
         `整批失败：写入前再次校验发现 ${failed.error_count} 项错误` +
         `（共 ${failed.total_rows} 行，可导入 ${failed.importable_rows} 行），` +
-        `已全部回滚，未创建任何资源（IMPORT_VALIDATION_FAILED）。`;
+        `已全部回滚，${IMPORT_ROLLBACK_LABELS[scope]}（IMPORT_VALIDATION_FAILED）。`;
     } else {
       result.message =
-        "整批失败：写入前再次校验发现错误，已全部回滚，未创建任何资源（IMPORT_VALIDATION_FAILED）。";
+        `整批失败：写入前再次校验发现错误，已全部回滚，${IMPORT_ROLLBACK_LABELS[scope]}（IMPORT_VALIDATION_FAILED）。`;
     }
   } else if (error.status === 422 && error.code === "VALIDATION_ERROR") {
     result.fields = envelopeFieldErrors(error.details);

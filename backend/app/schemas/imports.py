@@ -50,3 +50,31 @@ class ImportValidateResponse(BaseModel):
 class ImportWriteResponse(BaseModel):
     created: int
     total_rows: int
+
+
+class UnifiedImportColumnSpec(BaseModel):
+    name: str
+    required: bool
+    applies_to: list[str]
+    target: str
+    type: str
+    unit: str | None
+    enum: list[str] | None
+    description: str
+    example: str
+
+
+class UnifiedImportTemplateSpec(BaseModel):
+    key: str
+    columns: list[UnifiedImportColumnSpec]
+
+
+class UnifiedImportTemplatesResponse(BaseModel):
+    template: UnifiedImportTemplateSpec
+
+
+class UnifiedImportWriteResponse(BaseModel):
+    created: int
+    total_rows: int
+    interfaces_created: int
+    ip_addresses_created: int
