@@ -4,38 +4,14 @@ project:
   requirements:
     path: docs/product/requirements-v3.md
     revision: 7
-  plan_revision: 9
-  status: DONE
+  plan_revision: 10
+  status: DRAFT
   approval:
-    plan_revision: 9
-    feature_ids:
-    - F001
-    - F002
-    - F003
-    - F004
-    - F005
-    - F006
-    - F007
-    - F008
-    - F009
-    - F010
-    - F011
-    - F012
-    - F013
-    - F014
-    - F015
-    - F016
-    - F017
-    - F018
-    - F019
-    - F020
-    - F021
-    approved_by: 用户
-    approved_on: '2026-10-15'
-    basis: 用户于 2026-10-15 要求在 Resource 列表页添加删除按钮；product-manager 澄清无阻塞（推荐单行删除、仅 Resource
-      列表），Architect 评估为纯前端、复用 F020 ConfirmDialog 与 F004 deleteResource。用户回复「批准并实施」：批准
-      docs/project/project-plan.yaml revision 9 全部 F001–F021（新增 F021 Resources 列表页行内删除，F001–F020
-      保持 DONE），并授权实施 F021。确认来源：本次会话用户指令。
+    plan_revision: null
+    feature_ids: []
+    approved_by: null
+    approved_on: null
+    basis: null
   acceptance:
     status: COMPLETE
     evidence:
@@ -1419,6 +1395,54 @@ features:
     - docs/features/F021/test-report.md#test-execution
     review:
     - docs/features/F021/review-report.md
+- id: F022
+  title: Resource 详情页 IP Addresses 区域
+  kind: FEATURE
+  priority: P1
+  milestone: M13 Resource 详情 IP 明细
+  scope: 补齐 requirements §18 已确认的 Resource Detail「IP Addresses」区域（当前 ResourceDetailPage
+    仅占位）：只读展示该 Resource 各未删除 Interface 绑定的未删除 IP 的 address、network{name,cidr}、interface.name、ip_pool.name（池外
+    null 显示「池外（手动）」）、description；数据获取采用前端逐接口查询（GET /interfaces?resource_id + 每接口 GET
+    /ip-addresses?interface_id，复用 F019 的 buildInterfaceBoundIpsQuery），排除未绑定 IP（无 Resource
+    归属）与已删除 IP（deleted=exclude），默认也不显示绑定到已软删 Interface 的 IP；按 interface.name ASC →
+    IP 数值 ASC → id ASC 确定性排序；空/错/加载/超上限截断态显式区分（不静默截断）。明确不做：编辑/绑定/解绑/转移/释放/分配等写入口、修改
+    F019 每接口「已绑定 IP」展示、后端/API/Schema/契约变更、展示未绑定或已删 IP、cluster 列（Overview 已有）。
+  acceptance: §18/§32 区域实现；展示 address/network/interface/ip_pool/description；跨接口多 IP
+    正确展开且按 interface.name→IP 数值→id 确定性排序；无绑定 IP 空态；不展示未绑定/已删 IP；只读无写入口、全角色内容一致（READ）；加载失败可重试且不伪装空列表、超上限显式提示；F019
+    每接口「已绑定 IP」无回归。
+  requirements:
+  - docs/product/requirements-v3.md#18-resource-detail
+  - docs/product/requirements-v3.md#32-上线验收
+  - docs/product/requirements-v3.md#21-逻辑删除
+  - docs/product/requirements-v3.md#23-用户与权限
+  depends_on:
+  - F004
+  - F007
+  - F010
+  - F019
+  blocking_decisions: []
+  status: DRAFT
+  current_stage: null
+  next_action: null
+  layers:
+    database: false
+    backend: false
+    frontend: true
+  api_required: false
+  not_required:
+    database: 无新表/列/约束/索引/迁移；查询命中既有 ix_interfaces_resource_id 与 ix_ip_addresses_interface_id
+    backend: 无服务端改动；复用既有 GET /interfaces 与 GET /ip-addresses
+    contract: 无 API 变化；复用既有 F007/F010 契约（前端逐接口查询方案）
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1549,17 +1573,18 @@ execution:
   next_action: null
   repair_rounds: 0
 planning_status:
-  status: DONE
+  status: DRAFT
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 21
-    DRAFT: 0
+    DRAFT: 1
     IN_PROGRESS: 0
     IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
     BLOCKED: []
-    DRAFT: []
+    DRAFT:
+    - F022
