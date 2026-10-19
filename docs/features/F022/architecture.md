@@ -127,3 +127,14 @@ api_required: false
 需求依据充分，无 Blocking Questions；纯前端只读聚合；Backend/Database/Contract 均 NOT_REQUIRED；`READY FOR DESIGN`。
 
 GIT: NONE
+---
+
+## 10. 最终设计签核（CONTRACT Gate）
+
+- **签核者**：Architect；**结果**：`READY FOR IMPLEMENTATION`
+- **签核版本**：F022 Design v1（本文件）；Contract `NOT_REQUIRED`
+- **核对的 Database / Backend**：均 `NOT_REQUIRED`（查询命中既有 `ix_interfaces_resource_id`、`ix_ip_addresses_interface_id`；无服务端改动）
+- **核对的 Test Design**：`docs/features/F022/test-report.md` TD-1
+- **上游依据**：requirements-v3.md revision 7 §18/§32/§13/§14/§12/§21/§23/§17.1；F022 product v1（A1–A7）；project-plan.yaml revision 10（用户 2026-10-15 批准）
+- **覆盖 Feature**：F022
+- **一致性**：A1–A7 ↔ §18/§32 ↔ DR-382–DR-400 ↔ T01–T07 无缺口/矛盾；Contract/Database/Backend NOT_REQUIRED 成立；PROPOSED 项不影响正确性与可验收性。
