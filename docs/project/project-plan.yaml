@@ -1517,8 +1517,8 @@ features:
   - F014
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST
-  next_action: 调用 tester 执行 F023 独立验证（真 PG 原子回滚/并发/唯一性/Network 解析 + 前端 + 人工浏览器）
+  current_stage: IMPLEMENTATION
+  next_action: 修复 F023-TEST-01（并发重叠 IP 错误字段归因为 ip，遵守 DR-422）后重跑 F023 集成测试
   git:
     base_branch: codex/v3.1
     branch: feature/F023-import-interfaces-ips
@@ -1682,10 +1682,10 @@ execution:
     basis: 用户于 2026-10-15 提出「多节点使用模板提交时应支持网卡以及 IP 地址分配」，BQ1–BQ7 回复「按推荐执行」，随后回复「1.
       是 2. 是」批准计划 revision 11 并授权实施 F023。
   current_feature: F023
-  current_stage: TEST
-  last_result: F023 IMPLEMENTATION COMPLETE（backend + frontend；真 PG 回归 672 passed,2 skipped；前端 smoke 319 passed）。
-  next_action: 调用 tester 执行 F023 独立验证（真 PG 原子回滚/并发/唯一性/Network 解析 + 前端 + 人工浏览器）
-  repair_rounds: 0
+  current_stage: IMPLEMENTATION
+  last_result: F023 TEST RETURN TO IMPLEMENTATION（F023-TEST-01 MEDIUM：并发重叠 IP 失败批归因 field=resource_type/reason=Conflict 而非 ip，违反 DR-422；其余 26 passed；PERF-03 通过；回归 148 passed；前端 319 passed）。
+  next_action: 修复 F023-TEST-01 后重跑 F023 集成测试
+  repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
