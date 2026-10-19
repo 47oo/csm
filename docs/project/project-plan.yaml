@@ -1447,8 +1447,8 @@ features:
   - F019
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST_DESIGN
-  next_action: 调用 tester 产出 F022 测试设计（docs/features/F022/test-report.md#test-design）
+  current_stage: CONTRACT
+  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
   git:
     base_branch: codex/v3.1
     branch: feature/F022-resource-detail-ip-area
@@ -1468,7 +1468,7 @@ features:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
+    test_design: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: PENDING
@@ -1479,6 +1479,8 @@ features:
     - docs/features/F022/product.md
     architecture:
     - docs/features/F022/architecture.md
+    test_design:
+    - docs/features/F022/test-report.md#test-design
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1603,9 +1605,9 @@ execution:
     basis: 用户于 2026-10-15 要求在 Resource 明细区域实现 IP 地址与分配明细，product-manager 与 Architect
       评估无阻塞后，回复「批准并实施」：批准计划 revision 10 并授权实施 F022。
   current_feature: F022
-  current_stage: TEST_DESIGN
-  last_result: F022 ARCHITECTURE READY FOR DESIGN（Resource 详情 IP Addresses 区域，前端逐接口查询，复用 F019 纯逻辑；backend/database/contract NOT_REQUIRED）。
-  next_action: 调用 tester 产出 F022 测试设计（docs/features/F022/test-report.md#test-design）
+  current_stage: CONTRACT
+  last_result: F022 TEST DESIGN READY（TD-1，A1–A7 映射；静态 S1–S5 + smoke M1–M7 + 真 PG P1–P9 + 人工浏览器 B-1–B-8）。
+  next_action: 调用 architect 核对最终设计并签核（api_required=false → Contract NOT_REQUIRED）
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
