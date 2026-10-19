@@ -21,6 +21,7 @@ filter hides ``deleted_at IS NOT NULL`` rows by default; callers opt in with
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func, select, update
@@ -429,9 +430,31 @@ def list_activity(
 # --- writes -----------------------------------------------------------------
 
 
-def create_interface(
+@dataclass
+class PreparedInterface:
+    """Fully validated Interface values ready to be staged (DR-417).
+
+    Produced by :func:`prepare_interface` (validation, owning-Resource lock,
+    parent check and same-Resource name uniqueness); persisted without
+    re-running validation by :func:`stage_interface`. F023 import builds the
+    same object after its aggregation-friendly per-row validation and stages it
+    inside a per-resource SAVEPOINT.
+    """
+
+    resource_id: uuid.UUID
+    name: str
+    interface_type: str
+    mac_address: str | None
+    speed_mbps: int | None
+    mtu: int | None
+    parent_interface_id: uuid.UUID | None
+    enabled: bool
+    description: str | None
+    meta: dict
+
+
+def prepare_interface(
     db: "Session",
-    operator: "Operator | None",
     *,
     resource: uuid.UUID,
     name: str,
@@ -443,12 +466,13 @@ def create_interface(
     enabled: bool = True,
     description: str | None = None,
     metadata: dict | None = None,
-) -> Interface:
-    """Create an Interface; validated per Contract §6.2 order.
+) -> PreparedInterface:
+    """Validate and normalise an Interface (no write, no commit; DR-417).
 
-    Body (422) -> owning Resource (422) -> parent (422) -> same-Resource
-    undeleted name uniqueness (409) -> write + CREATE Audit -> 201. The owning
-    Resource row is locked before the parent ancestor check (DR-85).
+    Preserves the create order exactly: body/normalisation (422) -> owning
+    Resource lock + selectability (422) -> parent (422) -> same-Resource
+    undeleted name uniqueness (409). The same non-committing core backs the
+    ordinary API and F023 import; ``create_interface`` is a thin wrapper.
     """
     normalized_name = normalization.normalize_interface_name(name)
     validated_type = _validate_interface_type(interface_type)
@@ -478,7 +502,7 @@ def create_interface(
     if duplicate is not None:
         raise Conflict.unique_conflict("name")
 
-    interface = Interface(
+    return PreparedInterface(
         resource_id=resource_row.id,
         name=normalized_name,
         interface_type=validated_type,
@@ -490,12 +514,31 @@ def create_interface(
         description=description,
         meta=meta,
     )
+
+
+def stage_interface(
+    db: "Session", operator: "Operator | None", prepared: PreparedInterface
+) -> Interface:
+    """Persist a prepared Interface + CREATE audit (no commit; DR-417).
+
+    Flushes so the generated id/constraints are visible; an ``IntegrityError``
+    propagates to the caller, which owns rollback (API: whole-transaction in
+    :func:`create_interface`; import: the per-resource SAVEPOINT).
+    """
+    interface = Interface(
+        resource_id=prepared.resource_id,
+        name=prepared.name,
+        interface_type=prepared.interface_type,
+        mac_address=prepared.mac_address,
+        speed_mbps=prepared.speed_mbps,
+        mtu=prepared.mtu,
+        parent_interface_id=prepared.parent_interface_id,
+        enabled=prepared.enabled,
+        description=prepared.description,
+        meta=prepared.meta,
+    )
     db.add(interface)
-    try:
-        db.flush()
-    except IntegrityError as exc:  # concurrent create lost the race
-        db.rollback()
-        raise _translate_integrity_error(exc) from exc
+    db.flush()
 
     audit.record(
         db,
@@ -506,6 +549,52 @@ def create_interface(
         before=None,
         after=interface_snapshot(interface),
     )
+    return interface
+
+
+def create_interface(
+    db: "Session",
+    operator: "Operator | None",
+    *,
+    resource: uuid.UUID,
+    name: str,
+    interface_type: str = "OTHER",
+    mac_address: str | None = None,
+    speed_mbps: int | None = None,
+    mtu: int | None = None,
+    parent_interface: uuid.UUID | None = None,
+    enabled: bool = True,
+    description: str | None = None,
+    metadata: dict | None = None,
+) -> Interface:
+    """Create an Interface; validated per Contract §6.2 order.
+
+    Body (422) -> owning Resource (422) -> parent (422) -> same-Resource
+    undeleted name uniqueness (409) -> write + CREATE Audit -> 201. The owning
+    Resource row is locked before the parent ancestor check (DR-85). Thin
+    wrapper around :func:`prepare_interface` + :func:`stage_interface`
+    (DR-417): it commits on success and translates an unexpected
+    ``IntegrityError``.
+    """
+    prepared = prepare_interface(
+        db,
+        resource=resource,
+        name=name,
+        interface_type=interface_type,
+        mac_address=mac_address,
+        speed_mbps=speed_mbps,
+        mtu=mtu,
+        parent_interface=parent_interface,
+        enabled=enabled,
+        description=description,
+        metadata=metadata,
+    )
+    try:
+        interface = stage_interface(db, operator, prepared)
+    except IntegrityError as exc:  # concurrent create lost the race
+        db.rollback()
+        raise _translate_integrity_error(exc) from exc
+
     db.commit()
     return interface
 

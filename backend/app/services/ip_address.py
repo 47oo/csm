@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import ipaddress
 import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import cast, func, select, update
@@ -520,13 +521,69 @@ def create_ip_address(
     body (422) -> network (422) -> lock networks row -> Network ACTIVE (409
     ``allocation_not_allowed``) -> address format/boundary (422) -> same-Cluster
     uniqueness (409 ``unique_conflict``) -> derive ``ip_pool`` -> write + CREATE
-    Audit -> 201.
+    Audit -> 201. Thin wrapper around :func:`prepare_ip_address` +
+    :func:`stage_ip_address` (DR-418).
     """
-    network_row = resolve_network(db, network)
+    prepared = prepare_ip_address(
+        db, network=network, address=address, description=description
+    )
+    try:
+        ip_address = stage_ip_address(db, operator, prepared)
+    except IntegrityError as exc:  # concurrent create lost the race
+        db.rollback()
+        raise _translate_integrity_error(exc) from exc
+
+    db.commit()
+    return ip_address
+
+
+@dataclass
+class PreparedIPAddress:
+    """Fully validated IPAddress values ready to be staged (DR-418).
+
+    Produced by :func:`prepare_ip_address` (network resolve/lock, ACTIVE check,
+    §11.1 allocatable boundary, optional bound-Interface same-Cluster check,
+    same-Cluster uniqueness and Pool derivation); persisted without re-running
+    validation by :func:`stage_ip_address`. F023 import builds the same object
+    and stages it inside a per-resource SAVEPOINT with ``interface_id`` set.
+    """
+
+    network_id: uuid.UUID
+    cluster_id: uuid.UUID
+    address: str
+    ip_pool_id: uuid.UUID | None
+    interface_id: uuid.UUID | None
+    description: str | None
+
+
+def prepare_ip_address(
+    db: "Session",
+    *,
+    network: Any,
+    address: str,
+    description: str | None = None,
+    interface_id: uuid.UUID | None = None,
+) -> PreparedIPAddress:
+    """Validate an IPAddress (no write, no commit; DR-418).
+
+    ``network`` is a POST reference (UUID) that is resolved, or an already
+    resolved :class:`~app.models.network.Network` row (F023 import, which has
+    resolved the Network by name/CIDR). The ``networks`` row is always locked
+    ``FOR UPDATE`` before the ACTIVE/boundary/uniqueness checks. When
+    ``interface_id`` is given (import binding) the Interface is validated with
+    :func:`_validate_interface` (exists, undeleted, same Cluster).
+    """
+    if isinstance(network, Network):
+        network_row = network
+    else:
+        network_row = resolve_network(db, network)
     _lock_network(db, network_row.id)
 
     if network_row.status != "ACTIVE":
         raise Conflict.allocation_not_allowed("network_inactive")
+
+    if interface_id is not None:
+        _validate_interface(db, interface_id, cluster_id=network_row.cluster_id)
 
     normalized = normalization.normalize_ip_address(address)
     intervals = ip_capacity.network_allocatable_intervals(db, network_row)
@@ -537,21 +594,30 @@ def create_ip_address(
         raise Conflict.unique_conflict("address")
 
     ip_pool_id = _derive_ip_pool_id(db, network_row.id, normalized)
-
-    ip_address = IPAddress(
+    return PreparedIPAddress(
         network_id=network_row.id,
         cluster_id=network_row.cluster_id,
         address=normalized,
-        interface_id=None,
         ip_pool_id=ip_pool_id,
+        interface_id=interface_id,
         description=description,
     )
+
+
+def stage_ip_address(
+    db: "Session", operator: "Operator | None", prepared: PreparedIPAddress
+) -> IPAddress:
+    """Persist a prepared IPAddress + CREATE audit (no commit; DR-418)."""
+    ip_address = IPAddress(
+        network_id=prepared.network_id,
+        cluster_id=prepared.cluster_id,
+        address=prepared.address,
+        interface_id=prepared.interface_id,
+        ip_pool_id=prepared.ip_pool_id,
+        description=prepared.description,
+    )
     db.add(ip_address)
-    try:
-        db.flush()
-    except IntegrityError as exc:  # concurrent create lost the race
-        db.rollback()
-        raise _translate_integrity_error(exc) from exc
+    db.flush()
 
     audit.record(
         db,
@@ -562,7 +628,6 @@ def create_ip_address(
         before=None,
         after=ip_address_snapshot(ip_address),
     )
-    db.commit()
     return ip_address
 
 

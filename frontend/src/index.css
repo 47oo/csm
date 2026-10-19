@@ -495,6 +495,29 @@ mark {
   font-size: 0.95rem;
 }
 
+/* ---------- F023 资源+网卡+IP 批量导入（复用 F014 既有样式，最小新增） ---------- */
+
+/* 统一宽模板冻结表头文本：可换行代码块（本地镜像，无需等待服务端即可复制） */
+.import-template-header {
+  margin: 0.75rem 0;
+}
+
+.import-template-header p {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+}
+
+.import-template-header-text {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* ---------- F015 Audit 查询 / System（复用既有风格，最小样式） ---------- */
 
 /* 审计行 before/after 摘要：可换行 + 限宽（覆盖 data-table 默认 nowrap） */
