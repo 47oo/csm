@@ -1,3 +1,5 @@
+import { Button, Input, Select, TextArea } from "./ui/controls";
+import { ErrorState } from "./ui/feedback";
 import { useState, type FormEvent } from "react";
 import type { Cluster, ClusterActionError, ClusterStatus } from "../api/clusters";
 
@@ -118,7 +120,7 @@ export default function ClusterForm({
       {isCreate ? (
         <div className="form-field">
           <label htmlFor="cluster-code">code（唯一标识，创建后不可修改）</label>
-          <input
+          <Input
             id="cluster-code"
             name="code"
             type="text"
@@ -142,7 +144,7 @@ export default function ClusterForm({
 
       <div className="form-field">
         <label htmlFor="cluster-name">name（名称）</label>
-        <input
+        <Input
           id="cluster-name"
           name="name"
           type="text"
@@ -160,7 +162,7 @@ export default function ClusterForm({
 
       <div className="form-field">
         <label htmlFor="cluster-status">status（状态）</label>
-        <select
+        <Select
           id="cluster-status"
           name="status"
           value={status}
@@ -169,7 +171,7 @@ export default function ClusterForm({
         >
           <option value="ACTIVE">ACTIVE（启用）</option>
           <option value="INACTIVE">INACTIVE（停用，仍可维护）</option>
-        </select>
+        </Select>
         {serverFields.status && (
           <p className="field-error" role="alert">
             {serverFields.status}
@@ -179,7 +181,7 @@ export default function ClusterForm({
 
       <div className="form-field">
         <label htmlFor="cluster-description">description（描述，可选）</label>
-        <textarea
+        <TextArea
           id="cluster-description"
           name="description"
           rows={3}
@@ -197,7 +199,7 @@ export default function ClusterForm({
 
       <div className="form-field">
         <label htmlFor="cluster-metadata">metadata（JSON 对象，可选）</label>
-        <textarea
+        <TextArea
           id="cluster-metadata"
           name="metadata"
           rows={5}
@@ -214,28 +216,25 @@ export default function ClusterForm({
       </div>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
-          <p>
-            {serverError.message}
-            {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
-          </p>
-          {serverError.versionConflict && onRefresh && (
-            <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+        <ErrorState
+          message={`${serverError.message}${serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}`}
+          action={
+            serverError.versionConflict && onRefresh ? (
+              <Button type="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
-            </p>
-          )}
-        </div>
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button type="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );

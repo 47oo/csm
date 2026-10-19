@@ -1,8 +1,8 @@
 """Cross-site request forgery guard (Contract §2.1).
 
 Primary control is ``SameSite=Lax`` on the session cookie. As defence in depth,
-unsafe methods (POST/PUT/PATCH/DELETE) that carry a ``csm_session`` cookie are
-subject to a same-origin check:
+unsafe methods (POST/PUT/PATCH/DELETE) that carry a ``csm_session`` cookie **and
+no ``Authorization: Bearer``** are subject to a same-origin check:
 
 * if ``Origin`` is present, its authority must equal the request ``Host`` (or the
   origin must be whitelisted via ``AUTH_ALLOWED_ORIGINS``);
@@ -21,7 +21,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.core.config import get_settings
-from app.core.security import SESSION_COOKIE_NAME
+from app.core.security import parse_bearer_authorization, SESSION_COOKIE_NAME
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
@@ -60,10 +60,16 @@ class CsrfMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        if (
-            request.method not in SAFE_METHODS
-            and request.cookies.get(SESSION_COOKIE_NAME)
-            and not _is_same_origin(request)
-        ):
+        if request.method in SAFE_METHODS:
+            return await call_next(request)
+        # Cookie requests are checked; Bearer requests are exempt (DR-303).
+        if not request.cookies.get(SESSION_COOKIE_NAME):
+            return await call_next(request)
+        bearer_present, _token = parse_bearer_authorization(
+            request.headers.get("authorization")
+        )
+        if bearer_present:
+            return await call_next(request)
+        if not _is_same_origin(request):
             return _forbidden_csrf()
         return await call_next(request)

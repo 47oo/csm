@@ -1,6 +1,6 @@
 # CSM V3 一期需求
 
-版本：V3 phase 1 / revision 3。来源：用户于 2026-10-06 提供的《CSM V3 一期需求说明》，对 Q01–Q10 建议的确认，以及本次对剩余六项建议的明确确认：“按照推荐建议修改这6项”。确认范围与修订记录见 §35.1。
+版本：V3 phase 1 / revision 5。来源：用户于 2026-10-06 提供的《CSM V3 一期需求说明》，对 Q01–Q10 建议的确认；2026-10-06 对剩余六项建议的明确确认：“按照推荐建议修改这6项”；2026-10-14 确认新增 §23.1 API Key 机器凭据；2026-10-15 确认新增 §17.1 搜索结果字段组合。确认范围与修订记录见 §35.1。
 
 本文件是一期范围、产品规则和验收要求的权威来源。原说明正文中的“CSM V1”统一解释为标题指定的“CSM V3 一期”；已确认的 REST 前缀 `/api/v1/` 是独立 API 版本，不随产品版本改成 v3。
 
@@ -195,6 +195,17 @@ CONFIRMED：用户输入 IPv4，系统检查合法性和冲突。允许在 AUTO 
 
 CONFIRMED：解绑只移除 Interface 关系，IP 记录继续占用；释放是软删除 IP 记录，按 ADMIN 删除权限控制。解绑、转移或释放 IP 前必须先处理引用它的 Endpoint。删除后的 IP 可重新分配；恢复旧 IP 时重新检查冲突，不覆盖新占用记录。
 
+### 13.4 接口侧选择绑定（revision 6）
+
+CONFIRMED：在 Interface 创建成功后，可在该 Interface 的视图（Resource Detail 的 Interfaces 区域 / 接口列表）中直接选择 IP 地址并绑定，减少在接口与 IP 页面之间跳转。绑定语义与 IP 侧绑定一致，仅改变发起入口。
+
+* 候选集合：仅「与 Interface 所属 Resource 同 Cluster、当前未绑定任何 Interface（interface 为空）且未删除」的 IPAddress 可被选择；不显示跨 Cluster IP，不显示已绑定到其它 Interface 的 IP。候选可按 IP 地址搜索与分页；界面显式提示总数与分页边界，不静默截断。
+* 绑定时点：在 Interface 创建成功后于接口视图中就地进行；不在创建表单内预先选择，不将 Interface 创建与 IP 绑定合并为同一操作。创建失败不产生绑定；创建成功而绑定失败时 Interface 保留，并如实呈现绑定失败。
+* 范围：仅绑定已存在的未绑定 IP，不在该流程内手动输入新 IP 或发起自动分配；分配入口仍为 §13.1 / §13.2。
+* 批量与部分成功：一次可选择多个候选；绑定逐条提交，允许部分成功；界面逐条呈现成功与失败及原因，不静默重试、不静默覆盖。
+* 权限与完整性：绑定仍按 §23 需 `WRITE`；同 Cluster（§14）、未删除唯一性、Endpoint 引用检查（§16 / §21）及软删口径不因入口方向改变。绑定只编辑 Interface 关系，不改变 IP 的占用、地址与 Network。
+* 本期不提供从接口侧解绑或转移到其它 Interface；解绑 / 转移仍从 IP 侧发起（§13.3）。
+
 ## 14. IP 完整性
 
 CONFIRMED：IP 必须属于关联 Network 的 CIDR。同 Cluster 全局 IP 唯一，即使经不同 Network / Pool 分配也不能重复；不同 Cluster 可使用相同 IP。
@@ -220,6 +231,26 @@ Endpoint 的 IP 必填、未删除，且必须绑定在 Service 所属 Resource 
 CONFIRMED：首页统一搜索入口，至少支持 hostname、IP、Cluster、Service，并能找到对应 Resource。搜索框与下拉选择均允许输入和模糊搜索，如 gpu07 匹配 gpu0701、gpu0702、gpu0725。
 
 SN、MAC、Role、GPU Model 搜索为后续扩展，本期不强制。数据库使用 pg_trgm（§26）；GIN Index 为建议方案，具体索引在数据库设计中签核。
+
+### 17.1 搜索结果字段组合（revision 5）
+
+本节为 V3 一期交付后新增范围。
+
+CONFIRMED：全局搜索结果支持使用者**自定义组合展示字段**（仅展示层，不改变查询语义）。使用者可在预定义字段集合内选择要展示的内容；未选择时保持现有展示（无回归）。
+
+CONFIRMED 可组合字段集合：hostname、resource_type、role、status、cluster、Interface name、Interface interface_type、IP address、Network name。其中**「网络类型」按 Network 名称解释**（如管理网 / IB，符合 §33 口径）；需要网卡类型时单独选择 Interface interface_type。
+
+CONFIRMED：`GET /api/v1/search` 的 resource 结果行返回上述字段的固定超集（含关联的 Interface / IPAddress / Network），使前端任意字段组合无需再次请求；单台 Resource 的关联按「每个已绑定 IP 一行」展开，行内包含 Interface name / interface_type、IP address、Network name。
+
+CONFIRMED：关联行的顺序为 `interface.name ASC → IP 地址数值 ASC → id ASC`（确定性全序）；每台 Resource 的关联行展示上限为 10，服务端同时返回截断前总数，超出时界面需显式提示「还有 N 条」，不静默截断。
+
+CONFIRMED 适用边界：
+
+* 仅作用于**全局搜索结果**（§17），不扩展到各域列表页。
+* 组合偏好仅**浏览器本地**保存，不引入账号级服务端偏好；不提供导出或命名/共享视图（本期明确排除）。
+* 关联字段**严格继承结果行的软删口径与权限**：默认 `deleted=exclude` 时不展示已删关联对象；`include`/`only` 需 `VIEW_DELETED`（ADMIN），否则仍 403 `FORBIDDEN{reason:"permission"}`；无 VIEW_DELETED 用户不得见到已删关联。
+* 只改变展示：匹配语义、结果集、去重、顶层排序与分页（含 `total`）与现有行为一致；仍为只读、无写入口、不产生 Audit。
+* 不引入新实体、关系、状态或权限；字段语义沿用 §7、§10、§11、§13 与 F007/F008/F010 各域口径。
 
 ## 18. Resource Detail
 
@@ -287,6 +318,30 @@ CONFIRMED：一期本地账号登录，部署时初始化首个 ADMIN，不开�
 
 CONFIRMED：多人编辑使用版本冲突检查。提交的版本过期时拒绝覆盖，提示刷新后重新修改；前端不能静默用新版本重试覆盖。具体认证、版本标识、错误码及审计一致性由 Architect 在契约中设计，服务端必须执行鉴权和冲突检查。
 
+### 23.1 API Key 机器凭据
+
+本节为 V3 一期交付后新增范围（revision 4）。
+
+CONFIRMED：新增 **API Key** 作为非 Cookie 的机器凭据，供外部自动化在**无浏览器交互**下调用 CSM API。API Key 与既有 `csm_session` Cookie 认证**并存**：同一 API 集合同时接受两种认证载体；不废除、不削弱 Cookie 认证，Cookie 的登录、登出、过期与 CSRF 行为保持不变。
+
+CONFIRMED：API Key 必须绑定一个已存在且状态为 ACTIVE 的用户账号；**不新增人类账号以外的账号或角色类型**，API Key 不构成独立主体。
+
+CONFIRMED：API Key 的有效权限等于绑定账号的角色权限，**完全遵循 §23 权限矩阵，不产生新的权限语义**；本期**不支持创建时限定更小范围（scope-down）**。API Key 仍受对象状态、不可变字段与关系约束限制。
+
+CONFIRMED：使用 API Key 的写操作，Audit Log 的 operator 记录**绑定账号的 username**，并附该 API Key 的**标签**；账号停用后其全部 API Key 立即失效。
+
+CONFIRMED 对象与生命周期：
+
+* 特征至少包括：所属账号、可读标签（label）、凭据哈希、创建时间、过期时间、吊销时间、创建人。API Key 不纳入业务对象软删除/恢复（§21），采用**吊销**语义。
+* 创建、查看、吊销：**仅 ADMIN** 可为已存在且 ACTIVE 的账号创建，并查看与吊销；复用 §23「用户、角色、系统设置」权限，不新增权限项。
+* 明文：凭据明文仅在**创建成功响应中返回一次**，此后任何列表/详情均不返回。
+* 过期：创建时**必须设置有效期**，默认 90 天，上限 365 天，**不支持永不过期**；过期凭据按失效处理。
+* 吊销：吊销后**立即失效**，不可重新启用。
+
+CONFIRMED 明确排除：服务账号、机器账号、匿名账号或人类账号以外的新角色类型；OAuth / OIDC / SSO / 外部身份联合；Cluster 级或资源实例级复杂 RBAC；API Key 的浏览器交互登录；对 Cookie 认证既有行为的任何改变。
+
+CONFIRMED：API Key 明文、哈希及任何等效凭据**不得**出现在日志、审计记录、错误响应或列表/详情接口中，仅创建响应一次返回。
+
 ## 24. 批量导入
 
 CONFIRMED：支持 CSV 和 Excel `.xlsx`，一期只做资源新增导入，不按 hostname 自动更新或覆盖现有资源。提供固定模板与逐列说明；示例列 `cluster, hostname, resource_type, role, status, manufacturer, model, cpu_model, cpu_cores, memory_mb, gpu_model, gpu_count`，VM 模板须含 Host 引用，完整模板由 §35 D03 承接。
@@ -325,6 +380,8 @@ CONFIRMED：数据库与业务层共同保证 §5–16、§21 的唯一性、关
 CONFIRMED：运维资源查询与维护控制台，强调快速、清晰、高效查询与低操作成本。主要页面 Dashboard、Search、Clusters / Cluster Detail、Resources / Resource Detail、Networks / IPAM、Services、Audit、System。
 
 列表页至少分页、排序、过滤、模糊搜索；不追求复杂视觉效果。
+
+CONFIRMED（revision 7）：删除、释放（软删）与恢复等破坏性操作的二次确认统一使用模态对话框（弹出框）呈现，不在页面操作区内联展示。对话框包含对象标识与操作后果（含软删说明及引用检查提示）；确认按钮与操作对应并使用危险样式，并提供取消；请求进行中显示加载态且不允许重复提交；取消或在非提交态关闭对话框不发起请求。删除 / 释放 / 恢复的语义、权限门禁、引用检查、Audit 与错误呈现不因确认形态改变。
 
 ## 29. 技术栈
 
@@ -383,6 +440,28 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 | T39 | cpu_cores 表示整机物理核心总数，不含超线程；VM 登记不因总 vCPU/内存超过 Host 容量而被拒绝；speed_mbps 表示标称速率而非实时流量 |
 | T40 | 名称去首尾空白，空名/控制字符失败；Interface 内部空白失败且名称区分大小写；Network/Pool/Service 大小写不敏感，保留中文和内部普通空格，不自动合并内部空格 |
 | T41 | Network/Pool/Service 删除后名称可复用，作用域内存活对象仍保证唯一；名称被复用时旧对象恢复失败且新对象不被覆盖；Cluster code 仍不可复用 |
+| T42 | 有效 API Key 在无 Cookie 情况下可调用读/写端点并返回 200/201；识别身份等于绑定账号 |
+| T43 | API Key 继承角色：VIEWER Key 写操作 403；EDITOR Key 可写不可删除/释放/恢复；ADMIN Key 可执行 §23 ADMIN 行操作；任意 Key 均不越权 |
+| T44 | API Key 缺失/格式非法/哈希不匹配/已吊销/已过期一律 401，不泄露存在性；401 先于 403 |
+| T45 | API Key 写操作审计 operator 为绑定账号 username 且含 Key 标签；创建与吊销 Key 本身各产生审计记录 |
+| T46 | API Key 明文仅创建响应返回一次；数据库仅存不可逆哈希；日志、审计、列表/详情与错误响应中无可还原明文 |
+| T47 | 吊销后后续请求立即 401；绑定账号停用后其全部 API Key 立即失效 |
+| T48 | API Key 始终具有有效期：请求省略有效期时默认 90 天；提供超过 365 天、0 或负值创建失败；不支持永不过期 |
+| T49 | 引入 API Key 后 Cookie 认证不回归：登录/登出/`/auth/me`、CSRF 同源口径与 401/403 语义与 F002 契约一致 |
+| T50 | 全局搜索 resource 行返回关联 Interface/IP/Network；顺序为 interface.name → IP 数值 → id；每个 Resource 最多 10 行且返回截断前总数 |
+| T51 | 多网卡/多 IP 正确展开；无关联时为空且不伪造；超出上限时界面显式提示「还有 N 条」 |
+| T52 | 关联字段继承软删口径：`exclude` 不展示已删关联；`include`/`only` 无 VIEW_DELETED 仍 403；未绑定 IP 不出现在任何 Resource 关联行 |
+| T53 | 改变展示字段组合不改变结果集、去重、顶层排序、分页与 total；仍只读、不产生 Audit |
+| T54 | 接口创建成功后，接口侧候选仅包含同 Cluster、未绑定（interface 为空）且未删除的 IP；跨 Cluster IP、已绑定到其它接口的 IP 与已删除 IP 不出现在候选 |
+| T55 | 从接口侧选择多个候选绑定后，各 IP 的绑定关系与提交一致且各产生 UPDATE Audit；批量部分失败时逐条呈现成功项与失败项及原因，部分成功不显示为整体成功，不静默重试 |
+| T56 | 候选为空显示明确空状态、候选加载失败可重试且不伪装为空列表；候选总数超出单页上限时显式提示而不静默截断 |
+| T57 | VIEWER 不显示绑定入口且直接调用绑定仍被服务端拒绝；绑定不改变 IP 占用、address 与 Network，不触发 Endpoint 引用拒绝 |
+| T58 | 接口侧流程仅绑定：不在该流程内手动输入新 IP 或自动分配；不提供接口侧解绑 / 转移（入口保持 IP 侧）；并发绑定同一候选不产生重复绑定，后到者 409 VERSION_CONFLICT |
+| T59 | 删除类二次确认以模态对话框呈现：点击删除后弹出带遮罩对话框，页面操作区不再出现内联二次确认；确认执行原删除请求，取消或非提交态关闭不发起请求 |
+| T60 | 释放 IP 与恢复确认同样以模态对话框呈现，确认按钮文案与操作对应（确认释放 / 确认恢复），删除与释放为危险样式 |
+| T61 | 请求进行中确认按钮呈加载态且不可重复提交（含双击、遮罩、Esc）；非提交态按 Esc 或点击遮罩可关闭且不执行 |
+| T62 | 确认对话框包含对象标识、软删说明与引用检查提示；删除被引用或版本冲突等错误按既有方式在对话框内呈现且对象状态不变 |
+| T63 | 二次确认形态改变不改变需要二次确认的操作集合、权限门禁、引用检查、Audit 与请求载荷 / 端点；既有删除 / 释放 / 恢复行为无回归 |
 
 还须覆盖查询关系、列表交互、本地登录和初始 ADMIN、时间契约及真实 Compose 部署。D01–D03 专业设计完成后细化对应测试步骤与数据，不把尚未执行的预期写成 PASS。本节定义必须执行的用例，不是已经执行的测试报告。
 
@@ -390,7 +469,7 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 
 CONFIRMED：能创建 Cluster、BareMetal、VM 并关联 Host，维护 Interface / Network / Pool / Service，手动和自动分配 IP；按 hostname / IP / Cluster / Service 找到 Resource；详情显示 Cluster / 硬件 / Interface / IP / Network / VM 或 Host / Service。
 
-能阻止重复 hostname / IP、跨 Cluster Host / IP 绑定及非法 CIDR 地址；提供逻辑删除及 ADMIN 恢复、Audit Log、基础权限、本地登录、编辑版本冲突检查和 CSV / .xlsx 整批新增导入。Network / Pool、Endpoint 及恢复行为满足本 revision 的约束，包括地址边界与容量、保留范围/网关并发冲突、Cluster 停用维护、字段单位与名称规则；审计持续保留且纳入备份。一期范围内的全部必需能力不能因优先级低而从上线验收中删除。§31 与以上验收都需真实证据；上线条件不等于自动发布授权。
+能阻止重复 hostname / IP、跨 Cluster Host / IP 绑定及非法 CIDR 地址；提供逻辑删除及 ADMIN 恢复、Audit Log、基础权限、本地登录、编辑版本冲突检查和 CSV / .xlsx 整批新增导入。API Key 机器凭据支持无浏览器认证、按绑定账号角色鉴权、吊销即时生效，且 Cookie 认证不回归。全局搜索支持自定义组合展示字段（含关联网卡 / IP / 网络）。Network / Pool、Endpoint 及恢复行为满足本 revision 的约束，包括地址边界与容量、保留范围/网关并发冲突、Cluster 停用维护、字段单位与名称规则；审计持续保留且纳入备份。一期范围内的全部必需能力不能因优先级低而从上线验收中删除。§31 与以上验收都需真实证据；上线条件不等于自动发布授权。
 
 ## 33. 目标查询场景
 
@@ -410,6 +489,10 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 | --- | --- |
 | revision 2 / 2026-10-06 | 用户在收到 Q01–Q10 推荐规则后回复“按照推荐的建议进行修改”；替代 revision 1 中对应建议/冲突条款 |
 | revision 3 / 2026-10-06 | 用户在收到剩余六项逐项建议后回复“按照推荐建议修改这6项”；确认 Q02-A、Q04-A、Q04-B、Q07-A、Q10-A、Q10-B，替代 revision 2 对这些问题的 OPEN 描述；具体决策索引见 §35.2 |
+| revision 4 / 2026-10-14 | 用户确认新增“API Key 机器凭据”需求：引入非 Cookie 机器凭据并与 Cookie 并存；绑定现有用户账号、不新增账号/角色类型；继承绑定账号角色并完全遵循 §23 权限矩阵、不做 scope-down；审计记录绑定账号 username 与 Key 标签；仅 ADMIN 创建/查看/吊销；明文仅创建响应返回一次；必须设置有效期（默认 90 天、上限 365 天、不支持永不过期）；吊销与账号停用即时失效。新增 §23.1 与 T42–T49，替代此前无机器凭据的范围描述 |
+| revision 5 / 2026-10-15 | 用户确认新增“全局搜索可自定义组合展示字段”：仅作用于全局搜索结果；字段集含 hostname/resource_type/role/status/cluster 与 Interface name/interface_type、IP address、Network name（「网络类型」按 Network 名称解释）；resource 行返回固定超集，关联按每 IP 一行展开，顺序 interface.name→IP 数值→id，每 Resource 上限 10 并返回总数；偏好仅浏览器本地，无导出/命名视图；关联严格继承软删与权限口径；不改匹配/结果集/去重/排序/分页，仍只读。新增 §17.1 与 T50–T53，替代 §17 中无字段组合的描述 |
+| revision 6 / 2026-10-15 | 用户收到接口侧绑定需求「允许在创建接口后选择 IP 地址，减少跳转」及 BQ1–BQ5 选项后回复“按推荐执行”，确认为：在接口创建成功后于接口视图内选择并绑定 IP；候选仅同 Cluster、未绑定且未删除的 IP；仅绑定已存在未绑定 IP，不在该流程内手动输入或自动分配；逐条绑定、允许部分成功并逐条呈现，不静默重试；本期不提供接口侧解绑 / 转移；权限、同 Cluster、唯一性、Endpoint 引用与软删口径不因入口方向改变。新增 §13.4 与 T54–T58 |
+| revision 7 / 2026-10-15 | 用户反馈「删除的二次确认做弹出框，不在下面显示，容易看不到」，并就范围（是否含释放 IP、是否含恢复）回复“按推荐执行”，确认为：删除（软删）、释放 IP（软删）与恢复的二次确认统一改为模态对话框，以既有吊销 API Key 弹层为一致样式基准；不改删除 / 释放 / 恢复语义、权限、引用检查、Audit、错误呈现与需要二次确认的操作集合。新增 §28 条款与 T59–T63 |
 
 | 原 ID | 已确认内容所在条款 | 尚需处理的部分 |
 | --- | --- | --- |
@@ -453,6 +536,8 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ## 36. 文档建立状态
 
-> 本节为**状态记录**（2026-10 更新），不改动本文件中的任何业务规则（§1–§35）；需求基线仍为 revision 3。
+> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 7。
 
-需求基线为 revision 3；六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
+需求基线为 revision 7：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53）、revision 6 新增 §13.4 接口侧选择绑定（T54–T58）、revision 7 新增 §28 二次确认模态对话框条款（T59–T63），均作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写 F001–F016 的已 DONE 范围与证据。
+
+revision 3 的内容继续成立：六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。

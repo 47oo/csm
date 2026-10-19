@@ -1,3 +1,7 @@
+import { Button, Input, DataTable } from "./ui/controls";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
+import { EmptyState, ErrorState, InfoState, LoadingState, WarningState } from "./ui/feedback";
+import { StatusTag } from "./ui/surfaces";
 import { useEffect, useState } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -356,9 +360,9 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
           Endpoints（监听端点）— <span className="mono">{service.name}</span>
           <span className="unset">（{service.resource.hostname}）</span>
         </h3>
-        <button type="button" onClick={onBack}>
+        <Button type="button" onClick={onBack}>
           返回服务列表
-        </button>
+        </Button>
       </div>
 
       {mode.kind === "list" && (
@@ -369,7 +373,7 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
             </span>
             <span>
               {canWrite && !serviceDeleted && (
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setFormError(null);
@@ -377,22 +381,19 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
                   }}
                 >
                   新建端点
-                </button>
+                </Button>
               )}
             </span>
           </div>
 
           {serviceDeleted && (
-            <p className="status status-empty">
-              所属服务处于已删除状态：无法新建端点（服务端拒绝引用已删服务）；
-              其端点均为已删除状态，恢复端点需先恢复所属服务。
-            </p>
+            <InfoState message="所属服务处于已删除状态：无法新建端点（服务端拒绝引用已删服务）；其端点均为已删除状态，恢复端点需先恢复所属服务。" />
           )}
 
           {canViewDeleted && (
             <div className="form-field checkbox-field deleted-toggle">
               <label htmlFor="service-endpoints-deleted-toggle">
-                <input
+                <Input
                   id="service-endpoints-deleted-toggle"
                   type="checkbox"
                   checked={showDeleted}
@@ -403,36 +404,35 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
             </div>
           )}
 
-          {state.kind === "loading" && (
-            <p className="status status-loading">正在加载该服务的监听端点…</p>
-          )}
+          {state.kind === "loading" && <LoadingState label="正在加载该服务的监听端点…" />}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载端点列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载端点列表失败：${state.message}`}
+              action={
+                <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                {showDeleted
-                  ? "该服务暂无监听端点（含已删除）。"
-                  : "该服务暂无未删除的监听端点（非错误）。"}
-              </p>
+              <EmptyState
+                description={
+                  showDeleted
+                    ? "该服务暂无监听端点（含已删除）。"
+                    : "该服务暂无未删除的监听端点（非错误）。"
+                }
+              />
             ) : (
               <>
                 {state.data.total > state.data.items.length && (
-                  <p className="status status-empty">
-                    端点总数 {state.data.total} 个，仅显示前 {state.data.items.length} 个
-                    （按 created_at 排序；列表分页上限 100）。
-                  </p>
+                  <InfoState message={`端点总数 ${state.data.total} 个，仅显示前 ${state.data.items.length} 个（按 created_at 排序；列表分页上限 100）。`} />
                 )}
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         <th>ip_address</th>
@@ -452,7 +452,7 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
                           <td className="mono">
                             {endpoint.ip_address.address}
                             {endpoint.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
+                              <StatusTag tone="error">已删除</StatusTag>
                             )}
                           </td>
                           <td className="mono">{endpoint.ip_address.interface.name}</td>
@@ -469,7 +469,7 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
                             </td>
                           )}
                           <td>
-                            <button
+                            <Button
                               type="button"
                               className="link-button"
                               onClick={() => {
@@ -478,9 +478,9 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
                               }}
                             >
                               Activity
-                            </button>
+                            </Button>
                             {canWrite && endpoint.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => {
@@ -490,149 +490,147 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
                                 }}
                               >
                                 编辑
-                              </button>
+                              </Button>
                             )}
                             {canDelete && endpoint.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
+                                danger
                                 className="link-button"
                                 onClick={() => requestDelete(endpoint)}
                               >
                                 删除
-                              </button>
+                              </Button>
                             )}
                             {canRestore && endpoint.deleted_at !== null && !serviceDeleted && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => requestRestore(endpoint)}
                               >
                                 恢复
-                              </button>
+                              </Button>
                             )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {Object.keys(actionError.fields).length > 0 && (
-                  <ul>
-                    {Object.entries(actionError.fields).map(([field, message]) => (
-                      <li key={field}>
-                        {field}：{message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((item) => (
-                      <li key={`${item.object_type}-${item.object_id}`}>
-                        引用对象：{item.label ?? item.object_id}（{item.object_type}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflict.object_type === "service"
-                          ? `所属服务（${conflict.object_id}）仍处于已删除状态或已不存在`
-                          : conflict.object_type === "ip_address"
-                            ? `引用的 IP 地址（${conflict.object_id}）仍处于已删除状态或已不存在`
-                            : conflict.object_type === "interface"
-                              ? `IP 绑定的接口（${conflict.object_id}）仍处于已删除状态或已不存在`
-                              : `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态`}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
-
+          {/* F020：删除 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action !== null}
+            title={action?.kind === "delete" ? "删除监听端点" : "恢复监听端点"}
+            okText={action?.kind === "delete" ? "确认删除" : "确认恢复"}
+            danger={action?.kind === "delete"}
+            confirmLoading={actionBusy}
+            onConfirm={action?.kind === "delete" ? confirmDelete : confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
             {action !== null && (
-              <div className="inline-confirm">
-                {action.kind === "delete" ? (
-                  <span>
-                    确认软删除监听端点 {endpointLabel(action.endpoint)}？（不级联删除
-                    关联对象；同 IP 的 (protocol, port) 软删后释放可复用；version 递增）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复监听端点 {endpointLabel(action.endpoint)}？（仅恢复自身，
-                    不级联、不自动恢复 Service / IP / 接口；将重检同 IP 监听唯一、
-                    依赖有效性与 IP 绑定归属，失败不覆盖新对象；version 递增）
-                  </span>
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    action.kind === "delete" ? (
+                      <span>
+                        确认软删除监听端点 {endpointLabel(action.endpoint)}？（不级联删除
+                        关联对象；同 IP 的 (protocol, port) 软删后释放可复用；version 递增）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复监听端点 {endpointLabel(action.endpoint)}？（仅恢复自身，
+                        不级联、不自动恢复 Service / IP / 接口；将重检同 IP 监听唯一、
+                        依赖有效性与 IP 绑定归属，失败不覆盖新对象；version 递增）
+                      </span>
+                    )
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {Object.keys(actionError.fields).length > 0 && (
+                      <ul>
+                        {Object.entries(actionError.fields).map(([field, message]) => (
+                          <li key={field}>
+                            {field}：{message}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((item) => (
+                          <li key={`${item.object_type}-${item.object_id}`}>
+                            引用对象：{item.label ?? item.object_id}（{item.object_type}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.dependencyConflicts.length > 0 && (
+                      <ul>
+                        {actionError.dependencyConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {conflict.object_type === "service"
+                              ? `所属服务（${conflict.object_id}）仍处于已删除状态或已不存在`
+                              : conflict.object_type === "ip_address"
+                                ? `引用的 IP 地址（${conflict.object_id}）仍处于已删除状态或已不存在`
+                                : conflict.object_type === "interface"
+                                  ? `IP 绑定的接口（${conflict.object_id}）仍处于已删除状态或已不存在`
+                                  : `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态`}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
                 )}
-                <button
-                  type="button"
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
               </div>
             )}
-          </div>
+          </ConfirmDialog>
         </>
       )}
 
       {mode.kind === "create" &&
         (serviceOptions.kind === "loading" ? (
-          <p className="status status-loading">正在加载服务候选（创建表单的 service 选择器）…</p>
+          <LoadingState label="正在加载服务候选（创建表单的 service 选择器）…" />
         ) : serviceOptions.kind === "error" ? (
-          <div className="status status-error" role="alert">
-            <p>加载服务候选失败：{serviceOptions.message}</p>
-            <button
-              type="button"
-              onClick={() => setServiceReloadToken((token) => token + 1)}
-            >
-              重试
-            </button>
-            <button type="button" onClick={() => setMode({ kind: "list" })}>
-              返回列表
-            </button>
-          </div>
+          <ErrorState
+            message={`加载服务候选失败：${serviceOptions.message}`}
+            action={
+              <>
+                <Button type="button" onClick={() => setServiceReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+                <Button type="button" onClick={() => setMode({ kind: "list" })}>
+                  返回列表
+                </Button>
+              </>
+            }
+          />
         ) : (
           <>
             {serviceOptions.total > serviceOptions.services.length && (
-              <p className="status status-empty">
-                服务总数 {serviceOptions.total} 个，选择器仅列前 {serviceOptions.services.length}
-                个（按 name 排序；列表分页上限 100）；面板服务恒可选择。
-              </p>
+              <InfoState message={`服务总数 ${serviceOptions.total} 个，选择器仅列前 ${serviceOptions.services.length} 个（按 name 排序；列表分页上限 100）；面板服务恒可选择。`} />
             )}
             <ServiceEndpointForm
               mode="create"
@@ -667,35 +665,31 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
             <h4>
               Activity — <span className="mono">{endpointLabel(mode.endpoint)}</span>
             </h4>
-            <button type="button" onClick={() => setMode({ kind: "list" })}>
+            <Button type="button" onClick={() => setMode({ kind: "list" })}>
               返回端点列表
-            </button>
+            </Button>
           </div>
-          <p className="status">
-            操作流水（created_at 升序、同刻 id 升序；只读，无修改 / 删除入口；已删对象需
-            VIEW_DELETED 才可查看）
-          </p>
+          <InfoState message="操作流水（created_at 升序、同刻 id 升序；只读，无修改 / 删除入口；已删对象需 VIEW_DELETED 才可查看）" />
           {activityState.kind === "loading" && (
-            <p className="status status-loading">正在加载 Activity…</p>
+            <LoadingState label="正在加载 Activity…" />
           )}
           {activityState.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载 Activity 失败：{activityState.message}</p>
-              <button
-                type="button"
-                onClick={() => setActivityReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载 Activity 失败：${activityState.message}`}
+              action={
+                <Button type="button" onClick={() => setActivityReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
           {activityState.kind === "success" &&
             (activityState.data.items.length === 0 ? (
-              <p className="status status-empty">该端点暂无操作流水。</p>
+              <EmptyState description="该端点暂无操作流水。" />
             ) : (
               <>
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         <th>created_at</th>
@@ -716,21 +710,21 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
                 <div className="pagination">
                   <span>
                     共 {activityState.data.total} 条 · 第 {activityState.data.page} /
                     {Math.max(1, Math.ceil(activityState.data.total / activityState.data.page_size))} 页
                   </span>
-                  <button
+                  <Button
                     type="button"
                     disabled={activityState.data.page <= 1}
                     onClick={() => setActivityPage(activityState.data.page - 1)}
                   >
                     上一页
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     disabled={
                       activityState.data.page >=
@@ -739,7 +733,7 @@ export default function ServiceEndpointsPanel({ service, user, onBack }: Service
                     onClick={() => setActivityPage(activityState.data.page + 1)}
                   >
                     下一页
-                  </button>
+                  </Button>
                 </div>
               </>
             ))}

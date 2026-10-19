@@ -191,6 +191,57 @@
  *   UTC 归一为 ISO-8601、from≤to 闭区间）、buildAuditQuery 参数序列化、
  *   422 点路径 → 表单键映射（snake→camel；分页/排序参数不映射）。
  *
+ * F017 追加（Contract：docs/api/F017.md v1，前端机制级）：
+ * - src/api/apiKeys.ts 的 URL / method / body 构造（§4：列表查询串
+ *   （user_id/status/q/分页/sort/order AND 组合、空串项不发）、GET 详情、
+ *   POST 创建 201 {api_key}（body 恰含 user_id/label/validity_days）、POST
+ *   /{id}/revoke 无请求体）；describeApiKeyQueryError 的 401/403/422/网络层
+ *   兑底；describeApiKeyActionError 的 409 already_revoked（→ 刷新列表，
+ *   不静默重试）/ 422（fields）/ 403 / 404 语义；
+ * - src/components/apiKeyForm.ts（纯逻辑，无 JSX）：创建表单值解析（账号必
+ *   选、label trim / 禁控制字符 / ≤255、有效期整数 1..365 含端点、无永不过
+ *   期）、创建载荷构造、服务端 422 字段名 → 表单键映射。
+ *
+ * F018 追加（Contract：docs/api/F013.md v2 §2.9，前端机制级）：
+ * - src/api/search.ts 的 SearchResourceRef 增补 related / related_total 类型
+ *   与 v2 响应解析（resource 行固定超集；非 resource 行嵌套 resource 恒 null）；
+ * - src/components/globalSearchFields.ts（纯逻辑，无 JSX）：九字段白名单与
+ *   未知字段过滤（F1）、localStorage 约定键 JSON 数组写入与刷新读回（F2）、
+ *   存储抛错/键缺失/JSON 损坏/非数组/未知字段静默回退（F3）、默认组合 =
+ *   F013 现有展示（F4）、「还有 N 条」= related_total − 展示行数且 ≤10 不
+ *   提示（F5）、字段选择仅作用 resource 行（F6）、字段选择不改变 /search
+ *   请求 URL/参数（F7）、related/related_total 缺失/null/形状不符的安全
+ *   解析（F8）。
+ *
+ * F019 追加（复用 Contract：docs/api/F010.md v1 §4/§6.1/§6.5，Contract
+ * NOT_REQUIRED，前端机制级 IP-F1–F8）：
+ * - src/components/interfaceIpSelection.ts（纯逻辑，无 JSX）：选择集合以
+ *   IP id 为键增删与跨页保留（IP-F1）、候选查询参数恰含 cluster_id/
+ *   bound=false/deleted=exclude/q/分页/sort=address/order=asc（IP-F2）及
+ *   其经 listIpAddresses 的 §6.1 查询串序列化（IP-F3）、已绑定查询
+ *   interface_id+deleted=exclude+address 升序+page_size=100（IP-F4）、提交
+ *   载荷每项恰 {version,interface} 且按地址升序串行不中止/不重试（IP-F5）、
+ *   部分成功汇总不折叠为整体成功（IP-F6）、total 边界 total>items/==items/
+ *   ==0（IP-F7）、权限/软删门控仅 WRITE 且未软删渲染入口（IP-F8，服务端
+ *   仍鉴权）。
+ *
+ * F020 追加（Contract NOT_REQUIRED；docs/features/F020/architecture.md
+ * DR-354/DR-363，前端机制级 T06a–T06d）：
+ * - src/components/confirmDialogState.ts（纯逻辑，无 JSX）：二次确认对话框
+ *   一次性提交守卫——tryBegin once-only（confirmLoading 回落前的双击 / 回车
+ *   连发重复确认返回 false，T06a）、settle（提交结束释放、允许再次手动触发、
+ *   不自动重试，T06c）、reset（取消 / 关闭释放、重开可再提交，T06b）、
+ *   createConfirmCommitGuard 实例隔离（T06d）。
+ *
+ * F021 追加（Contract NOT_REQUIRED；docs/features/F021/architecture.md
+ * DR-371/DR-380，前端机制级 M5/M6）：
+ * - src/components/resourceActionMessages.ts（纯逻辑，无 JSX）：资源写操作
+ *   错误明细呈现文案（自 ResourceDetailPage 逐字抽取，行为不变；详情页与
+ *   ResourcesPage 行内删除对话框共用）——referenceItemText（resource=
+ *   「虚拟机（VM）：<label>」、无 label 仅类型、未知 object_type 原样）；
+ *   conflictItemText（cluster / resource 已知文案、未知通用文案）。
+ *   M1–M4 / M7 回归由既有 F004 / F006 / F020 用例覆盖。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -361,6 +412,24 @@ import {
   searchFormFieldFromPath,
 } from "../src/components/globalSearchForm.ts";
 import {
+  DEFAULT_GLOBAL_SEARCH_FIELDS,
+  GLOBAL_SEARCH_FIELD_KEYS,
+  GLOBAL_SEARCH_FIELD_OPTIONS,
+  GLOBAL_SEARCH_FIELDS_STORAGE_KEY,
+  effectiveGlobalSearchFields,
+  fieldSelectionAppliesTo,
+  hasRelatedFields,
+  isGlobalSearchFieldKey,
+  parseGlobalSearchFieldPreference,
+  readGlobalSearchFieldPreference,
+  relatedAvailable,
+  relatedRowViews,
+  relatedRows,
+  relatedTotal,
+  remainingRelatedCount,
+  writeGlobalSearchFieldPreference,
+} from "../src/components/globalSearchFields.ts";
+import {
   describeImportError,
   getImportTemplates,
   IMPORT_MAX_FILE_BYTES,
@@ -399,6 +468,41 @@ import {
   parseAuditQueryFormValues,
   parseIso8601UtcInput,
 } from "../src/components/auditQueryForm.ts";
+import {
+  createApiKey,
+  describeApiKeyActionError,
+  describeApiKeyQueryError,
+  getApiKey,
+  listApiKeys,
+  revokeApiKey,
+} from "../src/api/apiKeys.ts";
+import {
+  apiKeyFormFieldFromPath,
+  buildCreateApiKeyInput,
+  emptyApiKeyFormValues,
+  parseApiKeyFormValues,
+} from "../src/components/apiKeyForm.ts";
+import {
+  addInterfaceIpCandidate,
+  buildInterfaceBoundIpsQuery,
+  buildInterfaceIpBindingRequests,
+  buildInterfaceIpCandidateQuery,
+  canOpenInterfaceIpBinding,
+  emptyInterfaceIpSelection,
+  interfaceIpCandidateFromIpAddress,
+  interfaceIpSelectionCandidates,
+  interfaceIpTotalBoundary,
+  removeInterfaceIpCandidate,
+  submitInterfaceIpBindingRequests,
+  summarizeInterfaceIpBindingOutcomes,
+} from "../src/components/interfaceIpSelection.ts";
+import {
+  createConfirmCommitGuard,
+} from "../src/components/confirmDialogState.ts";
+import {
+  conflictItemText,
+  referenceItemText,
+} from "../src/components/resourceActionMessages.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -5518,6 +5622,363 @@ await test("F013 highlightSegments：ASCII 大小写不敏感子串；非子串�
   ]);
 });
 
+// ---------- F018 全局搜索字段组合 机制级（Contract：docs/api/F013.md v2 §2.9） ----------
+
+/** 受控 localStorage 替身（记录写入快照，供约定键 / JSON 形态断言）。 */
+function memoryStorage() {
+  const store = new Map();
+  return {
+    store,
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => {
+      store.set(key, value);
+    },
+  };
+}
+
+/** 抛错存储替身（如禁用 Cookie 的 SecurityError / 配额超限）。 */
+function throwingStorage() {
+  return {
+    getItem: () => {
+      throw new Error("SecurityError");
+    },
+    setItem: () => {
+      throw new Error("QuotaExceededError");
+    },
+  };
+}
+
+/** F018 resource 最小样本（related 访问器用例在此基础上展开覆盖）。 */
+const F018_RESOURCE_BASE = {
+  id: "r-uuid-1",
+  hostname: "gpu0701",
+  resource_type: "BARE_METAL",
+  role: "COMPUTE",
+  status: "IDLE",
+  cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+};
+
+/** 构造 F018 关联行样本（每个已绑定 Interface 的 IPAddress 一行，§2.9）。 */
+function f018RelatedRow(id, address = "10.10.1.9") {
+  return {
+    id,
+    interface: { id: `if-${id}`, name: "ib0", interface_type: "PHYSICAL" },
+    ip_address: { id, address },
+    network: { id: "n-uuid-1", name: "ib" },
+  };
+}
+
+/** F018 v2 搜索响应样本（§2.9：resource 行 related 固定超集；非 resource 行嵌套 resource 恒 null）。 */
+const F018_SEARCH_RESPONSE_FIXTURE = {
+  items: [
+    {
+      object_type: "resource",
+      id: "r-uuid-1",
+      matched_field: "hostname",
+      matched_value: "gpu0701",
+      resource: {
+        ...F018_RESOURCE_BASE,
+        related: Array.from({ length: 10 }, (_, index) =>
+          f018RelatedRow(`ip-uuid-${index}`, `10.10.1.${9 + index}`),
+        ),
+        related_total: 23, // 截断前总数：10 行 + 「还有 13 条」（§2.9 示例）
+      },
+      cluster: null,
+      ip_address: null,
+      service: null,
+    },
+    {
+      object_type: "service",
+      id: "s-uuid-1",
+      matched_field: "name",
+      matched_value: "slurmd",
+      resource: {
+        ...F018_RESOURCE_BASE,
+        related: null, // 非 resource 行嵌套 resource 恒 null（§2.9/A12/V14）
+        related_total: null,
+      },
+      cluster: null,
+      ip_address: null,
+      service: { id: "s-uuid-1", name: "slurmd", status: "RUNNING" },
+    },
+  ],
+  page: 1,
+  page_size: 20,
+  total: 2,
+};
+
+await test("F018 search v2 响应解析：resource 行 related/related_total；非 resource 行嵌套 resource 恒 null", async () => {
+  respond = () => jsonResponse(200, F018_SEARCH_RESPONSE_FIXTURE);
+  const data = await search({ q: "gpu" });
+  assert.equal(data.total, 2);
+  const [resourceRow, serviceRow] = data.items;
+  // resource 行：固定超集（字段集不随查询/所选字段变化，A1/A9）
+  assert.equal(resourceRow.object_type, "resource");
+  assert.equal(resourceRow.resource.related.length, 10); // 服务端上限 10（DR-321）
+  assert.equal(resourceRow.resource.related_total, 23); // 截断前总数
+  assert.equal(resourceRow.resource.related[0].interface.name, "ib0");
+  assert.equal(resourceRow.resource.related[0].interface.interface_type, "PHYSICAL");
+  assert.equal(resourceRow.resource.related[0].ip_address.address, "10.10.1.9");
+  assert.equal(resourceRow.resource.related[0].network.name, "ib");
+  // 「还有 N 条」：N = related_total − 展示行数 = 23 − 10 = 13（A6）
+  assert.equal(remainingRelatedCount(resourceRow.resource), 13);
+  // 非 resource 行：结构与展示不变，嵌套 resource 的 related/related_total 恒 null（§2.9）
+  assert.equal(serviceRow.object_type, "service");
+  assert.equal(serviceRow.resource.related, null);
+  assert.equal(serviceRow.resource.related_total, null);
+  assert.equal(relatedAvailable(serviceRow.resource), false);
+  assert.equal(remainingRelatedCount(serviceRow.resource), 0);
+});
+
+await test("F018 F1：字段白名单恰九字段；未知字段被过滤（§17.1/A11）", async () => {
+  // 恰九字段，与需求字段集一一对应（「网络类型」= Network 名称）
+  assert.equal(GLOBAL_SEARCH_FIELD_KEYS.length, 9);
+  assert.equal(GLOBAL_SEARCH_FIELD_OPTIONS.length, 9);
+  assert.deepEqual(GLOBAL_SEARCH_FIELD_KEYS, [
+    "hostname",
+    "resource_type",
+    "role",
+    "status",
+    "cluster",
+    "interface_name",
+    "interface_type",
+    "ip_address",
+    "network_name",
+  ]);
+  for (const key of GLOBAL_SEARCH_FIELD_KEYS) {
+    assert.equal(isGlobalSearchFieldKey(key), true);
+  }
+  // 白名单外一律 false（含大小写变体：不归一化存储/用户输入）
+  for (const bad of ["bogus", "HOSTNAME", "Interface name", "", null, undefined, 1, {}, ["hostname"]]) {
+    assert.equal(isGlobalSearchFieldKey(bad), false);
+  }
+  // 解析层：未知字段被过滤（不整体丢弃合法项）、去重、按白名单顺序规范化
+  assert.deepEqual(
+    parseGlobalSearchFieldPreference(JSON.stringify(["ip_address", "bogus", "hostname", "ip_address"])),
+    ["hostname", "ip_address"],
+  );
+  assert.equal(parseGlobalSearchFieldPreference(null), null);
+});
+
+await test("F018 F2：选择写入约定键（JSON 数组）并刷新读回（A11/DR-326）", async () => {
+  const storage = memoryStorage();
+  // 初始无偏好
+  assert.equal(readGlobalSearchFieldPreference(storage), null);
+  // 选择 → 写入约定键 csm.globalSearch.fields.v1，值为 JSON 字符串数组
+  const written = writeGlobalSearchFieldPreference(
+    ["ip_address", "hostname", "network_name"],
+    storage,
+  );
+  assert.equal(written, true);
+  assert.deepEqual([...storage.store.keys()], [GLOBAL_SEARCH_FIELDS_STORAGE_KEY]);
+  assert.equal(
+    storage.store.get(GLOBAL_SEARCH_FIELDS_STORAGE_KEY),
+    '["hostname","ip_address","network_name"]', // 白名单顺序规范化后序列化
+  );
+  // 「刷新」后从同一存储读回：偏好沿用（A11）
+  assert.deepEqual(readGlobalSearchFieldPreference(storage), [
+    "hostname",
+    "ip_address",
+    "network_name",
+  ]);
+  // 修改选择后再次写入读回：偏好更新
+  writeGlobalSearchFieldPreference(["interface_name", "interface_type"], storage);
+  assert.deepEqual(readGlobalSearchFieldPreference(storage), [
+    "interface_name",
+    "interface_type",
+  ]);
+  // 默认环境（Node 无 localStorage）：读 null、写 false，均不抛错
+  assert.equal(readGlobalSearchFieldPreference(), null);
+  assert.equal(writeGlobalSearchFieldPreference(["hostname"]), false);
+});
+
+await test("F018 F3：存储抛错/键缺失/JSON 损坏/非数组/未知字段 → 静默回退不抛错（DR-326）", async () => {
+  const storage = memoryStorage();
+  // 键缺失：无偏好 → 默认组合（会话内 F013 展示）
+  assert.equal(readGlobalSearchFieldPreference(storage), null);
+  assert.deepEqual(
+    effectiveGlobalSearchFields(readGlobalSearchFieldPreference(storage)),
+    [...DEFAULT_GLOBAL_SEARCH_FIELDS],
+  );
+  // JSON 损坏 / 非数组（字符串/数字/对象）：同样回退，不抛错
+  for (const bad of ["{oops", '"hostname"', "42", '{"hostname":1}', ""]) {
+    storage.store.set(GLOBAL_SEARCH_FIELDS_STORAGE_KEY, bad);
+    assert.equal(
+      readGlobalSearchFieldPreference(storage),
+      null,
+      `存储值 ${JSON.stringify(bad)} 应静默回退 null`,
+    );
+  }
+  // 未知字段被过滤：剩余合法字段保留（F1 交叉），不整体丢弃
+  storage.store.set(
+    GLOBAL_SEARCH_FIELDS_STORAGE_KEY,
+    JSON.stringify(["hostname", "bogus", "ip_address"]),
+  );
+  assert.deepEqual(readGlobalSearchFieldPreference(storage), ["hostname", "ip_address"]);
+  // 全未知 → 空选择 = 默认组合（A12：未选择字段时保持现有展示）
+  storage.store.set(GLOBAL_SEARCH_FIELDS_STORAGE_KEY, JSON.stringify(["bogus"]));
+  assert.deepEqual(readGlobalSearchFieldPreference(storage), []);
+  assert.deepEqual(effectiveGlobalSearchFields([]), [...DEFAULT_GLOBAL_SEARCH_FIELDS]);
+  // 存储抛错（如禁用 Cookie）：读 null、写 false，均不抛错、不阻断搜索
+  const broken = throwingStorage();
+  assert.equal(readGlobalSearchFieldPreference(broken), null);
+  assert.equal(writeGlobalSearchFieldPreference(["hostname"], broken), false);
+});
+
+await test("F018 F4：默认组合 == F013 现有 resource 行展示（A12，无回归）", async () => {
+  // F013 既有展示：hostname 主值 + resource_type / role / status / cluster 上下文
+  assert.deepEqual([...DEFAULT_GLOBAL_SEARCH_FIELDS], [
+    "hostname",
+    "resource_type",
+    "role",
+    "status",
+    "cluster",
+  ]);
+  // 无偏好 / 空选择 → 默认组合
+  assert.deepEqual(effectiveGlobalSearchFields(null), [...DEFAULT_GLOBAL_SEARCH_FIELDS]);
+  assert.deepEqual(effectiveGlobalSearchFields([]), [...DEFAULT_GLOBAL_SEARCH_FIELDS]);
+  // 有偏好时按偏好（含仅关联字段：resource 行只展开关联列）
+  assert.deepEqual(effectiveGlobalSearchFields(["ip_address"]), ["ip_address"]);
+  // 默认组合不含关联字段：不展开 related（B22：未选择 = F013 展示，无额外请求）
+  assert.equal(hasRelatedFields(DEFAULT_GLOBAL_SEARCH_FIELDS), false);
+});
+
+await test("F018 F5：「还有 N 条」= related_total − 展示行数；≤10 不提示（DR-321/A6/B16）", async () => {
+  const rows10 = Array.from({ length: 10 }, (_, index) => f018RelatedRow(`ip-${index}`));
+  const rows3 = Array.from({ length: 3 }, (_, index) => f018RelatedRow(`ip-${index}`));
+  // 23→13、11→1（超上限显式提示，不静默截断）
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10, related_total: 23 }),
+    13,
+  );
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10, related_total: 11 }),
+    1,
+  );
+  // ≤10 不提示（恰 10 / 上限内 / 无关联）
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10, related_total: 10 }),
+    0,
+  );
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows3, related_total: 3 }),
+    0,
+  );
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: [], related_total: 0 }),
+    0,
+  );
+  // related_total 缺失 / null / 非数值：不提示（安全回退，不伪造总数）
+  assert.equal(remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10 }), 0);
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10, related_total: null }),
+    0,
+  );
+  assert.equal(
+    remainingRelatedCount({ ...F018_RESOURCE_BASE, related: rows10, related_total: "23" }),
+    0,
+  );
+});
+
+await test("F018 F6：字段选择仅作用 resource 行；其余行不变（DR-327/B17）", async () => {
+  assert.equal(fieldSelectionAppliesTo("resource"), true);
+  for (const other of ["cluster", "ip_address", "service"]) {
+    assert.equal(fieldSelectionAppliesTo(other), false);
+  }
+  // 关联字段检测：仅基础字段 → 不展开关联；含任一关联字段 → 展开
+  assert.equal(hasRelatedFields(DEFAULT_GLOBAL_SEARCH_FIELDS), false);
+  assert.equal(hasRelatedFields(["hostname", "resource_type"]), false);
+  assert.equal(hasRelatedFields(["hostname", "ip_address"]), true);
+  assert.equal(hasRelatedFields(["interface_type"]), true);
+  assert.equal(hasRelatedFields([]), false);
+});
+
+await test("F018 F7：字段选择不改变 /search 请求 URL/参数（A9/B14）", async () => {
+  const storage = memoryStorage();
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  // 偏好一：仅基础字段
+  writeGlobalSearchFieldPreference(["hostname", "status"], storage);
+  await search({ q: "gpu07", type: "resource", deleted: "exclude", page: 1, page_size: 20 });
+  // 偏好二：含关联字段（触发展开）
+  writeGlobalSearchFieldPreference(
+    ["ip_address", "network_name", "role", "status", "cluster"],
+    storage,
+  );
+  const query = buildSearchQuery({
+    q: "gpu07",
+    type: "resource",
+    deleted: "exclude",
+    page: 1,
+    pageSize: 20,
+  });
+  await search(query);
+  assert.equal(calls.length, 2);
+  // 两次请求 URL 完全一致：字段组合不进入查询参数（展示层扩展）
+  assert.equal(
+    calls[0].url,
+    "/api/v1/search?q=gpu07&type=resource&deleted=exclude&page=1&page_size=20",
+  );
+  assert.equal(calls[1].url, calls[0].url);
+  // URL 仅含 Contract §2.1 查询参数（无 fields 等新参数）
+  const params = new URL(calls[1].url, "http://localhost").searchParams;
+  for (const key of params.keys()) {
+    assert.ok(
+      ["q", "type", "deleted", "page", "page_size"].includes(key),
+      `不应出现 Contract 之外的查询参数：${key}`,
+    );
+  }
+});
+
+await test("F018 F8：related/related_total 缺失/null/形状不符 → 安全回退（不抛错、不伪造）", async () => {
+  // 缺失（旧后端 F013 v1 响应无此两键）：无关联区块、无提示
+  assert.equal(relatedAvailable({ ...F018_RESOURCE_BASE }), false);
+  assert.deepEqual(relatedRows({ ...F018_RESOURCE_BASE }), []);
+  assert.equal(relatedTotal({ ...F018_RESOURCE_BASE }), null);
+  assert.equal(remainingRelatedCount({ ...F018_RESOURCE_BASE }), 0);
+  // null（非 resource 行嵌套 resource 的契约形态，§2.9）
+  assert.equal(
+    relatedAvailable({ ...F018_RESOURCE_BASE, related: null, related_total: null }),
+    false,
+  );
+  assert.equal(relatedTotal({ ...F018_RESOURCE_BASE, related_total: null }), null);
+  // 形状不符（非数组 / 非数值 / 负数）：不抛错、回退空集合与无提示
+  assert.equal(
+    relatedAvailable({ ...F018_RESOURCE_BASE, related: "nope", related_total: "23" }),
+    false,
+  );
+  assert.deepEqual(relatedRows({ ...F018_RESOURCE_BASE, related: "nope" }), []);
+  assert.equal(relatedTotal({ ...F018_RESOURCE_BASE, related_total: "23" }), null);
+  assert.equal(relatedTotal({ ...F018_RESOURCE_BASE, related_total: -1 }), null);
+  assert.equal(remainingRelatedCount({ ...F018_RESOURCE_BASE, related: "nope", related_total: 23 }), 0);
+  // 行级形状不符：单元格回退 null（组件呈现未知占位，不伪造值）
+  const malformed = relatedRowViews({
+    ...F018_RESOURCE_BASE,
+    related: [{ id: "ip-x" }],
+    related_total: 1,
+  });
+  assert.equal(malformed.length, 1);
+  assert.equal(malformed[0].key, "ip-x");
+  assert.equal(malformed[0].interfaceName, null);
+  assert.equal(malformed[0].interfaceType, null);
+  assert.equal(malformed[0].ipAddress, null);
+  assert.equal(malformed[0].networkName, null);
+  // 合法行：原样回显（interface_type 不改写，B21）
+  const views = relatedRowViews({
+    ...F018_RESOURCE_BASE,
+    related: [f018RelatedRow("ip-uuid-9", "10.10.1.9")],
+    related_total: 1,
+  });
+  assert.deepEqual(views, [
+    {
+      key: "ip-uuid-9",
+      interfaceName: "ib0",
+      interfaceType: "PHYSICAL",
+      ipAddress: "10.10.1.9",
+      networkName: "ib",
+    },
+  ]);
+});
+
 // ---------- F014 Import API 机制级（Contract：docs/api/F014.md v1） ----------
 
 /** 构造最小 CSV 测试文件（multipart file 字段）。 */
@@ -6522,6 +6983,648 @@ await test("F015 auditQueryFieldFromPath：422 参数名（snake）→ 表单键
   // 未知路径 / 嵌套路径 → null
   assert.equal(auditQueryFieldFromPath("unknown"), null);
   assert.equal(auditQueryFieldFromPath("object_id.x"), "objectId"); // 顶层直通
+});
+
+// ---------- F017 API Key 机制级（Contract：docs/api/F017.md v1） ----------
+
+/** ApiKeyRow 头具（Contract §2；永不包含 key_hash / 明文）。 */
+const API_KEY_ROW_FIXTURE = {
+  id: "b1c2d3e4-0000-4000-8000-000000000001",
+  user_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0015",
+  username: "user01",
+  label: "ci-runner",
+  status: "ACTIVE",
+  created_at: "2026-10-14T08:00:00+00:00",
+  expires_at: "2027-01-12T08:00:00+00:00",
+  revoked_at: null,
+  created_by: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0001",
+  created_by_username: "admin",
+};
+
+await test("F017 listApiKeys 默认：GET /api/v1/api-keys，无查询串", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listApiKeys();
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/api-keys");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F017 listApiKeys 组合查询：user_id/status/q/分页/排序（AND 组合）", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listApiKeys({
+    user_id: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0015",
+    status: "ACTIVE",
+    q: "runner",
+    page: 2,
+    page_size: 50,
+    sort: "expires_at",
+    order: "asc",
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/api-keys?user_id=0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0015&status=ACTIVE" +
+      "&q=runner&page=2&page_size=50&sort=expires_at&order=asc",
+  );
+});
+
+await test("F017 listApiKeys 空串过滤项不发（q=''/user_id=''）；空结果 total=0", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 20, total: 0 });
+  const data = await listApiKeys({ q: "", user_id: "" });
+  assert.equal(calls[0].url, "/api/v1/api-keys");
+  assert.equal(data.total, 0);
+});
+
+await test("F017 getApiKey：GET /api-keys/{id}；200 解析 {api_key}（无 key_hash/明文）", async () => {
+  respond = () => jsonResponse(200, { api_key: API_KEY_ROW_FIXTURE });
+  const { api_key } = await getApiKey(API_KEY_ROW_FIXTURE.id);
+  assert.equal(api_key.label, "ci-runner");
+  assert.equal(api_key.status, "ACTIVE");
+  assert.equal("key_hash" in api_key, false);
+  assert.equal("plaintext" in api_key, false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, `/api/v1/api-keys/${API_KEY_ROW_FIXTURE.id}`);
+  assert.equal(calls[0].init.method, "GET");
+});
+
+await test("F017 createApiKey：POST /api-keys + JSON body（恰含 user_id/label/validity_days）；201 解析 plaintext", async () => {
+  respond = () =>
+    jsonResponse(201, {
+      api_key: { ...API_KEY_ROW_FIXTURE, plaintext: "csm_ak_example_token" },
+    });
+  const { api_key } = await createApiKey({
+    user_id: API_KEY_ROW_FIXTURE.user_id,
+    label: "ci-runner",
+    validity_days: 90,
+  });
+  assert.equal(api_key.plaintext, "csm_ak_example_token"); // 仅创建响应携带
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/api-keys");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    user_id: API_KEY_ROW_FIXTURE.user_id,
+    label: "ci-runner",
+    validity_days: 90,
+  });
+});
+
+await test("F017 revokeApiKey：POST /api-keys/{id}/revoke 无请求体；200 解析 {api_key}（REVOKED）", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      api_key: {
+        ...API_KEY_ROW_FIXTURE,
+        status: "REVOKED",
+        revoked_at: "2026-10-15T08:00:00+00:00",
+      },
+    });
+  const { api_key } = await revokeApiKey(API_KEY_ROW_FIXTURE.id);
+  assert.equal(api_key.status, "REVOKED");
+  assert.equal(api_key.revoked_at, "2026-10-15T08:00:00+00:00");
+  assert.equal("plaintext" in api_key, false); // 吊销响应不含明文
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, `/api/v1/api-keys/${API_KEY_ROW_FIXTURE.id}/revoke`);
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.body, undefined); // 无请求体（Contract §4.4）
+  assert.equal(calls[0].init.headers["Content-Type"], undefined);
+});
+
+await test("F017 describeApiKeyQueryError：401/403/422/网络层兑底；不重试", async () => {
+  respond = () =>
+    jsonResponse(401, {
+      error: { code: "AUTH_REQUIRED", message: "未认证或会话已过期", details: {} },
+    });
+  const unauthorized = await expectApiError(listApiKeys());
+  const unauthorizedDescribed = describeApiKeyQueryError(unauthorized);
+  assert.ok(unauthorizedDescribed.message.includes("重新登录"));
+  assert.equal(handlerCalls, 1); // 401 触发全局处理器（清登录态）
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const forbidden = await expectApiError(listApiKeys());
+  const forbiddenDescribed = describeApiKeyQueryError(forbidden);
+  assert.ok(forbiddenDescribed.message.includes("USER_ADMIN"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "参数校验失败",
+        details: { fields: [{ field: "q", message: "超长" }] },
+      },
+    });
+  const invalid = await expectApiError(listApiKeys({ q: "x".repeat(256) }));
+  const invalidDescribed = describeApiKeyQueryError(invalid);
+  assert.ok(invalidDescribed.message.includes("VALIDATION_ERROR"));
+
+  const networkDescribed = describeApiKeyQueryError(new TypeError("Failed to fetch"));
+  assert.ok(networkDescribed.message.includes("无法连接服务器"));
+  assert.equal(calls.length, 3); // 每次恰好一次调用，不重试（网络层兑底不发起请求）
+});
+
+await test("F017 describeApiKeyActionError：409 already_revoked / 422 fields / 403 / 404；不重试", async () => {
+  respond = () =>
+    jsonResponse(409, {
+      error: { code: "CONFLICT", message: "Conflict", details: { reason: "already_revoked" } },
+    });
+  const revoked = await expectApiError(revokeApiKey(API_KEY_ROW_FIXTURE.id));
+  const revokedDescribed = describeApiKeyActionError(revoked);
+  assert.equal(revokedDescribed.alreadyRevoked, true);
+  assert.ok(revokedDescribed.message.includes("已被吊销"));
+  assert.ok(revokedDescribed.message.includes("不会自动重试"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: {
+          fields: [
+            { field: "user_id", message: "账号不存在或非启用状态" },
+            { field: "validity_days", message: "须为 1..365 整数" },
+          ],
+        },
+      },
+    });
+  const invalid = await expectApiError(
+    createApiKey({ user_id: "x", label: "ci", validity_days: 400 }),
+  );
+  const invalidDescribed = describeApiKeyActionError(invalid);
+  assert.equal(invalidDescribed.alreadyRevoked, false);
+  assert.equal(invalidDescribed.fields.user_id, "账号不存在或非启用状态");
+  assert.equal(invalidDescribed.fields.validity_days, "须为 1..365 整数");
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "没有权限", details: { reason: "permission" } },
+    });
+  const forbidden = await expectApiError(createApiKey({ user_id: "x", label: "ci" }));
+  assert.ok(describeApiKeyActionError(forbidden).message.includes("USER_ADMIN"));
+
+  respond = () =>
+    jsonResponse(404, { error: { code: "NOT_FOUND", message: "Not found", details: {} } });
+  const notFound = await expectApiError(revokeApiKey("not-a-uuid"));
+  assert.ok(describeApiKeyActionError(notFound).message.includes("不存在"));
+
+  const networkDescribed = describeApiKeyActionError(new TypeError("Failed to fetch"));
+  assert.ok(networkDescribed.message.includes("无法连接服务器"));
+  assert.equal(calls.length, 4); // 每次恰好一次调用，不重试（网络层兑底不发起请求）
+});
+
+await test("F017 parseApiKeyFormValues：合法值（label trim / 有效期默认 90 / 边界 1 与 365）", async () => {
+  const parsed = parseApiKeyFormValues({
+    userId: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0015",
+    label: "  ci-runner  ",
+    validityDays: 90,
+  });
+  assert.equal(parsed.ok, true);
+  assert.deepEqual(parsed.fields, {
+    userId: "0b9f4c6b-8f82-4b7a-9b95-a1e93b1f0015",
+    label: "ci-runner", // 服务端同样 trim 后校验 / 存储
+    validityDays: 90,
+  });
+
+  // 默认值即合法（缺省 90，Contract §4.3）
+  const defaults = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    userId: "u1",
+    label: "k",
+  });
+  assert.equal(defaults.ok, true);
+  assert.equal(defaults.fields.validityDays, 90);
+
+  // 边界含端点：1 与 365 均合法；label 允许中文与内部空格不合并
+  for (const validityDays of [1, 365]) {
+    const boundary = parseApiKeyFormValues({
+      ...emptyApiKeyFormValues(),
+      userId: "u1",
+      label: "ci runner 中文",
+      validityDays,
+    });
+    assert.equal(boundary.ok, true, `validityDays=${validityDays} 应合法`);
+  }
+});
+
+await test("F017 parseApiKeyFormValues：非法输入本地拦截（未选账号 / label 空·控制字符·超长 / 有效期 空·0·负·366·非整数）", async () => {
+  const noUser = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    label: "k",
+    validityDays: 90,
+  });
+  assert.equal(noUser.ok, false);
+  assert.ok(noUser.errors.userId.includes("选择绑定账号"));
+
+  const blankLabel = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    userId: "u1",
+    label: "   ",
+    validityDays: 90,
+  });
+  assert.ok(blankLabel.errors.label.includes("不能为空"));
+
+  const controlLabel = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    userId: "u1",
+    label: "ci\u0000runner", // Unicode Cc
+    validityDays: 90,
+  });
+  assert.ok(controlLabel.errors.label.includes("控制字符"));
+
+  const longLabel = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    userId: "u1",
+    label: "k".repeat(256),
+    validityDays: 90,
+  });
+  assert.ok(longLabel.errors.label.includes("255"));
+
+  // 恰好 255 code point：合法
+  const exactLabel = parseApiKeyFormValues({
+    ...emptyApiKeyFormValues(),
+    userId: "u1",
+    label: "k".repeat(255),
+    validityDays: 90,
+  });
+  assert.equal(exactLabel.ok, true);
+
+  for (const validityDays of [null, 0, -1, 366, 1.5]) {
+    const bad = parseApiKeyFormValues({
+      ...emptyApiKeyFormValues(),
+      userId: "u1",
+      label: "k",
+      validityDays,
+    });
+    assert.equal(bad.ok, false, `validityDays=${validityDays} 应本地拦截`);
+    assert.ok(bad.errors.validityDays !== undefined);
+  }
+});
+
+await test("F017 apiKeyFormFieldFromPath：422 字段名（snake）→ 表单键；分页/排序/未知 → null", async () => {
+  assert.equal(apiKeyFormFieldFromPath("user_id"), "userId");
+  assert.equal(apiKeyFormFieldFromPath("label"), "label");
+  assert.equal(apiKeyFormFieldFromPath("validity_days"), "validityDays");
+  // 分页 / 排序参数无对应表单控件：不强行映射（页面在通用错误区呈现）
+  assert.equal(apiKeyFormFieldFromPath("page"), null);
+  assert.equal(apiKeyFormFieldFromPath("page_size"), null);
+  assert.equal(apiKeyFormFieldFromPath("sort"), null);
+  assert.equal(apiKeyFormFieldFromPath("order"), null);
+  // 未知路径 → null
+  assert.equal(apiKeyFormFieldFromPath("unknown"), null);
+});
+
+await test("F017 buildCreateApiKeyInput：恰含 user_id/label/validity_days（Contract §4.3）", async () => {
+  assert.deepEqual(
+    buildCreateApiKeyInput({ userId: "u1", label: "ci-runner", validityDays: 90 }),
+    { user_id: "u1", label: "ci-runner", validity_days: 90 },
+  );
+  assert.deepEqual(
+    buildCreateApiKeyInput({ userId: "u2", label: "backup", validityDays: 365 }),
+    { user_id: "u2", label: "backup", validity_days: 365 },
+  );
+});
+
+// ---------- F019 接口侧 IP 绑定 机制级（复用 Contract：docs/api/F010.md v1 §4/§6.1/§6.5） ----------
+
+/** F019 候选行最小样本（IPAddress 响应行；interface=null / deleted_at=null 即可绑定候选）。 */
+function f019IpAddressRow(id, address, version = 1) {
+  return {
+    id,
+    network: { id: "net-uuid-1", name: "ib", cidr: "10.10.0.0/16" },
+    cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+    address,
+    interface: null,
+    ip_pool: null,
+    description: null,
+    version,
+    created_at: "2026-10-15T08:00:00Z",
+    updated_at: "2026-10-15T08:00:00Z",
+    deleted_at: null,
+  };
+}
+
+await test("F019 IP-F1：选择集合以 id 为键增删、跨页保留快照、重复选择刷新 version", async () => {
+  let selection = emptyInterfaceIpSelection();
+  assert.equal(selection.size, 0);
+  // 第 1 页选两个（快照恰含 id/address/version）
+  selection = addInterfaceIpCandidate(selection, { id: "ip-1", address: "10.10.1.50", version: 3 });
+  selection = addInterfaceIpCandidate(selection, { id: "ip-2", address: "10.10.1.100", version: 1 });
+  // 第 2 页再选一个：跨页保留（切页 / 改搜索不清空由组件持有同一集合实现）
+  selection = addInterfaceIpCandidate(selection, { id: "ip-3", address: "10.10.1.9", version: 2 });
+  assert.equal(selection.size, 3);
+  assert.deepEqual(selection.get("ip-2"), { id: "ip-2", address: "10.10.1.100", version: 1 });
+  // 重复加入同 id：刷新快照（version 更新后重选以最新为准），不产生重复项
+  selection = addInterfaceIpCandidate(selection, { id: "ip-1", address: "10.10.1.50", version: 4 });
+  assert.equal(selection.size, 3);
+  assert.equal(selection.get("ip-1").version, 4);
+  // 移除未选项：原样返回同一引用
+  assert.equal(removeInterfaceIpCandidate(selection, "ip-x"), selection);
+  // 移除已选项
+  selection = removeInterfaceIpCandidate(selection, "ip-2");
+  assert.equal(selection.size, 2);
+  assert.equal(selection.has("ip-2"), false);
+  // 已选列表按 address 数值升序（9 < 50；字符串序会误判 "50" < "9"，镜像服务端 sort=address）
+  assert.deepEqual(interfaceIpSelectionCandidates(selection).map((item) => item.address), [
+    "10.10.1.9",
+    "10.10.1.50",
+  ]);
+  // 从响应行提取快照：仅 id/address/version
+  assert.deepEqual(interfaceIpCandidateFromIpAddress(f019IpAddressRow("ip-9", "10.10.1.9", 7)), {
+    id: "ip-9",
+    address: "10.10.1.9",
+    version: 7,
+  });
+});
+
+await test("F019 IP-F2：候选查询参数恰含 cluster_id/bound=false/deleted=exclude/q/分页/sort=address/order=asc", async () => {
+  const query = buildInterfaceIpCandidateQuery("c-uuid-1", { q: "  10.10.1. ", page: 2, pageSize: 50 });
+  assert.deepEqual(query, {
+    cluster_id: "c-uuid-1",
+    bound: false,
+    deleted: "exclude",
+    q: "10.10.1.", // trim；空串由 listIpAddresses 视为未提供（F010 §4）
+    page: 2,
+    page_size: 50,
+    sort: "address",
+    order: "asc",
+  });
+  // 恰 8 键：不夹带 network_id/interface_id/ip_pool_id/address 等其它过滤
+  assert.deepEqual(Object.keys(query).sort(), [
+    "bound",
+    "cluster_id",
+    "deleted",
+    "order",
+    "page",
+    "page_size",
+    "q",
+    "sort",
+  ]);
+  // 无 q / 分页缺省：q=""（client 不发）、page=1、page_size=20
+  const defaults = buildInterfaceIpCandidateQuery("c-uuid-1");
+  assert.equal(defaults.q, "");
+  assert.equal(defaults.page, 1);
+  assert.equal(defaults.page_size, 20);
+});
+
+await test("F019 IP-F3：候选查询经 listIpAddresses 序列化为 Contract §6.1 查询串；空白 q 不发", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 50, total: 0 });
+  await listIpAddresses(buildInterfaceIpCandidateQuery("c-uuid-1", { q: "10.10.1", page: 2, pageSize: 50 }));
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/ip-addresses?cluster_id=c-uuid-1&bound=false&q=10.10.1&deleted=exclude" +
+      "&page=2&page_size=50&sort=address&order=asc",
+  );
+  assert.equal(calls[0].init.method, "GET");
+  // 纯空白 q：trim 后为空串 → 视为未提供，查询串不含 q（F010 §4）
+  await listIpAddresses(buildInterfaceIpCandidateQuery("c-uuid-1", { q: "   " }));
+  assert.equal(
+    calls[1].url,
+    "/api/v1/ip-addresses?cluster_id=c-uuid-1&bound=false&deleted=exclude" +
+      "&page=1&page_size=20&sort=address&order=asc",
+  );
+});
+
+await test("F019 IP-F4：已绑定查询恰含 interface_id/deleted=exclude/sort=address/order=asc/page=1/page_size=100", async () => {
+  const query = buildInterfaceBoundIpsQuery("if-uuid-1");
+  assert.deepEqual(query, {
+    interface_id: "if-uuid-1",
+    deleted: "exclude",
+    sort: "address",
+    order: "asc",
+    page: 1,
+    page_size: 100,
+  });
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 100, total: 0 });
+  await listIpAddresses(query);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/ip-addresses?interface_id=if-uuid-1&deleted=exclude&page=1&page_size=100" +
+      "&sort=address&order=asc",
+  );
+});
+
+await test("F019 IP-F5：提交载荷每项恰 {version,interface}、按地址升序串行不中止、每项恰一次不重试", async () => {
+  let selection = emptyInterfaceIpSelection();
+  selection = addInterfaceIpCandidate(selection, { id: "ip-a", address: "10.10.1.50", version: 2 });
+  selection = addInterfaceIpCandidate(selection, { id: "ip-b", address: "10.10.1.9", version: 5 });
+  selection = addInterfaceIpCandidate(selection, { id: "ip-c", address: "10.10.1.10", version: 1 });
+  const requests = buildInterfaceIpBindingRequests(selection, "if-uuid-1");
+  // address 数值升序：9 < 10 < 50（提交顺序，架构 §7.1-9）
+  assert.deepEqual(requests.map((item) => item.address), ["10.10.1.9", "10.10.1.10", "10.10.1.50"]);
+  // 每项恰 {id,address,version,interface}（PATCH 载荷 = version + interface，不含 description 等其它键）
+  for (const request of requests) {
+    assert.deepEqual(request, {
+      id: request.id,
+      address: request.address,
+      version: request.version,
+      interface: "if-uuid-1",
+    });
+  }
+
+  // 受控 PATCH：第 1 项（ip-b）409 VERSION_CONFLICT，其余 200 → 串行、不中止、每项恰一次
+  respond = (input) => {
+    const id = String(input).split("/").pop();
+    if (id === "ip-b") {
+      return jsonResponse(409, {
+        error: {
+          code: "VERSION_CONFLICT",
+          message: "Version conflict",
+          details: { current_version: 6 },
+        },
+      });
+    }
+    return jsonResponse(200, { ip_address: f019IpAddressRow(id, "10.10.1.1", 9) });
+  };
+  const outcomes = await submitInterfaceIpBindingRequests(requests, (request) =>
+    updateIpAddress(request.id, { version: request.version, interface: request.interface }),
+  );
+  // 恰一次 / 项，不重试；顺序 = 请求顺序（串行 await，非并行）
+  assert.equal(calls.length, 3);
+  assert.deepEqual(
+    calls.map((call) => call.url),
+    ["/api/v1/ip-addresses/ip-b", "/api/v1/ip-addresses/ip-c", "/api/v1/ip-addresses/ip-a"],
+  );
+  const versionById = new Map(requests.map((request) => [request.id, request.version]));
+  for (const call of calls) {
+    assert.equal(call.init.method, "PATCH");
+    const id = call.url.split("/").pop();
+    // 载荷恰含 version + interface（F010 §6.5 exclude_unset；快照 version 随选择携带）
+    assert.deepEqual(JSON.parse(call.init.body), {
+      version: versionById.get(id),
+      interface: "if-uuid-1",
+    });
+  }
+  // 逐项结果：失败携带原始错误，成功 error=null（409 后不中止其余）
+  assert.deepEqual(outcomes.map((outcome) => outcome.address), ["10.10.1.9", "10.10.1.10", "10.10.1.50"]);
+  assert.deepEqual(
+    outcomes.map((outcome) => outcome.ok),
+    [false, true, true],
+  );
+  assert.ok(isApiError(outcomes[0].error));
+  assert.equal(outcomes[0].error.details.current_version, 6);
+  assert.equal(outcomes[1].error, null);
+  assert.equal(outcomes[2].error, null);
+  // 失败原因呈现复用 describeIpAddressActionError：409 → 刷新重选、不静默重试（T58/AC6）
+  const described = describeIpAddressActionError(outcomes[0].error);
+  assert.equal(described.versionConflict, true);
+  assert.equal(described.currentVersion, 6);
+  assert.ok(described.message.includes("刷新"));
+  assert.ok(described.message.includes("不会自动重试"));
+  // 网络层错误（fetch reject）同样逐项捕获、不伪装成成功
+  const networkOutcomes = await submitInterfaceIpBindingRequests(
+    [requests[1]],
+    () => Promise.reject(new TypeError("Failed to fetch")),
+  );
+  assert.deepEqual(
+    networkOutcomes.map((outcome) => ({ ok: outcome.ok, error: outcome.error?.constructor?.name })),
+    [{ ok: false, error: "TypeError" }],
+  );
+});
+
+await test("F019 IP-F6：部分成功汇总——全成功才整体成功；计数逐项核对；空提交不误报", async () => {
+  // 部分成功：不折叠为整体成功（T55/AC3）
+  assert.deepEqual(
+    summarizeInterfaceIpBindingOutcomes([
+      { id: "a", address: "10.0.0.1", ok: true, error: null },
+      { id: "b", address: "10.0.0.2", ok: false, error: new Error("x") },
+      { id: "c", address: "10.0.0.3", ok: true, error: null },
+    ]),
+    { total: 3, succeeded: 2, failed: 1, allSucceeded: false },
+  );
+  // 全成功 → 整体成功
+  assert.deepEqual(
+    summarizeInterfaceIpBindingOutcomes([
+      { id: "a", address: "10.0.0.1", ok: true, error: null },
+    ]),
+    { total: 1, succeeded: 1, failed: 0, allSucceeded: true },
+  );
+  // 全失败
+  assert.deepEqual(
+    summarizeInterfaceIpBindingOutcomes([
+      { id: "a", address: "10.0.0.1", ok: false, error: new Error("x") },
+    ]),
+    { total: 1, succeeded: 0, failed: 1, allSucceeded: false },
+  );
+  // 空提交：不误报整体成功（提交前由空选择禁用拦截）
+  assert.deepEqual(summarizeInterfaceIpBindingOutcomes([]), {
+    total: 0,
+    succeeded: 0,
+    failed: 0,
+    allSucceeded: false,
+  });
+});
+
+await test("F019 IP-F7：total 边界——total>items 截断 / ==items 完整 / ==0 空态（不静默截断）", async () => {
+  // total>items：显式提示截断（分页上限 100 边界，T56/B 边界 100/101）
+  assert.equal(interfaceIpTotalBoundary(101, 100), "truncated");
+  assert.equal(interfaceIpTotalBoundary(21, 20), "truncated");
+  // total==items：完整
+  assert.equal(interfaceIpTotalBoundary(100, 100), "complete");
+  assert.equal(interfaceIpTotalBoundary(1, 1), "complete");
+  assert.equal(interfaceIpTotalBoundary(0, 0), "empty");
+  // 服务端形状异常防御：total>0 而 items=0（不伪装成完整；按空态呈现，页面另有错误 / 刷新入口）
+  assert.equal(interfaceIpTotalBoundary(5, 0), "empty");
+});
+
+await test("F019 IP-F8：权限 / 软删门控——仅 WRITE 且接口未软删渲染入口（服务端仍鉴权）", async () => {
+  // WRITE + 未删 → 显示
+  assert.equal(canOpenInterfaceIpBinding(true, null), true);
+  // VIEWER（无 WRITE）→ 不显示（直接调用仍被服务端 403 拒绝，F010 §1.3/T57/AC5）
+  assert.equal(canOpenInterfaceIpBinding(false, null), false);
+  // WRITE + 软删接口 → 不显示（已删接口 PATCH 引用关系被 422 field="interface" 拒绝）
+  assert.equal(canOpenInterfaceIpBinding(true, "2026-10-15T08:00:00Z"), false);
+  // 无 WRITE 且软删 → 不显示
+  assert.equal(canOpenInterfaceIpBinding(false, "2026-10-15T08:00:00Z"), false);
+});
+
+// ---------- F020 二次确认提交守卫机制级（DR-354/DR-363，Contract NOT_REQUIRED） ----------
+
+await test("F020 T06a：tryBegin once-only——首次 true、占用期间重复 false（双击 / 回车连发忽略）", async () => {
+  const guard = createConfirmCommitGuard();
+  assert.equal(guard.isInFlight(), false);
+  // 首次确认派发：占用并放行
+  assert.equal(guard.tryBegin(), true);
+  assert.equal(guard.isInFlight(), true);
+  // confirmLoading 回落前的重复确认（双击 / 回车连发）全部忽略
+  assert.equal(guard.tryBegin(), false);
+  assert.equal(guard.tryBegin(), false);
+  assert.equal(guard.isInFlight(), true);
+});
+
+await test("F020 T06b：取消 / 关闭 reset 后可再次 begin（对话框重开可再次提交）", async () => {
+  const guard = createConfirmCommitGuard();
+  assert.equal(guard.tryBegin(), true);
+  guard.reset(); // 取消 / 关闭对话框（不发请求）
+  assert.equal(guard.isInFlight(), false);
+  // 对话框重开后可再次提交
+  assert.equal(guard.tryBegin(), true);
+  assert.equal(guard.isInFlight(), true);
+});
+
+await test("F020 T06c：settle（成功或失败）后可再次 begin——释放守卫且不自动重试", async () => {
+  const guard = createConfirmCommitGuard();
+  assert.equal(guard.tryBegin(), true);
+  guard.settle(); // 提交结束（confirmLoading 回落）
+  assert.equal(guard.isInFlight(), false);
+  // settle 本身不派发新提交；允许用户再次手动触发
+  assert.equal(guard.tryBegin(), true);
+  assert.equal(guard.isInFlight(), true);
+});
+
+await test("F020 T06d：实例隔离——多个对话框的守卫互不影响", async () => {
+  const first = createConfirmCommitGuard();
+  const second = createConfirmCommitGuard();
+  // first 占用不影响 second
+  assert.equal(first.tryBegin(), true);
+  assert.equal(second.tryBegin(), true);
+  assert.equal(first.tryBegin(), false);
+  assert.equal(second.tryBegin(), false);
+  // 释放 first 不影响 second 的占用
+  first.settle();
+  assert.equal(first.tryBegin(), true);
+  assert.equal(second.tryBegin(), false);
+  // 重置 second 后可再次占用
+  second.reset();
+  assert.equal(second.tryBegin(), true);
+});
+
+// ---------- F021 资源操作文案共享模块 机制级（DR-371/DR-380，Contract NOT_REQUIRED） ----------
+
+await test("F021 M5：referenceItemText——resource=「虚拟机（VM）：<label>」、无 label 仅类型、未知 object_type 原样", async () => {
+  assert.equal(typeof referenceItemText, "function");
+  // resource（F006 DR-62：引用来源为未删除的虚拟机，label=VM hostname）
+  assert.equal(
+    referenceItemText({ object_type: "resource", label: "vm001" }),
+    "虚拟机（VM）：vm001",
+  );
+  // 无 label（null）→ 仅类型文案
+  assert.equal(referenceItemText({ object_type: "resource", label: null }), "虚拟机（VM）");
+  // 未知 object_type 原样展示（不伪装成已知类型）；label 拼接 / 缺省两种形态
+  assert.equal(referenceItemText({ object_type: "widget", label: "w1" }), "widget：w1");
+  assert.equal(referenceItemText({ object_type: "widget", label: null }), "widget");
+});
+
+await test("F021 M6：conflictItemText——cluster / resource 已知文案、未知通用文案", async () => {
+  assert.equal(typeof conflictItemText, "function");
+  // cluster（F004：恢复时所属 Cluster 仍软删）
+  assert.equal(
+    conflictItemText({ object_type: "cluster", object_id: "c1" }),
+    "所属集群（c1）仍处于已删除状态，需先恢复该集群后再恢复资源。",
+  );
+  // resource（F006 DR-63：恢复 VM 时宿主机 Host 仍软删 / 缺失，不覆盖新对象）
+  assert.equal(
+    conflictItemText({ object_type: "resource", object_id: "r1" }),
+    "宿主机（Host，r1）仍处于已删除状态或已不存在；需先恢复宿主机后再恢复该虚拟机（恢复不会覆盖宿主机或其上新对象）。",
+  );
+  // 未知 object_type → 通用文案
+  assert.equal(
+    conflictItemText({ object_type: "widget", object_id: "w1" }),
+    "依赖对象 widget（w1）仍处于已删除状态，需先恢复该依赖对象。",
+  );
 });
 
 // 还原全局状态

@@ -19,6 +19,10 @@ from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatc
 SESSION_COOKIE_NAME = "csm_session"
 SESSION_TOKEN_BYTES = 32  # secrets.token_urlsafe(32) -> 43 chars
 
+# F017/DR-302: API Key credential prefix and token length (256-bit entropy).
+API_KEY_PREFIX = "csm_ak_"
+API_KEY_TOKEN_BYTES = 32
+
 _hasher = PasswordHasher()
 
 
@@ -55,3 +59,35 @@ def generate_session_token() -> str:
 def hash_session_token(token: str) -> str:
     """Return the 64-char lowercase hex SHA-256 digest stored in the database."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def generate_api_key() -> str:
+    """Return a new API Key plaintext: ``csm_ak_`` + token_urlsafe(32).
+
+    The plaintext is returned to the caller exactly once (201 response); only its
+    SHA-256 hex digest is persisted (DR-309).
+    """
+    return API_KEY_PREFIX + secrets.token_urlsafe(API_KEY_TOKEN_BYTES)
+
+
+def hash_api_key(token: str) -> str:
+    """Return the 64-char lowercase hex SHA-256 digest used for lookup."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def parse_bearer_authorization(authorization: str | None) -> tuple[bool, str | None]:
+    """Split an ``Authorization`` header into ``(bearer_present, token)``.
+
+    ``bearer_present`` is True when the header scheme is ``Bearer``
+    (case-insensitive), even if the token is empty — such a request takes the
+    API Key path and yields 401 rather than falling back to the Cookie. A
+    non-Bearer scheme (e.g. ``Basic``) or a missing header is ignored by both the
+    auth resolver and the CSRF guard (Contract §1, DR-302/DR-303).
+    """
+    if not authorization:
+        return False, None
+    parts = authorization.split(None, 1)
+    if parts and parts[0].lower() == "bearer":
+        token = parts[1].strip() if len(parts) > 1 else ""
+        return True, token or None
+    return False, None

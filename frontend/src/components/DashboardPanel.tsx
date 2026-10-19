@@ -1,3 +1,7 @@
+import { Statistic } from "antd";
+import { Button, DataTable } from "./ui/controls";
+import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
+import { ServerPagination, StatusTag, SurfaceCard, statusTone } from "./ui/surfaces";
 import { useEffect, useState } from "react";
 import {
   describeDashboardError,
@@ -71,59 +75,42 @@ export default function DashboardPanel() {
   }, [page, pageSize, reloadToken]);
 
   return (
-    <section className="panel" aria-label="Dashboard 资源汇总">
+    <SurfaceCard className="panel" aria-label="Dashboard 资源汇总">
       <h2>Dashboard（资源汇总）</h2>
-      <p className="status status-loading dashboard-note">
-        计数与容量均为未删除口径（含 INACTIVE 集群 / 网络；软删不计）。
-        剩余 = 可分配总量 − 已占用，可为负值并原样展示（不截断）；
-        不提供跨 Network 全局合计（不同集群可含相同地址）。
-      </p>
+      <div className="dashboard-note">
+        <InfoState message="计数与容量均为未删除口径（含 INACTIVE 集群 / 网络；软删不计）。剩余 = 可分配总量 − 已占用，可为负值并原样展示（不截断）；不提供跨 Network 全局合计（不同集群可含相同地址）。" />
+      </div>
 
-      {state.kind === "loading" && <p className="status status-loading">正在加载汇总数据…</p>}
+      {state.kind === "loading" && <LoadingState label="正在加载汇总数据…" />}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载汇总数据失败：{state.error.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={`加载汇总数据失败：${state.error.message}`}
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
 
       {state.kind === "success" && (
         <>
           <div className="dashboard-counts">
-            <div className="count-card">
-              <span className="count-value">{state.data.counts.clusters}</span>
-              <span className="count-label">Clusters（集群）</span>
-            </div>
-            <div className="count-card">
-              <span className="count-value">{state.data.counts.resources}</span>
-              <span className="count-label">Resources（资源总数）</span>
-            </div>
-            <div className="count-card">
-              <span className="count-value">{state.data.counts.bare_metal}</span>
-              <span className="count-label">BareMetal（物理机）</span>
-            </div>
-            <div className="count-card">
-              <span className="count-value">{state.data.counts.virtual_machines}</span>
-              <span className="count-label">VM（虚拟机）</span>
-            </div>
-            <div className="count-card">
-              <span className="count-value">{state.data.counts.networks}</span>
-              <span className="count-label">Networks（网络）</span>
-            </div>
+            <SurfaceCard className="count-card"><Statistic title="Clusters（集群）" value={state.data.counts.clusters} /></SurfaceCard>
+            <SurfaceCard className="count-card"><Statistic title="Resources（资源总数）" value={state.data.counts.resources} /></SurfaceCard>
+            <SurfaceCard className="count-card"><Statistic title="BareMetal（物理机）" value={state.data.counts.bare_metal} /></SurfaceCard>
+            <SurfaceCard className="count-card"><Statistic title="VM（虚拟机）" value={state.data.counts.virtual_machines} /></SurfaceCard>
+            <SurfaceCard className="count-card"><Statistic title="Networks（网络）" value={state.data.counts.networks} /></SurfaceCard>
           </div>
 
           <h3 className="detail-section-title">Network 容量（按网络）</h3>
           {state.data.networks.items.length === 0 ? (
-            <p className="status status-empty">
-              暂无未删除的网络（计数仍为全局未删口径，非错误）。
-            </p>
+            <EmptyState description="暂无未删除的网络（计数仍为全局未删口径，非错误）。" />
           ) : (
             <>
               <div className="table-wrap">
-                <table className="data-table">
+                <DataTable className="data-table">
                   <thead>
                     <tr>
                       <th>cluster</th>
@@ -147,9 +134,7 @@ export default function DashboardPanel() {
                         <td>{row.network.name}</td>
                         <td className="mono">{row.network.cidr}</td>
                         <td>
-                          <span className={`badge badge-${row.network.status.toLowerCase()}`}>
-                            {row.network.status}
-                          </span>
+                          <StatusTag tone={statusTone(row.network.status)}>{row.network.status}</StatusTag>
                         </td>
                         <td>{row.network.auto_allocate ? "true" : "false"}</td>
                         <td className="mono">{row.capacity.allocatable_total}</td>
@@ -177,57 +162,23 @@ export default function DashboardPanel() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </DataTable>
               </div>
-              <div className="pagination">
-                <span>
-                  共 {state.data.networks.total} 个网络 · 第 {state.data.networks.page} /{" "}
-                  {Math.max(
-                    1,
-                    Math.ceil(state.data.networks.total / state.data.networks.page_size),
-                  )}{" "}
-                  页
-                </span>
-                <button
-                  type="button"
-                  disabled={state.data.networks.page <= 1}
-                  onClick={() => setPage(state.data.networks.page - 1)}
-                >
-                  上一页
-                </button>
-                <button
-                  type="button"
-                  disabled={
-                    state.data.networks.page >=
-                    Math.max(
-                      1,
-                      Math.ceil(state.data.networks.total / state.data.networks.page_size),
-                    )
-                  }
-                  onClick={() => setPage(state.data.networks.page + 1)}
-                >
-                  下一页
-                </button>
-                <label>
-                  每页
-                  <select
-                    value={String(pageSize)}
-                    onChange={(event) => {
-                      setPageSize(Number(event.target.value));
-                      setPage(1);
-                    }}
-                  >
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                  </select>
-                  条
-                </label>
-              </div>
+              <ServerPagination
+                page={state.data.networks.page}
+                pageSize={state.data.networks.page_size}
+                total={state.data.networks.total}
+                appliedPageSize={pageSize}
+                onGotoPage={setPage}
+                onChangePageSize={(nextPageSize) => {
+                  setPageSize(nextPageSize);
+                  setPage(1);
+                }}
+              />
             </>
           )}
         </>
       )}
-    </section>
+    </SurfaceCard>
   );
 }

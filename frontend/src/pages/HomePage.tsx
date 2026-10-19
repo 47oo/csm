@@ -1,3 +1,7 @@
+import { Button } from "../components/ui/controls";
+import { ErrorState } from "../components/ui/feedback";
+import { SurfaceCard } from "../components/ui/surfaces";
+import { Descriptions, Tag } from "antd";
 import { useState } from "react";
 import { logout, type User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -127,85 +131,81 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
         <div className="user-box">
           <span className="user-name">{user.username}</span>
           <span className="user-role">{user.role}</span>
-          <button type="button" onClick={handleLogout} disabled={loggingOut}>
+          <Button type="button" onClick={handleLogout} disabled={loggingOut}>
             {loggingOut ? "正在登出…" : "登出"}
-          </button>
+          </Button>
         </div>
       </header>
 
-      {logoutError && (
-        <p className="status status-error" role="alert">
-          登出失败：{logoutError}
-        </p>
-      )}
+      {logoutError && <ErrorState message={`登出失败：${logoutError}`} />}
 
       <nav className="app-nav" aria-label="主导航">
-        <button
+        <Button
           type="button"
           className={section.name === "overview" ? "nav-link nav-link-active" : "nav-link"}
           onClick={() => setSection({ name: "overview" })}
         >
           概览
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           className={inClusters ? "nav-link nav-link-active" : "nav-link"}
           onClick={() => setSection({ name: "clusters" })}
         >
           Clusters
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           className={inResources ? "nav-link nav-link-active" : "nav-link"}
           onClick={() => setSection({ name: "resources" })}
         >
           Resources
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           className={inNetworks ? "nav-link nav-link-active" : "nav-link"}
           onClick={() => setSection({ name: "networks" })}
         >
           Networks
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           className={inIpPools ? "nav-link nav-link-active" : "nav-link"}
           onClick={() => setSection({ name: "ip-pools" })}
         >
           IP Pools
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           className={inIpAddresses ? "nav-link nav-link-active" : "nav-link"}
           onClick={() => setSection({ name: "ip-addresses" })}
         >
           IP Addresses
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           className={inServices ? "nav-link nav-link-active" : "nav-link"}
           onClick={() => setSection({ name: "services" })}
         >
           Services
-        </button>
+        </Button>
         {canAudit && (
-          <button
+          <Button
             type="button"
             className={inAudit ? "nav-link nav-link-active" : "nav-link"}
             onClick={() => setSection({ name: "audit" })}
           >
             Audit
-          </button>
+          </Button>
         )}
         {canSystem && (
-          <button
+          <Button
             type="button"
             className={inSystem ? "nav-link nav-link-active" : "nav-link"}
             onClick={() => setSection({ name: "system" })}
           >
             System
-          </button>
+          </Button>
         )}
       </nav>
 
@@ -226,26 +226,29 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
 
           <DashboardPanel />
 
-          <section className="panel">
-            <h2>当前用户</h2>
-            <p className="status">
-              用户名：{user.username}　角色：{user.role}　状态：{user.status}
-            </p>
+          <SurfaceCard className="panel" title="当前用户">
+            <Descriptions
+              column={{ xs: 1, sm: 3 }}
+              items={[
+                { key: "username", label: "用户名", children: user.username },
+                { key: "role", label: "角色", children: user.role },
+                { key: "status", label: "状态", children: user.status },
+              ]}
+              size="small"
+            />
             <p className="permissions-note">
               权限（由服务端按角色返回，仅用于界面显示，不构成安全边界）：
             </p>
-            <p className="permissions">
+            <div className="permissions">
               {user.permissions.length > 0 ? (
                 user.permissions.map((permission) => (
-                  <span key={permission} className="permission-badge">
-                    {permission}
-                  </span>
+                  <Tag key={permission}>{permission}</Tag>
                 ))
               ) : (
-                <span className="permission-badge">无</span>
+                <Tag>无</Tag>
               )}
-            </p>
-          </section>
+            </div>
+          </SurfaceCard>
 
           <HealthPanel />
         </>

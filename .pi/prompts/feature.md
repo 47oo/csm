@@ -11,11 +11,15 @@ argument-hint: "[任务或 Feature ID]"
 
 每个 Gate 由协调器检查角色结果及证据后单独放行。禁止用 Subagent `chain` 跨越 Product、设计定稿、Test、Review 等 Gate：扩展仅按进程错误停止，进程成功不代表业务 READY。并行只用于同一已放行阶段内、所有权明确的任务。
 
+同一 Gate 有两个以上相互独立的角色或缺陷任务时，优先使用一次 Subagent `tasks` 调用；按负载设置 `concurrency`。只读任务提供稳定 `id`；写入任务还必须声明互不重叠的 `writeScope`，共享服务、端口或测试环境通过 `resources` 声明独占。无法清晰划分所有权的共享文件串行处理；声明只用于调度冲突检测，不替代角色边界或操作系统隔离。
+
 读取 `AGENTS.md`、`docs/project/project-state.md`、`docs/project/git-workflow.md`、`docs/project/handoff.md`，再加载当前 Feature 及明确依赖。无需为每项任务遍历所有文档。
 
 批准权限和需求修订按 `docs/project/change-control.md`。独立调用仅执行本 Feature；不自动转到其它 Feature，也不在 proposal 分支实施。
 
 V3 一期的产品入口为 `docs/product/requirements-v3.md`，领域关系先查 `docs/product/domain-model.md`。每个 Gate 核对当前条款版本及 §35 的确认记录/剩余问题，不从旧版本补齐输入；已经确认的枚举、恢复范围和技术栈直接引用，尚未确定的业务行为不能由实现自行裁定。
+
+`layers.frontend=true` 或任务涉及前端设计、实现、测试、Review 时，要求对应角色加载 `.pi/skills/frontend-ui/SKILL.md`，并以 `frontend/package.json` 与现有 Vite/主题/共享 UI 接线核对 Ant Design、Tailwind CSS 的实际版本和用法；Prompt 不重复维护组件与样式细则。
 
 ## 1. 入口与阶段复用
 

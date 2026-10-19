@@ -1,3 +1,7 @@
+import { Button, Input, Select, DataTable } from "./ui/controls";
+import { Alert } from "antd";
+import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
+import { SurfaceCard } from "./ui/surfaces";
 import { useEffect, useState } from "react";
 import { displayError, isApiError } from "../api/client";
 import {
@@ -209,7 +213,7 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
   }
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <h2>批量导入资源（CSV / Excel .xlsx，仅新增）</h2>
       <p className="permissions-note">
         两步导入：先「预校验」（只读，不写入任何数据、不写审计），一次性查看全部错误行；
@@ -220,7 +224,7 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
 
       <div className="form-field">
         <label htmlFor="resource-import-format">文件格式（必选）</label>
-        <select
+        <Select
           id="resource-import-format"
           value={values.format}
           onChange={(event) => changeInput({ format: event.target.value as ImportFormat })}
@@ -228,7 +232,7 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
         >
           <option value="csv">CSV（UTF-8，逗号分隔，兼容 BOM）</option>
           <option value="xlsx">Excel（.xlsx，取首个工作表，不执行公式 / 宏）</option>
-        </select>
+        </Select>
         {(localErrors.format ?? serverFormatError) && (
           <p className="field-error" role="alert">
             {localErrors.format ?? serverFormatError}
@@ -238,7 +242,7 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
 
       <div className="form-field">
         <label htmlFor="resource-import-file">导入文件（必选）</label>
-        <input
+        <Input
           id="resource-import-file"
           type="file"
           accept={values.format === "csv" ? ".csv" : ".xlsx"}
@@ -253,19 +257,19 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
       </div>
 
       <div className="form-actions">
-        <button type="button" onClick={handleValidate} disabled={busy}>
+        <Button type="button" onClick={handleValidate} disabled={busy}>
           {validateState.kind === "loading" ? "正在预校验…" : "预校验（不写入数据）"}
-        </button>
-        <button type="button" onClick={handleImport} disabled={!canConfirm || busy}>
+        </Button>
+        <Button type="button" onClick={handleImport} disabled={!canConfirm || busy}>
           {importState.kind === "loading" ? "正在导入…" : "确认导入"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={() => setShowTemplates((visible) => !visible)}
           disabled={busy}
         >
           {showTemplates ? "收起模板说明" : "查看模板与逐列说明"}
-        </button>
+        </Button>
       </div>
 
       {showTemplates && (
@@ -278,27 +282,25 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
             .xlsx 文件取首个工作表，表头与 CSV 模板一致。
           </p>
 
-          {templatesState.kind === "loading" && (
-            <p className="status status-loading">正在加载模板规范…</p>
-          )}
+          {templatesState.kind === "loading" && <LoadingState label="正在加载模板规范…" />}
 
           {templatesState.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载模板规范失败：{templatesState.message}</p>
-              <button
-                type="button"
-                onClick={() => setTemplatesReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载模板规范失败：${templatesState.message}`}
+              action={
+                <Button
+                  type="button"
+                  onClick={() => setTemplatesReloadToken((token) => token + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {templatesState.kind === "success" &&
             (templatesState.data.templates.length === 0 ? (
-              <p className="status status-empty">
-                服务端未返回任何模板定义（与契约不符，请联系管理员核对后端版本）。
-              </p>
+              <EmptyState description="服务端未返回任何模板定义（与契约不符，请联系管理员核对后端版本）。" />
             ) : (
               templatesState.data.templates.map((template) => (
                 <div key={template.resource_type} className="import-template-block">
@@ -306,12 +308,12 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
                     <h3>
                       {template.resource_type} 模板（{template.columns.length} 列）
                     </h3>
-                    <button type="button" onClick={() => downloadTemplateCsv(template)}>
+                    <Button type="button" onClick={() => downloadTemplateCsv(template)}>
                       下载 CSV 模板（表头行）
-                    </button>
+                    </Button>
                   </div>
                   <div className="table-wrap">
-                    <table className="data-table">
+                    <DataTable className="data-table">
                       <thead>
                         <tr>
                           <th>#</th>
@@ -336,7 +338,7 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </DataTable>
                   </div>
                 </div>
               ))
@@ -347,44 +349,32 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
       <h3 className="detail-section-title">预校验结果</h3>
 
       {validateState.kind === "idle" && (
-        <p className="status status-empty">
-          尚未预校验。选择文件后点击「预校验」查看全部错误行（只读，不写入任何数据）。
-        </p>
+        <EmptyState description="尚未预校验。选择文件后点击「预校验」查看全部错误行（只读，不写入任何数据）。" />
       )}
 
       {validateState.kind === "loading" && (
-        <p className="status status-loading">正在预校验（解析文件并逐行校验，不写入数据）…</p>
+        <LoadingState label="正在预校验（解析文件并逐行校验，不写入数据）…" />
       )}
 
       {validateState.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>预校验失败：{validateState.described.message}</p>
-        </div>
+        <ErrorState message={`预校验失败：${validateState.described.message}`} />
       )}
 
       {validateState.kind === "success" && (
         <>
-          <p className="status">
-            预校验完成（{validateState.data.format}）：共 {validateState.data.total_rows} 行数据，
-            可导入 {validateState.data.importable_rows} 行，错误 {validateState.data.error_count} 项。
-          </p>
+          <InfoState message={`预校验完成（${validateState.data.format}）：共 ${validateState.data.total_rows} 行数据，可导入 ${validateState.data.importable_rows} 行，错误 ${validateState.data.error_count} 项。`} />
           {validateState.data.errors_truncated && (
-            <p className="status status-empty">
-              错误较多：仅显示前 {validateState.data.errors.length} 条
-              （共 {validateState.data.error_count} 项，超出服务端预览上限）；修复后请重新预校验。
-            </p>
+            <InfoState message={`错误较多：仅显示前 ${validateState.data.errors.length} 条（共 ${validateState.data.error_count} 项，超出服务端预览上限）；修复后请重新预校验。`} />
           )}
           {validateState.data.error_count === 0 ? (
-            <p className="status status-ok">
-              预校验通过：未发现行错误。可点击「确认导入」；写入时服务端将基于最新状态
-              再次校验，若状态变化导致冲突仍会整批回滚。
-            </p>
+            <Alert
+              description="预校验通过：未发现行错误。可点击「确认导入」；写入时服务端将基于最新状态再次校验，若状态变化导致冲突仍会整批回滚。"
+              showIcon
+              type="success"
+            />
           ) : (
             <>
-              <p className="status status-error" role="alert">
-                预校验发现 {validateState.data.error_count} 项错误：存在错误行时整批不可能成功，
-                「确认导入」不可用；请修正文件后重新预校验。
-              </p>
+              <ErrorState message={`预校验发现 ${validateState.data.error_count} 项错误：存在错误行时整批不可能成功，「确认导入」不可用；请修正文件后重新预校验。`} />
               <ImportErrorsTable result={validateState.data} />
             </>
           )}
@@ -394,31 +384,30 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
       <h3 className="detail-section-title">写入结果</h3>
 
       {importState.kind === "idle" && (
-        <p className="status status-empty">尚未导入（需先通过预校验）。</p>
+        <EmptyState description="尚未导入（需先通过预校验）。" />
       )}
 
       {importState.kind === "loading" && (
-        <p className="status status-loading">正在导入（事务内再次校验并整批写入）…</p>
+        <LoadingState label="正在导入（事务内再次校验并整批写入）…" />
       )}
 
       {importState.kind === "success" && (
-        <p className="status status-ok" role="status">
-          导入成功：已创建 {importState.data.created} 条资源（共 {importState.data.total_rows}{" "}
-          行，整批成功）。如需导入另一批资源，请重新选择文件并预校验。
-        </p>
+        <Alert
+          description={`导入成功：已创建 ${importState.data.created} 条资源（共 ${importState.data.total_rows} 行，整批成功）。如需导入另一批资源，请重新选择文件并预校验。`}
+          showIcon
+          type="success"
+        />
       )}
 
       {importState.kind === "error" && (
         <>
-          <div className="status status-error" role="alert">
-            <p>{importState.described.message}</p>
-          </div>
+          <ErrorState message={importState.described.message} />
           {importState.described.validationFailed !== null && (
             <ImportErrorsTable result={importState.described.validationFailed} />
           )}
         </>
       )}
-    </section>
+    </SurfaceCard>
   );
 }
 
@@ -429,7 +418,7 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
 function ImportErrorsTable({ result }: { result: ImportValidationResult }) {
   return (
     <div className="import-errors-wrap">
-      <table className="data-table">
+      <DataTable className="data-table">
         <thead>
           <tr>
             <th>行号</th>
@@ -448,7 +437,7 @@ function ImportErrorsTable({ result }: { result: ImportValidationResult }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </DataTable>
     </div>
   );
 }

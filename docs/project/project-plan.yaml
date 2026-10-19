@@ -3,11 +3,11 @@ project:
   version: V3 phase 1
   requirements:
     path: docs/product/requirements-v3.md
-    revision: 3
-  plan_revision: 4
+    revision: 7
+  plan_revision: 9
   status: DONE
   approval:
-    plan_revision: 4
+    plan_revision: 9
     feature_ids:
     - F001
     - F002
@@ -25,11 +25,17 @@ project:
     - F014
     - F015
     - F016
+    - F017
+    - F018
+    - F019
+    - F020
+    - F021
     approved_by: 用户
-    approved_on: '2026-10-06'
-    basis: 用户于 2026-10-06 批准：『后续如果没有问题，就按计划执行 implement-project，如果还有问题，则给个推荐，按推荐修改后，再执行
-      implement-project，这里批准开始』。对象为 docs/project/project-plan.yaml revision 4 全部 16
-      个 Feature；协调器核验定稿发现 5 处缺陷，按预授权以推荐方案修正后落地本批准。确认来源：本次会话用户指令。
+    approved_on: '2026-10-15'
+    basis: 用户于 2026-10-15 要求在 Resource 列表页添加删除按钮；product-manager 澄清无阻塞（推荐单行删除、仅 Resource
+      列表），Architect 评估为纯前端、复用 F020 ConfirmDialog 与 F004 deleteResource。用户回复「批准并实施」：批准
+      docs/project/project-plan.yaml revision 9 全部 F001–F021（新增 F021 Resources 列表页行内删除，F001–F020
+      保持 DONE），并授权实施 F021。确认来源：本次会话用户指令。
   acceptance:
     status: COMPLETE
     evidence:
@@ -1106,6 +1112,313 @@ features:
     - docs/features/F016/test-report.md#test-execution
     review:
     - docs/features/F016/review-report.md
+- id: F017
+  title: API Key 机器凭据
+  kind: FEATURE
+  priority: P0
+  milestone: M8 API 机器访问
+  scope: 新增 api_keys 表与迁移；audit_logs 增加可空 Key 标签列；扩展认证解析支持 API Key 与 csm_session Cookie
+    双凭据并存；API Key 服务（高熵明文仅创建响应返回一次、SHA-256 哈希存储、有效期默认 90 天上限 365 天、吊销）；仅 ADMIN 的创建/列表/吊销端点并复用
+    §23 USER_ADMIN，不新增权限项；审计写入绑定账号 username 与 Key 标签；日志与响应脱敏；ADMIN 管理界面；修订 docs/api/F002.md
+    的认证载体口径并新增 docs/api/F017.md Contract。明确不做 scope-down、不新增账号或角色类型、不支持永不过期、不改变 Cookie
+    认证行为。
+  acceptance: 通过 T42–T49；有效 API Key 无 Cookie 可创建 BareMetal 与 VM；无效/过期/吊销一律 401 且不泄露存在性、401
+    先于 403；Key 权限不超出绑定账号角色；审计可归属到绑定账号 username 与 Key 标签；明文仅创建响应一次且库内仅存哈希；吊销与账号停用即时失效；Cookie
+    认证不回归；真实 PostgreSQL 验证迁移与约束。
+  requirements:
+  - docs/product/requirements-v3.md#231-api-key-机器凭据
+  - docs/product/requirements-v3.md#22-audit-log
+  - docs/product/requirements-v3.md#23-用户与权限
+  - docs/product/requirements-v3.md#25-api
+  - docs/product/requirements-v3.md#31-测试
+  - docs/product/requirements-v3.md#32-上线验收
+  depends_on:
+  - F002
+  - F015
+  blocking_decisions: []
+  status: DONE
+  current_stage: null
+  next_action: null
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F017-api-key
+    start_commit: 77fbb4c494c9d65ea9006c77c8ee11fbab8089c0
+    head_commit: 0ef28636c7ecaacd4e384b2fedffc4bd96fd8be8
+    merge_commit: 71ba3dcc9921013a4764672e96544cec3d6fc405
+  layers:
+    database: true
+    backend: true
+    frontend: true
+  api_required: true
+  implementation:
+    product: COMPLETE
+    architecture: COMPLETE
+    database: COMPLETE
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
+    test: COMPLETE
+    review: COMPLETE
+  evidence:
+    product:
+    - docs/features/F017/product.md
+    architecture:
+    - docs/features/F017/architecture.md
+    database:
+    - docs/database/f017-api-key.md
+    test_design:
+    - docs/features/F017/test-report.md#test-design
+    contract:
+    - docs/api/F017.md
+    backend:
+    - docs/features/F017/implementation.md#backend
+    frontend:
+    - docs/features/F017/implementation.md#frontend
+    test:
+    - docs/features/F017/test-report.md#test-execution
+    review:
+    - docs/features/F017/review-report.md
+- id: F018
+  title: 全局搜索字段组合展示
+  kind: FEATURE
+  priority: P1
+  milestone: M9 搜索字段组合
+  scope: 扩展 GET /api/v1/search 的 resource 结果行，按分页结果批量聚合关联 Interface / IPAddress /
+    Network（无 N+1），返回固定超集：关联数组（每个已绑定 IP 一行，含 interface{id,name,interface_type}、ip_address{id,address}、network{id,name}）与截断前总数；确定性排序
+    interface.name ASC → IP 地址数值 ASC → id ASC；每 Resource 上限 10 行；关联严格继承软删与权限口径；前端全局搜索结果增加字段选择器与多值展开，超出显示「还有
+    N 条」，偏好存 localStorage；不改匹配语义、结果集、去重、顶层排序、分页与 total，仍只读无审计，无 Schema/索引/迁移。明确不做：导出、命名/共享视图、各域列表列自定义、账号级服务端偏好、新实体/关系/权限/错误码。
+  acceptance: 通过 T50–T53；resource 行返回关联且排序与上限确定、返回截断前总数；多网卡/多 IP 正确展开、无关联不伪造；关联继承
+    deleted 口径且无 VIEW_DELETED 仍 403；改变展示组合不改变结果集/去重/排序/分页/total；只读无 Audit；既有 F013
+    行为无回归。
+  requirements:
+  - docs/product/requirements-v3.md#171-搜索结果字段组合
+  depends_on:
+  - F013
+  blocking_decisions: []
+  status: DONE
+  current_stage: null
+  next_action: null
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F018-search-columns
+    start_commit: ce91adb3dec222a65425ccaa29e77b961c7adbc1
+    head_commit: 33d0fea3147fe4754aff117cacc77792da31fd76
+    merge_commit: d424440623a593254b74997b2e714e06f6ab3b0b
+  layers:
+    database: false
+    backend: true
+    frontend: true
+  api_required: true
+  not_required:
+    database: 无新表/列/约束/索引/迁移；关联查询命中既有 ix_interfaces_resource_id、ix_ip_addresses_interface_id
+      与 networks PK
+  implementation:
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
+    test: COMPLETE
+    review: COMPLETE
+  evidence:
+    product:
+    - docs/features/F018/product.md
+    architecture:
+    - docs/features/F018/architecture.md
+    test_design:
+    - docs/features/F018/test-report.md#test-design
+    contract:
+    - docs/api/F013.md
+    backend:
+    - docs/features/F018/implementation.md#backend
+    frontend:
+    - docs/features/F018/implementation.md#frontend
+    test:
+    - docs/features/F018/test-report.md#test-execution
+    review:
+    - docs/features/F018/review-report.md
+- id: F019
+  title: 接口侧选择并绑定 IP
+  kind: FEATURE
+  priority: P1
+  milestone: M10 接口侧 IP 绑定
+  scope: 在 Interface 创建成功后，于接口视图（Resource Detail 的 Interfaces 区域 / 接口列表）内选择并绑定 IP，减少在接口与
+    IP 页面之间跳转。候选仅「同 Cluster、未绑定（interface 为空）且未删除」的 IPAddress；支持按 IP 地址搜索与分页、跨页多选；复用既有
+    GET /api/v1/ip-addresses（cluster_id+bound=false+deleted=exclude+q）与 PATCH /api/v1/ip-addresses/{id}（interface+version）逐条绑定；允许部分成功并逐条呈现成功/失败及原因，不静默重试；接口侧展示已绑定
+    IP（interface_id 过滤，懒加载）。明确不做：新增端点/查询参数、Interface 响应嵌套 IP、批量事务、从接口侧解绑/转移、流程内手动输入或自动分配
+    IP、跨 Cluster 候选；无 Schema/索引/迁移，无契约修订。
+  acceptance: 通过 T54–T58；候选仅同 Cluster 未绑定未删除 IP；多选逐条绑定且各产生 UPDATE Audit、部分失败逐条呈现且不静默重试；空态/错误态显式区分、不静默截断；VIEWER
+    不可绑定且服务端仍拒绝，绑定不改变 IP 占用/address/Network 且不触发 Endpoint 引用拒绝；并发绑定不产生重复绑定（后到者 409
+    VERSION_CONFLICT）；既有 IP 页面手动/自动分配、解绑/转移、容量与 Audit 无回归。
+  requirements:
+  - docs/product/requirements-v3.md#134-接口侧选择绑定
+  - docs/product/requirements-v3.md#14-ip-完整性
+  - docs/product/requirements-v3.md#21-逻辑删除
+  depends_on:
+  - F007
+  - F010
+  blocking_decisions: []
+  status: DONE
+  current_stage: null
+  next_action: null
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F019-interface-ip-binding
+    start_commit: 0db18320fd59ac48cef1c3f86dd41b783b2b2ddd
+    head_commit: f270d283606f35bcd5a5a7a28704a13ab7846d54
+    merge_commit: 2b53e045c120724c5ff5cd81e92c87e16325498e
+  layers:
+    database: false
+    backend: false
+    frontend: true
+  api_required: false
+  not_required:
+    database: 无新表/列/约束/索引/迁移；绑定仅置既有可空列 ip_addresses.interface_id，唯一/Cluster 一致性/可分配边界由既有索引与触发器覆盖
+    backend: 无服务端改动；候选与绑定复用既有 GET /api/v1/ip-addresses 与 PATCH /api/v1/ip-addresses/{id}
+    contract: 无 API 变化，F007/F010 契约不变；最小使用说明落 docs/features/F019/architecture.md
+  implementation:
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: COMPLETE
+    test: COMPLETE
+    review: COMPLETE
+  evidence:
+    product:
+    - docs/features/F019/product.md
+    architecture:
+    - docs/features/F019/architecture.md
+    test_design:
+    - docs/features/F019/test-report.md#test-design
+    frontend:
+    - docs/features/F019/implementation.md#frontend
+    test:
+    - docs/features/F019/test-report.md#test-execution
+    review:
+    - docs/features/F019/review-report.md
+- id: F020
+  title: 二次确认统一为模态对话框
+  kind: FEATURE
+  priority: P1
+  milestone: M11 前端确认交互统一
+  scope: 将前端删除（cluster/resource/interface/network/ip_pool/service/service_endpoint
+    软删）、释放 IP（软删）与恢复的内联二次确认（WarningState + div.inline-confirm，共 9 文件 11 处）统一改为模态对话框；新增共享
+    ui/ConfirmDialog 组件承载弹层呈现（不持业务状态、不发请求），以既有吊销 API Key Modal 为一致样式基准并同步迁移该处；对话框含对象标识与软删/引用检查提示，确认按钮语义化且删除/释放为危险样式；取消不发起请求、请求中加载态且不可重复提交、非提交态
+    Esc/遮罩可关闭且不执行；动作级错误在对话框内呈现（含引用列表/版本冲突/刷新按钮）；移除 index.css 的 .inline-confirm 死样式。明确不做：修改删除/释放/恢复语义、权限门禁、引用检查、Audit、错误码、需要二次确认的操作集合、后端/API/Schema/契约；不新增
+    DOM 测试框架。
+  acceptance: 通过 T59–T63；删除/释放/恢复均以带遮罩模态对话框确认，页面无内联二次确认残留；确认执行原请求且载荷/端点不变，取消/Esc/遮罩非提交态关闭不发起请求；提交中加载且不可重复提交；错误在对话框内按既有方式呈现且对象状态不变；权限门禁与既有行为无回归。
+  requirements:
+  - docs/product/requirements-v3.md#28-前端
+  depends_on: []
+  blocking_decisions: []
+  status: DONE
+  current_stage: null
+  next_action: null
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F020-confirm-modal
+    start_commit: 0bd9e24fa50f80731de2f701df149be7ebe3d246
+    head_commit: f9f0806706e63c081119fe528bb75a687fb14389
+    merge_commit: 7e24f45787a27cfc32f81c0b59a27480c625ce71
+  layers:
+    database: false
+    backend: false
+    frontend: true
+  api_required: false
+  not_required:
+    database: 无新表/列/约束/索引/迁移；仅前端确认呈现变更
+    backend: 无服务端改动；删除/释放/恢复端点与载荷逐字复用
+    contract: 无 API 变化；复用既有 F003/F004/F007–F012 契约
+  implementation:
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: COMPLETE
+    test: COMPLETE
+    review: COMPLETE
+  evidence:
+    product:
+    - docs/features/F020/product.md
+    architecture:
+    - docs/features/F020/architecture.md
+    test_design:
+    - docs/features/F020/test-report.md#test-design
+    frontend:
+    - docs/features/F020/implementation.md#frontend
+    test:
+    - docs/features/F020/test-report.md#test-execution
+    review:
+    - docs/features/F020/review-report.md
+- id: F021
+  title: Resources 列表页行内删除
+  kind: FEATURE
+  priority: P1
+  milestone: M12 列表删除入口
+  scope: 在 Resource 列表页 frontend/src/pages/ResourcesPage.tsx 行内「操作」列新增单行「删除」按钮（仅 deleted_at=null
+    且具备 DELETE_OBJECT 时显示）；点击复用 F020 ConfirmDialog 模态确认（含 hostname 对象标识、软删/引用检查提示、确认删除危险样式、取消不发请求、提交中不可重复）；确认调用既有
+    DELETE /api/v1/resources/{id}?version=N；成功 204 后关闭对话框并保留过滤/排序/分页重载列表；失败（409 reference_exists
+    / VERSION_CONFLICT）在对话框内按 describeResourceActionError 呈现引用列表/版本冲突且对象未删；抽取 ResourceDetailPage
+    的引用/冲突文案助手为共享模块避免复制分叉。明确不做：批量/多选删除、列表内恢复、其它列表页删除、改删除语义/权限/Audit/端点/载荷。
+  acceptance: 映射 §28 T59–T63、§23、F004 §6.5；未删除行且具 DELETE_OBJECT 显示删除按钮，已删行/无权限不显示；确认仅发一次删除请求、取消/Esc/遮罩不发请求；成功刷新且保留查询；reference_exists（含
+    references 列表）/VERSION_CONFLICT 在对话框内呈现且对象未删；VIEWER 服务端仍 403；其它列表页行为不变、删除语义/权限/Audit
+    无回归。
+  requirements:
+  - docs/product/requirements-v3.md#23-用户与权限
+  - docs/product/requirements-v3.md#28-前端
+  depends_on:
+  - F004
+  - F020
+  blocking_decisions: []
+  status: DONE
+  current_stage: null
+  next_action: null
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F021-resource-list-delete
+    start_commit: 156a5dfdc73673e8acd395c299b2a1745128d8ff
+    head_commit: 28622e22e4b8db221e95a5ce309df477b4c2157e
+    merge_commit: 224fe0ff9812180eb7989107ca92f3cfed65ad9e
+  layers:
+    database: false
+    backend: false
+    frontend: true
+  api_required: false
+  not_required:
+    database: 无新表/列/约束/索引/迁移；复用既有资源软删与引用检查
+    backend: 无服务端改动；复用既有 DELETE /api/v1/resources/{id}
+    contract: 无 API 变化；复用既有 F004 v3 契约
+  implementation:
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: COMPLETE
+    test: COMPLETE
+    review: COMPLETE
+  evidence:
+    product:
+    - docs/features/F021/product.md
+    architecture:
+    - docs/features/F021/architecture.md
+    test_design:
+    - docs/features/F021/test-report.md#test-design
+    frontend:
+    - docs/features/F021/implementation.md#frontend
+    test:
+    - docs/features/F021/test-report.md#test-execution
+    review:
+    - docs/features/F021/review-report.md
 decisions_required:
 - id: Q02-A
   source: docs/product/requirements-v3.md#352-六项业务决策confirmed
@@ -1190,7 +1503,9 @@ decisions_required:
   - F012
   - F014
   owner: Architect / Database
-  basis: 专业设计已签核：docs/architecture/d01-conventions.md v11（READY，Architect 2026-10-09）覆盖 F003–F012 的字段字典/hostname/数值上限/时间/单位/归一化口径；F014 CONTRACT v1 §12 记录「D01 已最终核对关闭」（导入字段口径逐项一致、无新增/偏离；D01 v11 无字段变更）。原 status OPEN 为滞后记录，由协调器按 change-control 依已完成的专业签核更正为 CONFIRMED，不改变任何已批准行为。
+  basis: 专业设计已签核：docs/architecture/d01-conventions.md v11（READY，Architect 2026-10-09）覆盖
+    F003–F012 的字段字典/hostname/数值上限/时间/单位/归一化口径；F014 CONTRACT v1 §12 记录「D01 已最终核对关闭」（导入字段口径逐项一致、无新增/偏离；D01
+    v11 无字段变更）。原 status OPEN 为滞后记录，由协调器按 change-control 依已完成的专业签核更正为 CONFIRMED，不改变任何已批准行为。
 - id: D02
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
   status: CONFIRMED
@@ -1218,34 +1533,19 @@ decisions_required:
     行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 pending_changes: []
 execution:
-  mode: CONTINUOUS
+  mode: SINGLE
   authorization:
-    plan_revision: 4
+    plan_revision: 9
     feature_ids:
-    - F001
-    - F002
-    - F003
-    - F004
-    - F005
-    - F006
-    - F007
-    - F008
-    - F009
-    - F010
-    - F011
-    - F012
-    - F013
-    - F014
-    - F015
-    - F016
+    - F021
     authorized_by: 用户
-    authorized_on: '2026-10-06'
-    basis: 用户于 2026-10-06 指令（与计划批准同源）：按计划执行 implement-project（CONTINUOUS，范围 F001-F016
-      全部 16 个 Feature）；发现问题按推荐修正后继续执行。
+    authorized_on: '2026-10-15'
+    basis: 用户于 2026-10-15 提出在 Resource 列表页添加删除按钮，product-manager 澄清与 Architect 评估无阻塞后，回复「批准并实施」：批准计划
+      revision 9 并授权实施 F021。
   current_feature: null
   current_stage: null
-  last_result: F016 DONE（merge e1cb7d3；一期集成验收 APPROVED WITH FOLLOW-UP）；项目全部 F001–F016
-    交付，project.acceptance=COMPLETE
+  last_result: F021 DONE（merge 224fe0f；review APPROVED WITH FOLLOW-UP）；全部 F001–F021
+    交付，project.acceptance=COMPLETE。
   next_action: null
   repair_rounds: 0
 planning_status:
@@ -1254,7 +1554,7 @@ planning_status:
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 16
+    DONE: 21
     DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0

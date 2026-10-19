@@ -1,3 +1,7 @@
+import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
+import { EmptyState, ErrorState, InfoState, LoadingState, SuccessState, WarningState } from "../components/ui/feedback";
+import { ServerPagination as Pagination, StatusTag, SurfaceCard } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -508,10 +512,10 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
   /** 排序表头按钮（当前排序字段附 ▲/▼ 指示）。 */
   function renderSortHeader(field: IpAddressSortField, label: string) {
     return (
-      <button type="button" className="sort-button" onClick={() => toggleSort(field)}>
+      <Button type="button" className="sort-button" onClick={() => toggleSort(field)}>
         {label}
         {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-      </button>
+      </Button>
     );
   }
 
@@ -531,12 +535,12 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
   const showDeletedColumn = query.deleted !== "exclude";
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <div className="table-toolbar">
         <h2>IP Addresses（IP 地址）</h2>
         {canWrite && mode.kind === "list" && (
           <span className="filter-actions">
-            <button
+            <Button
               type="button"
               onClick={() => {
                 setFormError(null);
@@ -545,8 +549,8 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
               }}
             >
               手动分配 IP
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => {
                 setFormError(null);
@@ -555,7 +559,7 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
               }}
             >
               自动分配 IP
-            </button>
+            </Button>
           </span>
         )}
       </div>
@@ -563,27 +567,22 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
       {mode.kind === "list" && (
         <>
           {options.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载过滤选项失败：{options.message}</p>
-              <button
-                type="button"
-                onClick={() => setOptionsReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载过滤选项失败：${options.message}`}
+              action={
+                <Button type="button" onClick={() => setOptionsReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
-          {notice && (
-            <p className="status status-ok" role="status">
-              {notice}
-            </p>
-          )}
+          {notice && <SuccessState message={notice} />}
 
           <form className="filter-form" onSubmit={applyFilters}>
             <div className="form-field">
               <label htmlFor="ip-address-filter-q">模糊搜索（address 子串，大小写不敏感）</label>
-              <input
+              <Input
                 id="ip-address-filter-q"
                 type="text"
                 value={draft.q}
@@ -593,7 +592,7 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
             </div>
             <div className="form-field">
               <label htmlFor="ip-address-filter-address">address（精确匹配）</label>
-              <input
+              <Input
                 id="ip-address-filter-address"
                 type="text"
                 value={draft.address}
@@ -603,7 +602,7 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
             </div>
             <div className="form-field">
               <label htmlFor="ip-address-filter-network">所属网络</label>
-              <select
+              <Select
                 id="ip-address-filter-network"
                 value={draft.networkId}
                 onChange={(event) => setDraft({ ...draft, networkId: event.target.value })}
@@ -615,11 +614,11 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                     {network.name}（{network.cidr}）
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="form-field">
               <label htmlFor="ip-address-filter-cluster">集群（地址唯一作用域）</label>
-              <select
+              <Select
                 id="ip-address-filter-cluster"
                 value={draft.clusterId}
                 onChange={(event) => setDraft({ ...draft, clusterId: event.target.value })}
@@ -632,11 +631,11 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                       {cluster.code}（{cluster.name}）
                     </option>
                   ))}
-              </select>
+              </Select>
             </div>
             <div className="form-field">
               <label htmlFor="ip-address-filter-pool">分配来源地址池</label>
-              <select
+              <Select
                 id="ip-address-filter-pool"
                 value={draft.poolId}
                 onChange={(event) => setDraft({ ...draft, poolId: event.target.value })}
@@ -649,11 +648,11 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                       {pool.name} · {pool.network.name}
                     </option>
                   ))}
-              </select>
+              </Select>
             </div>
             <div className="form-field">
               <label htmlFor="ip-address-filter-interface">interface UUID（精确匹配）</label>
-              <input
+              <Input
                 id="ip-address-filter-interface"
                 type="text"
                 value={draft.interfaceId}
@@ -663,7 +662,7 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
             </div>
             <div className="form-field">
               <label htmlFor="ip-address-filter-bound">绑定状态</label>
-              <select
+              <Select
                 id="ip-address-filter-bound"
                 value={draft.bound}
                 onChange={(event) =>
@@ -673,26 +672,22 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                 <option value="">全部（默认）</option>
                 <option value="true">已绑定（interface 非空）</option>
                 <option value="false">未绑定</option>
-              </select>
+              </Select>
             </div>
             <div className="filter-actions">
-              <button type="submit">筛选</button>
-              <button type="button" onClick={resetFilters}>
+              <Button type="submit">筛选</Button>
+              <Button type="button" onClick={resetFilters}>
                 重置
-              </button>
+              </Button>
             </div>
           </form>
 
-          {filterError && (
-            <p className="status status-error" role="alert">
-              {filterError}
-            </p>
-          )}
+          {filterError && <ErrorState message={filterError} />}
 
           {canViewDeleted && (
             <div className="form-field deleted-toggle">
               <label htmlFor="ip-address-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-              <select
+              <Select
                 id="ip-address-deleted-mode"
                 value={query.deleted}
                 onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
@@ -700,32 +695,30 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                 <option value="exclude">未删除（默认）</option>
                 <option value="include">全部（含已删除）</option>
                 <option value="only">仅已删除</option>
-              </select>
+              </Select>
             </div>
           )}
 
-          {state.kind === "loading" && (
-            <p className="status status-loading">正在加载 IP 地址列表…</p>
-          )}
+          {state.kind === "loading" && <LoadingState label="正在加载 IP 地址列表…" />}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载 IP 地址列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载 IP 地址列表失败：${state.message}`}
+              action={
+                <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                没有符合条件的 IP 地址（当前过滤 / 分页下无数据，非错误）。
-              </p>
+              <EmptyState description="没有符合条件的 IP 地址（当前过滤 / 分页下无数据，非错误）。" />
             ) : (
               <>
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         <th>{renderSortHeader("address", "address")}</th>
@@ -747,7 +740,7 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                           <td className="mono">
                             {ipAddress.address}
                             {ipAddress.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
+                              <StatusTag tone="error">已删除</StatusTag>
                             )}
                           </td>
                           <td>
@@ -784,7 +777,7 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                             </td>
                           )}
                           <td>
-                            <button
+                            <Button
                               type="button"
                               className="link-button"
                               onClick={() => {
@@ -793,9 +786,9 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                               }}
                             >
                               Activity
-                            </button>
+                            </Button>
                             {canWrite && ipAddress.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => {
@@ -805,31 +798,32 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                                 }}
                               >
                                 编辑
-                              </button>
+                              </Button>
                             )}
                             {canRelease && ipAddress.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
+                                danger
                                 className="link-button"
                                 onClick={() => requestRelease(ipAddress)}
                               >
                                 释放
-                              </button>
+                              </Button>
                             )}
                             {canRestore && ipAddress.deleted_at !== null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => requestRestore(ipAddress)}
                               >
                                 恢复
-                              </button>
+                              </Button>
                             )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
                 <Pagination
                   page={state.data.page}
@@ -842,88 +836,87 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {Object.keys(actionError.fields).length > 0 && (
-                  <ul>
-                    {Object.entries(actionError.fields).map(([field, message]) => (
-                      <li key={field}>
-                        {field}：{message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((item) => (
-                      <li key={`${item.object_type}-${item.object_id}`}>
-                        引用对象：{item.label ?? item.object_id}（{item.object_type}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {dependencyConflictText(conflict.object_type, conflict.object_id)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
-
+          {/* F020：释放 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action !== null}
+            title={action?.kind === "release" ? "释放 IP 地址" : "恢复 IP 地址"}
+            okText={action?.kind === "release" ? "确认释放" : "确认恢复"}
+            danger={action?.kind === "release"}
+            confirmLoading={actionBusy}
+            onConfirm={action?.kind === "release" ? confirmRelease : confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
             {action !== null && (
-              <div className="inline-confirm">
-                {action.kind === "release" ? (
-                  <span>
-                    确认释放 IP 地址 {action.ipAddress.address}？（软删除释放，不级联；被未删除
-                    Endpoint 引用时将被拒绝；不自动解绑其它对象；同集群内该地址软删后可复用）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复 IP 地址 {action.ipAddress.address}？（仅恢复自身，不级联；将重检同集群
-                    地址唯一、所属网络与绑定接口有效性、地址仍属网络 CIDR，失败不覆盖新对象；
-                    version 递增）
-                  </span>
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    action.kind === "release" ? (
+                      <span>
+                        确认释放 IP 地址 {action.ipAddress.address}？（软删除释放，不级联；被未删除
+                        Endpoint 引用时将被拒绝；不自动解绑其它对象；同集群内该地址软删后可复用）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复 IP 地址 {action.ipAddress.address}？（仅恢复自身，不级联；将重检同集群
+                        地址唯一、所属网络与绑定接口有效性、地址仍属网络 CIDR，失败不覆盖新对象；
+                        version 递增）
+                      </span>
+                    )
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {Object.keys(actionError.fields).length > 0 && (
+                      <ul>
+                        {Object.entries(actionError.fields).map(([field, message]) => (
+                          <li key={field}>
+                            {field}：{message}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((item) => (
+                          <li key={`${item.object_type}-${item.object_id}`}>
+                            引用对象：{item.label ?? item.object_id}（{item.object_type}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.dependencyConflicts.length > 0 && (
+                      <ul>
+                        {actionError.dependencyConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {dependencyConflictText(conflict.object_type, conflict.object_id)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
                 )}
-                <button
-                  type="button"
-                  onClick={action.kind === "release" ? confirmRelease : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "release"
-                      ? "正在释放…"
-                      : "正在恢复…"
-                    : action.kind === "release"
-                      ? "确认释放"
-                      : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
               </div>
             )}
-          </div>
+          </ConfirmDialog>
         </>
       )}
 
@@ -959,35 +952,31 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
               Activity — <span className="mono">{mode.ipAddress.address}</span>
               <span className="unset">（{mode.ipAddress.network.name}）</span>
             </h3>
-            <button type="button" onClick={() => setMode({ kind: "list" })}>
+            <Button type="button" onClick={() => setMode({ kind: "list" })}>
               返回列表
-            </button>
+            </Button>
           </div>
-          <p className="status">
-            操作流水（created_at 升序、同刻 id 升序；只读，无修改 / 删除入口；已删对象需
-            VIEW_DELETED 才可查看）
-          </p>
+          <InfoState message="操作流水（created_at 升序、同刻 id 升序；只读，无修改 / 删除入口；已删对象需 VIEW_DELETED 才可查看）" />
           {activityState.kind === "loading" && (
-            <p className="status status-loading">正在加载 Activity…</p>
+            <LoadingState label="正在加载 Activity…" />
           )}
           {activityState.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载 Activity 失败：{activityState.message}</p>
-              <button
-                type="button"
-                onClick={() => setActivityReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载 Activity 失败：${activityState.message}`}
+              action={
+                <Button type="button" onClick={() => setActivityReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
           {activityState.kind === "success" &&
             (activityState.data.items.length === 0 ? (
-              <p className="status status-empty">该 IP 地址暂无操作流水。</p>
+              <EmptyState description="该 IP 地址暂无操作流水。" />
             ) : (
               <>
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         <th>created_at</th>
@@ -1008,21 +997,21 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
                 <div className="pagination">
                   <span>
                     共 {activityState.data.total} 条 · 第 {activityState.data.page} /
                     {Math.max(1, Math.ceil(activityState.data.total / activityState.data.page_size))} 页
                   </span>
-                  <button
+                  <Button
                     type="button"
                     disabled={activityState.data.page <= 1}
                     onClick={() => setActivityPage(activityState.data.page - 1)}
                   >
                     上一页
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     disabled={
                       activityState.data.page >=
@@ -1031,13 +1020,13 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                     onClick={() => setActivityPage(activityState.data.page + 1)}
                   >
                     下一页
-                  </button>
+                  </Button>
                 </div>
               </>
             ))}
         </div>
       )}
-    </section>
+    </SurfaceCard>
   );
 }
 
@@ -1060,49 +1049,4 @@ function formatAuditData(data: Record<string, unknown> | null): string {
   return Object.entries(data)
     .map(([key, value]) => `${key}=${value === null ? "null" : String(value)}`)
     .join("，");
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
-    </div>
-  );
 }

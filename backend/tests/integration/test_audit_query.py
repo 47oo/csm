@@ -323,6 +323,7 @@ def test_audit_row_shape_and_account_snapshots(
         "object_id",
         "operator_user_id",
         "operator_username",
+        "api_key_label",
         "before_data",
         "after_data",
         "created_at",
@@ -330,6 +331,7 @@ def test_audit_row_shape_and_account_snapshots(
     assert row["action"] == "CREATE"
     assert row["operator_user_id"] == str(admin_user.id)
     assert row["operator_username"] == admin_user.username
+    assert row["api_key_label"] is None
     assert row["before_data"] is None
     assert set(row["after_data"]) == {"username", "role", "status"}
     assert row["after_data"]["username"] == "shape.user"

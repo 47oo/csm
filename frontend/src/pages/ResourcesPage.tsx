@@ -1,10 +1,17 @@
+import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
+import { EmptyState, ErrorState, LoadingState, WarningState } from "../components/ui/feedback";
+import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import {
+  deleteResource,
+  describeResourceActionError,
   listResources,
   type DeletedMode,
   type Resource,
+  type ResourceActionError,
   type ResourceListResponse,
   type ResourceRole,
   type ResourceSortField,
@@ -12,6 +19,7 @@ import {
   type ResourceType,
   type SortOrder,
 } from "../api/resources";
+import { conflictItemText, referenceItemText } from "../components/resourceActionMessages.ts";
 import ResourceImportPanel from "../components/ResourceImportPanel";
 
 interface ResourcesPageProps {
@@ -71,12 +79,15 @@ const SORT_COLUMNS: { field: ResourceSortField; label: string }[] = [
  * - Loading / Success / Empty / Error 显式区分：错误绝不伪装成空列表；
  * - 403（如无 VIEW_DELETED 却请求 include/only）/ 422 / 500 明确呈现并允许重试；
  * - F014：工具栏提供 CSV / .xlsx 批量导入入口（仅 IMPORT 权限显示，服务端仍
- *   鉴权；面板内预校验 → 确认导入，成功后刷新列表）。
+ *   鉴权；面板内预校验 → 确认导入，成功后刷新列表）；
+ * - F021：行内单行删除入口（仅 DELETE_OBJECT 且未删行显示；复用详情页删除
+ *   语义与 ConfirmDialog 二次确认；409 引用 / 版本冲突在对话框内呈现）。
  */
 export default function ResourcesPage({ user, onOpenResource, onCreate }: ResourcesPageProps) {
   const canViewDeleted = user.permissions.includes("VIEW_DELETED");
   const canWrite = user.permissions.includes("WRITE");
   const canImport = user.permissions.includes("IMPORT");
+  const canDelete = user.permissions.includes("DELETE_OBJECT");
   const [showImport, setShowImport] = useState(false);
 
   const [query, setQuery] = useState<AppliedQuery>(DEFAULT_QUERY);
@@ -89,6 +100,11 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
     status: DEFAULT_QUERY.status,
   });
   const [state, setState] = useState<ListState>({ kind: "loading" });
+  const [action, setAction] = useState<{ kind: "delete"; resource: Resource } | null>(
+    null,
+  ); // 二次确认中
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<ResourceActionError | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
@@ -127,6 +143,36 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
       cancelled = true;
     };
   }, [query, reloadToken]);
+
+  // ---- 删除（软删，DELETE_OBJECT，Contract §6.5；F021 行内入口）----
+
+  function requestDelete(resource: Resource) {
+    setActionError(null);
+    setAction({ kind: "delete", resource });
+  }
+
+  function confirmDelete() {
+    if (action === null) {
+      return;
+    }
+    const resource = action.resource;
+    setActionBusy(true);
+    setActionError(null);
+    deleteResource(resource.id, resource.version)
+      .then(() => {
+        // 204：软删成功（不级联）；关闭对话框并重载列表（过滤/排序/分页 query 全保留）
+        setAction(null);
+        setReloadToken((token) => token + 1);
+      })
+      .catch((error: unknown) => {
+        // 409 reference_exists（宿主机被未删 VM 引用）/ VERSION_CONFLICT
+        // 在对话框内明确呈现；保持对话框打开，不静默重试
+        setActionError(describeResourceActionError(error));
+      })
+      .finally(() => {
+        setActionBusy(false);
+      });
+  }
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -180,19 +226,19 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
 
   return (
     <>
-      <section className="panel">
+      <SurfaceCard className="panel">
         <div className="table-toolbar">
           <h2>Resources（资源）</h2>
           <div className="filter-actions">
             {canImport && (
-              <button type="button" onClick={() => setShowImport((visible) => !visible)}>
+              <Button type="button" onClick={() => setShowImport((visible) => !visible)}>
                 {showImport ? "收起批量导入" : "批量导入…"}
-              </button>
+              </Button>
             )}
             {canWrite && (
-              <button type="button" onClick={onCreate}>
+              <Button type="button" onClick={onCreate}>
                 新建资源
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -200,7 +246,7 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
         <form className="filter-form" onSubmit={applyFilters}>
           <div className="form-field">
             <label htmlFor="resource-filter-q">模糊搜索（hostname 子串）</label>
-            <input
+            <Input
               id="resource-filter-q"
               type="text"
               value={draft.q}
@@ -210,7 +256,7 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
           </div>
           <div className="form-field">
             <label htmlFor="resource-filter-cluster">集群 code 精确过滤</label>
-            <input
+            <Input
               id="resource-filter-cluster"
               type="text"
               value={draft.cluster}
@@ -220,7 +266,7 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
           </div>
           <div className="form-field">
             <label htmlFor="resource-filter-type">类型</label>
-            <select
+            <Select
               id="resource-filter-type"
               value={draft.type}
               onChange={(event) =>
@@ -230,11 +276,11 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               <option value="">全部（默认）</option>
               <option value="BARE_METAL">BARE_METAL（物理机）</option>
               <option value="VIRTUAL_MACHINE">VIRTUAL_MACHINE（虚拟机）</option>
-            </select>
+            </Select>
           </div>
           <div className="form-field">
             <label htmlFor="resource-filter-role">角色</label>
-            <select
+            <Select
               id="resource-filter-role"
               value={draft.role}
               onChange={(event) =>
@@ -249,11 +295,11 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               <option value="SERVICE">SERVICE</option>
               <option value="GPU">GPU</option>
               <option value="OTHER">OTHER</option>
-            </select>
+            </Select>
           </div>
           <div className="form-field">
             <label htmlFor="resource-filter-status">状态</label>
-            <select
+            <Select
               id="resource-filter-status"
               value={draft.status}
               onChange={(event) =>
@@ -265,20 +311,20 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               <option value="ALLOC">ALLOC</option>
               <option value="DOWN">DOWN</option>
               <option value="UNKNOWN">UNKNOWN</option>
-            </select>
+            </Select>
           </div>
           <div className="filter-actions">
-            <button type="submit">筛选</button>
-            <button type="button" onClick={resetFilters}>
+            <Button type="submit">筛选</Button>
+            <Button type="button" onClick={resetFilters}>
               重置
-            </button>
+            </Button>
           </div>
         </form>
 
         {canViewDeleted && (
           <div className="form-field deleted-toggle">
             <label htmlFor="resource-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-            <select
+            <Select
               id="resource-deleted-mode"
               value={query.deleted}
               onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
@@ -286,40 +332,38 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               <option value="exclude">未删除（默认）</option>
               <option value="include">全部（含已删除）</option>
               <option value="only">仅已删除</option>
-            </select>
+            </Select>
           </div>
         )}
 
-        {state.kind === "loading" && (
-          <p className="status status-loading">正在加载资源列表…</p>
-        )}
+        {state.kind === "loading" && <LoadingState label="正在加载资源列表…" />}
 
         {state.kind === "error" && (
-          <div className="status status-error" role="alert">
-            <p>加载资源列表失败：{state.message}</p>
-            <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-              重试
-            </button>
-          </div>
+          <ErrorState
+            message={`加载资源列表失败：${state.message}`}
+            action={
+              <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                重试
+              </Button>
+            }
+          />
         )}
 
         {state.kind === "success" &&
           (state.data.items.length === 0 ? (
-            <p className="status status-empty">
-              没有符合条件的资源（当前过滤 / 分页下无数据，非错误）。
-            </p>
+            <EmptyState description="没有符合条件的资源（当前过滤 / 分页下无数据，非错误）。" />
           ) : (
             <>
               <div className="table-wrap">
-                <table className="data-table">
+                <DataTable className="data-table">
                   <thead>
                     <tr>
                       {SORT_COLUMNS.map(({ field, label }) => (
                         <th key={field}>
-                          <button type="button" className="sort-button" onClick={() => toggleSort(field)}>
+                          <Button type="button" className="sort-button" onClick={() => toggleSort(field)}>
                             {label}
                             {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                          </button>
+                          </Button>
                         </th>
                       ))}
                       <th>所属集群</th>
@@ -334,15 +378,13 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
                         <td className="mono">
                           {resource.hostname}
                           {resource.deleted_at !== null && (
-                            <span className="badge badge-deleted">已删除</span>
+                            <StatusTag tone="error">已删除</StatusTag>
                           )}
                         </td>
                         <td>{resource.resource_type}</td>
                         <td>{resource.role}</td>
                         <td>
-                          <span className={`badge badge-${resource.status.toLowerCase()}`}>
-                            {resource.status}
-                          </span>
+                          <StatusTag tone={statusTone(resource.status)}>{resource.status}</StatusTag>
                         </td>
                         <td className="mono">{resource.created_at}</td>
                         <td className="mono">{resource.updated_at}</td>
@@ -354,14 +396,24 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
                           <td className="mono">{resource.deleted_at ?? "—"}</td>
                         )}
                         <td>
-                          <button type="button" onClick={() => onOpenResource(resource)}>
+                          <Button type="button" onClick={() => onOpenResource(resource)}>
                             查看
-                          </button>
+                          </Button>
+                          {canDelete && resource.deleted_at === null && (
+                            <Button
+                              type="button"
+                              danger
+                              className="link-button"
+                              onClick={() => requestDelete(resource)}
+                            >
+                              删除
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </DataTable>
               </div>
               <Pagination
                 page={state.data.page}
@@ -373,56 +425,81 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
               />
             </>
           ))}
-      </section>
+
+        {/* F020/F021：行内删除二次确认模态（复用 ConfirmDialog；请求语义与详情页
+            删除一致，错误块随正文呈现；取消 / 关闭不发请求） */}
+        <ConfirmDialog
+          open={action !== null}
+          title="删除资源"
+          okText="确认删除"
+          danger
+          confirmLoading={actionBusy}
+          onConfirm={confirmDelete}
+          onCancel={() => {
+            setAction(null);
+            setActionError(null);
+          }}
+        >
+          {action !== null && (
+            <div className="detail-actions">
+              <WarningState
+                message={
+                  <span>
+                    确认软删除资源 {action.resource.hostname}？（不级联删除关联对象；软删后
+                    同集群 hostname 可被新资源复用
+                    {action.resource.resource_type === "BARE_METAL"
+                      ? "；若仍有未删除的虚拟机（VM）引用本宿主机，将被拒绝并显示引用列表"
+                      : ""}
+                    ）
+                  </span>
+                }
+              />
+              {actionError && (
+                <ErrorState message={<div className="form-error">
+                  <p>{actionError.message}</p>
+                  {actionError.references.length > 0 && (
+                    <ul>
+                      {actionError.references.map((reference) => (
+                        <li key={`${reference.object_type}-${reference.object_id}`}>
+                          {referenceItemText(reference)}（{reference.object_id}）
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {actionError.conflicts.length > 0 && (
+                    <ul>
+                      {actionError.conflicts.map((conflict) => (
+                        <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                          {conflictItemText(conflict)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {actionError.versionConflict && (
+                    <p>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setActionError(null);
+                          setAction(null);
+                          setReloadToken((token) => token + 1);
+                        }}
+                        disabled={actionBusy}
+                      >
+                        刷新最新数据
+                      </Button>
+                    </p>
+                  )}
+                </div>} />
+              )}
+            </div>
+          )}
+        </ConfirmDialog>
+      </SurfaceCard>
 
       {showImport && (
         <ResourceImportPanel onImported={() => setReloadToken((token) => token + 1)} />
       )}
     </>
-  );
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
-    </div>
   );
 }

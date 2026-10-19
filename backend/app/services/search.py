@@ -46,7 +46,10 @@ from app.schemas.search import (
     SearchInterfaceNested,
     SearchItem,
     SearchNetworkNested,
+    SearchRelatedInterface,
+    SearchRelatedIPAddress,
     SearchResourceObject,
+    SearchResourceRelated,
     SearchServiceObject,
 )
 from app.services import normalization
@@ -57,6 +60,10 @@ if TYPE_CHECKING:
 Q_MAX_LENGTH = 255
 OBJECT_TYPES = ("resource", "cluster", "ip_address", "service")
 DELETED_MODES = ("exclude", "include", "only")
+
+# F018 DR-321: at most this many association rows per resource are returned;
+# ``related_total`` still carries the pre-truncation count.
+RELATED_LIMIT = 10
 
 _TYPE_ORDER = {"resource": 0, "cluster": 1, "ip_address": 2, "service": 3}
 
@@ -191,7 +198,91 @@ def _service_candidates(db: "Session", q_text: str, deleted: str) -> list[_Candi
     ]
 
 
-def _build_items(db: "Session", candidates: list[_Candidate]) -> list[SearchItem]:
+def _load_related(
+    db: "Session", resource_ids: set[uuid.UUID], deleted: str
+) -> dict[uuid.UUID, tuple[list[SearchResourceRelated], int]]:
+    """Load ``resource.related`` for the given result-row Resource IDs (F018).
+
+    One bounded JOIN query (no N+1) over ``interfaces -> ip_addresses ->
+    networks`` ordered by ``interface.name COLLATE "C" -> ip_address.address
+    (PG ``inet`` numeric order) -> ip_address.id`` (DR-319/DR-322). Soft-delete
+    follows the result-row ``deleted`` mode: ``exclude`` filters deleted
+    associations, ``include``/``only`` show them (endpoint already gates
+    ``VIEW_DELETED``). It deliberately does **not** reuse the ``_build_items``
+    loader that unconditionally passes ``include_deleted=True`` (DR-323).
+
+    Returns ``{resource_id: (related[:10], pre-truncation total)}``.
+    """
+    if not resource_ids:
+        return {}
+    include_deleted = deleted != "exclude"
+    statement = (
+        select(
+            Interface.resource_id,
+            Interface.id,
+            Interface.name,
+            Interface.interface_type,
+            IPAddress.id,
+            IPAddress.address,
+            Network.id,
+            Network.name,
+        )
+        .select_from(Interface)
+        .join(IPAddress, IPAddress.interface_id == Interface.id)
+        .join(Network, Network.id == IPAddress.network_id)
+        .where(Interface.resource_id.in_(resource_ids))
+        .order_by(
+            Interface.resource_id,
+            Interface.name.collate("C"),
+            IPAddress.address,
+            IPAddress.id,
+        )
+    )
+    if not include_deleted:
+        statement = statement.where(
+            Interface.deleted_at.is_(None),
+            IPAddress.deleted_at.is_(None),
+            Network.deleted_at.is_(None),
+        )
+    rows = db.execute(
+        statement, execution_options=_query_options(include_deleted)
+    ).all()
+
+    related: dict[uuid.UUID, list[SearchResourceRelated]] = {}
+    totals: dict[uuid.UUID, int] = {}
+    for (
+        resource_id,
+        interface_id,
+        interface_name,
+        interface_type,
+        ip_id,
+        address,
+        network_id,
+        network_name,
+    ) in rows:
+        totals[resource_id] = totals.get(resource_id, 0) + 1
+        bucket = related.setdefault(resource_id, [])
+        if len(bucket) < RELATED_LIMIT:
+            bucket.append(
+                SearchResourceRelated(
+                    id=ip_id,
+                    interface=SearchRelatedInterface(
+                        id=interface_id,
+                        name=interface_name,
+                        interface_type=interface_type,
+                    ),
+                    ip_address=SearchRelatedIPAddress(
+                        id=ip_id, address=str(address)
+                    ),
+                    network=SearchNetworkNested(id=network_id, name=network_name),
+                )
+            )
+    return {rid: (related.get(rid, []), totals[rid]) for rid in totals}
+
+
+def _build_items(
+    db: "Session", candidates: list[_Candidate], deleted: str = "exclude"
+) -> list[SearchItem]:
     resource_candidates = [c for c in candidates if c.object_type == "resource"]
     cluster_candidates = [c for c in candidates if c.object_type == "cluster"]
     ip_candidates = [c for c in candidates if c.object_type == "ip_address"]
@@ -208,6 +299,12 @@ def _build_items(db: "Session", candidates: list[_Candidate]) -> list[SearchItem
                 execution_options={"include_deleted": True},
             ).scalars().all()
         }
+
+    # F018: association data is only attached to ``object_type="resource"``
+    # result rows; embedded resources keep ``related``/``related_total`` null.
+    related_by_resource = _load_related(
+        db, {c.payload.id for c in resource_candidates}, deleted
+    )
 
     resource_ids: set[uuid.UUID] = {c.payload.id for c in resource_candidates}
     resource_ids |= {c.payload.resource_id for c in service_candidates}
@@ -245,7 +342,11 @@ def _build_items(db: "Session", candidates: list[_Candidate]) -> list[SearchItem
             ).scalars().all()
         }
 
-    def _resource_object(resource: Resource) -> SearchResourceObject:
+    def _resource_object(
+        resource: Resource,
+        related: list[SearchResourceRelated] | None = None,
+        related_total: int | None = None,
+    ) -> SearchResourceObject:
         cluster = cluster_objs.get(resource.cluster_id)
         return SearchResourceObject(
             id=resource.id,
@@ -258,19 +359,22 @@ def _build_items(db: "Session", candidates: list[_Candidate]) -> list[SearchItem
                 code=cluster.code if cluster is not None else "",
                 name=cluster.name if cluster is not None else "",
             ),
+            related=related,
+            related_total=related_total,
         )
 
     items: list[SearchItem] = []
     for candidate in candidates:
         if candidate.object_type == "resource":
             resource = candidate.payload
+            related, related_total = related_by_resource.get(resource.id, ([], 0))
             items.append(
                 SearchItem(
                     object_type="resource",
                     id=resource.id,
                     matched_field="hostname",
                     matched_value=candidate.matched_value,
-                    resource=_resource_object(resource),
+                    resource=_resource_object(resource, related, related_total),
                 )
             )
         elif candidate.object_type == "cluster":
@@ -382,4 +486,4 @@ def search(
     total = len(ordered)
     offset = (page - 1) * page_size
     page_candidates = ordered[offset : offset + page_size]
-    return _build_items(db, page_candidates), total
+    return _build_items(db, page_candidates, deleted), total

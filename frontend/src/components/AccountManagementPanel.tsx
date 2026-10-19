@@ -1,3 +1,6 @@
+import { Button, Input, Select, DataTable } from "./ui/controls";
+import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
+import { ServerPagination as Pagination, StatusTag, statusTone } from "./ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import type { Role, UserStatus } from "../api/auth";
 import {
@@ -88,11 +91,6 @@ interface EditFormValues {
 
 function emptyCreateFormValues(): CreateFormValues {
   return { username: "", password: "", role: "VIEWER" };
-}
-
-/** status 徽标样式（复用现有徽标）。 */
-function statusBadgeClass(status: UserStatus): string {
-  return status === "ACTIVE" ? "badge badge-active" : "badge badge-inactive";
 }
 
 /** 创建表单本地校验（服务端 422 的本地镜像，快速反馈）。 */
@@ -333,18 +331,13 @@ export default function AccountManagementPanel() {
 
   return (
     <div>
-      <p className="status">
-        本地账号管理（仅 ADMIN）：创建账号并分配角色、变更角色、停用 / 启用账号。
-        不开放自行注册；账号不物理删除（停用保留历史身份，既有审计不变）；
-        无改密 / 重置入口（一期未实现）。停用会立即失效该账号全部现有会话，
-        且在重新启用前无法登录；角色变更即时生效。
-      </p>
+      <InfoState message="本地账号管理（仅 ADMIN）：创建账号并分配角色、变更角色、停用 / 启用账号。不开放自行注册；账号不物理删除（停用保留历史身份，既有审计不变）；无改密 / 重置入口（一期未实现）。停用会立即失效该账号全部现有会话，且在重新启用前无法登录；角色变更即时生效。" />
 
       {mode.kind === "list" && (
         <>
           <div className="table-toolbar">
             <h3>账号列表</h3>
-            <button
+            <Button
               type="button"
               onClick={() => {
                 setCreateValues(emptyCreateFormValues());
@@ -354,13 +347,13 @@ export default function AccountManagementPanel() {
               }}
             >
               新建账号
-            </button>
+            </Button>
           </div>
 
           <form className="filter-form" onSubmit={applyFilters}>
             <div className="form-field">
               <label htmlFor="user-filter-q">模糊搜索（username 子串，大小写不敏感）</label>
-              <input
+              <Input
                 id="user-filter-q"
                 type="text"
                 value={draft.q}
@@ -370,7 +363,7 @@ export default function AccountManagementPanel() {
             </div>
             <div className="form-field">
               <label htmlFor="user-filter-role">role</label>
-              <select
+              <Select
                 id="user-filter-role"
                 value={draft.role}
                 onChange={(event) => setDraft({ ...draft, role: event.target.value as "" | Role })}
@@ -381,11 +374,11 @@ export default function AccountManagementPanel() {
                     {label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="form-field">
               <label htmlFor="user-filter-status">status</label>
-              <select
+              <Select
                 id="user-filter-status"
                 value={draft.status}
                 onChange={(event) =>
@@ -398,50 +391,48 @@ export default function AccountManagementPanel() {
                     {label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="filter-actions">
-              <button type="submit">筛选</button>
-              <button type="button" onClick={resetFilters}>
+              <Button type="submit">筛选</Button>
+              <Button type="button" onClick={resetFilters}>
                 重置
-              </button>
+              </Button>
             </div>
           </form>
 
-          {state.kind === "loading" && (
-            <p className="status status-loading">正在加载账号列表…</p>
-          )}
+          {state.kind === "loading" && <LoadingState label="正在加载账号列表…" />}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载账号列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载账号列表失败：${state.message}`}
+              action={
+                <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                没有符合条件的账号（当前过滤 / 分页下无数据，非错误）。
-              </p>
+              <EmptyState description="没有符合条件的账号（当前过滤 / 分页下无数据，非错误）。" />
             ) : (
               <>
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         {SORT_COLUMNS.map(({ field, label }) => (
                           <th key={field}>
-                            <button
+                            <Button
                               type="button"
                               className="sort-button"
                               onClick={() => toggleSort(field)}
                             >
                               {label}
                               {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                            </button>
+                            </Button>
                           </th>
                         ))}
                         <th>version</th>
@@ -454,24 +445,24 @@ export default function AccountManagementPanel() {
                           <td className="mono">{user.username}</td>
                           <td className="mono">{user.role}</td>
                           <td>
-                            <span className={statusBadgeClass(user.status)}>{user.status}</span>
+                            <StatusTag tone={statusTone(user.status)}>{user.status}</StatusTag>
                           </td>
                           <td className="mono">{user.created_at}</td>
                           <td className="mono">{user.updated_at}</td>
                           <td>{user.version}</td>
                           <td>
-                            <button
+                            <Button
                               type="button"
                               className="link-button"
                               onClick={() => openEdit(user)}
                             >
                               编辑
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
                 <Pagination
                   page={state.data.page}
@@ -494,14 +485,14 @@ export default function AccountManagementPanel() {
         >
           <div className="table-toolbar">
             <h3>新建账号</h3>
-            <button type="button" onClick={() => setMode({ kind: "list" })} disabled={submitting}>
+            <Button type="button" onClick={() => setMode({ kind: "list" })} disabled={submitting}>
               返回列表
-            </button>
+            </Button>
           </div>
 
           <div className="form-field">
             <label htmlFor="user-create-username">username</label>
-            <input
+            <Input
               id="user-create-username"
               type="text"
               value={createValues.username}
@@ -517,7 +508,7 @@ export default function AccountManagementPanel() {
 
           <div className="form-field">
             <label htmlFor="user-create-password">初始密码（8–128 字符；创建后不回显）</label>
-            <input
+            <Input
               id="user-create-password"
               type="password"
               value={createValues.password}
@@ -533,7 +524,7 @@ export default function AccountManagementPanel() {
 
           <div className="form-field">
             <label htmlFor="user-create-role">role</label>
-            <select
+            <Select
               id="user-create-role"
               value={createValues.role}
               onChange={(event) =>
@@ -545,22 +536,20 @@ export default function AccountManagementPanel() {
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
             {createFieldError("role") && (
               <p className="field-error">{createFieldError("role")}</p>
             )}
           </div>
 
           {createServerError && (
-            <div className="status status-error" role="alert">
-              <p>{createServerError.message}</p>
-            </div>
+            <ErrorState message={createServerError.message} />
           )}
 
           <div className="form-actions">
-            <button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting}>
               {submitting ? "正在创建…" : "创建账号"}
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -576,9 +565,9 @@ export default function AccountManagementPanel() {
             <h3>
               编辑账号 — <span className="mono">{mode.user.username}</span>
             </h3>
-            <button type="button" onClick={() => setMode({ kind: "list" })} disabled={submitting}>
+            <Button type="button" onClick={() => setMode({ kind: "list" })} disabled={submitting}>
               返回列表
-            </button>
+            </Button>
           </div>
 
           <dl className="detail-grid">
@@ -592,7 +581,7 @@ export default function AccountManagementPanel() {
 
           <div className="form-field">
             <label htmlFor="user-edit-role">role</label>
-            <select
+            <Select
               id="user-edit-role"
               value={editValues.role}
               onChange={(event) =>
@@ -604,7 +593,7 @@ export default function AccountManagementPanel() {
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
             {editServerError?.fields.role && (
               <p className="field-error">{editServerError.fields.role}</p>
             )}
@@ -612,7 +601,7 @@ export default function AccountManagementPanel() {
 
           <div className="form-field">
             <label htmlFor="user-edit-status">status</label>
-            <select
+            <Select
               id="user-edit-status"
               value={editValues.status}
               onChange={(event) =>
@@ -624,83 +613,38 @@ export default function AccountManagementPanel() {
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
             {editServerError?.fields.status && (
               <p className="field-error">{editServerError.fields.status}</p>
             )}
           </div>
 
-          {editNotice && (
-            <p className="status status-error" role="alert">
-              {editNotice}
-            </p>
-          )}
+          {editNotice && <ErrorState message={editNotice} />}
 
           {editServerError && (
-            <div className="status status-error" role="alert">
-              <p>{editServerError.message}</p>
-              {editServerError.versionConflict && (
-                <p>
-                  <button type="button" onClick={refreshAfterConflict} disabled={submitting}>
+            <ErrorState
+              message={editServerError.message}
+              action={
+                editServerError.versionConflict ? (
+                  <Button type="button" onClick={refreshAfterConflict} disabled={submitting}>
                     刷新最新数据
-                  </button>
-                </p>
-              )}
-            </div>
+                  </Button>
+                ) : undefined
+              }
+            />
           )}
 
           <div className="form-actions">
-            <button type="submit" disabled={submitting}>
+            <Button
+              type="submit"
+              danger={mode.user.status !== "DISABLED" && editValues.status === "DISABLED"}
+              disabled={submitting}
+            >
               {submitting ? "正在保存…" : "保存修改"}
-            </button>
+            </Button>
           </div>
         </form>
       )}
-    </div>
-  );
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { Button, Input, Select, TextArea } from "./ui/controls";
+import { ErrorState } from "./ui/feedback";
 import { useState, type FormEvent } from "react";
 import type { Network } from "../api/networks";
 import type {
@@ -132,7 +134,7 @@ export default function IpPoolForm({
           <label htmlFor="ip-pool-network">
             network（所属网络，必填；创建后不可更改）
           </label>
-          <select
+          <Select
             id="ip-pool-network"
             name="network"
             value={values.network}
@@ -145,7 +147,7 @@ export default function IpPoolForm({
                 {item.name}（{item.cidr}）
               </option>
             ))}
-          </select>
+          </Select>
           {(networkError ?? serverFields.network) && (
             <p className="field-error" role="alert">
               {networkError ?? serverFields.network}
@@ -175,7 +177,7 @@ export default function IpPoolForm({
         <label htmlFor="ip-pool-name">
           name（必填；大小写不敏感，同网络未删除唯一；允许中文与内部空格，≤255）
         </label>
-        <input
+        <Input
           id="ip-pool-name"
           name="name"
           type="text"
@@ -195,7 +197,7 @@ export default function IpPoolForm({
         <label htmlFor="ip-pool-start">
           start_address（必填；单个 IPv4 主机地址，不带掩码；须属所属网络 CIDR）
         </label>
-        <input
+        <Input
           id="ip-pool-start"
           name="start_address"
           type="text"
@@ -215,7 +217,7 @@ export default function IpPoolForm({
         <label htmlFor="ip-pool-end">
           end_address（必填；单个 IPv4 主机地址；≥ start_address，相等为单地址池）
         </label>
-        <input
+        <Input
           id="ip-pool-end"
           name="end_address"
           type="text"
@@ -235,7 +237,7 @@ export default function IpPoolForm({
         <label htmlFor="ip-pool-allocation-mode">
           allocation_mode（分配模式；RESERVED 时范围内不得存在未删除 IP，由服务端校验）
         </label>
-        <select
+        <Select
           id="ip-pool-allocation-mode"
           name="allocation_mode"
           value={values.allocation_mode}
@@ -247,7 +249,7 @@ export default function IpPoolForm({
           <option value="MANUAL">MANUAL（仅手动分配，默认）</option>
           <option value="AUTO">AUTO（允许自动与手动分配）</option>
           <option value="RESERVED">RESERVED（保留，禁止分配）</option>
-        </select>
+        </Select>
         {serverFields.allocation_mode && (
           <p className="field-error" role="alert">
             {serverFields.allocation_mode}
@@ -257,7 +259,7 @@ export default function IpPoolForm({
 
       <div className="form-field">
         <label htmlFor="ip-pool-description">description（描述，可选）</label>
-        <textarea
+        <TextArea
           id="ip-pool-description"
           name="description"
           rows={3}
@@ -274,7 +276,7 @@ export default function IpPoolForm({
       </div>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
+        <ErrorState message={<div className="form-error">
           <p>
             {serverError.message}
             {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
@@ -320,21 +322,21 @@ export default function IpPoolForm({
           )}
           {serverError.versionConflict && onRefresh && (
             <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+              <Button type="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
+              </Button>
             </p>
           )}
-        </div>
+        </div>} />
       )}
 
       <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button type="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -26,6 +26,35 @@ class SearchClusterNested(BaseModel):
     name: str
 
 
+class SearchRelatedInterface(BaseModel):
+    """Interface projection inside ``resource.related`` (F018, Contract §2.9)."""
+
+    id: uuid.UUID
+    name: str
+    interface_type: str
+
+
+class SearchRelatedIPAddress(BaseModel):
+    """IPAddress projection inside ``resource.related`` (F018, Contract §2.9)."""
+
+    id: uuid.UUID
+    address: str
+
+
+class SearchResourceRelated(BaseModel):
+    """One bound-IP association row (F018, Contract §2.9).
+
+    The row identity is the IPAddress ``id`` (stable ID, ordering tie-break).
+    Only IPs bound to an Interface appear; unbound IPs (``interface_id IS NULL``)
+    never produce a row.
+    """
+
+    id: uuid.UUID
+    interface: SearchRelatedInterface
+    ip_address: SearchRelatedIPAddress
+    network: SearchNetworkNested
+
+
 class SearchResourceObject(BaseModel):
     id: uuid.UUID
     hostname: str
@@ -33,6 +62,11 @@ class SearchResourceObject(BaseModel):
     role: str
     status: str
     cluster: SearchClusterNested
+    # F018 fixed superset: populated only on ``object_type="resource"`` rows
+    # (``related=[]`` / ``related_total=0`` when there is no association); the
+    # nested ``resource`` of non-resource rows keeps both as ``null``.
+    related: list[SearchResourceRelated] | None = None
+    related_total: int | None = None
 
 
 class SearchClusterObject(BaseModel):

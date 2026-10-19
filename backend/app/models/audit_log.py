@@ -43,6 +43,10 @@ class AuditLog(Base):
         nullable=True,
     )
     operator_username: Mapped[str] = mapped_column(String(64), nullable=False)
+    # F017/DR-306: snapshot of the operator's API Key label (NULL for Cookie /
+    # system paths). No FK — it must survive Key revocation/account disable and
+    # mirrors the ``operator_username`` snapshot semantics.
+    api_key_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     action: Mapped[str] = mapped_column(String(16), nullable=False)
     object_type: Mapped[str] = mapped_column(String(64), nullable=False)
     object_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
@@ -60,6 +64,10 @@ class AuditLog(Base):
         CheckConstraint(
             "btrim(operator_username) <> ''",
             name="operator_username_not_blank",
+        ),
+        CheckConstraint(
+            "api_key_label IS NULL OR btrim(api_key_label) <> ''",
+            name="api_key_label_not_blank",
         ),
         CheckConstraint(
             "action IN ('CREATE','UPDATE','DELETE','RESTORE')", name="action"

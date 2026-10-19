@@ -1,3 +1,7 @@
+import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
+import { EmptyState, ErrorState, LoadingState, WarningState } from "../components/ui/feedback";
+import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -421,11 +425,11 @@ export default function NetworksPage({ user }: NetworksPageProps) {
   const showDeletedColumn = query.deleted !== "exclude";
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <div className="table-toolbar">
         <h2>Networks（网络）</h2>
         {canWrite && mode.kind === "list" && (
-          <button
+          <Button
             type="button"
             onClick={() => {
               setFormError(null);
@@ -433,28 +437,27 @@ export default function NetworksPage({ user }: NetworksPageProps) {
             }}
           >
             新建网络
-          </button>
+          </Button>
         )}
       </div>
 
       {mode.kind === "list" && (
         <>
           {clusterOptions.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载集群下拉失败：{clusterOptions.message}</p>
-              <button
-                type="button"
-                onClick={() => setClusterReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载集群下拉失败：${clusterOptions.message}`}
+              action={
+                <Button type="button" onClick={() => setClusterReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           <form className="filter-form" onSubmit={applyFilters}>
             <div className="form-field">
               <label htmlFor="network-filter-q">模糊搜索（name 子串，大小写不敏感）</label>
-              <input
+              <Input
                 id="network-filter-q"
                 type="text"
                 value={draft.q}
@@ -464,7 +467,7 @@ export default function NetworksPage({ user }: NetworksPageProps) {
             </div>
             <div className="form-field">
               <label htmlFor="network-filter-cluster">所属集群</label>
-              <select
+              <Select
                 id="network-filter-cluster"
                 value={draft.clusterId}
                 onChange={(event) => setDraft({ ...draft, clusterId: event.target.value })}
@@ -476,11 +479,11 @@ export default function NetworksPage({ user }: NetworksPageProps) {
                     {cluster.code} — {cluster.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="form-field">
               <label htmlFor="network-filter-status">状态</label>
-              <select
+              <Select
                 id="network-filter-status"
                 value={draft.status}
                 onChange={(event) =>
@@ -490,11 +493,11 @@ export default function NetworksPage({ user }: NetworksPageProps) {
                 <option value="">全部（默认）</option>
                 <option value="ACTIVE">ACTIVE</option>
                 <option value="INACTIVE">INACTIVE</option>
-              </select>
+              </Select>
             </div>
             <div className="form-field">
               <label htmlFor="network-filter-auto">auto_allocate</label>
-              <select
+              <Select
                 id="network-filter-auto"
                 value={draft.autoAllocate}
                 onChange={(event) =>
@@ -507,20 +510,20 @@ export default function NetworksPage({ user }: NetworksPageProps) {
                 <option value="">全部（默认）</option>
                 <option value="true">true（允许自动分配）</option>
                 <option value="false">false（不允许）</option>
-              </select>
+              </Select>
             </div>
             <div className="filter-actions">
-              <button type="submit">筛选</button>
-              <button type="button" onClick={resetFilters}>
+              <Button type="submit">筛选</Button>
+              <Button type="button" onClick={resetFilters}>
                 重置
-              </button>
+              </Button>
             </div>
           </form>
 
           {canViewDeleted && (
             <div className="form-field deleted-toggle">
               <label htmlFor="network-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-              <select
+              <Select
                 id="network-deleted-mode"
                 value={query.deleted}
                 onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
@@ -528,45 +531,43 @@ export default function NetworksPage({ user }: NetworksPageProps) {
                 <option value="exclude">未删除（默认）</option>
                 <option value="include">全部（含已删除）</option>
                 <option value="only">仅已删除</option>
-              </select>
+              </Select>
             </div>
           )}
 
-          {state.kind === "loading" && (
-            <p className="status status-loading">正在加载网络列表…</p>
-          )}
+          {state.kind === "loading" && <LoadingState label="正在加载网络列表…" />}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载网络列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载网络列表失败：${state.message}`}
+              action={
+                <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                没有符合条件的网络（当前过滤 / 分页下无数据，非错误）。
-              </p>
+              <EmptyState description="没有符合条件的网络（当前过滤 / 分页下无数据，非错误）。" />
             ) : (
               <>
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         <th>cluster</th>
                         {SORT_COLUMNS.map(({ field, label }) => (
                           <th key={field}>
-                            <button
+                            <Button
                               type="button"
                               className="sort-button"
                               onClick={() => toggleSort(field)}
                             >
                               {label}
                               {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                            </button>
+                            </Button>
                           </th>
                         ))}
                         <th>gateway</th>
@@ -586,14 +587,12 @@ export default function NetworksPage({ user }: NetworksPageProps) {
                           <td>
                             {network.name}
                             {network.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
+                              <StatusTag tone="error">已删除</StatusTag>
                             )}
                           </td>
                           <td className="mono">{network.cidr}</td>
                           <td>
-                            <span className={`badge badge-${network.status.toLowerCase()}`}>
-                              {network.status}
-                            </span>
+                            <StatusTag tone={statusTone(network.status)}>{network.status}</StatusTag>
                           </td>
                           <td className="mono">{network.created_at}</td>
                           <td className="mono">{network.updated_at}</td>
@@ -609,7 +608,7 @@ export default function NetworksPage({ user }: NetworksPageProps) {
                           )}
                           <td>
                             {canWrite && network.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => {
@@ -619,31 +618,32 @@ export default function NetworksPage({ user }: NetworksPageProps) {
                                 }}
                               >
                                 编辑
-                              </button>
+                              </Button>
                             )}
                             {canDelete && network.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
+                                danger
                                 className="link-button"
                                 onClick={() => requestDelete(network)}
                               >
                                 删除
-                              </button>
+                              </Button>
                             )}
                             {canRestore && network.deleted_at !== null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => requestRestore(network)}
                               >
                                 恢复
-                              </button>
+                              </Button>
                             )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
                 <Pagination
                   page={state.data.page}
@@ -656,87 +656,86 @@ export default function NetworksPage({ user }: NetworksPageProps) {
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((reference) => (
-                      <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {conflictItemText(reference)}（{reference.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.rangeConflicts.length > 0 && (
-                  <ul>
-                    {actionError.rangeConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflictItemText(conflict)}（{conflict.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflictItemText(conflict)}（{conflict.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
-
+          {/* F020：删除 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action !== null}
+            title={action?.kind === "delete" ? "删除网络" : "恢复网络"}
+            okText={action?.kind === "delete" ? "确认删除" : "确认恢复"}
+            danger={action?.kind === "delete"}
+            confirmLoading={actionBusy}
+            onConfirm={action?.kind === "delete" ? confirmDelete : confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
             {action !== null && (
-              <div className="inline-confirm">
-                {action.kind === "delete" ? (
-                  <span>
-                    确认软删除网络 {action.network.name}？（不级联删除关联对象；同集群内名称软删后可复用；
-                    若仍有未删除的地址池或 IP 引用，将被拒绝并显示引用列表）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复网络 {action.network.name}？（仅恢复自身，不级联；将重检同集群名称唯一性、
-                    所属集群有效性与 CIDR 不重叠，失败不覆盖新对象；version 递增）
-                  </span>
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    action.kind === "delete" ? (
+                      <span>
+                        确认软删除网络 {action.network.name}？（不级联删除关联对象；同集群内名称软删后可复用；
+                        若仍有未删除的地址池或 IP 引用，将被拒绝并显示引用列表）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复网络 {action.network.name}？（仅恢复自身，不级联；将重检同集群名称唯一性、
+                        所属集群有效性与 CIDR 不重叠，失败不覆盖新对象；version 递增）
+                      </span>
+                    )
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((reference) => (
+                          <li key={`${reference.object_type}-${reference.object_id}`}>
+                            {conflictItemText(reference)}（{reference.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.rangeConflicts.length > 0 && (
+                      <ul>
+                        {actionError.rangeConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {conflictItemText(conflict)}（{conflict.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.dependencyConflicts.length > 0 && (
+                      <ul>
+                        {actionError.dependencyConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {conflictItemText(conflict)}（{conflict.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
                 )}
-                <button
-                  type="button"
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
               </div>
             )}
-          </div>
+          </ConfirmDialog>
         </>
       )}
 
@@ -764,51 +763,6 @@ export default function NetworksPage({ user }: NetworksPageProps) {
           onRefresh={refreshAfterConflict}
         />
       )}
-    </section>
-  );
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
-    </div>
+    </SurfaceCard>
   );
 }

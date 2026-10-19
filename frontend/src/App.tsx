@@ -1,3 +1,6 @@
+import { Button } from "./components/ui/controls";
+import { ErrorState, LoadingState } from "./components/ui/feedback";
+import { SurfaceCard } from "./components/ui/surfaces";
 import { useEffect, useState } from "react";
 import { me, type User } from "./api/auth";
 import { displayError, isApiError, setUnauthorizedHandler } from "./api/client";
@@ -65,9 +68,9 @@ export default function App() {
       <main>
         <h1>CSM</h1>
         <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
-        <section className="panel">
-          <p className="status status-loading">正在恢复登录态…</p>
-        </section>
+        <SurfaceCard className="panel">
+          <LoadingState label="正在恢复登录态…" />
+        </SurfaceCard>
       </main>
     );
   }
@@ -77,14 +80,16 @@ export default function App() {
       <main>
         <h1>CSM</h1>
         <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
-        <section className="panel">
-          <p className="status status-error" role="alert">
-            恢复登录态失败：{phase.message}
-          </p>
-          <button type="button" onClick={() => setBootAttempt((attempt) => attempt + 1)}>
-            重试
-          </button>
-        </section>
+        <SurfaceCard className="panel">
+          <ErrorState
+            message={`恢复登录态失败：${phase.message}`}
+            action={
+              <Button type="button" onClick={() => setBootAttempt((attempt) => attempt + 1)}>
+                重试
+              </Button>
+            }
+          />
+        </SurfaceCard>
       </main>
     );
   }

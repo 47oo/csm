@@ -1,3 +1,7 @@
+import { Button, DataTable } from "../components/ui/controls";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
+import { EmptyState, ErrorState, InfoState, LoadingState, WarningState } from "../components/ui/feedback";
+import { StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type ReactNode } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -24,6 +28,7 @@ import {
   buildVirtualMachinePatch,
   parseVirtualMachineFormValues,
 } from "../components/virtualMachine";
+import { conflictItemText, referenceItemText } from "../components/resourceActionMessages.ts";
 
 interface ResourceDetailPageProps {
   resourceId: string;
@@ -52,35 +57,6 @@ function detailLoadErrorMessage(error: unknown): string {
     return displayError(error);
   }
   return "无法连接服务器，请稍后重试";
-}
-
-/**
- * CONFLICT reference_exists 单条引用的呈现文案（F006 DR-62：Resource 的
- * 引用来源为未删除的虚拟机，object_type="resource"，label=VM hostname）。
- * 未知 object_type 原样展示，不伪装成已知类型。
- */
-function referenceItemText(reference: {
-  object_type: string;
-  label: string | null;
-}): string {
-  const typeText =
-    reference.object_type === "resource" ? "虚拟机（VM）" : reference.object_type;
-  return reference.label ? `${typeText}：${reference.label}` : typeText;
-}
-
-/**
- * CONFLICT dependency_deleted 单条冲突的呈现文案（按 object_type 区分：
- * F004 所属 Cluster 仍软删；F006 恢复 VM 时宿主机 Host 仍软删 / 缺失，DR-63）。
- * 恢复均不覆盖新对象；未知 object_type 用通用文案。
- */
-function conflictItemText(conflict: { object_type: string; object_id: string }): string {
-  if (conflict.object_type === "cluster") {
-    return `所属集群（${conflict.object_id}）仍处于已删除状态，需先恢复该集群后再恢复资源。`;
-  }
-  if (conflict.object_type === "resource") {
-    return `宿主机（Host，${conflict.object_id}）仍处于已删除状态或已不存在；需先恢复宿主机后再恢复该虚拟机（恢复不会覆盖宿主机或其上新对象）。`;
-  }
-  return `依赖对象 ${conflict.object_type}（${conflict.object_id}）仍处于已删除状态，需先恢复该依赖对象。`;
 }
 
 /**
@@ -289,13 +265,13 @@ function VirtualMachinePanel({
           {!resourceDeleted && (
             <>
               {" "}
-              <button
+              <Button
                 type="button"
                 className="link-button"
                 onClick={() => onOpenResource(virtualMachine.host_resource_id, false)}
               >
                 查看宿主机
-              </button>
+              </Button>
             </>
           )}
         </dd>
@@ -373,32 +349,29 @@ function HostVirtualMachinesPanel({
   return (
     <>
       <h3 className="detail-section-title">Virtual Machines（虚拟机）</h3>
-      {state.kind === "loading" && (
-        <p className="status status-loading">正在加载该宿主机上的虚拟机…</p>
-      )}
+      {state.kind === "loading" && <LoadingState label="正在加载该宿主机上的虚拟机…" />}
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载虚拟机列表失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={`加载虚拟机列表失败：${state.message}`}
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            该宿主机上暂无未删除的虚拟机（非错误）。
-          </p>
+          <EmptyState description="该宿主机上暂无未删除的虚拟机（非错误）。" />
         ) : (
           <>
             {state.data.total > state.data.items.length && (
-              <p className="status status-empty">
-                虚拟机总数 {state.data.total} 台，仅显示前 {state.data.items.length} 台
-                （按 hostname 排序；列表分页上限 100）。
-              </p>
+              <InfoState
+                message={`虚拟机总数 ${state.data.total} 台，仅显示前 ${state.data.items.length} 台（按 hostname 排序；列表分页上限 100）。`}
+              />
             )}
             <div className="table-wrap">
-              <table className="data-table">
+              <DataTable className="data-table">
                 <thead>
                   <tr>
                     <th>hostname</th>
@@ -417,9 +390,7 @@ function HostVirtualMachinesPanel({
                       <td className="mono">{vm.hostname}</td>
                       <td>{vm.role}</td>
                       <td>
-                        <span className={`badge badge-${vm.status.toLowerCase()}`}>
-                          {vm.status}
-                        </span>
+                        <StatusTag tone={statusTone(vm.status)}>{vm.status}</StatusTag>
                       </td>
                       <td>{vmNumber(vm.virtual_machine?.vcpu ?? null)}</td>
                       <td>
@@ -438,17 +409,17 @@ function HostVirtualMachinesPanel({
                         )}
                       </td>
                       <td>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => onOpenResource(vm.id, false)}
                         >
                           查看
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             </div>
           </>
         ))}
@@ -628,25 +599,25 @@ export default function ResourceDetailPage({
   }
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <div className="table-toolbar">
         <h2>资源详情</h2>
-        <button type="button" onClick={onBack}>
+        <Button type="button" onClick={onBack}>
           返回列表
-        </button>
+        </Button>
       </div>
 
-      {state.kind === "loading" && (
-        <p className="status status-loading">正在加载资源详情…</p>
-      )}
+      {state.kind === "loading" && <LoadingState label="正在加载资源详情…" />}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载资源详情失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={`加载资源详情失败：${state.message}`}
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
 
       {state.kind === "success" && mode === "view" && (
@@ -667,11 +638,9 @@ export default function ResourceDetailPage({
             <dd>{state.resource.role}</dd>
             <dt>status</dt>
             <dd>
-              <span className={`badge badge-${state.resource.status.toLowerCase()}`}>
-                {state.resource.status}
-              </span>
+              <StatusTag tone={statusTone(state.resource.status)}>{state.resource.status}</StatusTag>
               {state.resource.deleted_at !== null && (
-                <span className="badge badge-deleted">已删除</span>
+                <StatusTag tone="error">已删除</StatusTag>
               )}
             </dd>
             <dt>description</dt>
@@ -697,9 +666,7 @@ export default function ResourceDetailPage({
               />
             ) : (
               // 防御：契约 VM 响应必含 virtual_machine（§3）；null 仅在旧版后端出现
-              <p className="status status-empty">
-                该资源为虚拟机，但服务器未返回 virtual_machine 明细（可能后端版本过旧，Contract v3+）。
-              </p>
+              <EmptyState description="该资源为虚拟机，但服务器未返回 virtual_machine 明细（可能后端版本过旧，Contract v3+）。" />
             ))}
 
           <InterfacesPanel resource={state.resource} user={user} />
@@ -735,98 +702,159 @@ export default function ResourceDetailPage({
           </div>
 
           <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((reference) => (
-                      <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {referenceItemText(reference)}（{reference.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.conflicts.length > 0 && (
-                  <ul>
-                    {actionError.conflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflictItemText(conflict)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
+            {canWrite && state.resource.deleted_at === null && (
+              <Button
+                type="button"
+                onClick={() => {
+                  setFormError(null);
+                  setMode("edit");
+                }}
+              >
+                编辑
+              </Button>
             )}
-
-            {action === "delete" ? (
-              <div className="inline-confirm">
-                <span>
-                  确认软删除该资源？（不级联删除关联对象；软删后同集群 hostname 可被新资源复用
-                  {state.resource.resource_type === "BARE_METAL"
-                    ? "；若仍有未删除的虚拟机（VM）引用本宿主机，将被拒绝并到引用列表）"
-                    : ""}
-                  ）
-                </span>
-                <button type="button" onClick={confirmDelete} disabled={actionBusy}>
-                  {actionBusy ? "正在删除…" : "确认删除"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            ) : action === "restore" ? (
-              <div className="inline-confirm">
-                <span>
-                  确认恢复该资源？（恢复自身，不级联；将重检同集群 hostname 唯一性与所属集群有效性；version 递增）
-                </span>
-                <button type="button" onClick={confirmRestore} disabled={actionBusy}>
-                  {actionBusy ? "正在恢复…" : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
-              </div>
-            ) : (
-              <>
-                {canWrite && state.resource.deleted_at === null && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormError(null);
-                      setMode("edit");
-                    }}
-                  >
-                    编辑
-                  </button>
-                )}
-                {canDelete && state.resource.deleted_at === null && (
-                  <button type="button" onClick={requestDelete}>
-                    删除资源
-                  </button>
-                )}
-                {canRestore && state.resource.deleted_at !== null && (
-                  <button type="button" onClick={requestRestore}>
-                    恢复资源
-                  </button>
-                )}
-              </>
+            {canDelete && state.resource.deleted_at === null && (
+              <Button type="button" danger onClick={requestDelete}>
+                删除资源
+              </Button>
+            )}
+            {canRestore && state.resource.deleted_at !== null && (
+              <Button type="button" onClick={requestRestore}>
+                恢复资源
+              </Button>
             )}
           </div>
+
+          {/* F020：删除 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action === "delete"}
+            title="删除资源"
+            okText="确认删除"
+            danger
+            confirmLoading={actionBusy}
+            onConfirm={confirmDelete}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
+            {action === "delete" && (
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    <span>
+                      确认软删除资源 {state.resource.hostname}？（不级联删除关联对象；软删后
+                      同集群 hostname 可被新资源复用
+                      {state.resource.resource_type === "BARE_METAL"
+                        ? "；若仍有未删除的虚拟机（VM）引用本宿主机，将被拒绝并到引用列表）"
+                        : ""}
+                      ）
+                    </span>
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((reference) => (
+                          <li key={`${reference.object_type}-${reference.object_id}`}>
+                            {referenceItemText(reference)}（{reference.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.conflicts.length > 0 && (
+                      <ul>
+                        {actionError.conflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {conflictItemText(conflict)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
+                )}
+              </div>
+            )}
+          </ConfirmDialog>
+          <ConfirmDialog
+            open={action === "restore"}
+            title="恢复资源"
+            okText="确认恢复"
+            confirmLoading={actionBusy}
+            onConfirm={confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
+            {action === "restore" && (
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    <span>
+                      确认恢复资源 {state.resource.hostname}？（恢复自身，不级联；将重检同集群
+                      hostname 唯一性与所属集群有效性；version 递增）
+                    </span>
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((reference) => (
+                          <li key={`${reference.object_type}-${reference.object_id}`}>
+                            {referenceItemText(reference)}（{reference.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.conflicts.length > 0 && (
+                      <ul>
+                        {actionError.conflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {conflictItemText(conflict)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
+                )}
+              </div>
+            )}
+          </ConfirmDialog>
         </>
       )}
 
@@ -842,6 +870,6 @@ export default function ResourceDetailPage({
           onRefresh={refreshAfterConflict}
         />
       )}
-    </section>
+    </SurfaceCard>
   );
 }

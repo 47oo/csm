@@ -1,3 +1,7 @@
+import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { ConfirmDialog } from "../components/ui/ConfirmDialog";
+import { EmptyState, ErrorState, InfoState, LoadingState, WarningState } from "../components/ui/feedback";
+import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -88,17 +92,6 @@ const SORT_COLUMNS: { field: ServiceSortField; label: string }[] = [
   { field: "created_at", label: "创建时间" },
   { field: "updated_at", label: "更新时间" },
 ];
-
-/** status 徽标样式（复用现有徽标；UNKNOWN 与 Resource status 共用 badge-unknown）。 */
-function statusBadgeClass(status: ServiceStatus): string {
-  if (status === "RUNNING") {
-    return "badge badge-active";
-  }
-  if (status === "STOPPED") {
-    return "badge badge-inactive";
-  }
-  return "badge badge-unknown";
-}
 
 /** 表单原始值 → 解析 + metadata 解析（复用 ClusterForm.parseMetadataText）。 */
 function parseSubmission(values: ServiceFormValues) {
@@ -450,11 +443,11 @@ export default function ServicesPage({ user }: ServicesPageProps) {
   const showDeletedColumn = query.deleted !== "exclude";
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <div className="table-toolbar">
         <h2>Services（服务登记）</h2>
         {canWrite && mode.kind === "list" && (
-          <button
+          <Button
             type="button"
             onClick={() => {
               setFormError(null);
@@ -462,28 +455,27 @@ export default function ServicesPage({ user }: ServicesPageProps) {
             }}
           >
             新建服务
-          </button>
+          </Button>
         )}
       </div>
 
       {mode.kind === "list" && (
         <>
           {resourceOptions.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载资源下拉失败：{resourceOptions.message}</p>
-              <button
-                type="button"
-                onClick={() => setResourceReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载资源下拉失败：${resourceOptions.message}`}
+              action={
+                <Button type="button" onClick={() => setResourceReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           <form className="filter-form" onSubmit={applyFilters}>
             <div className="form-field">
               <label htmlFor="service-filter-q">模糊搜索（name 子串，大小写不敏感）</label>
-              <input
+              <Input
                 id="service-filter-q"
                 type="text"
                 value={draft.q}
@@ -493,7 +485,7 @@ export default function ServicesPage({ user }: ServicesPageProps) {
             </div>
             <div className="form-field">
               <label htmlFor="service-filter-resource">所属资源</label>
-              <select
+              <Select
                 id="service-filter-resource"
                 value={draft.resourceId}
                 onChange={(event) => setDraft({ ...draft, resourceId: event.target.value })}
@@ -505,11 +497,11 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                     {resource.hostname}（{resource.cluster.code}）
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="form-field">
               <label htmlFor="service-filter-status">status</label>
-              <select
+              <Select
                 id="service-filter-status"
                 value={draft.status}
                 onChange={(event) =>
@@ -520,20 +512,20 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                 <option value="RUNNING">RUNNING（运行中）</option>
                 <option value="STOPPED">STOPPED（已停止）</option>
                 <option value="UNKNOWN">UNKNOWN（状态未知）</option>
-              </select>
+              </Select>
             </div>
             <div className="filter-actions">
-              <button type="submit">筛选</button>
-              <button type="button" onClick={resetFilters}>
+              <Button type="submit">筛选</Button>
+              <Button type="button" onClick={resetFilters}>
                 重置
-              </button>
+              </Button>
             </div>
           </form>
 
           {canViewDeleted && (
             <div className="form-field deleted-toggle">
               <label htmlFor="service-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-              <select
+              <Select
                 id="service-deleted-mode"
                 value={query.deleted}
                 onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
@@ -541,45 +533,43 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                 <option value="exclude">未删除（默认）</option>
                 <option value="include">全部（含已删除）</option>
                 <option value="only">仅已删除</option>
-              </select>
+              </Select>
             </div>
           )}
 
-          {state.kind === "loading" && (
-            <p className="status status-loading">正在加载服务列表…</p>
-          )}
+          {state.kind === "loading" && <LoadingState label="正在加载服务列表…" />}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载服务列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载服务列表失败：${state.message}`}
+              action={
+                <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                没有符合条件的服务（当前过滤 / 分页下无数据，非错误）。
-              </p>
+              <EmptyState description="没有符合条件的服务（当前过滤 / 分页下无数据，非错误）。" />
             ) : (
               <>
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         <th>resource</th>
                         {SORT_COLUMNS.map(({ field, label }) => (
                           <th key={field}>
-                            <button
+                            <Button
                               type="button"
                               className="sort-button"
                               onClick={() => toggleSort(field)}
                             >
                               {label}
                               {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                            </button>
+                            </Button>
                           </th>
                         ))}
                         <th>description</th>
@@ -595,13 +585,11 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                           <td>
                             {service.name}
                             {service.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
+                              <StatusTag tone="error">已删除</StatusTag>
                             )}
                           </td>
                           <td>
-                            <span className={statusBadgeClass(service.status)}>
-                              {service.status}
-                            </span>
+                            <StatusTag tone={statusTone(service.status)}>{service.status}</StatusTag>
                           </td>
                           <td className="mono">{service.created_at}</td>
                           <td className="mono">{service.updated_at}</td>
@@ -613,7 +601,7 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                             </td>
                           )}
                           <td>
-                            <button
+                            <Button
                               type="button"
                               className="link-button"
                               onClick={() => {
@@ -622,8 +610,8 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                               }}
                             >
                               Activity
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                               type="button"
                               className="link-button"
                               onClick={() => {
@@ -632,9 +620,9 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                               }}
                             >
                               Endpoints
-                            </button>
+                            </Button>
                             {canWrite && service.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => {
@@ -644,31 +632,32 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                                 }}
                               >
                                 编辑
-                              </button>
+                              </Button>
                             )}
                             {canDelete && service.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
+                                danger
                                 className="link-button"
                                 onClick={() => requestDelete(service)}
                               >
                                 删除
-                              </button>
+                              </Button>
                             )}
                             {canRestore && service.deleted_at !== null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => requestRestore(service)}
                               >
                                 恢复
-                              </button>
+                              </Button>
                             )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
                 <Pagination
                   page={state.data.page}
@@ -681,89 +670,88 @@ export default function ServicesPage({ user }: ServicesPageProps) {
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {Object.keys(actionError.fields).length > 0 && (
-                  <ul>
-                    {Object.entries(actionError.fields).map(([field, message]) => (
-                      <li key={field}>
-                        {field}：{message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((item) => (
-                      <li key={`${item.object_type}-${item.object_id}`}>
-                        引用端点：{item.label ?? item.object_id}（{item.object_type}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.dependencyConflicts.length > 0 && (
-                  <ul>
-                    {actionError.dependencyConflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        所属资源（{conflict.object_id}）仍处于已删除状态或已不存在
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
-              </div>
-            )}
-
+          {/* F020：删除 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action !== null}
+            title={action?.kind === "delete" ? "删除服务" : "恢复服务"}
+            okText={action?.kind === "delete" ? "确认删除" : "确认恢复"}
+            danger={action?.kind === "delete"}
+            confirmLoading={actionBusy}
+            onConfirm={action?.kind === "delete" ? confirmDelete : confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
             {action !== null && (
-              <div className="inline-confirm">
-                {action.kind === "delete" ? (
-                  <span>
-                    确认软删除服务 {action.service.name}？（不级联删除关联对象；同资源内名称
-                    软删后可复用；若仍有未删除的服务端点（ServiceEndpoint）引用，将被拒绝
-                    并显示引用列表）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复服务 {action.service.name}？（仅恢复自身，不级联、不自动恢复
-                    服务端点；将重检同资源名称唯一性与所属资源有效性，失败不覆盖新对象；
-                    version 递增）
-                  </span>
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    action.kind === "delete" ? (
+                      <span>
+                        确认软删除服务 {action.service.name}？（不级联删除关联对象；同资源内名称
+                        软删后可复用；若仍有未删除的服务端点（ServiceEndpoint）引用，将被拒绝
+                        并显示引用列表）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复服务 {action.service.name}？（仅恢复自身，不级联、不自动恢复
+                        服务端点；将重检同资源名称唯一性与所属资源有效性，失败不覆盖新对象；
+                        version 递增）
+                      </span>
+                    )
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {Object.keys(actionError.fields).length > 0 && (
+                      <ul>
+                        {Object.entries(actionError.fields).map(([field, message]) => (
+                          <li key={field}>
+                            {field}：{message}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((item) => (
+                          <li key={`${item.object_type}-${item.object_id}`}>
+                            引用端点：{item.label ?? item.object_id}（{item.object_type}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.dependencyConflicts.length > 0 && (
+                      <ul>
+                        {actionError.dependencyConflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            所属资源（{conflict.object_id}）仍处于已删除状态或已不存在
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
                 )}
-                <button
-                  type="button"
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
               </div>
             )}
-          </div>
+          </ConfirmDialog>
         </>
       )}
 
@@ -799,35 +787,31 @@ export default function ServicesPage({ user }: ServicesPageProps) {
               Activity — <span className="mono">{mode.service.name}</span>
               <span className="unset">（{mode.service.resource.hostname}）</span>
             </h3>
-            <button type="button" onClick={() => setMode({ kind: "list" })}>
+            <Button type="button" onClick={() => setMode({ kind: "list" })}>
               返回列表
-            </button>
+            </Button>
           </div>
-          <p className="status">
-            操作流水（created_at 升序、同刻 id 升序；只读，无修改 / 删除入口；已删对象需
-            VIEW_DELETED 才可查看）
-          </p>
+          <InfoState message="操作流水（created_at 升序、同刻 id 升序；只读，无修改 / 删除入口；已删对象需 VIEW_DELETED 才可查看）" />
           {activityState.kind === "loading" && (
-            <p className="status status-loading">正在加载 Activity…</p>
+            <LoadingState label="正在加载 Activity…" />
           )}
           {activityState.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载 Activity 失败：{activityState.message}</p>
-              <button
-                type="button"
-                onClick={() => setActivityReloadToken((token) => token + 1)}
-              >
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载 Activity 失败：${activityState.message}`}
+              action={
+                <Button type="button" onClick={() => setActivityReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
           {activityState.kind === "success" &&
             (activityState.data.items.length === 0 ? (
-              <p className="status status-empty">该服务暂无操作流水。</p>
+              <EmptyState description="该服务暂无操作流水。" />
             ) : (
               <>
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         <th>created_at</th>
@@ -848,21 +832,21 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
                 <div className="pagination">
                   <span>
                     共 {activityState.data.total} 条 · 第 {activityState.data.page} /
                     {Math.max(1, Math.ceil(activityState.data.total / activityState.data.page_size))} 页
                   </span>
-                  <button
+                  <Button
                     type="button"
                     disabled={activityState.data.page <= 1}
                     onClick={() => setActivityPage(activityState.data.page - 1)}
                   >
                     上一页
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     disabled={
                       activityState.data.page >=
@@ -871,7 +855,7 @@ export default function ServicesPage({ user }: ServicesPageProps) {
                     onClick={() => setActivityPage(activityState.data.page + 1)}
                   >
                     下一页
-                  </button>
+                  </Button>
                 </div>
               </>
             ))}
@@ -884,7 +868,7 @@ export default function ServicesPage({ user }: ServicesPageProps) {
           onBack={() => setMode({ kind: "list" })}
         />
       )}
-    </section>
+    </SurfaceCard>
   );
 }
 
@@ -896,49 +880,4 @@ function formatAuditData(data: Record<string, unknown> | null): string {
   return Object.entries(data)
     .map(([key, value]) => `${key}=${value === null ? "null" : String(value)}`)
     .join("，");
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
-    </div>
-  );
 }

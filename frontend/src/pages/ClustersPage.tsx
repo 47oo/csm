@@ -1,3 +1,6 @@
+import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { EmptyState, ErrorState, LoadingState } from "../components/ui/feedback";
+import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
 import { useEffect, useState, type FormEvent } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -152,20 +155,20 @@ export default function ClustersPage({ user, onOpenCluster, onCreate }: Clusters
   const showDeletedColumn = query.deleted !== "exclude";
 
   return (
-    <section className="panel">
+    <SurfaceCard className="panel">
       <div className="table-toolbar">
         <h2>Clusters（集群）</h2>
         {canWrite && (
-          <button type="button" onClick={onCreate}>
+          <Button type="button" onClick={onCreate}>
             新建集群
-          </button>
+          </Button>
         )}
       </div>
 
       <form className="filter-form" onSubmit={applyFilters}>
         <div className="form-field">
           <label htmlFor="cluster-filter-q">模糊搜索（code / name 子串）</label>
-          <input
+          <Input
             id="cluster-filter-q"
             type="text"
             value={draft.q}
@@ -175,7 +178,7 @@ export default function ClustersPage({ user, onOpenCluster, onCreate }: Clusters
         </div>
         <div className="form-field">
           <label htmlFor="cluster-filter-code">code 精确过滤</label>
-          <input
+          <Input
             id="cluster-filter-code"
             type="text"
             value={draft.code}
@@ -185,7 +188,7 @@ export default function ClustersPage({ user, onOpenCluster, onCreate }: Clusters
         </div>
         <div className="form-field">
           <label htmlFor="cluster-filter-status">状态</label>
-          <select
+          <Select
             id="cluster-filter-status"
             value={draft.status}
             onChange={(event) =>
@@ -195,20 +198,20 @@ export default function ClustersPage({ user, onOpenCluster, onCreate }: Clusters
             <option value="">全部（默认）</option>
             <option value="ACTIVE">ACTIVE</option>
             <option value="INACTIVE">INACTIVE</option>
-          </select>
+          </Select>
         </div>
         <div className="filter-actions">
-          <button type="submit">筛选</button>
-          <button type="button" onClick={resetFilters}>
+          <Button type="submit">筛选</Button>
+          <Button type="button" onClick={resetFilters}>
             重置
-          </button>
+          </Button>
         </div>
       </form>
 
       {canViewDeleted && (
         <div className="form-field deleted-toggle">
           <label htmlFor="cluster-deleted-mode">软删可见性（需 VIEW_DELETED 权限）</label>
-          <select
+          <Select
             id="cluster-deleted-mode"
             value={query.deleted}
             onChange={(event) => changeDeleted(event.target.value as DeletedMode)}
@@ -216,40 +219,38 @@ export default function ClustersPage({ user, onOpenCluster, onCreate }: Clusters
             <option value="exclude">未删除（默认）</option>
             <option value="include">全部（含已删除）</option>
             <option value="only">仅已删除</option>
-          </select>
+          </Select>
         </div>
       )}
 
-      {state.kind === "loading" && (
-        <p className="status status-loading">正在加载集群列表…</p>
-      )}
+      {state.kind === "loading" && <LoadingState label="正在加载集群列表…" />}
 
       {state.kind === "error" && (
-        <div className="status status-error" role="alert">
-          <p>加载集群列表失败：{state.message}</p>
-          <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-            重试
-          </button>
-        </div>
+        <ErrorState
+          message={`加载集群列表失败：${state.message}`}
+          action={
+            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+              重试
+            </Button>
+          }
+        />
       )}
 
       {state.kind === "success" &&
         (state.data.items.length === 0 ? (
-          <p className="status status-empty">
-            没有符合条件的集群（当前过滤 / 分页下无数据，非错误）。
-          </p>
+          <EmptyState description="没有符合条件的集群（当前过滤 / 分页下无数据，非错误）。" />
         ) : (
           <>
             <div className="table-wrap">
-              <table className="data-table">
+              <DataTable className="data-table">
                 <thead>
                   <tr>
                     {SORT_COLUMNS.map(({ field, label }) => (
                       <th key={field}>
-                        <button type="button" className="sort-button" onClick={() => toggleSort(field)}>
+                        <Button type="button" className="sort-button" onClick={() => toggleSort(field)}>
                           {label}
                           {query.sort === field ? (query.order === "asc" ? " ▲" : " ▼") : ""}
-                        </button>
+                        </Button>
                       </th>
                     ))}
                     <th>version</th>
@@ -263,11 +264,9 @@ export default function ClustersPage({ user, onOpenCluster, onCreate }: Clusters
                       <td className="mono">{cluster.code}</td>
                       <td>{cluster.name}</td>
                       <td>
-                        <span className={`badge badge-${cluster.status.toLowerCase()}`}>
-                          {cluster.status}
-                        </span>
+                        <StatusTag tone={statusTone(cluster.status)}>{cluster.status}</StatusTag>
                         {cluster.deleted_at !== null && (
-                          <span className="badge badge-deleted">已删除</span>
+                          <StatusTag tone="error">已删除</StatusTag>
                         )}
                       </td>
                       <td>{cluster.version}</td>
@@ -277,14 +276,14 @@ export default function ClustersPage({ user, onOpenCluster, onCreate }: Clusters
                         <td className="mono">{cluster.deleted_at ?? "—"}</td>
                       )}
                       <td>
-                        <button type="button" onClick={() => onOpenCluster(cluster)}>
+                        <Button type="button" onClick={() => onOpenCluster(cluster)}>
                           查看
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             </div>
             <Pagination
               page={state.data.page}
@@ -296,51 +295,6 @@ export default function ClustersPage({ user, onOpenCluster, onCreate }: Clusters
             />
           </>
         ))}
-    </section>
-  );
-}
-
-interface PaginationProps {
-  page: number;
-  pageSize: number;
-  total: number;
-  appliedPageSize: number;
-  onGotoPage: (page: number) => void;
-  onChangePageSize: (pageSize: number) => void;
-}
-
-function Pagination({
-  page,
-  pageSize,
-  total,
-  appliedPageSize,
-  onGotoPage,
-  onChangePageSize,
-}: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  return (
-    <div className="pagination">
-      <span>
-        共 {total} 条 · 第 {page} / {totalPages} 页
-      </span>
-      <button type="button" disabled={page <= 1} onClick={() => onGotoPage(page - 1)}>
-        上一页
-      </button>
-      <button type="button" disabled={page >= totalPages} onClick={() => onGotoPage(page + 1)}>
-        下一页
-      </button>
-      <label>
-        每页
-        <select
-          value={String(appliedPageSize)}
-          onChange={(event) => onChangePageSize(Number(event.target.value))}
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-        条
-      </label>
-    </div>
+    </SurfaceCard>
   );
 }

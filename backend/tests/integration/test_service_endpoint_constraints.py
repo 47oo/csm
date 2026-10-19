@@ -209,8 +209,8 @@ def _seed(engine, tag: str):
 
 
 def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0013_search_indexes"
-    assert _alembic_versions(pg_engine) == ["0013_search_indexes"]
+    assert alembic_runner.head_revision() == "0014_api_keys"
+    assert _alembic_versions(pg_engine) == ["0014_api_keys"]
     assert "service_endpoints" in _tables(pg_engine)
     assert _functions(pg_engine) == {"fn_service_endpoints_attribution"}
     extensions_before = _extensions(pg_engine)
@@ -226,7 +226,7 @@ def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
 
     alembic_runner.upgrade("head")
     assert "service_endpoints" in _tables(pg_engine)
-    assert _alembic_versions(pg_engine) == ["0013_search_indexes"]
+    assert _alembic_versions(pg_engine) == ["0014_api_keys"]
 
 
 def test_migration_0012_has_no_create_extension():

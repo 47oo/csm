@@ -4,7 +4,7 @@ Backend / Frontend 开始前读取 `AGENTS.md`、`docs/project/handoff.md`、当
 
 ## 输入与边界
 
-* 技术栈、API 前缀及部署方案按需求 §25–26、§29–30 的确认结果执行；具体版本和实现方案按 §35 D02 专业签核，不从 Agent 模板替换已确认选型。
+* 技术栈、API 前缀及部署方案按需求 §25–26、§29–30 的确认结果执行；具体版本和实现方案按 §35 D02 专业签核，不从 Agent 模板替换已确认选型。当前前端实现基线在 React / TypeScript / Vite 上使用 Ant Design 组件库和 Tailwind CSS 样式体系，依赖版本及插件接线以 `frontend/package.json`、`frontend/vite.config.ts` 为准；单个 Feature 不擅自引入第三套基础组件或样式体系。
 * 只实现 V3 一期授权范围，不读取 V1/V2 产品成果或历史补齐输入。普通实现细节自行在批准边界内解决；新业务/重大架构规则返回相应角色。
 * 所有 API 以同一份 READY Contract 为准，包括分页、排序、组合过滤、字段、nullable、错误、权限及并发冲突语义。发现偏差停止受影响实现，返回 Architect / Product，修订签核后同步前后端与测试。
 
@@ -23,6 +23,7 @@ Backend / Frontend 开始前读取 `AGENTS.md`、`docs/project/handoff.md`、当
 * 查询以资源事实和明确关系为核心；搜索及详情按 §17–20、§28、§33，不能把 Service 登记做成进程探测或将资源状态接入 Slurm / 监控。
 * 列表支持分页、排序、过滤、模糊搜索；搜索框及下拉选择支持输入。资源/集群详情、关系跳转、Activity 与 IP 使用量遵循已确认契约和口径。
 * 展示 Loading / Success / Empty / Error 和未知状态；错误不能伪装为空列表。Mock 必须符合 Contract，真实集成不能用 Mock 结果代替。
+* 前端组件、布局、主题与兼容迁移使用 `.pi/skills/frontend-ui/SKILL.md` 的方法：语义交互优先复用项目共享 UI / Ant Design，Tailwind CSS 负责布局、间距和响应式；Skill 不覆盖本文件及 Contract 的业务与验证规则。
 
 ## 验证与交付
 

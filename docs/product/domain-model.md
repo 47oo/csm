@@ -1,6 +1,6 @@
 # CSM V3 一期领域规则索引
 
-状态：已确认规则的导航，尚非完整设计。依据：[requirements-v3.md](requirements-v3.md) revision 3。产品规则正文仅在需求文件维护；本文件不建立第二份字段、枚举或约束清单。§35.1 保存修订确认依据；§35.2 的六项业务决策均已确认，§35.3 的 D01–D03 均已由专业设计签核（CONFIRMED：D01 `docs/architecture/d01-conventions.md` v11、D02 各 Feature 设计签核、D03 `docs/api/F014.md` v1 §10）。索引存在不代表 Schema 已签核；V3 一期已交付（见 `docs/project/project-plan.yaml`）。
+状态：已确认规则的导航，尚非完整设计。依据：[requirements-v3.md](requirements-v3.md) revision 7。产品规则正文仅在需求文件维护；本文件不建立第二份字段、枚举或约束清单。§35.1 保存修订确认依据；§35.2 的六项业务决策均已确认，§35.3 的 D01–D03 均已由专业设计签核（CONFIRMED：D01 `docs/architecture/d01-conventions.md` v11、D02 各 Feature 设计签核、D03 `docs/api/F014.md` v1 §10）。索引存在不代表 Schema 已签核；V3 一期已交付（见 `docs/project/project-plan.yaml`）。
 
 | 领域 | 权威条款 |
 | --- | --- |
@@ -8,7 +8,7 @@
 | 稳定 ID、必填与名称规范、Cluster code/name 及停用维护、统一 Resource 及类型 / Role / Status | §4–6 |
 | hostname 唯一范围与重用 | §7、§21、§27 |
 | BareMetal / VM Detail、数值含义与容量单位、Host 类型与集群一致性 | §8–9 |
-| Interface 类型、名称唯一性、父接口 | §10、§21 |
+| Interface 类型、名称唯一性、父接口、接口侧选择绑定 IP | §10、§13.4、§21 |
 | IPv4 地址边界、Pool/保留范围与网关冲突、IP 分配/解绑/释放、容量公式及 Cluster 一致性 | §11–14、§20、§27 |
 | Service / Endpoint 与 IP 关系 | §15–16 |
 | 搜索、详情、Dashboard、列表 | §17–20、§28、§33 |

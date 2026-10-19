@@ -1,3 +1,7 @@
+import { Button, Input, DataTable } from "./ui/controls";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
+import { EmptyState, ErrorState, InfoState, LoadingState, WarningState } from "./ui/feedback";
+import { StatusTag } from "./ui/surfaces";
 import { useEffect, useState, type ReactNode } from "react";
 import type { User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
@@ -22,11 +26,25 @@ import {
   type InterfaceFormValues,
 } from "./interfaceForm";
 import { parseMetadataText } from "./ClusterForm";
+import { listIpAddresses, type IpAddressListResponse } from "../api/ipAddresses";
+import InterfaceIpBindingPanel from "./InterfaceIpBindingPanel";
+import {
+  buildInterfaceBoundIpsQuery,
+  canOpenInterfaceIpBinding,
+  interfaceIpTotalBoundary,
+  type InterfaceIpBindingSummary,
+} from "./interfaceIpSelection";
 
 /** 接口列表加载状态（分页上限 100，Contract §4）。 */
 type InterfaceListState =
   | { kind: "loading" }
   | { kind: "success"; data: InterfaceListResponse }
+  | { kind: "error"; message: string };
+
+/** 接口已绑定 IP 懒加载缓存状态（按 interface_id 缓存，DR-335；避免逐行 N+1）。 */
+type BoundIpsState =
+  | { kind: "loading" }
+  | { kind: "success"; data: IpAddressListResponse }
   | { kind: "error"; message: string };
 
 /** 面板交互模式：列表 / 创建表单 / 编辑表单。 */
@@ -84,6 +102,14 @@ function interfaceNumber(value: number | null): ReactNode {
  * - 操作按钮按服务端返回的 permissions 显示，隐藏不替代鉴权；所属资源已
  *   软删时隐藏新建 / 恢复入口（服务端确定性拒绝：创建 422 field="resource"、
  *   恢复 409 dependency_deleted），编辑 / 删除未删接口契约未禁止、照常提供。
+ * - 接口侧 IP 绑定（F019，复用 F010 Contract）：未删接口行「绑定 IP」入口仅
+ *   在 WRITE 且未软删时渲染（canOpenInterfaceIpBinding，VIEWER 不显示；
+ *   服务端仍鉴权）；弹层内候选仅同 Cluster、未绑定、未删，跨页多选后逐条
+ *   PATCH {interface,version}，部分成功逐条呈现、不静默重试；
+ * - 接口行「已绑定 IP」懒加载展示（READ，全角色）：
+ *   listIpAddresses({interface_id, deleted:"exclude", sort:"address",
+ *   order:"asc", page_size:100})，按 interface_id 缓存、绑定成功后失效重取；
+ *   total>items 显式提示，不静默截断（DR-335/T56）。
  */
 export default function InterfacesPanel({ resource, user }: InterfacesPanelProps) {
   const canWrite = user.permissions.includes("WRITE");
@@ -104,6 +130,15 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<InterfaceActionError | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+
+  // ---- 接口侧 IP 绑定（F019）----
+
+  /** 绑定弹层目标接口（仅 canOpenInterfaceIpBinding 门控下设置）。 */
+  const [bindingTarget, setBindingTarget] = useState<Interface | null>(null);
+  /** 当前展开「已绑定 IP」展示的接口（懒加载，按需触发）。 */
+  const [boundView, setBoundView] = useState<{ id: string; name: string } | null>(null);
+  /** 已绑定 IP 按接口缓存（DR-335；绑定成功后失效重取，避免逐行 N+1）。 */
+  const [boundIps, setBoundIps] = useState<Record<string, BoundIpsState>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -295,6 +330,122 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
       });
   }
 
+  // ---- 接口侧 IP 绑定（F019，复用 F010 Contract §4/§6.1/§6.5）----
+
+  /** 懒加载某接口的已绑定 IP（DR-335：interface_id + 未删 + address 升序，单页上限 100）。 */
+  function loadBoundIps(interfaceId: string) {
+    setBoundIps((prev) => ({ ...prev, [interfaceId]: { kind: "loading" } }));
+    listIpAddresses(buildInterfaceBoundIpsQuery(interfaceId))
+      .then((data) => {
+        setBoundIps((prev) => ({ ...prev, [interfaceId]: { kind: "success", data } }));
+      })
+      .catch((error: unknown) => {
+        // 加载失败显式呈现、可重试，不伪装成空列表（T56）
+        setBoundIps((prev) => ({
+          ...prev,
+          [interfaceId]: {
+            kind: "error",
+            message: isApiError(error)
+              ? `${error.message}（${error.code ?? `HTTP ${error.status}`}）`
+              : displayError(error),
+          },
+        }));
+      });
+  }
+
+  /** 展开 / 收起某接口的「已绑定 IP」（READ，全角色；未缓存或缓存错误时懒加载）。 */
+  function toggleBoundIps(iface: Interface) {
+    if (boundView?.id === iface.id) {
+      setBoundView(null);
+      return;
+    }
+    setBoundView({ id: iface.id, name: iface.name });
+    const cached = boundIps[iface.id];
+    if (cached === undefined || cached.kind === "error") {
+      loadBoundIps(iface.id);
+    }
+  }
+
+  /** 绑定提交完成（含部分成功）：有成功项才失效该接口已绑定缓存并按需重取（DR-345）。 */
+  function handleBindingCompleted(ifaceId: string, summary: InterfaceIpBindingSummary) {
+    if (summary.succeeded === 0) {
+      return; // 全部失败：服务端状态未变化，缓存不失效
+    }
+    setBoundIps((prev) => {
+      const next = { ...prev };
+      delete next[ifaceId];
+      return next;
+    });
+    if (boundView !== null && boundView.id === ifaceId) {
+      loadBoundIps(ifaceId);
+    }
+  }
+
+  /** 已绑定 IP 展示（懒加载缓存命中即展示；错误可重试，不伪装为空；total>items 提示）。 */
+  function renderBoundIps(interfaceId: string, state: BoundIpsState | undefined) {
+    if (state === undefined || state.kind === "loading") {
+      return <LoadingState label="正在加载该接口已绑定的 IP…" />;
+    }
+    if (state.kind === "error") {
+      return (
+        <ErrorState
+          message={`加载已绑定 IP 失败：${state.message}`}
+          action={
+            <Button type="button" onClick={() => loadBoundIps(interfaceId)}>
+              重试
+            </Button>
+          }
+        />
+      );
+    }
+    const data = state.data;
+    if (data.items.length === 0) {
+      return <EmptyState description="该接口暂无绑定的 IP 地址（未删除口径，非错误）。" />;
+    }
+    return (
+      <>
+        {interfaceIpTotalBoundary(data.total, data.items.length) === "truncated" && (
+          <InfoState
+            message={`该接口已绑定 ${data.total} 个 IP，仅显示前 ${data.items.length} 个（单次加载分页上限 100，不静默截断）。`}
+          />
+        )}
+        <div className="table-wrap">
+          <DataTable className="data-table" aria-label="接口已绑定 IP 列表">
+            <thead>
+              <tr>
+                <th>address</th>
+                <th>network</th>
+                <th>ip_pool（来源）</th>
+                <th>description</th>
+                <th>version</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((ip) => (
+                <tr key={ip.id}>
+                  <td className="mono">{ip.address}</td>
+                  <td>
+                    <span className="mono">{ip.network.name}</span>
+                    <span className="unset">（{ip.network.cidr}）</span>
+                  </td>
+                  <td>
+                    {ip.ip_pool !== null ? (
+                      ip.ip_pool.name
+                    ) : (
+                      <span className="unset">池外（手动）</span>
+                    )}
+                  </td>
+                  <td>{ip.description ?? <span className="unset">—</span>}</td>
+                  <td>{ip.version}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <h3 className="detail-section-title">Interfaces（网络接口）</h3>
@@ -307,7 +458,7 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
             </span>
             <span>
               {canWrite && !resourceDeleted && (
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setFormError(null);
@@ -315,21 +466,19 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                   }}
                 >
                   新建接口
-                </button>
+                </Button>
               )}
             </span>
           </div>
 
           {resourceDeleted && (
-            <p className="status status-empty">
-              所属资源处于已删除状态：无法新建接口（服务端拒绝引用已删资源），恢复接口需先恢复所属资源。
-            </p>
+            <InfoState message="所属资源处于已删除状态：无法新建接口（服务端拒绝引用已删资源），恢复接口需先恢复所属资源。" />
           )}
 
           {canViewDeleted && (
             <div className="form-field checkbox-field deleted-toggle">
               <label htmlFor="interfaces-deleted-toggle">
-                <input
+                <Input
                   id="interfaces-deleted-toggle"
                   type="checkbox"
                   checked={showDeleted}
@@ -340,36 +489,35 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
             </div>
           )}
 
-          {state.kind === "loading" && (
-            <p className="status status-loading">正在加载该资源的网络接口…</p>
-          )}
+          {state.kind === "loading" && <LoadingState label="正在加载该资源的网络接口…" />}
 
           {state.kind === "error" && (
-            <div className="status status-error" role="alert">
-              <p>加载接口列表失败：{state.message}</p>
-              <button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </button>
-            </div>
+            <ErrorState
+              message={`加载接口列表失败：${state.message}`}
+              action={
+                <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
+                  重试
+                </Button>
+              }
+            />
           )}
 
           {state.kind === "success" &&
             (state.data.items.length === 0 ? (
-              <p className="status status-empty">
-                {showDeleted
-                  ? "该资源暂无接口登记（含已删除）。"
-                  : "该资源暂无未删除的接口登记（非错误）。"}
-              </p>
+              <EmptyState
+                description={
+                  showDeleted
+                    ? "该资源暂无接口登记（含已删除）。"
+                    : "该资源暂无未删除的接口登记（非错误）。"
+                }
+              />
             ) : (
               <>
                 {state.data.total > state.data.items.length && (
-                  <p className="status status-empty">
-                    接口总数 {state.data.total} 个，仅显示前 {state.data.items.length} 个
-                    （按 created_at 排序；列表分页上限 100）。
-                  </p>
+                  <InfoState message={`接口总数 ${state.data.total} 个，仅显示前 ${state.data.items.length} 个（按 created_at 排序；列表分页上限 100）。`} />
                 )}
                 <div className="table-wrap">
-                  <table className="data-table">
+                  <DataTable className="data-table">
                     <thead>
                       <tr>
                         <th>name</th>
@@ -389,7 +537,7 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                           <td className="mono">
                             {iface.name}
                             {iface.deleted_at !== null && (
-                              <span className="badge badge-deleted">已删除</span>
+                              <StatusTag tone="error">已删除</StatusTag>
                             )}
                           </td>
                           <td>{iface.interface_type}</td>
@@ -406,9 +554,9 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                             )}
                           </td>
                           <td>
-                            <span className={`badge ${iface.enabled ? "badge-active" : "badge-inactive"}`}>
+                            <StatusTag tone={iface.enabled ? "success" : "default"}>
                               {iface.enabled ? "启用" : "停用"}
-                            </span>
+                            </StatusTag>
                           </td>
                           {showDeleted && (
                             <td className="mono">
@@ -416,8 +564,28 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                             </td>
                           )}
                           <td>
+                            <Button
+                              type="button"
+                              className="link-button"
+                              onClick={() => toggleBoundIps(iface)}
+                            >
+                              {boundView?.id === iface.id ? "收起已绑定 IP" : "已绑定 IP"}
+                            </Button>
+                            {/* 绑定入口仅 WRITE 且接口未软删时渲染（DR-337/DR-338；VIEWER 不显示，服务端仍鉴权） */}
+                            {canOpenInterfaceIpBinding(canWrite, iface.deleted_at) && (
+                              <Button
+                                type="button"
+                                className="link-button"
+                                onClick={() => {
+                                  setFormError(null);
+                                  setBindingTarget(iface);
+                                }}
+                              >
+                                绑定 IP
+                              </Button>
+                            )}
                             {canWrite && iface.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => {
@@ -427,109 +595,133 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
                                 }}
                               >
                                 编辑
-                              </button>
+                              </Button>
                             )}
                             {canDelete && iface.deleted_at === null && (
-                              <button
+                              <Button
                                 type="button"
+                                danger
                                 className="link-button"
                                 onClick={() => requestDelete(iface)}
                               >
                                 删除
-                              </button>
+                              </Button>
                             )}
                             {canRestore && iface.deleted_at !== null && !resourceDeleted && (
-                              <button
+                              <Button
                                 type="button"
                                 className="link-button"
                                 onClick={() => requestRestore(iface)}
                               >
                                 恢复
-                              </button>
+                              </Button>
                             )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </DataTable>
                 </div>
               </>
             ))}
 
-          <div className="detail-actions">
-            {actionError && (
-              <div className="status status-error action-error" role="alert">
-                <p>{actionError.message}</p>
-                {actionError.references.length > 0 && (
-                  <ul>
-                    {actionError.references.map((reference) => (
-                      <li key={`${reference.object_type}-${reference.object_id}`}>
-                        {referenceItemText(reference)}（{reference.object_id}）
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.conflicts.length > 0 && (
-                  <ul>
-                    {actionError.conflicts.map((conflict) => (
-                      <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                        {conflict.object_type === "resource"
-                          ? `所属资源（${conflict.object_id}）仍处于已删除状态或已不存在`
-                          : `父接口（${conflict.object_id}）仍处于已删除状态或已不存在`}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {actionError.versionConflict && (
-                  <p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionError(null);
-                        setAction(null);
-                        setReloadToken((token) => token + 1);
-                      }}
-                      disabled={actionBusy}
-                    >
-                      刷新最新数据
-                    </button>
-                  </p>
-                )}
+          {boundView !== null && (
+            <div className="detail-actions">
+              <div className="table-toolbar">
+                <h4>
+                  已绑定 IP — <span className="mono">{boundView.name}</span>
+                  <span className="unset">（interface_id 过滤，未删除口径，按 address 升序；懒加载并按接口缓存）</span>
+                </h4>
+                <span>
+                  <Button
+                    type="button"
+                    onClick={() => loadBoundIps(boundView.id)}
+                    disabled={boundIps[boundView.id]?.kind === "loading"}
+                  >
+                    刷新
+                  </Button>
+                  <Button type="button" onClick={() => setBoundView(null)}>
+                    关闭
+                  </Button>
+                </span>
               </div>
-            )}
+              {renderBoundIps(boundView.id, boundIps[boundView.id])}
+            </div>
+          )}
 
+          {/* F020：删除 / 恢复二次确认模态（替代原内联确认；请求语义不变，错误块随正文呈现） */}
+          <ConfirmDialog
+            open={action !== null}
+            title={action?.kind === "delete" ? "删除接口" : "恢复接口"}
+            okText={action?.kind === "delete" ? "确认删除" : "确认恢复"}
+            danger={action?.kind === "delete"}
+            confirmLoading={actionBusy}
+            onConfirm={action?.kind === "delete" ? confirmDelete : confirmRestore}
+            onCancel={() => {
+              setAction(null);
+              setActionError(null);
+            }}
+          >
             {action !== null && (
-              <div className="inline-confirm">
-                {action.kind === "delete" ? (
-                  <span>
-                    确认软删除接口 {action.iface.name}？（不级联删除关联对象；同资源内名称软删后可复用；
-                    若仍有未删除的子接口或 IP 引用，将被拒绝并显示引用列表）
-                  </span>
-                ) : (
-                  <span>
-                    确认恢复接口 {action.iface.name}？（仅恢复自身，不级联；将重检同资源名称唯一性、
-                    所属资源与父接口有效性，失败不覆盖新对象；version 递增）
-                  </span>
+              <div className="detail-actions">
+                <WarningState
+                  message={
+                    action.kind === "delete" ? (
+                      <span>
+                        确认软删除接口 {action.iface.name}？（不级联删除关联对象；同资源内名称软删后可复用；
+                        若仍有未删除的子接口或 IP 引用，将被拒绝并显示引用列表）
+                      </span>
+                    ) : (
+                      <span>
+                        确认恢复接口 {action.iface.name}？（仅恢复自身，不级联；将重检同资源名称唯一性、
+                        所属资源与父接口有效性，失败不覆盖新对象；version 递增）
+                      </span>
+                    )
+                  }
+                />
+                {actionError && (
+                  <ErrorState message={<div className="form-error">
+                    <p>{actionError.message}</p>
+                    {actionError.references.length > 0 && (
+                      <ul>
+                        {actionError.references.map((reference) => (
+                          <li key={`${reference.object_type}-${reference.object_id}`}>
+                            {referenceItemText(reference)}（{reference.object_id}）
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.conflicts.length > 0 && (
+                      <ul>
+                        {actionError.conflicts.map((conflict) => (
+                          <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                            {conflict.object_type === "resource"
+                              ? `所属资源（${conflict.object_id}）仍处于已删除状态或已不存在`
+                              : `父接口（${conflict.object_id}）仍处于已删除状态或已不存在`}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {actionError.versionConflict && (
+                      <p>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setActionError(null);
+                            setAction(null);
+                            setReloadToken((token) => token + 1);
+                          }}
+                          disabled={actionBusy}
+                        >
+                          刷新最新数据
+                        </Button>
+                      </p>
+                    )}
+                  </div>} />
                 )}
-                <button
-                  type="button"
-                  onClick={action.kind === "delete" ? confirmDelete : confirmRestore}
-                  disabled={actionBusy}
-                >
-                  {actionBusy
-                    ? action.kind === "delete"
-                      ? "正在删除…"
-                      : "正在恢复…"
-                    : action.kind === "delete"
-                      ? "确认删除"
-                      : "确认恢复"}
-                </button>
-                <button type="button" onClick={() => setAction(null)} disabled={actionBusy}>
-                  取消
-                </button>
               </div>
             )}
-          </div>
+          </ConfirmDialog>
         </>
       )}
 
@@ -555,6 +747,16 @@ export default function InterfacesPanel({ resource, user }: InterfacesPanelProps
           onSubmit={handleEditSubmit}
           onCancel={() => setMode({ kind: "list" })}
           onRefresh={refreshAfterConflict}
+        />
+      )}
+
+      {/* F019：接口侧选择并绑定 IP（弹层内完成候选选择与逐条提交；仅未删接口 + WRITE 入口可到达） */}
+      {bindingTarget !== null && (
+        <InterfaceIpBindingPanel
+          iface={{ id: bindingTarget.id, name: bindingTarget.name }}
+          cluster={{ id: resource.cluster.id, code: resource.cluster.code }}
+          onClose={() => setBindingTarget(null)}
+          onCompleted={handleBindingCompleted}
         />
       )}
     </>

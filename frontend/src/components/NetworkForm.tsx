@@ -1,3 +1,5 @@
+import { Button, Input, Select, TextArea } from "./ui/controls";
+import { ErrorState } from "./ui/feedback";
 import { useState, type FormEvent } from "react";
 import type { Cluster } from "../api/clusters";
 import type {
@@ -110,7 +112,7 @@ export default function NetworkForm({
     <form onSubmit={handleSubmit} noValidate>
       <div className="form-field">
         <label htmlFor="network-cluster">cluster（所属集群，必填）</label>
-        <select
+        <Select
           id="network-cluster"
           name="cluster"
           value={values.cluster}
@@ -128,7 +130,7 @@ export default function NetworkForm({
               {item.code} — {item.name}
             </option>
           ))}
-        </select>
+        </Select>
         {(clusterError ?? serverFields.cluster) && (
           <p className="field-error" role="alert">
             {clusterError ?? serverFields.cluster}
@@ -140,7 +142,7 @@ export default function NetworkForm({
         <label htmlFor="network-name">
           name（必填；大小写不敏感，同集群未删除唯一；允许中文与内部空格，≤255）
         </label>
-        <input
+        <Input
           id="network-name"
           name="name"
           type="text"
@@ -160,7 +162,7 @@ export default function NetworkForm({
         <label htmlFor="network-cidr">
           cidr（必填；合法 IPv4 CIDR；同集群未删除网络不可重叠，INACTIVE 同样占用）
         </label>
-        <input
+        <Input
           id="network-cidr"
           name="cidr"
           type="text"
@@ -180,7 +182,7 @@ export default function NetworkForm({
         <label htmlFor="network-gateway">
           gateway（网关，可选 IPv4；须属该 CIDR 基础可用地址且非禁用范围）
         </label>
-        <input
+        <Input
           id="network-gateway"
           name="gateway"
           type="text"
@@ -198,7 +200,7 @@ export default function NetworkForm({
 
       <div className="form-field">
         <label htmlFor="network-status">status（状态）</label>
-        <select
+        <Select
           id="network-status"
           name="status"
           value={values.status}
@@ -207,7 +209,7 @@ export default function NetworkForm({
         >
           <option value="ACTIVE">ACTIVE（启用，默认）</option>
           <option value="INACTIVE">INACTIVE（停用，禁止新增分配，仍参与 CIDR 重叠检查）</option>
-        </select>
+        </Select>
         {serverFields.status && (
           <p className="field-error" role="alert">
             {serverFields.status}
@@ -217,7 +219,7 @@ export default function NetworkForm({
 
       <div className="form-field checkbox-field">
         <label htmlFor="network-auto-allocate">
-          <input
+          <Input
             id="network-auto-allocate"
             name="auto_allocate"
             type="checkbox"
@@ -236,7 +238,7 @@ export default function NetworkForm({
 
       <div className="form-field">
         <label htmlFor="network-description">description（描述，可选）</label>
-        <textarea
+        <TextArea
           id="network-description"
           name="description"
           rows={3}
@@ -254,7 +256,7 @@ export default function NetworkForm({
 
       <div className="form-field">
         <label htmlFor="network-metadata">metadata（JSON 对象，可选；网络自有扩展，整值替换）</label>
-        <textarea
+        <TextArea
           id="network-metadata"
           name="metadata"
           rows={5}
@@ -271,38 +273,38 @@ export default function NetworkForm({
       </div>
 
       {serverError && serverError.message && (
-        <div className="form-error status status-error" role="alert">
-          <p>
-            {serverError.message}
-            {serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}
-          </p>
-          {serverError.rangeConflicts.length > 0 && (
-            <ul>
-              {serverError.rangeConflicts.map((conflict) => (
-                <li key={`${conflict.object_type}-${conflict.object_id}`}>
-                  {conflict.object_type}
-                  {conflict.label ? `：${conflict.label}` : ""}（{conflict.object_id}）
-                </li>
-              ))}
-            </ul>
-          )}
-          {serverError.versionConflict && onRefresh && (
-            <p>
-              <button type="button" onClick={onRefresh} disabled={submitting}>
+        <ErrorState
+          message={
+            <div className="form-error">
+              <p>{serverError.message}{serverError.code && !serverError.versionConflict ? `（${serverError.code}）` : ""}</p>
+              {serverError.rangeConflicts.length > 0 && (
+                <ul>
+                  {serverError.rangeConflicts.map((conflict) => (
+                    <li key={`${conflict.object_type}-${conflict.object_id}`}>
+                      {conflict.object_type}{conflict.label ? `：${conflict.label}` : ""}（{conflict.object_id}）
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          }
+          action={
+            serverError.versionConflict && onRefresh ? (
+              <Button type="button" onClick={onRefresh} disabled={submitting}>
                 刷新最新数据（放弃本次未保存的修改，重做变更）
-              </button>
-            </p>
-          )}
-        </div>
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       <div className="form-actions">
-        <button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting}>
           {submitting ? (isCreate ? "正在创建…" : "正在保存…") : isCreate ? "创建" : "保存修改"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={submitting}>
+        </Button>
+        <Button type="button" onClick={onCancel} disabled={submitting}>
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );

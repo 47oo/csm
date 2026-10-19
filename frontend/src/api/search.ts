@@ -1,5 +1,5 @@
 /**
- * Global Search API（F013，Contract：docs/api/F013.md v1，READY）。
+ * Global Search API（F013，Contract：docs/api/F013.md v2，READY）。
  *
  * 端点（Contract §2）：
  * - GET /search  跨对象全局搜索（READ；VIEWER / EDITOR / ADMIN 全角色）
@@ -36,7 +36,28 @@ export type SearchObjectType = "resource" | "cluster" | "ip_address" | "service"
 /** 命中字段（Contract §2.2：hostname | address | code | name）。 */
 export type SearchMatchedField = "hostname" | "address" | "code" | "name";
 
-/** SearchItem 嵌套的 Resource（Contract §2.2：承载/命中 Resource；未命中为 null）。 */
+/** resource 行关联展示行（F018，Contract v2 §2.9）：每个已绑定 Interface 的 IPAddress 一行。 */
+export interface SearchResourceRelated {
+  /** 行身份 = IPAddress id（§4 稳定 ID；排序末键 id ASC）。 */
+  id: string;
+  /** interface_type ∈ {PHYSICAL, VIRTUAL, BOND, BRIDGE, VLAN, LOOPBACK, OTHER}（F007 七值，回显原值不改写，B21）。 */
+  interface: { id: string; name: string; interface_type: string };
+  /** 点分十进制 IPv4（裸地址）。 */
+  ip_address: { id: string; address: string };
+  network: { id: string; name: string };
+}
+
+/**
+ * SearchItem 嵌套的 Resource（Contract §2.2 + v2 §2.9：承载/命中 Resource；未命中为 null）。
+ *
+ * F018 关联展示字段：仅 object_type="resource" 的**顶层**结果行填充
+ * `related`（无已绑定 IP 时为 []，不伪造占位行）与 `related_total`（截断前
+ * 总数，恒 ≥ len(related)；超限时 len(related)=10）；非 resource 行
+ * （cluster / ip_address / service）响应结构不变，其嵌入 resource 的两字段
+ * 恒为 null。类型上声明为可选 + null，容忍旧后端（v1 响应无此两键）与
+ * 形状不符的运行期数据；展示层经 components/globalSearchFields.ts 的安全
+ * 访问器回退，不在此改写数据（F8/DR-326）。
+ */
 export interface SearchResourceRef {
   id: string;
   hostname: string;
@@ -44,6 +65,10 @@ export interface SearchResourceRef {
   role: string;
   status: string;
   cluster: { id: string; code: string; name: string };
+  /** 关联展示行（最多 10 行，服务端已按固定全序排序，§2.9）。 */
+  related?: SearchResourceRelated[] | null;
+  /** 截断前关联总数（与顶层分页 total 语义不同、不相加、不混用，§2.9/B18）。 */
+  related_total?: number | null;
 }
 
 /** SearchItem 嵌套的 Cluster（Contract §2.2）。 */
