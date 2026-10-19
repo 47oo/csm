@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 8
   plan_revision: 11
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 11
     feature_ids:
@@ -1516,9 +1516,15 @@ features:
   - F010
   - F014
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: null
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: 复用产品澄清报告，持久化 F023 产品文档（docs/features/F023/product.md）
+  git:
+    base_branch: codex/v3.1
+    branch: feature/F023-import-interfaces-ips
+    start_commit: db6b6595aa9ae638c911ca31860f4d76492fef75
+    head_commit: null
+    merge_commit: null
   layers:
     database: false
     backend: true
@@ -1653,32 +1659,30 @@ pending_changes: []
 execution:
   mode: SINGLE
   authorization:
-    plan_revision: 10
+    plan_revision: 11
     feature_ids:
-    - F022
+    - F023
     authorized_by: 用户
     authorized_on: '2026-10-15'
-    basis: 用户于 2026-10-15 要求在 Resource 明细区域实现 IP 地址与分配明细，product-manager 与 Architect
-      评估无阻塞后，回复「批准并实施」：批准计划 revision 10 并授权实施 F022。
-  current_feature: null
-  current_stage: null
-  last_result: F022 DONE（merge c8a29bd；review APPROVED WITH FOLLOW-UP）；全部 F001–F022
-    交付，project.acceptance=COMPLETE。
-  next_action: null
+    basis: 用户于 2026-10-15 提出「多节点使用模板提交时应支持网卡以及 IP 地址分配」，BQ1–BQ7 回复「按推荐执行」，随后回复「1.
+      是 2. 是」批准计划 revision 11 并授权实施 F023。
+  current_feature: F023
+  current_stage: PRODUCT
+  last_result: 计划 revision 11 批准（merge db6b659，F023 READY）；启动 F023，进入 PRODUCT。
+  next_action: 复用产品澄清报告，持久化 F023 产品文档（docs/features/F023/product.md）
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 22
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F023
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
