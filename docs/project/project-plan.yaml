@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 10
   plan_revision: 13
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 13
     feature_ids:
@@ -1657,9 +1657,9 @@ features:
   - F023
   - F017
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 启动 F025：进入 PRODUCT Gate。
+  status: IN_PROGRESS
+  current_stage: IMPLEMENTATION
+  next_action: 实现采集脚本增强与测试，测试放行后进入 REVIEW。
   layers:
     database: false
     backend: false
@@ -1671,19 +1671,26 @@ features:
     frontend: 无 UI。
     contract: 不新增平台 API；消费既有 F023 契约（docs/api/F023.md）。
   implementation:
-    product: PENDING
-    architecture: PENDING
-    database: PENDING
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
-    frontend: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: NOT_REQUIRED
     test: PENDING
     review: PENDING
+  evidence:
+    product:
+    - docs/features/F025/product.md
+    architecture:
+    - docs/features/F025/architecture.md
+    test_design:
+    - docs/features/F025/test-report.md#test-design
   git:
     base_branch: codex/v3.1
-    branch: null
-    start_commit: null
+    branch: feature/F025-collector-enhancements
+    start_commit: 692143e98be8b2c1fa4ee61612c14a6cb2e9fbd9
     head_commit: null
     merge_commit: null
 decisions_required:
@@ -1889,24 +1896,23 @@ execution:
     authorized_on: '2026-10-20'
     basis: 用户于 2026-10-20 回复「按推荐执行并实施」，确认 BQ6–BQ10 按推荐执行，批准计划 revision 13 并授权实施 F025（采集脚本增强：参数补全/打印/API
       推送）。
-  current_feature: null
-  current_stage: null
-  last_result: 计划 revision 13 获批（需求 revision 10，新增 §24.3 与 F025）；F001–F024 保持 DONE。
-  next_action: 启动 F025；Preflight 通过后进入 PRODUCT Gate。
+  current_feature: F025
+  current_stage: IMPLEMENTATION
+  last_result: F025 设计（PRODUCT/ARCHITECTURE/TEST_DESIGN）完成；脚本增强与测试已实现。
+  next_action: 测试放行后进入 REVIEW。
   repair_rounds: 1
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 24
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F025
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
