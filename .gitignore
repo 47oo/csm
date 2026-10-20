@@ -169,3 +169,6 @@ backups/
 htmlcov/
 .coverage
 coverage.xml
+
+# F024/F025 采集脚本默认输出（本地生成）
+csm_host_info.csv

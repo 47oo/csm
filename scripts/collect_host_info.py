@@ -22,12 +22,15 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 import os
 import platform
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 
 # ---------------------------------------------------------------------------
 # F023 §6 冻结的 26 列统一宽模板（列名与列序不得改动）
@@ -408,13 +411,16 @@ def _interfaces_from_sysfs(read_file, listdir=os.listdir) -> list[dict]:
 
 
 def build_rows(hostname: str, memory_mb: str, cpu: dict, dmi: dict, gpu: dict,
-               vm: dict, interfaces: list[dict], resource_type: str | None) -> list[dict]:
+               vm: dict, interfaces: list[dict], resource_type: str | None,
+               manual: dict | None = None) -> list[dict]:
     """把采集结果映射到模板列。
 
-    ``resource_type`` 仅用于决定填充哪一组类型专属列，**不写入**
-    ``resource_type`` 单元格（该字段由人工补全，§24.2）。未指定时类型专属列
-    全部留空，避免与 F023 §6.1 的逐行适用性冲突。
+    ``resource_type`` 决定填充哪一组类型专属列，并在提供时写入
+    ``resource_type`` 单元格（§24.3）。``manual`` 提供命令行补全的业务/归属
+    字段（cluster/role/status/host/network），显式值覆盖默认空值；未提供时
+    仍留空，不写占位或推断值。
     """
+    manual = manual or {}
     rows: list[dict] = []
     for iface in interfaces:
         row = {column: "" for column in TEMPLATE_COLUMNS}
@@ -433,6 +439,12 @@ def build_rows(hostname: str, memory_mb: str, cpu: dict, dmi: dict, gpu: dict,
             row["vcpu"] = vm.get("vcpu", "")
             row["disk_gb"] = vm.get("disk_gb", "")
             row["hypervisor"] = vm.get("hypervisor", "")
+        if resource_type:
+            row["resource_type"] = resource_type
+        for column in ("cluster", "role", "status", "host", "network"):
+            value = manual.get(column)
+            if value not in (None, ""):
+                row[column] = value
         row["name"] = iface.get("name", "")
         row["interface_type"] = iface.get("interface_type", "OTHER")
         row["mac_address"] = iface.get("mac_address", "")
@@ -444,16 +456,25 @@ def build_rows(hostname: str, memory_mb: str, cpu: dict, dmi: dict, gpu: dict,
     return rows
 
 
-def write_csv(rows: list[dict], output_path: str) -> None:
-    """写出 CSV（UTF-8 兼容 BOM，RFC 4180）。"""
-    with open(output_path, "w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=TEMPLATE_COLUMNS, extrasaction="ignore")
+def render_csv(rows: list[dict], include_header: bool = True) -> str:
+    """渲染 CSV 文本（RFC 4180），可选是否包含表头。"""
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=TEMPLATE_COLUMNS, extrasaction="ignore")
+    if include_header:
         writer.writeheader()
-        for row in rows:
-            writer.writerow(row)
+    for row in rows:
+        writer.writerow(row)
+    return buffer.getvalue()
 
 
-def collect(resource_type: str | None, include_loopback: bool, include_down: bool) -> list[dict]:
+def write_csv(rows: list[dict], output_path: str, include_header: bool = True) -> None:
+    """写出 CSV 文件（UTF-8 兼容 BOM）。"""
+    with open(output_path, "w", encoding="utf-8-sig", newline="") as handle:
+        handle.write(render_csv(rows, include_header))
+
+
+def collect(resource_type: str | None, include_loopback: bool, include_down: bool,
+            manual: dict | None = None) -> list[dict]:
     hostname = collect_hostname()
     memory_mb = collect_memory_mb()
     cpu = collect_cpu()
@@ -461,32 +482,147 @@ def collect(resource_type: str | None, include_loopback: bool, include_down: boo
     gpu = collect_gpu()
     vm = collect_vm()
     interfaces = collect_interfaces(include_loopback=include_loopback, include_down=include_down)
-    return build_rows(hostname, memory_mb, cpu, dmi, gpu, vm, interfaces, resource_type)
+    return build_rows(hostname, memory_mb, cpu, dmi, gpu, vm, interfaces, resource_type, manual)
+
+
+# ---------------------------------------------------------------------------
+# API 推送（消费 F023 导入端点；仅显式 --push 时启用）
+# ---------------------------------------------------------------------------
+
+DEFAULT_TIMEOUT = 30.0
+IMPORT_PATH = "/api/v1/imports/resource-interfaces-ips"
+
+
+def _multipart_body(fields: dict, filename: str, content: bytes):
+    """构造 multipart/form-data 请求体（仅标准库）。"""
+    boundary = "----CSMHostInfo" + os.urandom(16).hex()
+    parts = []
+    for name, value in fields.items():
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode("utf-8")
+        )
+    parts.append(
+        (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+            "Content-Type: text/csv\r\n\r\n"
+        ).encode("utf-8")
+    )
+    parts.append(content)
+    parts.append(f"\r\n--{boundary}--\r\n".encode("utf-8"))
+    return boundary, b"".join(parts)
+
+
+def post_import(api_url: str, api_key: str, endpoint: str, csv_bytes: bytes,
+                timeout: float = DEFAULT_TIMEOUT):
+    """向 F023 导入端点发送 multipart 请求，返回 (status, body_text)。
+
+    认证使用 ``Authorization: Bearer <API Key>``（F017）。API Key **不会**出现在
+    返回文本或异常信息中。
+    """
+    url = api_url.rstrip("/") + IMPORT_PATH + endpoint
+    boundary, body = _multipart_body({"format": "csv"}, "csm_host_info.csv", csv_bytes)
+    request = urllib.request.Request(url, data=body, method="POST")
+    request.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    request.add_header("Authorization", f"Bearer {api_key}")
+    request.add_header("Accept", "application/json")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status, response.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode("utf-8", "replace")
+    except urllib.error.URLError as error:
+        return 0, f"网络错误：{error.reason}"
+
+
+def _push(rows: list[dict], args) -> int:
+    """先预校验展示，经 --yes 确认后写入（§24 两步流程）。"""
+    if not args.api_url:
+        print("错误：--push 需要 --api-url。", file=sys.stderr)
+        return 2
+    api_key = args.api_key or os.environ.get("CSM_API_KEY")
+    if not api_key:
+        print("错误：--push 需要 API Key；请设置环境变量 CSM_API_KEY 或使用 --api-key。", file=sys.stderr)
+        return 2
+    if not args.cluster or not args.resource_type:
+        print("错误：--push 需要同时提供 --cluster 与 --resource-type。", file=sys.stderr)
+        return 2
+    csv_bytes = render_csv(rows, True).encode("utf-8")
+    status, body = post_import(args.api_url, api_key, "/validate", csv_bytes, args.timeout)
+    print(body)
+    if status != 200:
+        print(f"预校验失败（HTTP {status}）。", file=sys.stderr)
+        return 1
+    try:
+        preview = json.loads(body)
+    except json.JSONDecodeError:
+        preview = {}
+    if preview.get("error_count"):
+        print("预校验存在错误，未写入。请修正后重试。", file=sys.stderr)
+        return 1
+    if not args.yes:
+        print("预校验通过。加 --yes 以写入。", file=sys.stderr)
+        return 0
+    status, body = post_import(args.api_url, api_key, "", csv_bytes, args.timeout)
+    print(body)
+    if status not in (200, 201):
+        print(f"写入失败（HTTP {status}）。", file=sys.stderr)
+        return 1
+    print("推送成功。", file=sys.stderr)
+    return 0
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="采集本机信息并生成 CSM「资源+网卡+IP」导入模板 CSV（离线、只读）。",
+        description="采集本机信息并生成 CSM「资源+网卡+IP」导入模板 CSV（默认离线、只读）。",
     )
     parser.add_argument(
         "--resource-type",
         choices=["BARE_METAL", "VIRTUAL_MACHINE"],
         default=None,
-        help="按类型填充 CPU/GPU/硬件或 vCPU/磁盘/虚拟化列；不写入 resource_type 单元格（由人工补全）。",
+        help="写入 resource_type 列并决定填充 CPU/GPU/硬件或 vCPU/磁盘/虚拟化列。",
     )
+    parser.add_argument("--cluster", default=None, help="补全 cluster 列（推送时必填）。")
+    parser.add_argument("--role", default=None, help="补全 role 列。")
+    parser.add_argument("--status", default=None, help="补全 status 列。")
+    parser.add_argument("--host", default=None, help="补全 host 列（VM 必填）。")
+    parser.add_argument("--network", default=None, help="补全 network 列。")
     parser.add_argument("-o", "--output", default="csm_host_info.csv", help="输出 CSV 路径（默认 csm_host_info.csv）。")
+    parser.add_argument("--print", dest="to_stdout", action="store_true", help="输出到标准输出（不写文件）。")
+    parser.add_argument("--no-header", action="store_true", help="不输出表头。")
     parser.add_argument("--include-loopback", action="store_true", help="包含 loopback 接口（默认排除）。")
-    parser.add_argument("--include-down", action="store_true", help="包含非 up 状态接口（默认排除）。")
+    parser.add_argument("--include-down", action="store_true", help="包含明确 down 的接口（默认排除）。")
+    parser.add_argument("--push", action="store_true", help="经 API Key 推送到 CSM（默认离线，不联网）。")
+    parser.add_argument("--api-url", default=None, help="CSM 基础地址，例如 http://csm.example:8080。")
+    parser.add_argument("--api-key", default=None, help="API Key；建议改用环境变量 CSM_API_KEY。")
+    parser.add_argument("--yes", action="store_true", help="预校验通过后确认写入。")
+    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, help="HTTP 超时秒数（默认 30）。")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    rows = collect(args.resource_type, args.include_loopback, args.include_down)
-    write_csv(rows, args.output)
-    print(f"已写出 {len(rows)} 行到 {args.output}")
-    print(f"模板列：{len(TEMPLATE_COLUMNS)} 列（F023 §6 冻结）")
-    print("请人工补全以下字段后再导入：cluster, resource_type, role, status, host, network")
+    manual = {
+        "cluster": args.cluster,
+        "role": args.role,
+        "status": args.status,
+        "host": args.host,
+        "network": args.network,
+    }
+    rows = collect(args.resource_type, args.include_loopback, args.include_down, manual)
+    include_header = not args.no_header
+
+    if args.to_stdout:
+        sys.stdout.write(render_csv(rows, include_header))
+    else:
+        write_csv(rows, args.output, include_header)
+        print(f"已写出 {len(rows)} 行到 {args.output}", file=sys.stderr)
+    print(f"模板列：{len(TEMPLATE_COLUMNS)} 列（F023 §6 冻结）", file=sys.stderr)
+
+    if args.push:
+        return _push(rows, args)
+
+    if not args.to_stdout:
+        print("可补全以下字段后再导入：cluster, resource_type, role, status, host, network", file=sys.stderr)
     if platform.system() != "Linux":
         print("警告：本脚本面向 Linux；非 Linux 环境下多数采集项将留空。", file=sys.stderr)
     return 0

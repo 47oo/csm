@@ -3,15 +3,21 @@
 仅使用标准库与 unittest，可在无 root、无 CSM 网络、无真实硬件的环境中运行。
 """
 
+import argparse
+import contextlib
 import csv
+import io
 import json
 import os
 import tempfile
 import unittest
 
+import collect_host_info
 from collect_host_info import (
     TEMPLATE_COLUMNS,
     _interfaces_from_sysfs,
+    _multipart_body,
+    _push,
     build_rows,
     collect_cpu,
     collect_dmi,
@@ -20,7 +26,9 @@ from collect_host_info import (
     collect_interfaces,
     collect_memory_mb,
     collect_vm,
+    main,
     normalize_hostname,
+    render_csv,
     write_csv,
 )
 
@@ -277,8 +285,10 @@ class RowMappingTests(unittest.TestCase):
                           {"vcpu": "8", "disk_gb": "100", "hypervisor": "kvm"},
                           self._interfaces(), "BARE_METAL")
         row = rows[0]
-        for column in ("cluster", "resource_type", "role", "status", "host", "network"):
+        for column in ("cluster", "role", "status", "host", "network"):
             self.assertEqual(row[column], "", f"{column} must be left for manual completion")
+        # §24.3：显式提供的 resource_type 会写入该列。
+        self.assertEqual(row["resource_type"], "BARE_METAL")
         self.assertEqual(set(row), set(TEMPLATE_COLUMNS))
 
     def test_bare_metal_fills_hardware_not_vm(self):
@@ -347,6 +357,185 @@ class CsvOutputTests(unittest.TestCase):
         self.assertEqual(header, FROZEN_COLUMNS)
         self.assertEqual(len(data), len(FROZEN_COLUMNS))
         self.assertEqual(data[FROZEN_COLUMNS.index("ip")], "10.0.0.5/24")
+
+
+def _sample_rows(manual=None, resource_type=None):
+    iface = {"name": "eth0", "interface_type": "OTHER", "mac_address": "aa:bb:cc:dd:ee:ff",
+             "speed_mbps": "10000", "mtu": "1500", "enabled": "true", "ip": "10.0.0.5/24"}
+    return build_rows("node-a1", "32000", {}, {}, {}, {}, [iface], resource_type, manual)
+
+
+def _push_args(**overrides):
+    base = {"api_url": "http://csm.test", "api_key": "supersecretkey",
+            "cluster": "C1", "resource_type": "BARE_METAL", "yes": False, "timeout": 30.0}
+    base.update(overrides)
+    return argparse.Namespace(**base)
+
+
+class EnhancementTests(unittest.TestCase):
+    def test_manual_params_fill_columns(self):
+        # T79：参数补全写入对应列；未提供字段仍留空。
+        rows = _sample_rows({"cluster": "N96P", "role": "COMPUTE", "status": "IDLE",
+                             "network": "mgmt"}, "BARE_METAL")
+        row = rows[0]
+        self.assertEqual(row["cluster"], "N96P")
+        self.assertEqual(row["role"], "COMPUTE")
+        self.assertEqual(row["status"], "IDLE")
+        self.assertEqual(row["network"], "mgmt")
+        self.assertEqual(row["host"], "")
+
+    def test_resource_type_column_written_and_type_columns(self):
+        # T80：--resource-type 写入该列并仅填对应类型列。
+        bm = _sample_rows({"cluster": "C1"}, "BARE_METAL")[0]
+        self.assertEqual(bm["resource_type"], "BARE_METAL")
+        self.assertEqual(bm["vcpu"], "")
+        vm = build_rows("n1", "1", {}, {}, {}, {"vcpu": "8"},
+                        [{"name": "eth0", "interface_type": "OTHER", "mac_address": "",
+                          "speed_mbps": "", "mtu": "", "enabled": "", "ip": "10.0.0.5/24"}],
+                        "VIRTUAL_MACHINE", {"cluster": "C1", "host": "bm1"})
+        self.assertEqual(vm[0]["resource_type"], "VIRTUAL_MACHINE")
+        self.assertEqual(vm[0]["host"], "bm1")
+        self.assertEqual(vm[0]["manufacturer"], "")
+
+    def test_manual_absent_leaves_columns_empty(self):
+        row = _sample_rows(None, None)[0]
+        for column in ("cluster", "resource_type", "role", "status", "host", "network"):
+            self.assertEqual(row[column], "")
+
+    def test_render_csv_header_toggle(self):
+        # T81：带/不带表头。
+        rows = _sample_rows()
+        with_header = render_csv(rows, True)
+        without_header = render_csv(rows, False)
+        self.assertEqual(with_header.splitlines()[0], ",".join(FROZEN_COLUMNS))
+        self.assertFalse(without_header.startswith("cluster,"))
+        self.assertEqual(len(with_header.splitlines()), len(without_header.splitlines()) + 1)
+
+    def test_main_print_writes_stdout_not_file(self):
+        original = collect_host_info.collect
+        collect_host_info.collect = lambda *a, **k: _sample_rows()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                path = os.path.join(tmp, "out.csv")
+                buffer = io.StringIO()
+                with contextlib.redirect_stdout(buffer):
+                    rc = main(["--print", "-o", path])
+                self.assertEqual(rc, 0)
+                self.assertFalse(os.path.exists(path))
+                self.assertTrue(buffer.getvalue().startswith("cluster,"))
+        finally:
+            collect_host_info.collect = original
+
+    def test_main_output_file_with_bom(self):
+        original = collect_host_info.collect
+        collect_host_info.collect = lambda *a, **k: _sample_rows()
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                path = os.path.join(tmp, "out.csv")
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    rc = main(["-o", path])
+                self.assertEqual(rc, 0)
+                with open(path, "rb") as handle:
+                    self.assertEqual(handle.read(3), b"\xef\xbb\xbf")
+        finally:
+            collect_host_info.collect = original
+
+    def test_multipart_body_contains_fields(self):
+        boundary, body = _multipart_body({"format": "csv"}, "x.csv", b"a,b\n")
+        self.assertIn(b"name=\"format\"", body)
+        self.assertIn(b"csv", body)
+        self.assertIn(b"name=\"file\"; filename=\"x.csv\"", body)
+        self.assertTrue(boundary.encode() in body)
+
+    def test_push_validate_then_confirm(self):
+        # T82：先 validate，--yes 后写入。
+        calls = []
+        original = collect_host_info.post_import
+
+        def fake_post(api_url, api_key, endpoint, csv_bytes, timeout=30.0):
+            calls.append(endpoint)
+            if endpoint == "/validate":
+                return 200, '{"error_count": 0, "total_rows": 1}'
+            return 201, '{"created": 1}'
+
+        collect_host_info.post_import = fake_post
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                rc = _push(_sample_rows(), _push_args(yes=True))
+        finally:
+            collect_host_info.post_import = original
+        self.assertEqual(rc, 0)
+        self.assertEqual(calls, ["/validate", ""])
+
+    def test_push_without_yes_does_not_write(self):
+        calls = []
+        original = collect_host_info.post_import
+        collect_host_info.post_import = lambda *a, **k: (calls.append(a[2]), (200, '{"error_count": 0}'))[1]
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                rc = _push(_sample_rows(), _push_args(yes=False))
+        finally:
+            collect_host_info.post_import = original
+        self.assertEqual(rc, 0)
+        self.assertEqual(calls, ["/validate"])
+
+    def test_push_validation_errors_block_write(self):
+        calls = []
+        original = collect_host_info.post_import
+
+        def fake_post(*a):
+            calls.append(a[2])
+            return 200, '{"error_count": 2}'
+
+        collect_host_info.post_import = fake_post
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                rc = _push(_sample_rows(), _push_args(yes=True))
+        finally:
+            collect_host_info.post_import = original
+        self.assertEqual(rc, 1)
+        self.assertEqual(calls, ["/validate"])
+
+    def test_push_requires_url_key_and_fields(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(_push(_sample_rows(), _push_args(api_url=None)), 2)
+            os.environ.pop("CSM_API_KEY", None)
+            self.assertEqual(_push(_sample_rows(), _push_args(api_key=None)), 2)
+            self.assertEqual(_push(_sample_rows(), _push_args(cluster=None)), 2)
+            self.assertEqual(_push(_sample_rows(), _push_args(resource_type=None)), 2)
+
+    def test_push_api_key_not_leaked(self):
+        # T83：Key 不出现在输出。
+        original = collect_host_info.post_import
+        collect_host_info.post_import = lambda *a: (401, '{"error":{"code":"AUTH_REQUIRED"}}')
+        out, err = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                rc = _push(_sample_rows(), _push_args())
+        finally:
+            collect_host_info.post_import = original
+        self.assertEqual(rc, 1)
+        self.assertNotIn("supersecretkey", out.getvalue() + err.getvalue())
+
+    def test_default_mode_does_not_call_network(self):
+        # T84：默认（无 --push）不联网。
+        original_collect = collect_host_info.collect
+        original_post = collect_host_info.post_import
+        collect_host_info.collect = lambda *a, **k: _sample_rows()
+
+        def boom(*a, **k):
+            raise AssertionError("network call in offline mode")
+
+        collect_host_info.post_import = boom
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                path = os.path.join(tmp, "out.csv")
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    rc = main(["-o", path])
+            self.assertEqual(rc, 0)
+        finally:
+            collect_host_info.collect = original_collect
+            collect_host_info.post_import = original_post
 
 
 if __name__ == "__main__":

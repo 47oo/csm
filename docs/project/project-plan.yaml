@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 10
   plan_revision: 13
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 13
     feature_ids:
@@ -1657,9 +1657,9 @@ features:
   - F023
   - F017
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 启动 F025：进入 PRODUCT Gate。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: 正式 Review（受环境限制暂为自审，见 review-report.md §0）。
   layers:
     database: false
     backend: false
@@ -1671,20 +1671,30 @@ features:
     frontend: 无 UI。
     contract: 不新增平台 API；消费既有 F023 契约（docs/api/F023.md）。
   implementation:
-    product: PENDING
-    architecture: PENDING
-    database: PENDING
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
-    frontend: PENDING
-    test: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: NOT_REQUIRED
+    test: COMPLETE
     review: PENDING
+  evidence:
+    product:
+    - docs/features/F025/product.md
+    architecture:
+    - docs/features/F025/architecture.md
+    test_design:
+    - docs/features/F025/test-report.md#test-design
+    test:
+    - docs/features/F025/test-report.md#test-execution
+    - docs/features/F025/implementation.md
   git:
     base_branch: codex/v3.1
-    branch: null
-    start_commit: null
-    head_commit: null
+    branch: feature/F025-collector-enhancements
+    start_commit: 692143e98be8b2c1fa4ee61612c14a6cb2e9fbd9
+    head_commit: bdc881ee5c2474003f79c71115ad51e4249f9e14
     merge_commit: null
 decisions_required:
 - id: BQ6
@@ -1889,13 +1899,14 @@ execution:
     authorized_on: '2026-10-20'
     basis: 用户于 2026-10-20 回复「按推荐执行并实施」，确认 BQ6–BQ10 按推荐执行，批准计划 revision 13 并授权实施 F025（采集脚本增强：参数补全/打印/API
       推送）。
-  current_feature: null
-  current_stage: null
-  last_result: 计划 revision 13 获批（需求 revision 10，新增 §24.3 与 F025）；F001–F024 保持 DONE。
-  next_action: 启动 F025；Preflight 通过后进入 PRODUCT Gate。
+  current_feature: F025
+  current_stage: REVIEW
+  last_result: F025 测试放行（43/72 tests OK；真实测试栈端到端推送 created=1/interfaces=2/ips=2）；待独立
+    Review（环境限制）。
+  next_action: 合并并置 DONE（需知悉自审偏差）。
   repair_rounds: 1
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -1903,10 +1914,9 @@ planning_status:
     DONE: 24
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F025
+    IN_REVIEW: 1
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
