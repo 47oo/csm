@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 9
   plan_revision: 12
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 12
     feature_ids:
@@ -1795,7 +1795,7 @@ execution:
   next_action: 正式 Review 通过后合并并置 DONE。
   repair_rounds: 1
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
