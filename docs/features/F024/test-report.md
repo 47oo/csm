@@ -53,14 +53,14 @@ $ python3 scripts/collect_host_info.py --resource-type BARE_METAL -o /tmp/f024.c
 | T74 | PASS | `CpuTests`、`MemoryTests`、`InterfaceTests`（含掩码）、`RowMappingTests` |
 | T75 | PASS | `test_rows_are_deterministic` + 只读审查（唯一写入 `write_csv`） |
 | T76 | PASS | `DmiTests`/`CpuTests`/`MemoryTests`/`GpuTests`/`VmTests`、`test_ip_o_text_fallback`、`SysfsFallbackTests` |
-| T77 | NOT EXECUTED（环境） | 需运行中的 CSM 与既存 cluster/network；结构层由 T73 表头一致性覆盖 |
+| T77 | PASS（Review 独立执行） | 见 `review-report.md#t77-端到端真实集成reviewer-独立执行`：测试栈 `POST /imports/resource-interfaces-ips/validate` 原始输出仅报 cluster/resource_type，补全后 `error_count=0` |
 | T78 | PASS | 模板漂移测试 + 本 Feature 未改动任何 F014/F023 文件 |
 
 ### 未执行项
 
-- **T77 端到端**：本环境未运行真实 CSM Compose，无法调用 `POST /imports/resource-interfaces-ips/validate`。结构风险（表头/列序）已由 T73 覆盖；剩余为环境依赖，部署后须补做。
+- **T77 端到端**：已在 Review 阶段由 Reviewer 对运行中的测试栈独立执行并通过（证据见 `review-report.md`）；本节保留候选测试时的环境限制说明。
 - 真实物理机免 root 字段可得性与发行版命令矩阵未实测（设计已提供分级降级并留空）。
 
 ### 结论
 
-T73–T76、T78 通过；T77 为环境依赖项，须在真实 CSM 环境补做。Review 修复（RV-01/02/07）后复测通过。`READY FOR REVIEW`。
+T73–T78 均通过（T77 由 Review 补充执行）；Review 修复（RV-01/02/03/07）后复测通过。`READY FOR REVIEW`。
