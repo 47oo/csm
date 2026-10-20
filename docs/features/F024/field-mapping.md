@@ -45,9 +45,9 @@ python3 scripts/collect_host_info.py --include-loopback --include-down -o host.c
 | 21 | `mac_address` | ✓ | `ip` / `/sys/class/net/<if>/address` |
 | 22 | `speed_mbps` | ✓ | `/sys/class/net/<if>/speed`（不可得留空） |
 | 23 | `mtu` | ✓ | `ip` / `/sys/class/net/<if>/mtu` |
-| 24 | `enabled` | ✓ | operstate 为 up 时 `true`，否则 `false` |
-| 25 | `network` | ✗ 人工 | 需命中 CSM 内已存在 Network，留空；补全后须与 IP 掩码一致 |
-| 26 | `ip` | ✓ | 本机 IPv4 主机地址（每地址一行，掩码剥离） |
+| 24 | `enabled` | ✓ | operstate `up`→`true`、`down`→`false`、未知/不可判定→留空（导入默认 `true`）；未知状态不被排除 |
+| 25 | `network` | ✗ 人工 | 需命中 CSM 内已存在 Network，留空；`ip` 携带掩码时 F023 可由 `/mask` 解析 Network |
+| 26 | `ip` | ✓ | 本机 IPv4 **地址/掩码**（如 `10.0.0.5/24`，每地址一行）；落库剥离掩码由 F023 处理 |
 
 ## 采集降级
 
@@ -58,7 +58,7 @@ python3 scripts/collect_host_info.py --include-loopback --include-down -o host.c
 
 ## 边界
 
-- 默认排除 loopback 与 down 接口、以及无 IPv4 的接口。
+- 默认排除 loopback 与**明确 down** 的接口、以及无 IPv4 的接口；`unknown`/`dormant` 等不可判定状态不被排除且 `enabled` 留空。
 - 无 root / 命令缺失 / 字段不可得时一律留空，脚本不报错、不伪造值。
 - 只读：仅读 `/proc`、`/sys` 与只读命令输出；唯一写入为 `-o` 指定文件；不连接 CSM、不上传。
 - 不采集密码、私钥、token、环境变量等敏感内容。

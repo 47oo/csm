@@ -40,9 +40,11 @@
 | DR-803 | 模板漂移防护：pytest/unittest 断言内嵌列集逐字等于 F023 §6 冻结列 | F023 冻结版变化时测试失败提示同步 |
 | DR-804 | 输出：默认 CSV，UTF-8 兼容 BOM（`utf-8-sig`），RFC 4180；`.xlsx` 一期不做 | Windows Excel 双击不乱码；F023 §7 兼容 BOM；避免主机侧第三方依赖 |
 | DR-805 | `resource_type` 单元格**始终留空**（人工补全）；类型专属列仅当显式 `--resource-type` 时填充，未指定则全部留空 | 遵守 §24.2「留空不推断」并避免与 F023 §6.1 逐行适用性冲突；不指定时产出对 BM/VM 均合法的「通用」行 |
-| DR-806 | 网卡 `interface_type` 默认 `OTHER`，不按名称推断；默认排除 `lo` 与 `down` 接口；无 IPv4 的接口不产出行 | 对齐 F023 §6 #20 与 §6.2；模板以每行一个 IP 为单位 |
+| DR-806 | 网卡 `interface_type` 默认 `OTHER`，不按名称推断；默认仅排除 `lo` 与**明确 `down`** 接口；`operstate` 不可判定（`unknown`/`dormant`）时 `enabled` **留空且不排除**；无 IPv4 的接口不产出行 | 对齐 F023 §6 #20/#6.2 与 §24.2「不推断」；避免静默丢弃承载 IPv4 的 bond/bridge/隧道网卡 |
 | DR-807 | 采集降级：`ip -j addr` → `ip -o` → `/sys/class/net`；CPU 用 `lscpu` → `/proc/cpuinfo`；DMI 优先 `/sys/class/dmi/id`（免特权）→（不自动提权）；GPU `nvidia-smi` → `lspci`（计数不可靠则留空） | 无 root / 无命令时留空不报错（T76） |
 | DR-808 | 单位：`memory_mb`=MiB、`disk_gb`=GiB、`speed_mbps`=Mbps、`mtu`=bytes；`cpu_cores`=整机物理核心（`(physical id, core id)` 去重，不含超线程） | 对齐 D01 / T39 / F023 §6 |
+| DR-811 | `ip` 列输出 IPv4 **地址/掩码**（如 `10.0.0.5/24`）；落库剥离掩码由 F023 §9 处理 | §24.2 自动采集项含「IPv4 地址/掩码」；携带掩码后 F023 可由 `/mask` 解析 Network，减少人工 |
+| DR-812 | `enabled` 三态：`up`→`true`、`down`→`false`、其余→空（空在 F023 §6.2 默认 `true`） | 不推断不可判定状态（RV-01） |
 | DR-809 | 只读保证：仅读 `/proc`、`/sys` 与只读命令输出；唯一写入为 `-o` 指定文件；永不提权 | §24.2 只读 |
 | DR-810 | 不采集敏感内容（密码/私钥/token/环境变量）；`/etc/shadow` 等不读取 | 安全边界 |
 

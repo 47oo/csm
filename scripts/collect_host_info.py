@@ -99,10 +99,14 @@ def _run(*args: str) -> str | None:
 
 
 def normalize_hostname(value: str | None) -> str:
-    """按 F023 §6 #2 归一化 hostname：trim → ASCII 大写折叠小写。"""
+    """按 F023 §6 #2 归一化 hostname：trim → 去控制字符 → ASCII 大写折叠小写。"""
     if not value:
         return ""
-    return value.strip().lower()
+    cleaned = "".join(ch for ch in value if ch >= " " and ch != "\x7f")
+    return cleaned.strip().translate(_ASCII_LOWER)
+
+
+_ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +287,7 @@ def collect_interfaces(read_file=_read_file, run=_run, include_loopback: bool = 
                 "mac_address": iface.get("mac_address", ""),
                 "speed_mbps": iface.get("speed_mbps", ""),
                 "mtu": iface.get("mtu", ""),
-                "enabled": enabled or "true",
+                "enabled": enabled,
                 "ip": address,
             })
     return results
@@ -306,16 +310,29 @@ def _interfaces_from_ip_json(run) -> list[dict]:
         ips = []
         for info in entry.get("addr_info", []) or []:
             if info.get("family") == "inet" and info.get("local"):
-                ips.append(info["local"])
+                local = info["local"]
+                prefix = info.get("prefixlen")
+                ips.append(f"{local}/{prefix}" if prefix is not None else local)
+        operstate = entry.get("operstate")
         results.append({
             "name": entry.get("ifname", ""),
             "mac_address": entry.get("address", "") or "",
             "mtu": str(entry.get("mtu", "")) if entry.get("mtu") is not None else "",
-            "enabled": "true" if entry.get("operstate") == "up" else "false",
+            "enabled": _enabled_from_operstate(operstate),
             "speed_mbps": _interface_speed(entry.get("ifname", ""), run),
             "ips": ips,
         })
     return results
+
+
+def _enabled_from_operstate(operstate: object) -> str:
+    """三态：up→true，down→false，其余（unknown/dormant/缺失）→空（不推断）。"""
+    value = str(operstate).lower() if operstate is not None else ""
+    if value == "up":
+        return "true"
+    if value == "down":
+        return "false"
+    return ""
 
 
 def _interface_speed(name: str, run) -> str:
@@ -342,7 +359,7 @@ def _interfaces_from_ip_text(run) -> list[dict]:
             continue
         name, mtu, state = match.group(1), match.group(2), match.group(3)
         mtu_by_name[name] = mtu
-        state_by_name[name] = "true" if state == "UP" else "false"
+        state_by_name[name] = _enabled_from_operstate(state)
         mac_match = re.search(r"link/ether\s+(\S+)", line)
         if mac_match:
             mac_by_name[name] = mac_match.group(1)
@@ -350,7 +367,7 @@ def _interfaces_from_ip_text(run) -> list[dict]:
     for line in (addrs or "").splitlines():
         match = re.match(r"\d+:\s+(\S+)\s+inet\s+(\S+)", line)
         if match:
-            ips_by_name.setdefault(match.group(1), []).append(match.group(2).split("/")[0])
+            ips_by_name.setdefault(match.group(1), []).append(match.group(2))
     names = list(mac_by_name) + [n for n in mtu_by_name if n not in mac_by_name]
     return [{
         "name": name,
@@ -362,11 +379,11 @@ def _interfaces_from_ip_text(run) -> list[dict]:
     } for name in names]
 
 
-def _interfaces_from_sysfs(read_file) -> list[dict]:
+def _interfaces_from_sysfs(read_file, listdir=os.listdir) -> list[dict]:
     """回退：仅从 /sys/class/net 读取名称/MAC/MTU，无地址信息。"""
     base = "/sys/class/net"
     try:
-        names = sorted(os.listdir(base))
+        names = sorted(listdir(base))
     except OSError:
         return []
     results = []
@@ -378,7 +395,7 @@ def _interfaces_from_sysfs(read_file) -> list[dict]:
             "name": name,
             "mac_address": mac,
             "mtu": mtu,
-            "enabled": "true" if operstate == "up" else "false",
+            "enabled": _enabled_from_operstate(operstate),
             "speed_mbps": "",
             "ips": [],
         })
@@ -421,7 +438,7 @@ def build_rows(hostname: str, memory_mb: str, cpu: dict, dmi: dict, gpu: dict,
         row["mac_address"] = iface.get("mac_address", "")
         row["speed_mbps"] = iface.get("speed_mbps", "")
         row["mtu"] = iface.get("mtu", "")
-        row["enabled"] = iface.get("enabled", "true")
+        row["enabled"] = iface.get("enabled", "")
         row["ip"] = iface.get("ip", "")
         rows.append(row)
     return rows
