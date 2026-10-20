@@ -29,6 +29,6 @@
 | F021 | Resources 列表页行内删除 | FEATURE | P1 | DONE | F004, F020 | — | docs/product/requirements-v3.md#23-用户与权限, docs/product/requirements-v3.md#28-前端 |
 | F022 | Resource 详情页 IP Addresses 区域 | FEATURE | P1 | DONE | F004, F007, F010, F019 | — | docs/product/requirements-v3.md#18-resource-detail, docs/product/requirements-v3.md#32-上线验收, docs/product/requirements-v3.md#21-逻辑删除, docs/product/requirements-v3.md#23-用户与权限 |
 | F023 | 资源+网卡+IP 批量导入 | FEATURE | P1 | DONE | F004, F007, F008, F009, F010, F014 | — | docs/product/requirements-v3.md#241-资源--网卡--ip-批量导入revision-8, docs/product/requirements-v3.md#24-批量导入, docs/product/requirements-v3.md#14-ip-完整性, docs/product/requirements-v3.md#132-手动分配 |
-| F024 | 离线主机信息采集脚本 | FEATURE | P2 | IN_PROGRESS | F023 | — | docs/product/requirements-v3.md#24-批量导入, docs/product/requirements-v3.md#242-离线主机信息采集脚本revision-9, docs/product/requirements-v3.md#31-测试, docs/api/F023.md |
+| F024 | 离线主机信息采集脚本 | FEATURE | P2 | IN_REVIEW | F023 | — | docs/product/requirements-v3.md#24-批量导入, docs/product/requirements-v3.md#242-离线主机信息采集脚本revision-9, docs/product/requirements-v3.md#31-测试, docs/api/F023.md |
 
-统计：BLOCKED=0；CANCELLED=0；DONE=23；DRAFT=0；IN_PROGRESS=1；IN_REVIEW=0；READY=0。
+统计：BLOCKED=0；CANCELLED=0；DONE=23；DRAFT=0；IN_PROGRESS=0；IN_REVIEW=1；READY=0。

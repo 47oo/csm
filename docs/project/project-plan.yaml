@@ -1588,9 +1588,9 @@ features:
   depends_on:
   - F023
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: 实现采集脚本与测试，测试放行后进入 REVIEW。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: 正式 Review 修复后的候选 HEAD。
   layers:
     database: false
     backend: false
@@ -1609,7 +1609,7 @@ features:
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   evidence:
     product:
@@ -1618,11 +1618,14 @@ features:
     - docs/features/F024/architecture.md
     test_design:
     - docs/features/F024/test-report.md#test-design
+    test:
+    - docs/features/F024/test-report.md#test-execution
+    - docs/features/F024/implementation.md
   git:
     base_branch: codex/v3.1
     branch: feature/F024-host-info-collector
     start_commit: 2c3293fdfde3451eb98cf430ac8720d01a835241
-    head_commit: null
+    head_commit: 1753c72f511263ec4a95cb54ad122f19a443ebd7
     merge_commit: null
 decisions_required:
 - id: BQ1
@@ -1787,10 +1790,10 @@ execution:
     authorized_on: '2026-10-20'
     basis: 用户于 2026-10-20 回复「按照推荐启动实施」，确认 BQ1–BQ5 按推荐执行，批准计划 revision 12 并授权实施 F024（离线主机信息采集脚本）。
   current_feature: F024
-  current_stage: IMPLEMENTATION
-  last_result: F024 设计（PRODUCT/ARCHITECTURE/TEST_DESIGN）完成；采集脚本与单元测试已实现。
-  next_action: 执行测试并进入 REVIEW。
-  repair_rounds: 0
+  current_stage: REVIEW
+  last_result: F024 测试放行；Review 发现 RV-01/02/03/07 已修复并复测（30/59 tests OK）。
+  next_action: 正式 Review 通过后合并并置 DONE。
+  repair_rounds: 1
 planning_status:
   status: ACCEPTED
   plan_completeness: complete
@@ -1799,8 +1802,8 @@ planning_status:
     CANCELLED: 0
     DONE: 23
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
