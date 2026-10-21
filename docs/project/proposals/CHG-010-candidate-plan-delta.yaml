@@ -1,0 +1,533 @@
+# CHG-010 候选计划增量（PROPOSED，待用户裁定与批准）
+# 基线：docs/project/project-plan.yaml plan_revision 13 / requirements revision 10 / F001-F025 DONE
+# 本文件不是已批准计划，不覆盖执行基线；由协调器在获批后合并并运行
+#   python3 scripts/render_project_views.py --write
+#   python3 scripts/validate_project_state.py --previous <snapshot>
+# 所有 §23.2 条款与 T85-T99 均为 PROPOSED，尚未写入 docs/product/requirements-v3.md。
+
+candidate_project:
+  name: CSM — Cluster Source Manager
+  version: V3 phase 1
+  requirements:
+    path: docs/product/requirements-v3.md
+    revision: 11
+    revision_status: PROPOSED
+    note: 候选 revision 11 拟新增 §23.2「集群范围授权」与 T85-T99，并修订 §3 / §23 / §23.1 与 §35 的排除项口径；
+      获批前不改写需求正文与基线 revision。
+  plan_revision: 14
+  plan_revision_status: CANDIDATE
+  status: ACCEPTED
+  status_note: status=ACCEPTED 仅表达候选计划形态；须先取得用户对本 revision 的批准，再由协调器写入 project.approval。
+    F026-F028 在批准与执行授权前保持 DRAFT，不得调度。
+  approval: null
+  approval_note: 保留基线 revision 13 的既有批准记录，由协调器按 change-control §2/§4 处理；本文件不新建、不改写、不推断批准依据。
+  acceptance:
+    status: PENDING
+    status_note: 基线 revision 13 的一期整体验收仍为 COMPLETE 并保留原证据；新增范围使候选 revision 14 的整体验收回到
+      PENDING，待 F028 在真实 Compose 上执行 T85-T99 与 T01-T84 关键回归后重新置 COMPLETE。
+    evidence:
+    - docs/features/F016/test-report.md#test-execution
+    - docs/features/F016/test-report.md#t01t41-evidence-index
+    - docs/features/F016/test-report.md#32-c1c15-上线验收
+    - docs/features/F016/test-report.md#33-目标查询场景
+    - docs/features/F016/test-report.md#t36-备份覆盖-audit
+    evidence_retained_from_plan_revision: 13
+    new_evidence_required:
+    - docs/features/F028/test-report.md#test-execution
+    - docs/features/F028/test-report.md#t85t99-evidence-index
+    - docs/features/F028/test-report.md#t01t84-key-regression
+  change_summary:
+    change_id: CHG-010
+    title: 按用户控制可访问集群
+    request: 在既有基础角色（VIEWER / EDITOR / ADMIN）之上，按用户限定可访问的 Cluster 范围；非 ADMIN 只能看到并操作被授权
+      Cluster 内的对象。
+    baseline_conflict: 与 requirements §3「排除复杂 RBAC」、§23「不实现 Cluster 级复杂 RBAC」及 §23.1 排除项（Cluster
+      级或资源实例级复杂 RBAC）存在直接冲突，必须作为已批准范围的需求变更处理，不能静默实现。
+    control: 按 docs/project/change-control.md §4 走 proposal 分支，登记 pending_changes；未获批前不覆盖需求正文与执行基线，
+      不启动实现。
+    technical_assessment: Product / Architect / Database 已完成候选评估（技术视角，PROPOSED）：建议 3 个可独立验收的 Feature
+      （模型与授权管理、服务端强制执行、集成验收），不把数据库 / API / 页面拆成三个产品 Feature。评估不等于具体 Feature
+      设计完成，也不构成任何批准。
+    recommended_business_premises: 以下为待用户裁定的推荐前提（PROPOSED）：ADMIN 不受范围限制；非 ADMIN deny-by-default；
+      读与写同时受范围约束；API Key 继承绑定账号的范围；授权授予与撤销写入 Audit；非 ADMIN 永不可见已删除对象；
+      未授权集群完全不可见；迁移回填既有非 ADMIN × 既有 Cluster；仅 ADMIN 可管理授权。
+    excludes: 不引入新角色类型、不做资源实例级精细 RBAC、不做组织 / 租户 / 多级审批流、不改动既有 §23 权限矩阵中各角色可执行的
+      操作类别（只在其上叠加范围约束）。
+    affected_features_unchanged: F001-F025 保持 DONE 与其 Git / Test / Review 证据不变；已交付行为的修改由 F026-F028 承接。
+
+features:
+- id: F026
+  title: 集群范围授权基座与 ADMIN 授权管理
+  kind: FEATURE
+  priority: P0
+  milestone: M17 集群范围授权基座
+  scope: >-
+    在既有基础角色之上建立「用户 × Cluster」授权事实，并提供仅 ADMIN 可用的授权管理能力。范围含：新增用户-集群授权持久化结构
+    （含授权/撤销时间与操作者，撤销保留历史而非物理删除，具体表名 / 列 / 索引 / 约束由 Database 在 DATABASE Gate 签核）；
+    Alembic 迁移与既有数据回填（按裁定口径为既有非 ADMIN × 既有 Cluster 建立授权，是否含软删 Cluster、是否允许为 ADMIN
+    建授权行按决策结果执行）；授权查询 / 授予 / 撤销 API（Contract 由 Architect 签核，遵循 §25 与公共 API 约定，越权与错误语义按
+    裁定统一处理）；System 页面内的授权管理 UI（仅 ADMIN 可见可操作，按既有 Ant Design + Tailwind 基线，列出用户 / 角色
+    / 已授权集群 / 授权与撤销状态，支持新增与撤销并呈现结果）；授权授予与撤销写入 Audit（operator / action / object_type /
+    object_id / before_data / after_data，与业务写入同事务，不记录敏感内容）；定义统一的访问范围类型（如 AccessScope）与逐请求解析入口
+    （ADMIN 解析为不受限，非 ADMIN 解析为授权集群集合），供 F027 复用。明确不做：在 F026 内对既有个各业务域端点施加范围过滤
+    （由 F027 承接）；新增角色类型；资源实例级授权；组织 / 租户模型；授权审批流。
+  acceptance: >-
+    映射 §23.2 与 T85-T90（均 PROPOSED）。迁移可在真实 PostgreSQL 上正向执行与回滚，回填结果与裁定口径逐条一致且可核对计数；
+    授权授予 / 撤销仅 ADMIN 可用，非 ADMIN 调用被服务端拒绝；撤销即时生效并保留可追溯的撤销时间与操作者，不物理删除历史；授权授予与
+    撤销各产生一条 Audit 且与业务写入同事务、失败不留残留；AccessScope 对 ADMIN 为不受限、对非 ADMIN 为显式集群集合，同一请求内
+    解析结果稳定可复用；System 页面授权 UI 仅 ADMIN 可达且不泄露给其它角色；针对 ADMIN 立授权行的处理符合裁定；新增集群的默认授权
+    行为符合裁定。本 Feature 不改动任何既有端点的可见数据范围，既有 T01-T84 行为无回归。
+  requirements:
+  - docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  - docs/product/requirements-v3.md#23-用户与权限
+  - docs/product/requirements-v3.md#231-api-key-机器凭据
+  - docs/product/requirements-v3.md#22-audit-log
+  - docs/product/requirements-v3.md#21-逻辑删除
+  - docs/product/requirements-v3.md#25-api
+  - docs/product/requirements-v3.md#27-数据完整性
+  - docs/product/requirements-v3.md#28-前端
+  - docs/product/requirements-v3.md#31-测试
+  depends_on:
+  - F002
+  - F003
+  - F015
+  - F017
+  blocking_decisions:
+  - CHG010-BQ01
+  - CHG010-BQ02
+  - CHG010-BQ05
+  - CHG010-BQ08
+  - CHG010-BQ09
+  - CHG010-BQ11
+  - CHG010-BQ12
+  - CHG010-BQ14
+  - CHG010-BQ15
+  - CHG010-BQ17
+  - CHG010-BQ18
+  - CHG010-BQ19
+  status: DRAFT
+  current_stage: null
+  next_action: 待用户就 CHG010-BQ01/BQ02/BQ05/BQ08/BQ09 与其派生的 CHG010-BQ11-BQ17 裁定、并批准候选计划 revision
+    14 后置为 READY；Architect / Database 需在 ARCHITECTURE / DATABASE Gate 关闭 CHG010-BQ18/BQ19。
+  layers:
+    database: true
+    backend: true
+    frontend: true
+  api_required: true
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
+  evidence: {}
+
+- id: F027
+  title: 服务端访问范围强制执行
+  kind: FEATURE
+  priority: P0
+  milestone: M18 服务端范围强制执行
+  scope: >-
+    将 F026 的 AccessScope 施加到全部服务端读写路径，使非 ADMIN 只能观察与操作其被授权 Cluster 内对象，且未授权 Cluster 及其对象
+    完全不可见。范围含：11 个业务域的列表与详情（Cluster、Resource、Interface、Network、IPPool、IPAddress、Service、
+    ServiceEndpoint 及 Cluster Detail / Resource Detail 聚合视图）默认按范围收敛；创建 / 修改 / 删除 / 恢复 / 解绑 /
+    释放等写路径按范围校验并拒绝越权，且失败不产生业务变更或 Audit 残留；Activity / Audit 的可见性按既有 §22 规则叠加范围口径
+    （完整审计查询仍限 ADMIN）；跨对象父级派生（IP → Interface → Resource → Cluster；Endpoint → Service → Resource →
+    Cluster；明细跟随 Resource）与未绑定 IP 的 Cluster 归属推导；全局搜索 4 类候选匹配、关联行展开（含 F018 字段组合）与
+    total 均按范围收敛，分页与 total 不泄露未授权对象；Dashboard 各计数与 Network / AUTO 池容量口径按范围重算（零授权行为按裁定）；
+    F014 / F023 导入的预校验与写入行级归因（未授权 Cluster 行报错含行号 / 字段 / 原因，整批原子性不变）与 F025 采集脚本 --push
+    走同一范围口径；错误语义按裁定统一（404 与 403 的选择与不泄露存在性要求）。明确不做：新增角色或权限项；资源实例级授权；
+    修改既有 §23 权限矩阵中角色可执行的操作类别；修改 F014 / F023 冻结模板与列集；前端新增授权管理界面（F026 已交付）。
+  acceptance: >-
+    映射 §23.2 与 T91-T97（均 PROPOSED）。非 ADMIN 在全部 11 域列表 / 详情 / 聚合视图中仅能看到已授权 Cluster 内对象，未授权
+    Cluster 的对象完全不出现且不通过 total / 计数 / 搜索推断存在性；写路径（创建 / 修改 / 删除 / 恢复 / 解绑 / 释放 /
+    导入 / 批量绑定 / 脚本推送）对未授权对象一律拒绝，拒绝后对象状态、关联与 Audit 均无变化；跨对象父级派生与未绑定 IP 归属结果与
+    裁定口径一致；全局搜索 4 类候选、关联行与 total 按范围收敛且既有匹配 / 排序 / 去重 / 分页语义不变；Dashboard 计数与
+    Network / AUTO 池容量按范围重算，零授权时行为符合裁定且不报错；API Key 继承绑定账号范围；导入预校验与写入的越权行均可定位
+    到行号且整批回滚无残留；ADMIN 不受范围限制且既有 T01-T84 行为无回归。本 Feature 的读写限制必须在同一次合并内整体生效，不得
+    以「部分端点已受限、其余仍全局可见」的中间态合并。
+  requirements:
+  - docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  - docs/product/requirements-v3.md#23-用户与权限
+  - docs/product/requirements-v3.md#231-api-key-机器凭据
+  - docs/product/requirements-v3.md#21-逻辑删除
+  - docs/product/requirements-v3.md#22-audit-log
+  - docs/product/requirements-v3.md#19-cluster-detail
+  - docs/product/requirements-v3.md#18-resource-detail
+  - docs/product/requirements-v3.md#20-dashboard
+  - docs/product/requirements-v3.md#17-全局搜索
+  - docs/product/requirements-v3.md#171-搜索结果字段组合
+  - docs/product/requirements-v3.md#24-批量导入
+  - docs/product/requirements-v3.md#241-资源--网卡--ip-批量导入revision-8
+  - docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
+  - docs/product/requirements-v3.md#25-api
+  - docs/product/requirements-v3.md#31-测试
+  depends_on:
+  - F026
+  blocking_decisions:
+  - CHG010-BQ01
+  - CHG010-BQ03
+  - CHG010-BQ04
+  - CHG010-BQ06
+  - CHG010-BQ07
+  - CHG010-BQ10
+  - CHG010-BQ13
+  - CHG010-BQ16
+  - CHG010-BQ17
+  - CHG010-BQ18
+  - CHG010-BQ19
+  status: DRAFT
+  current_stage: null
+  next_action: 待 CHG010-BQ03/BQ04/BQ06/BQ07/BQ10 与派生决策裁定、F026 DONE 且候选计划获批后置为 READY；须在 ARCHITECTURE
+    Gate 明确「一次合并生效、无部分端点受限中间态」的验证方式。
+  layers:
+    database: false
+    backend: true
+    frontend: false
+  api_required: true
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
+  evidence: {}
+
+- id: F028
+  title: 范围变更集成验收与回归
+  kind: FEATURE
+  priority: P0
+  milestone: M19 范围变更集成验收
+  scope: >-
+    在真实 Docker Compose 环境（Nginx → Frontend / FastAPI → PostgreSQL）对 CHG-010 新增范围做集成验收，并回归既有能力。
+    范围含：准备多角色 / 多集群 / 多授权组合的验收数据（ADMIN、无授权非 ADMIN、单集群授权、多集群授权、撤销后账号、API Key
+    绑定账号），在真实环境执行拟新增 T85-T99；执行既有 T01-T84 的关键回归子集（至少覆盖唯一性、跨 Cluster 关系、软删与恢复、
+    Audit 与 Activity、权限矩阵、编辑版本冲突、导入两步流程与整批回滚、全局搜索字段组合、Dashboard 容量口径、二次确认与 API
+    Key 认证）；核对前端在受限范围下的列表 / 详情 / 搜索 / Dashboard / System 授权页表现（空态、无越权入口、错误提示）；核实
+    迁移与回填在真实数据量下的结果与可回滚性；更新候选 revision 的整体验收证据并把 project.acceptance 由 PENDING 置
+    COMPLETE（由协调器核验后写入）。明确不做：新增业务规则或绕过已签核设计；改写 F001-F025 的已交付范围与证据；以本 Feature
+    名义提交未在 F026 / F027 设计内的行为变更；把未实际执行的项目写成 PASS。
+  acceptance: >-
+    映射 §31 / §32 与 T85-T99（均 PROPOSED）。docker compose up -d 可在真实环境完成启动并跑通新增范围验收；T85-T99 全部
+    有真实执行证据且无未解释失败；T01-T84 关键回归无回归失败；受限范围内不出现越权可见或越权写入；撤销授权、账号降级与 API Key
+    失效后行为即时收敛且无残留缓存；迁移回填结果与裁定口径一致并可回滚；验收证据写入 project.acceptance（含本 Feature 的
+    test-report 锚点），由协调器核验后置 COMPLETE。环境限制（如镜像源不可达导致等价替代栈）必须如实记录，不得写成 PASS。
+  requirements:
+  - docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  - docs/product/requirements-v3.md#31-测试
+  - docs/product/requirements-v3.md#32-上线验收
+  - docs/product/requirements-v3.md#33-目标查询场景
+  - docs/product/requirements-v3.md#30-部署
+  - docs/product/requirements-v3.md#22-audit-log
+  depends_on:
+  - F026
+  - F027
+  blocking_decisions:
+  - CHG010-BQ03
+  - CHG010-BQ04
+  - CHG010-BQ06
+  - CHG010-BQ07
+  - CHG010-BQ10
+  - CHG010-BQ12
+  - CHG010-BQ14
+  - CHG010-BQ17
+  status: DRAFT
+  current_stage: null
+  next_action: 待 F026 / F027 DONE、影响验收口径的决策全部裁定且候选计划获批后置为 READY；执行 T85-T99 与 T01-T84
+    关键回归，并把证据交协调器核验。
+  layers:
+    database: false
+    backend: false
+    frontend: false
+  api_required: false
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
+  evidence: {}
+
+decisions_required:
+- id: CHG010-BQ01
+  source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F026
+  - F027
+  owner: 用户
+  basis: ADMIN 是否完全不受集群范围限制（推荐：不受限，且不为其建立授权行）。合并原 U7：若采纳「ADMIN 不受限」，是否仍允许为
+    ADMIN 建冗余授权行（推荐：拒绝或忽略并保持单一事实来源）。
+- id: CHG010-BQ02
+  source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F026
+  - F027
+  owner: 用户
+  basis: 非 ADMIN 无任何授权时的默认语义（推荐：deny-by-default，可见集合为空；不隐含「全部可见」）。需与 CHG010-BQ15
+    （零授权 Dashboard 行为）一致。
+- id: CHG010-BQ03
+  source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F027
+  - F028
+  owner: 用户
+  basis: 范围是同时限制读与写（推荐），还是只限制写或只限制读；若不同步则须明确越权读的可见范围与泄露风险。
+- id: CHG010-BQ04
+  source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F027
+  - F028
+  - F017
+  owner: 用户
+  basis: API Key 是否继承绑定账号的集群范围（推荐：继承，且不提供 Key 级 scope-down，与 §23.1 既有约定一致）。
+- id: CHG010-BQ05
+  source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F026
+  owner: 用户
+  basis: 授权授予与撤销是否写入 Audit（推荐：写入，含目标用户 / 集群 / 动作 / 操作者），是否也要求记录在用户 Activity 中。
+- id: CHG010-BQ06
+  source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F027
+  - F028
+  owner: 用户
+  basis: 非 ADMIN 是否永不可见已删除对象（推荐：永不，即使被授权该 Cluster；ADMIN 仍按 §21 查看与恢复）。
+- id: CHG010-BQ07
+  source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F027
+  - F028
+  owner: 用户
+  basis: 未授权集群是否完全不可见（推荐：是；不得通过列表 total、Dashboard 计数、搜索结果或错误信息推断其存在）。
+- id: CHG010-BQ08
+  source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F026
+  owner: 用户
+  basis: 迁移回填是否为「既有非 ADMIN × 既有 Cluster」全量建立授权（推荐：是，避免上线即造成非 ADMIN 数据雪崩式不可见）；
+    回填是否含软删 Cluster 见 CHG010-BQ14。
+- id: CHG010-BQ09
+  source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F026
+  owner: 用户
+  basis: 是否仅 ADMIN 可管理授权（推荐：是，复用 §23「用户、角色、系统设置」权限，不新增权限项）。
+- id: CHG010-BQ10
+  source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F027
+  owner: 用户
+  basis: 新建 Cluster 的默认授权（原 U1）。推荐：创建时不自动授权给任何非 ADMIN，仅创建者（ADMIN）可见，由 ADMIN 显式授予；
+    备选为自动授予创建者或全部非 ADMIN。
+- id: CHG010-BQ11
+  source: docs/project/proposals/CHG-010-cluster-access.md#u2-admin-降级
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F026
+  owner: 用户
+  basis: ADMIN 降级为非 ADMIN 时的范围（原 U2）。推荐：立即按该账号既有授权行解析（可能为零授权），不做隐式补偿；是否需要在降级前
+    强制校验授权数需明确。
+- id: CHG010-BQ12
+  source: docs/project/proposals/CHG-010-cluster-access.md#u3-撤销历史
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F026
+  - F028
+  owner: 用户
+  basis: 撤销是否保留 revoked_at / 撤销操作者历史（原 U3）。推荐：保留，撤销为状态变更而非物理删除，重新授予产生新记录或重置撤销标记需
+    明确。
+- id: CHG010-BQ13
+  source: docs/project/proposals/CHG-010-cluster-access.md#u4-错误语义
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F027
+  owner: 用户
+  basis: 越权访问返回 404 还是 403（原 U4）。推荐：对非 ADMIN 的未授权对象统一 404（不泄露存在性），与 §23 的 401 / 403
+    语义及既有错误码契约的兼容方式需确认。
+- id: CHG010-BQ14
+  source: docs/project/proposals/CHG-010-cluster-access.md#u5-零授权-dashboard
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F026
+  - F027
+  - F028
+  owner: 用户
+  basis: 零授权非 ADMIN 的 Dashboard / 搜索 / 列表行为（原 U5）。推荐：返回显式空态（计数 0、空结果、页面提示无授权集群），不报错
+    也不回退为全局。
+- id: CHG010-BQ15
+  source: docs/project/proposals/CHG-010-cluster-access.md#u6-软删-cluster-回填
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F026
+  owner: 用户
+  basis: 回填是否包含软删 Cluster（原 U6）。推荐：包含，使恢复后行为与回填前一致；若排除，需明确恢复后是否自动补授权。
+- id: CHG010-BQ16
+  source: docs/project/proposals/CHG-010-cluster-access.md#u8-导入与推送同口径
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F027
+  owner: 用户
+  basis: 导入 / 批量绑定 / 采集脚本 --push 是否与普通 API 同口径（原 U8）。推荐：完全同口径，预校验与写入均按行做范围校验并给出行号
+    级拒绝原因，不提供「导入绕过范围」的特例。
+- id: CHG010-BQ17
+  source: docs/project/proposals/CHG-010-cluster-access.md#u7-admin-授权行
+  status: OPEN
+  kind: BUSINESS_DECISION
+  affects:
+  - F026
+  - F027
+  owner: 用户
+  basis: 是否允许为 ADMIN 建立授权行（原 U7，与 CHG010-BQ01 弱相关但不重复：本项决定数据层是否接受此类行，BQ01 决定 ADMIN
+    是否受范围限制）。推荐：不接受，授权行的存在意义仅对非 ADMIN 生效。
+- id: CHG010-BQ18
+  source: docs/project/proposals/CHG-010-cluster-access.md#专业设计输入
+  status: OPEN
+  kind: DESIGN_INPUT
+  affects:
+  - F026
+  - F027
+  owner: Architect / Database
+  basis: 专业可定（当前未签核）：授权表名与列、主键 / 唯一约束（user_id + cluster_id）、外键与软删联动、索引设计、迁移与回填实现方式、
+    AccessScope 的类型与逐请求解析位置、范围过滤的查询实现（JOIN / EXISTS / 子查询）、是否引入物化或缓存。推荐在 F026
+    DATABASE Gate 与 F027 CONTRACT 一并签核，不提交用户裁定。
+- id: CHG010-BQ19
+  source: docs/project/proposals/CHG-010-cluster-access.md#专业设计输入
+  status: OPEN
+  kind: DESIGN_INPUT
+  affects:
+  - F026
+  - F027
+  owner: Architect / Backend
+  basis: 专业可定（当前未签核）：授权列表的分页与排序口径、System 授权 UI 的展示与批量操作范围、受限列表的默认排序与分页语义是否保持不变、
+    total 的计算方式。推荐保持既有列表契约收敛口径，不改变既有排序 / 分页语义。
+
+pending_changes:
+- id: CHG-010
+  proposal: docs/project/proposals/CHG-010-cluster-access.md
+  affects: ALL
+  status: PENDING_APPROVAL
+  note: 由协调器登记；批准前暂停 F026-F028 调度与相关写入，F001-F025 不受影响且保持 DONE。
+
+dependency_and_milestone_notes:
+  new_milestones:
+  - id: M17
+    title: 集群范围授权基座
+    features:
+    - F026
+    rationale: 先建立授权事实、迁移回填、ADMIN 管理入口与统一 AccessScope，作为后续强制执行的唯一依据；本身可独立验收且不改变既有端点可见范围。
+  - id: M18
+    title: 服务端范围强制执行
+    features:
+    - F027
+    rationale: 在既有 11 域读写路径上一次施加范围约束并封闭信息泄露面；必须整体合并，不能形成部分端点受限的安全中间态。
+  - id: M19
+    title: 范围变更集成验收
+    features:
+    - F028
+    rationale: 新增范围属于跨域横切能力，其正确性只能在真实 Compose 上以多角色 / 多授权组合整体验证，并由其承接候选 revision 14 的整体验收。
+  critical_path:
+  - F026 → F027 → F028
+  dependency_edges:
+  - F026 depends_on F002, F003, F015, F017
+  - F027 depends_on F026
+  - F028 depends_on F026, F027
+  acyclic_check: F026 / F027 / F028 仅形成单链依赖，无环；F001-F025 的既有依赖边不变。
+  why_f027_cannot_be_split:
+  - 范围过滤是横切安全约束，只要存在任一未受限的列表 / 详情 / 聚合 / 搜索 / Dashboard / 导入读路径，非 ADMIN 即可通过该路径枚举未授权集群的数据，形成真实泄露。
+  - 仅靠端点数量拆分会产生「已限制」与「未限制」共存的合并中间态，该中间态在上线意义上不安全，也无法用「部分完成」表达验收。
+  - 跨对象父级派生（IP / Endpoint / 明细 / 未绑定 IP）与搜索 total、Dashboard 计数属于同一信息面，拆开会让计数与明细口径互相矛盾，回归无法判定。
+  - 因此按「一次合并、整体验收」定义 F027，其内部可按域分批实现，但合并与验收以整体为准。
+  verification_carry_over:
+  - F028 承接候选 revision 14 的整体验收（project.acceptance 由 PENDING 回到 COMPLETE），保留 F016 既有验收证据并新增 T85-T99 与本 Feature 回归证据。
+  - T85-T99 为 PROPOSED 新用例，编号连续接在既有 T01-T84 之后；获批前不写入 requirements §31。
+  reuse_and_no_invalidation:
+  - F001-F025 保持 DONE、Git / Test / Review 证据不变；本变更不重写其范围、验收与交付证据。
+  - F026 复用 F002 的权限矩阵与操作者上下文、F003 的 Cluster 与软删横切、F015 的 Audit 查询与 ADMIN 系统页、F017 的 API Key 认证解析。
+  - F027 复用 F013 / F018 的搜索与字段组合、F014 / F023 的导入两步流程与整行归因、F019 / F022 的接口侧与详情只读查询、F025 的 --push 通路。
+  - F028 复用 F016 的验收脚本骨架与备份 / Audit 覆盖口径。
+  - 既有 DONE Feature 的测试用例在范围变更生效后语义可能变化（例如原本全局可见的列表变为范围内可见），其既有证据不被改写；若出现真实回归，由 F028 记录并作为修复输入，而不是回退 DONE。
+
+risks:
+- id: R-CLUSTER-01
+  risk: 与需求 §3 / §23 / §23.1 已批准的排除项直接冲突；若未走变更控制即实现，会形成与权威需求矛盾的代码与批准记录。
+  mitigation: 按 change-control §4 以 proposal 分支与 pending_changes 处理，未获批前不实现、不改写需求正文与基线。
+- id: R-CLUSTER-02
+  risk: 一旦任一读路径遗漏范围过滤，非 ADMIN 可枚举未授权集群数据，安全收益被整体抵消。
+  mitigation: F027 一次合并、整体验收；以「端点清单 + 域清单」双向核对，并由 F028 在多授权组合下验证 total / 计数 / 搜索 / 导入。
+- id: R-CLUSTER-03
+  risk: 回填口径不当导致上线后非 ADMIN 立即看不到既有数据，或回填遗漏既有 Cluster 造成不可解释的空视图。
+  mitigation: 回填口径与计数核对写入 F026 验收；F028 在真实数据量下核对回填结果与可回滚性。
+- id: R-CLUSTER-04
+  risk: 计数、搜索 total 或错误信息泄露未授权对象的存在性，与 404 / 403 选择不一致。
+  mitigation: 把「不泄露存在性」写成 F027 的可观察验收项，并让 F028 专门验证零授权与单授权场景。
+- id: R-CLUSTER-05
+  risk: 撤销 / 降级后因缓存或会话状态导致范围未即时收敛，形成越权残留。
+  mitigation: 明确逐请求解析 AccessScope、不缓存跨请求授权结果；F028 验证撤销与降级后的即时行为。
+- id: R-CLUSTER-06
+  risk: 前端在受限范围下出现无授权入口或空态被误判为错误，造成体验与支持成本。
+  mitigation: F027 明确前端沿用既有空态 / 错误态口径，F028 核对受限场景页面表现。
+- id: R-CLUSTER-07
+  risk: 范围变更使既有 T01-T84 用例的预期在语义上不再等价，若直接复用旧预期会得到假通过或假失败。
+  mitigation: F028 明确关键回归子集与预期调整依据，只记录真实执行结果，不复制历史结论。
+- id: R-CLUSTER-08
+  risk: 决策长期未裁定导致 F026 / F027 卡在 DRAFT，进而阻塞整体验收。
+  mitigation: 决策集中在 17 项业务裁定与 2 项专业设计输入，按阻塞粒度标注 affects；优先裁定 BQ01 / BQ02 / BQ03 / BQ07 / BQ08。
+
+open_questions:
+- id: OQ-CLUSTER-01
+  question: 授权粒度是否只到 Cluster，还是需要后续扩展到 Cluster + 资源类型或单个 Resource？
+  current: 候选仅 Cluster 级；资源实例级明确排除。
+- id: OQ-CLUSTER-02
+  question: 是否需要「授权变更历史」的独立视图，还是仅依赖 Audit 查询即可？
+  current: 候选仅依赖 Audit（CHG010-BQ05）。
+- id: OQ-CLUSTER-03
+  question: 是否需要在 System 页面提供按用户 / 按集群两个方向的授权查看？
+  current: 列为 CHG010-BQ19 的专业设计输入，未决定。
+- id: OQ-CLUSTER-04
+  question: 新增集群是否通知 ADMIN 或提供「未授权用户清单」提示？
+  current: 候选不做通知能力，避免引入新子系统。
+- id: OQ-CLUSTER-05
+  question: 若未来引入组织 / 租户模型，当前授权表是否可作为扩展基座？
+  current: 候选仅保持数据可扩展，不预建组织结构。
+- id: OQ-CLUSTER-06
+  question: 是否需要限制「ADMIN 降级」操作的可用性（如要求先转移授权）？
+  current: 推荐不限制并即时按授权行解析（CHG010-BQ11），待用户确认。

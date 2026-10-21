@@ -1,6 +1,6 @@
 # CSM V3 一期需求
 
-版本：V3 phase 1 / revision 10。来源：用户于 2026-10-06 提供的《CSM V3 一期需求说明》，对 Q01–Q10 建议的确认；2026-10-06 对剩余六项建议的明确确认：“按照推荐建议修改这6项”；2026-10-14 确认新增 §23.1 API Key 机器凭据；2026-10-15 确认新增 §17.1 搜索结果字段组合；2026-10-15 确认新增 §13.4 接口侧选择绑定；2026-10-15 确认新增 §28 二次确认模态对话框；2026-10-15 确认新增 §24.1 资源+网卡+IP 批量导入；2026-10-20 确认新增 §24.2 离线主机信息采集脚本；2026-10-20 确认新增 §24.3 采集脚本增强。确认范围与修订记录见 §35.1。
+版本：V3 phase 1 / revision 11。来源：用户于 2026-10-06 提供的《CSM V3 一期需求说明》，对 Q01–Q10 建议的确认；2026-10-06 对剩余六项建议的明确确认：“按照推荐建议修改这6项”；2026-10-14 确认新增 §23.1 API Key 机器凭据；2026-10-15 确认新增 §17.1 搜索结果字段组合；2026-10-15 确认新增 §13.4 接口侧选择绑定；2026-10-15 确认新增 §28 二次确认模态对话框；2026-10-15 确认新增 §24.1 资源+网卡+IP 批量导入；2026-10-20 确认新增 §24.2 离线主机信息采集脚本；2026-10-20 确认新增 §24.3 采集脚本增强；2026-10-21 确认新增 §23.2 集群范围授权并收窄 §3 / §23 / §23.1 的排除项表述。确认范围与修订记录见 §35.1。
 
 本文件是一期范围、产品规则和验收要求的权威来源。原说明正文中的“CSM V1”统一解释为标题指定的“CSM V3 一期”；已确认的 REST 前缀 `/api/v1/` 是独立 API 版本，不随产品版本改成 v3。
 
@@ -18,9 +18,9 @@ CONFIRMED：统一多集群资源；裸金属与 VM 共用 Resource 模型；建
 
 ## 3. 一期范围
 
-CONFIRMED 包含：Cluster、Resource、Bare Metal、Virtual Machine、Interface、Network、IP Pool、IP Address、Service、Service Endpoint、Global Search、Audit Log、基础用户权限、CSV / Excel 批量导入。
+CONFIRMED 包含：Cluster、Resource、Bare Metal、Virtual Machine、Interface、Network、IP Pool、IP Address、Service、Service Endpoint、Global Search、Audit Log、基础用户权限（系统级角色 + 集群范围授权）、CSV / Excel 批量导入。
 
-CONFIRMED 排除：clusterctl、Ansible / ansible-runner、PXE / 操作系统安装、Slurm 自动部署 / 节点加入 / 状态同步、自动硬件发现、Resource Facts 自动采集、Desired State / Actual State、Provisioning、Job / Task 执行系统、n8n Workflow、审批流程、Prometheus / Grafana 监控、自动故障处理、复杂 RBAC、CMDB 采购、固定资产 / 折旧、机房 / 机柜 / U 位、电源和布线管理。这里的“审批流程”指产品功能，不取消工程计划批准和 Review。
+CONFIRMED 排除：clusterctl、Ansible / ansible-runner、PXE / 操作系统安装、Slurm 自动部署 / 节点加入 / 状态同步、自动硬件发现、Resource Facts 自动采集、Desired State / Actual State、Provisioning、Job / Task 执行系统、n8n Workflow、审批流程、Prometheus / Grafana 监控、自动故障处理、复杂 RBAC（自定义角色、资源实例级 ACL、层级权限继承、策略引擎、组织 / 租户）、CMDB 采购、固定资产 / 折旧、机房 / 机柜 / U 位、电源和布线管理。这里的“审批流程”指产品功能，不取消工程计划批准和 Review。
 
 ## 4. 核心模型
 
@@ -303,7 +303,7 @@ CONFIRMED：一期 Audit 持续保留，不设置到期自动清理；不提供�
 
 ## 23. 用户与权限
 
-CONFIRMED：一期仅基础角色，不实现 Cluster 级复杂 RBAC。
+CONFIRMED：一期使用基础角色 + 集群范围授权；不实现资源实例级及按操作类型的自定义 RBAC。有效权限 = 下表角色矩阵允许的操作 ∩ 对象所属 Cluster 在账号授权集合内（§23.2）。
 
 | 操作 | VIEWER | EDITOR | ADMIN |
 | --- | --- | --- | --- |
@@ -326,7 +326,7 @@ CONFIRMED：新增 **API Key** 作为非 Cookie 的机器凭据，供外部自�
 
 CONFIRMED：API Key 必须绑定一个已存在且状态为 ACTIVE 的用户账号；**不新增人类账号以外的账号或角色类型**，API Key 不构成独立主体。
 
-CONFIRMED：API Key 的有效权限等于绑定账号的角色权限，**完全遵循 §23 权限矩阵，不产生新的权限语义**；本期**不支持创建时限定更小范围（scope-down）**。API Key 仍受对象状态、不可变字段与关系约束限制。
+CONFIRMED：API Key 的有效权限等于绑定账号的角色权限，**完全遵循 §23 权限矩阵与 §23.2 集群范围，不产生新的权限语义**；本期**不支持创建时限定更小范围（scope-down）**。API Key 的集群范围逐请求继承绑定账号，不缓存，授权变更与角色变更即时生效。API Key 仍受对象状态、不可变字段与关系约束限制。
 
 CONFIRMED：使用 API Key 的写操作，Audit Log 的 operator 记录**绑定账号的 username**，并附该 API Key 的**标签**；账号停用后其全部 API Key 立即失效。
 
@@ -338,9 +338,37 @@ CONFIRMED 对象与生命周期：
 * 过期：创建时**必须设置有效期**，默认 90 天，上限 365 天，**不支持永不过期**；过期凭据按失效处理。
 * 吊销：吊销后**立即失效**，不可重新启用。
 
-CONFIRMED 明确排除：服务账号、机器账号、匿名账号或人类账号以外的新角色类型；OAuth / OIDC / SSO / 外部身份联合；Cluster 级或资源实例级复杂 RBAC；API Key 的浏览器交互登录；对 Cookie 认证既有行为的任何改变。
+CONFIRMED 明确排除：服务账号、机器账号、匿名账号或人类账号以外的新角色类型；OAuth / OIDC / SSO / 外部身份联合；资源实例级复杂 RBAC；API Key 的浏览器交互登录；对 Cookie 认证既有行为的任何改变。
 
 CONFIRMED：API Key 明文、哈希及任何等效凭据**不得**出现在日志、审计记录、错误响应或列表/详情接口中，仅创建响应一次返回。
+
+### 23.2 集群范围授权
+
+本节为 V3 一期交付后新增范围（revision 11），对既有 §3 / §23 / §23.1 的排除项作收窄解释；既有角色矩阵与操作权限不变。
+
+CONFIRMED：在基础角色之上增加**账号 → 可访问 Cluster 集合**的授权。授权粒度为 Cluster，不按资源类型、单个对象或操作类型分别授权；不新增角色类型、组织 / 租户、层级权限继承或策略引擎。
+
+CONFIRMED：**有效权限 = 角色矩阵允许的操作 ∩ 对象所属 Cluster 在授权集合内**。范围只收紧权限，不放宽任何既有完整性、唯一性、软删、状态或关系约束。
+
+CONFIRMED：**ADMIN 不受集群范围限制**，不为 ADMIN 建立授权行；集群范围只约束 VIEWER / EDITOR。授权管理仅 ADMIN 可用，复用 §23「用户、角色、系统设置」权限，不新增权限项。
+
+CONFIRMED：非 ADMIN 未获得任何授权时**默认拒绝**：列表与搜索返回空集合、Dashboard 计数为 0、详情与写操作被拒绝；不得回退为“全部可见”。未授权集群完全不可见，列表 `total`、Dashboard 计数、搜索结果与错误信息均不得泄露其存在或规模。
+
+CONFIRMED：集群范围**同时约束读与写**：查询、搜索、详情、Dashboard、资源 Activity、导入预校验与写入、新增、修改、删除、释放、恢复、IP 分配 / 绑定 / 解绑均适用。API Key 继承绑定账号的范围并逐请求解析，撤销授权后即时生效。
+
+CONFIRMED：非 ADMIN **永不可见已删除对象**（继续按 §21 的 `VIEW_DELETED` 仅 ADMIN 规则）；ADMIN 不受范围限制，仍可查看与恢复。
+
+CONFIRMED：授予与撤销授权均写入 Audit（目标账号、目标 Cluster、动作、操作者、时间），与业务写入同事务，不记录敏感凭据。撤销保留历史（撤销时间与撤销操作者），不物理删除授权记录；重新授予产生新的有效记录，不复用已撤销记录。
+
+CONFIRMED：Cluster INACTIVE 不改变授权，也不自动放开；Cluster 软删期间授权不生效，恢复后原授权自动恢复。新建 Cluster 不自动授予任何非 ADMIN，由 ADMIN 显式授予；ADMIN 降级为非 ADMIN 时立即按该账号既有授权解析（可能为空集），不做隐式补偿。
+
+CONFIRMED：迁移时为**既有非 ADMIN 账号 × 既有 Cluster（含已软删 Cluster）**建立授权，保证升级不造成非 ADMIN 全量失权；回填必须幂等。
+
+CONFIRMED：非 ADMIN 访问未授权对象按 `404 NOT_FOUND` 处理，不泄露存在性；提交体显式引用未授权或不可选 Cluster 复用既有 `422 VALIDATION_ERROR`。既有 `401 → 403（角色）→ 422 → 404 → 409` 错误顺序不变。
+
+CONFIRMED：导入、批量绑定与采集脚本 `--push` 与普通 API 同口径：预校验与写入均按行执行范围校验，返回行号、字段与原因；范围外行导致整批失败，不提供绕过范围的特例，整批原子回滚不变。
+
+CONFIRMED 明确排除：自定义角色、资源实例级 ACL、层级权限继承、策略引擎、组织 / 租户、审批流、API Key 级 scope-down。
 
 ## 24. 批量导入
 
@@ -518,6 +546,21 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 | T82 | `--push` 使用有效 API Key：先调用预校验并展示结果，未确认前不写入；显式确认后调用写入端点；写入沿用整批原子回滚、无部分成功 |
 | T83 | API Key 缺失/格式非法/无效/过期返回 401 且脚本以非零状态退出；Key 不出现在 stdout、日志或错误信息；不持久化到磁盘 |
 | T84 | 默认（未启用 `--push`）仍完全离线、不发起任何网络请求；F024 既有文件输出、表头与 T73–T78 行为无回归 |
+| T85 | 仅授权 A、B 的账号按 ID 读取 C 集群任一业务对象被拒绝（404，不泄露存在性或业务字段） |
+| T86 | 同一账号对 C 集群对象的新增、修改、删除、释放、恢复均被拒绝；A、B 集群按角色矩阵正常 |
+| T87 | 各域列表与 `total` 仅覆盖可见集群；分页不出现“空页但 total>0” |
+| T88 | 全局搜索（含 §17.1 关联行）与 Dashboard 计数仅覆盖可见集群；未授权对象不出现、不泄露规模 |
+| T89 | 导入（§24 / §24.1 / §24.3 推送）含未授权集群行时整批失败，返回行号 + 权限原因，无部分成功与残留 |
+| T90 | 仅 ADMIN 可查看 / 授予 / 撤销授权；非 ADMIN 被拒绝；不新增权限项 |
+| T91 | 撤销授权后即时生效，无需重新登录；API Key 同样即时收敛 |
+| T92 | 授予与撤销各写 Audit，可被 ADMIN 查询，含目标账号 / Cluster / 操作者，无敏感内容 |
+| T93 | 无任何授权的非 ADMIN：列表空集合、详情 / 写操作拒绝，不回退为全局可见 |
+| T94 | API Key 继承绑定账号范围；401 先于 403、失效 Key 不泄露存在性等既有行为不回归 |
+| T95 | Cluster INACTIVE 不改变授权；切换状态不改变可见集合；软删期间不生效、恢复后原授权恢复 |
+| T96 | 对不存在 / 已软删 Cluster 授权被拒绝，不产生悬空授权 |
+| T97 | 既有角色矩阵不回归（T25 / T43 等）；范围不放宽任何完整性约束（T01–T41 关键抽样） |
+| T98 | 非 ADMIN 在任何范围下不可见已删对象，`include` / `only` 仍 403；ADMIN 行为符合裁定 |
+| T99 | 迁移回填与裁定一致、幂等；升级后不出现全量失权或越权；真实 PostgreSQL `up/down/up` 通过 |
 
 还须覆盖查询关系、列表交互、本地登录和初始 ADMIN、时间契约及真实 Compose 部署。D01–D03 专业设计完成后细化对应测试步骤与数据，不把尚未执行的预期写成 PASS。本节定义必须执行的用例，不是已经执行的测试报告。
 
@@ -525,7 +568,7 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 
 CONFIRMED：能创建 Cluster、BareMetal、VM 并关联 Host，维护 Interface / Network / Pool / Service，手动和自动分配 IP；按 hostname / IP / Cluster / Service 找到 Resource；详情显示 Cluster / 硬件 / Interface / IP / Network / VM 或 Host / Service。
 
-能阻止重复 hostname / IP、跨 Cluster Host / IP 绑定及非法 CIDR 地址；提供逻辑删除及 ADMIN 恢复、Audit Log、基础权限、本地登录、编辑版本冲突检查和 CSV / .xlsx 整批新增导入。API Key 机器凭据支持无浏览器认证、按绑定账号角色鉴权、吊销即时生效，且 Cookie 认证不回归。全局搜索支持自定义组合展示字段（含关联网卡 / IP / 网络）。Network / Pool、Endpoint 及恢复行为满足本 revision 的约束，包括地址边界与容量、保留范围/网关并发冲突、Cluster 停用维护、字段单位与名称规则；审计持续保留且纳入备份。一期范围内的全部必需能力不能因优先级低而从上线验收中删除。§31 与以上验收都需真实证据；上线条件不等于自动发布授权。
+能阻止重复 hostname / IP、跨 Cluster Host / IP 绑定及非法 CIDR 地址；提供逻辑删除及 ADMIN 恢复、Audit Log、基础权限、本地登录、编辑版本冲突检查和 CSV / .xlsx 整批新增导入。API Key 机器凭据支持无浏览器认证、按绑定账号角色与集群范围鉴权、吊销即时生效，且 Cookie 认证不回归。集群范围授权满足 §23.2：未授权集群读写被拒且完全不可见，列表 / 搜索 / Dashboard / 导入范围一致，ADMIN 可管理授权，授权变更写入 Audit，迁移回填无失权，既有角色矩阵与完整性规则无回归。全局搜索支持自定义组合展示字段（含关联网卡 / IP / 网络）。Network / Pool、Endpoint 及恢复行为满足本 revision 的约束，包括地址边界与容量、保留范围/网关并发冲突、Cluster 停用维护、字段单位与名称规则；审计持续保留且纳入备份。一期范围内的全部必需能力不能因优先级低而从上线验收中删除。§31 与以上验收都需真实证据；上线条件不等于自动发布授权。
 
 ## 33. 目标查询场景
 
@@ -552,6 +595,7 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 | revision 8 / 2026-10-15 | 用户提出「多节点使用模板提交时应支持网卡以及 IP 地址分配（如 vm001,eth0,192.168.1.1/24）」，并就 BQ1–BQ7 回复“按推荐执行”，确认为：每行一个「资源+网卡+IP」三元组、同 hostname 合并为一个 Resource；IP 属已存在 Network（显式引用或以 /mask 匹配）且不创建 Network；导入内新建并绑定 IP（手动分配语义）且不触发自动分配；导入内创建 Interface（默认 OTHER，一期不含 parent_interface）；Resource+Interface+IP 跨对象整批原子回滚；沿用 §24 两步流程/错误口径/VM Host 规则/同一 Service Layer/IMPORT 权限；新增独立第三套模板且不改动 F014 已冻结模板；一期仅「资源+网卡+IP」。新增 §24.1 与 T64–T72 |
 | revision 9 / 2026-10-20 | 用户提出「新增一个 linux 脚本（python 或者 shell），用于直接获取系统内的信息，生成模板输出，方便导入」，并就 BQ1–BQ5 回复“按推荐执行”并授权实施，确认为：脚本为离线、只读、手动运行的导入模板**生产者**（非平台自动采集，不改变 §3 / §34 排除项）；输出 §24.1 已冻结模板（默认 CSV）；无法获得的业务 / 归属字段留空由人工补全，不写占位 / 推断值；无 root 时特权字段留空且不报错、不自动提权；不修改 F014 / F023 模板与既有导入行为；作为仓库正式交付物纳入 Feature。新增 §24.2 与 T73–T78 |
 | revision 10 / 2026-10-20 | 用户就 F024 脚本提出「参数支持添加需要补全的信息（免手改 CSV）、支持打印、支持带/不带表头、支持通过 API + API Key 推送」，回复“按推荐执行并实施”，确认为：新增 CLI 参数补全默认留空字段且 `--resource-type` 写列并决定类型列；`--print` 输出 stdout、`--no-header` 控制表头、默认仍写文件；`--push` 经 API Key 按 §24 两步流程调用 F023 导入端点（先预校验后确认写入）、Key 不落盘不记录；默认仍离线只读，仅 `--push` 时连接 CSM。相应修订 §24.2 边界。新增 §24.3 与 T79–T84 |
+| revision 11 / 2026-10-21 | 用户提出「访问权限控制功能新增，可以控制用户访问的集群（如只能访问 a、b 集群，其他禁止访问）」，随后回复“批准并实施”，批准变更提案 `docs/project/proposals/CHG-010-cluster-access.md` 与候选计划 revision 14（F026–F028）及第 6 节推荐裁定组合（CHG010-BQ01–BQ17），授权实施。确认为：在基础角色之上新增 Cluster 级账号授权；有效权限 = 角色矩阵 ∩ 集群范围；ADMIN 不受限且不建授权行；非 ADMIN 默认拒绝；读写同时受限；未授权集群完全不可见；API Key 继承绑定账号范围；非 ADMIN 永不可见已删对象；仅 ADMIN 管理授权；授予/撤销写 Audit 并保留撤销历史；Cluster INACTIVE 不改变授权、软删期间不生效、恢复后恢复；新建 Cluster 不自动授予；ADMIN 降级立即按既有授权；越权非 ADMIN 统一 404；迁移回填既有非 ADMIN × 既有 Cluster（含软删 Cluster）；导入/批量绑定/`--push` 同口径；不引入资源实例级或复杂 RBAC。收窄 §3 / §23 / §23.1 排除项并新增 §23.2、T85–T99。替代此前 §23「不实现 Cluster 级复杂 RBAC」及 §23.1「Cluster 级或资源实例级复杂 RBAC」的绝对表述 |
 
 | 原 ID | 已确认内容所在条款 | 尚需处理的部分 |
 | --- | --- | --- |
@@ -572,7 +616,13 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ### 35.2 六项业务决策（CONFIRMED）
 
-本次六项业务问题均已关闭，当前无登记中的 OPEN 业务问题。以下仅保存决策与正文、验收的映射，不复制完整规则。新发现的业务歧义按变更控制处理，不能静默改写本基线或将专业设计输入等同于新的业务待决项。
+本次六项业务问题均已关闭。revision 11 的 CHG010-BQ01–BQ17 已由用户随「批准并实施」按推荐组合确认，CHG010-BQ18–BQ19 为专业设计输入。以下仅保存决策与正文、验收的映射，不复制完整规则。新发现的业务歧义按变更控制处理，不能静默改写本基线或将专业设计输入等同于新的业务待决项。
+
+| ID | 状态 / 权威条款 | 验收映射 |
+| --- | --- | --- |
+| CHG010-BQ01–BQ17 | CONFIRMED；§23.2、§23.1、§21、§24、§31 | T85–T99 |
+| CHG010-BQ18 | DESIGN_INPUT；授权表 / 索引 / 迁移 / 查询实现，由 Architect / Database 在 F026–F027 签核 | T99 |
+| CHG010-BQ19 | DESIGN_INPUT；授权列表分页 / 排序与 System UI 口径，由 Architect / Backend 在 F026 签核 | T90 |
 
 | ID | 状态 / 权威条款 | 验收映射 |
 | --- | --- | --- |
@@ -595,8 +645,8 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ## 36. 文档建立状态
 
-> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 8。
+> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 11。
 
-需求基线为 revision 10：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53）、revision 6 新增 §13.4 接口侧选择绑定（T54–T58）、revision 7 新增 §28 二次确认模态对话框条款（T59–T63）、revision 8 新增 §24.1 资源+网卡+IP 批量导入（T64–T72）、revision 9 新增 §24.2 离线主机信息采集脚本（T73–T78）、revision 10 新增 §24.3 采集脚本增强（参数补全/打印/API 推送，T79–T84）并修订 §24.2 边界，均作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写 F001–F016 的已 DONE 范围与证据。
+需求基线为 revision 11：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53）、revision 6 新增 §13.4 接口侧选择绑定（T54–T58）、revision 7 新增 §28 二次确认模态对话框条款（T59–T63）、revision 8 新增 §24.1 资源+网卡+IP 批量导入（T64–T72）、revision 9 新增 §24.2 离线主机信息采集脚本（T73–T78）、revision 10 新增 §24.3 采集脚本增强（参数补全/打印/API 推送，T79–T84）并修订 §24.2 边界、revision 11 新增 §23.2 集群范围授权（T85–T99）并收窄 §3 / §23 / §23.1 排除项，均作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写既有已 DONE 范围与证据。
 
 revision 3 的内容继续成立：六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
