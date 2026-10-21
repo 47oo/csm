@@ -79,6 +79,9 @@ def test_authorization_permissions(api_client, role_client_factory):  # noqa: F8
 
     assert _list(admin, viewer_user.id).status_code == 200
     assert _list(admin, admin_user.id).status_code == 200
+    missing_user = _list(admin, uuid.uuid4())
+    assert missing_user.status_code == 404, missing_user.text
+    assert missing_user.json()["error"]["code"] == "NOT_FOUND"
 
 
 # --- A1/A2/A4/A5/A30/A31/A33: grant, duplicate, revoke, regrant, audit -------

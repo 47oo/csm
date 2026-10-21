@@ -134,6 +134,9 @@ def list_authorizations(
     if status is not None and status not in VALID_STATUSES:
         raise _field_error("status", "status must be ACTIVE or REVOKED")
     cleaned_q = _validate_q(q)
+    # Path object semantics (Contract §3/§5.2 P-1): an unknown account is 404,
+    # not an empty authorization list.
+    _get_user_or_404(db, user_id)
 
     filters = [UserClusterAuthorization.user_id == user_id]
     if status == "ACTIVE":

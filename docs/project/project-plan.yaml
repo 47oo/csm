@@ -1680,7 +1680,7 @@ features:
   blocking_decisions: []
   status: IN_PROGRESS
   current_stage: TEST
-  next_action: 独立 Tester 执行 TEST Gate（TD-2 复核后）。
+  next_action: Tester 复测 D-TEST-F026-01 并确认 TEST READY FOR REVIEW。
   layers:
     database: true
     backend: true
@@ -1711,7 +1711,7 @@ features:
     - docs/features/F026/implementation.md#1-backend
     frontend:
     - docs/features/F026/implementation.md#2-frontend
-  last_result: Backend/Frontend 实现完成；真实 PG 全量 708 passed；前端 typecheck/build/smoke 通过。
+  last_result: 独立 TEST 发现 D-TEST-F026-01（未知用户列表应 404）；已修复并补充回归断言，等待独立复测。
 - id: F027
   title: 服务端访问范围强制执行
   kind: FEATURE
@@ -2189,9 +2189,9 @@ execution:
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
   current_feature: F026
   current_stage: TEST
-  last_result: F026 实现完成，进入 TEST。
-  next_action: 完成 F026 独立测试并进入 Review。
-  repair_rounds: 0
+  last_result: F026 TEST 缺陷 D-TEST-F026-01 已修复，等待复测。
+  next_action: Tester 复测后进入 Review。
+  repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete

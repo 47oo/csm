@@ -134,3 +134,119 @@ A1→01；A2→02/03/33；A3→04/23；A4→05/33；A5→06/33；A6→07；A7→
 3. TD-2 复核固定判据；实现完成后进入 TEST，串行执行迁移/并发，独立复跑全量后端 + 前端三命令。
 
 **Status：TEST DESIGN READY（TD-1）**
+
+## Test Execution
+
+- 版本：TEST-1（2026-10-21）
+- 角色：Tester（TEST，独立执行）
+- 结论：**RETURN TO IMPLEMENTATION**（1 个 MEDIUM 实现缺陷；其余已执行项通过，前端 A9–A11 运行时验证留 F028）
+- TD-2 复核：Contract v1、Database v1、Architecture 已定稿；OBS-F026-1/2/4 关闭；A-3 按 Contract §9.7 记录；判据以 `docs/api/F026.md` v1 第 5 节 P-1 为准。
+
+### 1. 环境
+
+| 项 | 值 |
+| --- | --- |
+| 数据库 | 真实 PostgreSQL 测试容器 `postgresql+psycopg://csm:***@127.0.0.1:55432/csm_test` |
+| 环境变量 | 已 `export TEST_DATABASE_URL=…`，已 `unset DATABASE_URL` |
+| Python / pytest | Python 3.12.7 / pytest 7.4.4 |
+| 前端 | Node/npm（`frontend/`）；测试便利软链 `node_modules -> /home/hanhao/github/47oo/csm/frontend/node_modules`，不入仓 |
+| 测试数据 | F026 集成夹具 + 独立临时探针（`/tmp/f026extra/`，未写入仓库）；未连接生产或未知数据库 |
+| 执行纪律 | 迁移/并发/独立探针串行执行；全量后端与临时探针不并行访问同一测试库 |
+
+### 2. 实际命令与结果
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| 1 | `cd backend && python3 -m pytest -q tests/integration/test_cluster_authorizations.py` | **8 passed**，8.06s |
+| 2a | `cd backend && python3 -m pytest -q`（首次） | **1 failed, 707 passed, 2 skipped**，895.41s；失败 `tests/integration/test_clusters.py::test_audit_four_actions_and_activity`（`created_at` 同刻排序，非 F026 行为） |
+| 2b | 单测复跑失败用例 + 整个 `test_clusters.py` | 单测 passed（2.88s）；文件 **21 passed**（14.20s）；未复现 |
+| 2c | `cd backend && python3 -m pytest -q`（干净复跑） | **708 passed, 2 skipped**，1035.54s（17:15）；失败未复现 |
+| 3 | `cd frontend && npm run typecheck` | **pass** |
+| 3 | `cd frontend && npm run build` | **pass**（vite build，3213 modules；仅 chunk 体积提示） |
+| 3 | `cd frontend && npm run smoke:client` | **322 passed, 0 failed**（含 F026 client 3 项） |
+| 4 | Alembic heads 查询 | 单一 head `0015_user_cluster_authorizations` |
+| 5 | 静态引用检查：`get_access_scope` / `resolve_access_scope` / `AccessScope` 在 `app/` 中除 `core/access_scope.py` 外 | **无引用**（F026 未把范围解引用接入既有端点） |
+
+全量 2 个 skip 均为既有原因：F016 acceptance 模块未启用、DB-D11 非 superuser 用例（测试库连接角色为 superuser）。
+
+### 3. 独立验证探针（未入仓）
+
+| 探针 | 结果 |
+| --- | --- |
+| 列表路径 user 不存在 | **FAIL**：`GET /api/v1/users/{random-uuid}/cluster-authorizations` → `200 {items:[],total:0}`；Contract §3 要求 404。见 D-TEST-F026-01 |
+| 审计查询 `GET /api/v1/audit?object_type=user_cluster_authorization` | PASS：ADMIN 200 且含 CREATE/UPDATE；VIEWER 403；快照仅 6 个白名单键、无密码/令牌/`csm_ak_` 明文 |
+| 并发重复授予（两会话 barrier） | PASS：一方成功、一方 `Conflict:already_granted`；有效行 1、审计 1 |
+| 迁移回填重跑 / 不复活 | PASS：up 后 users/clusters/audit 计数不变；手写回填 SQL 连续重跑 0 新增；已撤销行保持 REVOKED；无重复有效行 |
+| ACTIVE ⇄ INACTIVE | PASS：授权行、id、`effective`、解析集合均不变 |
+| ADMIN 升级 / 降级 | PASS：升级后 unrestricted 且既有行保留；降级后立即按既有行解析 |
+| DISABLED 账号 | PASS：可为 DISABLED 授予；停用期间登录 401、授权行不变；启用后可登录 |
+| 列表排序/分页/同刻 tie | PASS：`granted_at` asc/desc、page/page_size、`total` 与 filters 一致；同刻按 id 升序 |
+| 同请求快照 / 不跨请求缓存 | PASS：同 `Request` 第二次解析返回同一实例且保持旧快照；新请求立即看到撤销 |
+| 失败无残留 / CSRF | PASS：授予 ADMIN、非法 Cluster、重复授予、重复撤销均不新增行或审计；Cookie 跨站 POST → 403 `{reason:"csrf"}` |
+| 既有端点不过滤（F026 边界） | PASS：无授权 VIEWER 仍正常 `GET /clusters`（total ≥2）；静态无 AccessScope 引用 |
+| 新建 Cluster 不自动授权 | PASS：新建后该 VIEWER 无对应授权行 |
+
+### 4. 验收映射（A1–A33）
+
+| 验收 | 结果 | 证据 / 说明 |
+| --- | --- | --- |
+| A1 | PASS | T-F026-01：授予 201、Row 完整、ACTIVE/effective、审计 1 条 CREATE |
+| A2 | PASS | T-F026-02 + 并发探针：重复 409 `already_granted`，有效行 1、审计 1 |
+| A3 | PASS | T-F026-04 + 失败残留探针：授予 ADMIN 422、0 行/0 审计；ADMIN unrestricted |
+| A4 | PASS | T-F026-05/33：撤销 REVOKED、保留时间/操作者、无物理删除、审计 UPDATE |
+| A5 | PASS | T-F026-06/33：重授新 id；1 有效 + N 已撤销；旧行不改写 |
+| A6 | PASS | T-F026-07：匿名 401 先于 403；VIEWER/EDITOR 403；CSRF 探针 403 |
+| A7 | PASS | T-F026-08/09/10 + 排序 tie 探针：字段/类型/UTC、status/cluster_id/q、分页排序、空 200、非法参数 422 |
+| A8 | **FAIL** | 撤销不存在 404、已撤销 409 且无审计均 PASS；但**列表路径 user 不存在返回 200 空集**，违反 Contract §3/P-1。见 D-TEST-F026-01 |
+| A9 | PARTIAL | 静态：SystemPage 仅 `USER_ADMIN` 渲染 Tab；服务端矩阵已实测。无组件/浏览器运行时用例，真实交互留 F028 |
+| A10 | PARTIAL | 静态：成功/失败态与 409/422 文案存在；smoke 验证 API 错误映射。无组件运行时用例，留 F028 |
+| A11 | PARTIAL | 静态：Cluster 候选 `deleted=exclude`、排除已有效授权、INACTIVE 可选、50 条提示；ADMIN 目标只展示说明不允许授予。无组件运行时用例，留 F028 |
+| A12 | PASS | ACTIVE⇄INACTIVE 探针：行与解析集合不变 |
+| A13 | PASS | T-F026-16/17：软删保留行、effective=false、scope 排除；恢复自动生效；期间撤销恢复后仍不生效 |
+| A14/A15 | PASS | T-F026-13/14：不存在/非 UUID/软删 Cluster 422，0 行/0 审计；无悬空 FK |
+| A16 | PASS | 新建 Cluster 探针：不自动产生非 ADMIN 授权 |
+| A17 | PASS | 升降级探针：升级 unrestricted、行保留；降级按既有行解析 |
+| A18 | PASS | DISABLED 探针：停用 401、授权不变；启用后恢复 |
+| A19 | PASS | T-F026-21：仅 A/B 时精确 {A,B}，C 不命中 |
+| A20 | PASS | T-F026-22：零授权空集，predicate 恒假，不回退全量 |
+| A21 | PASS | T-F026-23：ADMIN unrestricted，predicate 恒真 |
+| A22 | PASS | 同请求探针：同一 Request 复用同一实例且快照稳定 |
+| A23 | PASS | T-F026-25 + 探针：撤销后新请求即时；API Key 继承绑定账号范围 |
+| A24 | PASS | 干净全量 708 passed；无 AccessScope 外部引用；无授权 VIEWER 仍可见既有列表 |
+| A25 | PASS | 迁移测试 up/down/up；单 head；触发器/索引随 downgrade 对称删除 |
+| A26 | PASS | T-F026-29 + 回填探针：非 ADMIN × 全部 Cluster（含软删/DISABLED）恰 1 有效；ADMIN 0；计数一致 |
+| A27 | PASS | 回填重跑探针：0 新增、不复活已撤销、无重复有效行 |
+| A28 | PASS | 回填前后 users/clusters/audit 计数不变；无失权/越权证据 |
+| A29 | PASS | 迁移在既有业务数据+软删 Cluster 上成功；恢复后授权生效（T-F026-16/31） |
+| A30 | PASS | T-F026-01 + 失败残留探针：成功授予 1 条审计且与写入同事务路径；失败 0 残留 |
+| A31 | PASS | T-F026-05 + 失败残留探针：撤销 1 条 UPDATE 审计，可追溯 |
+| A32 | PASS | 审计查询探针：ADMIN 200；非 ADMIN 403 |
+| A33 | PASS | 无 DELETE/PATCH 路由；DELETE/归属/复活 UPDATE 被触发器拒绝；审计仅 CREATE/UPDATE、无敏感内容 |
+
+### 5. 缺陷
+
+| ID | Severity | Layer | Location | 期望 / 实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| D-TEST-F026-01 | MEDIUM | Backend API | `backend/app/api/v1/cluster_authorizations.py` 列表端点（未校验路径 user 存在） | 期望：`GET /users/{不存在 UUID}/cluster-authorizations` → 404 `NOT_FOUND`（Contract §3、§5 P-1、TD T-F026-11）。实际：200 `{items:[],page:1,page_size:20,total:0}` | 管理端查询拼错/过期账号时静默成功，违反已签核契约与统一 P-1 语义；无数据泄漏 | Backend | 是 |
+
+复现：ADMIN 登录后请求 `GET /api/v1/users/<random-uuid>/cluster-authorizations`。修复后应收敛到 404，同时保留空结果（真实存在且无授权用户）200。
+
+### 6. 观察项（不单列为实现缺陷）
+
+| ID | 级别 | 事项 | Owner |
+| --- | --- | --- | --- |
+| OBS-TEST-F026-1 | LOW | 首次全量 `test_clusters.py::test_audit_four_actions_and_activity` 因审计 `created_at` 同刻排序失败；单测、文件复跑与干净全量均通过，未复现，判定为既有测试时序 flake，与 F026 变更无直接关联，建议后续固定 tie-breaker | 协调器/测试基础设施 |
+| OBS-TEST-F026-2 | LOW | F026 未新增组件级前端测试；A9–A11 仅静态审查 + typecheck/build/smoke（client 层），真实交互归 F028 | Tester/Implementer |
+| OBS-TEST-F026-3 | NOTE | 迁移测试以 `pytest.raises(Exception)` 验证触发器，未逐条断言 SQLSTATE 23001/23514；本次独立探针与 DDL 审查确认错误码，建议后续精确断言 | Tester |
+
+### 7. 未验证 / 边界
+
+- A9–A11 的浏览器 DOM、焦点/Esc/双击、窄屏与真实前后端串联：**NOT TESTED**，按计划归 F028。
+- F027 范围强制执行（既有业务端点 404/列表/total/搜索/Dashboard/导入收敛）：**OUT OF SCOPE**；F026 交付后至 F027 合并前非 ADMIN 可见范围仍为现状。
+- 真实 Compose / T85–T99 端到端：**OUT OF SCOPE**（F028）。
+- 迁移 EXPLAIN 基线：Database 阶段证据；本次仅核对对象/回填/up-down-up 行为。
+- 强制审计写入失败以证明回滚：**NOT TESTED**；已验证正常路径同事务与失败分支无残留。
+
+**Status：RETURN TO IMPLEMENTATION**
+
+GIT: NONE
