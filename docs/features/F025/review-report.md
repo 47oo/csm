@@ -1,12 +1,13 @@
 # F025 采集脚本增强 — REVIEW 报告
 
-- **状态**：APPROVED WITH FOLLOW-UP（**自审，偏差记录见 §0**）
+- **状态**：APPROVED WITH FOLLOW-UP（**独立 Reviewer 已复核并签署**，见 §7）
 - **Base / start_commit**：`codex/v3.1` @ `692143e98be8b2c1fa4ee61612c14a6cb2e9fbd9`
+- **批准候选 HEAD**：`bdc881ee5c2474003f79c71115ad51e4249f9e14`（merge `6f691f4`）
 - **范围**：`feature/F025-collector-enhancements` 全部改动（`scripts/collect_host_info.py`、`scripts/test_collect_host_info.py`、`.gitignore`、F025 文档）。
 
-## 0. 流程偏差（必须知悉）
+## 0. 流程偏差（已关闭）
 
-本环境的 Subagent 运行时不可用（`spawn pi ENOENT`），无法由独立 Reviewer 角色执行审查。**本次 Review 由实现者（coordinator）自审**，不满足 `AGENTS §7`「实现与 Review 由不同角色负责」的要求。结论应视为**待独立复核**；runtime 恢复后须由 Reviewer 角色重跑并签署。此偏差已如实记录，未伪造独立签核。
+初稿记录：首次 Review 时 Subagent 运行时不可用（`pi ENOENT`），只能由实现者自审，不满足 `AGENTS §7` 角色分离。**该偏差已由独立 Reviewer 重跑复核并签署（见 §7），现已关闭。**
 
 ## 1. 审查范围
 
@@ -50,3 +51,14 @@
 
 1. **优先**：runtime 恢复后由独立 Reviewer 重跑本 Feature 并签署；若发现必须修复项，依缺陷记录回退。
 2. 可选：将 `--push` 用法校验前置到写文件之前（RV-01）；文档提示 `--print` 与 `--push` 分开使用（RV-02）；生产环境用 `CSM_API_KEY`（RV-03）。
+
+## 7. 独立 Reviewer 复核（合并后签署）
+
+- **Reviewer**：project 独立 Reviewer 角色（非实现者），环境：`codex/v3.1` 合并后工作区。
+- **候选**：HEAD `bdc881e` / Base `692143e` / merge `6f691f4`。
+- **结论**：**APPROVED WITH FOLLOW-UP**。无 BLOCKER / HIGH / 必须修复 MEDIUM；F025 维持 DONE，不回退。
+- **独立复核证据（Reviewer 实跑）**：F024 文件 43 tests OK；全量 72 tests OK；真实测试栈（`http://localhost:18080`）新建 Cluster `F025REV` + Network，实跑两步推送：预校验 `error_count=0` 未写入 → `--yes` 写入 `created=1/interfaces=2/ips=2` → API 复核 total=1；校验错误时 `error_count=2`、`--yes` 后 API 复核 total=0（阻断写入）；无效 Key 401 rc=1 且无泄漏；`git diff bdc881e HEAD -- scripts/ .gitignore` 为空（HEAD 运行代码 == 被审候选）。
+- **新发现（均非阻塞）**：F025-RV-06（merge 第二父为候选的元数据子提交，语义完整）/ RV-07（`requirements-v3.md` 页眉 revision 陈旧，本次已修正）/ RV-08（测试名与 §24.3 语义不符，仅可读性）。
+- **旧自审项** RV-01..05 逐项复核维持 LOW/NOTE。
+
+**签署**：独立 Reviewer，2026-10-20；批准仅对候选 `bdc881e` 与 Base `692143e` 有效，任一变化须重新验证。
