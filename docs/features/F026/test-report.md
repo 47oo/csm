@@ -250,3 +250,91 @@ A1→01；A2→02/03/33；A3→04/23；A4→05/33；A5→06/33；A6→07；A7→
 **Status：RETURN TO IMPLEMENTATION**
 
 GIT: NONE
+
+---
+
+### Repair Verification 1
+
+- 版本：RV-1（2026-10-21），针对 D-TEST-F026-01 修复后的独立复测
+- 角色：Tester（TEST）
+- 结论：**READY FOR REVIEW**（本节结论取代上方 Test Execution 的 Status；历史记录按版本保留）
+- 基线：`0360f7b`（`fix(F026): 404 for unknown user in authorization list`）
+
+#### RV-1.1 修复审查（只读）
+
+| 项 | 内容 |
+| --- | --- |
+| 变更范围 | `git show --stat HEAD`：`backend/app/services/cluster_authorization.py`（+3）、`backend/tests/integration/test_cluster_authorizations.py`（+3）、`docs/features/F026/test-report.md`、`docs/project/project-plan.yaml`；无 Schema/迁移/前端变更 |
+| 生产改动 | `list_authorizations()` 在 sort/order/status/q 语义校验之后新增 `_get_user_or_404(db, user_id)`；进行查询前抛 `NotFound` |
+| 复用既有语义 | `_get_user_or_404` 与授予端点（`grant_authorization`）同一实现，404 `NOT_FOUND` 与 Contract §3「路径 `user_id` 非 UUID 或不存在 → 404」及 §5 P-1 一致 |
+| 回归断言 | `test_authorization_permissions` 新增 `_list(admin, uuid4())` → 404 且 `error.code == "NOT_FOUND"` |
+| 软删口径核对 | `User` 模型无 `deleted_at`（仅 `status` ACTIVE/DISABLED），`db.get` 即完整存在性判断，不存在软删账号被误判为存在而返回 200 的缺口 |
+| 参数优先级 | 契约仅固定「403 先于 422/404/409」，未规定 422 与 404 的相对次序；修复把路径存在性校验放在查询参数语义校验之后，与既有端点风格一致，不构成契约违反 |
+
+#### RV-1.2 环境
+
+| 项 | 值 |
+| --- | --- |
+| 代码 | `/home/hanhao/github/47oo/csm-chg010`，HEAD `0360f7b`（工作区除未跟踪 `frontend/node_modules` 外无改动） |
+| 数据库 | 真实 PostgreSQL `postgresql+psycopg://csm@127.0.0.1:55432/csm_test`（`TEST_DATABASE_URL`），`DATABASE_URL` 已 unset；库名含 `test`，满足 DB-D10 守卫 |
+| 夹具 | 生产 app + `get_db` 覆盖为测试库；Alembic upgrade head；未使用 SQLite、未使用 Mock 代替真实 API/DB |
+
+#### RV-1.3 命令与结果
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| 1 | `python3 -m pytest -q tests/integration/test_cluster_authorizations.py` | **8 passed** in 7.39s |
+| 2 | `python3 -m pytest -q tests/integration/test_users.py tests/integration/test_auth.py tests/integration/test_migrations.py tests/integration/test_f017_migrations.py` | **36 passed, 1 skipped** in 20.96s（skip：`test_migrations.py:105` 当前角色为 superuser，V3b 需非 superuser 属主，属既有环境跳过，非本次变更引入） |
+| 3 | `python3 -m pytest -q`（全量回归） | **708 passed, 2 skipped** in 905.67s（额外 skip：`test_f016_acceptance.py:50` 未设 `F016_ACCEPTANCE=1`）；本轮未复现 OBS-TEST-F026-1 的审计时序 flake |
+
+以上 3 条均为本轮实际执行。
+
+#### RV-1.4 D-TEST-F026-01 原始探针独立复跑
+
+临时探针文件仅存在于运行期，运行后已删除（`git status` 复核无残留）；未改动生产代码。
+
+| 探针 | 结果 |
+| --- | --- |
+| ADMIN `GET /api/v1/users/{随机 UUID}/cluster-authorizations` | **404** `{"error":{"code":"NOT_FOUND","message":"Not found","details":{}}}`（修复前为 200 `{items:[],total:0}`） |
+| 同上 + 合法过滤参数 `status=ACTIVE&page=2&page_size=5&order=asc` | **404 `NOT_FOUND`**：路径存在性优先于分页/过滤空结果，未退化为 200 空集 |
+| 非 UUID 路径段 `GET /api/v1/users/not-a-uuid/cluster-authorizations` | **404 `NOT_FOUND`**（P-1「路径非 UUID → 404」保持） |
+| 存在且无授权 VIEWER / EDITOR / ADMIN 账号 | **200** `{"items":[],"page":1,"page_size":20,"total":0}`：空结果语义未被修复破坏，ADMIN 目标亦为可查询 200 |
+| VIEWER / EDITOR 访问不存在 user 的列表 | **403** `{reason:"permission"}`：403 先于 404，符合 §5 |
+| 404 路径写副作用 | ADMIN 请求前后 `users/user_cluster_authorizations/audit_logs` 计数 `(1,0,0) → (1,0,0)`，只读无写入 |
+| 回归断言敏感性（内存变异，未改源码） | 运行时 `monkeypatch` 将 `_get_user_or_404` 置为 no-op 后端点回到 **200** `{items:[],total:0}`，证明新增断言能捕获守卫被移除的回归 |
+
+#### RV-1.5 验收影响
+
+| 验收 | 结果 | 证据 |
+| --- | --- | --- |
+| A8（T-F026-11 列表路径 user 不存在） | **PASS（此前 FAIL）** | RV-1.4：未知 UUID → 404 `NOT_FOUND`；存在用户空集 200；非 UUID → 404 |
+| A7（列表参数/空结果/422） | PASS | 文件测试 8 passed；`status=BOGUS` 仍 422；存在用户空集 200 保持 |
+| A6（401 先于 403、403 先于 404） | PASS | 文件测试匿名 401、VIEWER/EDITOR 403；探针确认非 ADMIN 对未知 user 得 403 |
+| A24（既有端点回归） | PASS | 全量 708 passed，无新增失败 |
+| A25–A29（迁移/回填） | PASS（无变化） | `test_migrations.py`、`test_f017_migrations.py` 与全量套件通过；本次未改 Schema/迁移 |
+
+#### RV-1.6 缺陷状态
+
+| ID | 原 Severity | 状态 | 说明 |
+| --- | --- | --- | --- |
+| D-TEST-F026-01 | MEDIUM | **CLOSED（已修复）** | 修复位置由 API 层收敛到 `list_authorizations` 服务层，与授予端点共用 `_get_user_or_404`；回归断言已入仓并经验证具备行为敏感性；原始探针独立复跑通过 |
+
+本轮未发现新的实现缺陷。
+
+#### RV-1.7 观察项（新增，不单列缺陷）
+
+| ID | 级别 | 事项 | Owner |
+| --- | --- | --- | --- |
+| OBS-TEST-F026-4 | NOTE | 未知 user 与非法查询参数同时出现时返回 422（参数校验先于路径存在性）；契约仅固定 403 优先级，未定义 422/404 次序，故非违规，但如需统一口径应在 Contract 后续版本字面化 | Architect/Contract |
+| OBS-TEST-F026-1/2/3 | — | 维持上述原记录：审计时序 flake 本轮未复现；A9–A11 组件运行时留 F028；迁移触发器异常仅断言 Exception 类型 | 协调器/Tester |
+
+#### RV-1.8 未验证 / 边界（不变）
+
+- A9–A11 浏览器交互与真实前后端串联：**NOT TESTED**，按计划归 F028。
+- F027 范围强制（业务端点 404/列表收敛）：**OUT OF SCOPE**。
+- 真实 Compose / T85–T99 端到端：**OUT OF SCOPE**（F028）。
+- 强制审计写入失败以证明回滚：**NOT TESTED**（本轮未涉及该路径）。
+
+**Status：READY FOR REVIEW**
+
+GIT: NONE
