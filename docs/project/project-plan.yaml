@@ -1659,11 +1659,11 @@ features:
     + Tailwind 基线，列出用户 / 角色 / 已授权集群 / 授权与撤销状态，支持新增与撤销并呈现结果）；授权授予与撤销写入 Audit（operator / action / object_type / object_id /
     before_data / after_data，与业务写入同事务，不记录敏感内容）；定义统一的访问范围类型（如 AccessScope）与逐请求解析入口 （ADMIN 解析为不受限，非 ADMIN 解析为授权集群集合），供 F027
     复用。明确不做：在 F026 内对既有个各业务域端点施加范围过滤 （由 F027 承接）；新增角色类型；资源实例级授权；组织 / 租户模型；授权审批流。
-  acceptance: 映射 §23.2 与 T85-T90（均 PROPOSED）。迁移可在真实 PostgreSQL 上正向执行与回滚，回填结果与裁定口径逐条一致且可核对计数； 授权授予 / 撤销仅 ADMIN 可用，非 ADMIN 调用被服务端拒绝；撤销即时生效并保留可追溯的撤销时间与操作者，不物理删除历史；授权授予与
+  acceptance: 映射 §23.2 与 T85-T90。迁移可在真实 PostgreSQL 上正向执行与回滚，回填结果与裁定口径逐条一致且可核对计数； 授权授予 / 撤销仅 ADMIN 可用，非 ADMIN 调用被服务端拒绝；撤销即时生效并保留可追溯的撤销时间与操作者，不物理删除历史；授权授予与
     撤销各产生一条 Audit 且与业务写入同事务、失败不留残留；AccessScope 对 ADMIN 为不受限、对非 ADMIN 为显式集群集合，同一请求内 解析结果稳定可复用；System 页面授权 UI 仅 ADMIN 可达且不泄露给其它角色；针对
     ADMIN 立授权行的处理符合裁定；新增集群的默认授权 行为符合裁定。本 Feature 不改动任何既有端点的可见数据范围，既有 T01-T84 行为无回归。
   requirements:
-  - docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  - docs/product/requirements-v3.md#232-集群范围授权
   - docs/product/requirements-v3.md#23-用户与权限
   - docs/product/requirements-v3.md#231-api-key-机器凭据
   - docs/product/requirements-v3.md#22-audit-log
@@ -1678,9 +1678,9 @@ features:
   - F015
   - F017
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: 独立 Reviewer 正式 Review。
+  status: DONE
+  current_stage: null
+  next_action: null
   layers:
     database: true
     backend: true
@@ -1695,7 +1695,7 @@ features:
     backend: COMPLETE
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F026/product.md
@@ -1712,8 +1712,16 @@ features:
     frontend:
     - docs/features/F026/implementation.md#2-frontend
     test:
-    - docs/features/F026/test-report.md#test-execution
-  last_result: TEST READY FOR REVIEW；D-TEST-F026-01 已关闭，全量 708 passed。
+    - docs/features/F026/test-report.md#repair-verification-1
+    review:
+    - docs/features/F026/review-report.md
+  last_result: Review APPROVED WITH FOLLOW-UP；无必须修复项；已合并（8741094）。
+  git:
+    base_branch: v3.2
+    branch: feature/F026-cluster-grants
+    start_commit: 3c8d2d982454460661ec0e1e350c10f1318f26de
+    head_commit: f9c7e859ef5897f59d1d3a72e1b1a10fd066ddc5
+    merge_commit: 87410940318b6d9cd1bc91f395182b9895b1a327
 - id: F027
   title: 服务端访问范围强制执行
   kind: FEATURE
@@ -1726,12 +1734,12 @@ features:
     不泄露未授权对象；Dashboard 各计数与 Network / AUTO 池容量口径按范围重算（零授权行为按裁定）； F014 / F023 导入的预校验与写入行级归因（未授权 Cluster 行报错含行号 / 字段 / 原因，整批原子性不变）与
     F025 采集脚本 --push 走同一范围口径；错误语义按裁定统一（404 与 403 的选择与不泄露存在性要求）。明确不做：新增角色或权限项；资源实例级授权； 修改既有 §23 权限矩阵中角色可执行的操作类别；修改 F014 / F023
     冻结模板与列集；前端新增授权管理界面（F026 已交付）。
-  acceptance: 映射 §23.2 与 T91-T97（均 PROPOSED）。非 ADMIN 在全部 11 域列表 / 详情 / 聚合视图中仅能看到已授权 Cluster 内对象，未授权 Cluster 的对象完全不出现且不通过 total
-    / 计数 / 搜索推断存在性；写路径（创建 / 修改 / 删除 / 恢复 / 解绑 / 释放 / 导入 / 批量绑定 / 脚本推送）对未授权对象一律拒绝，拒绝后对象状态、关联与 Audit 均无变化；跨对象父级派生与未绑定 IP 归属结果与
-    裁定口径一致；全局搜索 4 类候选、关联行与 total 按范围收敛且既有匹配 / 排序 / 去重 / 分页语义不变；Dashboard 计数与 Network / AUTO 池容量按范围重算，零授权时行为符合裁定且不报错；API Key
-    继承绑定账号范围；导入预校验与写入的越权行均可定位 到行号且整批回滚无残留；ADMIN 不受范围限制且既有 T01-T84 行为无回归。本 Feature 的读写限制必须在同一次合并内整体生效，不得 以「部分端点已受限、其余仍全局可见」的中间态合并。
+  acceptance: 映射 §23.2 与 T91-T97。非 ADMIN 在全部 11 域列表 / 详情 / 聚合视图中仅能看到已授权 Cluster 内对象，未授权 Cluster 的对象完全不出现且不通过 total / 计数 /
+    搜索推断存在性；写路径（创建 / 修改 / 删除 / 恢复 / 解绑 / 释放 / 导入 / 批量绑定 / 脚本推送）对未授权对象一律拒绝，拒绝后对象状态、关联与 Audit 均无变化；跨对象父级派生与未绑定 IP 归属结果与 裁定口径一致；全局搜索
+    4 类候选、关联行与 total 按范围收敛且既有匹配 / 排序 / 去重 / 分页语义不变；Dashboard 计数与 Network / AUTO 池容量按范围重算，零授权时行为符合裁定且不报错；API Key 继承绑定账号范围；导入预校验与写入的越权行均可定位
+    到行号且整批回滚无残留；ADMIN 不受范围限制且既有 T01-T84 行为无回归。本 Feature 的读写限制必须在同一次合并内整体生效，不得 以「部分端点已受限、其余仍全局可见」的中间态合并。
   requirements:
-  - docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  - docs/product/requirements-v3.md#232-集群范围授权
   - docs/product/requirements-v3.md#23-用户与权限
   - docs/product/requirements-v3.md#231-api-key-机器凭据
   - docs/product/requirements-v3.md#21-逻辑删除
@@ -1749,9 +1757,9 @@ features:
   depends_on:
   - F026
   blocking_decisions: []
-  status: BLOCKED
+  status: READY
   current_stage: null
-  next_action: 等待 F026 提交 DONE；随后 Preflight 启动。
+  next_action: Preflight 后启动 PRODUCT 阶段（依赖 F026 已 DONE）。
   layers:
     database: false
     backend: true
@@ -1778,11 +1786,11 @@ features:
     容量口径、二次确认与 API Key 认证）；核对前端在受限范围下的列表 / 详情 / 搜索 / Dashboard / System 授权页表现（空态、无越权入口、错误提示）；核实 迁移与回填在真实数据量下的结果与可回滚性；更新候选
     revision 的整体验收证据并把 project.acceptance 由 PENDING 置 COMPLETE（由协调器核验后写入）。明确不做：新增业务规则或绕过已签核设计；改写 F001-F025 的已交付范围与证据；以本 Feature
     名义提交未在 F026 / F027 设计内的行为变更；把未实际执行的项目写成 PASS。
-  acceptance: 映射 §31 / §32 与 T85-T99（均 PROPOSED）。docker compose up -d 可在真实环境完成启动并跑通新增范围验收；T85-T99 全部 有真实执行证据且无未解释失败；T01-T84
-    关键回归无回归失败；受限范围内不出现越权可见或越权写入；撤销授权、账号降级与 API Key 失效后行为即时收敛且无残留缓存；迁移回填结果与裁定口径一致并可回滚；验收证据写入 project.acceptance（含本 Feature
-    的 test-report 锚点），由协调器核验后置 COMPLETE。环境限制（如镜像源不可达导致等价替代栈）必须如实记录，不得写成 PASS。
+  acceptance: 映射 §31 / §32 与 T85-T99。docker compose up -d 可在真实环境完成启动并跑通新增范围验收；T85-T99 全部 有真实执行证据且无未解释失败；T01-T84 关键回归无回归失败；受限范围内不出现越权可见或越权写入；撤销授权、账号降级与
+    API Key 失效后行为即时收敛且无残留缓存；迁移回填结果与裁定口径一致并可回滚；验收证据写入 project.acceptance（含本 Feature 的 test-report 锚点），由协调器核验后置 COMPLETE。环境限制（如镜像源不可达导致等价替代栈）必须如实记录，不得写成
+    PASS。
   requirements:
-  - docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
+  - docs/product/requirements-v3.md#232-集群范围授权
   - docs/product/requirements-v3.md#31-测试
   - docs/product/requirements-v3.md#32-上线验收
   - docs/product/requirements-v3.md#33-目标查询场景
@@ -2189,25 +2197,25 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-21'
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
-  current_feature: F026
-  current_stage: REVIEW
-  last_result: F026 TEST 通过，进入 REVIEW。
-  next_action: 完成 F026 正式 Review 并合并。
+  current_feature: null
+  current_stage: null
+  last_result: F026 DONE（merge 8741094；Review APPROVED WITH FOLLOW-UP，无必须修复项）。F027 READY。
+  next_action: 对 F027 执行 Preflight 并启动 PRODUCT。
   repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
   counts:
-    BLOCKED: 2
+    BLOCKED: 1
     CANCELLED: 0
-    DONE: 25
+    DONE: 26
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
-    READY: 0
-  ready_features: []
+    IN_REVIEW: 0
+    READY: 1
+  ready_features:
+  - F027
   blocked_draft_features:
     BLOCKED:
-    - F027
     - F028
     DRAFT: []

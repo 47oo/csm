@@ -3,14 +3,14 @@
 | 项 | 值 |
 | --- | --- |
 | Change ID | CHG-010 |
-| 状态 | **PROPOSED / 待用户裁定与批准**（未批准，未生效） |
+| 状态 | **APPROVED（2026-10-21，用户「批准并实施」）**；implementation 按 F026–F028 计划推进 |
 | 来源 | 用户本次指令：「访问权限控制功能新增，可以控制用户访问的集群（比如只能访问 a 集群，b 集群，其他禁止访问这样）」 |
 | 基线 | `docs/product/requirements-v3.md` revision 10；`docs/project/project-plan.yaml` plan_revision 13（DONE，F001–F025 全 DONE，acceptance COMPLETE） |
 | 候选 | 需求 revision 11；计划 revision 14；新增 F026–F028；`pending_changes: [CHG-010]`，`affects: ALL` |
 | 处理依据 | `docs/project/change-control.md` §1–§4、`docs/project/git-workflow.md` §7 |
 | 候选计划 | `docs/project/proposals/CHG-010-candidate-plan-delta.yaml`（增量）、`docs/project/proposals/CHG-010-candidate-plan-full.yaml`（合并预览，仅供审阅，不是已批准计划） |
 
-> 本提案中的业务规则、验收编号、Feature 范围和推荐选项全部为 **PROPOSED**，除非明确标注 CONFIRMED。
+> 本提案已于 2026-10-21 获用户批准（requirements revision 11 / plan revision 14）。以下历史分析文字保留当时的 PROPOSED 标注，供追溯；当前权威规则以 requirements revision 11 与 `project.approval` 为准。
 > 用户一句话需求本身是 CONFIRMED 的输入事实；其业务含义、默认值、读写范围和排除边界尚需裁定。
 > 未批准前不得改写需求正文、计划基线、DONE Feature 证据，也不得启动实现。
 

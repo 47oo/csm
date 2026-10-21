@@ -103,9 +103,9 @@ Blocking Questions：None。
 
 - CHG010-BQ18（Architect/Database）：授权表/列/索引/有效行唯一/FK/迁移回填/查询实现/并发保护。
 - CHG010-BQ19（Architect/Backend）：授权列表分页排序过滤与 System UI 展示口径。
-- A-1（Product/用户，CONTRACT 前确认）：停用账号保留授权、启用后恢复、允许为停用账号授予、回填含 DISABLED。
-- A-2（Product/Architect）：非 ADMIN 升级为 ADMIN 后既有授权行保留，降级时按既有行解析。
-- A-3（Product/用户/Database）：回填不写业务 Audit，以迁移计数与 T99 为证据。
+- A-1（已按 Contract §9.3 记录）：停用账号保留授权、启用后恢复、允许为停用账号授予、回填含 DISABLED。
+- A-2（已按 Contract §2.1/§9.1 记录）：非 ADMIN 升级为 ADMIN 后既有授权行保留，降级时按既有行解析。
+- A-3（已按 Contract §9.7 记录）：回填不写业务 Audit，以迁移计数与 T99 为证据。
 - D-1–D-6：端点形态、冲突 reason、Audit object_type/action、AccessScope 位置、撤销交互、回填实现，交 Architect/Database 定稿。
 
 ## 6. 交付
