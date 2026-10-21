@@ -467,8 +467,8 @@ def test_physical_delete_concurrent_with_insert(committed_engine):
 
 
 def test_migration_single_head_and_up_down_up(pg_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0014_api_keys"
-    assert _alembic_versions(pg_engine) == ["0014_api_keys"]
+    assert alembic_runner.head_revision() == "0015_user_cluster_authorizations"
+    assert _alembic_versions(pg_engine) == ["0015_user_cluster_authorizations"]
     assert "virtual_machine_details" in _tables(pg_engine)
 
     alembic_runner.downgrade("0005_bare_metal_details")
@@ -489,7 +489,7 @@ def test_migration_single_head_and_up_down_up(pg_engine, alembic_runner):
 
     alembic_runner.upgrade("head")
     assert {"bare_metal_details", "virtual_machine_details"} <= _tables(pg_engine)
-    assert _alembic_versions(pg_engine) == ["0014_api_keys"]
+    assert _alembic_versions(pg_engine) == ["0015_user_cluster_authorizations"]
 
 
 def test_backfill_guard(pg_engine, alembic_runner):
@@ -521,7 +521,7 @@ def test_backfill_guard(pg_engine, alembic_runner):
                 {"id": vm},
             )
         alembic_runner.upgrade("head")
-        assert _alembic_versions(pg_engine) == ["0014_api_keys"]
+        assert _alembic_versions(pg_engine) == ["0015_user_cluster_authorizations"]
         with pg_engine.connect() as conn:
             assert (
                 conn.execute(
@@ -536,7 +536,7 @@ def test_backfill_guard(pg_engine, alembic_runner):
             conn.execute(text("DELETE FROM clusters WHERE code = 'BG'"))
         alembic_runner.downgrade("0005_bare_metal_details")
         alembic_runner.upgrade("head")
-        assert _alembic_versions(pg_engine) == ["0014_api_keys"]
+        assert _alembic_versions(pg_engine) == ["0015_user_cluster_authorizations"]
     finally:
-        if _alembic_versions(pg_engine) != ["0014_api_keys"]:
+        if _alembic_versions(pg_engine) != ["0015_user_cluster_authorizations"]:
             alembic_runner.upgrade("head")

@@ -289,6 +289,12 @@ import {
   updateCluster,
 } from "../src/api/clusters.ts";
 import {
+  describeClusterAuthorizationError,
+  grantClusterAuthorization,
+  listClusterAuthorizations,
+  revokeClusterAuthorization,
+} from "../src/api/clusterAuthorizations.ts";
+import {
   createResource,
   deleteResource,
   describeResourceActionError,
@@ -8383,6 +8389,69 @@ await test("F023 模板列渲染辅助：适用行标签（BM / VM）、类型�
   );
   assert.equal(resourceInterfaceIpColumnRequiredLabel({ required: true }), "必填");
   assert.ok(resourceInterfaceIpColumnRequiredLabel({ required: false }).includes("省略"));
+});
+
+await test("F026 列表：URL 查询串（status/cluster_id/q/page/sort/order）与 GET 方法", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 20, total: 0 });
+  const data = await listClusterAuthorizations("user-1", {
+    status: "ACTIVE",
+    cluster_id: "cluster-1",
+    q: "prod",
+    page: 2,
+    page_size: 20,
+    sort: "granted_at",
+    order: "desc",
+  });
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/users/user-1/cluster-authorizations?status=ACTIVE&cluster_id=cluster-1&q=prod&page=2&page_size=20&sort=granted_at&order=desc",
+  );
+  assert.equal(calls[0].init.method, "GET");
+});
+
+await test("F026 授予 / 撤销：POST 路径与 cluster_id 请求体；撤销无请求体", async () => {
+  respond = () => jsonResponse(201, { cluster_authorization: { id: "a1" } });
+  const granted = await grantClusterAuthorization("user-1", "cluster-1");
+  assert.equal(granted.cluster_authorization.id, "a1");
+  assert.equal(calls[0].url, "/api/v1/users/user-1/cluster-authorizations");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.body, JSON.stringify({ cluster_id: "cluster-1" }));
+
+  respond = () => jsonResponse(200, { cluster_authorization: { id: "a1" } });
+  await revokeClusterAuthorization("a1");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].url, "/api/v1/cluster-authorizations/a1/revoke");
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[1].init.body, undefined);
+});
+
+await test("F026 describeClusterAuthorizationError：409 already_granted/already_revoked、422 fields、403 明确文案", async () => {
+  respond = () => jsonResponse(409, {
+    error: { code: "CONFLICT", message: "conflict", details: { reason: "already_granted" } },
+  });
+  const grantedError = await expectApiError(grantClusterAuthorization("u", "c"));
+  assert.equal(grantedError.status, 409);
+  assert.equal(describeClusterAuthorizationError(grantedError).alreadyGranted, true);
+
+  respond = () => jsonResponse(409, {
+    error: { code: "CONFLICT", message: "conflict", details: { reason: "already_revoked" } },
+  });
+  const revokedError = await expectApiError(revokeClusterAuthorization("a"));
+  assert.equal(describeClusterAuthorizationError(revokedError).alreadyRevoked, true);
+
+  respond = () => jsonResponse(422, {
+    error: { code: "VALIDATION_ERROR", message: "invalid", details: { fields: [{ field: "cluster_id", message: "bad" }] } },
+  });
+  const validationError = await expectApiError(grantClusterAuthorization("u", "c"));
+  assert.equal(describeClusterAuthorizationError(validationError).fields.cluster_id, "bad");
+
+  respond = () => jsonResponse(403, {
+    error: { code: "FORBIDDEN", message: "forbidden", details: { reason: "permission" } },
+  });
+  const forbidden = await expectApiError(listClusterAuthorizations("u"));
+  assert.ok(describeClusterAuthorizationError(forbidden).message.includes("USER_ADMIN"));
 });
 
 // 还原全局状态

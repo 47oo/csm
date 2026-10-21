@@ -534,7 +534,7 @@ def test_restore_concurrency_two_connections_real(
 
 
 def test_deleted_at_indexes_and_schema_unchanged(committed_engine, alembic_runner):
-    assert alembic_runner.head_revision() == "0014_api_keys"
+    assert alembic_runner.head_revision() == "0015_user_cluster_authorizations"
     with committed_engine.connect() as conn:
         db_head = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         indexes = set(
@@ -546,7 +546,7 @@ def test_deleted_at_indexes_and_schema_unchanged(committed_engine, alembic_runne
             .scalars()
             .all()
         )
-    assert db_head == "0014_api_keys"
+    assert db_head == "0015_user_cluster_authorizations"
     assert "ix_audit_logs_operator_username" not in indexes
     assert "ix_interfaces_deleted_at" not in indexes
     for table in (

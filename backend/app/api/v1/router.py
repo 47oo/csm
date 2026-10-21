@@ -12,6 +12,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     api_keys,
     audit,
+    cluster_authorizations,
     auth,
     clusters,
     dashboard,
@@ -34,6 +35,7 @@ api_v1_router = APIRouter(prefix="/api/v1")
 api_v1_router.include_router(health.router)
 api_v1_router.include_router(auth.router)
 api_v1_router.include_router(api_keys.router)
+api_v1_router.include_router(cluster_authorizations.router)
 api_v1_router.include_router(clusters.router)
 api_v1_router.include_router(resources.router)
 api_v1_router.include_router(interfaces.router)

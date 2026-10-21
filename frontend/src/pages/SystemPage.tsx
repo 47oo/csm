@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { User } from "../api/auth";
 import AccountManagementPanel from "../components/AccountManagementPanel";
 import ApiKeyManagementPanel from "../components/ApiKeyManagementPanel";
+import ClusterAuthorizationPanel from "../components/ClusterAuthorizationPanel";
 import DeletedObjectsPanel from "../components/DeletedObjectsPanel";
 
 interface SystemPageProps {
@@ -12,7 +13,7 @@ interface SystemPageProps {
 }
 
 /** System 页 Tab（O-1/O-2：账号管理 + 已删对象管理，DR-224；F017：API Key 管理，DR-312）。 */
-type SystemTab = "account" | "apikeys" | "deleted";
+type SystemTab = "account" | "apikeys" | "authorizations" | "deleted";
 
 /**
  * F015 System 页（§28；DR-224；O-1/O-2 裁定）+ F017 API Key 管理（DR-312）：
@@ -67,6 +68,17 @@ export default function SystemPage({ user }: SystemPageProps) {
             API Key 管理
           </Button>
         )}
+        {canUserAdmin && (
+          <Button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "authorizations"}
+            className={activeTab === "authorizations" ? "nav-link nav-link-active" : "nav-link"}
+            onClick={() => setTab("authorizations")}
+          >
+            集群授权
+          </Button>
+        )}
         {canViewDeleted && (
           <Button
             type="button"
@@ -82,6 +94,7 @@ export default function SystemPage({ user }: SystemPageProps) {
 
       {activeTab === "account" && canUserAdmin && <AccountManagementPanel />}
       {activeTab === "apikeys" && canUserAdmin && <ApiKeyManagementPanel />}
+      {activeTab === "authorizations" && canUserAdmin && <ClusterAuthorizationPanel />}
       {activeTab === "deleted" && canViewDeleted && <DeletedObjectsPanel user={user} />}
     </SurfaceCard>
   );
