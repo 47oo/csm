@@ -54,7 +54,7 @@ def _single_head(alembic_runner) -> str:
 
 def test_f017_0014_downgrade_and_reupgrade_is_confined(pg_engine, alembic_runner):
     """V-DB-F017-1/B22: down to 0013 drops only F017 objects; up restores them."""
-    assert _single_head(alembic_runner) == "0014_api_keys"
+    assert _single_head(alembic_runner) == "0015_user_cluster_authorizations"
     assert "api_keys" in _tables(pg_engine)
     assert "api_key_label" in _audit_columns(pg_engine)
     assert "ck_audit_logs_api_key_label_not_blank" in _check_constraints(pg_engine)
@@ -76,4 +76,4 @@ def test_f017_0014_downgrade_and_reupgrade_is_confined(pg_engine, alembic_runner
     assert "api_keys" in _tables(pg_engine)
     assert "api_key_label" in _audit_columns(pg_engine)
     assert "ck_audit_logs_api_key_label_not_blank" in _check_constraints(pg_engine)
-    assert _single_head(alembic_runner) == "0014_api_keys"
+    assert _single_head(alembic_runner) == "0015_user_cluster_authorizations"

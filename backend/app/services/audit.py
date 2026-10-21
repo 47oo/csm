@@ -90,6 +90,15 @@ AUDITABLE_FIELDS: dict[str, tuple[str, ...]] = {
     "user": ("username", "role", "status"),
     # F017/DR-316: API Key lifecycle. Never contains ``key_hash``/plaintext.
     "api_key": ("user_id", "label", "expires_at", "revoked_at"),
+    # F026: cluster authorization lifecycle. No credentials or account secrets.
+    "user_cluster_authorization": (
+        "user_id",
+        "cluster_id",
+        "granted_at",
+        "granted_by",
+        "revoked_at",
+        "revoked_by",
+    ),
 }
 
 
