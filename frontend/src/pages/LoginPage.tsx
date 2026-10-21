@@ -1,6 +1,7 @@
 import { Button, Input } from "../components/ui/controls";
 import { ErrorState } from "../components/ui/feedback";
 import { SurfaceCard } from "../components/ui/surfaces";
+import { ClusterOutlined } from "@ant-design/icons";
 import { useState, type FormEvent } from "react";
 import { login, type User } from "../api/auth";
 import { isApiError, type ApiErrorDetails } from "../api/client";
@@ -81,6 +82,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
   return (
     <main className="login-main">
+      <span className="brand-symbol" aria-hidden="true"><ClusterOutlined /></span>
       <h1>CSM</h1>
       <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
 
@@ -133,7 +135,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             />
           )}
 
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" className="login-submit" disabled={submitting}>
             {submitting ? "正在登录…" : "登录"}
           </Button>
         </form>

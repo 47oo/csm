@@ -1,4 +1,6 @@
 import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { Button as AntButton, Dropdown } from "antd";
+import { DownOutlined, ImportOutlined, PlusOutlined } from "@ant-design/icons";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, LoadingState, WarningState } from "../components/ui/feedback";
 import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
@@ -235,20 +237,20 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
           <h2>Resources（资源）</h2>
           <div className="filter-actions">
             {canImport && (
-              <Button type="button" onClick={() => setShowImport((visible) => !visible)}>
-                {showImport ? "收起批量导入" : "批量导入…"}
-              </Button>
-            )}
-            {canImport && (
-              <Button
-                type="button"
-                onClick={() => setShowInterfaceIpImport((visible) => !visible)}
+              <Dropdown
+                trigger={["click"]}
+                menu={{ items: [
+                  { key: "resources", label: showImport ? "收起批量导入" : "批量导入…", onClick: () => setShowImport((visible) => !visible) },
+                  { key: "interfaces", label: showInterfaceIpImport ? "收起资源+网卡+IP 导入" : "资源+网卡+IP 批量导入…", onClick: () => setShowInterfaceIpImport((visible) => !visible) },
+                ] }}
               >
-                {showInterfaceIpImport ? "收起资源+网卡+IP 导入" : "资源+网卡+IP 批量导入…"}
-              </Button>
+                <AntButton htmlType="button" className="csm-button" icon={<ImportOutlined aria-hidden="true" />}>
+                  批量导入 <DownOutlined aria-hidden="true" />
+                </AntButton>
+              </Dropdown>
             )}
             {canWrite && (
-              <Button type="button" onClick={onCreate}>
+              <Button type="button" variant="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={onCreate}>
                 新建资源
               </Button>
             )}

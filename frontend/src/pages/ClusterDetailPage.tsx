@@ -293,10 +293,11 @@ export default function ClusterDetailPage({
             </dd>
           </dl>
 
-          <div className="detail-actions">
+          <div className="record-actions">
             {canWrite && state.cluster.deleted_at === null && (
               <Button
                 type="button"
+                variant="primary"
                 onClick={() => {
                   setFormError(null);
                   setMode("edit");

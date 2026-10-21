@@ -17,19 +17,26 @@ createRoot(container).render(
       theme={{
         algorithm: [theme.defaultAlgorithm, theme.compactAlgorithm],
         token: {
-          colorPrimary: "#1677ff",
-          colorInfo: "#1677ff",
+          colorPrimary: "#2563eb",
+          colorInfo: "#2563eb",
           colorSuccess: "#16a34a",
           colorWarning: "#d97706",
           colorError: "#dc2626",
-          borderRadius: 8,
-          controlHeight: 34,
+          colorText: "#172b4d",
+          colorTextSecondary: "#52637a",
+          colorBgLayout: "#f4f6fa",
+          colorBorderSecondary: "#e5eaf1",
+          borderRadius: 10,
+          controlHeight: 40,
+          fontSize: 15,
           fontFamily:
-            'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
         },
         components: {
-          Card: { headerHeight: 42 },
-          Table: { cellPaddingBlockSM: 9, cellPaddingInlineSM: 12 },
+          Card: { headerHeight: 52, bodyPaddingSM: 24, headerPaddingSM: 24 },
+          Button: { fontWeight: 500, primaryShadow: "none" },
+          Table: { cellPaddingBlockSM: 12, cellPaddingInlineSM: 16, headerBg: "#f5f7fb", headerColor: "#52637a", rowHoverBg: "#f3f7ff" },
+          Statistic: { contentFontSize: 30, titleFontSize: 13 },
         },
       }}
     >

@@ -390,6 +390,7 @@ export default function IpPoolsPage({ user }: IpPoolsPageProps) {
         {canWrite && mode.kind === "list" && (
           <Button
             type="button"
+            variant="primary"
             onClick={() => {
               setFormError(null);
               setMode({ kind: "create" });

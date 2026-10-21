@@ -691,10 +691,11 @@ export default function ResourceDetailPage({
             </dd>
           </dl>
 
-          <div className="detail-actions">
+          <div className="record-actions">
             {canWrite && state.resource.deleted_at === null && (
               <Button
                 type="button"
+                variant="primary"
                 onClick={() => {
                   setFormError(null);
                   setMode("edit");

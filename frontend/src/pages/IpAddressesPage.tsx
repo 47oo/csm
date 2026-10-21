@@ -557,6 +557,7 @@ export default function IpAddressesPage({ user, initialNetworkId }: IpAddressesP
                 setNotice(null);
                 setMode({ kind: "create-auto" });
               }}
+              variant="primary"
             >
               自动分配 IP
             </Button>
