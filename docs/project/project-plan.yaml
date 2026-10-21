@@ -1679,8 +1679,8 @@ features:
   - F017
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: CONTRACT
-  next_action: Architect 定稿 F026 Contract 与 F002/F015 errata。
+  current_stage: IMPLEMENTATION
+  next_action: Backend 与 Frontend 实现及本地验证。
   layers:
     database: true
     backend: true
@@ -1691,7 +1691,7 @@ features:
     architecture: COMPLETE
     database: COMPLETE
     test_design: COMPLETE
-    contract: PENDING
+    contract: COMPLETE
     backend: PENDING
     frontend: PENDING
     test: PENDING
@@ -1705,7 +1705,9 @@ features:
     - docs/database/f026-cluster-authorization.md
     test_design:
     - docs/features/F026/test-report.md#test-design
-  last_result: Database READY FOR DATABASE IMPLEMENTATION；Test Design READY（TD-1）。
+    contract:
+    - docs/api/F026.md
+  last_result: Contract READY FOR IMPLEMENTATION；F002 v3 / F015 v3 errata 已定稿。
 - id: F027
   title: 服务端访问范围强制执行
   kind: FEATURE
@@ -2182,9 +2184,9 @@ execution:
     authorized_on: '2026-10-21'
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
   current_feature: F026
-  current_stage: CONTRACT
-  last_result: F026 Database / Test Design Gate 通过，进入 CONTRACT。
-  next_action: 完成 F026 Contract 签核并进入实现。
+  current_stage: IMPLEMENTATION
+  last_result: F026 CONTRACT Gate 通过，进入实现。
+  next_action: 完成 Backend / Frontend 实现、Migration 与本地验证。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

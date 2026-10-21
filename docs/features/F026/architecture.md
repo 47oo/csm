@@ -233,3 +233,14 @@ Product/用户：P-1 路径/语义错误分解、P-2 回填不写 Audit、P-3 A-
 本阶段只读分析，未修改文件，不放行编码。Database / Test Design 核对后，Contract Gate 签核 `docs/api/F026.md` 与 F002 v3 / F015 v3 errata，再进入实现。
 
 **Status：READY FOR DESIGN**
+## 10. 最终设计签核（CONTRACT / FINAL DESIGN）
+
+- 状态：READY FOR IMPLEMENTATION
+- 签核者：Architect；日期：2026-10-21；覆盖 Feature：F026
+- 契约：`docs/api/F026.md` v1（READY）；`docs/api/F002.md` v3、`docs/api/F015.md` v3（加法 errata）；F017 无变更
+- 上游依据：requirements revision 11（§3/§5/§21–§23.2/§24/§25/§27/§28/§31 T85–T99/§32/§35.1）；CHG-010；plan_revision 14；F026 product v1；architecture v1；`docs/database/f026-cluster-authorization.md` v1（DB-D401–D420，含 DB-D407）；F026 test-report TD-1
+- 核对结论：需求条款、Product 验收、Architecture 决策、Database 设计、TD-1 判据与 Contract 三端点/字段/错误字面一致；事务边界（业务写 + Audit 同事务）、并发保护（部分唯一索引 + 条件更新）、生命周期（软删/INACTIVE/停用/升降级）无冲突。无阻塞。
+- 关闭项：OBS-F026-1（DB-D407 全量 `(user_id)` 索引取代部分索引，无接口影响）；OBS-F026-2（`docs/api/F026.md` v1 定稿）；OBS-F026-4（P-1 字面化：路径 404 / 语义 422）；A-1/A-2/A-3 记录于 Contract §9.3/§9.1/§9.7。
+- 放行：自本签发起进入实现；实现以 `docs/api/F026.md` v1（含 F002 v3 / F015 v3 errata）为唯一契约判据，TD-2 复核不改变已冻结字面。
+
+**Status：READY FOR IMPLEMENTATION**
