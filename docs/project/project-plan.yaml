@@ -1679,8 +1679,8 @@ features:
   - F017
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: Architect 完成 F026 架构方案与 API 草案。
+  current_stage: DATABASE
+  next_action: Database 与 Test Design 并行核对；随后 CONTRACT 定稿。
   layers:
     database: true
     backend: true
@@ -1688,7 +1688,7 @@ features:
   api_required: true
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: PENDING
     test_design: PENDING
     contract: PENDING
@@ -1699,7 +1699,9 @@ features:
   evidence:
     product:
     - docs/features/F026/product.md
-  last_result: Product READY FOR ARCHITECT（requirements revision 11）。
+    architecture:
+    - docs/features/F026/architecture.md
+  last_result: Architecture READY FOR DESIGN。
 - id: F027
   title: 服务端访问范围强制执行
   kind: FEATURE
@@ -2176,9 +2178,9 @@ execution:
     authorized_on: '2026-10-21'
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
   current_feature: F026
-  current_stage: ARCHITECTURE
-  last_result: F026 Product Gate 通过，进入 ARCHITECTURE。
-  next_action: 完成 F026 Architecture Gate。
+  current_stage: DATABASE
+  last_result: F026 Architecture Gate 通过，DATABASE / TEST_DESIGN 并行。
+  next_action: 完成 F026 Database Design 与 Test Design。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
