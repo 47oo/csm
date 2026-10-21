@@ -1679,15 +1679,15 @@ features:
   - F017
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: product-manager 输出 READY FOR ARCHITECT。
+  current_stage: ARCHITECTURE
+  next_action: Architect 完成 F026 架构方案与 API 草案。
   layers:
     database: true
     backend: true
     frontend: true
   api_required: true
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: PENDING
     test_design: PENDING
@@ -1696,8 +1696,10 @@ features:
     frontend: PENDING
     test: PENDING
     review: PENDING
-  evidence: {}
-  last_result: Preflight 通过，启动 F026 PRODUCT 阶段。
+  evidence:
+    product:
+    - docs/features/F026/product.md
+  last_result: Product READY FOR ARCHITECT（requirements revision 11）。
 - id: F027
   title: 服务端访问范围强制执行
   kind: FEATURE
@@ -2174,9 +2176,9 @@ execution:
     authorized_on: '2026-10-21'
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
   current_feature: F026
-  current_stage: PRODUCT
-  last_result: F026 Preflight 通过（base v3.2 3c8d2d9），进入 PRODUCT。
-  next_action: 完成 F026 Product Gate。
+  current_stage: ARCHITECTURE
+  last_result: F026 Product Gate 通过，进入 ARCHITECTURE。
+  next_action: 完成 F026 Architecture Gate。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
