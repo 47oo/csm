@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
+from app.core.access_scope import AccessScope, get_access_scope
 from app.core.auth import Operator
 from app.core.db import get_db
 from app.core.errors import Forbidden, NotFound, ValidationError
@@ -110,6 +111,7 @@ def list_resources(
     sort: SortField = Query(default="created_at"),
     order: SortOrder = Query(default="desc"),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ResourceListResponse:
     """List resources with combined filters/sorting/pagination (§4)."""
@@ -129,6 +131,7 @@ def list_resources(
         page_size=page_size,
         sort=sort,
         order=order,
+        scope=scope,
     )
     return ResourceListResponse(
         items=_build_out(db, items),
@@ -142,6 +145,7 @@ def list_resources(
 def create_resource(
     payload: ResourceCreateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ResourceEnvelope:
     """Create a resource (201) and write a CREATE audit row."""
@@ -168,6 +172,7 @@ def create_resource(
         hardware=hardware,
         virtual_machine=virtual_machine,
         virtual_machine_present="virtual_machine" in payload.model_fields_set,
+        scope=scope,
     )
     return ResourceEnvelope(resource=_build_out(db, [resource])[0])
 
@@ -177,6 +182,7 @@ def get_resource_detail(
     resource_id: str,
     deleted: bool = Query(default=False),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ResourceEnvelope:
     """Resource detail; a soft-deleted row needs ``deleted=true`` + VIEW_DELETED."""
@@ -184,7 +190,7 @@ def get_resource_detail(
     if deleted:
         _require_view_deleted(operator)
     resource = resource_service.get_resource(
-        db, resource_uuid, include_deleted=deleted
+        db, resource_uuid, include_deleted=deleted, scope=scope
     )
     if resource is None:
         raise NotFound()
@@ -196,6 +202,7 @@ def update_resource(
     resource_id: str,
     payload: ResourceUpdateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ResourceEnvelope:
     """Partial update with mandatory ``version``; immutable fields rejected (422)."""
@@ -238,6 +245,7 @@ def update_resource(
         changes=changes,
         hardware=hardware,
         virtual_machine=virtual_machine,
+        scope=scope,
     )
     return ResourceEnvelope(resource=_build_out(db, [resource])[0])
 
@@ -247,12 +255,13 @@ def delete_resource(
     resource_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.DELETE_OBJECT)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> Response:
     """Soft delete (no cascade); writes a DELETE audit row."""
     resource_uuid = _parse_uuid(resource_id)
     resource_service.delete_resource(
-        db, operator, resource_uuid, expected_version=version
+        db, operator, resource_uuid, expected_version=version, scope=scope
     )
     return Response(status_code=204)
 
@@ -262,12 +271,13 @@ def restore_resource(
     resource_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.RESTORE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ResourceEnvelope:
     """Restore a soft-deleted resource; writes a RESTORE audit row."""
     resource_uuid = _parse_uuid(resource_id)
     resource = resource_service.restore_resource(
-        db, operator, resource_uuid, expected_version=version
+        db, operator, resource_uuid, expected_version=version, scope=scope
     )
     return ResourceEnvelope(resource=_build_out(db, [resource])[0])
 
@@ -279,6 +289,7 @@ def resource_activity(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     operator: Operator = Depends(require_permission(Permission.VIEW_ACTIVITY)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ActivityListResponse:
     """Object activity (all roles); soft-deleted needs ``deleted=true``."""
@@ -286,7 +297,7 @@ def resource_activity(
     if deleted:
         _require_view_deleted(operator)
     resource = resource_service.get_resource(
-        db, resource_uuid, include_deleted=deleted
+        db, resource_uuid, include_deleted=deleted, scope=scope
     )
     if resource is None:
         raise NotFound()

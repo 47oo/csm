@@ -1757,25 +1757,41 @@ features:
   depends_on:
   - F026
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: Preflight 后启动 PRODUCT 阶段（依赖 F026 已 DONE）。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: Reviewer 复审修复后的候选。
   layers:
     database: false
     backend: true
     frontend: false
   api_required: true
   implementation:
-    product: PENDING
-    architecture: PENDING
-    database: PENDING
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
-    frontend: PENDING
-    test: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: NOT_REQUIRED
+    test: COMPLETE
     review: PENDING
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F027/product.md
+    architecture:
+    - docs/features/F027/architecture.md
+    test_design:
+    - docs/features/F027/test-report.md#test-design
+    contract:
+    - docs/api/F027.md
+    backend:
+    - docs/features/F027/implementation.md#1-实现文件
+    test:
+    - docs/features/F027/test-report.md#repair-verification-1
+  last_result: F027-R1 CLOSED；定向 18 passed；全量 718 passed, 2 skipped。
+  not_required:
+    database: 无 Schema/Migration 变更：F027 只消费 F026 授权表与既有业务表，新增范围谓词不新增表/列/索引/触发器。
+    frontend: 无新增前端功能；既有页面的受限表现与文案核对归 F028（N2）。
 - id: F028
   title: 范围变更集成验收与回归
   kind: FEATURE
@@ -2197,10 +2213,10 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-21'
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
-  current_feature: null
-  current_stage: null
-  last_result: F026 DONE（merge 8741094；Review APPROVED WITH FOLLOW-UP，无必须修复项）。F027 READY。
-  next_action: 对 F027 执行 Preflight 并启动 PRODUCT。
+  current_feature: F027
+  current_stage: REVIEW
+  last_result: F027 修复复测通过，进入复审。
+  next_action: 完成 F027 复审并合并。
   repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
@@ -2211,10 +2227,9 @@ planning_status:
     DONE: 26
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F027
+    IN_REVIEW: 1
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED:
     - F028

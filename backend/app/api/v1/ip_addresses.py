@@ -12,6 +12,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
+from app.core.access_scope import AccessScope, get_access_scope
 from app.core.auth import Operator
 from app.core.db import get_db
 from app.core.errors import Forbidden, NotFound
@@ -112,6 +113,7 @@ def list_ip_addresses(
     sort: SortField = Query(default="created_at"),
     order: SortOrder = Query(default="desc"),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPAddressListResponse:
     """List ip addresses with combined filters/sorting/pagination (§4)."""
@@ -131,6 +133,7 @@ def list_ip_addresses(
         page_size=page_size,
         sort=sort,
         order=order,
+        scope=scope,
     )
     return IPAddressListResponse(
         items=_build_out(db, items), page=page, page_size=page_size, total=total
@@ -141,6 +144,7 @@ def list_ip_addresses(
 def create_ip_address(
     payload: IPAddressCreateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPAddressEnvelope:
     """Manual allocation (201); creates an unbound IP + CREATE audit row."""
@@ -150,6 +154,7 @@ def create_ip_address(
         network=payload.network,
         address=payload.address,
         description=payload.description,
+        scope=scope,
     )
     return IPAddressEnvelope(ip_address=_build_out(db, [ip_address])[0])
 
@@ -158,6 +163,7 @@ def create_ip_address(
 def auto_allocate_ip_address(
     payload: IPAddressAutoAllocateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPAddressEnvelope:
     """Automatic allocation from an AUTO pool (201) + CREATE audit row."""
@@ -167,6 +173,7 @@ def auto_allocate_ip_address(
         network=payload.network,
         ip_pool=payload.ip_pool,
         description=payload.description,
+        scope=scope,
     )
     return IPAddressEnvelope(ip_address=_build_out(db, [ip_address])[0])
 
@@ -176,6 +183,7 @@ def get_ip_address_detail(
     ip_address_id: str,
     deleted: bool = Query(default=False),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPAddressEnvelope:
     """IPAddress detail; soft-deleted needs ``deleted=true`` + VIEW_DELETED."""
@@ -183,7 +191,7 @@ def get_ip_address_detail(
     if deleted:
         _require_view_deleted(operator)
     ip_address = ip_address_service.get_ip_address(
-        db, ip_uuid, include_deleted=deleted
+        db, ip_uuid, include_deleted=deleted, scope=scope
     )
     if ip_address is None:
         raise NotFound()
@@ -195,6 +203,7 @@ def update_ip_address(
     ip_address_id: str,
     payload: IPAddressUpdateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPAddressEnvelope:
     """Bind/unbind/transfer an Interface or edit ``description`` (WRITE)."""
@@ -202,7 +211,12 @@ def update_ip_address(
     changes = payload.model_dump(exclude_unset=True)
     changes.pop("version", None)
     ip_address = ip_address_service.update_ip_address(
-        db, operator, ip_uuid, expected_version=payload.version, changes=changes
+        db,
+        operator,
+        ip_uuid,
+        expected_version=payload.version,
+        changes=changes,
+        scope=scope,
     )
     return IPAddressEnvelope(ip_address=_build_out(db, [ip_address])[0])
 
@@ -212,12 +226,13 @@ def delete_ip_address(
     ip_address_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.RELEASE_IP)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> Response:
     """Release an IP = soft delete (ADMIN / RELEASE_IP)."""
     ip_uuid = _parse_uuid(ip_address_id)
     ip_address_service.delete_ip_address(
-        db, operator, ip_uuid, expected_version=version
+        db, operator, ip_uuid, expected_version=version, scope=scope
     )
     return Response(status_code=204)
 
@@ -227,12 +242,13 @@ def restore_ip_address(
     ip_address_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.RESTORE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPAddressEnvelope:
     """Restore a soft-deleted IPAddress; writes a RESTORE audit row."""
     ip_uuid = _parse_uuid(ip_address_id)
     ip_address = ip_address_service.restore_ip_address(
-        db, operator, ip_uuid, expected_version=version
+        db, operator, ip_uuid, expected_version=version, scope=scope
     )
     return IPAddressEnvelope(ip_address=_build_out(db, [ip_address])[0])
 
@@ -244,6 +260,7 @@ def ip_address_activity(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     operator: Operator = Depends(require_permission(Permission.VIEW_ACTIVITY)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ActivityListResponse:
     """Object activity (all roles); soft-deleted needs ``deleted=true``."""
@@ -251,7 +268,7 @@ def ip_address_activity(
     if deleted:
         _require_view_deleted(operator)
     ip_address = ip_address_service.get_ip_address(
-        db, ip_uuid, include_deleted=deleted
+        db, ip_uuid, include_deleted=deleted, scope=scope
     )
     if ip_address is None:
         raise NotFound()
@@ -270,11 +287,12 @@ def ip_address_activity(
 def network_capacity(
     network_id: str,
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> NetworkCapacityResponse:
     """§20 capacity data for a Network; soft-deleted Network returns 404."""
     network_uuid = _parse_uuid(network_id)
-    network = network_service.get_network(db, network_uuid)
+    network = network_service.get_network(db, network_uuid, scope=scope)
     if network is None:
         raise NotFound()
 

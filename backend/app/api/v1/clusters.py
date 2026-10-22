@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
+from app.core.access_scope import AccessScope, get_access_scope
 from app.core.auth import Operator
 from app.core.db import get_db
 from app.core.errors import Forbidden, NotFound, ValidationError
@@ -64,6 +65,7 @@ def list_clusters(
     sort: SortField = Query(default="created_at"),
     order: SortOrder = Query(default="desc"),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ClusterListResponse:
     """List clusters with combined filters/sorting/pagination (§4)."""
@@ -79,6 +81,7 @@ def list_clusters(
         page_size=page_size,
         sort=sort,
         order=order,
+        scope=scope,
     )
     return ClusterListResponse(
         items=[build_cluster_out(item) for item in items],
@@ -92,9 +95,11 @@ def list_clusters(
 def create_cluster(
     payload: ClusterCreateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ClusterEnvelope:
     """Create a cluster (201) and write a CREATE audit row."""
+    del scope  # Q1: EDITOR create-Cluster behavior is unchanged (no scope gate).
     cluster = cluster_service.create_cluster(
         db,
         operator,
@@ -112,13 +117,16 @@ def get_cluster_detail(
     cluster_id: str,
     deleted: bool = Query(default=False),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ClusterEnvelope:
     """Cluster detail; a soft-deleted row needs ``deleted=true`` + VIEW_DELETED."""
     cluster_uuid = _parse_uuid(cluster_id)
     if deleted:
         _require_view_deleted(operator)
-    cluster = cluster_service.get_cluster(db, cluster_uuid, include_deleted=deleted)
+    cluster = cluster_service.get_cluster(
+        db, cluster_uuid, include_deleted=deleted, scope=scope
+    )
     if cluster is None:
         raise NotFound()
     return ClusterEnvelope(cluster=build_cluster_out(cluster))
@@ -129,6 +137,7 @@ def update_cluster(
     cluster_id: str,
     payload: ClusterUpdateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ClusterEnvelope:
     """Partial update with mandatory ``version``; ``code`` is immutable (422)."""
@@ -146,6 +155,7 @@ def update_cluster(
         cluster_uuid,
         expected_version=payload.version,
         changes=changes,
+        scope=scope,
     )
     return ClusterEnvelope(cluster=build_cluster_out(cluster))
 
@@ -155,12 +165,13 @@ def delete_cluster(
     cluster_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.DELETE_OBJECT)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> Response:
     """Soft delete (no cascade); writes a DELETE audit row."""
     cluster_uuid = _parse_uuid(cluster_id)
     cluster_service.delete_cluster(
-        db, operator, cluster_uuid, expected_version=version
+        db, operator, cluster_uuid, expected_version=version, scope=scope
     )
     return Response(status_code=204)
 
@@ -170,12 +181,13 @@ def restore_cluster(
     cluster_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.RESTORE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ClusterEnvelope:
     """Restore a soft-deleted cluster; writes a RESTORE audit row."""
     cluster_uuid = _parse_uuid(cluster_id)
     cluster = cluster_service.restore_cluster(
-        db, operator, cluster_uuid, expected_version=version
+        db, operator, cluster_uuid, expected_version=version, scope=scope
     )
     return ClusterEnvelope(cluster=build_cluster_out(cluster))
 
@@ -187,13 +199,16 @@ def cluster_activity(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     operator: Operator = Depends(require_permission(Permission.VIEW_ACTIVITY)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ActivityListResponse:
     """Object activity (all roles); soft-deleted needs ``deleted=true``."""
     cluster_uuid = _parse_uuid(cluster_id)
     if deleted:
         _require_view_deleted(operator)
-    cluster = cluster_service.get_cluster(db, cluster_uuid, include_deleted=deleted)
+    cluster = cluster_service.get_cluster(
+        db, cluster_uuid, include_deleted=deleted, scope=scope
+    )
     if cluster is None:
         raise NotFound()
     rows, total = cluster_service.list_activity(

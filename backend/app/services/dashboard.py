@@ -19,31 +19,55 @@ from sqlalchemy import func, select
 from app.models.cluster import Cluster
 from app.models.network import Network
 from app.models.resource import Resource
-from app.services import ip_capacity
+from app.services import ip_capacity, scope_filters
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-def _counts(db: "Session") -> dict[str, int]:
-    """Return the global undeleted counts (INACTIVE rows included)."""
-    clusters = int(db.execute(select(func.count()).select_from(Cluster)).scalar_one())
-    resources = int(db.execute(select(func.count()).select_from(Resource)).scalar_one())
+def _counts(db: "Session", scope=None) -> dict[str, int]:
+    """Return the visible undeleted counts (INACTIVE rows included)."""
+    clusters = int(
+        db.execute(
+            select(func.count())
+            .select_from(Cluster)
+            .where(scope_filters.cluster_predicate(scope, Cluster.id))
+        ).scalar_one()
+    )
+    resources = int(
+        db.execute(
+            select(func.count())
+            .select_from(Resource)
+            .where(scope_filters.cluster_predicate(scope, Resource.cluster_id))
+        ).scalar_one()
+    )
     bare_metal = int(
         db.execute(
             select(func.count())
             .select_from(Resource)
-            .where(Resource.resource_type == "BARE_METAL")
+            .where(
+                Resource.resource_type == "BARE_METAL",
+                scope_filters.cluster_predicate(scope, Resource.cluster_id),
+            )
         ).scalar_one()
     )
     virtual_machines = int(
         db.execute(
             select(func.count())
             .select_from(Resource)
-            .where(Resource.resource_type == "VIRTUAL_MACHINE")
+            .where(
+                Resource.resource_type == "VIRTUAL_MACHINE",
+                scope_filters.cluster_predicate(scope, Resource.cluster_id),
+            )
         ).scalar_one()
     )
-    networks = int(db.execute(select(func.count()).select_from(Network)).scalar_one())
+    networks = int(
+        db.execute(
+            select(func.count())
+            .select_from(Network)
+            .where(scope_filters.cluster_predicate(scope, Network.cluster_id))
+        ).scalar_one()
+    )
     return {
         "clusters": clusters,
         "resources": resources,
@@ -54,15 +78,19 @@ def _counts(db: "Session") -> dict[str, int]:
 
 
 def _page_networks(
-    db: "Session", page: int, page_size: int
+    db: "Session", page: int, page_size: int, scope=None
 ) -> tuple[list[Network], int]:
+    scope_filter = scope_filters.cluster_predicate(scope, Network.cluster_id)
     statement = (
         select(Network)
+        .where(scope_filter)
         .order_by(Network.created_at.desc(), Network.id.asc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
-    total_statement = select(func.count()).select_from(Network)
+    total_statement = (
+        select(func.count()).select_from(Network).where(scope_filter)
+    )
     items = list(db.execute(statement).scalars().all())
     total = int(db.execute(total_statement).scalar_one())
     return items, total
@@ -82,11 +110,11 @@ def _clusters_for(
 
 
 def get_dashboard(
-    db: "Session", *, page: int = 1, page_size: int = 20
+    db: "Session", *, page: int = 1, page_size: int = 20, scope=None
 ) -> dict[str, Any]:
     """Return ``counts`` and the paginated ``networks`` block (Contract §3)."""
-    counts = _counts(db)
-    networks, total = _page_networks(db, page, page_size)
+    counts = _counts(db, scope)
+    networks, total = _page_networks(db, page, page_size, scope)
     cluster_map = _clusters_for(db, [network.cluster_id for network in networks])
 
     items: list[dict[str, Any]] = []

@@ -35,9 +35,10 @@ from app.core.errors import (
     ImportInvalidFile,
     ImportRowLimitExceeded,
     ImportValidationFailed,
+    ValidationError,
 )
 from app.models.resource import Resource
-from app.services import cluster as cluster_service
+from app.services import cluster as cluster_service, scope_filters
 from app.services import normalization
 from app.services import resource as resource_service
 
@@ -536,7 +537,7 @@ def _parse_int(field_name: str, text: str) -> int:
 
 
 def _find_host(
-    db: "Session", cluster_id: uuid.UUID, reference: str
+    db: "Session", cluster_id: uuid.UUID, reference: str, *, scope=None
 ) -> Resource | None:
     """Resolve a VM ``host`` cell to an undeleted same-cluster BARE_METAL row.
 
@@ -580,6 +581,7 @@ def _validate_record(
     *,
     seen: dict[tuple[uuid.UUID, str], int],
     cluster_cache: dict[str, Any],
+    scope=None,
 ) -> tuple[PreparedRow | None, list[RowError]]:
     """Validate one data record; returns a prepared row or aggregated errors."""
     errors: list[RowError] = []
@@ -620,7 +622,22 @@ def _validate_record(
             cluster_cache[cluster_ref] = exc
             add("cluster", _error_message(exc))
         else:
-            cluster_cache[cluster_ref] = cluster
+            if not scope_filters.normalize(scope).allows(cluster.id):
+                error = ValidationError(
+                    details={
+                        "fields": [
+                            {
+                                "field": "cluster",
+                                "message": "cluster does not exist or is not selectable",
+                            }
+                        ]
+                    }
+                )
+                cluster_cache[cluster_ref] = error
+                add("cluster", _error_message(error))
+                cluster = None
+            else:
+                cluster_cache[cluster_ref] = cluster
 
     hostname: str | None = None
     hostname_key: str | None = None
@@ -680,7 +697,7 @@ def _validate_record(
         if not host_ref:
             add("host", "host is required")
         elif cluster is not None:
-            host = _find_host(db, cluster.id, host_ref)
+            host = _find_host(db, cluster.id, host_ref, scope=scope)
             if host is None:
                 add(
                     "host",
@@ -774,6 +791,7 @@ def parse_and_validate(
     *,
     max_file_bytes: int,
     max_rows: int,
+    scope=None,
 ) -> ImportResult:
     """Parse + validate a whole file; enforce the file/row caps (DR-196)."""
     if len(data) > max_file_bytes:
@@ -812,6 +830,7 @@ def parse_and_validate(
             row_number,
             seen=seen,
             cluster_cache=cluster_cache,
+            scope=scope,
         )
         if prepared is not None:
             result.prepared.append(prepared)
@@ -820,7 +839,7 @@ def parse_and_validate(
 
 
 def validate_import(
-    db: "Session", data: bytes, fmt: str, settings: "Settings"
+    db: "Session", data: bytes, fmt: str, settings: "Settings", *, scope=None
 ) -> ImportResult:
     """Read-only pre-validate (Contract §3); no writes, no Audit, no locks."""
     return parse_and_validate(
@@ -829,6 +848,7 @@ def validate_import(
         fmt,
         max_file_bytes=settings.import_max_file_bytes,
         max_rows=settings.import_max_rows,
+        scope=scope,
     )
 
 
@@ -853,6 +873,8 @@ def write_import(
     data: bytes,
     fmt: str,
     settings: "Settings",
+    *,
+    scope=None,
 ) -> tuple[int, int]:
     """Validate then insert the batch atomically (Contract §4, DR-203).
 
@@ -866,6 +888,7 @@ def write_import(
         fmt,
         max_file_bytes=settings.import_max_file_bytes,
         max_rows=settings.import_max_rows,
+        scope=scope,
     )
     if result.errors:
         _raise_validation_failed(db, result, settings)

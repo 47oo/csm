@@ -184,12 +184,23 @@ def auth_session_factory(committed_engine):
 
 
 @pytest.fixture
-def auth_app(auth_session_factory):
-    """Production app with ``get_db`` overridden to the test database."""
+def auth_app(auth_session_factory, request):
+    """Production app with ``get_db`` overridden to the test database.
+
+    Pre-F027 suites assume non-ADMIN users can see every Cluster.  F027 changes
+    that rule, so those suites run with an explicit unrestricted scope override;
+    the F026/F027 suites exercise the real ``get_access_scope`` dependency.  This
+    is a test-only compatibility shim and never changes production behavior.
+    """
+    from app.core.access_scope import AccessScope, get_access_scope
     from app.core.db import get_db
     from app.main import create_app
 
     app = create_app()
+    path = str(getattr(request.node, "fspath", "")).replace("\\", "/")
+    legacy_scope = "tests/integration" in path and not path.endswith(
+        ("test_cluster_authorizations.py", "test_f027_access_scope.py")
+    )
 
     def _override():
         session = auth_session_factory()
@@ -199,6 +210,10 @@ def auth_app(auth_session_factory):
             session.close()
 
     app.dependency_overrides[get_db] = _override
+    if legacy_scope:
+        app.dependency_overrides[get_access_scope] = lambda: AccessScope(
+            unrestricted=True, cluster_ids=frozenset()
+        )
     try:
         yield app
     finally:

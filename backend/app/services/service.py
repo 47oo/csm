@@ -39,7 +39,7 @@ from app.core.errors import (
 )
 from app.models.resource import Resource
 from app.models.service import VALID_STATUSES, Service
-from app.services import audit, normalization, service_reference
+from app.services import audit, normalization, scope_filters, service_reference
 from app.services import cluster as cluster_service
 
 if TYPE_CHECKING:
@@ -100,7 +100,7 @@ def _load_resource(db: "Session", resource_id: uuid.UUID) -> Resource | None:
     )
 
 
-def resolve_resource(db: "Session", reference: Any) -> Resource:
+def resolve_resource(db: "Session", reference: Any, *, scope=None) -> Resource:
     """Resolve a POST ``resource`` UUID to an undeleted Resource (DR-144).
 
     Missing / non-UUID / nonexistent / soft-deleted all yield 422 with
@@ -116,7 +116,11 @@ def resolve_resource(db: "Session", reference: Any) -> Resource:
         raise _field_error("resource", "resource must be a valid UUID") from exc
 
     resource = _load_resource(db, resource_id)
-    if resource is None or resource.deleted_at is not None:
+    if (
+        resource is None
+        or resource.deleted_at is not None
+        or not scope_filters.normalize(scope).allows(resource.cluster_id)
+    ):
         raise _field_error("resource", "resource does not exist or is not selectable")
     return resource
 
@@ -217,6 +221,7 @@ def list_services(
     page_size: int = 20,
     sort: str = "created_at",
     order: str = "desc",
+    scope=None,
 ) -> tuple[list[Service], int]:
     """Return the visible page of services plus the filtered total."""
     if deleted not in DELETED_MODES:
@@ -228,7 +233,7 @@ def list_services(
     if status is not None:
         _validate_status(status)
 
-    filters = []
+    filters = [scope_filters.service_parent_predicate(scope)]
     if resource_id is not None:
         filters.append(Service.resource_id == resource_id)
     if status is not None:
@@ -267,10 +272,16 @@ def list_services(
 
 
 def get_service(
-    db: "Session", service_id: uuid.UUID, *, include_deleted: bool = False
+    db: "Session",
+    service_id: uuid.UUID,
+    *,
+    include_deleted: bool = False,
+    scope=None,
 ) -> Service | None:
     """Return a service, hidden by the soft-delete filter unless requested."""
-    statement = select(Service).where(Service.id == service_id)
+    statement = select(Service).where(
+        Service.id == service_id, scope_filters.service_parent_predicate(scope)
+    )
     return (
         db.execute(statement, execution_options=_query_options(include_deleted))
         .scalars()
@@ -331,6 +342,7 @@ def create_service(
     status: str = "UNKNOWN",
     description: str | None = None,
     metadata: dict | None = None,
+    scope=None,
 ) -> Service:
     """Create a Service; validated per Contract §6.2 order.
 
@@ -342,7 +354,7 @@ def create_service(
     validated_status = _validate_status(status)
     meta = _validate_metadata({} if metadata is None else metadata)
 
-    resource_row = resolve_resource(db, resource)
+    resource_row = resolve_resource(db, resource, scope=scope)
     normalized_name = normalization.normalize_service_name(name)
     name_key = normalization.service_name_key(normalized_name)
 
@@ -391,13 +403,14 @@ def update_service(
     *,
     expected_version: int,
     changes: dict[str, Any],
+    scope=None,
 ) -> Service:
     """Partial update with optimistic locking; ``resource`` is immutable.
 
     Contract §6.4 order: visibility (404) -> version (409) -> (if renamed) name
     normalisation (422) -> name uniqueness (409) -> write + UPDATE Audit -> 200.
     """
-    service = get_service(db, service_id)
+    service = get_service(db, service_id, scope=scope)
     if service is None:
         raise NotFound()
     if service.version != expected_version:
@@ -470,6 +483,7 @@ def delete_service(
     service_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> None:
     """Soft delete (no cascade); blocked by undeleted ServiceEndpoint references.
 
@@ -477,7 +491,7 @@ def delete_service(
     ``reference_exists``) -> soft delete. F011 registers no provider, so the
     reference set is empty until F012 does (DR-146).
     """
-    service = get_service(db, service_id)
+    service = get_service(db, service_id, scope=scope)
     if service is None:
         raise NotFound()
     if service.version != expected_version:
@@ -524,6 +538,7 @@ def restore_service(
     service_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> Service:
     """Restore a soft-deleted Service (Contract §6.6).
 
@@ -533,7 +548,7 @@ def restore_service(
     overwrites the newer object; name reuse precedes the Resource dependency.
     No cascade and no Endpoint restore (F012).
     """
-    service = get_service(db, service_id, include_deleted=True)
+    service = get_service(db, service_id, include_deleted=True, scope=scope)
     if service is None:
         raise NotFound()
     if service.deleted_at is None:
