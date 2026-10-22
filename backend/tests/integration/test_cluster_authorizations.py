@@ -615,8 +615,14 @@ def test_f026_0015_downgrade_removes_only_f026_objects(pg_engine, alembic_runner
             "ix_user_cluster_authorizations_cluster_id" in indexes,
         )
 
-    assert all(_f026_objects(_objects()))
-    alembic_runner.downgrade("0014_api_keys")
-    assert not any(_f026_objects(_objects()))
-    alembic_runner.upgrade("head")
-    assert all(_f026_objects(_objects()))
+    try:
+        assert all(_f026_objects(_objects()))
+        alembic_runner.downgrade("0014_api_keys")
+        after_down = _objects()
+        assert not any(_f026_objects(after_down))
+        assert {"users", "clusters", "audit_logs"} <= after_down[0]
+        alembic_runner.upgrade("head")
+        assert all(_f026_objects(_objects()))
+    finally:
+        if alembic_runner.head_revision() != "0015_user_cluster_authorizations":
+            alembic_runner.upgrade("head")
