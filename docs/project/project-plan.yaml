@@ -1942,7 +1942,13 @@ features:
     - docs/features/F029/artifacts/run.log
     - docs/features/F029/artifacts/pytest.log
     - docs/features/F029/artifacts/t36.log
-  last_result: TEST READY FOR REVIEW；21 定向 + 721 全量 + F028 等价栈 4 passed + T36 B1–B7。
+  last_result: 21 定向 + 721 全量 + F028 等价栈 4 passed + T36 B1–B7；证据日志已归档；等待复审。
+  git:
+    base_branch: v3.2
+    branch: feature/F029-review-followups
+    start_commit: 4f83a0eb8fc0c7b0a3ae2db64d3249ca45f159cf
+    head_commit: cd7681a
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
