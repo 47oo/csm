@@ -131,7 +131,7 @@ def test_t85_t88_scope_lists_details_search_dashboard() -> None:
     assert search_related["total"] >= 1
 
     dash = ok(viewer.get("/api/v1/dashboard", params={"page_size": 100}), 200)
-    assert dash["counts"]["clusters"] == len(expected_visible["clusters"])
+    assert dash["counts"]["clusters"] == len({a["cluster"]["id"], b["cluster"]["id"]})
     assert dash["networks"]["total"] == 2
     assert c["network"]["id"] not in {n["network"]["id"] for n in dash["networks"]["items"]}
 
