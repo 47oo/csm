@@ -1,0 +1,14 @@
+[F028] HEAD=601541c0222e69e94cee9fdfbe84579089f01749 branch=feature/F028-integration-acceptance
+[F028] compose attempt (recorded)
+[F028] compose exit=1
+[F028] building frontend
+[F028] health: /healthz=200 ready=200 /=200 alembic='0015_user_cluster_authorizations (head)'
+healthz=200
+ready=200
+index=200
+alembic=0015_user_cluster_authorizations (head)
+[F028] running F028 acceptance pytest (real HTTP http://localhost:18081)
+[F028] pytest exit=0
+[F028] running T36 backup/Audit verification
+[F028] T36 exit=0
+[F028] DONE pytest=0 t36=0 compose=1 artifacts=/home/hanhao/github/47oo/csm/scripts/acceptance/artifacts/f028-20261022T070008Z

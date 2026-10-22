@@ -1824,25 +1824,49 @@ features:
   - F026
   - F027
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: Preflight 后启动 PRODUCT / 集成验收。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: Reviewer 审核验收证据与整体验收结论。
   layers:
     database: false
     backend: false
-    frontend: false
+    frontend: true
   api_required: false
   implementation:
-    product: PENDING
-    architecture: PENDING
-    database: PENDING
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
-    frontend: PENDING
-    test: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: COMPLETE
+    test: COMPLETE
     review: PENDING
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F028/product.md
+    architecture:
+    - docs/features/F028/architecture.md
+    test_design:
+    - docs/features/F028/test-report.md#test-designtd-1
+    frontend:
+    - docs/features/F028/test-report.md#test-executiontest-12026-10-22
+    test:
+    - docs/features/F028/test-report.md#test-executiontest-12026-10-22
+    - docs/features/F028/artifacts/run.log
+    - docs/features/F028/artifacts/pytest.log
+    - docs/features/F028/artifacts/t36.log
+  last_result: 在已提交 HEAD 601541c 上真实 HTTP 4 passed；T36 B1–B7 PASS；等待复审。
+  not_required:
+    database: 验收型 Feature 无 Schema/Migration 变更；迁移 head 0015 已在等价栈验证。
+    backend: 无新增后端业务逻辑；F027 后端交付已由 TEST/Review 覆盖。
+    contract: 无新增/变更 API；被验收端点来自 F026/F027 既有 Contract，api_required=false。
+  git:
+    base_branch: v3.2
+    branch: feature/F028-integration-acceptance
+    start_commit: 088928bd062b74c900f525943b41a7e246c72ad4
+    head_commit: 601541c0222e69e94cee9fdfbe84579089f01749
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2221,10 +2245,10 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-21'
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
-  current_feature: null
-  current_stage: null
-  last_result: F027 DONE（merge 15830b4；Review APPROVED WITH FOLLOW-UP，R1 CLOSED）。F028 READY。
-  next_action: 对 F028 执行 Preflight 并启动集成验收。
+  current_feature: F028
+  current_stage: REVIEW
+  last_result: F028 验收执行通过，进入 Review。
+  next_action: 完成 F028 Review，更新 project.acceptance 并置 DONE。
   repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
@@ -2235,10 +2259,9 @@ planning_status:
     DONE: 27
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F028
+    IN_REVIEW: 1
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
