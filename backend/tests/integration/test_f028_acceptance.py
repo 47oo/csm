@@ -131,7 +131,7 @@ def test_t85_t88_scope_lists_details_search_dashboard() -> None:
     assert search_related["total"] >= 1
 
     dash = ok(viewer.get("/api/v1/dashboard", params={"page_size": 100}), 200)
-    assert dash["counts"]["clusters"] == 2
+    assert dash["counts"]["clusters"] == len(expected_visible["clusters"])
     assert dash["networks"]["total"] == 2
     assert c["network"]["id"] not in {n["network"]["id"] for n in dash["networks"]["items"]}
 
@@ -200,7 +200,6 @@ def test_t91_t94_api_key_and_revoke_next_request() -> None:
     assert _ids(bearer.get("/api/v1/resources", params={"page_size": 100})) == {b["resource"]["id"]}
     assert bearer.get(f"/api/v1/resources/{a['resource']['id']}").status_code == 404
 
-    viewer.headers_none = None  # type: ignore[attr-defined]
     assert viewer.get(f"/api/v1/resources/{a['resource']['id']}").status_code == 404
 
     admin.close(); viewer.close(); bearer.close()

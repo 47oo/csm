@@ -5,7 +5,7 @@
 
 ## 1. 验收拓扑
 
-优先 `docker compose up -d`（Nginx→Frontend/FastAPI→PostgreSQL）。若镜像源不可达，按 F016 先例执行并记录 Compose 尝试，再启动等价真实栈：
+优先 `docker compose up -d`（Nginx→Frontend/FastAPI→PostgreSQL）。若 Compose 因凭据/环境不可用，按 F016 先例执行并记录 Compose 尝试，再启动等价真实栈：
 
 - `postgres:16`（`db`）
 - 当前 `backend/` 代码 + `alembic upgrade head` + bootstrap ADMIN + uvicorn
