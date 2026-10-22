@@ -22,7 +22,7 @@ from app.core.errors import (
     VersionConflict,
 )
 from app.models.cluster import Cluster
-from app.services import audit, normalization
+from app.services import audit, normalization, scope_filters
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -109,7 +109,9 @@ def cluster_snapshot(cluster: Cluster) -> dict[str, Any]:
     }
 
 
-def resolve_cluster(db: "Session", reference: Any) -> Cluster:
+def resolve_cluster(
+    db: "Session", reference: Any, *, scope=None
+) -> Cluster:
     """Resolve a POST/PATCH ``cluster`` (UUID or code) to an undeleted Cluster.
 
     Missing/nonexistent/soft-deleted all yield 422 with ``field:"cluster"``.
@@ -143,7 +145,11 @@ def resolve_cluster(db: "Session", reference: Any) -> Cluster:
             execution_options={"include_deleted": True},
         ).scalars().first()
 
-    if cluster is None or cluster.deleted_at is not None:
+    if (
+        cluster is None
+        or cluster.deleted_at is not None
+        or not scope_filters.normalize(scope).allows(cluster.id)
+    ):
         raise _field_error("cluster", "cluster does not exist or is not selectable")
     return cluster
 
@@ -186,6 +192,7 @@ def list_clusters(
     page_size: int = 20,
     sort: str = "created_at",
     order: str = "desc",
+    scope=None,
 ) -> tuple[list[Cluster], int]:
     """Return the visible page of clusters plus the filtered total."""
     if deleted not in DELETED_MODES:
@@ -197,7 +204,7 @@ def list_clusters(
     if status is not None:
         _validate_status(status)
 
-    filters = []
+    filters = [scope_filters.cluster_predicate(scope, Cluster.id)]
     if status is not None:
         filters.append(Cluster.status == status)
     if code is not None:
@@ -238,10 +245,17 @@ def list_clusters(
 
 
 def get_cluster(
-    db: "Session", cluster_id: uuid.UUID, *, include_deleted: bool = False
+    db: "Session",
+    cluster_id: uuid.UUID,
+    *,
+    include_deleted: bool = False,
+    scope=None,
 ) -> Cluster | None:
     """Return a cluster, hidden by the soft-delete filter unless requested."""
-    statement = select(Cluster).where(Cluster.id == cluster_id)
+    statement = select(Cluster).where(
+        Cluster.id == cluster_id,
+        scope_filters.cluster_predicate(scope, Cluster.id),
+    )
     return (
         db.execute(
             statement, execution_options=_query_options(include_deleted)
@@ -340,9 +354,10 @@ def update_cluster(
     *,
     expected_version: int,
     changes: dict[str, Any],
+    scope=None,
 ) -> Cluster:
     """Partial update with optimistic locking; ``code`` is immutable."""
-    cluster = get_cluster(db, cluster_id)
+    cluster = get_cluster(db, cluster_id, scope=scope)
     if cluster is None:
         raise NotFound()
     if cluster.version != expected_version:
@@ -399,9 +414,10 @@ def delete_cluster(
     cluster_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> None:
     """Soft delete (no cascade); blocked when undeleted references exist."""
-    cluster = get_cluster(db, cluster_id)
+    cluster = get_cluster(db, cluster_id, scope=scope)
     if cluster is None:
         raise NotFound()
     if cluster.version != expected_version:
@@ -448,9 +464,10 @@ def restore_cluster(
     cluster_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> Cluster:
     """Restore a soft-deleted cluster; rechecks uniqueness and dependencies."""
-    cluster = get_cluster(db, cluster_id, include_deleted=True)
+    cluster = get_cluster(db, cluster_id, include_deleted=True, scope=scope)
     if cluster is None:
         raise NotFound()
     if cluster.deleted_at is None:

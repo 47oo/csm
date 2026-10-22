@@ -1758,25 +1758,38 @@ features:
   - F026
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: product-manager 输出 READY FOR ARCHITECT。
+  current_stage: TEST
+  next_action: 独立 Tester 执行 F027 TEST Gate。
   layers:
     database: false
     backend: true
     frontend: false
   api_required: true
   implementation:
-    product: PENDING
-    architecture: PENDING
-    database: PENDING
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
-    frontend: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: NOT_REQUIRED
     test: PENDING
     review: PENDING
-  evidence: {}
-  last_result: F026 DONE；F027 Preflight 通过。
+  evidence:
+    product:
+    - docs/features/F027/product.md
+    architecture:
+    - docs/features/F027/architecture.md
+    test_design:
+    - docs/features/F027/test-report.md#test-design
+    contract:
+    - docs/api/F027.md
+    backend:
+    - docs/features/F027/implementation.md#1-实现文件
+  last_result: 后端实现完成；F026+F027 定向 17 passed；全量 717 passed, 2 skipped。
+  not_required:
+    database: 无 Schema/Migration 变更：F027 只消费 F026 授权表与既有业务表，新增范围谓词不新增表/列/索引/触发器。
+    frontend: 无新增前端功能；既有页面的受限表现与文案核对归 F028（N2）。
 - id: F028
   title: 范围变更集成验收与回归
   kind: FEATURE
@@ -2199,9 +2212,9 @@ execution:
     authorized_on: '2026-10-21'
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
   current_feature: F027
-  current_stage: PRODUCT
-  last_result: F027 Preflight 通过（base v3.2 dded9b6），进入 PRODUCT。
-  next_action: 完成 F027 Product Gate。
+  current_stage: TEST
+  last_result: F027 实现完成，进入 TEST。
+  next_action: 完成 F027 独立测试并进入 Review。
   repair_rounds: 1
 planning_status:
   status: IN_PROGRESS

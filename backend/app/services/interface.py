@@ -36,7 +36,7 @@ from app.core.errors import (
 )
 from app.models.interface import VALID_INTERFACE_TYPES, Interface
 from app.models.resource import Resource
-from app.services import audit, normalization
+from app.services import audit, normalization, scope_filters
 from app.services import cluster as cluster_service
 
 if TYPE_CHECKING:
@@ -132,7 +132,7 @@ def _translate_integrity_error(exc: IntegrityError) -> AppError:
     return ValidationError(message="interface write rejected by a database constraint")
 
 
-def _lock_resource(db: "Session", resource_id: uuid.UUID) -> Resource:
+def _lock_resource(db: "Session", resource_id: uuid.UUID, *, scope=None) -> Resource:
     """Lock the owning Resource row and require it undeleted (DR-85/DR-71).
 
     The lock is taken *before* the parent ancestor check so concurrent parent
@@ -148,7 +148,11 @@ def _lock_resource(db: "Session", resource_id: uuid.UUID) -> Resource:
         .scalars()
         .first()
     )
-    if resource is None or resource.deleted_at is not None:
+    if (
+        resource is None
+        or resource.deleted_at is not None
+        or not scope_filters.normalize(scope).allows(resource.cluster_id)
+    ):
         raise _field_error(
             "resource", "resource does not exist or is not selectable"
         )
@@ -308,6 +312,7 @@ def list_interfaces(
     page_size: int = 20,
     sort: str = "created_at",
     order: str = "desc",
+    scope=None,
 ) -> tuple[list[Interface], int]:
     """Return the visible page of interfaces plus the filtered total."""
     if deleted not in DELETED_MODES:
@@ -319,7 +324,7 @@ def list_interfaces(
     if interface_type is not None:
         _validate_interface_type(interface_type)
 
-    filters = []
+    filters = [scope_filters.resource_predicate(scope)]
     if resource_id is not None:
         filters.append(Interface.resource_id == resource_id)
     if interface_type is not None:
@@ -361,10 +366,16 @@ def list_interfaces(
 
 
 def get_interface(
-    db: "Session", interface_id: uuid.UUID, *, include_deleted: bool = False
+    db: "Session",
+    interface_id: uuid.UUID,
+    *,
+    include_deleted: bool = False,
+    scope=None,
 ) -> Interface | None:
     """Return an interface, hidden by the soft-delete filter unless requested."""
-    statement = select(Interface).where(Interface.id == interface_id)
+    statement = select(Interface).where(
+        Interface.id == interface_id, scope_filters.resource_predicate(scope)
+    )
     return (
         db.execute(statement, execution_options=_query_options(include_deleted))
         .scalars()
@@ -466,6 +477,7 @@ def prepare_interface(
     enabled: bool = True,
     description: str | None = None,
     metadata: dict | None = None,
+    scope=None,
 ) -> PreparedInterface:
     """Validate and normalise an Interface (no write, no commit; DR-417).
 
@@ -485,7 +497,7 @@ def prepare_interface(
     validated_mtu = _validate_positive_int("mtu", mtu)
     meta = _validate_metadata({} if metadata is None else metadata)
 
-    resource_row = _lock_resource(db, resource)
+    resource_row = _lock_resource(db, resource, scope=scope)
 
     if parent_interface is not None:
         _validate_parent(
@@ -566,6 +578,7 @@ def create_interface(
     enabled: bool = True,
     description: str | None = None,
     metadata: dict | None = None,
+    scope=None,
 ) -> Interface:
     """Create an Interface; validated per Contract §6.2 order.
 
@@ -588,6 +601,7 @@ def create_interface(
         enabled=enabled,
         description=description,
         metadata=metadata,
+        scope=scope,
     )
     try:
         interface = stage_interface(db, operator, prepared)
@@ -606,6 +620,7 @@ def update_interface(
     *,
     expected_version: int,
     changes: dict[str, Any],
+    scope=None,
 ) -> Interface:
     """Partial update with optimistic locking; ``resource``/``id`` immutable.
 
@@ -614,13 +629,13 @@ def update_interface(
     uses ``exclude_unset`` semantics (only the supplied keys are applied); an
     explicit ``null`` clears a nullable field.
     """
-    interface = get_interface(db, interface_id)
+    interface = get_interface(db, interface_id, scope=scope)
     if interface is None:
         raise NotFound()
 
     # Parent change is validated before the version check (DR-85 lock order).
     if PARENT_FIELD in changes:
-        _lock_resource(db, interface.resource_id)
+        _lock_resource(db, interface.resource_id, scope=scope)
         new_parent = changes[PARENT_FIELD]
         if new_parent is not None:
             _validate_parent(
@@ -711,6 +726,7 @@ def delete_interface(
     interface_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> None:
     """Soft delete (no cascade); blocked by undeleted references (DR-80/DR-82).
 
@@ -718,13 +734,13 @@ def delete_interface(
     soft delete. The owning Resource row is locked before the reference check so
     a concurrent child-Interface create serialises (DR-85).
     """
-    interface = get_interface(db, interface_id)
+    interface = get_interface(db, interface_id, scope=scope)
     if interface is None:
         raise NotFound()
     if interface.version != expected_version:
         raise VersionConflict(interface.version)
 
-    _lock_resource(db, interface.resource_id)
+    _lock_resource(db, interface.resource_id, scope=scope)
 
     references = cluster_service.check_references(db, OBJECT_TYPE, interface_id)
     if references:
@@ -767,6 +783,7 @@ def restore_interface(
     interface_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> Interface:
     """Restore a soft-deleted Interface; rechecks name -> Resource -> parent.
 
@@ -774,7 +791,7 @@ def restore_interface(
     precedence over an invalid owning Resource or parent (409
     ``dependency_deleted``); a failed restore never overwrites the newer object.
     """
-    interface = get_interface(db, interface_id, include_deleted=True)
+    interface = get_interface(db, interface_id, include_deleted=True, scope=scope)
     if interface is None:
         raise NotFound()
     if interface.deleted_at is None:

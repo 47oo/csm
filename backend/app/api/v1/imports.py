@@ -15,6 +15,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
+from app.core.access_scope import AccessScope, get_access_scope
 from app.core.auth import Operator
 from app.core.config import get_settings
 from app.core.db import get_db
@@ -62,13 +63,16 @@ def validate_import(
     file: UploadFile = File(...),
     format: str = Form(...),
     operator: Operator = Depends(require_permission(Permission.IMPORT)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ImportValidateResponse:
     """Read-only pre-validate: parse + aggregate every row error (Contract §3)."""
     settings = get_settings()
     fmt = _normalize_format(format)
     data = file.file.read()
-    result = resource_import.validate_import(db, data, fmt, settings)
+    result = resource_import.validate_import(
+        db, data, fmt, settings, scope=scope
+    )
     return ImportValidateResponse(**resource_import.result_payload(result, settings))
 
 
@@ -77,6 +81,7 @@ def write_import(
     file: UploadFile = File(...),
     format: str = Form(...),
     operator: Operator = Depends(require_permission(Permission.IMPORT)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ImportWriteResponse:
     """Re-validate and insert the batch atomically (Contract §4, DR-203)."""
@@ -84,7 +89,7 @@ def write_import(
     fmt = _normalize_format(format)
     data = file.file.read()
     created, total_rows = resource_import.write_import(
-        db, operator, data, fmt, settings
+        db, operator, data, fmt, settings, scope=scope
     )
     return ImportWriteResponse(created=created, total_rows=total_rows)
 
@@ -112,13 +117,16 @@ def validate_resource_interface_ip_import(
     file: UploadFile = File(...),
     format: str = Form(...),
     operator: Operator = Depends(require_permission(Permission.IMPORT)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ImportValidateResponse:
     """Read-only pre-validate: parse + aggregate every row error (F023 §3)."""
     settings = get_settings()
     fmt = _normalize_format(format)
     data = file.file.read()
-    result = unified_import.validate_import(db, data, fmt, settings)
+    result = unified_import.validate_import(
+        db, data, fmt, settings, scope=scope
+    )
     return ImportValidateResponse(**unified_import.result_payload(result, settings))
 
 
@@ -131,6 +139,7 @@ def write_resource_interface_ip_import(
     file: UploadFile = File(...),
     format: str = Form(...),
     operator: Operator = Depends(require_permission(Permission.IMPORT)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> UnifiedImportWriteResponse:
     """Re-validate and insert the batch atomically (F023 §4, DR-419)."""
@@ -142,7 +151,9 @@ def write_resource_interface_ip_import(
         interfaces_created,
         ip_addresses_created,
         total_rows,
-    ) = unified_import.write_import(db, operator, data, fmt, settings)
+    ) = unified_import.write_import(
+        db, operator, data, fmt, settings, scope=scope
+    )
     return UnifiedImportWriteResponse(
         created=created,
         total_rows=total_rows,

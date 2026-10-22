@@ -36,6 +36,7 @@ from app.core.errors import (
     ImportRowLimitExceeded,
     ImportValidationFailed,
     InternalError,
+    ValidationError,
 )
 from app.models.cluster import Cluster
 from app.models.ip_address import IPAddress
@@ -47,6 +48,7 @@ from app.services import ip_capacity
 from app.services import normalization
 from app.services import resource as resource_service
 from app.services import resource_import
+from app.services import scope_filters
 from app.services.resource_import import (
     RowError,
     _error_message,
@@ -475,6 +477,7 @@ def _parse_row(
     record: list[str],
     row: int,
     cluster_cache: dict[str, Any],
+    scope=None,
 ) -> tuple[ParsedRow | None, list[RowError]]:
     errors: list[RowError] = []
 
@@ -514,7 +517,22 @@ def _parse_row(
             cluster_cache[cluster_ref] = exc
             add("cluster", _error_message(exc))
         else:
-            cluster_cache[cluster_ref] = cluster
+            if not scope_filters.normalize(scope).allows(cluster.id):
+                error = ValidationError(
+                    details={
+                        "fields": [
+                            {
+                                "field": "cluster",
+                                "message": "cluster does not exist or is not selectable",
+                            }
+                        ]
+                    }
+                )
+                cluster_cache[cluster_ref] = error
+                add("cluster", _error_message(error))
+                cluster = None
+            else:
+                cluster_cache[cluster_ref] = cluster
 
     # --- hostname ---
     hostname: str | None = None
@@ -544,6 +562,11 @@ def _parse_row(
             network = _resolve_network(db, cluster, cells["network"], hint)
         except _RowProblem as problem:
             add(problem.field, problem.reason)
+        if network is not None and not scope_filters.normalize(scope).allows(
+            network.cluster_id
+        ):
+            add("network", "network does not exist or is not selectable in this cluster")
+            network = None
         if network is not None and address is not None:
             if network.status != "ACTIVE":
                 add("network", "network must be ACTIVE to receive new IP addresses")
@@ -612,7 +635,7 @@ def _parse_row(
                 add("host", "host is required")
                 host_error = True
             elif cluster is not None:
-                host = _find_host(db, cluster.id, host_ref)
+                host = _find_host(db, cluster.id, host_ref, scope=scope)
                 if host is None:
                     add(
                         "host",
@@ -923,6 +946,7 @@ def parse_and_validate(
     *,
     max_file_bytes: int,
     max_rows: int,
+    scope=None,
 ) -> UnifiedImportResult:
     """Parse + validate the whole file; enforce caps and group consistency."""
     if len(data) > max_file_bytes:
@@ -946,7 +970,9 @@ def parse_and_validate(
     rows: list[ParsedRow] = []
     errors: list[RowError] = []
     for index, record in enumerate(data_records):
-        parsed, row_errors = _parse_row(db, record, index + 2, cluster_cache)
+        parsed, row_errors = _parse_row(
+            db, record, index + 2, cluster_cache, scope=scope
+        )
         if parsed is not None:
             rows.append(parsed)
         errors.extend(row_errors)
@@ -957,7 +983,7 @@ def parse_and_validate(
 
 
 def validate_import(
-    db: "Session", data: bytes, fmt: str, settings: "Settings"
+    db: "Session", data: bytes, fmt: str, settings: "Settings", *, scope=None
 ) -> UnifiedImportResult:
     """Read-only pre-validate (Contract §3); no writes, no Audit, no locks."""
     return parse_and_validate(
@@ -966,6 +992,7 @@ def validate_import(
         fmt,
         max_file_bytes=settings.import_max_file_bytes,
         max_rows=settings.import_max_rows,
+        scope=scope,
     )
 
 
@@ -1143,6 +1170,8 @@ def write_import(
     data: bytes,
     fmt: str,
     settings: "Settings",
+    *,
+    scope=None,
 ) -> tuple[int, int, int, int]:
     """Validate then insert the batch atomically (Contract §4, DR-419).
 
@@ -1157,6 +1186,7 @@ def write_import(
         fmt,
         max_file_bytes=settings.import_max_file_bytes,
         max_rows=settings.import_max_rows,
+        scope=scope,
     )
     if result.errors:
         _raise_validation_failed(result, settings)

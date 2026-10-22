@@ -10,6 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.core.access_scope import AccessScope, get_access_scope
 from app.core.auth import Operator
 from app.core.db import get_db
 from app.core.errors import Forbidden
@@ -33,6 +34,7 @@ def global_search(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> SearchListResponse:
     """Cross-domain typed search (Contract §2); empty ``q`` -> 422 field ``q``."""
@@ -45,6 +47,7 @@ def global_search(
         deleted=deleted,
         page=page,
         page_size=page_size,
+        scope=scope,
     )
     return SearchListResponse(
         items=items, page=page, page_size=page_size, total=total

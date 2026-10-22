@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
+from app.core.access_scope import AccessScope, get_access_scope
 from app.core.auth import Operator
 from app.core.db import get_db
 from app.core.errors import Forbidden, NotFound, ValidationError
@@ -86,6 +87,7 @@ def list_networks(
     sort: SortField = Query(default="created_at"),
     order: SortOrder = Query(default="desc"),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> NetworkListResponse:
     """List networks with combined filters/sorting/pagination (§4)."""
@@ -102,6 +104,7 @@ def list_networks(
         page_size=page_size,
         sort=sort,
         order=order,
+        scope=scope,
     )
     return NetworkListResponse(
         items=_build_out(db, items), page=page, page_size=page_size, total=total
@@ -112,6 +115,7 @@ def list_networks(
 def create_network(
     payload: NetworkCreateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> NetworkEnvelope:
     """Create a Network (201) and write a CREATE audit row."""
@@ -126,6 +130,7 @@ def create_network(
         auto_allocate=payload.auto_allocate,
         description=payload.description,
         metadata=payload.metadata,
+        scope=scope,
     )
     return NetworkEnvelope(network=_build_out(db, [network])[0])
 
@@ -135,13 +140,16 @@ def get_network_detail(
     network_id: str,
     deleted: bool = Query(default=False),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> NetworkEnvelope:
     """Network detail; a soft-deleted row needs ``deleted=true`` + VIEW_DELETED."""
     network_uuid = _parse_uuid(network_id)
     if deleted:
         _require_view_deleted(operator)
-    network = network_service.get_network(db, network_uuid, include_deleted=deleted)
+    network = network_service.get_network(
+        db, network_uuid, include_deleted=deleted, scope=scope
+    )
     if network is None:
         raise NotFound()
     return NetworkEnvelope(network=_build_out(db, [network])[0])
@@ -152,6 +160,7 @@ def update_network(
     network_id: str,
     payload: NetworkUpdateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> NetworkEnvelope:
     """Partial update with mandatory ``version``; non-nullable nulls rejected."""
@@ -164,7 +173,12 @@ def update_network(
                 field, f"{field} may not be null in a partial update"
             )
     network = network_service.update_network(
-        db, operator, network_uuid, expected_version=payload.version, changes=changes
+        db,
+        operator,
+        network_uuid,
+        expected_version=payload.version,
+        changes=changes,
+        scope=scope,
     )
     return NetworkEnvelope(network=_build_out(db, [network])[0])
 
@@ -174,12 +188,13 @@ def delete_network(
     network_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.DELETE_OBJECT)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> Response:
     """Soft delete (no cascade); writes a DELETE audit row."""
     network_uuid = _parse_uuid(network_id)
     network_service.delete_network(
-        db, operator, network_uuid, expected_version=version
+        db, operator, network_uuid, expected_version=version, scope=scope
     )
     return Response(status_code=204)
 
@@ -189,12 +204,13 @@ def restore_network(
     network_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.RESTORE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> NetworkEnvelope:
     """Restore a soft-deleted Network; writes a RESTORE audit row."""
     network_uuid = _parse_uuid(network_id)
     network = network_service.restore_network(
-        db, operator, network_uuid, expected_version=version
+        db, operator, network_uuid, expected_version=version, scope=scope
     )
     return NetworkEnvelope(network=_build_out(db, [network])[0])
 
@@ -206,13 +222,16 @@ def network_activity(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     operator: Operator = Depends(require_permission(Permission.VIEW_ACTIVITY)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ActivityListResponse:
     """Object activity (all roles); soft-deleted needs ``deleted=true``."""
     network_uuid = _parse_uuid(network_id)
     if deleted:
         _require_view_deleted(operator)
-    network = network_service.get_network(db, network_uuid, include_deleted=deleted)
+    network = network_service.get_network(
+        db, network_uuid, include_deleted=deleted, scope=scope
+    )
     if network is None:
         raise NotFound()
     rows, total = network_service.list_activity(

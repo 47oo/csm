@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
+from app.core.access_scope import AccessScope, get_access_scope
 from app.core.auth import Operator
 from app.core.db import get_db
 from app.core.errors import Forbidden, NotFound, ValidationError
@@ -78,6 +79,7 @@ def list_services(
     sort: SortField = Query(default="created_at"),
     order: SortOrder = Query(default="desc"),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ServiceListResponse:
     """List services with combined filters/sorting/pagination (§4)."""
@@ -93,6 +95,7 @@ def list_services(
         page_size=page_size,
         sort=sort,
         order=order,
+        scope=scope,
     )
     return ServiceListResponse(
         items=_build_out(db, items), page=page, page_size=page_size, total=total
@@ -103,6 +106,7 @@ def list_services(
 def create_service(
     payload: ServiceCreateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ServiceEnvelope:
     """Create a Service (201) and write a CREATE audit row."""
@@ -114,6 +118,7 @@ def create_service(
         status=payload.status,
         description=payload.description,
         metadata=payload.metadata,
+        scope=scope,
     )
     return ServiceEnvelope(service=_build_out(db, [service])[0])
 
@@ -123,13 +128,16 @@ def get_service_detail(
     service_id: str,
     deleted: bool = Query(default=False),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ServiceEnvelope:
     """Service detail; a soft-deleted row needs ``deleted=true`` + VIEW_DELETED."""
     service_uuid = _parse_uuid(service_id)
     if deleted:
         _require_view_deleted(operator)
-    service = service_service.get_service(db, service_uuid, include_deleted=deleted)
+    service = service_service.get_service(
+        db, service_uuid, include_deleted=deleted, scope=scope
+    )
     if service is None:
         raise NotFound()
     return ServiceEnvelope(service=_build_out(db, [service])[0])
@@ -140,6 +148,7 @@ def update_service(
     service_id: str,
     payload: ServiceUpdateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ServiceEnvelope:
     """Partial update with mandatory ``version``; immutable fields rejected (422)."""
@@ -152,7 +161,12 @@ def update_service(
                 field, f"{field} may not be null in a partial update"
             )
     service = service_service.update_service(
-        db, operator, service_uuid, expected_version=payload.version, changes=changes
+        db,
+        operator,
+        service_uuid,
+        expected_version=payload.version,
+        changes=changes,
+        scope=scope,
     )
     return ServiceEnvelope(service=_build_out(db, [service])[0])
 
@@ -162,12 +176,13 @@ def delete_service(
     service_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.DELETE_OBJECT)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> Response:
     """Soft delete (no cascade); blocked by undeleted ServiceEndpoint references."""
     service_uuid = _parse_uuid(service_id)
     service_service.delete_service(
-        db, operator, service_uuid, expected_version=version
+        db, operator, service_uuid, expected_version=version, scope=scope
     )
     return Response(status_code=204)
 
@@ -177,12 +192,13 @@ def restore_service(
     service_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.RESTORE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ServiceEnvelope:
     """Restore a soft-deleted Service; writes a RESTORE audit row."""
     service_uuid = _parse_uuid(service_id)
     service = service_service.restore_service(
-        db, operator, service_uuid, expected_version=version
+        db, operator, service_uuid, expected_version=version, scope=scope
     )
     return ServiceEnvelope(service=_build_out(db, [service])[0])
 
@@ -194,13 +210,16 @@ def service_activity(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     operator: Operator = Depends(require_permission(Permission.VIEW_ACTIVITY)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ActivityListResponse:
     """Object activity (all roles); soft-deleted needs ``deleted=true``."""
     service_uuid = _parse_uuid(service_id)
     if deleted:
         _require_view_deleted(operator)
-    service = service_service.get_service(db, service_uuid, include_deleted=deleted)
+    service = service_service.get_service(
+        db, service_uuid, include_deleted=deleted, scope=scope
+    )
     if service is None:
         raise NotFound()
     rows, total = service_service.list_activity(

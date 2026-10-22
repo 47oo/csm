@@ -42,7 +42,7 @@ from app.models.virtual_machine_detail import (
     POSITIVE_INT_FIELDS as VM_POSITIVE_INT_FIELDS,
     VirtualMachineDetail,
 )
-from app.services import audit, normalization
+from app.services import audit, normalization, scope_filters
 from app.services import cluster as cluster_service
 
 if TYPE_CHECKING:
@@ -377,13 +377,13 @@ def _translate_integrity_error(exc: IntegrityError) -> AppError:
     return ValidationError(message="resource write rejected by a database constraint")
 
 
-def _resolve_cluster(db: "Session", reference: Any) -> Cluster:
+def _resolve_cluster(db: "Session", reference: Any, *, scope=None) -> Cluster:
     """Resolve a POST ``cluster`` (UUID or code) to an undeleted Cluster.
 
     Delegates to :func:`app.services.cluster.resolve_cluster` (single authority
     shared with F008 Network).
     """
-    return cluster_service.resolve_cluster(db, reference)
+    return cluster_service.resolve_cluster(db, reference, scope=scope)
 
 
 def _resolve_cluster_code_filter(db: "Session", code: str) -> uuid.UUID | None:
@@ -569,6 +569,7 @@ def list_resources(
     page_size: int = 20,
     sort: str = "created_at",
     order: str = "desc",
+    scope=None,
 ) -> tuple[list[Resource], int]:
     """Return the visible page of resources plus the filtered total."""
     if deleted not in DELETED_MODES:
@@ -584,7 +585,7 @@ def list_resources(
     if status is not None:
         _validate_status(status)
 
-    filters = []
+    filters = [scope_filters.cluster_predicate(scope, Resource.cluster_id)]
     if cluster is not None:
         resolved = _resolve_cluster_code_filter(db, cluster)
         if resolved is None:
@@ -639,10 +640,17 @@ def list_resources(
 
 
 def get_resource(
-    db: "Session", resource_id: uuid.UUID, *, include_deleted: bool = False
+    db: "Session",
+    resource_id: uuid.UUID,
+    *,
+    include_deleted: bool = False,
+    scope=None,
 ) -> Resource | None:
     """Return a resource, hidden by the soft-delete filter unless requested."""
-    statement = select(Resource).where(Resource.id == resource_id)
+    statement = select(Resource).where(
+        Resource.id == resource_id,
+        scope_filters.cluster_predicate(scope, Resource.cluster_id),
+    )
     return (
         db.execute(statement, execution_options=_query_options(include_deleted))
         .scalars()
@@ -717,6 +725,7 @@ def create_resource(
     hardware: dict | None = None,
     virtual_machine: dict | None = None,
     virtual_machine_present: bool = False,
+    scope=None,
 ) -> Resource:
     """Create a resource; same-cluster hostname is unique among undeleted rows.
 
@@ -739,6 +748,7 @@ def create_resource(
             hardware=hardware,
             virtual_machine=virtual_machine,
             virtual_machine_present=virtual_machine_present,
+            scope=scope,
         )
     except IntegrityError as exc:  # concurrent create lost the race on a UNIQUE
         db.rollback()
@@ -783,6 +793,7 @@ def prepare_resource(
     virtual_machine: dict | None = None,
     virtual_machine_present: bool = False,
     lock: bool = True,
+    scope=None,
 ) -> PreparedResource:
     """Validate and normalise an incoming resource (no write, no commit).
 
@@ -793,7 +804,7 @@ def prepare_resource(
     (:func:`_create_resource_core`) and F014 import validation; ``lock=False``
     supports the read-only pre-validate path.
     """
-    resolved_cluster = _resolve_cluster(db, cluster)
+    resolved_cluster = _resolve_cluster(db, cluster, scope=scope)
     normalized_hostname = normalization.normalize_hostname(hostname)
     key = normalization.hostname_key(normalized_hostname)
     _validate_resource_type(resource_type)
@@ -905,6 +916,7 @@ def _create_resource_core(
     hardware: dict | None = None,
     virtual_machine: dict | None = None,
     virtual_machine_present: bool = False,
+    scope=None,
 ) -> Resource:
     """Non-committing create core: validate, uniqueness check, stage (DR-202).
 
@@ -927,6 +939,7 @@ def _create_resource_core(
         virtual_machine=virtual_machine,
         virtual_machine_present=virtual_machine_present,
         lock=True,
+        scope=scope,
     )
 
     existing = db.execute(
@@ -951,6 +964,7 @@ def update_resource(
     changes: dict[str, Any],
     hardware: dict | None = None,
     virtual_machine: dict | None = None,
+    scope=None,
 ) -> Resource:
     """Partial update with optimistic locking; cluster/resource_type immutable.
 
@@ -961,7 +975,7 @@ def update_resource(
     the target Host is validated and locked (DR-71) before the version check.
     The detail write and the Resource update share one transaction.
     """
-    resource = get_resource(db, resource_id)
+    resource = get_resource(db, resource_id, scope=scope)
     if resource is None:
         raise NotFound()
 
@@ -1096,6 +1110,7 @@ def delete_resource(
     resource_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> None:
     """Soft delete (no cascade); blocked by undeleted references (F006: VMs).
 
@@ -1104,7 +1119,7 @@ def delete_resource(
     transaction commits first, the other observes it and returns 422/409 rather
     than allowing a VM to reference a just-deleted Host.
     """
-    resource = get_resource(db, resource_id)
+    resource = get_resource(db, resource_id, scope=scope)
     if resource is None:
         raise NotFound()
     if resource.version != expected_version:
@@ -1156,9 +1171,10 @@ def restore_resource(
     resource_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> Resource:
     """Restore a soft-deleted resource; rechecks dependencies and uniqueness."""
-    resource = get_resource(db, resource_id, include_deleted=True)
+    resource = get_resource(db, resource_id, include_deleted=True, scope=scope)
     if resource is None:
         raise NotFound()
     if resource.deleted_at is None:
