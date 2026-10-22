@@ -1,6 +1,6 @@
 # F027 服务端访问范围强制执行 — TEST 报告
 
-> 本文件当前只包含 **TEST DESIGN（TD-1）**。未执行任何 F027 测试；设计可验证不等于测试通过，也不代表实现或合并获批。
+> 本文件包含 **TEST DESIGN（TD-1）** 与 **TEST 执行（TEST-1）** 两阶段记录。TD-1 只记录可验证性设计；TEST-1 记录独立执行结果。TD-1 READY 不等于测试通过，也不代表实现或合并获批。
 
 ## TEST DESIGN（TD-1）
 
@@ -444,5 +444,189 @@
 
 - **TEST DESIGN READY**：A1–A23 均有映射；8 类对象矩阵、搜索、Dashboard、导入、API Key、零授权、生命周期、错误顺序、无泄露、无残留、并发/事务边界与回归子集均已定义。
 - 本结论**不代表任何测试通过**；执行前必须满足 TD-2，且 F028 的 Compose/浏览器证据不由本报告代填。
+
+GIT: NONE
+## Test Execution（TEST-1）
+
+- **版本**：TEST-1（2026-10-22）
+- **角色**：Tester（TEST）
+- **Feature**：F027（P0，M18）
+- **结论**：**READY FOR REVIEW**
+- **依据**：requirements revision 11 §23.2、§31 T85–T99；F027 product A1–A23；F027 architecture v1；`docs/api/F027.md` v1；F027 TD-1；`docs/features/F027/implementation.md`（BACKEND COMPLETE）；F026 基座与回归。
+- **交付范围**：只写本报告。未修改业务实现、Schema、Contract 或计划；独立探针位于仓库外的 `/tmp/f027probe/`，不进入提交。
+
+### TE-1 环境与执行基线
+
+| 项 | 值 |
+| --- | --- |
+| 数据库 | 真实 PostgreSQL（`TEST_DATABASE_URL`），库名 `csm_test`（含 `test`，通过 DB-D10 双守卫）；未设置 `DATABASE_URL` |
+| 迁移 head | `0015_user_cluster_authorizations`；F027 无新迁移（独立探针断言 head 未变） |
+| 应用 | 生产 `create_app()` + 真实依赖，仅覆盖 `get_db`；真实 HTTP（`TestClient`） |
+| 身份 | Bootstrap ADMIN、VIEWER/EDITOR、零授权账号、API Key（含已吊销 Key）；真实 Cookie/Bearer |
+| 执行方式 | 串行；未与其它写任务并行；先跑目标套件，再跑全量回归，最后跑独立探针（探针在回归结束后执行，避免共享测试库冲突） |
+| DB 所有者 | 连接角色 `csm` 为超级用户，`test_migrations` V3b（非超级用户 owner）按既有条件跳过 |
+
+### TE-2 TD-2 执行前复核结论
+
+| TD-2 项 | 结论 | 证据 |
+| --- | --- | --- |
+| 1 实现完成、受保护路由注入 `get_access_scope` | CLOSED | 实现报告存在；静态枚举 64 条业务路由（含 `/networks/{id}/capacity`），依赖树全部包含 `get_access_scope`；仅 2 个只读模板端点例外（无数据） |
+| 2 Contract errata 同步状态 | **PARTIAL（Architect 项）** | 行为以 Architect 签核的 `docs/api/F027.md` v1 为规范依据，未发现字面冲突；但附录 §5 声明“各域 Contract 增加交叉引用”尚未回写各域文档（见 OBS-F027-T1），不阻塞行为验证 |
+| 3 导入行错误文案口径 | CLOSED（采用宽松口径） | 实现后实测 `row`（1-based，含表头）、`field="cluster"`、`reason` 非空；未绑定固定文案，按 TD-2 退让条件断言 |
+| 4 F028 证据边界 | CLOSED | Compose/浏览器/DOM 与 A23 仍归 F028，本报告不计 PASS |
+| 5 真实测试库与迁移 head | CLOSED | 真实 PG；head `0015_user_cluster_authorizations`；F027 无新迁移 |
+
+### TE-3 执行命令与结果
+
+独立执行（不复制开发者结果）：
+
+```bash
+# 1) F027 目标套件 + F026 回归
+export TEST_DATABASE_URL='postgresql+psycopg://csm:csmtestpw@127.0.0.1:55432/csm_test'
+unset DATABASE_URL
+python3 -m pytest -q tests/integration/test_f027_access_scope.py \
+  tests/integration/test_cluster_authorizations.py
+# 17 passed in 34.53s   (F027 9 + F026 8)
+
+# 2) 全量回归（串行）
+python3 -m pytest -q
+# 717 passed, 2 skipped in 1147.50s (0:19:07)
+# skipped: F016_ACCEPTANCE=1 未启用；test_migrations V3b（当前 DB owner 为超级用户）
+
+# 3) 独立探针（仓库外，生产 App + 真实 PG）
+python3 -m pytest -q /tmp/f027probe/test_f027_probe.py
+# 16 passed in 45.84s
+```
+
+独立探针用例（均真实 PG + 生产 App；仓库外夹具通过模块方式加载仓库 `tests/conftest.py`，因此不触发 `tests/integration` 的兼容覆盖）：
+
+| 探针 | 覆盖 | 结果 |
+| --- | --- | --- |
+| `pagination_total_and_hidden_filters` | 8 类列表 `page_size=1` 翻页、越界页空 items 且 total 稳定、隐藏 `cluster_id`/父 ID/code 过滤空 200 | PASS |
+| `cluster_write_scope_and_q1_conflict` | EDITOR PATCH 隐藏 Cluster 404；Q1 code 冲突仅 `{reason:unique_conflict,field:"code"}`；EDITOR 建 Cluster 201、创建者不可见、不自动授权 | PASS |
+| `capacity_and_auto_allocate_scope` | 隐藏 Network `/capacity` 404；可见 200；auto-allocate 隐藏 Network 422 `field:"network"`；可见 AUTO 池分配 201 | PASS |
+| `unbound_ip_scope_and_binding` | 未绑定 IP 仅按自身 `cluster_id` 收敛；跨 Cluster 绑定 422 `field:"interface"`；同 Cluster 绑定 200 | PASS |
+| `search_related_and_deleted_gate` | `related_total`/`related` 随可见绑定变化；`total==len(items)`；隐藏 code 搜索 0；`deleted=include` 非 ADMIN 403 / ADMIN 200 | PASS |
+| `dashboard_counts_capacity_coherence` | `counts`/`networks.total` 仅可见；逐行容量与 `/networks/{id}/capacity` 一致；隐藏侧增删不影响，可见侧增删即时反映 | PASS |
+| `import_rollback_without_audit` | F014 行错误 200（row/field/reason）、写入 422 整批回滚、Resource 与 AuditLog 计数不变、合法批次 201 且增 Audit | PASS |
+| `zero_grants_everywhere` | 零授权 8 类列表空、详情/Activity 404、搜索空、Dashboard 全 0、body 引用 422、路径写 404、DELETE 403；零授权 API Key 同口径 | PASS |
+| `api_key_and_auth_order` | API Key 继承范围、撤销立即收敛、吊销/非法 Key 401（AUTH_REQUIRED）、匿名隐藏详情 401（非 404）、VIEWER 写隐藏对象 403（reason=permission） | PASS |
+| `error_precedence_and_lifecycle` | 422（非法 body）→404（隐藏路径，含 version 过期仍 404，不落 409）→409（可见对象 version 冲突含 `current_version`）；INACTIVE 保持可见；软删隐藏、软删期间撤销后恢复仍隐藏、重新授予恢复可见 | PASS |
+| `role_gates_and_f026_management` | 非 ADMIN `/audit`、`/deleted`、`deleted=only`、`deleted=true` 均 403；ADMIN 200；F026 授权管理仅 ADMIN，授予后立即生效 | PASS |
+| `static_dependency_coverage` | 探针未启用兼容覆盖（`get_access_scope` 不在 `dependency_overrides`）；64 条业务路由依赖树均含 `get_access_scope`，缺失列表为空 | PASS |
+| `migration_head_unchanged` | Alembic head 仍为 `0015_user_cluster_authorizations` | PASS |
+| `no_hidden_identifier_leak` | 列表/隐藏过滤/8 类详情与 Activity/搜索/Dashboard/容量/7 类 PATCH/创建 422/导入 validate 与 write 全文均不含隐藏 Cluster 的 id/code/name；404 信封仅 `error` | PASS |
+| `scope_snapshot_is_per_request` | 请求内停驻时提交撤销授权：该请求仍按已解析快照返回 total=2；下一请求 total=1（逐请求解析、同请求稳定） | PASS |
+| `import_with_api_key_endpoint_level` | API Key 走 F014 validate→write：隐藏行预校验 200 报错、写入 422 整批回滚无残留；合法批次 201（`--push` 端点级） | PASS |
+
+### TE-4 验收映射（A1–A23 / T85–T99）
+
+| 验收 | 结果 | 主要证据 |
+| --- | --- | --- |
+| A1 ADMIN 全业务域不受限、无回归 | PASS | F027 套件 ADMIN 三维度核对；探针 ADMIN 容量/软删/恢复/授权；全量回归 717 passed |
+| A2 仅授权 A/B 的 8 类列表与聚合只含 A/B | PASS | F027 套件 + 探针列表/翻页/搜索/Dashboard |
+| A3 items/total/分页/过滤一致 | PASS | 探针 `pagination_total_and_hidden_filters`（8 类） |
+| A4 隐藏对象详情/Activity 404 且无字段泄露 | PASS | F027 套件 + 探针 `no_hidden_identifier_leak` |
+| A5 隐藏对象的创建/修改/删除/释放/恢复/分配/绑定/解绑/转移被拒且无残留 | PASS | F027 套件写矩阵 + 探针自动分配/绑定/错误顺序 + 回归角色矩阵 |
+| A6 跨对象父级派生、未绑定 IP 收敛 | PASS | F027 套件 422 矩阵 + 探针未绑定 IP/转移 |
+| A7 搜索 4 类 + 关联行/`related_total`/`total` 收敛 | PASS | F027 套件四类 + 探针关联总数与 `total==len(items)` |
+| A8 Dashboard counts/networks/容量收敛、零授权全 0 | PASS | 探针 `dashboard_counts_capacity_coherence`、`zero_grants_everywhere` |
+| A9 Activity 404、完整 Audit 非 ADMIN 403 | PASS | F027 套件 Activity + 探针 `role_gates_and_f026_management` |
+| A10 零授权默认拒绝、无回退 | PASS | 探针 `zero_grants_everywhere`（8 类 + 搜索 + Dashboard + 读写） |
+| A11 撤销/角色变更下一请求生效（含 API Key）、同请求稳定 | PASS | F027 套件 + 探针 `api_key_and_auth_order`、`scope_snapshot_is_per_request` |
+| A12 API Key 继承范围、401 先于 403 | PASS | 探针 `api_key_and_auth_order`（401/403/吊销/非法 Key） |
+| A13 INACTIVE 不改授权、软删失效、恢复复原 | PASS | 探针 `error_precedence_and_lifecycle`、F027 套件软删/恢复 |
+| A14 非 ADMIN 已删对象仍 403，ADMIN 不变 | PASS | 探针 `role_gates_and_f026_management`；全量回归 deleted/restore 套件 |
+| A15 F014/F023 行级范围错误与整批回滚 | PASS | F027 套件两导入 + 探针 `import_rollback_without_audit`（含 Audit 计数不变） |
+| A16 `--push` 同口径（端点级） | PASS（端点级） | 探针 `import_with_api_key_endpoint_level`；真实 Compose 归 F028 |
+| A17 错误顺序 401→403→422→404→409 | PASS | F027 套件 + 探针 `error_precedence_and_lifecycle`、`api_key_and_auth_order` |
+| A18 不泄露未授权 Cluster 信息 | PASS | 探针 `no_hidden_identifier_leak`（46 个响应全文） |
+| A19 拒绝写无状态/版本/Audit/Activity 变化 | PASS | F027 套件（version/Audit 计数）+ 探针导入无 Audit 残留 |
+| A20 全部路径一次合并整体受限 | PASS | 探针静态路由覆盖 64 条；全量回归无局部中间态失败 |
+| A21 既有角色矩阵与完整性不回归 | PASS | 全量回归 717 passed（T01–T84 适用子集） |
+| A22 F026 授权管理行为不变 | PASS | F026 套件 8 passed（含迁移/回填、撤销历史、软删拒绝）+ 探针角色门控 |
+| A23 既有页面空态/404/错误呈现 | NOT_REQUIRED（F028-owned） | 本报告不计 PASS；F027 仅服务端证据 |
+
+| 需求项 | 结果 | 说明 |
+| --- | --- | --- |
+| T85 按 ID 读 C 对象 404 不泄露 | PASS | 8 类详情/Activity 404；全响应扫描无 C id/code/name |
+| T86 C 上新增/修改/删除/释放/恢复被拒，A/B 正常 | PASS | 写矩阵：路径 404、body 422、DELETE/RELEASE/RESTORE 非 ADMIN 403；A/B 写成功 |
+| T87 列表与 total 仅可见、无空页 total>0 | PASS | 8 类翻页一致性探针 |
+| T88 搜索（含 §17.1 关联行）与 Dashboard 仅可见 | PASS | 搜索 related/related_total/total；Dashboard counts/networks/容量 |
+| T89 导入含未授权行整批失败、行号+原因、无残留 | PASS | F014/F023 套件 + 探针 Audit/Resource 计数 |
+| T90 仅 ADMIN 管理授权、不新增权限项 | PASS | F026 套件 + 探针非 ADMIN 403；权限枚举未变 |
+| T91 撤销即时生效、API Key 同样收敛 | PASS | 探针 Cookie 与 Bearer 双载体 |
+| T92 授予/撤销写 Audit 可被 ADMIN 查询 | PASS | F026 套件 `test_grant_list_revoke_regrant_and_audit` |
+| T93 零授权非 ADMIN 不回退全量 | PASS | 探针 `zero_grants_everywhere` |
+| T94 API Key 继承范围、401/失效 Key 不泄露存在性 | PASS | 探针 `api_key_and_auth_order` |
+| T95 INACTIVE/软删/恢复不改变授权集合 | PASS | 探针生命周期 + F027 套件软删/恢复 |
+| T96 不存在/已软删 Cluster 授权被拒绝 | PASS | F026 套件 `test_soft_deleted_cluster_history_and_restore`、`test_grant_validation` |
+| T97 角色矩阵与完整性不回归 | PASS | 全量回归 717 passed |
+| T98 非 ADMIN 任何范围不可见已删对象 | PASS | 探针 `deleted`/`deleted=true`/`deleted=only` 403；ADMIN 200 |
+| T99 迁移回填/幂等、真实 PG up/down/up | PASS（F026 基座 + head 未变） | F026 套件迁移/回填用例通过；F027 无新迁移，head 断言通过；V3b 非超级用户 owner 用例按既有条件跳过 |
+
+### TE-5 TD-1 用例执行状态
+
+| 用例 | 结果 | 说明 |
+| --- | --- | --- |
+| T-F027-01…26 | PASS | 见 TE-3/TE-4；F027 套件 9 例 + 16 个独立探针覆盖，无 BLOCKED |
+| T-F027-27 并发与请求边界 | PASS（有边界说明） | 确定性快照探针（请求内撤销仍按旧快照、下一请求立即收敛）+ 全量回归既有并发/锁测试；未做高并发压测 |
+| T-F027-28/29/30 导入与 `--push` 端点级 | PASS | F014/F023 套件 + 探针（Cookie 与 API Key 两种载体） |
+| T-F027-31/32 角色抽样与全量回归 | PASS | 717 passed, 2 skipped；F026 8 passed |
+| T-F027-33 路由清单与静态检查 | PASS | 64 条业务路由全覆盖；无第二解析器/缓存/隐式回退 |
+| T-F027-34 F028 前端/Compose | NOT_REQUIRED | F028-owned，未计入 PASS |
+
+### TE-6 数据库 / 接口 / 前端 / 集成
+
+| 层 | 检查 | 结果 |
+| --- | --- | --- |
+| 数据库 | 真实 PG；无 F027 Schema/迁移；head 未变；F026 约束与授权行回归 | PASS |
+| 接口 | 8 类 list/detail/write/activity、搜索、Dashboard、容量、导入、Deleted、Audit、API Key | PASS（详见 TE-3/TE-4） |
+| 前端 | F027 无新功能；既有空态/404/错误呈现 | NOT_REQUIRED（F028） |
+| 集成 | 生产 App + 真实 PG + Cookie/Bearer；导入两步流程；同请求快照 | PASS |
+| 集成（Compose/浏览器） | Nginx/Frontend/真实部署 DOM、T85–T99 端到端 | NOT TESTED（F028） |
+
+### TE-7 兼容覆盖与“无默认全量”核实
+
+- `backend/tests/conftest.py:auth_app` 的 `get_access_scope` 覆盖为 **测试夹具专用**：
+  - 仅当测试文件路径包含 `tests/integration` 且文件名不是 `test_cluster_authorizations.py` / `test_f027_access_scope.py` 时生效；
+  - F026/F027 两套件实测按真实范围断言并通过（若被覆盖，`total` 会是 3 而非 2）；
+  - 仓库外探针实测 `get_access_scope` 不在 `dependency_overrides` 中；
+  - `app/` 下无任何 `dependency_overrides`，生产 `create_app()` 不含该覆盖。
+- 生产无“无约束默认”：`AccessScope(unrestricted=True)` 仅出现在 `resolve_access_scope` 的 ADMIN 分支；64 条业务路由全部注入 `get_access_scope`；导入内部两处 `resolve_cluster` 未传 scope 的调用点随后显式执行 `scope.allows()` 校验。
+- 观察项：`scope_filters.normalize(None)` 将 `None` 视为 unrestricted，且 `app/services` 下 82 处保留 `scope=None` 默认参数（供内部/测试直调）。当前无可达生产路径绕过范围，但遗漏传参将静默放开范围（见 OBS-F027-T2）。
+
+### TE-8 Defects
+
+未发现实现缺陷。无 BLOCKER / HIGH / MEDIUM 实现缺陷，无需 RETURN TO IMPLEMENTATION。
+
+| ID | Severity | Layer | Location | 证据/期望与实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| OBS-F027-T1 | MEDIUM | Docs/Contract | `docs/api/F027.md` §5 与 `docs/api/F004/F007/F008/F009/F010/F011/F012/F013/F014/F023.md` | 附录声明“各域 Contract 增加交叉引用”，`grep F027 docs/api` 仅 `F026.md` 命中；F027 附录本身为签核规范且无字面冲突 | 规范分散在附录，读者可能只读旧域文档 | Architect / Contract | 否（建议合并前确认并补齐引用；不阻塞行为验证） |
+| OBS-F027-T2 | LOW | Backend（防御性） | `app/services/scope_filters.py` `normalize()` 与各服务 `scope=None` 默认 | `None` 等价 unrestricted；当前所有路由均传真实 scope，无可达绕过路径 | 未来新增调用方若漏传会静默放开全量 | Backend / Architect | 否（建议改为显式必填或 sentinel） |
+| OBS-F027-T3 | MEDIUM | 测试基础设施 | `backend/tests/conftest.py:auth_app` 路径后缀判定 | 覆盖按“目录 + 文件名排除”生效；新增的既有目录集成测试会自动获得 unrestricted | 未来新增测试可能掩盖范围回归 | 协调器 / Backend | 否（建议改用显式 pytest marker 或 opt-in fixture） |
+| OBS-F027-T4 | LOW | 测试证据边界 | F028 范围 | Compose/Nginx/浏览器、A23、T85–T99 真实部署端到端未执行 | 无（按计划归 F028） | F028 / 协调器 | 否 |
+
+> 说明：测试过程中观察到的以下行为均为**既有契约/既有语义**，不是缺陷：Cluster code 唯一冲突 409 的 `details` 形状为 `{reason:"unique_conflict", field:"code"}`（F003 既有，符合 F027 附录 Q1“仅返回 field:code”）；非空 Cluster 软删返回 409 `reference_exists`（既有 F003 语义，软删生命周期改用空 Cluster 验证）；自动分配需池 `allocation_mode=AUTO`（既有 F009 语义）。
+
+### TE-9 未验证项与 F028 边界
+
+| 项 | 原因 | 归属 |
+| --- | --- | --- |
+| 真实 Compose（Nginx/Frontend/FastAPI/PG）、浏览器 DOM、空态/404/错误呈现、T59–T63 对话框、T85–T99 端到端 | 不在 F027 服务端范围 | F028 |
+| F025 `--push` 脚本真实网络行为/退出码 | 需真实部署环境；本次仅验证 F023 端点级与 F025 既有单测（全量回归） | F028 |
+| F016 真实部署验收 | 环境未启用 `F016_ACCEPTANCE=1`，按既有条件跳过 | F016/F028 |
+| `test_migrations` V3b（非超级用户 owner 的 up/down/up） | 测试库 owner 为超级用户，按既有条件跳过；F027 无新迁移 | 协调器 |
+| 高并发压测（数十并发请求/争用） | 只做确定性快照竞态与既有并发套件，未做压力测试 | 后续可选 |
+| 导入行错误 `reason` 固定文案 | 按 TD-2 退让条件只断言非空 + 不泄露 | 已关闭 |
+| project-state 一致性校验 | 本任务未修改计划/状态文件，无需触发 | — |
+
+### TE-10 结论
+
+- A1–A22 全部 PASS；A23 与真实 Compose/浏览器证据按计划归 F028（NOT_REQUIRED，不计 PASS）。
+- T85–T99 在 F027 服务端范围内全部 PASS；T99 的 F027 部分为“无新迁移 + head 未变 + 全量迁移/回归通过”。
+- 全量回归 717 passed / 2 skipped；F026 回归 8 passed；独立探针 16 passed；未发现需修复的实现缺陷。
+- 未验证项已明确列出，未将未执行检查计入 PASS。
+- **Status: READY FOR REVIEW**（OBS-F027-T1/T3 为 Architect/协调器后续项，不阻塞本阶段结论）。
 
 GIT: NONE
