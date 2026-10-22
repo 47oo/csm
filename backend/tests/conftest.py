@@ -198,8 +198,9 @@ def auth_app(auth_session_factory, request):
 
     app = create_app()
     path = str(getattr(request.node, "fspath", "")).replace("\\", "/")
-    legacy_scope = "tests/integration" in path and not path.endswith(
-        ("test_cluster_authorizations.py", "test_f027_access_scope.py")
+    legacy_scope = (
+        "tests/integration" in path
+        and request.node.get_closest_marker("real_scope") is None
     )
 
     def _override():

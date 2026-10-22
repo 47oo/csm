@@ -12,6 +12,8 @@ import csv
 import io
 import uuid
 
+import pytest
+
 from sqlalchemy import func, select
 
 from integration.api_keys_helpers import bearer_client, create_key  # noqa: F401
@@ -27,6 +29,8 @@ from integration.f015_helpers import (  # noqa: F401
     create_service,
     role_client_factory,
 )
+
+pytestmark = pytest.mark.real_scope
 
 LISTS = {
     "clusters": "/api/v1/clusters",
@@ -659,3 +663,35 @@ def test_hidden_interface_error_is_indistinguishable_from_missing(
     hidden_field = hidden.json()["error"]["details"]["fields"][0]
     missing_field = missing.json()["error"]["details"]["fields"][0]
     assert hidden_field == missing_field
+
+
+def test_every_business_route_depends_on_real_scope():
+    """F027-R5: every business route must resolve a real AccessScope."""
+    from app.api.v1.router import api_v1_router
+
+    def walk(dependant):
+        yield dependant
+        for child in dependant.dependencies:
+            yield from walk(child)
+
+    excluded = (
+        "/api/v1/health",
+        "/api/v1/auth",
+        "/api/v1/users",
+        "/api/v1/api-keys",
+        "/api/v1/audit",
+        "/api/v1/deleted",
+        "/api/v1/imports/templates",
+        "/api/v1/cluster-authorizations",
+        "/api/v1/users",
+    )
+    for route in api_v1_router.routes:
+        path = getattr(route, "path", "")
+        if not path or path.startswith(excluded) or path.endswith("/templates"):
+            continue
+        names = {
+            dep.call.__name__
+            for dep in walk(route.dependant)
+            if dep.call is not None
+        }
+        assert "get_access_scope" in names, path
