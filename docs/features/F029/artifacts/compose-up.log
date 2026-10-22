@@ -1,0 +1,371 @@
+ Image csm_f028-migrate Building 
+ Image csm_f028-bootstrap Building 
+ Image csm_f028-backend Building 
+ Image csm_f028-frontend Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.87kB done
+#1 DONE 0.0s
+
+#2 [frontend internal] load build definition from Dockerfile
+#2 transferring dockerfile: 559B done
+#2 DONE 0.0s
+
+#3 [bootstrap internal] load build definition from Dockerfile
+#3 transferring dockerfile: 905B done
+#3 DONE 0.0s
+
+#4 [frontend internal] load metadata for docker.io/library/nginx:1.27-alpine
+#4 DONE 0.1s
+
+#5 [backend] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#5 ...
+
+#6 [frontend internal] load metadata for docker.io/library/node:22-alpine
+#6 DONE 0.1s
+
+#7 [frontend internal] load .dockerignore
+#7 transferring context: 104B done
+#7 DONE 0.0s
+
+#8 [frontend build 1/6] FROM docker.io/library/node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
+#8 resolve docker.io/library/node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 0.0s done
+#8 DONE 0.1s
+
+#9 [frontend stage-1 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#9 resolve docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 0.1s done
+#9 DONE 0.1s
+
+#10 [frontend internal] load build context
+#10 transferring context: 22.15kB done
+#10 DONE 0.0s
+
+#11 [frontend build 2/6] WORKDIR /app
+#11 CACHED
+
+#12 [frontend build 3/6] COPY package.json package-lock.json ./
+#12 CACHED
+
+#13 [frontend build 4/6] RUN npm ci
+#13 CACHED
+
+#14 [frontend build 5/6] COPY . .
+#14 DONE 0.2s
+
+#5 [backend] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#5 DONE 0.6s
+
+#15 [migrate] docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#15 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e 0.0s done
+#15 CACHED
+
+#16 [frontend build 6/6] RUN npm run build
+#16 ...
+
+#17 [migrate internal] load metadata for docker.io/library/python:3.12-slim
+#17 DONE 0.4s
+
+#18 [migrate internal] load .dockerignore
+#18 transferring context: 2B done
+#18 DONE 0.0s
+
+#19 [backend base 1/8] FROM docker.io/library/python:3.12-slim@sha256:cb33f7f771ecec2ef1225cf39b159591a040391bd73e4c01f00fdfc4c47611d2
+#19 resolve docker.io/library/python:3.12-slim@sha256:cb33f7f771ecec2ef1225cf39b159591a040391bd73e4c01f00fdfc4c47611d2 0.0s done
+#19 DONE 0.0s
+
+#20 [bootstrap internal] load build context
+#20 transferring context: 606.35kB 0.0s done
+#20 DONE 0.0s
+
+#21 [bootstrap base 2/8] WORKDIR /app
+#21 CACHED
+
+#22 [migrate base 3/8] RUN apt-get update     && apt-get install -y --no-install-recommends curl     && rm -rf /var/lib/apt/lists/*
+#22 CACHED
+
+#23 [migrate base 4/8] COPY pyproject.toml ./
+#23 DONE 0.2s
+
+#24 [bootstrap base 5/8] COPY app ./app
+#24 DONE 0.2s
+
+#25 [bootstrap base 6/8] COPY alembic ./alembic
+#25 DONE 0.1s
+
+#26 [migrate base 7/8] COPY alembic.ini ./
+#26 DONE 0.1s
+
+#27 [migrate base 8/8] RUN pip install .
+#27 3.165 Processing /app
+#27 3.176   Installing build dependencies: started
+#27 8.651   Installing build dependencies: finished with status 'done'
+#27 8.654   Getting requirements to build wheel: started
+#27 9.596   Getting requirements to build wheel: finished with status 'done'
+#27 9.601   Preparing metadata (pyproject.toml): started
+#27 10.67   Preparing metadata (pyproject.toml): finished with status 'done'
+#27 ...
+
+#16 [frontend build 6/6] RUN npm run build
+#16 3.970 
+#16 3.970 > csm-frontend@0.1.0 build
+#16 3.970 > tsc --noEmit && vite build
+#16 3.970 
+#16 ...
+
+#27 [migrate base 8/8] RUN pip install .
+#27 14.50 Collecting fastapi<0.116,>=0.115 (from csm-backend==0.1.0)
+#27 14.95   Downloading fastapi-0.115.14-py3-none-any.whl.metadata (27 kB)
+#27 15.65 Collecting pydantic<2.10,>=2.9 (from csm-backend==0.1.0)
+#27 15.77   Downloading pydantic-2.9.2-py3-none-any.whl.metadata (149 kB)
+#27 16.65 Collecting pydantic-settings<3,>=2.5 (from csm-backend==0.1.0)
+#27 16.86   Downloading pydantic_settings-2.16.1-py3-none-any.whl.metadata (4.0 kB)
+#27 19.63 Collecting sqlalchemy<2.1,>=2.0 (from csm-backend==0.1.0)
+#27 19.82   Downloading sqlalchemy-2.0.55-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (9.7 kB)
+#27 20.13 Collecting alembic<1.15,>=1.14 (from csm-backend==0.1.0)
+#27 20.27   Downloading alembic-1.14.1-py3-none-any.whl.metadata (7.4 kB)
+#27 20.62 Collecting psycopg<3.3,>=3.2 (from psycopg[binary]<3.3,>=3.2->csm-backend==0.1.0)
+#27 20.73   Downloading psycopg-3.2.13-py3-none-any.whl.metadata (4.5 kB)
+#27 20.96 Collecting uvicorn<0.35,>=0.34 (from uvicorn[standard]<0.35,>=0.34->csm-backend==0.1.0)
+#27 21.10   Downloading uvicorn-0.34.3-py3-none-any.whl.metadata (6.5 kB)
+#27 21.29 Collecting argon2-cffi<26,>=23.1 (from csm-backend==0.1.0)
+#27 21.41   Downloading argon2_cffi-25.1.0-py3-none-any.whl.metadata (4.1 kB)
+#27 21.63 Collecting python-multipart<0.1,>=0.0.9 (from csm-backend==0.1.0)
+#27 21.75   Downloading python_multipart-0.0.32-py3-none-any.whl.metadata (2.1 kB)
+#27 21.93 Collecting openpyxl<3.2,>=3.1 (from csm-backend==0.1.0)
+#27 22.05   Downloading openpyxl-3.1.5-py2.py3-none-any.whl.metadata (2.5 kB)
+#27 22.46 Collecting Mako (from alembic<1.15,>=1.14->csm-backend==0.1.0)
+#27 22.60   Downloading mako-1.4.3-py3-none-any.whl.metadata (2.9 kB)
+#27 22.75 Collecting typing-extensions>=4 (from alembic<1.15,>=1.14->csm-backend==0.1.0)
+#27 22.93   Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+#27 23.06 Collecting argon2-cffi-bindings (from argon2-cffi<26,>=23.1->csm-backend==0.1.0)
+#27 23.23   Downloading argon2_cffi_bindings-26.1.0-cp310-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (7.5 kB)
+#27 23.44 Collecting starlette<0.47.0,>=0.40.0 (from fastapi<0.116,>=0.115->csm-backend==0.1.0)
+#27 23.56   Downloading starlette-0.46.2-py3-none-any.whl.metadata (6.2 kB)
+#27 23.84 Collecting et-xmlfile (from openpyxl<3.2,>=3.1->csm-backend==0.1.0)
+#27 24.04   Downloading et_xmlfile-2.0.0-py3-none-any.whl.metadata (2.7 kB)
+#27 ...
+
+#16 [frontend build 6/6] RUN npm run build
+#16 17.11 vite v5.4.21 building for production...
+#16 17.23 transforming...
+#16 ...
+
+#27 [migrate base 8/8] RUN pip install .
+#27 26.37 Collecting psycopg-binary==3.2.13 (from psycopg[binary]<3.3,>=3.2->csm-backend==0.1.0)
+#27 26.52   Downloading psycopg_binary-3.2.13-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.9 kB)
+#27 26.94 Collecting annotated-types>=0.6.0 (from pydantic<2.10,>=2.9->csm-backend==0.1.0)
+#27 27.15   Downloading annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+#27 33.59 Collecting pydantic-core==2.23.4 (from pydantic<2.10,>=2.9->csm-backend==0.1.0)
+#27 33.72   Downloading pydantic_core-2.23.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+#27 33.99 Collecting python-dotenv>=1.2.2 (from pydantic-settings<3,>=2.5->csm-backend==0.1.0)
+#27 34.13   Downloading python_dotenv-1.2.4-py3-none-any.whl.metadata (29 kB)
+#27 34.32 Collecting typing-inspection>=0.4.0 (from pydantic-settings<3,>=2.5->csm-backend==0.1.0)
+#27 34.46   Downloading typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+#27 35.74 Collecting greenlet>=1 (from sqlalchemy<2.1,>=2.0->csm-backend==0.1.0)
+#27 36.00   Downloading greenlet-3.5.6-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+#27 36.63 Collecting click>=7.0 (from uvicorn<0.35,>=0.34->uvicorn[standard]<0.35,>=0.34->csm-backend==0.1.0)
+#27 36.76   Downloading click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+#27 37.08 Collecting h11>=0.8 (from uvicorn<0.35,>=0.34->uvicorn[standard]<0.35,>=0.34->csm-backend==0.1.0)
+#27 37.20   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+#27 37.59 Collecting httptools>=0.6.3 (from uvicorn[standard]<0.35,>=0.34->csm-backend==0.1.0)
+#27 37.92   Downloading httptools-0.9.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (3.5 kB)
+#27 38.23 Collecting pyyaml>=5.1 (from uvicorn[standard]<0.35,>=0.34->csm-backend==0.1.0)
+#27 38.35   Downloading pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.4 kB)
+#27 38.68 Collecting uvloop>=0.15.1 (from uvicorn[standard]<0.35,>=0.34->csm-backend==0.1.0)
+#27 38.88   Downloading uvloop-0.23.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (5.1 kB)
+#27 ...
+
+#16 [frontend build 6/6] RUN npm run build
+#16 42.31 ✓ 3213 modules transformed.
+#16 44.83 rendering chunks...
+#16 45.04 computing gzip size...
+#16 45.14 dist/index.html                     0.39 kB │ gzip:   0.27 kB
+#16 45.14 dist/assets/index-Dj2LrX_n.css     20.27 kB │ gzip:   4.97 kB
+#16 45.14 dist/assets/index-_OkJMWYl.js   1,263.11 kB │ gzip: 386.30 kB
+#16 45.14 
+#16 45.14 (!) Some chunks are larger than 500 kB after minification. Consider:
+#16 45.14 - Using dynamic import() to code-split the application
+#16 45.14 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+#16 45.14 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#16 45.14 ✓ built in 27.96s
+#16 45.42 npm notice
+#16 45.42 npm notice New major version of npm available! 10.9.8 -> 12.2.1
+#16 45.42 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+#16 45.42 npm notice To update run: npm install -g npm@12.2.1
+#16 45.42 npm notice
+#16 DONE 45.5s
+
+#27 [migrate base 8/8] RUN pip install .
+#27 44.65 Collecting watchfiles>=0.13 (from uvicorn[standard]<0.35,>=0.34->csm-backend==0.1.0)
+#27 45.02   Downloading watchfiles-1.3.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.9 kB)
+#27 ...
+
+#28 [frontend stage-1 2/3] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#28 CACHED
+
+#29 [frontend stage-1 3/3] COPY --from=build /app/dist /usr/share/nginx/html
+#29 DONE 0.0s
+
+#30 [frontend] exporting to image
+#30 exporting layers 0.1s done
+#30 exporting manifest sha256:3fed76680b8c78693cfaff6817dcbf4fdf7b48d5198434f69b135ebabc90ed22 0.0s done
+#30 exporting config sha256:c940a7d23b675162211f66a92427baccab7ab3e83f59db2b07daec04368643ed 0.0s done
+#30 exporting attestation manifest sha256:8d2492a4eef9449c2fc9b480e43052b28961f5e1b5c63b497b61ebe11c463403 0.0s done
+#30 exporting manifest list sha256:2eae3ef1d1358bd19263609957d983256323427a09dec1603f6df35122da9ab0 0.0s done
+#30 naming to docker.io/library/csm_f028-frontend:latest done
+#30 unpacking to docker.io/library/csm_f028-frontend:latest done
+#30 DONE 0.3s
+
+#31 [frontend] resolving provenance for metadata file
+#31 DONE 0.0s
+
+#27 [migrate base 8/8] RUN pip install .
+#27 46.00 Collecting websockets>=10.4 (from uvicorn[standard]<0.35,>=0.34->csm-backend==0.1.0)
+#27 46.36   Downloading websockets-17.3-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (6.3 kB)
+#27 46.68 Collecting anyio<5,>=3.6.2 (from starlette<0.47.0,>=0.40.0->fastapi<0.116,>=0.115->csm-backend==0.1.0)
+#27 46.80   Downloading anyio-4.15.1-py3-none-any.whl.metadata (4.7 kB)
+#27 47.70 Collecting cffi>=1.0.1 (from argon2-cffi-bindings->argon2-cffi<26,>=23.1->csm-backend==0.1.0)
+#27 47.88   Downloading cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.5 kB)
+#27 48.32 Collecting MarkupSafe>=2.0 (from Mako->alembic<1.15,>=1.14->csm-backend==0.1.0)
+#27 48.45   Downloading markupsafe-3.0.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (2.7 kB)
+#27 48.85 Collecting idna>=2.8 (from anyio<5,>=3.6.2->starlette<0.47.0,>=0.40.0->fastapi<0.116,>=0.115->csm-backend==0.1.0)
+#27 48.99   Downloading idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+#27 49.20 Collecting pycparser (from cffi>=1.0.1->argon2-cffi-bindings->argon2-cffi<26,>=23.1->csm-backend==0.1.0)
+#27 49.37   Downloading pycparser-3.11-py3-none-any.whl.metadata (8.2 kB)
+#27 49.66 Downloading alembic-1.14.1-py3-none-any.whl (233 kB)
+#27 50.28 Downloading argon2_cffi-25.1.0-py3-none-any.whl (14 kB)
+#27 50.51 Downloading fastapi-0.115.14-py3-none-any.whl (95 kB)
+#27 50.92 Downloading openpyxl-3.1.5-py2.py3-none-any.whl (250 kB)
+#27 51.84 Downloading psycopg-3.2.13-py3-none-any.whl (206 kB)
+#27 52.55 Downloading psycopg_binary-3.2.13-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (4.4 MB)
+#27 65.23    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.4/4.4 MB 345.4 kB/s eta 0:00:00
+#27 65.36 Downloading pydantic-2.9.2-py3-none-any.whl (434 kB)
+#27 66.34 Downloading pydantic_core-2.23.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+#27 74.94    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 223.4 kB/s eta 0:00:00
+#27 75.15 Downloading pydantic_settings-2.16.1-py3-none-any.whl (80 kB)
+#27 75.47 Downloading python_multipart-0.0.32-py3-none-any.whl (30 kB)
+#27 76.13 Downloading sqlalchemy-2.0.55-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (3.5 MB)
+#27 87.94    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.5/3.5 MB 358.9 kB/s eta 0:00:00
+#27 88.29 Downloading uvicorn-0.34.3-py3-none-any.whl (62 kB)
+#27 88.53 Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
+#27 88.65 Downloading click-8.5.0-py3-none-any.whl (125 kB)
+#27 89.03 Downloading greenlet-3.5.6-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (621 kB)
+#27 92.24    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 621.4/621.4 kB 129.2 kB/s eta 0:00:00
+#27 92.42 Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+#27 93.08 Downloading httptools-0.9.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (552 kB)
+#27 97.40    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 552.8/552.8 kB 116.4 kB/s eta 0:00:00
+#27 97.53 Downloading python_dotenv-1.2.4-py3-none-any.whl (23 kB)
+#27 98.04 Downloading pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (807 kB)
+#27 105.4    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 807.9/807.9 kB 360.7 kB/s eta 0:00:00
+#27 105.6 Downloading starlette-0.46.2-py3-none-any.whl (72 kB)
+#27 106.0 Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+#27 106.8 Downloading typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+#27 107.0 Downloading uvloop-0.23.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (4.5 MB)
+#27 116.8    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.5/4.5 MB 473.8 kB/s eta 0:00:00
+#27 117.0 Downloading watchfiles-1.3.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (458 kB)
+#27 118.1 Downloading websockets-17.3-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (225 kB)
+#27 118.8 Downloading argon2_cffi_bindings-26.1.0-cp310-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (26 kB)
+#27 119.0 Downloading et_xmlfile-2.0.0-py3-none-any.whl (18 kB)
+#27 119.2 Downloading mako-1.4.3-py3-none-any.whl (80 kB)
+#27 119.4 Downloading anyio-4.15.1-py3-none-any.whl (132 kB)
+#27 119.9 Downloading cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (221 kB)
+#27 120.5 Downloading markupsafe-3.0.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (22 kB)
+#27 120.7 Downloading idna-3.20-py3-none-any.whl (69 kB)
+#27 121.0 Downloading pycparser-3.11-py3-none-any.whl (51 kB)
+#27 121.1 Building wheels for collected packages: csm-backend
+#27 121.1   Building wheel for csm-backend (pyproject.toml): started
+#27 122.3   Building wheel for csm-backend (pyproject.toml): finished with status 'done'
+#27 122.3   Created wheel for csm-backend: filename=csm_backend-0.1.0-py3-none-any.whl size=214686 sha256=17bf094a846f8881073ff5e00c1c206e380bb3f304f80e19ca76b8a8f6089798
+#27 122.3   Stored in directory: /tmp/pip-ephem-wheel-cache-tmhor35u/wheels/54/1b/b7/aa63e25c8f14f4f2ae7b04e6097bdecb770e455c5c1ee0a600
+#27 122.3 Successfully built csm-backend
+#27 122.4 Installing collected packages: websockets, uvloop, typing-extensions, pyyaml, python-multipart, python-dotenv, pycparser, psycopg-binary, MarkupSafe, idna, httptools, h11, greenlet, et-xmlfile, click, annotated-types, uvicorn, typing-inspection, sqlalchemy, pydantic-core, psycopg, openpyxl, Mako, cffi, anyio, watchfiles, starlette, pydantic, argon2-cffi-bindings, alembic, pydantic-settings, fastapi, argon2-cffi, csm-backend
+#27 127.8 Successfully installed Mako-1.4.3 MarkupSafe-3.0.4 alembic-1.14.1 annotated-types-0.8.0 anyio-4.15.1 argon2-cffi-25.1.0 argon2-cffi-bindings-26.1.0 cffi-2.1.1 click-8.5.0 csm-backend-0.1.0 et-xmlfile-2.0.0 fastapi-0.115.14 greenlet-3.5.6 h11-0.16.0 httptools-0.9.0 idna-3.20 openpyxl-3.1.5 psycopg-3.2.13 psycopg-binary-3.2.13 pycparser-3.11 pydantic-2.9.2 pydantic-core-2.23.4 pydantic-settings-2.16.1 python-dotenv-1.2.4 python-multipart-0.0.32 pyyaml-6.0.3 sqlalchemy-2.0.55 starlette-0.46.2 typing-extensions-4.16.0 typing-inspection-0.4.4 uvicorn-0.34.3 uvloop-0.23.0 watchfiles-1.3.0 websockets-17.3
+#27 127.8 WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+#27 DONE 133.3s
+
+#32 [backend runtime 1/1] RUN useradd --create-home --uid 10001 appuser
+#32 DONE 0.6s
+
+#33 [backend] exporting to image
+#33 exporting layers
+#33 exporting layers 5.0s done
+#33 exporting manifest sha256:62280983044c4ef827268de63478b601480c57f1cf52d7339da28bfe533d7591 0.0s done
+#33 exporting config sha256:33c7b584496c4fa21d1b9c15425722fcbcfeb99a866078f1ccfa5f753e0742d9 0.0s done
+#33 exporting attestation manifest sha256:72da24136d4e2363d753ebd43a5438ca5fce6c74f8f3ec1bdd5639587df2bbee
+#33 exporting attestation manifest sha256:72da24136d4e2363d753ebd43a5438ca5fce6c74f8f3ec1bdd5639587df2bbee 0.1s done
+#33 exporting manifest list sha256:1afd1ef7c8dd778e71208f3979487984cfd910971ea7c082a6c5990dd6791cc2
+#33 exporting manifest list sha256:1afd1ef7c8dd778e71208f3979487984cfd910971ea7c082a6c5990dd6791cc2 0.1s done
+#33 naming to docker.io/library/csm_f028-backend:latest
+#33 naming to docker.io/library/csm_f028-backend:latest 0.0s done
+#33 unpacking to docker.io/library/csm_f028-backend:latest
+#33 unpacking to docker.io/library/csm_f028-backend:latest 2.9s done
+#33 DONE 8.3s
+
+#34 [migrate] exporting to image
+#34 exporting layers 5.0s done
+#34 exporting manifest sha256:204872875c73a90dab666562f4d4ebbd3a58eae334c75f0f531f1f1379f7acbc 0.0s done
+#34 exporting config sha256:b62ed899db37af781134f6f728f693e70c08a71277df90726a414e815dfea330 0.0s done
+#34 exporting attestation manifest sha256:fc47fd92446f15de28dd85693616a55e2395de8f3fa4b901ad74cc23f62fea0a 0.1s done
+#34 exporting manifest list sha256:0ff43af1c8f6492c30c1ef8b427072fbda7e9b721a0d2b97f66c3328d0470301 0.1s done
+#34 naming to docker.io/library/csm_f028-migrate:latest 0.0s done
+#34 unpacking to docker.io/library/csm_f028-migrate:latest 2.8s done
+#34 DONE 8.3s
+
+#35 [bootstrap] exporting to image
+#35 exporting layers 5.0s done
+#35 exporting manifest sha256:819a79672074d4ab27258b225935222a1ff414ba015ad173aa91c221b47e01f9 0.0s done
+#35 exporting config sha256:40d579d20a6d56c929894ed625a2a8d1eb573de5b234f9a8dd1567b42bba3b28 0.0s done
+#35 exporting attestation manifest sha256:d18d5b4f9eb019ab38813fb0f00178f31165938f132d56f15e33be12b0dfacea 0.1s done
+#35 exporting manifest list sha256:072307d6a5d8595845c276a0a391efb0ea0da5d0a931af72e339d30f3384de3a 0.1s done
+#35 naming to docker.io/library/csm_f028-bootstrap:latest 0.0s done
+#35 unpacking to docker.io/library/csm_f028-bootstrap:latest 2.9s done
+#35 DONE 8.3s
+
+#36 [backend] resolving provenance for metadata file
+#36 DONE 0.1s
+
+#37 [bootstrap] resolving provenance for metadata file
+#37 DONE 0.0s
+
+#38 [migrate] resolving provenance for metadata file
+#38 DONE 0.1s
+ Image csm_f028-frontend Built 
+ Image csm_f028-migrate Built 
+ Image csm_f028-bootstrap Built 
+ Image csm_f028-backend Built 
+ Network csm_f028_default Creating 
+ Volume csm_f028_pgdata Creating 
+ Volume csm_f028_pgdata Creating 
+ Network csm_f028_default Creating 
+ Volume csm_f028_pgdata Created 
+ Volume csm_f028_pgdata Created 
+ Network csm_f028_default Created 
+ Network csm_f028_default Created 
+ Container csm_f028-db-1 Creating 
+ Container csm_f028-frontend-1 Creating 
+ Container csm_f028-db-1 Created 
+ Container csm_f028-migrate-1 Creating 
+ Container csm_f028-frontend-1 Created 
+ Container csm_f028-migrate-1 Created 
+ Container csm_f028-bootstrap-1 Creating 
+ Container csm_f028-bootstrap-1 Created 
+ Container csm_f028-backend-1 Creating 
+ Container csm_f028-backend-1 Created 
+ Container csm_f028-nginx-1 Creating 
+ Container csm_f028-nginx-1 Created 
+ Container csm_f028-frontend-1 Starting 
+ Container csm_f028-db-1 Starting 
+ Container csm_f028-frontend-1 Started 
+ Container csm_f028-db-1 Started 
+ Container csm_f028-db-1 Waiting 
+ Container csm_f028-db-1 Healthy 
+ Container csm_f028-migrate-1 Starting 
+ Container csm_f028-migrate-1 Started 
+ Container csm_f028-migrate-1 Waiting 
+ Container csm_f028-migrate-1 Exited 
+ Container csm_f028-bootstrap-1 Starting 
+ Container csm_f028-bootstrap-1 Started 
+ Container csm_f028-migrate-1 Waiting 
+ Container csm_f028-bootstrap-1 Waiting 
+ Container csm_f028-migrate-1 Exited 
+ Container csm_f028-bootstrap-1 Error service "bootstrap" didn't complete successfully: exit 2
+service "bootstrap" didn't complete successfully: exit 2

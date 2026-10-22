@@ -1,0 +1,27 @@
+[T36] source csm_f028_acc audit_logs rows = 90
+[T36] running deploy/backup/pg_dump.sh in postgres:16
+[pg_dump] dumping database 'csm_f028_acc' via local pg_dump
+[pg_dump] backup written: /backups/csm-csm_f028_acc-20261022T075731Z.dump
+[T36] dump = /home/hanhao/github/47oo/csm/scripts/acceptance/artifacts/f028-20261022T075351Z/backup/csm-csm_f028_acc-20261022T075731Z.dump
+[T36] B7 dump size = 181390 bytes
+[T36] B7 PASS (size 181390, archive lists audit_logs + trigger + function)
+[T36] running deploy/backup/restore.sh -> csm_f028_acc_restore
+[restore] creating database 'csm_f028_acc_restore'
+[restore] restoring into 'csm_f028_acc_restore'
+[restore] restore complete: csm_f028_acc_restore
+[T36] B1 source=90 restore=90
+[T36] B1 PASS
+[T36] B2 source md5=ad2e8500f04f9e5d7eb836204d333b26 restore md5=ad2e8500f04f9e5d7eb836204d333b26
+[T36] B2 PASS
+[T36] B3 append-only trigger count on restore = 1
+[T36] B3 PASS
+[T36] B4 UPDATE rc=1 DELETE rc=1
+CONTEXT:  PL/pgSQL function fn_audit_logs_append_only() line 3 at RAISE
+CONTEXT:  PL/pgSQL function fn_audit_logs_append_only() line 3 at RAISE
+[T36] B4 PASS
+[T36] B5 source=0015_user_cluster_authorizations restore=0015_user_cluster_authorizations
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+[T36] B5 PASS (head=0015_user_cluster_authorizations, upgrade head idempotent)
+[T36] B6 PASS (restore DB /api/v1/health/ready 200)
+[T36] B1-B7 all PASS — Audit is covered by backup/restore

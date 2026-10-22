@@ -1,0 +1,14 @@
+[F028] HEAD=0e5d8fc7effb23550453a6402208a5dfeb31e71d branch=feature/F029-review-followups
+[F028] compose attempt (recorded)
+[F028] compose exit=1
+[F028] building frontend
+[F028] health: /healthz=200 ready=200 /=200 alembic='0015_user_cluster_authorizations (head)'
+healthz=200
+ready=200
+index=200
+alembic=0015_user_cluster_authorizations (head)
+[F028] running F028 acceptance pytest (real HTTP http://localhost:18081)
+[F028] pytest exit=0
+[F028] running T36 backup/Audit verification
+[F028] T36 exit=0
+[F028] DONE pytest=0 t36=0 compose=1 artifacts=/home/hanhao/github/47oo/csm/scripts/acceptance/artifacts/f028-20261022T075351Z
