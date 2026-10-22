@@ -629,3 +629,33 @@ def test_f023_import_row_scope_error_fails_whole_batch_without_residue(
         ).first()
     assert before == after
     assert residue is None
+
+
+def test_hidden_interface_error_is_indistinguishable_from_missing(
+    api_client, role_client_factory, make_user
+):
+    """F027-R1: an unauthorized parent must not leak existence via 422 text."""
+    admin, _, _ = role_client_factory("ADMIN")
+    a = _create_cluster_objects(admin, "F27H", "f27-h-host", "10.74.0.0/24")
+    c = _create_cluster_objects(admin, "F27I", "f27-i-host", "10.75.0.0/24")
+    editor, editor_user, _ = role_client_factory("EDITOR", username="f027.hidden")
+    _grant(admin, editor_user.id, a["cluster"]["id"])
+
+    hidden = editor.patch(
+        f"/api/v1/ip-addresses/{a['ip_address']['id']}",
+        json={
+            "version": a["ip_address"]["version"],
+            "interface": c["interface"]["id"],
+        },
+    )
+    missing = editor.patch(
+        f"/api/v1/ip-addresses/{a['ip_address']['id']}",
+        json={
+            "version": a["ip_address"]["version"],
+            "interface": str(uuid.uuid4()),
+        },
+    )
+    assert hidden.status_code == missing.status_code == 422
+    hidden_field = hidden.json()["error"]["details"]["fields"][0]
+    missing_field = missing.json()["error"]["details"]["fields"][0]
+    assert hidden_field == missing_field

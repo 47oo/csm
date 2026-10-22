@@ -200,14 +200,16 @@ def _validate_interface(
         raise _field_error(
             "interface", "interface resource does not exist or is not selectable"
         )
+    # F027 A18: scope is checked before the same-Cluster rule so a hidden
+    # Interface is indistinguishable from a nonexistent one (no existence leak).
+    if not scope_filters.normalize(scope).allows(resource.cluster_id):
+        raise _field_error(
+            "interface", "interface does not exist or is not selectable"
+        )
     if resource.cluster_id != cluster_id:
         raise _field_error(
             "interface",
             "interface resource must be in the same cluster as the ip address",
-        )
-    if not scope_filters.normalize(scope).allows(resource.cluster_id):
-        raise _field_error(
-            "interface", "interface does not exist or is not selectable"
         )
     return interface
 
