@@ -1,0 +1,207 @@
+ Image csm_f028-frontend Building 
+ Image csm_f028-migrate Building 
+ Image csm_f028-bootstrap Building 
+ Image csm_f028-backend Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.87kB done
+#1 DONE 0.0s
+
+#2 [migrate internal] load build definition from Dockerfile
+#2 transferring dockerfile: 905B done
+#2 DONE 0.0s
+
+#3 [frontend internal] load build definition from Dockerfile
+#3 transferring dockerfile: 559B done
+#3 DONE 0.0s
+
+#4 [frontend internal] load metadata for docker.io/library/node:22-alpine
+#4 DONE 0.1s
+
+#5 [migrate] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#5 ...
+
+#6 [frontend internal] load metadata for docker.io/library/nginx:1.27-alpine
+#6 DONE 0.1s
+
+#7 [frontend internal] load .dockerignore
+#7 transferring context: 104B done
+#7 DONE 0.0s
+
+#8 [frontend build 1/6] FROM docker.io/library/node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
+#8 resolve docker.io/library/node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 0.0s done
+#8 DONE 0.0s
+
+#9 [frontend stage-1 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#9 resolve docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 0.1s done
+#9 DONE 0.1s
+
+#10 [frontend internal] load build context
+#10 transferring context: 4.47kB done
+#10 DONE 0.0s
+
+#11 [frontend build 3/6] COPY package.json package-lock.json ./
+#11 CACHED
+
+#12 [frontend build 6/6] RUN npm run build
+#12 CACHED
+
+#13 [frontend build 2/6] WORKDIR /app
+#13 CACHED
+
+#14 [frontend build 4/6] RUN npm ci
+#14 CACHED
+
+#15 [frontend build 5/6] COPY . .
+#15 CACHED
+
+#16 [frontend stage-1 2/3] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#16 CACHED
+
+#17 [frontend stage-1 3/3] COPY --from=build /app/dist /usr/share/nginx/html
+#17 CACHED
+
+#18 [frontend] exporting to image
+#18 exporting layers done
+#18 exporting manifest sha256:242bcb0362eee517b59b90b49419617c87d0206a1522dfd78970c639528db807 done
+#18 exporting config sha256:18ba97a0635e7981e74a441d1557d523574138286578f6def0fb1bd4ad2a825f done
+#18 exporting attestation manifest sha256:3481f31f5b736cf567e3754f54491544ca91854722edc4d0555125a1a495df17 0.0s done
+#18 exporting manifest list sha256:b2a47bf66801b10be4349f5c725c904dd41c95c2d334642fca40b14395134682 0.0s done
+#18 naming to docker.io/library/csm_f028-frontend:latest done
+#18 unpacking to docker.io/library/csm_f028-frontend:latest
+#18 unpacking to docker.io/library/csm_f028-frontend:latest 0.0s done
+#18 DONE 0.2s
+
+#5 [migrate] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#5 DONE 0.5s
+
+#19 [frontend] resolving provenance for metadata file
+#19 DONE 0.0s
+
+#20 [migrate] docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#20 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e 0.0s done
+#20 CACHED
+
+#21 [migrate internal] load metadata for docker.io/library/python:3.12-slim
+#21 DONE 0.2s
+
+#22 [migrate internal] load .dockerignore
+#22 transferring context: 2B done
+#22 DONE 0.0s
+
+#23 [backend internal] load build context
+#23 DONE 0.0s
+
+#24 [backend base 1/8] FROM docker.io/library/python:3.12-slim@sha256:cb33f7f771ecec2ef1225cf39b159591a040391bd73e4c01f00fdfc4c47611d2
+#24 resolve docker.io/library/python:3.12-slim@sha256:cb33f7f771ecec2ef1225cf39b159591a040391bd73e4c01f00fdfc4c47611d2
+#24 resolve docker.io/library/python:3.12-slim@sha256:cb33f7f771ecec2ef1225cf39b159591a040391bd73e4c01f00fdfc4c47611d2 0.0s done
+#24 DONE 0.0s
+
+#23 [backend internal] load build context
+#23 transferring context: 13.33kB 0.0s done
+#23 DONE 0.0s
+
+#25 [bootstrap base 8/8] RUN pip install .
+#25 CACHED
+
+#26 [bootstrap base 6/8] COPY alembic ./alembic
+#26 CACHED
+
+#27 [bootstrap base 7/8] COPY alembic.ini ./
+#27 CACHED
+
+#28 [bootstrap base 4/8] COPY pyproject.toml ./
+#28 CACHED
+
+#29 [bootstrap base 2/8] WORKDIR /app
+#29 CACHED
+
+#30 [bootstrap base 3/8] RUN apt-get update     && apt-get install -y --no-install-recommends curl     && rm -rf /var/lib/apt/lists/*
+#30 CACHED
+
+#31 [bootstrap base 5/8] COPY app ./app
+#31 CACHED
+
+#32 [bootstrap runtime 1/1] RUN useradd --create-home --uid 10001 appuser
+#32 CACHED
+
+#33 [migrate] exporting to image
+#33 exporting layers done
+#33 exporting manifest sha256:432b8e89a280387aa0107bb39941f00a1f9d44716137187e6196f26a6a03c9a6 0.0s done
+#33 exporting config sha256:690710f852a2e3b83f6a7c4dc67ee0e519a2d26248d2db7cf24a0315f8c2f99d done
+#33 exporting attestation manifest sha256:de374e2c4e3bdbd2f1c6195f0d3875d3cc7e7c0c578cd842d588592b4d7d1106
+#33 exporting attestation manifest sha256:de374e2c4e3bdbd2f1c6195f0d3875d3cc7e7c0c578cd842d588592b4d7d1106 0.1s done
+#33 exporting manifest list sha256:bde6b4b1842ae45a6dce5be49c9668feb4412de1301cb4c1798fb256b0b352e6 0.1s done
+#33 naming to docker.io/library/csm_f028-migrate:latest 0.0s done
+#33 unpacking to docker.io/library/csm_f028-migrate:latest
+#33 unpacking to docker.io/library/csm_f028-migrate:latest 0.0s done
+#33 DONE 0.3s
+
+#34 [backend] exporting to image
+#34 exporting layers done
+#34 exporting manifest sha256:4aa7ec82816bfc953527aaa844aa47dd0bbaeeed190c86087d46a69bbe34394f 0.0s done
+#34 exporting config sha256:d145c6bcbab21ed5b142fc117fd68fa4aec5e74440be7a4de73f8a52e52056e5 done
+#34 exporting attestation manifest sha256:e09e7ce25a8696a430f70efde2a94cdc646c624435f53081390b548d5258b52e 0.1s done
+#34 exporting manifest list sha256:514e5f9705688d659086157f41c8d6b0c7b141b64e650a89d9989c9def4daa80 0.0s done
+#34 naming to docker.io/library/csm_f028-backend:latest 0.0s done
+#34 unpacking to docker.io/library/csm_f028-backend:latest 0.0s done
+#34 DONE 0.3s
+
+#35 [bootstrap] exporting to image
+#35 exporting layers done
+#35 exporting manifest sha256:9d7512c7a7d0bc2e4a4ef951fbeca4460b28a0a842afc380f73c8f844757e898 0.0s done
+#35 exporting config sha256:d47e85e74465bda47d3aa247d406badc768a4be65a9870d7e743ca8b2a491c7c done
+#35 exporting attestation manifest sha256:d0fdfc8059f7134ee86a336921d959025179ffa1963d4b202c49baa41303ef45 0.1s done
+#35 exporting manifest list sha256:9f149b9ca80049653db01d93d2c16b045fa8497185508b5de57e3a4ba3bf4dd3 0.1s done
+#35 naming to docker.io/library/csm_f028-bootstrap:latest 0.0s done
+#35 unpacking to docker.io/library/csm_f028-bootstrap:latest 0.0s done
+#35 DONE 0.3s
+
+#36 [backend] resolving provenance for metadata file
+#36 DONE 0.1s
+
+#37 [bootstrap] resolving provenance for metadata file
+#37 DONE 0.1s
+
+#38 [migrate] resolving provenance for metadata file
+#38 DONE 0.0s
+ Image csm_f028-backend Built 
+ Image csm_f028-frontend Built 
+ Image csm_f028-migrate Built 
+ Image csm_f028-bootstrap Built 
+ Network csm_f028_default Creating 
+ Network csm_f028_default Creating 
+ Volume csm_f028_pgdata Creating 
+ Volume csm_f028_pgdata Creating 
+ Volume csm_f028_pgdata Created 
+ Volume csm_f028_pgdata Created 
+ Network csm_f028_default Created 
+ Network csm_f028_default Created 
+ Container csm_f028-db-1 Creating 
+ Container csm_f028-frontend-1 Creating 
+ Container csm_f028-frontend-1 Created 
+ Container csm_f028-db-1 Created 
+ Container csm_f028-migrate-1 Creating 
+ Container csm_f028-migrate-1 Created 
+ Container csm_f028-bootstrap-1 Creating 
+ Container csm_f028-bootstrap-1 Created 
+ Container csm_f028-backend-1 Creating 
+ Container csm_f028-backend-1 Created 
+ Container csm_f028-nginx-1 Creating 
+ Container csm_f028-nginx-1 Created 
+ Container csm_f028-db-1 Starting 
+ Container csm_f028-frontend-1 Starting 
+ Container csm_f028-db-1 Started 
+ Container csm_f028-db-1 Waiting 
+ Container csm_f028-frontend-1 Started 
+ Container csm_f028-db-1 Healthy 
+ Container csm_f028-migrate-1 Starting 
+ Container csm_f028-migrate-1 Started 
+ Container csm_f028-migrate-1 Waiting 
+ Container csm_f028-migrate-1 Exited 
+ Container csm_f028-bootstrap-1 Starting 
+ Container csm_f028-bootstrap-1 Started 
+ Container csm_f028-bootstrap-1 Waiting 
+ Container csm_f028-migrate-1 Waiting 
+ Container csm_f028-migrate-1 Exited 
+ Container csm_f028-bootstrap-1 Error service "bootstrap" didn't complete successfully: exit 2
+service "bootstrap" didn't complete successfully: exit 2
