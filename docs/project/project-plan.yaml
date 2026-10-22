@@ -4,10 +4,10 @@ project:
   requirements:
     path: docs/product/requirements-v3.md
     revision: 11
-  plan_revision: 14
-  status: DONE
+  plan_revision: 15
+  status: ACCEPTED
   approval:
-    plan_revision: 14
+    plan_revision: 15
     feature_ids:
     - F001
     - F002
@@ -37,13 +37,13 @@ project:
     - F026
     - F027
     - F028
+    - F029
     approved_by: 用户
-    approved_on: '2026-10-21'
-    basis: 用户于 2026-10-21 就「访问权限控制功能新增，可以控制用户访问的集群（如只能访问 a、b 集群，其他禁止访问）」回复「批准并实施」，批准变更提案 docs/project/proposals/CHG-010-cluster-access.md
-      所述候选计划 revision 14（新增 F026–F028）与第 6 节推荐裁定组合 CHG010-BQ01–BQ17，并授权实施。需求基线 revision 10 → 11（新增 §23.2 集群范围授权与 T85–T99，收窄
-      §3 / §23 / §23.1 排除项表述）。确认来源：本次会话用户指令。
+    approved_on: '2026-10-22'
+    basis: 用户于 2026-10-22 要求「将 review 的低优先级跟进项完成一下」，批准 plan revision 15 新增 F029（Review 跟进：安全加固、契约回写、测试固化与 UI 修正），F001–F028
+      保持 DONE；需求基线保持 revision 11，不新增业务规则。
   acceptance:
-    status: COMPLETE
+    status: PENDING
     evidence:
     - docs/features/F028/test-report.md#test-executiontest-12026-10-22
     - docs/features/F028/artifacts/run.log
@@ -58,6 +58,7 @@ project:
     - docs/features/F016/test-report.md#32-c1c15-上线验收
     - docs/features/F016/test-report.md#33-目标查询场景
     - docs/features/F016/test-report.md#t36-备份覆盖-audit
+    pending_reason: F029 完成后重新执行适用验证并恢复 COMPLETE。
 features:
 - id: F001
   title: 工程与部署底座
@@ -1876,6 +1877,50 @@ features:
     start_commit: 088928bd062b74c900f525943b41a7e246c72ad4
     head_commit: b6774e0e12267eaa9af2dbbe29fea74b2512b1b5
     merge_commit: 5c6c85c789bf6664dc0b58b9c7cfb06522532ee2
+- id: F029
+  title: Review 低优先级跟进项：安全加固、契约回写与测试固化
+  kind: ENABLER
+  priority: P2
+  milestone: M20 Review 跟进
+  scope: 完成 F026/F027/F028 Review 中非阻塞跟进项：①F026 未知用户 + 非法 q 的 404/422 顺序；②F026 撤销 409 关闭并刷新、候选授权跨分页过滤；③F026 grant 的 IntegrityError
+    收窄到有效唯一冲突；④F026 迁移触发器 SQLSTATE 与 0015 down 对象对称性断言；⑤F027 各域 Contract 回写范围交叉引用；⑥F027 测试 scope 覆盖改为显式 real_scope marker；⑦F027
+    resource_predicate 命名/注释修正；⑧F027 normalize(None) 风险说明与路由覆盖断言；⑨F028 整体验收证据补充 F027 T87/T89/T96/T99 锚点；⑩补充 F026 并发/升降级/停用等可重复回归测试。不新增业务规则、不改变已批准范围语义、不改
+    Schema/端点/权限。
+  acceptance: F026 未知用户 + 非法 q 返回 404；撤销 409 关闭并刷新；候选排除覆盖全部有效授权；grant 仅唯一冲突映射 409；触发器 SQLSTATE 与 downgrade 对象对称性有断言；各域 Contract
+    含 F027 交叉引用；scope 测试使用 real_scope marker；resource_predicate 命名清晰；normalize(None) 风险有说明且路由覆盖断言通过；project.acceptance 含 F027
+    锚点；新增回归测试通过；全量既有测试无回归；Review APPROVED。
+  requirements:
+  - docs/features/F026/review-report.md
+  - docs/features/F027/review-report.md
+  - docs/features/F028/review-report.md
+  - docs/api/F026.md
+  - docs/api/F027.md
+  depends_on:
+  - F026
+  - F027
+  - F028
+  blocking_decisions: []
+  status: READY
+  current_stage: null
+  next_action: Preflight 后启动 PRODUCT / 实施。
+  layers:
+    database: false
+    backend: true
+    frontend: true
+  api_required: true
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
+  not_required:
+    database: 仅测试/文档/前端/服务层小修；无 Schema/Migration 变更。
+  evidence: {}
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2256,11 +2301,11 @@ execution:
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
   current_feature: null
   current_stage: null
-  last_result: F028 DONE（merge 5c6c85c；Review APPROVED WITH FOLLOW-UP）。V3 一期 F001–F028 全部交付，project.acceptance=COMPLETE。
-  next_action: null
+  last_result: Plan revision 15 已批准：新增 F029 Review 跟进项；F001–F028 保持 DONE。
+  next_action: 对 F029 执行 Preflight。
   repair_rounds: 1
 planning_status:
-  status: DONE
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -2269,8 +2314,9 @@ planning_status:
     DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F029
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
