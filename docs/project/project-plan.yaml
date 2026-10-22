@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 11
   plan_revision: 14
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 14
     feature_ids:
@@ -43,14 +43,21 @@ project:
       所述候选计划 revision 14（新增 F026–F028）与第 6 节推荐裁定组合 CHG010-BQ01–BQ17，并授权实施。需求基线 revision 10 → 11（新增 §23.2 集群范围授权与 T85–T99，收窄
       §3 / §23 / §23.1 排除项表述）。确认来源：本次会话用户指令。
   acceptance:
-    status: PENDING
+    status: COMPLETE
     evidence:
+    - docs/features/F028/test-report.md#test-executiontest-12026-10-22
+    - docs/features/F028/artifacts/run.log
+    - docs/features/F028/artifacts/pytest.log
+    - docs/features/F028/artifacts/t36.log
+    - docs/features/F028/artifacts/frontend-build.log
+    - docs/features/F028/artifacts/frontend-smoke.log
+    - docs/features/F027/test-report.md#repair-verification-1
+    - docs/features/F026/review-report.md
     - docs/features/F016/test-report.md#test-execution
     - docs/features/F016/test-report.md#t01t41-evidence-index
     - docs/features/F016/test-report.md#32-c1c15-上线验收
     - docs/features/F016/test-report.md#33-目标查询场景
     - docs/features/F016/test-report.md#t36-备份覆盖-audit
-    pending_reason: revision 14 新增集群范围授权范围，整体验收待 F028 在真实 Compose 上执行 T85–T99 与 T01–T84 关键回归后重新置 COMPLETE。
 features:
 - id: F001
   title: 工程与部署底座
@@ -1824,9 +1831,9 @@ features:
   - F026
   - F027
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: Reviewer 审核验收证据与整体验收结论。
+  status: DONE
+  current_stage: null
+  next_action: null
   layers:
     database: false
     backend: false
@@ -1841,7 +1848,7 @@ features:
     backend: NOT_REQUIRED
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F028/product.md
@@ -1856,7 +1863,9 @@ features:
     - docs/features/F028/artifacts/run.log
     - docs/features/F028/artifacts/pytest.log
     - docs/features/F028/artifacts/t36.log
-  last_result: 在已提交 HEAD 601541c 上真实 HTTP 4 passed；T36 B1–B7 PASS；等待复审。
+    review:
+    - docs/features/F028/review-report.md
+  last_result: Review APPROVED WITH FOLLOW-UP；R1 CLOSED；已合并（5c6c85c）。
   not_required:
     database: 验收型 Feature 无 Schema/Migration 变更；迁移 head 0015 已在等价栈验证。
     backend: 无新增后端业务逻辑；F027 后端交付已由 TEST/Review 覆盖。
@@ -1865,8 +1874,8 @@ features:
     base_branch: v3.2
     branch: feature/F028-integration-acceptance
     start_commit: 088928bd062b74c900f525943b41a7e246c72ad4
-    head_commit: 601541c0222e69e94cee9fdfbe84579089f01749
-    merge_commit: null
+    head_commit: b6774e0e12267eaa9af2dbbe29fea74b2512b1b5
+    merge_commit: 5c6c85c789bf6664dc0b58b9c7cfb06522532ee2
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2245,21 +2254,21 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-21'
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
-  current_feature: F028
-  current_stage: REVIEW
-  last_result: F028 验收执行通过，进入 Review。
-  next_action: 完成 F028 Review，更新 project.acceptance 并置 DONE。
+  current_feature: null
+  current_stage: null
+  last_result: F028 DONE（merge 5c6c85c；Review APPROVED WITH FOLLOW-UP）。V3 一期 F001–F028 全部交付，project.acceptance=COMPLETE。
+  next_action: null
   repair_rounds: 1
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 27
+    DONE: 28
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
