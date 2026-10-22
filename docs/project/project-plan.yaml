@@ -1757,9 +1757,9 @@ features:
   depends_on:
   - F026
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: Reviewer 复审修复后的候选。
+  status: DONE
+  current_stage: null
+  next_action: null
   layers:
     database: false
     backend: true
@@ -1774,7 +1774,7 @@ features:
     backend: COMPLETE
     frontend: NOT_REQUIRED
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F027/product.md
@@ -1788,10 +1788,18 @@ features:
     - docs/features/F027/implementation.md#1-实现文件
     test:
     - docs/features/F027/test-report.md#repair-verification-1
-  last_result: F027-R1 CLOSED；定向 18 passed；全量 718 passed, 2 skipped。
+    review:
+    - docs/features/F027/review-report.md
+  last_result: Review APPROVED WITH FOLLOW-UP；F027-R1 CLOSED；已合并（15830b4）。
   not_required:
     database: 无 Schema/Migration 变更：F027 只消费 F026 授权表与既有业务表，新增范围谓词不新增表/列/索引/触发器。
     frontend: 无新增前端功能；既有页面的受限表现与文案核对归 F028（N2）。
+  git:
+    base_branch: v3.2
+    branch: feature/F027-scope-enforcement
+    start_commit: dded9b660f50bec1fcee185147efad7b5baddd8e
+    head_commit: 52b1af4fd6e3f33cf79fdc3c8b70f8052f02576d
+    merge_commit: 15830b454a90f4c02bc5043db4d32929c4c77c37
 - id: F028
   title: 范围变更集成验收与回归
   kind: FEATURE
@@ -1816,9 +1824,9 @@ features:
   - F026
   - F027
   blocking_decisions: []
-  status: BLOCKED
+  status: READY
   current_stage: null
-  next_action: 等待 F026、F027 提交 DONE；随后 Preflight 启动。
+  next_action: Preflight 后启动 PRODUCT / 集成验收。
   layers:
     database: false
     backend: false
@@ -2213,24 +2221,24 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-21'
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
-  current_feature: F027
-  current_stage: REVIEW
-  last_result: F027 修复复测通过，进入复审。
-  next_action: 完成 F027 复审并合并。
+  current_feature: null
+  current_stage: null
+  last_result: F027 DONE（merge 15830b4；Review APPROVED WITH FOLLOW-UP，R1 CLOSED）。F028 READY。
+  next_action: 对 F028 执行 Preflight 并启动集成验收。
   repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
   counts:
-    BLOCKED: 1
+    BLOCKED: 0
     CANCELLED: 0
-    DONE: 26
+    DONE: 27
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
-    READY: 0
-  ready_features: []
+    IN_REVIEW: 0
+    READY: 1
+  ready_features:
+  - F028
   blocked_draft_features:
-    BLOCKED:
-    - F028
+    BLOCKED: []
     DRAFT: []

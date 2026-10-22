@@ -649,7 +649,7 @@ GIT: NONE
 | 预期 | 隐藏 Interface 与不存在 Interface 的状态码、`details.fields[0].field`、`message` 完全一致；可见同 Cluster Interface 仍可绑定；可见跨 Cluster Interface 仍报同 Cluster 规则 |
 | 实际修复 | `backend/app/services/ip_address.py::_validate_interface`：`scope.allows(resource.cluster_id)` 判定**前移**到同 Cluster 判定之前，并使用与“不存在”相同的 `field:"interface"` / `interface does not exist or is not selectable` 文案；同 Cluster 判定保留在后 |
 | 回归测试 | `backend/tests/integration/test_f027_access_scope.py::test_hidden_interface_error_is_indistinguishable_from_missing`（新增，+1 例） |
-| 调用点核对 | `_validate_interface` 仅两处调用：`create_ip_address`（F023 导入绑定，`app/services/ip_address.py:618`）与 `update_ip_address`（PATCH 绑定/转移，`:783`）；两处均传入 `scope=scope`，修复对两条路径同时生效 |
+| 调用点核对 | `_validate_interface` 仅两处调用：`create_ip_address`（F023 导入绑定，`app/services/ip_address.py:618`）与 `update_ip_address`（PATCH 绑定/转移，`:783`）；update 路径传入 `scope=scope`；F023 导入路径由导入前置范围校验保护，修复对两条路径同时生效 |
 | 副作用评估 | 修复只调整校验顺序与复用文案，未新增/删除校验分支；不改变错误顺序中“422 先于 404/409”的分级，不涉及 Schema、迁移、Contract 字段 |
 
 ### RV-1.2 环境
