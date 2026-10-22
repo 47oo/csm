@@ -15,4 +15,4 @@ dist/assets/index-hcjNQdZC.js   1,262.77 kB │ gzip: 386.07 kB
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-✓ built in 19.45s
+✓ built in 23.28s

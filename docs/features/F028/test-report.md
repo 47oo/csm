@@ -10,7 +10,7 @@
 
 ## Test Execution（TEST-1，2026-10-22）
 
-- HEAD：`4569ee6`（feature/F028-integration-acceptance；后续状态提交除外）
+- HEAD：`601541c`（feature/F028-integration-acceptance；验收脚本/测试已提交后执行；本报告为随后 docs-only 提交）
 - 环境：`docker compose up -d --build` 退出码 1（镜像构建成功；`bootstrap` 因未提供 INITIAL_ADMIN 凭据退出 2，日志 `compose-up.log`）；随后启动等价真实栈：`postgres:16` + 当前 `backend/` + `frontend/dist` + nginx，入口 `http://localhost:18081`
 - 健康：`/healthz=200`、`/api/v1/health/ready=200`、`/ =200`、`alembic current = 0015_user_cluster_authorizations (head)`
 - 真实 HTTP 验收：`4 passed`（F028 `test_f028_acceptance.py`）
@@ -20,9 +20,9 @@
   - T92/T95/T98：授权 Audit 可查、INACTIVE/软删/恢复、非 ADMIN 已删对象 403
 - T36 备份/恢复：**B1–B7 all PASS**
   - 源/恢复 audit 行数 90=90；md5 一致；append-only 触发器存在；UPDATE/DELETE 被拒；alembic 版本一致且 upgrade head 幂等；恢复库健康 200
-- 前端：`npm run typecheck` PASS；`npm run build` PASS；`npm run smoke:client` 322 passed；F026 System 页过期提示已移除
+- 前端：`npm run typecheck` PASS；`npm run build` PASS；`npm run smoke:client` 322 passed（frontend-smoke.log）；F026 System 页过期提示已移除
 - 全量后端回归：依赖 F027 TEST-1/RV-1 的 `718 passed, 2 skipped`；F028 未改变后端逻辑
 - 已知跳过：F016 acceptance module（未启用 `F016_ACCEPTANCE` 的独立 F016 套件）、迁移 V3b 非 superuser（测试库 owner 为 superuser，既有条件）
-- 证据目录：`docs/features/F028/artifacts/`（run.log、compose-up.log、frontend-build.log、pytest.log、t36.log；原始运行目录 `scripts/acceptance/artifacts/f028-20261022T062557Z/` 为 git-ignored 临时证据）
+- 证据目录：`docs/features/F028/artifacts/`（run.log、compose-up.log、frontend-build.log、frontend-smoke.log、pytest.log、t36.log；原始运行目录 `scripts/acceptance/artifacts/f028-20261022T070008Z/` 为 git-ignored 临时证据）
 
 **Status：READY FOR REVIEW**

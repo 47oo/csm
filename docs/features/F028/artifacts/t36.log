@@ -1,17 +1,17 @@
 [T36] source csm_f028_acc audit_logs rows = 90
 [T36] running deploy/backup/pg_dump.sh in postgres:16
 [pg_dump] dumping database 'csm_f028_acc' via local pg_dump
-[pg_dump] backup written: /backups/csm-csm_f028_acc-20261022T062703Z.dump
-[T36] dump = /home/hanhao/github/47oo/csm/scripts/acceptance/artifacts/f028-20261022T062557Z/backup/csm-csm_f028_acc-20261022T062703Z.dump
-[T36] B7 dump size = 181412 bytes
-[T36] B7 PASS (size 181412, archive lists audit_logs + trigger + function)
+[pg_dump] backup written: /backups/csm-csm_f028_acc-20261022T070123Z.dump
+[T36] dump = /home/hanhao/github/47oo/csm/scripts/acceptance/artifacts/f028-20261022T070008Z/backup/csm-csm_f028_acc-20261022T070123Z.dump
+[T36] B7 dump size = 181403 bytes
+[T36] B7 PASS (size 181403, archive lists audit_logs + trigger + function)
 [T36] running deploy/backup/restore.sh -> csm_f028_acc_restore
 [restore] creating database 'csm_f028_acc_restore'
 [restore] restoring into 'csm_f028_acc_restore'
 [restore] restore complete: csm_f028_acc_restore
 [T36] B1 source=90 restore=90
 [T36] B1 PASS
-[T36] B2 source md5=43be6c12ebe147e1c203f136588141a7 restore md5=43be6c12ebe147e1c203f136588141a7
+[T36] B2 source md5=a1c240536d68378d0ec1c6fbeba9f191 restore md5=a1c240536d68378d0ec1c6fbeba9f191
 [T36] B2 PASS
 [T36] B3 append-only trigger count on restore = 1
 [T36] B3 PASS

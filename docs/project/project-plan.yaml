@@ -1824,7 +1824,7 @@ features:
   - F026
   - F027
   blocking_decisions: []
-  status: IN_PROGRESS
+  status: IN_REVIEW
   current_stage: REVIEW
   next_action: Reviewer 审核验收证据与整体验收结论。
   layers:
@@ -1856,11 +1856,17 @@ features:
     - docs/features/F028/artifacts/run.log
     - docs/features/F028/artifacts/pytest.log
     - docs/features/F028/artifacts/t36.log
-  last_result: 真实 HTTP 验收 4 passed；T36 B1–B7 PASS；前端 typecheck/build/smoke 通过。
+  last_result: 在已提交 HEAD 601541c 上真实 HTTP 4 passed；T36 B1–B7 PASS；等待复审。
   not_required:
     database: 验收型 Feature 无 Schema/Migration 变更；迁移 head 0015 已在等价栈验证。
     backend: 无新增后端业务逻辑；F027 后端交付已由 TEST/Review 覆盖。
     contract: 无新增/变更 API；被验收端点来自 F026/F027 既有 Contract，api_required=false。
+  git:
+    base_branch: v3.2
+    branch: feature/F028-integration-acceptance
+    start_commit: 088928bd062b74c900f525943b41a7e246c72ad4
+    head_commit: 601541c0222e69e94cee9fdfbe84579089f01749
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2252,8 +2258,8 @@ planning_status:
     CANCELLED: 0
     DONE: 27
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
