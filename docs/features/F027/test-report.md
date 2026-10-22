@@ -630,3 +630,140 @@ python3 -m pytest -q /tmp/f027probe/test_f027_probe.py
 - **Status: READY FOR REVIEW**（OBS-F027-T1/T3 为 Architect/协调器后续项，不阻塞本阶段结论）。
 
 GIT: NONE
+
+## Repair Verification 1
+
+- **版本**：RV-1（2026-10-22）
+- **角色**：Tester（TEST，修复复测）
+- **Feature**：F027（P0，M18），修复轮次 `repair_rounds=1`
+- **对应缺陷**：**F027-R1**（MEDIUM，must-fix，Owner Backend）
+- **修复提交**：`7e5de72 fix(F027): unify hidden interface error with missing`
+- **结论**：**READY FOR REVIEW**（F027-R1 关闭，无新增必须修复缺陷）
+- **交付范围**：只追加本报告。未修改业务实现、Schema、Contract、测试或计划文件。
+
+### RV-1.1 缺陷与修复核对
+
+| 项 | 内容 |
+| --- | --- |
+| 缺陷 | 绑定 IP 到**未授权 Cluster** 的 Interface 时，422 文案与“Interface 不存在”不同，泄露隐藏 Interface 存在性（违反 A18 / T86 / T94 的“不泄露存在性”口径） |
+| 预期 | 隐藏 Interface 与不存在 Interface 的状态码、`details.fields[0].field`、`message` 完全一致；可见同 Cluster Interface 仍可绑定；可见跨 Cluster Interface 仍报同 Cluster 规则 |
+| 实际修复 | `backend/app/services/ip_address.py::_validate_interface`：`scope.allows(resource.cluster_id)` 判定**前移**到同 Cluster 判定之前，并使用与“不存在”相同的 `field:"interface"` / `interface does not exist or is not selectable` 文案；同 Cluster 判定保留在后 |
+| 回归测试 | `backend/tests/integration/test_f027_access_scope.py::test_hidden_interface_error_is_indistinguishable_from_missing`（新增，+1 例） |
+| 调用点核对 | `_validate_interface` 仅两处调用：`create_ip_address`（F023 导入绑定，`app/services/ip_address.py:618`）与 `update_ip_address`（PATCH 绑定/转移，`:783`）；两处均传入 `scope=scope`，修复对两条路径同时生效 |
+| 副作用评估 | 修复只调整校验顺序与复用文案，未新增/删除校验分支；不改变错误顺序中“422 先于 404/409”的分级，不涉及 Schema、迁移、Contract 字段 |
+
+### RV-1.2 环境
+
+| 项 | 值 |
+| --- | --- |
+| 数据库 | 真实 PostgreSQL，`TEST_DATABASE_URL=postgresql+psycopg://csm:csmtestpw@127.0.0.1:55432/csm_test`（库名含 `test`，通过 DB-D10 双守卫）；已 `unset DATABASE_URL` |
+| 应用 | 生产 `create_app()` + 真实依赖，仅覆盖 `get_db`；真实 HTTP（`TestClient`） |
+| 迁移 head | `0015_user_cluster_authorizations`（F027 无新迁移，修复未引入迁移） |
+| 执行方式 | 串行；先目标套件，再关联回归，再独立探针，最后全量（全量在探针结束后启动，避免共享测试库冲突） |
+| 代码版本 | `HEAD=7e5de72`（未修改工作区代码；`git status` 干净至本次报告写入前） |
+
+### RV-1.3 执行命令与结果
+
+```bash
+# 0) 计划一致性（修复提交改动了 project-plan.yaml，只读校验）
+python3 scripts/validate_project_state.py --feature F027
+# PROJECT STATE VALID (structure/gates/files; verify approval truth and Git/test evidence separately)
+
+# 1) F027 目标套件 + F026 授权回归（含新增 R1 回归用例）
+python3 -m pytest -q tests/integration/test_f027_access_scope.py \
+  tests/integration/test_cluster_authorizations.py
+# 18 passed in 38.40s   (F027 10 = 原 9 + R1 新增 1；F026 8)
+
+# 2) 关联回归（IP 分配/绑定/约束、F014+F023 导入、F027 范围）
+python3 -m pytest -q tests/integration/test_ip_addresses.py \
+  tests/integration/test_ip_address_constraints.py \
+  tests/integration/test_imports.py \
+  tests/integration/test_f027_access_scope.py
+# 93 passed in 95.53s
+
+# 3) 独立 R1 探针（仓库外，生产 App + 真实 PG，不复用仓库回归测试）
+python3 -m pytest -q /tmp/f027probe/test_f027_r1_probe.py
+# 1 passed in 4.09s
+
+# 4) 全量回归（串行）
+python3 -m pytest -q
+# 718 passed, 2 skipped in 1157.88s (0:19:17)
+# skipped: F016_ACCEPTANCE=1 未启用；test_migrations V3b（当前 DB owner 为超级用户）
+```
+
+> 全量 718 = 上一轮 717 + R1 新增 1 例；跳过项与 TEST-1 完全一致（既有条件跳过，非本次变更引入）。
+
+### RV-1.4 独立 R1 探针（不复用仓库回归用例）
+
+探针 `test_f027probe/test_f027_r1_probe.py`：ADMIN 建 A/B/C 三集群，EDITOR 仅授权 A、B（故 C 隐藏、B 可见）。所有夹具经公开 API 构造，断言不依赖仓库测试文件。
+
+| 断言 | 结果 |
+| --- | --- |
+| 隐藏 Interface（C，未授权）+ A 的 IP → 422 | PASS |
+| 不存在 Interface（随机 UUID）+ A 的 IP → 422 | PASS |
+| 两者**完整响应体相等**（不仅 `fields[0]`）：`hidden.json() == missing.json()` | PASS |
+| `details.fields[0].field == "interface"` 且 `message` 非空 | PASS |
+| 隐藏响应全文不含 C 的 `cluster_id` / `interface_id` / `code`（`R1C`） | PASS |
+| 可见同 Cluster Interface 绑定 → 200，返回的 `interface.id` 正确 | PASS |
+| 可见跨 Cluster Interface（A 的 IP + B 的 Interface，B 已授权）→ 422 `field:"interface"`，文案含 `same cluster` | PASS |
+| 跨 Cluster 文案与隐藏/不存在文案**不同**（证明同 Cluster 规则未被吞并，仍可达） | PASS |
+
+> 该探针同时证明修复的第二个泄露变体被关闭：对仅授权 A 的用户，位于**另一个未授权但存在**的 Cluster 的 Interface 之前返回“same cluster”文案（可用以区分“存在但跨 Cluster”与“不存在”），现同样返回与“不存在”一致的文案。
+
+### RV-1.5 F027-R1 关闭结论
+
+| 检查 | 结果 |
+| --- | --- |
+| 隐藏 vs 不存在：状态码一致（422） | PASS |
+| 隐藏 vs 不存在：`error.code`/`details.fields[0].field`/`message` 一致 | PASS |
+| 无标识符泄露（id/code/name 不出现在响应） | PASS |
+| 可见同 Cluster Interface 正常绑定（未误伤） | PASS |
+| 可见跨 Cluster Interface 仍报同 Cluster 规则（语义未丢失） | PASS |
+| PATCH 与 F023 导入两条调用路径均受修复覆盖 | PASS（静态核对 + 导入回归 93 passed 含导入绑定用例） |
+| 新增回归测试可在旧实现下失败 | 通过代码比对确认：旧顺序先判 `resource.cluster_id != cluster_id` → 隐藏接口会得到 “must be in the same cluster…” 而缺失接口得到 “does not exist…”，两 `fields[0]` 不同，新增用例断言 `hidden_field == missing_field` 会失败；新实现下通过 |
+| 计划一致性（`--feature F027`） | PASS（结构/Gate/证据文件；不证明批准真实性） |
+
+**F027-R1 状态：CLOSED。**
+
+### RV-1.6 对既有验收结论的影响
+
+| 验收 | 修复前 | 复测后 | 说明 |
+| --- | --- | --- | --- |
+| A16/A18 不泄露未授权 Cluster 信息 | PASS（未覆盖此路径） | PASS（补强） | 新增回归 + 独立探针覆盖 `interface` 绑定错误文案一致性与全文无泄露 |
+| A17 错误顺序 401→403→422→404→409 | PASS | PASS | 仅同类 422 的文案/顺序调整，不改变错误分级 |
+| A5/A6 写拒绝与跨对象归属 | PASS | PASS | 被拒绝写仍无残留（`93 passed` 含 IP 约束与绑定用例；全量回归无失败） |
+| 其余 A1–A22 / T85–T99 | PASS | PASS（未变） | 全量 718 passed，无新增失败；A23 仍 NOT_REQUIRED（F028） |
+
+未重跑 TEST-1 的仓库外 16 个探针（其断言不涉及本次改动的文案分支，且对应功能已被定向 93 passed 与全量 718 passed 覆盖）；本轮仅新增 R1 专项探针。如协调器要求，可按需补跑。
+
+### RV-1.7 Defects
+
+本轮**未发现新增实现缺陷**，无需 RETURN TO IMPLEMENTATION。
+
+| ID | Severity | Layer | 状态 |
+| --- | --- | --- | --- |
+| F027-R1 | MEDIUM | Backend（`_validate_interface` 错误文案泄露存在性） | **CLOSED**（`7e5de72` + 回归用例 + 独立探针） |
+| OBS-F027-T1 | MEDIUM | Docs/Contract（各域 Contract 未回写 F027 交叉引用） | 仍 OPEN，Architect/Contract 后续项；不阻塞行为验证 |
+| OBS-F027-T2 | LOW | Backend 防御性（`scope=None` 等价 unrestricted） | 仍 OPEN，未因本次修复改变；无可达生产绕过路径 |
+| OBS-F027-T3 | MEDIUM | 测试基础设施（`auth_app` 路径后缀覆盖判定） | 仍 OPEN，协调器/Backend 后续项 |
+| OBS-F027-T4 | LOW | F028 证据边界（Compose/浏览器/A23） | 仍 OPEN，归 F028 |
+
+观察项（非缺陷）：修复后“隐藏 Interface”与“Interface 不存在”的文案统一为 `interface does not exist or is not selectable`；这与 `resolve_network` / `resolve_ip_pool` 的“不存在或不可选”口径一致，属既有 Contract 语义，未新增业务规则。
+
+### RV-1.8 未验证项
+
+| 项 | 原因 | 归属 |
+| --- | --- | --- |
+| 真实 Compose / 浏览器 / A23 呈现 | F027 服务端范围之外 | F028 |
+| 高并发压测 | 修复为单点校验顺序调整，无并发/事务语义变化；未新增压测 | 后续可选 |
+| TEST-1 仓库外 16 探针全量重跑 | 不涉及本次改动文案分支；由定向 93 + 全量 718 覆盖 | 视协调器需要 |
+| `test_migrations` V3b、F016 真实部署验收 | 既有条件跳过（非超级用户 owner / `F016_ACCEPTANCE=1`） | 协调器 / F016 / F028 |
+
+### RV-1.9 结论
+
+- F027-R1 已按预期修复：隐藏 Interface 与不存在 Interface 状态码、字段、文案及完整响应体完全一致；可见同 Cluster 绑定正常，可见跨 Cluster 仍报同 Cluster 规则；PATCH 与 F023 导入两条路径均受控。
+- 定向 18 passed、关联回归 93 passed、独立 R1 探针 1 passed、全量 718 passed / 2 skipped；计划结构校验通过。
+- 无新增必须修复缺陷；OBS-F027-T1/T2/T3/T4 沿用 TEST-1 记录，属非阻塞后续项。
+- **Status: READY FOR REVIEW**
+
+GIT: NONE

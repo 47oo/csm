@@ -1757,9 +1757,9 @@ features:
   depends_on:
   - F026
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: TEST
-  next_action: Tester 复测 F027-R1，随后 Reviewer 复审。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: Reviewer 复审修复后的候选。
   layers:
     database: false
     backend: true
@@ -1773,7 +1773,7 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   evidence:
     product:
@@ -1787,8 +1787,8 @@ features:
     backend:
     - docs/features/F027/implementation.md#1-实现文件
     test:
-    - docs/features/F027/test-report.md#test-execution
-  last_result: Review F027-R1（未授权 Interface 错误文案泄露）已修复；定向 18 passed；等待独立复测与复审。
+    - docs/features/F027/test-report.md#repair-verification-1
+  last_result: F027-R1 CLOSED；定向 18 passed；全量 718 passed, 2 skipped。
   not_required:
     database: 无 Schema/Migration 变更：F027 只消费 F026 授权表与既有业务表，新增范围谓词不新增表/列/索引/触发器。
     frontend: 无新增前端功能；既有页面的受限表现与文案核对归 F028（N2）。
@@ -2214,9 +2214,9 @@ execution:
     authorized_on: '2026-10-21'
     basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
   current_feature: F027
-  current_stage: TEST
-  last_result: F027 Review 发现 F027-R1；已修复并补回归测试。
-  next_action: Tester 复测后复审。
+  current_stage: REVIEW
+  last_result: F027 修复复测通过，进入复审。
+  next_action: 完成 F027 复审并合并。
   repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
@@ -2226,8 +2226,8 @@ planning_status:
     CANCELLED: 0
     DONE: 26
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
