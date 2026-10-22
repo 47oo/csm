@@ -183,7 +183,7 @@ export default function ClusterAuthorizationPanel() {
         message={
           <>
             ADMIN 不受集群范围限制，不建立授权行；ADMIN 降级为 VIEWER / EDITOR 后立即按既有授权解析（可能为空）。
-            本页管理授权事实；对既有业务数据的范围过滤将在后续 Feature 交付后生效，在此之前非 ADMIN 的可见范围仍为现状。
+            本页管理授权事实；非 ADMIN 的可见范围按已授权 Cluster 逐请求生效。
           </>
         }
       />
