@@ -1,0 +1,67 @@
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+                            [--include-down] [--push] [--api-url API_URL]
+                            [--api-key API_KEY] [--yes] [--timeout TIMEOUT]
+
+采集本机信息并生成 CSM「资源+网卡+IP」导入模板 CSV（默认离线、只读）。
+
+options:
+  -h, --help            show this help message and exit
+  --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                        必填。写入 resource_type 列并决定填充硬件列（BARE_METAL）或
+                        vCPU/磁盘/虚拟化列（VIRTUAL_MACHINE）。
+  --cluster CLUSTER     补全 cluster 列：Cluster code（大小写不敏感）或 UUID；--push
+                        必填，离线可留空。
+  --role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}
+                        补全 role 列；允许值见下方枚举说明。
+  --status {IDLE,ALLOC,DOWN,UNKNOWN}
+                        补全 status 列；允许值见下方枚举说明。
+  --host HOST           补全 host 列：同 cluster 内已存在、未软删的 BARE_METAL Host 的
+                        hostname 或 UUID；仅适用于 VIRTUAL_MACHINE。
+  --network NETWORK     补全 network 列：同 cluster Network 的 name 或 CIDR。
+  -o OUTPUT, --output OUTPUT
+                        输出 CSV 路径；缺省按 --resource-type 使用类型默认文件名。
+  --print               输出到标准输出（不写文件）。
+  --no-header           不输出表头。
+  --include-loopback    包含 loopback 接口（默认排除）。
+  --include-down        包含明确 down 的接口（默认排除）。
+  --push                经 API Key 推送到 CSM（默认离线，不联网）。
+  --api-url API_URL     CSM 基础地址，例如 http://csm.example:8080。
+  --api-key API_KEY     API Key；建议改用环境变量 CSM_API_KEY。
+  --yes                 预校验通过后确认写入。
+  --timeout TIMEOUT     HTTP 超时秒数（默认 30）。
+
+必填与取值说明（离线内嵌常量生成，与实际行为一致）：
+
+  ① 模板必填（每行 CSV 逐行校验要求有值，与导入预校验一致）
+       cluster、hostname、resource_type、name、ip；VIRTUAL_MACHINE 行另需 host。
+       脚本可自动获得 hostname / name / ip，resource_type 由 --resource-type 自动写入；
+       脚本无法自动获得、须经参数或人工补全的模板必填项：cluster（及 VM 的 host）。
+
+  ② --push 必填（仅 --push 时要求；脚本必填 ≠ 模板必填）
+       --api-url：CSM 基础地址，例如 http://csm.example:8080
+       API Key：环境变量 CSM_API_KEY 或 --api-key（不落盘、不打印）
+       --cluster：Cluster code（大小写不敏感）或 UUID
+       --resource-type 因全局必填已自动满足。
+       未提供 --cluster 仍可离线生成 CSV，仅 --push 被拒绝。
+
+  ③ 枚举参数可填值（逐字匹配，不做大小写折叠或短名映射）
+       --resource-type：BARE_METAL / VIRTUAL_MACHINE
+       --role：COMPUTE / LOGIN / MANAGEMENT / STORAGE / SERVICE / GPU / OTHER
+       --status：IDLE / ALLOC / DOWN / UNKNOWN
+
+  ④ 引用型参数语义（脚本只引用、不创建；对象须已存在且未软删）
+       --cluster：Cluster code（大小写不敏感）或 UUID；须存在且未软删。
+       --host：同 cluster 内已存在、未软删的 BARE_METAL Host 的 hostname 或 UUID；
+               仅适用于 VIRTUAL_MACHINE；BARE_METAL 行 host 恒空；
+               BARE_METAL 与非空 --host 同时给出属非法用法，本地失败（退出码 2）。
+       --network：同 cluster Network 的 name 或 CIDR；留空时由 ip 的 /mask 解析。
+
+  ⑤ 输出与默认文件名
+       BARE_METAL → csm_host_info_bare_metal.csv
+       VIRTUAL_MACHINE → csm_host_info_virtual_machine.csv
+       -o/--output 优先于类型默认名；--print 只输出标准输出、不写文件（即使给出 -o）。

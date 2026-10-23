@@ -1,7 +1,7 @@
 # F032 采集脚本类型必填、帮助信息与按类型生成 — TEST 报告
 
-- **Task**：F032 / TEST_DESIGN（Tester）；writeScope 仅 `docs/features/F032/test-report.md`。
-- **状态**：TEST_DESIGN 当前有效版本为 **TD-2 / v2 / 2026-10-23（§11，结论 TEST DESIGN READY）**；TD-1 / v1（§1–§10）保留为历史基线，失效/增量范围见 §11.1。TEST 阶段未执行（见 §9、§11.6）。
+- **Task**：F032 / TEST_DESIGN + TEST（Tester）；writeScope `docs/features/F032/test-report.md` 与 `docs/features/F032/artifacts/`。
+- **状态**：TEST_DESIGN 有效版本 **TD-2 / v2 / 2026-10-23（§11，结论 TEST DESIGN READY）**；TEST 执行有效版本 **TR-1 / v3 / 2026-10-23（§12，结论 READY FOR REVIEW）**。TD-1 / v1（§1–§10）保留为历史基线（失效/增量范围见 §11.1）；§9 与 §11.6 记录的 `NOT TESTED` 已由 §12 取代，历史文本不删除。
 - **Basis**：
   - `docs/product/requirements-v3.md` **revision 12**：§24.4（CONFIRMED 全节）、经 §24.4 修订的 §24.2 / §24.3、§31 T100–T106 与修订后的 T73 / T79 / T84、§35.1 revision 12 确认记录。
   - `docs/features/F032/product.md` v1（READY FOR ARCHITECT；A1–A11）；`docs/features/F032/architecture.md` **v2**（2026-10-23，READY FOR DESIGN；DR-1001–DR-1016、ON-1、R-1–R-7；含吸收 TD-D01–TD-D03 的 DR-1015 / DR-1016 与 DR-1004 / DR-1008 修订）。TD-1 依据的 architecture v1 已被 v2 取代，差异见 §11.1。
@@ -369,6 +369,156 @@ python3 scripts/collect_host_info.py --help | grep -n -i "host"
 4. **协调器**：提供 Review 基线（branch + `start_commit` + HEAD）；TEST 阶段前启动 `csmtest` 测试栈或明确环境禁止。
 5. **Tester**：按 §6 / §7 / §8 / §11.5 独立执行，给出 TEST 版本记录与 `READY FOR REVIEW` / `RETURN TO IMPLEMENTATION` / `TEST BLOCKED` / `PARTIAL TEST ONLY`。
 6. **整体验收边界不变**：本报告只覆盖 F032（T73/T79/T84 修订口径与 T100–T106）；`project.acceptance=COMPLETE` 所需的 §31–§33 跨功能整体验收由协调器结合 F001–F031 历史证据核验，**不以本 Feature 的局部 PASS 拼成整体 PASS**。
+
+---
+
+## 12. TEST EXECUTION（TR-1 / v3 / 2026-10-23）
+
+- **版本 / 结论**：**TR-1 / v3 / 2026-10-23** — **READY FOR REVIEW**（全部适用验收项 PASS，无必须修复缺陷；未验证项见 §12.10，均属设计禁止或与本 Feature 无关）。
+- **角色**：Tester（独立验证）。本节的每个 PASS 均由 Tester 本人重新执行命令取得证据，不复制 `docs/features/F032/implementation.md` §5 的开发者结果（实现报告仅用于交叉核对，差异见 §12.9 OB-3）。
+- **基线**：
+  - 分支 `feature/F032-collector-help-type-import`，**HEAD `5cbe00970b6eb01241bf8233dc23d5ee46aee6ef`**（`feat(F032): require resource type and generate typed import files`），`start_commit=89a5d4ff61f9df35f8f4393887701e7015bc26d8`。
+  - 执行前 `git status --porcelain=v1 --untracked-files=all` 为空（工作区 clean），执行后仍无 tracked 变更（全部证据写在本报告与 `docs/features/F032/artifacts/`）。
+  - `docs/features/F032/architecture.md` **v2**（§9 CONTRACT 签核 `READY FOR IMPLEMENTATION` / Contract `NOT_REQUIRED`，DR-1001–DR-1016 + ON-1）；本报告 **TD-2 / v2**（§11）；`docs/project/project-plan.yaml` plan_revision 18。
+  - 需求依据：`docs/product/requirements-v3.md` revision 12 §24.4、§31 T100–T106 与修订后的 T73 / T79 / T84；消费契约 `docs/api/F023.md` v1 §6（26 列冻结）、`docs/api/F014.md` v1；数据库 `docs/database/f032-collector-cli.md`（`NOT_REQUIRED`）。
+- **证据目录**：`docs/features/F032/artifacts/`（下表 §12.11）。
+
+### 12.1 Environment（实际执行环境）
+
+| 项 | 值 |
+| --- | --- |
+| 主机 / 内核 | Linux（WSL2），代表性 Linux 主机（具备 `ip -j addr`、`lsblk`、`lscpu`、`systemd-detect-virt`） |
+| Python | `Python 3.12.7`（脚本仅标准库） |
+| 采集到的接口（默认排除 loopback / down） | `eth0 10.10.10.23/24`、`eth6 192.168.10.221/24`、`eth4 10.100.24.211/32`；hostname 归一化后 `luck`（3 条数据行） |
+| 测试栈 | `docker compose -p csmtest`：`csmtest-nginx-1`（`0.0.0.0:18080->80`）、`csmtest-backend-1`（healthy）、`csmtest-db-1`（postgres:16, healthy）、`csmtest-frontend-1`；`GET /api/v1/health/ready` = **200** |
+| 数据库 | 测试 PostgreSQL（`.env.test`：`csm` / `csm:csmtestpw@db:5432/csm`，独立 `csm_test` 保留给后端集成测试）。**未连接、未写入任何生产或未知数据库。** |
+| 凭据 | `admin`（ADMIN，含 `IMPORT`）经 `POST /api/v1/auth/login` 取得 `csm_session` Cookie；另创建一次性 API Key（label `f032-validate`）仅用于脚本 `--push` 预校验腿，**明文仅存 `/tmp` 且用完即删、未出现在任何报告或输出中** |
+| 测试隔离 | 所有会写文件的用例在 `mktemp -d` 临时目录执行；单元测试用 `tempfile.TemporaryDirectory()` + `chdir` 复原；仓库工作区未出现本次执行产生的 `csm_host_info*.csv`（见 §12.9 OB-1 的既有残留说明） |
+| 写入边界 | **只调用 `/validate` 预校验**；全程未带 `--yes`、未调用写入端点 `POST /imports/resource-interfaces-ips`，未触发 `scripts/collect_host_info.py` 的写入腿 |
+
+### 12.2 实际执行的命令与结果（Verification）
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| C1 | `python3 -m unittest discover -s scripts -p 'test_collect_host_info.py' -v` | **Ran 83 tests … OK**（rc=0）。类/用例数：`CliHelpTests 9`、`RequiredResourceTypeTests 5`、`BmOutputTests 8`、`VmOutputTests 3`、`DefaultOutputNameTests 6`、`InvalidEnumTests 5`、`FreeTextEmptyStringTests 2`、`ContractMultipartTests 1`、`ContractGuardTests 1`（新增 40）+ 既有 43（含 `TemplateDriftTests`、`EnhancementTests`、`RowMappingTests`、`CsvOutputTests` 等） |
+| C2 | `python3 -m unittest discover -s scripts -p 'test_*.py'` | **Ran 112 tests … OK**（rc=0）；`scripts` 目录无其它回归 |
+| C3 | `python3 scripts/collect_host_info.py --help` | rc=0；usage 行为 `--resource-type {BARE_METAL,VIRTUAL_MACHINE}`（不在 `[]` 内即必填）；help `options` 段标注「必填。」；epilog 五区齐全（①②③④⑤）——原始输出见 `artifacts/help.txt` |
+| C4 | CLI 冒烟矩阵 S1–S28（缺必填 / 非法枚举 / BM+`--host` / role·status 空串 / 哨兵不被覆盖 / 默认名 / `--print -o` / `--no-header` / 重复运行 / `-o ""`） | 全部符合 §24.4；rc=2 场景的 stdout 均为 **0 字节**、无文件创建、已存在文件（哨兵）字节不变。详见 `artifacts/cli-smoke.log` |
+| C5 | 零网络验证：`strace -f -e trace=connect,socket` 包裹 6 个场景（无参 / 非法枚举 / BM+`--host` / `--role ""` / 离线正常跑 / `--help`） | 六个场景 **`AF_INET`/`AF_INET6` 计数全部为 0** |
+| C6 | 契约零 diff：`git diff --stat 89a5d4ff -- docs/api/F023.md docs/api/F014.md` | **空输出（零 diff）**；另 `git diff --stat 89a5d4f -- backend frontend` 亦为空（无后端/前端/Migration 改动） |
+| C7 | 独立列集核对：从 `docs/api/F023.md` §6 表格正则提取 26 列名，与 3 个真实生成文件表头逐字比较 | `identical & same order: True`（26 列） |
+| C8 | 真实 F023 `/validate`（测试栈，session cookie） | BM：`200` `total_rows=3 error_count=0`；VM（含 `--host`）：`200` `error_count=0`；VM（无 `--host`）：`200` `error_count=3`，3 条均为 `{"field":"host","reason":"host is required"}`。原始 JSON 见 `artifacts/real-validate/validate-*.json.raw` |
+| C9 | 脚本 `--push` 两步流程**第一步**（真实测试栈，无 `--yes`；BM 与 VM 各一次） | 均 `200` `error_count=0`，脚本 rc=0，stderr `预校验通过。加 --yes 以写入。`；**未发生任何写入** |
+| C10 | 只读副作用核对：`GET /api/v1/resources?cluster_id=<F032CHK>`、`?q=luck`、`GET /ip-addresses?cluster_id=…`、`GET /networks?cluster_id=…` | F032CHK 内 Resource **total=1（仅夹具 `f032host`）**、IPAddress **total=0**、Network total=3（夹具）；`q=luck` 命中的 2 条均为 2026-10-20/21 的 F025 历史夹具（非本次产生）→ `/validate` 无业务写副作用 |
+| C11 | T83：无效 Key / 缺失 Key 调用 `--push`（真实测试栈，无 `--yes`） | 无效 Key → 响应 `401 AUTH_REQUIRED`，脚本 **rc=1**，Key 在 stdout+stderr 中出现 **0** 次；缺失 Key → **rc=2** 且未发起请求 |
+| C12 | 测试充分性自证（mutation）：把 `collect_host_info.py` 与测试文件复制到 `/tmp` 后分别注入 5 个回归（`required=True→False`、类型化默认名回退、移除 role/status `choices`、移除 DR-1015 守卫、help 删除 `--host` 适用性说明） | 基线副本 83 OK；5 个变异**全部 FAILED**（4/3/6/3/1 项失败）→ 新增守卫能捕获对应回归。仓库代码未改动。见 `artifacts/mutation-check.log` |
+| C13 | 计划一致性：`python3 scripts/validate_project_state.py --feature F032`（只读） | rc=0 `PROJECT STATE VALID (structure/gates/files…)`；仅结构与 Gate 检查，不证明批准来源/Git/测试真实性 |
+| C14 | 夹具清理 | `DELETE` resource / 3×network / cluster → 各 `204`；API Key revoke → `200 REVOKED`；清理后 `clusters?q=F032` total=0。见 `artifacts/real-validate/cleanup.log` |
+
+### 12.3 验收映射（逐项判定）
+
+| 验收 | 判定 | 证据（Tester 实际执行） | 备注 |
+| --- | --- | --- | --- |
+| **T100**（+ TD-2 R-1 / R-5） | **PASS** | C3 + `artifacts/help.txt` + `CliHelpTests` 9 项 + C1；S15-F `--help` inet=0 | ①模板必填区列 `cluster、hostname、resource_type、name、ip` 且「VIRTUAL_MACHINE 行另需 host」；②`--push` 必填区列 `--api-url`/`API Key`/`--cluster` 且含「脚本必填 ≠ 模板必填」「未提供 --cluster 仍可离线生成 CSV」；③三个枚举全量逐字列出；④引用语义含「Cluster code（大小写不敏感）或 UUID」「hostname 或 UUID」「name 或 CIDR」「须存在且未软删」「/mask 解析」，并含 R-1 要求的「仅适用于 VIRTUAL_MACHINE / BARE_METAL 行 host 恒空」；epilog 与 `parser.choices`/`required` 逐字一致（DR-1014 守卫通过） |
+| **T101** | **PASS** | C4 S1/S2/S10/S11 + `RequiredResourceTypeTests` 5 项 + 子进程 rc=2 用例；C5-A inet=0 | 无参 / 仅 `--print` / 仅 `-o`（哨兵 `sentinel-bytes` 未被覆盖）/ 仅 `--push --yes`（零网络）→ 均 rc=2，stderr 含「the following arguments are required: --resource-type」+ 三个枚举允许值 + `--help` 提示，stdout 0 字节，无新文件 |
+| **T102**（+ TD-2 R-2） | **PASS** | C4 S6/S28 + C7 + C8（BM 真实预校验 200/0 错误）+ `BmOutputTests` 8 项 | `resource_type` 列全 `BARE_METAL`；`host`/`vcpu`/`disk_gb`/`hypervisor` 全空；硬件列实际填写 `cpu_model/cpu_sockets/cpu_cores/gpu_model/gpu_count`（manufacturer/model/serial 因 WSL 无 DMI 而空，属「未知留空」非占位）；表头 == F023 §6 26 列同序；BM + 非空 `--host` → rc=2、零文件/stdout/网络且错误说明 host 仅适用 VM；`--host ""` → rc=0、`host` 列空 |
+| **T103** | **PASS** | C8（VM 含 host：0 错误；VM 无 host：仅 `host` 行错误）+ C4 S21 + `VmOutputTests` 3 项 | `resource_type` 列全 `VIRTUAL_MACHINE`；硬件列 8 项全空；`--host f032host` → 写入；未提供 → 留空且无推断；`vcpu=16`、`disk_gb=2054`、`hypervisor=wsl` 实际填充 |
+| **T104** | **PASS** | C4 S12/S13/S26 + `DefaultOutputNameTests` 6 项 | 两次默认名运行产出 `csm_host_info_bare_metal.csv`(`fe0361e8…`) 与 `csm_host_info_virtual_machine.csv`(`049b0ec0…`)，并存且 BM 文件字节不变；旧名 `csm_host_info.csv` 未被使用；`-o custom.csv` 生效且不产类型默认名；`--print -o p.csv` → p.csv 不存在而 stdout 有 CSV |
+| **T105**（+ TD-2 R-3） | **PASS** | C4 S3/S4/S5/S7/S8/S9/S28 + `InvalidEnumTests` 5 项 + C5-B/D | `--resource-type` ∈ {`bare_metal`,`Bare_Metal`,`bm`,`BAREMETAL`,`""`,`PHYSICAL`,`bare metal`}；`--role` ∈ {`compute`,`ADMIN`,`""`}；`--status` ∈ {`running`,`""`} → 全部 rc=2、stdout 0 字节、无文件、零网络，stderr 列出该参数允许值全集 + `--help` 提示，报错为 argparse 原始 `invalid choice` 语义；无大小写折叠/短名映射/静默回退 |
+| **T106** | **PASS** | C6 + C7 + C1（既有守卫全绿）+ C5-E + C9/C11 + `ContractMultipartTests`/`ContractGuardTests` | `docs/api/F023.md`/`docs/api/F014.md` 零 diff；26 列与文档逐字一致；multipart filename 仍为 `csm_host_info.csv`（DR-1009，守卫通过）；`--print`/`--no-header`/`-o` 语义按 S12/S20 不变；`--push` 预校验腿真实可用且未确认不写入；Key 不外泄、不落盘（模块仅 1 处文件写 `write_csv`）；离线零网络 |
+| **T73（修订）** | **PASS** | C4 S13/S14 + C7 + C8 | 代表性 Linux 主机运行成功并产出文件（3 行）；表头 26 列逐字同序；业务/归属列未提供时为空、无占位/推断值；`resource_type` 由必填参数写入 |
+| **T79（修订）** | **PASS** | C4 S19 + C8/C9 | `--cluster/--resource-type/--role/--status/--host/--network` 均写入对应列（S19 实测 6 列）；未提供的字段留空（`f032-vm-nohost.csv` 的 host/role/status 空）；参数补全后的 BM/VM 文件**无需手工编辑**即通过真实预校验（`error_count=0`） |
+| **T84（修订）** | **PASS** | C5-E（离线跑 inet=0）+ C2 + C4 S13 | 默认模式零网络；除 §24.4 明示的 `--resource-type` 必填与类型化默认名外，F024 既有文件输出与表头行为无回归（既有 43 项全绿） |
+| **T75**（回归） | **PASS** | C4 S27 + C5-E + 代码核对 | 同一主机连续 `--print` 两次输出**逐字节相同**；模块内唯一文件写入为 `write_csv`（`open(..., "w")` 仅 1 处），无其它写路径；无网络写 |
+| **T77**（回归，F032 承接） | **PASS** | C8 | F032 生成的**真实文件**经真实 F023 预校验：补全参数后 0 错误；仅缺 `host` 时只报 `field:"host"` 行级错误，**无表头/列/列序/编码/类型类错误**（无 `IMPORT_INVALID_FILE`/422） |
+| **T78**（回归） | **PASS** | C6 + C7 + `TemplateDriftTests` | F014/F023 模板与契约零 diff；内嵌 26 列与冻结列集一致性守卫通过 |
+| **T81**（回归） | **PASS** | C4 S12/S20 + 既有 `test_main_print_writes_stdout_not_file` / `test_render_csv_header_toggle` / `test_main_output_file_with_bom` | `--print` 不写文件；默认写文件；`--print --no-header` 首行即数据行且 26 列同序 |
+| **T82**（回归） | **PASS**（回归口径） | C9 + 代码核对 `_push`/`post_import`/`IMPORT_PATH` 零改动 + 既有 `test_push_validate_then_confirm` 等 3 项 | 真实栈验证：先调用 `/validate` 并展示结果，无 `--yes` 时不写入（DB 复核 C10）。**真实 `--yes` 写入腿 NOT TESTED by design**（architecture §9.3 明确禁止本 Feature 端到端写入），该腿的回归依据为 `_push()` 代码零 diff + 既有 mock 用例，见 §12.10 |
+| **T83**（回归） | **PASS** | C11 + 既有 `test_push_requires_url_key_and_fields` / `test_push_api_key_not_leaked` | 无效 Key 真实返回 401 且脚本 rc=1；缺失 Key rc=2 且不请求；Key 不出现在 stdout/stderr（0 次命中），不落盘 |
+
+**汇总**：T100–T106 与 T73/T79/T84 修订口径 **11/11 PASS**；回归项 T75/T77/T78/T81/T82/T83 **6/6 PASS**（T82 真实写入腿按设计未执行，见 §12.10）。无 FAIL、无 BLOCKED、无 NOT TESTED 的必测项。
+
+### 12.4 数据库验证
+
+- `docs/database/f032-collector-cli.md` = **`NOT_REQUIRED`**：F032 无实体/字段/Schema/索引/约束/Migration/回填变更；`git diff --stat 89a5d4f -- backend frontend` 为空（无 alembic 迁移、无模型改动）→ 本阶段**无 Migration 与约束需在真实数据库核对**，不执行 DB 断言（`.pi/skills/data-integrity/SKILL.md` 判为 `NOT_REQUIRED`）。
+- 与最终数据库设计**无差异需吸收**：脚本枚举集合与既有 `resources` CHECK 一致，DB 仍为权威兜底。
+- 唯一涉库动作是夹具（Cluster / 3×Network / 1×BARE_METAL Host / 1×API Key）经正式 REST API 创建，验证后已**软删 + 吊销**（C14），未触碰他人夹具。
+
+### 12.5 接口验证（真实 F023 `/validate`）
+
+| 项 | 结果 |
+| --- | --- |
+| 端点 / 认证 | `POST http://localhost:18080/api/v1/imports/resource-interfaces-ips/validate`，`csm_session` Cookie（ADMIN），`multipart/form-data`（`format=csv` + `file`） |
+| BM 文件 | `200 {"format":"csv","total_rows":3,"importable_rows":3,"error_count":0,"errors":[],"errors_truncated":false}` |
+| VM 文件（`--host f032host`） | `200` `total_rows=3`、`importable_rows=3`、`error_count=0` |
+| VM 文件（无 `--host`） | `200` `importable_rows=0`、`error_count=3`，errors 均为 `{"row":2/3/4,"field":"host","reason":"host is required","related_row":null}` → 恰为「仍待补字段」的行级错误，**无表头/列/格式/类型错误** |
+| 响应类型/错误语义 | 成功为 200 + 契约 JSON（`total_rows`/`importable_rows`/`error_count`/`errors`/`errors_truncated`）；非法 Key 为 401 `AUTH_REQUIRED` 统一信封（C11） |
+| 只读确认 | 预校验后 F032CHK 内 Resource=1（仅夹具 Host）、IPAddress=0；CSV 中的 hostname `luck` 未落库 |
+| 夹具约束说明 | 本机采集到 3 个不同网段，单值 `--network` 无法覆盖全部行，故真实预校验**不传 `--network`**，由 `ip` 的 `/mask` 按 F023 §6 #25 解析（已建 3 个 Network 分别覆盖 `10.10.10.0/24`、`192.168.10.0/24`、`10.100.24.211/32`）。`--network` 的列写入语义另由 C4 S19 覆盖 |
+
+### 12.6 前端验证
+
+**NOT_REQUIRED** —— `layers.frontend=false`（architecture §4）：F032 无页面、组件、交互或样式改动，`git diff --stat 89a5d4f -- frontend` 为空；已批准范围不要求前端集成，故不做前端验证。
+
+### 12.7 集成 / 端到端
+
+- 真实前后端集成已在 §12.5 完成（脚本产物 → 真实 nginx → 真实 FastAPI → 真实测试 PostgreSQL），**未使用 Mock 代替**。
+- 覆盖：T77 / T102 / T103 / T106 的端到端部分（BM & VM 文件实际预校验）+ T79「参数补全后无需手改文件即通过预校验」+ T82 预校验腿 + T83 无效 Key。
+- 未覆盖：`--yes` 真实写入腿（设计禁止，见 §12.10）；§31–§33 跨功能整体验收（协调器职责，不以本 Feature PASS 拼成整体 PASS）。
+
+### 12.8 测试代码审查（Review 范围提示）
+
+- 无既有断言被删除或放宽：`git diff 89a5d4f -- scripts/test_collect_host_info.py` 的删除行仅模块 docstring 与 3 处 `main([...])` 调用点补 `--resource-type`（B-20 / R-1 合规），未出现 `required=False` 回退（实现内 `grep required=False` 无命中）。
+- 用例隔离合规：所有 CLI 用例经 `_CliTestCase`（`tempfile` + `chdir` + 采集/`post_import`/`urlopen` 三重探针），实测无真实网络、无工作区污染。
+- 守卫有效性由 C12 的 5 个变异验证（全部被捕获）。测试代码仍属 Review 范围，本报告只提供充分性证据，不代替 Review。
+
+### 12.9 Defects（含观察项）
+
+**无 BLOCKER / HIGH / MEDIUM 缺陷；无必须修复项。**
+
+| ID | Severity | Layer | Location | 证据 / 复现 | 期望 vs 实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| F032-T-OB1 | NOTE（非 F032 缺陷，既有残留） | 工作区 | `scripts/csm_host_info.csv` | `stat` mtime `2026-10-23 13:43:03`（早于 F032 源码改动 14:03），内容为 F024 旧口径（`resource_type` 空、`role/status` 有值）；`git check-ignore` 命中 `.gitignore:175`，`git status` 中仅显示为 ignored（`!!`） | 期望：仓库无常驻采集产物；实际：存在 1 个被忽略的历史产物。**非本次 TEST 产生**（本次所有默认名运行均在 `mktemp -d` 中） | 仅影响工作区洁净观感，不影响 tracked 状态、构建或测试 | 协调器（可择机删除） | 否 |
+| F032-T-OB2 | NOTE | 验证范围 | `scripts/collect_host_info.py` `_push()` 写入腿 | architecture §9.3 明确「禁止 `--yes` 写入」；本阶段只执行预校验腿 | 期望：F032 不引入写入行为变更；实际：`_push`/`post_import`/`IMPORT_PATH` 零 diff，写入腿回归由既有 mock 用例覆盖 | T82 的真实写入证据缺失（已在 §12.10 列为未验证项，不影响 F032 无回归结论） | 协调器（若需真实写入证据，另立场景并由 Product/Architect 授权） | 否 |
+| F032-T-OB3 | NOTE（口径澄清，非缺陷） | 验证方法 | 真实 `/validate` 夹具 | 本机采集到 `10.10.10.0/24`、`192.168.10.0/24`、`10.100.24.211/32` 三个网段，单值 `--network` 只能命中其中一段 | 期望：真实预校验只暴露待补字段错误；实际：改为**不传 `--network`**、建 3 个 Network 由 `ip/mask` 解析；`--network` 写入语义改由 S19 覆盖 | 与 TD-2 §7.2 示例命令（`--network F032-MGMT`）措辞不同；若照抄会把另外 2 行变成网络归属行错误（不属 F032 缺陷）。不涉及实现或产品规则 | Tester（已在本报告说明） | 否 |
+| F032-T-OB4 | NOTE | CLI 细节 | `-o ""` / 自由文本空白串 | S26 / S24：`-o ""` → rc=0 回落类型默认名；`--cluster "  "` → 视为未提供 | 与 `implementation.md` §7 记录一致，且符合 DR-1016「自由文本空串/空白 = 未提供」；非 §24.4 显式验收项 | 无 | — | 否 |
+| F032-T-OB5 | NOTE | 环境 | `csmtest` 共享测试栈 | 栈内存在 F025 等历史夹具（如 hostname `luck` 的 2 条 F025 记录） | 期望：不影响 F032 结论；实际：F032CHK 内对象独立计数（C10） | 无（同名 hostname 属不同 Cluster，符合 §2.1 跨 Cluster 允许） | — | 否 |
+
+### 12.10 未验证项（明确声明，不得当作 PASS）
+
+| 项 | 状态 | 原因 / 归属 |
+| --- | --- | --- |
+| `--push --yes` 真实写入腿（`created`/`interfaces_created`/`ip_addresses_created`） | **NOT TESTED by design** | architecture v2 §9.3 与 TD-2 §11.5 明确禁止 F032 端到端 `--yes` 写入；`_push()` 零 diff + 既有 mock 用例覆盖回归 |
+| `--print` + `--push` 组合（B-23） | **NOT_REQUIRED**（ON-1 不设 PASS/FAIL 判据） | 保持 F025 现状即可；本轮未观测到与 F025 基线的偏离（代码顺序未改），故不记录判据 |
+| F014（BM 14 / VM 10 列）模板与既有导入行为的运行期验证 | **NOT_REQUIRED** | F032 只做零 diff（C6）与 F023 26 列核对（C7）；F014 行为验收属 F014 历史证据 |
+| PostgreSQL 侧约束/迁移行为 | **NOT_REQUIRED** | `docs/database/f032-collector-cli.md` = `NOT_REQUIRED`，无 Schema/Migration 变更 |
+| 前端 | **NOT_REQUIRED** | 见 §12.6 |
+| §31–§33 跨功能整体验收 | **未在本报告范围内** | 协调器结合 F001–F031 历史证据核验；本报告局部 PASS 不构成整体 PASS |
+| `scripts` 之外的测试面（`backend/tests`、`frontend`） | **NOT_REQUIRED** | F032 无 backend/frontend 代码改动（C6） |
+
+### 12.11 结论与 Next
+
+- **结论**：**READY FOR REVIEW**。T100–T106 与修订后的 T73/T79/T84 全部 PASS；T75/T77/T78/T81/T82/T83 无回归；契约零 diff；真实 F023 `/validate` 端到端完成且只读（无写副作用）；无必须修复缺陷。
+- **边界重申**：本结论只覆盖 F032 的验收与回归，**不构成 Review 批准、合并许可或整体 §31–§33 验收结论**；`project.acceptance=COMPLETE` 由协调器另行核验。
+- **Next**：
+  1. **Reviewer**：按 `docs/project/git-workflow.md` 以 `5cbe009` 为 Review 基线审查实现与测试代码（本报告 §12.8 提供充分性证据）。
+  2. **协调器**：确定是否要求补充 `--yes` 真实写入场景（OB-2）；如需，须先由 Product/Architect 授权改变 F032 的写入禁令。
+  3. **协调器**：可择机清理既有忽略产物 `scripts/csm_host_info.csv`（OB-1）；夹具已软删，若需重跑 TEST，可按 `artifacts/real-validate/cleanup.log` 记录的 ID 与 `restore` 调用恢复，或按 `artifacts/real-validate/setup.log` 步骤 3–5 重建。
+- **产物清单**（`docs/features/F032/artifacts/`）：
+  - `test-collect-host-info.log`（C1 全量 -v 输出，83 tests OK）
+  - `test-scripts-all.log`（C2，112 tests OK）
+  - `help.txt`（C3 `--help` 原始输出）
+  - `cli-smoke.log`（C4/C5/C7/S19–S28：CLI 冒烟矩阵、strace 零网络、列集核对、T75 重复运行）
+  - `mutation-check.log`（C12 测试充分性变异验证）
+  - `project-state-validate.log`（C13 计划一致性只读校验）
+  - `real-validate/setup.log`（C8–C11：登录、夹具创建、文件生成、`/validate` 原始响应、`--push` 预校验腿、无效/缺失 Key、只读副作用核对）
+  - `real-validate/validate-f032-bm-real.json.raw`、`validate-f032-vm-real.json.raw`、`validate-f032-vm-nohost.json.raw`（原始响应）
+  - `real-validate/f032-bm-real.csv`、`f032-vm-real.csv`、`f032-vm-nohost.csv`（被测真实文件，含生成时 sha256，见 setup.log §6）
+  - `real-validate/cleanup.log`（C14 软删/吊销与恢复路径）
+
+> **提交提示（协调器）**：`*.log` 被 `.gitignore:124` 忽略，本目录下的 `*.log` 证据需按 F028–F031 同类产物的既有做法以 `git add -f` 纳入提交（`.json.raw` / `.csv` / `.txt` 不受该规则影响，已正常出现在 `git status` 未跟踪列表）。Tester 未执行任何 Git 写操作。
+
+**Git 声明**：本次仅执行**只读** Git 命令（`git rev-parse --short HEAD`、`git status --porcelain=v1 --untracked-files=all [--ignored]`、`git log --oneline`、`git diff [--stat] 89a5d4f`、`git check-ignore -v`、`git ls-files`），未执行任何改变 Git 状态的命令（无 add / commit / branch / switch / merge / stash / reset / clean）；HEAD 全程为 `5cbe009`。
 
 ---
 

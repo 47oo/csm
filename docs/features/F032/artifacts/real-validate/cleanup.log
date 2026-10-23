@@ -1,0 +1,24 @@
+=== F032 fixture cleanup (soft delete; TEST stack; 2026-10-23T06:07:27Z) ===
+-- DELETE resource f032host --
+[http 204]
+-- DELETE network a24d5687-7ef4-404d-ae55-0a36176bd5b2 --
+[http 204]
+-- DELETE network 401c8a50-bdb5-4e6a-a34f-f310120b9178 --
+[http 204]
+-- DELETE network 100ab879-35a3-45ab-b107-1c6d0a312b05 --
+[http 204]
+-- DELETE cluster F032CHK --
+[http 204]
+-- revoke API Key f032-validate --
+{"api_key":{"id":"d281820b-1f51-4040-b70c-c32af03bac5f","user_id":"aaaef0da-f877-4202-9d3f-b034379c3bb7","username":"admin","label":"f032-validate","status":"REVOKED","created_at":"2026-10-23T06:07:07.918242+00:00","expires_at":"2027-01-21T06:07:07.918242+00:00","revoked_at":"2026-10-23T06:07:27.560269+00:00","created_by":"aaaef0da-f877-4202-9d3f-b034379c3bb7","created_by_username":"admin"}}
+[http 200]
+
+-- post-cleanup visibility check --
+{"items":[],"page":1,"page_size":20,"total":0}
+resources in F032CHK (active view) total= 0
+
+Fixture IDs retained for potential restore (cluster code_key is globally unique even when soft-deleted):
+  cluster F032CHK  id=f42c56ad-2d24-4f64-b964-c8181d8a5f9d  -> POST /api/v1/clusters/f42c56ad-2d24-4f64-b964-c8181d8a5f9d/restore?version=2
+  networks         ids=a24d5687-7ef4-404d-ae55-0a36176bd5b2,401c8a50-bdb5-4e6a-a34f-f310120b9178,100ab879-35a3-45ab-b107-1c6d0a312b05 -> POST /api/v1/networks/{id}/restore?version=2
+  host f032host    id=4eb5bbe9-dea5-43cf-bc23-f4e9eed1fb28 -> POST /api/v1/resources/4eb5bbe9-dea5-43cf-bc23-f4e9eed1fb28/restore?version=2
+one-time API Key plaintext file /tmp/f032-key.txt removed

@@ -1,0 +1,2 @@
+{"format":"csv","total_rows":3,"importable_rows":0,"error_count":3,"errors":[{"row":2,"field":"host","reason":"host is required","related_row":null},{"row":3,"field":"host","reason":"host is required","related_row":null},{"row":4,"field":"host","reason":"host is required","related_row":null}],"errors_truncated":false}
+[http 200]
