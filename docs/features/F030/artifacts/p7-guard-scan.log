@@ -1,0 +1,8 @@
+### P7.4 guard scan inventory (read-only replication; 2026-10-23T10:23:36+08:00)
+scanned: 53
+marked: ['test_cluster_authorizations.py', 'test_f027_access_scope.py']
+offenders: []
+MIN_SCANNED: 20 -> True
+KNOWN_MARKED subset of marked: True
+GUARD_MODULE (sole exemption): test_f030_test_harness.py
+EXIT=0

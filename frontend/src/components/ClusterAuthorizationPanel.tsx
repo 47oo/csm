@@ -10,7 +10,14 @@ import {
   SuccessState,
 } from "./ui/feedback";
 import { ServerPagination as Pagination, StatusTag } from "./ui/surfaces";
-import { listClusters, type Cluster } from "../api/clusters";
+import {
+  canSubmitGrant,
+  clusterListTruncated,
+  computeGrantCandidates,
+  type ActiveGrantLoad,
+  type ClustersState,
+} from "./authorizationCandidates";
+import { listClusters } from "../api/clusters";
 import { listUsers, type UserRow } from "../api/users";
 import {
   describeClusterAuthorizationError,
@@ -32,19 +39,28 @@ type UsersState =
   | { kind: "success"; users: UserRow[]; total: number }
   | { kind: "error"; message: string };
 
-type ClustersState =
-  | { kind: "loading" }
-  | { kind: "success"; clusters: Cluster[]; total: number }
-  | { kind: "error"; message: string };
-
 const PAGE_SIZE = 20;
+/** 该账号 ACTIVE 授权分页（docs/api/F026.md v3 §3 已批准 page_size 上限 100）。 */
+const ACTIVE_GRANT_PAGE_SIZE = 100;
+/** 分页安全上限：达到后不再继续请求，改以显式 truncated 提示（DR-F030-07）。 */
+const ACTIVE_GRANT_MAX_PAGES = 20;
 
 /**
- * System 页 · 集群授权管理（F026，Contract：docs/api/F026.md v1）。
+ * System 页 · 集群授权管理（F026，Contract：docs/api/F026.md v3）。
  *
  * 仅 USER_ADMIN 角色由 SystemPage 渲染；服务端仍强制鉴权。左侧选择账号，
  * 右侧查看/授予/撤销该账号的 Cluster 授权。撤销是历史保留的状态变更，使用
  * ConfirmDialog 二次确认，不提供 DELETE。
+ *
+ * F030（docs/features/F030/architecture.md §7.2 / DR-F030-06）只修正交互，
+ * 不新增端点 / 参数 / 业务规则：
+ * - 候选由 ./authorizationCandidates 纯逻辑计算——该账号 ACTIVE 授权加载完成前
+ *   不呈现任何候选且不可提交；加载失败显式报错并可按「重试」，不置空集冒充
+ *   「无授权」；
+ * - 该账号授权或集群列表被截断时显式提示，不静默截断（DR-F030-07）；服务端
+ *   唯一约束与 409 `already_granted` 始终是最终事实；
+ * - 409 `already_granted` 保持模态打开、内联呈现并重新加载候选（不当作成功）；
+ *   409 `already_revoked` 仍按 Contract D-5 关闭 + 提示 + 刷新。
  */
 export default function ClusterAuthorizationPanel() {
   const [usersState, setUsersState] = useState<UsersState>({ kind: "loading" });
@@ -57,8 +73,11 @@ export default function ClusterAuthorizationPanel() {
   const [reloadToken, setReloadToken] = useState(0);
 
   const [grantOpen, setGrantOpen] = useState(false);
-  const [activeGrantIds, setActiveGrantIds] = useState<Set<string>>(new Set());
+  // 已授权集合的加载态：非 success 时永不呈现候选（F030 P5 / 架构 §7.2）。
+  const [activeGrants, setActiveGrants] = useState<ActiveGrantLoad>({ kind: "idle" });
+  const [grantReloadToken, setGrantReloadToken] = useState(0);
   const [clustersState, setClustersState] = useState<ClustersState>({ kind: "loading" });
+  const [clustersReloadToken, setClustersReloadToken] = useState(0);
   const [clusterQuery, setClusterQuery] = useState("");
   const [selectedClusterId, setSelectedClusterId] = useState("");
   const [grantBusy, setGrantBusy] = useState(false);
@@ -123,63 +142,95 @@ export default function ClusterAuthorizationPanel() {
     return () => {
       cancelled = true;
     };
-  }, [grantOpen, clusterQuery]);
+  }, [grantOpen, clusterQuery, clustersReloadToken]);
 
-  async function loadActiveGrantIds(userId: string): Promise<Set<string>> {
+  // Load the account's existing ACTIVE authorizations (gate for candidate rendering).
+  useEffect(() => {
+    if (!grantOpen || selectedUser === null) {
+      setActiveGrants({ kind: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setActiveGrants({ kind: "loading" });
+    loadActiveGrants(selectedUser.id)
+      .then((load) => {
+        if (!cancelled) setActiveGrants(load);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setActiveGrants({ kind: "error", message: describeClusterAuthorizationError(error).message });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [grantOpen, selectedUser, grantReloadToken]);
+
+  async function loadActiveGrants(userId: string): Promise<ActiveGrantLoad> {
     const ids = new Set<string>();
-    let page = 1;
     let total = 0;
-    do {
+    let page = 1;
+    for (;;) {
       const data = await listClusterAuthorizations(userId, {
         status: "ACTIVE",
         page,
-        page_size: 100,
+        page_size: ACTIVE_GRANT_PAGE_SIZE,
       });
       total = data.total;
       for (const item of data.items) {
         ids.add(item.cluster.id);
       }
       if (data.items.length === 0) break;
+      if (ids.size >= total) break;
+      if (page >= ACTIVE_GRANT_MAX_PAGES) break;
       page += 1;
-    } while (ids.size < total && page <= 20);
-    return ids;
+    }
+    return { kind: "success", ids, loaded: ids.size, total, truncated: ids.size < total };
   }
 
-  const candidates =
-    clustersState.kind === "success"
-      ? clustersState.clusters.filter((cluster) => !activeGrantIds.has(cluster.id))
-      : [];
+  const candidates = computeGrantCandidates(activeGrants, clustersState);
+  const candidateIds = candidates.kind === "success" ? candidates.clusters.map((cluster) => cluster.id) : [];
+  // 旧选中集群在新候选集合中已不存在时，选择框不呈现该脏值（架构评审 I-2）。
+  const visibleSelectedClusterId =
+    selectedClusterId !== "" && candidateIds.includes(selectedClusterId) ? selectedClusterId : "";
+  const grantSubmittable = canSubmitGrant(activeGrants, candidates, selectedClusterId, grantBusy);
 
-  async function openGrant() {
+  function openGrant() {
     if (selectedUser === null) return;
     setSelectedClusterId("");
     setClusterQuery("");
     setGrantError(null);
+    // 先置加载态：模态打开的第一帧就不呈现旧/空候选集合。
+    setActiveGrants({ kind: "loading" });
     setGrantOpen(true);
-    try {
-      setActiveGrantIds(await loadActiveGrantIds(selectedUser.id));
-    } catch (error: unknown) {
-      setGrantError(describeClusterAuthorizationError(error).message);
-      setActiveGrantIds(new Set());
-    }
   }
 
   async function submitGrant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (selectedUser === null || selectedClusterId === "") {
+    if (selectedUser === null) return;
+    if (selectedClusterId === "") {
       setGrantError("请选择目标集群。");
+      return;
+    }
+    if (!grantSubmittable) {
+      setGrantError("候选尚未加载完成或所选集群已不在候选中，请重新选择。");
       return;
     }
     setGrantBusy(true);
     setGrantError(null);
     try {
       await grantClusterAuthorization(selectedUser.id, selectedClusterId);
-      setActiveGrantIds((current) => new Set(current).add(selectedClusterId));
       setGrantOpen(false);
       setNotice("集群授权已授予。");
       setReloadToken((value) => value + 1);
     } catch (error: unknown) {
-      setGrantError(describeClusterAuthorizationError(error).message);
+      const described = describeClusterAuthorizationError(error);
+      setGrantError(described.message);
+      if (described.alreadyGranted) {
+        // 409 already_granted 不是成功：保持模态打开、内联呈现，并重新加载候选集合。
+        setSelectedClusterId("");
+        setGrantReloadToken((value) => value + 1);
+      }
     } finally {
       setGrantBusy(false);
     }
@@ -384,27 +435,68 @@ export default function ClusterAuthorizationPanel() {
             value={clusterQuery}
             onChange={(event) => setClusterQuery(event.target.value)}
           />
-          {clustersState.kind === "loading" && <LoadingState />}
-          {clustersState.kind === "error" && <ErrorState message={clustersState.message} />}
-          {clustersState.kind === "success" && candidates.length === 0 && (
-            <EmptyState description="没有可授予的集群（已有效授权的集群不会重复出现）" />
+          {activeGrants.kind === "success" && activeGrants.truncated && (
+            <InfoState
+              message={
+                <>
+                  该账号有效授权数量为 {activeGrants.total}（已加载 {activeGrants.loaded}）。为限制请求量，候选可能仍包含
+                  已授权集群；重复提交会被服务端以 409 already_granted 拒绝，不会重复建立授权。
+                </>
+              }
+            />
           )}
-          {clustersState.kind === "success" && candidates.length > 0 && (
+          {activeGrants.kind === "error" ? (
+            <ErrorState
+              message={`无法加载该账号已有的有效授权：${activeGrants.message}（加载完成前不可提交）`}
+              action={
+                <Button
+                  type="button"
+                  disabled={grantBusy}
+                  onClick={() => setGrantReloadToken((value) => value + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
+          ) : candidates.kind === "error" ? (
+            <ErrorState
+              message={`无法加载集群列表：${candidates.message}`}
+              action={
+                <Button
+                  type="button"
+                  disabled={grantBusy}
+                  onClick={() => setClustersReloadToken((value) => value + 1)}
+                >
+                  重试
+                </Button>
+              }
+            />
+          ) : candidates.kind === "loading" ? (
+            <LoadingState
+              label={
+                activeGrants.kind === "success"
+                  ? "正在加载集群列表…"
+                  : "正在加载该账号已有的有效授权…（加载完成前不可提交）"
+              }
+            />
+          ) : candidates.clusters.length === 0 ? (
+            <EmptyState description="该账号已拥有全部匹配集群的有效授权" />
+          ) : (
             <>
               <Select
                 aria-label="选择集群"
-                value={selectedClusterId}
+                value={visibleSelectedClusterId}
                 onChange={(event) => setSelectedClusterId(event.target.value)}
               >
                 <option value="">请选择集群</option>
-                {candidates.map((cluster) => (
+                {candidates.clusters.map((cluster) => (
                   <option key={cluster.id} value={cluster.id}>
                     {cluster.code} — {cluster.name}（{cluster.status}）
                   </option>
                 ))}
               </Select>
-              {clustersState.total > candidates.length + activeGrantIds.size && (
-                <p>仅显示前 50 个候选，请用搜索缩小范围。</p>
+              {clustersState.kind === "success" && clusterListTruncated(clustersState) && (
+                <p>仅显示前 {clustersState.clusters.length} 个匹配集群，请用搜索缩小范围。</p>
               )}
             </>
           )}
@@ -413,7 +505,7 @@ export default function ClusterAuthorizationPanel() {
             <Button type="button" onClick={() => setGrantOpen(false)} disabled={grantBusy}>
               取消
             </Button>
-            <Button type="submit" variant="primary" disabled={grantBusy || selectedClusterId === ""}>
+            <Button type="submit" variant="primary" disabled={!grantSubmittable}>
               {grantBusy ? "提交中…" : "确认授予"}
             </Button>
           </div>

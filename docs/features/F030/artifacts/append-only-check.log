@@ -1,0 +1,32 @@
+### P1.4 append-only / deletion audit for docs/api/ (2026-10-23T10:21:31+08:00)
+--- per-file added/deleted line counts (70db846...HEAD; excludes +++/--- headers)
+F002 added=2 deleted=0
+F003 added=2 deleted=0
+F004 added=2 deleted=0
+F007 added=2 deleted=0
+F008 added=2 deleted=0
+F009 added=2 deleted=0
+F010 added=2 deleted=0
+F011 added=2 deleted=0
+F012 added=2 deleted=0
+F013 added=2 deleted=0
+F014 added=2 deleted=0
+F023 added=2 deleted=0
+F026 added=19 deleted=4
+
+--- F026 deleted lines (verbatim)
+-- **版本**：v2
+-- **签核**：Architect，2026-10-21（v1）；F029 跟进修订 v2（2026-10-22，P-1/q 顺序澄清）
+-- 状态 READY；签核者 Architect；版本 v1；日期 2026-10-21。
+-| v2 | 2026-10-22 | F029 跟进：明确 q 控制字符规则与“路径 404 先于语义 422”的列表校验顺序；不改变端点/字段/错误码。 |
+
+--- F026 v2 revision row: base-last-line vs head-v2-row comparison
+1c1
+< | v2 | 2026-10-22 | F029 跟进：明确 q 控制字符规则与“路径 404 先于语义 422”的列表校验顺序；不改变端点/字段/错误码。 |
+\ 文件末尾没有换行符
+---
+> | v2 | 2026-10-22 | F029 跟进：明确 q 控制字符规则与“路径 404 先于语义 422”的列表校验顺序；不改变端点/字段/错误码。 |
+bytes: base=158 head=159 -> difference is exactly the missing EOF newline (base file had none)
+
+--- 'No newline at end of file' markers in docs/api diff
+1

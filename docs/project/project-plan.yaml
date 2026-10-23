@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 11
   plan_revision: 16
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 16
     feature_ids:
@@ -2049,24 +2049,71 @@ features:
   - F027
   - F029
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: null
+  status: IN_PROGRESS
+  current_stage: REVIEW
+  next_action: Reviewer 审核 F030 的 Contract、实现、测试与范围。
   layers:
     database: false
     backend: true
     frontend: true
   api_required: true
   implementation:
-    product: PENDING
-    architecture: PENDING
-    database: PENDING
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
-    frontend: PENDING
-    test: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
+    test: COMPLETE
     review: PENDING
+  not_required:
+    database: 无 Schema/Migration 变更；仅补并发与完整性错误测试证据；DB-D401–D420 继续有效。
+  evidence:
+    product:
+    - docs/features/F030/product.md
+    architecture:
+    - docs/features/F030/architecture.md#16-最终设计定稿contract-gate
+    test_design:
+    - docs/features/F030/test-report.md#test-designtd-12026-10-23-v1
+    contract:
+    - docs/api/F026.md
+    - docs/api/F027.md
+    - docs/api/F002.md
+    - docs/api/F003.md
+    - docs/api/F004.md
+    - docs/api/F007.md
+    - docs/api/F008.md
+    - docs/api/F009.md
+    - docs/api/F010.md
+    - docs/api/F011.md
+    - docs/api/F012.md
+    - docs/api/F013.md
+    - docs/api/F014.md
+    - docs/api/F023.md
+    backend:
+    - docs/features/F030/implementation.md#1-backend
+    frontend:
+    - docs/features/F030/implementation.md#2-frontend
+    test:
+    - docs/features/F030/test-report.md#test-executiontest-12026-10-23v1
+    - docs/features/F030/artifacts/targeted-pytest.log
+    - docs/features/F030/artifacts/full-pytest.log
+    - docs/features/F030/artifacts/typecheck.log
+    - docs/features/F030/artifacts/frontend-build.log
+    - docs/features/F030/artifacts/frontend-smoke.log
+    - docs/features/F030/artifacts/plan-validate.log
+    - docs/features/F030/artifacts/p2-decisions.log
+    - docs/features/F030/artifacts/signoff-check.log
+    - docs/features/F030/artifacts/scope-check.log
+    - docs/features/F030/artifacts/wiring-check.log
+    - docs/features/F030/artifacts/p7-guard-scan.log
+  git:
+    base_branch: v3.2
+    branch: feature/F030-review-followup-closeout
+    start_commit: 70db846ca2ed4bad90281ad5f55c1e6a9b2c5300
+    head_commit: 56cc6ac8ccb823a64ecf6ad86b2bc1ef770006bf
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2425,47 +2472,60 @@ decisions_required:
     是否受范围限制）。推荐：不接受，授权行的存在意义仅对非 ADMIN 生效。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ18
   source: docs/project/proposals/CHG-010-cluster-access.md#专业设计输入
-  status: OPEN
+  status: CONFIRMED
   kind: DESIGN_INPUT
   affects:
   - F026
   - F027
   owner: Architect / Database
-  basis: 专业可定（当前未签核）：授权表名与列、主键 / 唯一约束（user_id + cluster_id）、外键与软删联动、索引设计、迁移与回填实现方式、
-    AccessScope 的类型与逐请求解析位置、范围过滤的查询实现（JOIN / EXISTS / 子查询）、是否引入物化或缓存。推荐在 F026 DATABASE
-    Gate 与 F027 CONTRACT 一并签核，不提交用户裁定。
+  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对
+    docs/database/f026-cluster-authorization.md v1（Database 2026-10-21；DB-D401–D420，含 DB-D407
+    全量 (user_id) 索引修订）、docs/features/F026/architecture.md v1 §2/§3.2、
+    docs/features/F027/architecture.md §1–§2、docs/api/F026.md v3、docs/api/F027.md v1：表 user_cluster_authorizations
+    的列/FK RESTRICT/CHECK/部分唯一索引 uq_user_cluster_authorizations_user_id_cluster_id 是有效行唯一权威；迁移
+    0015 手写 DDL + 幂等回填 + 计数断言；AccessScope 位于 app/core/access_scope.py，逐请求解析、request.state
+    复用、不跨请求缓存、不物化；范围过滤用 SQL 谓词（cluster_predicate / EXISTS 归属谓词）。未新增业务限制，requirements
+    §35.2/§35.3 正文未改写；F030 不改变该设计。
 - id: CHG010-BQ19
   source: docs/project/proposals/CHG-010-cluster-access.md#专业设计输入
-  status: OPEN
+  status: CONFIRMED
   kind: DESIGN_INPUT
   affects:
   - F026
   - F027
   owner: Architect / Backend
-  basis: 专业可定（当前未签核）：授权列表的分页与排序口径、System 授权 UI 的展示与批量操作范围、受限列表的默认排序与分页语义是否保持不变、 total
-    的计算方式。推荐保持既有列表契约收敛口径，不改变既有排序 / 分页语义。
+  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对
+    docs/api/F026.md v3 §2/§3/§9/§10（D-7 列表默认与同刻 id 升序、D-8 未知查询参数 422 与 extra=forbid）、docs/features/F026/architecture.md
+    v1 §3.3/§4、docs/features/F030/architecture.md §7：授权列表分页/排序/过滤沿用既有列表契约口径，total 与 items
+    同 filters；System 授权 Tab 仅展示与逐条授予/撤销，不提供批量授予或批量撤销（属一期未纳入范围，需变更控制）。F030
+    前端交互修正不新增端点/参数/权限；实现责任为 Backend / Frontend。
 pending_changes: []
 execution:
-  mode: null
-  authorization: null
-  current_feature: null
-  current_stage: null
-  last_result: 计划 revision 16 批准新增 F030；等待实施授权。
-  next_action: null
+  mode: SINGLE
+  authorization:
+    plan_revision: 16
+    feature_ids:
+    - F030
+    authorized_by: 用户
+    authorized_on: '2026-10-23'
+    basis: 用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。
+  current_feature: F030
+  current_stage: REVIEW
+  last_result: F030 TEST 通过（READY FOR REVIEW）：定向 28、全量 728/6 skipped、前端 328；无必须修复缺陷。
+  next_action: Reviewer 审核 F030。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 29
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F030
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []

@@ -187,10 +187,19 @@ def auth_session_factory(committed_engine):
 def auth_app(auth_session_factory, request):
     """Production app with ``get_db`` overridden to the test database.
 
-    Pre-F027 suites assume non-ADMIN users can see every Cluster.  F027 changes
-    that rule, so those suites run with an explicit unrestricted scope override;
-    the F026/F027 suites exercise the real ``get_access_scope`` dependency.  This
-    is a test-only compatibility shim and never changes production behavior.
+    Integration scope convention (F030 §9.1):
+
+    * **default** — modules under ``tests/integration/`` WITHOUT
+      ``pytest.mark.real_scope`` run with a test-only unrestricted
+      ``AccessScope`` override (legacy pre-F027 coverage). This shim never
+      changes production behaviour and is **not** evidence for §23.2 scope
+      enforcement.
+    * **real scope** — any module that imports ``app.core.access_scope``
+      symbols, calls ``resolve_access_scope``, or overrides/asserts
+      ``get_access_scope`` MUST declare ``pytestmark = pytest.mark.real_scope``.
+    * **guard** — ``tests/integration/test_f030_test_harness.py`` enforces this
+      rule (legacy canary + AST scan): a module that touches the scope symbols
+      without the marker fails there instead of silently passing as legacy.
     """
     from app.core.access_scope import AccessScope, get_access_scope
     from app.core.db import get_db

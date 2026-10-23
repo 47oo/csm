@@ -1,0 +1,7 @@
+### validate_project_state.py (2026-10-23T10:19:11+08:00)
+PROJECT STATE VALID (structure/gates/files; verify approval truth and Git/test evidence separately)
+EXIT=0
+
+### render_project_views.py (no --write)
+PROJECT VIEWS VALID
+EXIT=0

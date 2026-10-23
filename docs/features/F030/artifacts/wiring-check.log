@@ -1,0 +1,54 @@
+### F030 frontend wiring / backend comment static checks (2026-10-23T10:21:10+08:00)
+--- [P5.4] panel imports computeGrantCandidates/canSubmitGrant/clusterListTruncated
+14:  canSubmitGrant,
+15:  clusterListTruncated,
+16:  computeGrantCandidates,
+191:  const candidates = computeGrantCandidates(activeGrants, clustersState);
+196:  const grantSubmittable = canSubmitGrant(activeGrants, candidates, selectedClusterId, grantBusy);
+498:              {clustersState.kind === "success" && clusterListTruncated(clustersState) && (
+--- [P5.4] old inline filter 'activeGrantIds.has' (expect 0 hits)
+0
+--- [P5.4] old truncation criterion 'clustersState.total > candidates.length' (expect 0)
+0
+--- [P5.4] legacy activeGrantIds symbol anywhere in panel (expect 0)
+0
+--- [P5.5] retry entries bound to reload tokens
+58: *   不呈现任何候选且不可提交；加载失败显式报错并可按「重试」，不置空集冒充
+78:  const [grantReloadToken, setGrantReloadToken] = useState(0);
+80:  const [clustersReloadToken, setClustersReloadToken] = useState(0);
+232:        setGrantReloadToken((value) => value + 1);
+455:                  onClick={() => setGrantReloadToken((value) => value + 1)}
+457:                  重试
+468:                  onClick={() => setClustersReloadToken((value) => value + 1)}
+470:                  重试
+--- [P5.5] catch branches must not blank the id set (expect 0)
+0
+--- [P5.6] already_granted branch (modal must stay open)
+78:  const [grantReloadToken, setGrantReloadToken] = useState(0);
+223:      setGrantOpen(false);
+229:      if (described.alreadyGranted) {
+232:        setGrantReloadToken((value) => value + 1);
+250:      if (described.alreadyRevoked) {
+422:        onCancel={() => setGrantOpen(false)}
+455:                  onClick={() => setGrantReloadToken((value) => value + 1)}
+505:            <Button type="button" onClick={() => setGrantOpen(false)} disabled={grantBusy}>
+
+--- [P6.1] existence-oracle claim (expect 0)
+0
+--- [P6.1] new comment block lines
+130:    # Contract §3/§5 P-1: path object first — an unknown or non-UUID account is
+135:    # information-leak hardening measure: the endpoint is USER_ADMIN only.
+
+--- [P7.5] conftest auth_app docstring tokens
+194:      ``AccessScope`` override (legacy pre-F027 coverage). This shim never
+199:      ``get_access_scope`` MUST declare ``pytestmark = pytest.mark.real_scope``.
+200:    * **guard** — ``tests/integration/test_f030_test_harness.py`` enforces this
+--- [P7.5] pyproject real_scope marker text
+41:    "real_scope: use the real get_access_scope dependency; unmarked tests/integration modules get the legacy unrestricted AccessScope override (F030 §9.1, guarded by tests/integration/test_f030_test_harness.py)",
+
+--- [P9.2] ROLE_PERMISSIONS / Permission diff in backend (expect empty)
+--- [P9.2] frontend API call counts in panel
+listClusterAuthorizations: 3
+listClusters: 2
+grantClusterAuthorization: 2
+revokeClusterAuthorization: 2
