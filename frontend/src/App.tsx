@@ -65,7 +65,7 @@ export default function App() {
 
   if (phase.kind === "boot-loading") {
     return (
-      <main>
+      <main className="boot-main">
         <h1>CSM</h1>
         <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
         <SurfaceCard className="panel">
@@ -77,7 +77,7 @@ export default function App() {
 
   if (phase.kind === "boot-error") {
     return (
-      <main>
+      <main className="boot-main">
         <h1>CSM</h1>
         <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
         <SurfaceCard className="panel">

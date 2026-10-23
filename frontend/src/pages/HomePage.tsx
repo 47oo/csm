@@ -66,6 +66,7 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const contentRef = useRef<HTMLElement>(null);
+  const navRef = useRef<HTMLElement>(null);
   const previousSection = useRef(section);
 
   useEffect(() => {
@@ -74,6 +75,12 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
       window.scrollTo({ top: 0, behavior: "instant" });
       previousSection.current = section;
     }
+    // 窄屏导航为单行横向滚动（F033 DR-F033-03）：切换后把当前激活项滚入
+    // 可视区（inline/block nearest，避免连带改变页面纵向滚动位置）。
+    // 共享 Button 不转发 ref，因此作用域查询使用 nav 原生 ref。
+    navRef.current
+      ?.querySelector(".app-nav .nav-link-active")
+      ?.scrollIntoView({ inline: "nearest", block: "nearest" });
   }, [section]);
 
   async function handleLogout() {
@@ -142,29 +149,30 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
           <span className="brand-symbol" aria-hidden="true"><ClusterOutlined /></span>
           <div><strong>CSM</strong><span>Cluster Source Manager</span></div>
         </div>
-        <nav className="app-nav" aria-label="主导航">
-          {navigation.map((item) => (
-            <div className="nav-entry" key={item.name}>
-              {item.group && <p className="nav-group-label">{item.group}</p>}
-              <Button
-                type="button"
-                variant="text"
-                className={item.active ? "nav-link nav-link-active" : "nav-link"}
-                aria-current={item.active ? "page" : undefined}
-                icon={<span aria-hidden="true">{item.icon}</span>}
-                onClick={() => setSection({ name: item.name } as Section)}
-              >
-                {item.label}
-              </Button>
-            </div>
-          ))}
-        </nav>
+        <div className="nav-scroller">
+          <nav className="app-nav" aria-label="主导航" ref={navRef}>
+            {navigation.map((item) => (
+              <div className="nav-entry" key={item.name}>
+                {item.group && <p className="nav-group-label">{item.group}</p>}
+                <Button
+                  type="button"
+                  variant="text"
+                  className={item.active ? "nav-link nav-link-active" : "nav-link"}
+                  aria-current={item.active ? "page" : undefined}
+                  icon={<span aria-hidden="true">{item.icon}</span>}
+                  onClick={() => setSection({ name: item.name } as Section)}
+                >
+                  {item.label}
+                </Button>
+              </div>
+            ))}
+          </nav>
+        </div>
         <div className="sidebar-note"><SafetyCertificateOutlined aria-hidden="true" /><span>资源事实数据源</span></div>
       </aside>
 
       <div className="app-workspace">
       <header className="app-header">
-        <div className="workspace-location"><span>工作空间</span><span aria-hidden="true">/</span><strong>{currentPage.description}</strong></div>
         <div className="user-box">
           <span className="user-avatar" aria-hidden="true"><UserOutlined /></span>
           <span className="user-name">{user.username}</span>
@@ -177,7 +185,7 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
 
       <main className="workspace-content" id="workspace-content" ref={contentRef} tabIndex={-1} aria-label={currentPage.description}>
       <div className="page-heading">
-        <div><p className="page-eyebrow">CLUSTER SOURCE MANAGER</p><h1>{currentPage.description}</h1></div>
+        <div><p className="page-eyebrow" aria-hidden="true">CLUSTER SOURCE MANAGER</p><h1>{currentPage.description}</h1></div>
         <p className="subtitle">统一登记、查询与维护集群资源</p>
       </div>
       {logoutError && <ErrorState message={`登出失败：${logoutError}`} />}

@@ -2092,8 +2092,8 @@ features:
   - F028
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: Frontend 实现布局/CSS/响应式与搜索折叠，产出 implementation.md。
+  current_stage: TEST
+  next_action: Tester 独立执行 TEST-1（四视口布局指标 + 回归）。
   layers:
     database: false
     backend: false
@@ -2110,7 +2110,7 @@ features:
     test_design: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
-    frontend: PENDING
+    frontend: COMPLETE
     test: PENDING
     review: PENDING
   evidence:
@@ -2120,7 +2120,9 @@ features:
     - docs/features/F033/architecture.md#9-设计定稿与签核v1--2026-10-23
     test_design:
     - docs/features/F033/test-report.md#status
-  last_result: TD-1 READY；Architect READY FOR IMPLEMENTATION；Contract NOT_REQUIRED。
+    frontend:
+    - docs/features/F033/implementation.md#2-修改文件
+  last_result: Frontend 实现完成；typecheck/build 通过，smoke 328 passed。
   git:
     base_branch: v3.3
     branch: feature/F033-layout-css-refresh
@@ -2522,9 +2524,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 明确要求更新前端布局及不合理布局/CSS；批准按 F033 范围实施。
   current_feature: F033
-  current_stage: IMPLEMENTATION
-  last_result: TD-1 READY；Architect READY FOR IMPLEMENTATION；Contract NOT_REQUIRED。
-  next_action: Frontend 实现布局/CSS/响应式与搜索折叠，产出 implementation.md。
+  current_stage: TEST
+  last_result: Frontend 实现完成；typecheck/build 通过，smoke 328 passed。
+  next_action: Tester 独立执行 TEST-1（四视口布局指标 + 回归）。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
