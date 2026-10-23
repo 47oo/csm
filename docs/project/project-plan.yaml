@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 12
   plan_revision: 18
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 18
     feature_ids:
@@ -2016,9 +2016,9 @@ features:
   - F024
   - F025
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: Preflight 后启动 F032 Product Gate
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: 完成 Product Gate：确认 §24.4 范围与 T100–T106 验收映射。
   layers:
     database: false
     backend: false
@@ -2040,7 +2040,13 @@ features:
     test: PENDING
     review: PENDING
   evidence: {}
-  last_result: plan revision 18 已批准；F032 READY，等待启动。
+  last_result: Preflight 通过；F032 进入 Product Gate。
+  git:
+    base_branch: v3.3
+    branch: feature/F032-collector-help-type-import
+    start_commit: 89a5d4ff61f9df35f8f4393887701e7015bc26d8
+    head_commit: null
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2435,24 +2441,23 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 回复「批准 plan revision 18 并实施 F032」。
-  current_feature: null
-  current_stage: null
-  last_result: plan revision 18 已批准；F032 READY，尚未启动。
-  next_action: Preflight 后启动 F032 Product Gate
+  current_feature: F032
+  current_stage: PRODUCT
+  last_result: Preflight 通过；F032 进入 Product Gate。
+  next_action: 完成 Product Gate：确认 §24.4 范围与 T100–T106 验收映射。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 31
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F032
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
