@@ -4,10 +4,10 @@ project:
   requirements:
     path: docs/product/requirements-v3.md
     revision: 12
-  plan_revision: 18
-  status: DONE
+  plan_revision: 19
+  status: ACCEPTED
   approval:
-    plan_revision: 18
+    plan_revision: 19
     feature_ids:
     - F001
     - F002
@@ -41,11 +41,12 @@ project:
     - F030
     - F031
     - F032
+    - F033
     approved_by: 用户
     approved_on: '2026-10-23'
-    basis: 用户于 2026-10-23 明确回复「批准 plan revision 18 并实施 F032」；批准 CHG-011 将需求 revision 12 的 §24.4 与 T100–T106 纳入范围，新增 F032，并授权实施 F032。
+    basis: 用户于 2026-10-23 要求「更新下前端布局，以及不合理的布局和CSS样式」，批准 plan revision 19 新增 F033 进行前端布局与 CSS 质量优化；不改变业务规则、Contract、Schema 或权限。
   acceptance:
-    status: COMPLETE
+    status: PENDING
     evidence:
     - docs/features/F031/test-report.md#test-executiontest-12026-10-23v1
     - docs/features/F031/review-report.md
@@ -2075,6 +2076,45 @@ features:
     start_commit: 89a5d4ff61f9df35f8f4393887701e7015bc26d8
     head_commit: b474f534f82749bdcd3e6dd610e4fa84a896f251
     merge_commit: 19d30b991d41884aae402359769fd87e1abc1631
+- id: F033
+  title: 前端布局与 CSS 质量优化
+  kind: FEATURE
+  priority: P2
+  milestone: M24 前端布局优化
+  scope: 在不改变业务规则、数据、Contract、权限和既有交互语义的前提下，优化运维控制台的整体布局与 CSS 可维护性：收敛应用壳（页头信息去重、桌面端粘性工具条、移动端紧凑横向导航、减少首屏纵向占用）；统一页面标题/卡片/间距/表格工具栏的视觉层级；用语义 CSS 变量替换散落硬编码颜色并收口 main 宽度冲突；修复 System 授权面板固定双栏在窄屏的溢出、搜索高级字段选择改为可展开区域、Dashboard 移动端计数卡最后一项跨列；保留服务端分页/排序/过滤、权限、错误与表单语义，以及 Ant Design + Tailwind 组件边界。
+  acceptance: 通过 frontend typecheck/build/smoke；在 1440/1024/768/375px 检查代表页面，页面无意外横向溢出、表格在自身区域滚动、导航与主要操作无遮挡；移动端首屏导航高度明显下降且导航项键盘可达；授权面板在窄屏单列堆叠；搜索字段选择默认折叠且可键盘展开；既有列表/详情/表单/弹窗行为与测试无回归；无 API/Schema/权限变更。
+  requirements:
+  - docs/product/requirements-v3.md#28-前端
+  - docs/architecture/frontend-ui-stack.md
+  - .pi/skills/frontend-ui/SKILL.md
+  - docs/features/F028/test-report.md#test-execution
+  depends_on:
+  - F028
+  blocking_decisions: []
+  status: READY
+  current_stage: null
+  next_action: null
+  layers:
+    database: false
+    backend: false
+    frontend: true
+  api_required: false
+  not_required:
+    database: 纯前端布局与样式优化，无 Schema/Migration/索引/约束变更。
+    backend: 不改 API、Service Layer、模型、权限或错误语义。
+    contract: 不新增/不修改平台 API；既有 Contract 与响应形状不变。
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: NOT_REQUIRED
+    test_design: PENDING
+    contract: NOT_REQUIRED
+    backend: NOT_REQUIRED
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
+  evidence: {}
+  last_result: plan revision 19 已批准；F033 READY。
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2463,19 +2503,19 @@ pending_changes: []
 execution:
   mode: SINGLE
   authorization:
-    plan_revision: 18
+    plan_revision: 19
     feature_ids:
-    - F032
+    - F033
     authorized_by: 用户
     authorized_on: '2026-10-23'
-    basis: 用户于 2026-10-23 回复「批准 plan revision 18 并实施 F032」。
+    basis: 用户于 2026-10-23 明确要求更新前端布局及不合理布局/CSS；批准按 F033 范围实施。
   current_feature: null
   current_stage: null
-  last_result: F032 Review APPROVED WITH FOLLOW-UP（approved HEAD b474f53）并已合并（19d30b9）；F032 DONE，project.acceptance=COMPLETE，项目 DONE。
-  next_action: null
+  last_result: plan revision 19 已批准；F033 READY，尚未启动。
+  next_action: Preflight 后启动 F033 Product Gate
   repair_rounds: 0
 planning_status:
-  status: DONE
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -2484,8 +2524,9 @@ planning_status:
     DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F033
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
