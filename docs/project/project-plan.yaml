@@ -2092,8 +2092,8 @@ features:
   - F028
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: 完成 Product Gate：确认布局/CSS 优化范围与验收。
+  current_stage: ARCHITECTURE
+  next_action: 完成 Architecture Gate：布局/token/折叠/响应式方案。
   layers:
     database: false
     backend: false
@@ -2104,7 +2104,7 @@ features:
     backend: 不改 API、Service Layer、模型、权限或错误语义。
     contract: 不新增/不修改平台 API；既有 Contract 与响应形状不变。
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -2113,8 +2113,10 @@ features:
     frontend: PENDING
     test: PENDING
     review: PENDING
-  evidence: {}
-  last_result: Preflight 通过；F033 进入 Product Gate。
+  evidence:
+    product:
+    - docs/features/F033/product.md
+  last_result: Product READY FOR ARCHITECT；A1–A11 已定义。
   git:
     base_branch: v3.3
     branch: feature/F033-layout-css-refresh
@@ -2516,9 +2518,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 明确要求更新前端布局及不合理布局/CSS；批准按 F033 范围实施。
   current_feature: F033
-  current_stage: PRODUCT
-  last_result: Preflight 通过；F033 进入 Product Gate。
-  next_action: 完成 Product Gate：确认布局/CSS 优化范围与验收。
+  current_stage: ARCHITECTURE
+  last_result: Product READY FOR ARCHITECT；A1–A11 已定义。
+  next_action: 完成 Architecture Gate：布局/token/折叠/响应式方案。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
