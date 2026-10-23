@@ -1,0 +1,106 @@
+# F033 TEST-1 — 运行记录（run.log）
+
+## 1. 基线与版本绑定
+
+| 项 | 值 |
+| --- | --- |
+| 分支 | `feature/F033-layout-css-refresh` |
+| 起始提交（`<F033-base>`） | `b741240`（`docs(plan): approve revision 19 for F033 frontend layout`） |
+| TEST-1 输入 HEAD | `3a3f7bd`（`feat(F033): refine shell, responsive nav and CSS tokens`）；`git rev-parse --short HEAD` 实测 = `3a3f7bd`，与协调器给定基线一致 |
+| 工作区状态 | clean（`git status --porcelain` 空输出，测试开始前/后各核对一次） |
+| plan | `docs/project/project-plan.yaml` plan_revision 19 / requirements revision 12 |
+| 设计 | `docs/features/F033/architecture.md` v1 §9 READY FOR IMPLEMENTATION（2026-10-23） |
+| Test Design | `docs/features/F033/test-report.md` TD-1 v1（TEST DESIGN READY） |
+| 实现报告 | `docs/features/F033/implementation.md` v1（FRONTEND COMPLETE） |
+| 执行时间 | 2026-10-23 14:40–15:05 (+08:00) |
+
+## 2. Environment
+
+| 项 | 值 |
+| --- | --- |
+| 测试栈 | `csmtest`，`http://127.0.0.1:18080`（`/healthz` → 200；`/` → 200）；仅使用测试数据，未写入业务数据 |
+| 账号 | `admin`（口令见 `.env.test`，不入库；ADMIN；permissions 含 `AUDIT_READ, USER_ADMIN, VIEW_DELETED, WRITE, DELETE_OBJECT, RESTORE, IMPORT, RELEASE_IP, VIEW_ACTIVITY, READ`） |
+| 非 ADMIN 账号 | 只读查得 `shixin`(EDITOR)、`viewer27168`(VIEWER)，**无可用口令** → V-A9.6 记 NOT TESTED（见 test-report TE-8） |
+| 前端源码服务 | Vite **5.4.21** 开发服 `http://127.0.0.1:15173/`，root = `frontend/`，`/api/v1` 代理到 `127.0.0.1:18080` |
+| Vite 配置位置 | **仓库外**：`/tmp/f033dev/vite.config.mts`（`node_modules` 由 `/tmp/f033dev/node_modules -> frontend/node_modules` 符号链接解析）；`frontend/` 内**未新增任何文件** |
+| 浏览器自动化 | Python **3.12.7** + 全局 `playwright 1.58.0`（pip，**不在仓库依赖**）；Chromium **145.0.7632.6**（headless） |
+| Node / npm | `node v22.23.3` / `npm 10.9.9` |
+| 断点/视口 | 1440×900、1024×768、768×1024、375×667（`deviceScaleFactor=1`、`is_mobile=False`、`emulate_media(reduced_motion=reduce)`） |
+| 数据库 | `NOT_REQUIRED`（`database=false`、零 schema/migration 变更；未连接数据库直接断言） |
+| 后端 pytest 全量 | `NOT_REQUIRED`（`backend/` 零 diff） |
+
+### 2.1 仓库外临时配置（全文）
+
+`/tmp/f033dev/vite.config.mts`：
+
+```ts
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  root: "/home/hanhao/github/47oo/csm/frontend",
+  plugins: [react(), tailwindcss()],
+  server: {
+    host: "127.0.0.1",
+    port: 15173,
+    strictPort: true,
+    proxy: { "/api/v1": { target: "http://127.0.0.1:18080", changeOrigin: false } },
+  },
+});
+```
+
+启动命令：`cd /tmp/f033dev && ./node_modules/.bin/vite --config /tmp/f033dev/vite.config.mts`（日志 `/tmp/f033-vite.log`）。
+巡检结束后已停止该临时开发服（入口 `http://127.0.0.1:15173/` 释放）；重跑只需重新执行该命令，仓库内不受影响。
+
+### 2.2 Playwright 脚本
+
+`/tmp/f033_ui_check.py`（仓库外，约 1150 行）。执行清单：登录页 + boot-loading/boot-error 两态（4 视口，独立无 Cookie 上下文）→ 单一已登录会话按视口改尺寸遍历 P2…P11 → A3 键盘/skip-link/Tab 巡检 → A9 表单校验/409/422（只读路径）/审计翻页/401/登出 → 输出 `ui-metrics.json` 与 `console.log`。
+
+## 3. 实际执行的命令与结果
+
+| # | 命令 | 结果 | 日志 |
+| --- | --- | --- | --- |
+| 1 | `git rev-parse --short HEAD` / `git status --porcelain` | `3a3f7bd` / 空（clean） | 本节 |
+| 2 | `cd frontend && npm run typecheck` | **exit 0**，无输出 | `typecheck.log` |
+| 3 | `cd frontend && npm run build` | **exit 0**；`dist/assets/index-CLFB8N_k.css 24.01 kB`、`index-BVS4PLL2.js 1,264.51 kB`；仅既有 chunk >500 kB 提示 | `build.log` |
+| 4 | `cd frontend && npm run smoke:client` | **328 passed, 0 failed**（exit 0；F028 基线 322） | `smoke-client.log` |
+| 5 | 静态核对 S-V1/S-V2/S-V3/S-V4/S-V5/S-V6/S-V8 + 目录范围 | 全部符合（详见 `static-checks.log`） | `static-checks.log` |
+| 6 | Vite 开发服启动 + `curl /` `/src/main.tsx` `/src/index.css` | 200 / 200 / 200 | `/tmp/f033-vite.log` |
+| 7 | `python3 /tmp/f033_ui_check.py` | **records=438：PASS 434 / FAIL 1 / NOT_TESTED 3**（FAIL 与 NOT_TESTED 明细见 test-report TE-5、TE-10） | `ui-metrics.json`、`console.log`、`*.png` |
+| 8 | `python3 /tmp/f033_a85.py`（V-A8.5 token 计算值抽查） | 4/4 计算值与 `:root` token 一致；`.panel` 12px 圆角经核实来自 `main.tsx` Ant token 派生（零 diff 边界） | `a8-5-token-values.log` |
+
+首次探针（`/tmp/f033_probe.py`）与三次正式运行：第 1 次运行因脚本自身度量口径问题（`<details>` 折叠态可见性用 `getClientRects()`、按 `.ant-table tbody tr` 统计行数含 Ant 测量行、搜索关键字取到空结果集、按钮文案 `取 消` 含插入空格）产生 31 个伪失败；修正为 TD-1 允许的口径收敛（见下 §4）后第 2、3 次运行结果一致（`records=438`、`pass=434`、`fail=1`）。**伪失败不写入本报告结论**，第 3 次运行（`ui-metrics.json` 的 `generated_at` 2026-10-23T14:53 起）为证据版本。
+
+## 4. 与 TD-1 判定式的口径收敛（Architect §9.3 授权范围内，不改变 A 项意图）
+
+| # | TD-1 原口径 | 实际执行口径 | 原因 |
+| --- | --- | --- | --- |
+| 1 | 折叠态「可见 checkbox 数 == 0」用 rect/`getClientRects()` | `Element.checkVisibility({contentVisibilityAuto:true})` | Chromium ≥121 的 `<details>` 折叠用 `content-visibility:hidden` 实现，`getClientRects()` 仍返回 18×18 的陈旧布局盒，`checkVisibility()` 正确返回 false（实测折叠态 0 可见、展开态 9 可见） |
+| 2 | nav 激活项可见性用 `offsetLeft` 与 `nav.scrollLeft` | 用 `getBoundingClientRect()` 比较（`.app-nav` 非定位祖先，`offsetLeft` 基准不是 rail） | 几何等价且不受 offsetParent 影响 |
+| 3 | 行数/首行文本按 `tbody tr` | 按 `tbody tr.ant-table-row`（排除 Ant 隐式 `.ant-table-measure-row`） | Ant Table `scroll.x` 会插入测量行 |
+| 4 | 「宽表滚动后页面 scrollWidth 不变」直接比较 | 同前，并记录滚动前后值 | — |
+| 5 | 「Tab 首按焦点落到 .skip-link」 | 首按前将顺序焦点起点复位到文档起点（`document.body.tabIndex=-1` + `focus()`，**测试夹具调整，不改产品代码**），随后测量；同时记录默认起点下的观察值 | headless Chromium 冷启动的顺序焦点起点落在文档中部（实测首个 Tab 落在内容区输入/导航项）。`skip-link` 的 DOM 位置与 CSS 与基线 `b741240` 逐字相同（`git show b741240:frontend/src/pages/HomePage.tsx` / `index.css` 对照），不属 F033 变更；该项以「DOM 首个可聚焦元素 + 起点复位后首按命中 + Enter 行为」判定 |
+| 6 | A6.2「375 折叠态高度 < 展开态高度」+ F028 基线对比 | 同前（保留实测值） | — |
+| 7 | A7.3 计数与 API 一致 | 逐项比较 5 个 `Statistic` 值与 `GET /api/v1/dashboard.counts` | — |
+
+## 5. 产物清单
+
+| 文件 | 内容 |
+| --- | --- |
+| `run.log` | 本文件 |
+| `typecheck.log` / `build.log` / `smoke-client.log` | 三条命令完整输出与 `exit=` |
+| `static-checks.log` | S-V1…S-V8 与文件范围核对的命令原文与输出（含 hex 命中行号与 `:root` 块范围、`var(--csm-*)` 定义/引用集合差、`git diff` 零 diff 证据） |
+| `ui-metrics.json` | 438 条判定记录（视口 / 页面 / 指标 / 实测值 / 阈值 / 结论），含 40 格矩阵与交互项 |
+| `console.log` | 各视口 console (`error`/`warning`) 与 `pageerror` 收集 |
+| `a8-5-token-values.log` | V-A8.5 token 计算值抽查（页面底色 / 主操作按钮 / 计数卡圆角 / 激活导航底色 vs `:root` token）与两项静态观察 |
+| `{vw}x{vh}-*.png` | 四视口代表页面截图 71 张（含 `search-collapsed`/`search-expanded`、`system-authorizations`/`-selected`、`boot-loading`/`boot-error`、`login`，1440 另含 `resource-create`/`-409`、`resource-detail-delete-modal`、`resource-import-422`、`ip-addresses-activity`、`logout-login`） |
+
+> `.gitignore` 覆盖 `*.log`；协调器需 `git add -f` 才能入库。
+
+## 6. 数据与副作用声明
+
+- 全程只读 + 只读型校验：未创建/修改/删除任何业务数据。实测前后 `GET /api/v1/resources` 的 `total` 均为 **7**（409 用例的 POST 被服务端拒绝，未产生行与审计）。
+- 写入类交互仅做「打开 → 取消」：删除二次确认 Modal 取消后写请求数 **0**。
+- 未使用 Mock 代替真实后端：所有请求经 Vite 代理打到 `127.0.0.1:18080` 测试栈。
+- 测试脚本、Vite 配置、坏模板文件 `/tmp/f033_bad.csv` 全部位于仓库外；`frontend/` 未新增配置或依赖。

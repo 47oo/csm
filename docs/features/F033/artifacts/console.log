@@ -1,0 +1,38 @@
+# console / pageerror 收集（登录、boot 态与会话期间）
+{"viewport": "1440x900", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "1440x900", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "1440x900", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "1440x900", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "1440x900", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "1440x900", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "1024x768", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "1024x768", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "1024x768", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "1024x768", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "1024x768", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "1024x768", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "768x1024", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "768x1024", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "768x1024", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "768x1024", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "768x1024", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "768x1024", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "375x667", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "375x667", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "375x667", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "375x667", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "375x667", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "375x667", "page": "P1-login/boot", "type": "error", "text": "Failed to load resource: net::ERR_FAILED"}
+{"viewport": "1440x900", "page": "login", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "1440x900", "page": "login", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "1440x900", "page": "login", "type": "error", "text": "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead."}
+{"viewport": "1440x900", "page": "P4-resources", "type": "error", "text": "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead."}
+{"viewport": "375x667", "page": "P3-search", "type": "error", "text": "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead."}
+{"viewport": "375x667", "page": "P3-search", "type": "error", "text": "Warning: [antd: Alert] `message` is deprecated. Please use `title` instead."}
+{"viewport": "375x667", "page": "P4-resources", "type": "error", "text": "Warning: [antd: Modal] `maskClosable` is deprecated. Please use `mask.closable` instead."}
+{"viewport": "1440x900", "page": "A9-resource-create", "type": "error", "text": "Failed to load resource: the server responded with a status of 409 (Conflict)"}
+{"viewport": "1440x900", "page": "A9-import-422", "type": "error", "text": "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)"}
+{"viewport": "1440x900", "page": "A9-401", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+{"viewport": "1440x900", "page": "A9-401", "type": "error", "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"}
+
+# pageerror
