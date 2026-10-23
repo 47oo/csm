@@ -21,7 +21,7 @@
 | M20 Review 跟进 | F029 | 1 / 1 | DONE=1 |
 | M21 Review 跟进收敛 | F030 | 1 / 1 | DONE=1 |
 | M22 Review 跟进收尾 | F031 | 1 / 1 | DONE=1 |
-| M23 采集脚本可用性 | F032 | 0 / 1 | IN_PROGRESS=1 |
+| M23 采集脚本可用性 | F032 | 0 / 1 | IN_REVIEW=1 |
 | M3 虚拟化与接口 | F006, F007 | 2 / 2 | DONE=2 |
 | M4 网络与 IPAM | F008, F009, F010 | 3 / 3 | DONE=3 |
 | M5 服务与端点 | F011, F012 | 2 / 2 | DONE=2 |
