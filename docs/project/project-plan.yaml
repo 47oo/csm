@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 11
   plan_revision: 15
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 15
     feature_ids:
@@ -2417,7 +2417,7 @@ execution:
   next_action: null
   repair_rounds: 0
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
