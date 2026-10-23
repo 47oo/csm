@@ -2050,15 +2050,15 @@ features:
   - F029
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: 完成 F030 Product Gate，确认可复用需求基线并输出 READY FOR ARCHITECT。
+  current_stage: ARCHITECTURE
+  next_action: 完成 F030 ARCHITECTURE Gate，确定设计、layers/api_required 与验证策略。
   layers:
     database: false
     backend: true
     frontend: true
   api_required: true
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: PENDING
     test_design: PENDING
@@ -2067,6 +2067,9 @@ features:
     frontend: PENDING
     test: PENDING
     review: PENDING
+  evidence:
+    product:
+    - docs/features/F030/product.md
   git:
     base_branch: v3.2
     branch: feature/F030-review-followup-closeout
@@ -2461,9 +2464,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。
   current_feature: F030
-  current_stage: PRODUCT
-  last_result: F030 计划已批准，Preflight 通过并创建 Feature 分支，进入 PRODUCT。
-  next_action: 完成 F030 Product Gate。
+  current_stage: ARCHITECTURE
+  last_result: F030 Product Gate 通过（READY FOR ARCHITECT）；已保存 docs/features/F030/product.md。
+  next_action: 完成 F030 ARCHITECTURE Gate。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
