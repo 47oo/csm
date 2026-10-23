@@ -190,7 +190,7 @@ export default function ClusterAuthorizationPanel() {
 
   const candidates = computeGrantCandidates(activeGrants, clustersState);
   const candidateIds = candidates.kind === "success" ? candidates.clusters.map((cluster) => cluster.id) : [];
-  // 旧选中集群在新候选集合中已不存在时，选择框不呈现该脏值（架构评审 I-2）。
+  // 旧选中集群不在新候选中时，选择框不呈现该脏值且不可提交（规则见 authorizationCandidates.ts::canSubmitGrant；F030 architecture §17.1）。
   const visibleSelectedClusterId =
     selectedClusterId !== "" && candidateIds.includes(selectedClusterId) ? selectedClusterId : "";
   const grantSubmittable = canSubmitGrant(activeGrants, candidates, selectedClusterId, grantBusy);
@@ -480,7 +480,7 @@ export default function ClusterAuthorizationPanel() {
               }
             />
           ) : candidates.clusters.length === 0 ? (
-            <EmptyState description="该账号已拥有全部匹配集群的有效授权" />
+            <EmptyState description="没有可授予的集群（已有效授权的集群不会重复出现）" />
           ) : (
             <>
               <Select

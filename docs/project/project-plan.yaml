@@ -2143,8 +2143,8 @@ features:
   - F030
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: 完成 F031 文档/注释/测试/前端文案修订并提交实现报告。
+  current_stage: TEST
+  next_action: 完成 F031 TEST 并按 TD-1 P1–P10 归档证据。
   layers:
     database: false
     backend: true
@@ -2156,8 +2156,8 @@ features:
     database: NOT_REQUIRED
     test_design: COMPLETE
     contract: NOT_REQUIRED
-    backend: PENDING
-    frontend: PENDING
+    backend: COMPLETE
+    frontend: COMPLETE
     test: PENDING
     review: PENDING
   not_required:
@@ -2170,6 +2170,10 @@ features:
     - docs/features/F031/architecture.md#10-最终设计签核contract-gate
     test_design:
     - docs/features/F031/test-report.md#test-designtd-12026-10-23v1
+    backend:
+    - docs/features/F031/implementation.md#1-backend
+    frontend:
+    - docs/features/F031/implementation.md#2-frontend
   git:
     base_branch: v3.2
     branch: feature/F031-review-closeout
@@ -2571,9 +2575,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 要求处理 F030 Review 剩余非阻塞项，批准 plan revision 17 并授权实施 F031。
   current_feature: F031
-  current_stage: IMPLEMENTATION
-  last_result: F031 TEST DESIGN READY，Architect 最终设计签核 READY FOR IMPLEMENTATION；Database/Contract NOT_REQUIRED。
-  next_action: 完成 F031 修订与实现。
+  current_stage: TEST
+  last_result: F031 实现完成：定向 29 passed、全量 729/6 skipped、前端 328 passed；文档 errata/文案/注释已修订。
+  next_action: 完成 F031 TEST。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

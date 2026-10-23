@@ -35,3 +35,15 @@ def list_authorizations(
 --- error codes present in base F026 (must already contain the two restated tokens)
 7
 1
+
+--- F031 errata（Tester，2026-10-23，F030-RV-07）---
+上述「backend/app/api/cluster_authorizations.py: 没有那个文件或目录」为命令输入路径笔误，
+实际文件为 backend/app/api/v1/cluster_authorizations.py。此处仅更正路径，不改变本日志的任何结论：
+排序主张（路径对象优先、q 在账号存在后校验）由集成用例 TD2-P3.4 与下列重跑输出共同证明。
+重跑（只读，路径已更正）：
+$ grep -n "_reject_unknown_query\|_parse_uuid(user_id)" backend/app/api/v1/cluster_authorizations.py
+51:def _reject_unknown_query(request: Request) -> None:
+95:    _reject_unknown_query(request)
+98:        user_id=_parse_uuid(user_id),
+129:        user_id=_parse_uuid(user_id),
+结论：未声明参数在 handler 第一步（第 95 行）被拒，先于路径解析（第 98/129 行）与服务层语义校验；原日志 7 / 1 两个 token 计数不受影响。
