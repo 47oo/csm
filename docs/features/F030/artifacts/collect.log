@@ -1,0 +1,30 @@
+### F030 collect-only (2026-10-23T10:19:49+08:00)
+tests/integration/test_virtual_machine_constraints.py::test_fk_cascade_restrict_and_soft_delete
+tests/integration/test_virtual_machine_constraints.py::test_host_resource_id_index_exists_and_used
+tests/integration/test_virtual_machine_constraints.py::test_physical_delete_concurrent_with_insert
+tests/integration/test_virtual_machine_constraints.py::test_migration_single_head_and_up_down_up
+tests/integration/test_virtual_machine_constraints.py::test_backfill_guard
+tests/smoke/test_auth_smoke.py::test_role_permission_matrix_matches_section_23
+tests/smoke/test_auth_smoke.py::test_security_hash_verify_and_token_hash
+tests/smoke/test_auth_smoke.py::test_error_envelope_shapes
+tests/smoke/test_auth_smoke.py::test_redaction_filter_masks_sensitive_keys
+tests/smoke/test_auth_smoke.py::test_settings_f002_fields
+tests/smoke/test_auth_smoke.py::test_auth_routes_registered
+tests/smoke/test_auth_smoke.py::test_bootstrap_username_normalization
+tests/smoke/test_smoke.py::test_app_exposes_health_liveness_without_db
+tests/smoke/test_smoke.py::test_v1_prefix_is_centralised
+tests/smoke/test_smoke.py::test_naming_convention_matches_db_d6
+tests/smoke/test_smoke.py::test_settings_read_env
+
+=========================== short test summary info ============================
+SKIPPED [1] tests/integration/test_f016_acceptance.py:50: F016 acceptance module disabled (set F016_ACCEPTANCE=1)
+733 tests collected in 3.07s
+EXIT=0
+
+### targeted collect-only
+tests/integration/test_f027_access_scope.py::test_every_business_route_depends_on_real_scope
+tests/integration/test_f030_test_harness.py::test_unmarked_module_gets_legacy_scope
+tests/integration/test_f030_test_harness.py::test_real_scope_usage_requires_marker
+tests/integration/test_f030_test_harness.py::test_scope_scan_is_not_vacuous
+
+28 tests collected in 0.57s

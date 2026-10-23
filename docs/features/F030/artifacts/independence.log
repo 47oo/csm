@@ -1,0 +1,17 @@
+### P3.5 / P4 independence: F030 new tests only, no baseline cases (2026-10-23T10:38:27+08:00)
+INFO  [alembic.runtime.migration] Running upgrade 0004_resources -> 0005_bare_metal_details, bare_metal_details for F005.
+INFO  [alembic.runtime.migration] Running upgrade 0005_bare_metal_details -> 0006_virtual_machine_details, virtual_machine_details for F006.
+INFO  [alembic.runtime.migration] Running upgrade 0006_virtual_machine_details -> 0007_interfaces, interfaces for F007.
+INFO  [alembic.runtime.migration] Running upgrade 0007_interfaces -> 0008_networks, networks for F008.
+INFO  [alembic.runtime.migration] Running upgrade 0008_networks -> 0009_ip_pools, ip_pools for F009.
+INFO  [alembic.runtime.migration] Running upgrade 0009_ip_pools -> 0010_ip_addresses, ip_addresses for F010.
+INFO  [alembic.runtime.migration] Running upgrade 0010_ip_addresses -> 0011_services, services for F011.
+INFO  [alembic.runtime.migration] Running upgrade 0011_services -> 0012_service_endpoints, service_endpoints for F012.
+INFO  [alembic.runtime.migration] Running upgrade 0012_service_endpoints -> 0013_search_indexes, GIN trigram search indexes for F013.
+INFO  [alembic.runtime.migration] Running upgrade 0013_search_indexes -> 0014_api_keys, api_keys table and audit_logs.api_key_label for F017.
+INFO  [alembic.runtime.migration] Running upgrade 0014_api_keys -> 0015_user_cluster_authorizations, user_cluster_authorizations table and backfill for F026.
+.concurrent grant evidence:
+  attempt 1: statuses=[409, 201] overlap=True spans=[(703963.8045, 703963.8382), (703963.8052, 703963.8505)]
+......
+7 passed, 10 deselected in 6.21s
+EXIT=0

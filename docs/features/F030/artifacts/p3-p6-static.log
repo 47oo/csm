@@ -1,0 +1,37 @@
+### P3/P6 supporting static check: q validation ordering (2026-10-23T10:21:22+08:00)
+grep: backend/app/services/cluster_authorization.py:102:def _validate_q(q: str | None) -> str | None:
+backend/app/services/cluster_authorization.py:117:def list_authorizations(
+backend/app/services/cluster_authorization.py:136:    _get_user_or_404(db, user_id)
+backend/app/services/cluster_authorization.py:143:    cleaned_q = _validate_q(q)
+backend/app/services/cluster_authorization.py:187:def _get_user_or_404(db: Session, user_id: uuid.UUID) -> User:
+backend/app/services/cluster_authorization.py:215:    user = _get_user_or_404(db, user_id)
+backend/app/api/cluster_authorizations.py: 没有那个文件或目录
+
+--- _validate_q body
+def _validate_q(q: str | None) -> str | None:
+    if q is None:
+        return None
+    if not isinstance(q, str):
+        raise _field_error("q", "q must be a string")
+    cleaned = q.strip()
+    if not cleaned:
+        raise _field_error("q", "q must not be blank")
+    if len(cleaned) > Q_MAX_LENGTH:
+        raise _field_error("q", f"q must be at most {Q_MAX_LENGTH} characters")
+    if any(unicodedata.category(ch) in ("Cc", "Cf") for ch in cleaned):
+        raise _field_error("q", "q must not contain control characters")
+    return cleaned
+
+
+def list_authorizations(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+    status: str | None = None,
+    cluster_id: uuid.UUID | None = None,
+    q: str | None = None,
+    page: int = 1,
+
+--- error codes present in base F026 (must already contain the two restated tokens)
+7
+1

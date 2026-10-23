@@ -2050,8 +2050,8 @@ features:
   - F029
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST
-  next_action: 完成 F030 TEST，独立执行定向/全量/前端与文档计划核对。
+  current_stage: REVIEW
+  next_action: Reviewer 审核 F030 的 Contract、实现、测试与范围。
   layers:
     database: false
     backend: true
@@ -2065,7 +2065,7 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: COMPLETE
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   not_required:
     database: 无 Schema/Migration 变更；仅补并发与完整性错误测试证据；DB-D401–D420 继续有效。
@@ -2095,11 +2095,24 @@ features:
     - docs/features/F030/implementation.md#1-backend
     frontend:
     - docs/features/F030/implementation.md#2-frontend
+    test:
+    - docs/features/F030/test-report.md#test-executiontest-12026-10-23v1
+    - docs/features/F030/artifacts/targeted-pytest.log
+    - docs/features/F030/artifacts/full-pytest.log
+    - docs/features/F030/artifacts/typecheck.log
+    - docs/features/F030/artifacts/frontend-build.log
+    - docs/features/F030/artifacts/frontend-smoke.log
+    - docs/features/F030/artifacts/plan-validate.log
+    - docs/features/F030/artifacts/p2-decisions.log
+    - docs/features/F030/artifacts/signoff-check.log
+    - docs/features/F030/artifacts/scope-check.log
+    - docs/features/F030/artifacts/wiring-check.log
+    - docs/features/F030/artifacts/p7-guard-scan.log
   git:
     base_branch: v3.2
     branch: feature/F030-review-followup-closeout
     start_commit: 70db846ca2ed4bad90281ad5f55c1e6a9b2c5300
-    head_commit: 70db846ca2ed4bad90281ad5f55c1e6a9b2c5300
+    head_commit: 56cc6ac8ccb823a64ecf6ad86b2bc1ef770006bf
     merge_commit: null
 decisions_required:
 - id: BQ6
@@ -2497,9 +2510,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。
   current_feature: F030
-  current_stage: TEST
-  last_result: F030 Backend/Frontend 实现完成；定向 28 passed、全量 728 passed/6 skipped、前端 328 passed。
-  next_action: 完成 F030 TEST 并提交 Test Report。
+  current_stage: REVIEW
+  last_result: F030 TEST 通过（READY FOR REVIEW）：定向 28、全量 728/6 skipped、前端 328；无必须修复缺陷。
+  next_action: Reviewer 审核 F030。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

@@ -1,0 +1,32 @@
+### F030 P2 machine check vs Base 70db846 (merge-base with v3.2) (2026-10-23T10:19:16+08:00)
+== CHG010-BQ18
+   status: base='OPEN' curr='CONFIRMED'
+   source: unchanged=True value='docs/project/proposals/CHG-010-cluster-access.md#专业设计输入'
+   kind: unchanged=True value='DESIGN_INPUT'
+   affects: unchanged=True value=['F026', 'F027']
+   owner: unchanged=True value='Architect / Database'
+   basis tokens missing=[]
+   basis len=605
+== CHG010-BQ19
+   status: base='OPEN' curr='CONFIRMED'
+   source: unchanged=True value='docs/project/proposals/CHG-010-cluster-access.md#专业设计输入'
+   kind: unchanged=True value='DESIGN_INPUT'
+   affects: unchanged=True value=['F026', 'F027']
+   owner: unchanged=True value='Architect / Backend'
+   basis tokens missing=[]
+   basis len=367
+== pending_changes: []
+== project.approval unchanged: True
+== execution.authorization: {'plan_revision': 16, 'feature_ids': ['F030'], 'authorized_by': '用户', 'authorized_on': '2026-10-23', 'basis': '用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。'}
+== project.acceptance.status: PENDING
+== F030 decisions count base/curr: 38 38
+RESULT: PASS
+EXIT=0
+
+### requirements-v3.md diff vs Base (expect empty)
+(no output above = empty diff)
+
+### requirements §35.2 BQ18/BQ19 current wording (must remain DESIGN_INPUT)
+619:本次六项业务问题均已关闭。revision 11 的 CHG010-BQ01–BQ17 已由用户随「批准并实施」按推荐组合确认，CHG010-BQ18–BQ19 为专业设计输入。以下仅保存决策与正文、验收的映射，不复制完整规则。新发现的业务歧义按变更控制处理，不能静默改写本基线或将专业设计输入等同于新的业务待决项。
+624:| CHG010-BQ18 | DESIGN_INPUT；授权表 / 索引 / 迁移 / 查询实现，由 Architect / Database 在 F026–F027 签核 | T99 |
+625:| CHG010-BQ19 | DESIGN_INPUT；授权列表分页 / 排序与 System UI 口径，由 Architect / Backend 在 F026 签核 | T90 |

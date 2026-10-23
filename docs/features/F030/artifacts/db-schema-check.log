@@ -1,0 +1,19 @@
+### P8.4 schema/migration evidence (2026-10-23T10:38:01+08:00)
+--- alembic script heads/history (script dir only, no DB access)
+0015_user_cluster_authorizations (head)
+0002_users_sessions -> 0003_clusters_audit, clusters and audit_logs for F003.
+0001_baseline -> 0002_users_sessions, users and user_sessions for F002 auth.
+<base> -> 0001_baseline, baseline: enable required extensions (no business tables).
+
+--- backend/alembic diff vs Base 70db846 (expect empty)
+(empty above)
+
+--- F026 schema-object assertions present in the executed targeted suite
+594:                        "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal"
+601:                        "SELECT indexname FROM pg_indexes WHERE schemaname='public'"
+613:            "trg_user_cluster_authorizations_immutable" in triggers,
+614:            "trg_user_cluster_authorizations_no_delete" in triggers,
+615:            "uq_user_cluster_authorizations_user_id_cluster_id" in indexes,
+
+--- post-run DB state (fixture drops public schema at session end; F029 recorded same behaviour)
+public tables after session: 0
