@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 11
   plan_revision: 16
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 16
     feature_ids:
@@ -2049,9 +2049,9 @@ features:
   - F027
   - F029
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: null
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: 完成 F030 Product Gate，确认可复用需求基线并输出 READY FOR ARCHITECT。
   layers:
     database: false
     backend: true
@@ -2067,6 +2067,12 @@ features:
     frontend: PENDING
     test: PENDING
     review: PENDING
+  git:
+    base_branch: v3.2
+    branch: feature/F030-review-followup-closeout
+    start_commit: 70db846ca2ed4bad90281ad5f55c1e6a9b2c5300
+    head_commit: 70db846ca2ed4bad90281ad5f55c1e6a9b2c5300
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2446,26 +2452,31 @@ decisions_required:
     的计算方式。推荐保持既有列表契约收敛口径，不改变既有排序 / 分页语义。
 pending_changes: []
 execution:
-  mode: null
-  authorization: null
-  current_feature: null
-  current_stage: null
-  last_result: 计划 revision 16 批准新增 F030；等待实施授权。
-  next_action: null
+  mode: SINGLE
+  authorization:
+    plan_revision: 16
+    feature_ids:
+    - F030
+    authorized_by: 用户
+    authorized_on: '2026-10-23'
+    basis: 用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。
+  current_feature: F030
+  current_stage: PRODUCT
+  last_result: F030 计划已批准，Preflight 通过并创建 Feature 分支，进入 PRODUCT。
+  next_action: 完成 F030 Product Gate。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 29
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F030
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
