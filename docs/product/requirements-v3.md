@@ -401,9 +401,9 @@ CONFIRMED：在资源新增导入中支持同时登记网卡（Interface）与 I
 CONFIRMED：提供一个可在目标 Linux 主机**本地手工运行**的采集脚本（Python 或 Shell），读取本机已知信息并生成符合 §24.1 已冻结模板列集 / 列序的导入文件，减少人工逐列填写。
 
 * 定位：脚本是**导入模板的生产者**；默认**离线、只读、手动运行**：默认不连接 CSM、不调用平台 API、不上传、不写库；仅在显式启用 §24.3 的 `--push` 时经 API Key 将结果推送到 CSM。不创建或修改任何 CSM 对象。
-* 输出：默认 CSV（UTF-8，兼容 BOM），表头列名与列序与 §24.1 / D03 冻结的第三套模板逐字一致；`.xlsx` 不作为一期必需。
+* 输出：默认 CSV（UTF-8，兼容 BOM），表头列名与列序与 §24.1 / D03 冻结的第三套模板逐字一致；默认文件名按 `--resource-type` 区分（见 §24.4）；`.xlsx` 不作为一期必需。
 * 自动采集：主机可观测事实（如 hostname、CPU 型号 / 插槽 / 整机物理核心数、内存容量、GPU 型号 / 数量、网卡名称 / 类型 / MAC / 速率 / MTU、本机 IPv4 地址 / 掩码）按 D01 归一化与单位口径（MiB / GiB / Mbps / bytes）输出。
-* 人工补全：脚本无法可靠获得的业务 / 归属字段（`cluster`、`resource_type`、`role`、`status`、`host`、`network`）**默认留空**，可由人工补全或经 §24.3 的命令行参数提供；脚本**不得**写入占位值或推断值。
+* 人工补全：脚本无法可靠获得的业务 / 归属字段（`cluster`、`role`、`status`、`host`、`network`）**默认留空**，可由人工补全或经 §24.3 的命令行参数提供；`resource_type` 由 §24.4 的必填参数提供，不写占位值或推断值。
 * 权限：无 root 时优先读取无需特权的信息（如 `/sys/class/dmi/id`）；其余特权字段留空，脚本给出说明但**不报错、不自动提权**。
 * 模板冻结：脚本**不修改、不扩展** F014 与 F023 已冻结模板、契约或既有导入行为；内嵌模板常量与冻结列集的一致性由测试守卫。
 * 边界：脚本不绕过 §24 两步流程与同一 Service Layer 校验；产出文件仍须经导入预校验与人工补全后才可导入。本脚本属**离线辅助工具**，不构成 §3 / §34 所排除的平台自动采集能力，也不改变该排除项。
@@ -412,11 +412,33 @@ CONFIRMED：提供一个可在目标 Linux 主机**本地手工运行**的采集
 
 CONFIRMED：在 §24.2 脚本基础上增强，使其无需手工编辑文件即可补全业务字段，并可选地推送。
 
-* 参数补全：新增命令行参数补全 §24.2 中默认留空的字段——`--cluster`、`--resource-type`、`--role`、`--status`、`--host`、`--network`；显式提供的值写入对应列。`--resource-type`（`BARE_METAL` / `VIRTUAL_MACHINE`）同时写入 `resource_type` 列并决定类型专属列的填充；未提供的字段仍留空。本项修订 §24.2 的「`resource_type` 一律留空」为「默认留空，可由参数提供」。
-* 打印：支持将结果打印到标准输出（`--print`）；默认包含表头，`--no-header` 输出不带表头；默认仍写文件。输出仍是 §24.1 冻结 26 列、同序。
+* 参数补全：新增命令行参数补全 §24.2 中默认留空的字段——`--cluster`、`--role`、`--status`、`--host`、`--network`；显式提供的值写入对应列。新增**必填**参数 `--resource-type`（`BARE_METAL` / `VIRTUAL_MACHINE`），同时写入 `resource_type` 列并决定类型专属列的填充；除 `--resource-type` 外的其余可补全字段未提供时仍留空。本项修订 §24.2 的「`resource_type` 一律留空」为「由参数提供」；§24.4 进一步将 `--resource-type` 定为必填。
+* 打印：支持将结果打印到标准输出（`--print`）；默认包含表头，`--no-header` 输出不带表头；默认仍写文件（默认文件名按类型区分，见 §24.4）。输出仍是 §24.1 冻结 26 列、同序。
 * API 推送：支持 `--push` 使用 API Key（`Authorization: Bearer`，复用 §23.1 / F017）将结果推送到 CSM 的 F023 导入端点。推送沿用 §24 两步流程：先调用预校验端点展示结果，经用户显式确认（如 `--yes`）后再调用写入端点；不新增平台 API，不绕过 Service Layer。API Key 仅从环境变量或参数读取，不落盘、不写入日志或错误输出。
 * 边界：默认行为保持 §24.2 的离线、只读、不连接 CSM；仅当显式 `--push` 时连接 CSM。§24.2 的「不连接 CSM、不调用平台 API、不上传」按此修订。脚本仍不创建 Network / IP Pool / Cluster / Host，不触发自动分配。
-* 验收：T79–T84。
+* 验收：T79–T84；§24.4 追加 T100–T106。
+
+### 24.4 采集脚本类型必填、帮助信息与按类型生成（revision 12）
+
+CONFIRMED：`--resource-type` 为采集脚本的**必填**参数，取值仅 `BARE_METAL` 或 `VIRTUAL_MACHINE`。未提供或取值非法时，脚本在本地失败：非零退出，不采集、不写文件、不向标准输出输出 CSV、不发起任何网络请求，并在 stderr 说明缺失/非法参数、列出允许值与 `--help` 提示；不做大小写折叠、短名映射或静默回退。本项修订 §24.2 与 §24.3 中 `--resource-type` 可缺省的旧口径。
+
+CONFIRMED：`--help` 必须向用户说明以下内容，且与真实行为一致：
+
+* **模板必填**（与逐行导入校验一致）：`cluster`、`hostname`、`resource_type`、`name`、`ip`；`VIRTUAL_MACHINE` 行另需 `host`。脚本无法自动获得、须经参数或人工补全的模板必填项为 `cluster`（及 VM 的 `host`）。
+* **`--push` 必填**：`--api-url`、API Key（环境变量 `CSM_API_KEY` 或 `--api-key`）、`--cluster`；`--resource-type` 因全局必填自动满足。需明确「脚本必填 ≠ 模板必填」：未提供 `--cluster` 仍可生成离线 CSV，仅 `--push` 被拒绝。
+* **枚举参数可填值**：`--resource-type` = `BARE_METAL` / `VIRTUAL_MACHINE`；`--role` = `COMPUTE` / `LOGIN` / `MANAGEMENT` / `STORAGE` / `SERVICE` / `GPU` / `OTHER`；`--status` = `IDLE` / `ALLOC` / `DOWN` / `UNKNOWN`；取值与 §24.1 / F023 §6 一致。
+* **引用型参数语义**：`--cluster` 为 Cluster `code`（大小写不敏感）或 UUID，须存在且未软删；`--host` 为同 cluster 内已存在、未软删的 `BARE_METAL` Host 的 hostname 或 UUID；`--network` 为同 cluster Network `name` 或 CIDR，留空时由 `ip` 的 `/mask` 解析。
+
+CONFIRMED：针对不同类型生成不同的导入文件，但**不改变模板、列集、端点或导入行为**：
+
+* 两次运行分别使用 `--resource-type BARE_METAL` / `VIRTUAL_MACHINE`；仍使用 §24.1 / F023 §6 冻结的同一 26 列宽模板（同一表头、同一列序）与同一 F023 导入端点 `/api/v1/imports/resource-interfaces-ips`（预校验 `/validate`）。
+* 只填充该类型适用列：BM 填硬件列并保持 `host` / `vcpu` / `disk_gb` / `hypervisor` 为空；VM 填 `host` / `vcpu` / `disk_gb` / `hypervisor` 并保持硬件列为空（沿用 F023 §6.1 逐行适用性）。一次运行只产出一类行，不生成 BM/VM 混合文件。
+* 未指定 `-o/--output` 时，默认文件名按类型区分：`csm_host_info_bare_metal.csv` / `csm_host_info_virtual_machine.csv`；显式 `-o/--output` 优先。`--print` 只输出 stdout、不写文件，即使同时给出 `-o`；`--no-header` 语义不变。
+* 非法 `--role` / `--status` 等枚举参数同样在本地失败：非零退出、不写文件、不输出 CSV、不联网，错误信息列出允许值。
+
+保持不变（无回归边界）：`--cluster`、`--role`、`--status`、`--host`、`--network` 未提供时仍留空；`--push` 仍按 §24 两步流程先预校验、经 `--yes` 再写入，API Key 不落盘、不写日志或输出；默认离线只读，无 `--push` 时零网络请求；列名与列序与 F023 §6 26 列逐字一致；**不修改** F014（BM 14 / VM 10 列模板）与 F023（26 列模板、端点、校验、上限、错误口径）的需求、契约与实现行为。
+
+验收：T100–T106。
 
 ## 25. API
 
@@ -534,18 +556,25 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 | T70 | VM 行的 Host 必须已存在且同 Cluster；不存在时整批失败，不隐式创建 Host / Network / Pool / Cluster |
 | T71 | 导入复用与普通 API 相同的 Service Layer 校验：API 与导入对 hostname / interface name / IP 唯一性结果一致（不得绕过） |
 | T72 | 无 `IMPORT` 权限被拒绝；未定义列 / 缺列 / 列序不符按契约 422；超限 413 |
-| T73 | 采集脚本在代表性 Linux 主机运行成功并产出文件；表头列名与列序与 §24.1 冻结模板逐字一致；无法采集的业务字段为空，不写占位值 |
+| T73 | 采集脚本在代表性 Linux 主机运行成功并产出文件；表头列名与列序与 §24.1 冻结模板逐字一致；无法采集的业务字段为空（`resource_type` 除外，由 §24.4 必填参数提供），不写占位值 |
 | T74 | 可采集字段值符合 D01 归一化与单位口径（MiB / GiB / Mbps / bytes）；未知值留空，不以 0 或推断值替代 |
 | T75 | 脚本全程只读、不发网络写、不写 CSM；同一主机重复运行产出稳定（除易变项外字段与顺序一致） |
 | T76 | 无 root 时特权字段留空且脚本不报错、不自动提权；可免 root 读取的字段优先从免特权来源获取 |
 | T77 | 产出文件经真实导入预校验仅报人工待补字段的行级错误，无表头 / 列 / 格式类错误；人工补全后可通过预校验 |
 | T78 | 脚本不修改 F014 / F023 模板与契约，既有导入行为无回归；内嵌模板与冻结列集的一致性由测试守护 |
-| T79 | `--cluster` / `--resource-type` / `--role` / `--status` / `--host` / `--network` 写入对应列；未提供字段仍留空；参数补全后无需手工编辑文件即可通过预校验（除仍无法获得字段） |
+| T79 | `--cluster` / `--resource-type` / `--role` / `--status` / `--host` / `--network` 写入对应列；除 `--resource-type` 外的未提供字段仍留空；参数补全后无需手工编辑文件即可通过预校验（除仍无法获得字段） |
 | T80 | `--resource-type BARE_METAL` / `VIRTUAL_MACHINE` 同时写入该列并仅填充对应类型专属列，不违反 §24.1 逐行适用性 |
 | T81 | `--print` 输出到 stdout 且不写文件；默认仍写文件；`--print` 默认含表头，`--print --no-header` 首行即数据行；输出列名/列序仍与冻结 26 列一致 |
 | T82 | `--push` 使用有效 API Key：先调用预校验并展示结果，未确认前不写入；显式确认后调用写入端点；写入沿用整批原子回滚、无部分成功 |
 | T83 | API Key 缺失/格式非法/无效/过期返回 401 且脚本以非零状态退出；Key 不出现在 stdout、日志或错误信息；不持久化到磁盘 |
-| T84 | 默认（未启用 `--push`）仍完全离线、不发起任何网络请求；F024 既有文件输出、表头与 T73–T78 行为无回归 |
+| T84 | 默认（未启用 `--push`）仍完全离线、不发起任何网络请求；除 §24.4 明示的 `--resource-type` 必填与按类型默认文件名外，F024 既有文件输出、表头与 T73–T78 行为无回归 |
+| T100 | `--help` 输出：`--resource-type` 标注必填并列出 `BARE_METAL` / `VIRTUAL_MACHINE`；`--role` / `--status` 列出全部允许值；`--cluster` / `--host` / `--network` 说明引用对象与“须已存在”语义；按「模板必填」与「`--push` 必填」分区说明，且与真实行为一致 |
+| T101 | 缺少 `--resource-type` 的任一调用形式（无参、仅 `--print`、仅 `-o`、仅 `--push`）→ 非零退出；stderr 含缺失必填说明与允许值；不创建/不覆盖输出文件；stdout 无 CSV 行；零网络请求 |
+| T102 | `--resource-type BARE_METAL`：`resource_type` 列为 `BARE_METAL`；硬件列可填；`host` / `vcpu` / `disk_gb` / `hypervisor` 恒为空；表头为 F023 §6 冻结 26 列且同序 |
+| T103 | `--resource-type VIRTUAL_MACHINE`：`resource_type` 列为 `VIRTUAL_MACHINE`；硬件列恒为空；`--host` 未提供时 `host` 留空且不推断、提供时写入；`vcpu` / `disk_gb` / `hypervisor` 可填 |
+| T104 | 默认输出文件名按类型区分，BM 与 VM 两次运行产出文件不同且不互相覆盖；`-o/--output` 显式路径优先；`--print` 时仍不写文件（即使给了 `-o`） |
+| T105 | 非法 `--resource-type`（小写、短名、空串、未知值）及其他枚举参数非法值 → 本地 fail-fast：非零退出、不写文件、stdout 无 CSV、零网络请求、错误列出允许值；不回退为留空/默认值、不做大小写折叠或短名映射 |
+| T106 | 契约零 diff 与无回归：`docs/api/F023.md` §6 列集/端点/校验/上限/错误口径零改动，`docs/api/F014.md` 未改动；`--print` / `--no-header` / `-o` / `--push`（预校验→`--yes`→写入、Key 不落盘不漏出）语义不变；T75、T77、T82、T83 行为无回归；无 `--push` 时零网络请求 |
 | T85 | 仅授权 A、B 的账号按 ID 读取 C 集群任一业务对象被拒绝（404，不泄露存在性或业务字段） |
 | T86 | 同一账号对 C 集群对象的新增、修改、删除、释放、恢复均被拒绝；A、B 集群按角色矩阵正常 |
 | T87 | 各域列表与 `total` 仅覆盖可见集群；分页不出现“空页但 total>0” |
@@ -596,6 +625,7 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 | revision 9 / 2026-10-20 | 用户提出「新增一个 linux 脚本（python 或者 shell），用于直接获取系统内的信息，生成模板输出，方便导入」，并就 BQ1–BQ5 回复“按推荐执行”并授权实施，确认为：脚本为离线、只读、手动运行的导入模板**生产者**（非平台自动采集，不改变 §3 / §34 排除项）；输出 §24.1 已冻结模板（默认 CSV）；无法获得的业务 / 归属字段留空由人工补全，不写占位 / 推断值；无 root 时特权字段留空且不报错、不自动提权；不修改 F014 / F023 模板与既有导入行为；作为仓库正式交付物纳入 Feature。新增 §24.2 与 T73–T78 |
 | revision 10 / 2026-10-20 | 用户就 F024 脚本提出「参数支持添加需要补全的信息（免手改 CSV）、支持打印、支持带/不带表头、支持通过 API + API Key 推送」，回复“按推荐执行并实施”，确认为：新增 CLI 参数补全默认留空字段且 `--resource-type` 写列并决定类型列；`--print` 输出 stdout、`--no-header` 控制表头、默认仍写文件；`--push` 经 API Key 按 §24 两步流程调用 F023 导入端点（先预校验后确认写入）、Key 不落盘不记录；默认仍离线只读，仅 `--push` 时连接 CSM。相应修订 §24.2 边界。新增 §24.3 与 T79–T84 |
 | revision 11 / 2026-10-21 | 用户提出「访问权限控制功能新增，可以控制用户访问的集群（如只能访问 a、b 集群，其他禁止访问）」，随后回复“批准并实施”，批准变更提案 `docs/project/proposals/CHG-010-cluster-access.md` 与候选计划 revision 14（F026–F028）及第 6 节推荐裁定组合（CHG010-BQ01–BQ17），授权实施。确认为：在基础角色之上新增 Cluster 级账号授权；有效权限 = 角色矩阵 ∩ 集群范围；ADMIN 不受限且不建授权行；非 ADMIN 默认拒绝；读写同时受限；未授权集群完全不可见；API Key 继承绑定账号范围；非 ADMIN 永不可见已删对象；仅 ADMIN 管理授权；授予/撤销写 Audit 并保留撤销历史；Cluster INACTIVE 不改变授权、软删期间不生效、恢复后恢复；新建 Cluster 不自动授予；ADMIN 降级立即按既有授权；越权非 ADMIN 统一 404；迁移回填既有非 ADMIN × 既有 Cluster（含软删 Cluster）；导入/批量绑定/`--push` 同口径；不引入资源实例级或复杂 RBAC。收窄 §3 / §23 / §23.1 排除项并新增 §23.2、T85–T99。替代此前 §23「不实现 Cluster 级复杂 RBAC」及 §23.1「Cluster 级或资源实例级复杂 RBAC」的绝对表述 |
+| revision 12 / 2026-10-23 | 用户提出「可执行脚本还需要更新，--help 针对于必填项，如果是枚举类型，应告知可以填写的类型，针对于不同的类型，应该生成不同的导入方式」，随后确认「`--resource-type` 是必填项」并确认推荐组合 D/3/A。确认为：`--resource-type` 全局必填（`BARE_METAL` / `VIRTUAL_MACHINE`），缺失或非法时本地失败且无文件/无 CSV/无网络副作用；`--help` 分区说明模板必填与 `--push` 必填，列出 `--role` / `--status` 枚举值和 `--cluster` / `--host` / `--network` 引用语义；仍使用 F023 同一 26 列模板与同一导入端点，按类型只填适用列并生成按类型区分的默认 CSV，`-o` 优先、`--print` 不写文件；非法枚举本地 fail-fast，不做大小写折叠或短名映射；不改 F014 / F023 模板、契约、端点、Schema、前端或权限。新增 §24.4 与 T100–T106，修订 §24.2 / §24.3 / T73 / T79 / T84 |
 
 | 原 ID | 已确认内容所在条款 | 尚需处理的部分 |
 | --- | --- | --- |
@@ -645,8 +675,8 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ## 36. 文档建立状态
 
-> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 11。
+> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 12。
 
-需求基线为 revision 11：revision 3 的六项业务问题已关闭、V3 一期 F001–F028 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53）、revision 6 新增 §13.4 接口侧选择绑定（T54–T58）、revision 7 新增 §28 二次确认模态对话框条款（T59–T63）、revision 8 新增 §24.1 资源+网卡+IP 批量导入（T64–T72）、revision 9 新增 §24.2 离线主机信息采集脚本（T73–T78）、revision 10 新增 §24.3 采集脚本增强（参数补全/打印/API 推送，T79–T84）并修订 §24.2 边界、revision 11 新增 §23.2 集群范围授权（T85–T99）并收窄 §3 / §23 / §23.1 排除项，均已按变更控制批准并随 F026–F028 交付。
+需求基线为 revision 12：revision 3 的六项业务问题已关闭、V3 一期 F001–F028 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53）、revision 6 新增 §13.4 接口侧选择绑定（T54–T58）、revision 7 新增 §28 二次确认模态对话框条款（T59–T63）、revision 8 新增 §24.1 资源+网卡+IP 批量导入（T64–T72）、revision 9 新增 §24.2 离线主机信息采集脚本（T73–T78）、revision 10 新增 §24.3 采集脚本增强（参数补全/打印/API 推送，T79–T84）并修订 §24.2 边界、revision 11 新增 §23.2 集群范围授权（T85–T99）并收窄 §3 / §23 / §23.1 排除项、revision 12 新增 §24.4 采集脚本类型必填/帮助信息/按类型生成（T100–T106）并修订 §24.2 / §24.3 / T73 / T79 / T84。
 
 revision 3 的内容继续成立：六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F028 已全部交付并合入 `v3.2` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T99 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
