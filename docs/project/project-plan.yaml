@@ -2017,8 +2017,8 @@ features:
   - F025
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: Backend 实现 CLI 变更、测试与文档，产出 implementation.md。
+  current_stage: TEST
+  next_action: Tester 独立执行 TEST（含真实 F023 /validate 预校验）。
   layers:
     database: false
     backend: false
@@ -2048,7 +2048,7 @@ features:
     - docs/database/f032-collector-cli.md
     test_design:
     - docs/features/F032/test-report.md#11-test-designtd-2--v2--2026-10-23
-  last_result: TD-2 TEST DESIGN READY；Architect READY FOR IMPLEMENTATION；Contract NOT_REQUIRED。
+  last_result: Backend 实现完成；脚本单测 83/83、scripts 全量 112/112 通过；真实 /validate 待 TEST。
   git:
     base_branch: v3.3
     branch: feature/F032-collector-help-type-import
@@ -2450,9 +2450,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 回复「批准 plan revision 18 并实施 F032」。
   current_feature: F032
-  current_stage: IMPLEMENTATION
-  last_result: TD-2 TEST DESIGN READY；Architect READY FOR IMPLEMENTATION；Contract NOT_REQUIRED。
-  next_action: Backend 实现 CLI 变更、测试与文档，产出 implementation.md。
+  current_stage: TEST
+  last_result: Backend 实现完成；脚本单测 83/83、scripts 全量 112/112 通过；真实 /validate 待 TEST。
+  next_action: Tester 独立执行 TEST（含真实 F023 /validate 预校验）。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

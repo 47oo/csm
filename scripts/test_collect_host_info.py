@@ -1,6 +1,8 @@
-"""F024 离线主机信息采集脚本的单元测试（T73–T78 的自动化部分）。
+"""F024 / F025 / F032 离线主机信息采集脚本的单元测试。
 
-仅使用标准库与 unittest，可在无 root、无 CSM 网络、无真实硬件的环境中运行。
+覆盖 T73–T78（F024）、T79–T84（F025）、T100–T106 与 TD-2 R-1–R-5（F032）。
+仅使用标准库与 unittest，可在无 root、无 CSM 网络、无真实硬件的环境中运行；
+默认文件名用例在临时目录内运行，不在仓库留下 csm_host_info*.csv。
 """
 
 import argparse
@@ -9,8 +11,11 @@ import csv
 import io
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
+import urllib.request
 
 import collect_host_info
 from collect_host_info import (
@@ -419,7 +424,7 @@ class EnhancementTests(unittest.TestCase):
                 path = os.path.join(tmp, "out.csv")
                 buffer = io.StringIO()
                 with contextlib.redirect_stdout(buffer):
-                    rc = main(["--print", "-o", path])
+                    rc = main(["--print", "--resource-type", "BARE_METAL", "-o", path])
                 self.assertEqual(rc, 0)
                 self.assertFalse(os.path.exists(path))
                 self.assertTrue(buffer.getvalue().startswith("cluster,"))
@@ -433,7 +438,7 @@ class EnhancementTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as tmp:
                 path = os.path.join(tmp, "out.csv")
                 with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                    rc = main(["-o", path])
+                    rc = main(["--resource-type", "BARE_METAL", "-o", path])
                 self.assertEqual(rc, 0)
                 with open(path, "rb") as handle:
                     self.assertEqual(handle.read(3), b"\xef\xbb\xbf")
@@ -531,11 +536,501 @@ class EnhancementTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as tmp:
                 path = os.path.join(tmp, "out.csv")
                 with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                    rc = main(["-o", path])
+                    rc = main(["--resource-type", "BARE_METAL", "-o", path])
             self.assertEqual(rc, 0)
         finally:
             collect_host_info.collect = original_collect
             collect_host_info.post_import = original_post
+
+
+# ---------------------------------------------------------------------------
+# F032：–resource-type 必填、帮助分区、按类型默认文件名、非法枚举 fail-fast
+# （T100–T106、TD-2 R-1–R-5；见 docs/features/F032/architecture.md）
+# ---------------------------------------------------------------------------
+
+SAMPLE_IFACE = {"name": "eth0", "interface_type": "OTHER", "mac_address": "aa:bb:cc:dd:ee:ff",
+                "speed_mbps": "10000", "mtu": "1500", "enabled": "true", "ip": "10.0.0.5/24"}
+
+
+def _parse_csv(text):
+    """将 CSV 文本解析为 list[list[str]]（首行为表头）。"""
+    return list(csv.reader(io.StringIO(text)))
+
+
+def _column_values(rows, column):
+    """返回数据行（不含表头）在指定列上的取值列表。"""
+    index = rows[0].index(column)
+    return [row[index] for row in rows[1:]]
+
+
+class _CliTestCase(unittest.TestCase):
+    """CLI 用例基类：临时工作目录隔离 + 采集/网络探针（默认禁止真实副作用）。"""
+
+    def setUp(self):
+        self._saved_cwd = os.getcwd()
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmpdir.cleanup)
+        os.chdir(self._tmpdir.name)
+        self.addCleanup(os.chdir, self._saved_cwd)
+        self.collect_calls = 0
+        self.network_calls = 0
+        self._patch(collect_host_info, "collect", self._fake_collect)
+        self._patch(collect_host_info, "post_import", self._fake_post)
+        self._patch(urllib.request, "urlopen", self._fake_urlopen)
+
+    # -- 测试基础设施 ---------------------------------------------------
+
+    def _patch(self, target, attr, value):
+        original = getattr(target, attr)
+        setattr(target, attr, value)
+        self.addCleanup(setattr, target, attr, original)
+
+    def _fake_collect(self, resource_type=None, include_loopback=False, include_down=False, manual=None):
+        self.collect_calls += 1
+        return _sample_rows(manual, resource_type)
+
+    def _fake_post(self, *args, **kwargs):
+        self.network_calls += 1
+        raise AssertionError("post_import must not be called")
+
+    def _fake_urlopen(self, *args, **kwargs):
+        self.network_calls += 1
+        raise AssertionError("urlopen must not be called")
+
+    def _run_main(self, argv):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = main(argv)
+        return rc, out.getvalue(), err.getvalue()
+
+    def _run_main_expect_exit(self, argv):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit) as raised:
+                main(argv)
+        return raised.exception.code, out.getvalue(), err.getvalue()
+
+    def _assert_no_local_side_effect(self, out):
+        self.assertEqual(self.collect_calls, 0, "参数错误必须在采集前终止（DR-1008）")
+        self.assertEqual(self.network_calls, 0, "参数错误不得发起网络请求")
+        self.assertFalse(out.strip(), "参数错误不得向 stdout 输出 CSV 行")
+        self.assertEqual(os.listdir(self._tmpdir.name), [], "参数错误不得创建文件")
+
+
+class CliHelpTests(unittest.TestCase):
+    """T100 / R-1 / R-5：--help 分区说明与真实 choices 一致，且离线生成。"""
+
+    def setUp(self):
+        self.parser = collect_host_info.build_parser()
+        self.help_text = self.parser.format_help()
+        self.epilog = collect_host_info.build_epilog()
+
+    def test_help_marks_type_required_with_both_values(self):
+        self.assertIn("--resource-type", self.help_text)
+        self.assertIn("必填", self.help_text)
+        for value in collect_host_info.RESOURCE_TYPE_VALUES:
+            self.assertIn(value, self.help_text)
+
+    def test_help_lists_all_role_values(self):
+        self.assertIn("--role", self.epilog)
+        for value in collect_host_info.ROLE_VALUES:
+            self.assertIn(value, self.epilog)
+
+    def test_help_lists_all_status_values(self):
+        self.assertIn("--status", self.epilog)
+        for value in collect_host_info.STATUS_VALUES:
+            self.assertIn(value, self.epilog)
+
+    def test_help_has_template_required_section(self):
+        # DR-1004 ①：模板必填列与 VM 额外的 host。
+        self.assertIn("模板必填", self.epilog)
+        for column in collect_host_info.TEMPLATE_REQUIRED_COLUMNS:
+            self.assertIn(column, self.epilog)
+        self.assertIn("VIRTUAL_MACHINE 行另需 host", self.epilog)
+
+    def test_help_has_push_required_section(self):
+        # DR-1004 ②：--push 必填与「脚本必填 ≠ 模板必填」。
+        self.assertIn("--push 必填", self.epilog)
+        self.assertIn("--api-url", self.epilog)
+        self.assertIn("CSM_API_KEY", self.epilog)
+        self.assertIn("脚本必填 ≠ 模板必填", self.epilog)
+        self.assertIn("未提供 --cluster 仍可离线生成 CSV", self.epilog)
+
+    def test_help_reference_semantics(self):
+        # DR-1004 ④：引用型参数的寻址与「须已存在且未软删」语义。
+        self.assertIn("Cluster code", self.epilog)
+        self.assertIn("UUID", self.epilog)
+        self.assertIn("hostname 或 UUID", self.epilog)
+        self.assertIn("CIDR", self.epilog)
+        self.assertIn("须存在且未软删", self.epilog)
+        self.assertIn("/mask", self.epilog)
+
+    def test_help_states_host_applicability(self):
+        # TD-2 R-1：--host 仅适用于 VM，BM 行 host 恒空。
+        self.assertIn("仅适用于 VIRTUAL_MACHINE", self.epilog)
+        self.assertIn("BARE_METAL 行 host 恒空", self.epilog)
+
+    def test_epilog_values_equal_parser_choices(self):
+        # DR-1014 / B-19：帮助文本与真实 choices/required 不得漂移。
+        actions = {action.dest: action for action in self.parser._actions}
+        self.assertEqual(tuple(actions["resource_type"].choices), collect_host_info.RESOURCE_TYPE_VALUES)
+        self.assertEqual(tuple(actions["role"].choices), collect_host_info.ROLE_VALUES)
+        self.assertEqual(tuple(actions["status"].choices), collect_host_info.STATUS_VALUES)
+        self.assertTrue(actions["resource_type"].required)
+        for value in collect_host_info.ROLE_VALUES:
+            self.assertIn(value, self.epilog)
+        for value in collect_host_info.STATUS_VALUES:
+            self.assertIn(value, self.epilog)
+
+    def test_help_makes_no_network_call(self):
+        # B-18：help/epilog 离线生成，不请求 F023 模板端点。
+        original_post = collect_host_info.post_import
+        original_open = urllib.request.urlopen
+
+        def boom(*args, **kwargs):
+            raise AssertionError("help must not call network")
+
+        collect_host_info.post_import = boom
+        urllib.request.urlopen = boom
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaises(SystemExit) as raised:
+                    main(["--help"])
+        finally:
+            collect_host_info.post_import = original_post
+            urllib.request.urlopen = original_open
+        self.assertEqual(raised.exception.code, 0)
+
+
+class RequiredResourceTypeTests(_CliTestCase):
+    """T101：任调用形式缺 --resource-type 均本地失败，且零副作用。"""
+
+    def _assert_fail(self, argv):
+        code, out, err = self._run_main_expect_exit(argv)
+        self.assertEqual(code, 2)
+        self.assertIn("--resource-type", err)
+        for value in collect_host_info.RESOURCE_TYPE_VALUES:
+            self.assertIn(value, err)
+        self.assertIn("--help", err)
+        self._assert_no_local_side_effect(out)
+
+    def test_missing_type_no_args(self):
+        self._assert_fail([])
+
+    def test_missing_type_only_print(self):
+        self._assert_fail(["--print"])
+
+    def test_missing_type_only_output(self):
+        sentinel = os.path.join(self._tmpdir.name, "sentinel.csv")
+        with open(sentinel, "wb") as handle:
+            handle.write(b"sentinel-bytes")
+        code, out, err = self._run_main_expect_exit(["-o", sentinel])
+        self.assertEqual(code, 2)
+        self.assertIn("--resource-type", err)
+        with open(sentinel, "rb") as handle:
+            self.assertEqual(handle.read(), b"sentinel-bytes", "已存在文件不得被覆盖")
+        self.assertEqual(self.collect_calls, 0)
+        self.assertEqual(self.network_calls, 0)
+        self.assertFalse(out.strip())
+
+    def test_missing_type_only_push(self):
+        self._assert_fail(["--push", "--api-url", "http://localhost:18080",
+                           "--api-key", "f032-key", "--cluster", "F032CHK", "--yes"])
+
+    def test_missing_type_subprocess_rc(self):
+        script = os.path.abspath(collect_host_info.__file__)
+        completed = subprocess.run([sys.executable, script, "--print"],
+                                   cwd=self._tmpdir.name, capture_output=True, text=True)
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("--resource-type", completed.stderr)
+        self.assertEqual(sorted(os.listdir(self._tmpdir.name)), [])
+
+
+class BmOutputTests(_CliTestCase):
+    """T102 / R-2：BM 行内容、冻结 26 列表头与 BM + --host 反例。"""
+
+    def test_bm_row_type_and_hardware_columns(self):
+        rows = build_rows("node-a1", "32000", {"model": "Xeon", "sockets": "2", "cores": "40"},
+                          {"manufacturer": "Dell", "model": "R740", "serial_number": "S"},
+                          {"model": "A100", "count": "2"},
+                          {"vcpu": "8", "disk_gb": "100", "hypervisor": "kvm"},
+                          [dict(SAMPLE_IFACE)], "BARE_METAL")
+        row = rows[0]
+        self.assertEqual(row["resource_type"], "BARE_METAL")
+        self.assertEqual(row["manufacturer"], "Dell")
+        self.assertEqual(row["gpu_count"], "2")
+        for column in ("host", "vcpu", "disk_gb", "hypervisor"):
+            self.assertEqual(row[column], "")
+
+    def test_bm_header_is_frozen_26_columns(self):
+        rc, out, _ = self._run_main(["--print", "--resource-type", "BARE_METAL"])
+        self.assertEqual(rc, 0)
+        rows = _parse_csv(out)
+        self.assertEqual(rows[0], FROZEN_COLUMNS)
+        self.assertEqual(sorted({value for value in _column_values(rows, "resource_type")}), ["BARE_METAL"])
+
+    def test_bm_cli_print_rows(self):
+        rc, out, _ = self._run_main(["--print", "--resource-type", "BARE_METAL"])
+        self.assertEqual(rc, 0)
+        rows = _parse_csv(out)
+        for column in ("host", "vcpu", "disk_gb", "hypervisor"):
+            self.assertEqual(set(_column_values(rows, column)), {""})
+
+    def test_bm_with_host_rejected(self):
+        # DR-1015 / R-2：BM + 非空 --host 属非法用法。
+        code, out, err = self._run_main_expect_exit(
+            ["--print", "--resource-type", "BARE_METAL", "--host", "f032host"])
+        self.assertEqual(code, 2)
+        self.assertIn("--host", err)
+        self.assertIn("VIRTUAL_MACHINE", err)
+        self._assert_no_local_side_effect(out)
+
+    def test_bm_with_host_rejected_does_not_touch_output(self):
+        sentinel = "sentinel.csv"
+        with open(sentinel, "wb") as handle:
+            handle.write(b"sentinel-bytes")
+        code, out, _ = self._run_main_expect_exit(
+            ["--resource-type", "BARE_METAL", "--host", "f032host", "-o", sentinel])
+        self.assertEqual(code, 2)
+        with open(sentinel, "rb") as handle:
+            self.assertEqual(handle.read(), b"sentinel-bytes")
+        self.assertFalse(os.path.exists("csm_host_info_bare_metal.csv"))
+        self.assertEqual(self.collect_calls, 0)
+        self.assertEqual(self.network_calls, 0)
+        self.assertFalse(out.strip())
+
+    def test_bm_host_empty_string_is_unset(self):
+        # DR-1015 / R-2：--host "" 视为未提供。
+        rc, out, _ = self._run_main(["--print", "--resource-type", "BARE_METAL", "--host", ""])
+        self.assertEqual(rc, 0)
+        self.assertEqual(set(_column_values(_parse_csv(out), "host")), {""})
+
+    def test_vm_host_still_accepted(self):
+        # 防误伤 T103：VM + --host 仍写入。
+        rc, out, _ = self._run_main(["--print", "--resource-type", "VIRTUAL_MACHINE",
+                                     "--host", "f032host"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(set(_column_values(_parse_csv(out), "host")), {"f032host"})
+
+    def test_bm_with_host_subprocess_rc(self):
+        script = os.path.abspath(collect_host_info.__file__)
+        completed = subprocess.run(
+            [sys.executable, script, "--print", "--resource-type", "BARE_METAL", "--host", "f032host"],
+            cwd=self._tmpdir.name, capture_output=True, text=True)
+        self.assertEqual(completed.returncode, 2)
+        self.assertFalse(completed.stdout.strip())
+        self.assertIn("--host", completed.stderr)
+
+
+class VmOutputTests(_CliTestCase):
+    """T103：VM 行内容与 host 可选用法。"""
+
+    def test_vm_row_type_and_vm_columns(self):
+        rows = build_rows("node-a1", "32000", {"model": "Xeon", "sockets": "2", "cores": "40"},
+                          {"manufacturer": "Dell", "model": "R740", "serial_number": "S"},
+                          {"model": "A100", "count": "2"},
+                          {"vcpu": "8", "disk_gb": "100", "hypervisor": "kvm"},
+                          [dict(SAMPLE_IFACE)], "VIRTUAL_MACHINE")
+        row = rows[0]
+        self.assertEqual(row["resource_type"], "VIRTUAL_MACHINE")
+        self.assertEqual(row["vcpu"], "8")
+        self.assertEqual(row["disk_gb"], "100")
+        self.assertEqual(row["hypervisor"], "kvm")
+        for column in ("manufacturer", "model", "serial_number", "cpu_model",
+                       "cpu_sockets", "cpu_cores", "gpu_model", "gpu_count"):
+            self.assertEqual(row[column], "")
+
+    def test_vm_host_absent_is_empty(self):
+        rc, out, _ = self._run_main(["--print", "--resource-type", "VIRTUAL_MACHINE"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(set(_column_values(_parse_csv(out), "host")), {""})
+
+    def test_vm_header_is_frozen_26_columns(self):
+        rc, out, _ = self._run_main(["--print", "--resource-type", "VIRTUAL_MACHINE"])
+        self.assertEqual(rc, 0)
+        rows = _parse_csv(out)
+        self.assertEqual(rows[0], FROZEN_COLUMNS)
+        self.assertEqual(sorted({value for value in _column_values(rows, "resource_type")}),
+                         ["VIRTUAL_MACHINE"])
+
+
+class DefaultOutputNameTests(_CliTestCase):
+    """T104 / DR-1005 / DR-1006：类型化默认名与输出优先级。"""
+
+    def test_bm_default_filename(self):
+        rc, out, _ = self._run_main(["--resource-type", "BARE_METAL"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "")
+        self.assertTrue(os.path.exists("csm_host_info_bare_metal.csv"))
+        self.assertFalse(os.path.exists("csm_host_info_virtual_machine.csv"))
+
+    def test_vm_default_filename(self):
+        rc, _, _ = self._run_main(["--resource-type", "VIRTUAL_MACHINE"])
+        self.assertEqual(rc, 0)
+        self.assertTrue(os.path.exists("csm_host_info_virtual_machine.csv"))
+        self.assertFalse(os.path.exists("csm_host_info_bare_metal.csv"))
+
+    def test_two_runs_do_not_overwrite(self):
+        self._run_main(["--resource-type", "BARE_METAL"])
+        with open("csm_host_info_bare_metal.csv", "rb") as handle:
+            bm_bytes = handle.read()
+        self._run_main(["--resource-type", "VIRTUAL_MACHINE"])
+        with open("csm_host_info_bare_metal.csv", "rb") as handle:
+            self.assertEqual(handle.read(), bm_bytes)
+        with open("csm_host_info_virtual_machine.csv", encoding="utf-8-sig", newline="") as handle:
+            rows = list(csv.reader(handle))
+        self.assertEqual(set(_column_values(rows, "resource_type")), {"VIRTUAL_MACHINE"})
+
+    def test_output_flag_overrides_default(self):
+        rc, _, _ = self._run_main(["--resource-type", "BARE_METAL", "-o", "custom.csv"])
+        self.assertEqual(rc, 0)
+        self.assertTrue(os.path.exists("custom.csv"))
+        self.assertFalse(os.path.exists("csm_host_info_bare_metal.csv"))
+
+    def test_print_with_output_writes_nothing(self):
+        rc, out, _ = self._run_main(["--print", "--resource-type", "BARE_METAL", "-o", "p.csv"])
+        self.assertEqual(rc, 0)
+        self.assertTrue(out.startswith("cluster,"))
+        self.assertFalse(os.path.exists("p.csv"))
+        self.assertFalse(os.path.exists("csm_host_info_bare_metal.csv"))
+
+    def test_legacy_default_name_not_used(self):
+        self._run_main(["--resource-type", "BARE_METAL"])
+        self.assertFalse(os.path.exists("csm_host_info.csv"))
+
+
+class InvalidEnumTests(_CliTestCase):
+    """T105 / R-3：非法枚举与空串枚举本地 fail-fast，无大小写折叠/短名映射。"""
+
+    def _assert_enum_failure(self, argv, expected_values):
+        code, out, err = self._run_main_expect_exit(argv)
+        self.assertEqual(code, 2)
+        for value in expected_values:
+            self.assertIn(value, err)
+        self.assertIn("--help", err)
+        self._assert_no_local_side_effect(out)
+
+    def test_invalid_resource_type_values(self):
+        for value in ("bare_metal", "Bare_Metal", "bm", "", "PHYSICAL", "bare metal"):
+            with self.subTest(value=value):
+                self._assert_enum_failure(["--print", "--resource-type", value],
+                                          collect_host_info.RESOURCE_TYPE_VALUES)
+
+    def test_invalid_role_values(self):
+        for value in ("compute", "ADMIN"):
+            with self.subTest(value=value):
+                self._assert_enum_failure(
+                    ["--print", "--resource-type", "BARE_METAL", "--role", value],
+                    collect_host_info.ROLE_VALUES)
+
+    def test_invalid_status_values(self):
+        self._assert_enum_failure(
+            ["--print", "--resource-type", "BARE_METAL", "--status", "running"],
+            collect_host_info.STATUS_VALUES)
+
+    def test_empty_string_enum_rejected(self):
+        # DR-1016 / R-3：--role "" / --status "" 必为 rc=2（不回退为「未提供」）。
+        for option, values in (("--role", collect_host_info.ROLE_VALUES),
+                               ("--status", collect_host_info.STATUS_VALUES)):
+            with self.subTest(option=option, mode="print"):
+                self._assert_enum_failure(
+                    ["--print", "--resource-type", "BARE_METAL", option, ""], values)
+        sentinel = os.path.join(self._tmpdir.name, "sentinel.csv")
+        with open(sentinel, "wb") as handle:
+            handle.write(b"sentinel-bytes")
+        code, out, err = self._run_main_expect_exit(
+            ["--resource-type", "BARE_METAL", "--role", "", "-o", sentinel])
+        self.assertEqual(code, 2)
+        self.assertIn("LOGIN", err)
+        with open(sentinel, "rb") as handle:
+            self.assertEqual(handle.read(), b"sentinel-bytes")
+        self.assertEqual(self.collect_calls, 0)
+        self.assertEqual(self.network_calls, 0)
+        self.assertFalse(out.strip())
+
+    def test_no_case_folding_no_alias(self):
+        # T105：小写与短名均不得被接受为 BARE_METAL。
+        for value in ("bare_metal", "bm", "BAREMETAL"):
+            with self.subTest(value=value):
+                code, _, _ = self._run_main_expect_exit(
+                    ["--print", "--resource-type", value])
+                self.assertEqual(code, 2)
+
+
+class FreeTextEmptyStringTests(_CliTestCase):
+    """DR-1016 / R-4：自由文本空串视为未提供；--push --cluster "" 行为不变。"""
+
+    def test_empty_free_text_is_unset(self):
+        rc, out, _ = self._run_main(
+            ["--print", "--resource-type", "BARE_METAL", "--cluster", "", "--network", ""])
+        self.assertEqual(rc, 0)
+        rows = _parse_csv(out)
+        self.assertEqual(set(_column_values(rows, "cluster")), {""})
+        self.assertEqual(set(_column_values(rows, "network")), {""})
+
+    def test_push_empty_cluster_behaviour_unchanged(self):
+        # 沿用 F025 `_push()` 前置校验：空 --cluster 仍拒绝推送（rc=2），且不发起请求。
+        rc, _, err = self._run_main(
+            ["--print", "--resource-type", "BARE_METAL", "--push",
+             "--api-url", "http://localhost:18080", "--api-key", "f032-key", "--cluster", ""])
+        self.assertEqual(rc, 2)
+        self.assertIn("--cluster", err)
+        self.assertEqual(self.network_calls, 0)
+
+
+class ContractMultipartTests(unittest.TestCase):
+    """T106 / DR-1009：端点与 multipart 上传文件名不变。"""
+
+    def test_multipart_filename_unchanged(self):
+        # DR-1009：上传文件名仍为 csm_host_info.csv，不随本地默认名变化。
+        captured = {}
+
+        class _FakeResponse:
+            status = 200
+
+            def read(self):
+                return b"{}"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc_info):
+                return False
+
+        def fake_urlopen(request, timeout=None):
+            captured["body"] = request.data
+            captured["url"] = request.get_full_url()
+            return _FakeResponse()
+
+        original = urllib.request.urlopen
+        urllib.request.urlopen = fake_urlopen
+        try:
+            status, _body = collect_host_info.post_import(
+                "http://localhost:18080", "f032-key", "/validate", b"cluster,hostname\n")
+        finally:
+            urllib.request.urlopen = original
+        self.assertEqual(status, 200)
+        self.assertIn(b'filename="csm_host_info.csv"', captured["body"])
+        self.assertTrue(captured["url"].endswith("/api/v1/imports/resource-interfaces-ips/validate"))
+
+
+class ContractGuardTests(_CliTestCase):
+    """T106：离线默认行为与 Key 不外泄不变。"""
+
+    def test_offline_run_has_no_network_and_no_api_key_write(self):
+        saved = os.environ.get("CSM_API_KEY")
+        os.environ["CSM_API_KEY"] = "f032-offline-secret"
+        try:
+            rc, out, err = self._run_main(["--print", "--resource-type", "BARE_METAL"])
+        finally:
+            if saved is None:
+                os.environ.pop("CSM_API_KEY", None)
+            else:
+                os.environ["CSM_API_KEY"] = saved
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.network_calls, 0)
+        self.assertNotIn("f032-offline-secret", out + err)
+        self.assertEqual(os.listdir(self._tmpdir.name), [], "--print 不写任何文件")
 
 
 if __name__ == "__main__":

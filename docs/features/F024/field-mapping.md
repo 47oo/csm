@@ -2,19 +2,28 @@
 
 脚本：`scripts/collect_host_info.py`（离线、只读、手动运行，仅 Python 3 标准库）。
 
+> **用法修订（requirements revision 12 / F032）**：`--resource-type` 为**必填**，默认文件名按类型区分，`--role` / `--status` 改为枚举。逐列采集与降级规则不变。
+
 ## 用法
 
 ```bash
-# 通用（仅填 BM/VM 共有列）
-python3 scripts/collect_host_info.py -o host.csv
+# 必填参数 --resource-type；未给 -o 时默认文件名按类型区分
+python3 scripts/collect_host_info.py --resource-type BARE_METAL
+#   → csm_host_info_bare_metal.csv
+python3 scripts/collect_host_info.py --resource-type VIRTUAL_MACHINE --host bm-node01
+#   → csm_host_info_virtual_machine.csv（host 仅适用于 VM，需为已存在的 BM Host）
 
-# 按类型填充类型专属列（不写入 resource_type 单元格）
+# 显式输出路径（-o 优先于类型默认名）
 python3 scripts/collect_host_info.py --resource-type BARE_METAL -o host.csv
-python3 scripts/collect_host_info.py --resource-type VIRTUAL_MACHINE -o host.csv
+
+# 只输出到标准输出（不写文件，即使给出 -o）
+python3 scripts/collect_host_info.py --resource-type BARE_METAL --print
 
 # 可选：包含 loopback / down 接口（默认排除）
-python3 scripts/collect_host_info.py --include-loopback --include-down -o host.csv
+python3 scripts/collect_host_info.py --resource-type BARE_METAL --include-loopback --include-down
 ```
+
+用法基线为 requirements revision 12（F032）：`--resource-type` 必填且仅 `BARE_METAL` / `VIRTUAL_MACHINE`；`--role` / `--status` 为枚举（见下表），非法值本地失败（退出码 2）且不写文件、不输出 CSV、不联网。
 
 输出为 CSV（UTF-8 BOM），表头与 `docs/api/F023.md` §6 冻结的 26 列逐字逐序一致。补全人工字段后经既有导入流程（预校验 → 确认 → 写入）导入。
 
@@ -22,12 +31,12 @@ python3 scripts/collect_host_info.py --include-loopback --include-down -o host.c
 
 | # | 列名 | 自动采集 | 来源 / 说明 |
 | --- | --- | --- | --- |
-| 1 | `cluster` | ✗ 人工 | CSM 业务归属，留空 |
+| 1 | `cluster` | ✗ 人工 | CSM 业务归属；未提供 `--cluster` 时留空（Cluster `code` 或 UUID；仅 `--push` 必填） |
 | 2 | `hostname` | ✓ | `/proc/sys/kernel/hostname` 或 `hostname`；trim + ASCII 小写折叠 |
-| 3 | `resource_type` | ✗ 人工 | 不推断；`--resource-type` 仅决定填哪些类型专属列，不写入本格 |
-| 4 | `role` | ✗ 人工 | 业务语义，留空 |
-| 5 | `status` | ✗ 人工 | 业务状态，留空 |
-| 6 | `host` | ✗ 人工 | VM Host 引用需 CSM 内已存在，留空 |
+| 3 | `resource_type` | ✓（参数） | 由必填参数 `--resource-type` 写入（`BARE_METAL` / `VIRTUAL_MACHINE`）；不推断、不写占位值 |
+| 4 | `role` | ✗ 人工 | `--role` 枚举 `COMPUTE`/`LOGIN`/`MANAGEMENT`/`STORAGE`/`SERVICE`/`GPU`/`OTHER`；未提供留空 |
+| 5 | `status` | ✗ 人工 | `--status` 枚举 `IDLE`/`ALLOC`/`DOWN`/`UNKNOWN`；未提供留空 |
+| 6 | `host` | ✗ 人工 | **仅 VM**：同 cluster 已存在、未软删的 BM Host hostname 或 UUID；`BARE_METAL` 行恒空（BM + 非空 `--host` 本地失败） |
 | 7 | `vcpu` | ✓（VM） | `os.cpu_count()`（逻辑 CPU） |
 | 8 | `memory_mb` | ✓ | `/proc/meminfo` `MemTotal` → MiB |
 | 9 | `disk_gb` | ✓（VM） | `lsblk -bdn -o SIZE` 求和 → GiB |
@@ -46,7 +55,7 @@ python3 scripts/collect_host_info.py --include-loopback --include-down -o host.c
 | 22 | `speed_mbps` | ✓ | `/sys/class/net/<if>/speed`（不可得留空） |
 | 23 | `mtu` | ✓ | `ip` / `/sys/class/net/<if>/mtu` |
 | 24 | `enabled` | ✓ | operstate `up`→`true`、`down`→`false`、未知/不可判定→留空（导入默认 `true`）；未知状态不被排除 |
-| 25 | `network` | ✗ 人工 | 需命中 CSM 内已存在 Network，留空；`ip` 携带掩码时 F023 可由 `/mask` 解析 Network |
+| 25 | `network` | ✗ 人工 | 同 cluster Network `name` 或 CIDR（`--network`）；未提供留空，`ip` 携带掩码时 F023 可由 `/mask` 解析 Network |
 | 26 | `ip` | ✓ | 本机 IPv4 **地址/掩码**（如 `10.0.0.5/24`，每地址一行）；落库剥离掩码由 F023 处理 |
 
 ## 采集降级
@@ -60,6 +69,6 @@ python3 scripts/collect_host_info.py --include-loopback --include-down -o host.c
 
 - 默认排除 loopback 与**明确 down** 的接口、以及无 IPv4 的接口；`unknown`/`dormant` 等不可判定状态不被排除且 `enabled` 留空。
 - 无 root / 命令缺失 / 字段不可得时一律留空，脚本不报错、不伪造值。
-- 只读：仅读 `/proc`、`/sys` 与只读命令输出；唯一写入为 `-o` 指定文件；不连接 CSM、不上传。
+- 只读：仅读 `/proc`、`/sys` 与只读命令输出；唯一写入为 `-o` 指定文件（未指定时按类型使用默认文件名）；默认不连接 CSM。
 - 不采集密码、私钥、token、环境变量等敏感内容。
 - 产出文件包含内网拓扑与资产标识，分享前请评估。

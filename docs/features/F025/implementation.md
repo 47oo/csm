@@ -44,3 +44,20 @@
 - 详见 `docs/features/F025/test-report.md`。
 
 **结论**：实现完成，符合设计与契约。
+
+---
+
+## revision 12 errata（2026-10-23，F032 承接）
+
+> 本节只追加，不修改上文任何历史原文与证据。
+
+- **依据**：`docs/product/requirements-v3.md` revision 12 §24.4（含「保持不变（无回归边界）」段）；`docs/features/F032/architecture.md` v2 DR-1009 / DR-1012 / ON-1；`docs/features/F032/implementation.md`。
+- **语义不变（继续有效）**：`--push` 仍为两步流程（预校验 `POST /api/v1/imports/resource-interfaces-ips/validate` → `--yes` 后写入 `POST /api/v1/imports/resource-interfaces-ips`）；`Authorization: Bearer`；API Key 取自 `--api-key` 或 `CSM_API_KEY`，不落盘、不写入日志或输出；无 `--push` 时零网络请求；`--api-url` / API Key / `--cluster` 前置校验仍在 `_push()` 保留。
+- **F032 带来的差异**：
+  1. `--push` 调用必须提供必填 `--resource-type`；`_push()` 中的 `resource_type` 检查退化为防御性检查。
+  2. multipart 上传文件名保持 `csm_host_info.csv`（DR-1009），不随本地默认文件名按类型变化。
+  3. 参数错误（缺失必填 / 非法枚举 / BM + 非空 `--host`）在 `main()` 参数阶段以退出码 2 终止，早于采集、写文件、stdout 与网络，因此 `_push()` 不再承担这些校验收敛。
+  4. `--print` + `--push` 同时给出的组合按 ON-1 保持 F025 现状（先 stdout、再预校验/写入），本 Feature 未新增语义。
+- **验证**：`docs/features/F032/implementation.md` §5；T82 / T83 回归由既有用例与 T106 守卫（端点、multipart filename、离线零网络、Key 不外泄）覆盖。
+
+**结论**：F025 历史交付结论不变；revision 12 口径下的 CLI 必填与默认文件名变更由 F032 交付。
