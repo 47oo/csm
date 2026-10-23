@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 11
   plan_revision: 16
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 16
     feature_ids:
@@ -44,8 +44,12 @@ project:
     basis: 用户于 2026-10-23 要求「按建议合并」，批准 plan revision 16 将 F029 Review 的非阻塞跟进项与遗留设计输入收敛为新增
       F030；F001–F029 保持 DONE，需求基线保持 revision 11，不新增业务规则。
   acceptance:
-    status: PENDING
+    status: COMPLETE
     evidence:
+    - docs/features/F030/test-report.md#test-executiontest-12026-10-23v1
+    - docs/features/F030/review-report.md
+    - docs/features/F030/artifacts/full-pytest.log
+    - docs/features/F030/artifacts/frontend-smoke.log
     - docs/features/F028/test-report.md#test-executiontest-12026-10-22
     - docs/features/F028/artifacts/run.log
     - docs/features/F028/artifacts/pytest.log
@@ -60,7 +64,6 @@ project:
     - docs/features/F016/test-report.md#32-c1c15-上线验收
     - docs/features/F016/test-report.md#33-目标查询场景
     - docs/features/F016/test-report.md#t36-备份覆盖-audit
-    pending_reason: F030 完成后重新执行适用验证并恢复 COMPLETE。
 features:
 - id: F001
   title: 工程与部署底座
@@ -2049,9 +2052,9 @@ features:
   - F027
   - F029
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: MERGE
-  next_action: 完成最终状态提交并恢复 project.acceptance=COMPLETE。
+  status: DONE
+  current_stage: null
+  next_action: null
   layers:
     database: false
     backend: true
@@ -2110,6 +2113,7 @@ features:
     - docs/features/F030/artifacts/p7-guard-scan.log
     review:
     - docs/features/F030/review-report.md
+  last_result: Review APPROVED WITH FOLLOW-UP；已合并（44f101c）；F030 DONE。
   git:
     base_branch: v3.2
     branch: feature/F030-review-followup-closeout
@@ -2510,21 +2514,22 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。
-  current_feature: F030
-  current_stage: MERGE
-  last_result: F030 Review APPROVED WITH FOLLOW-UP（approved HEAD 891206a）；已合并（44f101c）。
-  next_action: 完成最终状态提交并恢复 project.acceptance=COMPLETE。
+  current_feature: null
+  current_stage: null
+  last_result: F030 Review APPROVED WITH FOLLOW-UP（approved HEAD 891206a）并已合并（44f101c）；F030
+    DONE，project.acceptance=COMPLETE，项目 DONE。
+  next_action: null
   repair_rounds: 0
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 29
+    DONE: 30
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
