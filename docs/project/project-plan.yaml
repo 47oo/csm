@@ -4,10 +4,10 @@ project:
   requirements:
     path: docs/product/requirements-v3.md
     revision: 11
-  plan_revision: 16
-  status: DONE
+  plan_revision: 17
+  status: ACCEPTED
   approval:
-    plan_revision: 16
+    plan_revision: 17
     feature_ids:
     - F001
     - F002
@@ -39,12 +39,13 @@ project:
     - F028
     - F029
     - F030
+    - F031
     approved_by: 用户
     approved_on: '2026-10-23'
-    basis: 用户于 2026-10-23 要求「按建议合并」，批准 plan revision 16 将 F029 Review 的非阻塞跟进项与遗留设计输入收敛为新增
-      F030；F001–F029 保持 DONE，需求基线保持 revision 11，不新增业务规则。
+    basis: 用户于 2026-10-23 要求「处理剩余非阻塞项」，批准 plan revision 17 新增 F031 收尾 F030 Review
+      的非阻塞跟进；F001–F030 保持 DONE，需求基线保持 revision 11，不新增业务规则。
   acceptance:
-    status: COMPLETE
+    status: PENDING
     evidence:
     - docs/features/F030/test-report.md#test-executiontest-12026-10-23v1
     - docs/features/F030/review-report.md
@@ -64,6 +65,7 @@ project:
     - docs/features/F016/test-report.md#32-c1c15-上线验收
     - docs/features/F016/test-report.md#33-目标查询场景
     - docs/features/F016/test-report.md#t36-备份覆盖-audit
+    pending_reason: F031 完成后重新执行适用验证并恢复 COMPLETE。
 features:
 - id: F001
   title: 工程与部署底座
@@ -2120,6 +2122,46 @@ features:
     start_commit: 70db846ca2ed4bad90281ad5f55c1e6a9b2c5300
     head_commit: 891206a54aa0d5f1f731e6d9044ac8f98e11be2a
     merge_commit: 44f101ceae33976370e964555ced4f5e4baa04f2
+- id: F031
+  title: F030 Review 非阻塞项收尾：设计记载、文案、注释与证据修订
+  kind: ENABLER
+  priority: P2
+  milestone: M22 Review 跟进收尾
+  scope: 处理 F030 Review 的 10 项非阻塞跟进：①architecture 补 canSubmitGrant 签名 errata；②前端候选空态改回因中性文案并核对
+    wiring；③后端注释统一为「handler 内先于路径/语义校验」；④并发用例增加尝试次数并保留失败语义；⑤归档更正 static 日志路径笔误的证据说明；⑥F026
+    头部注明 plan_revision 14 为历史依据、16 为本次确认来源；⑦消除三处悬空「架构评审 I-2」引用；⑧评估并扩展 real_scope 守卫范围或记录接受边界；⑨补
+    grant 路径端到端 500 信封测试（测试专用路由）；⑩核对上述变更不改变端点/字段/错误码/权限/Schema。不新增业务规则。
+  acceptance: 每项跟进有明确关闭结果或接受理由；RV-03/04/05/06/07/08/09 已关闭，RV-10 有范围结论，T03 有端到端 500
+    证据或明确接受；定向与全量回归通过；前端 typecheck/build/smoke 通过；无 Contract/Schema/权限行为变化；Review
+    APPROVED 或 APPROVED WITH FOLLOW-UP。
+  requirements:
+  - docs/features/F030/review-report.md
+  - docs/features/F030/architecture.md
+  - docs/features/F030/test-report.md
+  - docs/api/F026.md
+  depends_on:
+  - F030
+  blocking_decisions: []
+  status: READY
+  current_stage: null
+  next_action: null
+  layers:
+    database: false
+    backend: true
+    frontend: true
+  api_required: false
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
+  not_required:
+    contract: 仅澄清 F026 头部历史 plan_revision 记载与 F030 设计 errata；不改契约正文/端点/字段/错误码/权限。
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2506,22 +2548,15 @@ decisions_required:
     前端交互修正不新增端点/参数/权限；实现责任为 Backend / Frontend。
 pending_changes: []
 execution:
-  mode: SINGLE
-  authorization:
-    plan_revision: 16
-    feature_ids:
-    - F030
-    authorized_by: 用户
-    authorized_on: '2026-10-23'
-    basis: 用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。
+  mode: null
+  authorization: null
   current_feature: null
   current_stage: null
-  last_result: F030 Review APPROVED WITH FOLLOW-UP（approved HEAD 891206a）并已合并（44f101c）；F030
-    DONE，project.acceptance=COMPLETE，项目 DONE。
+  last_result: 计划 revision 17 批准新增 F031；等待实施授权。
   next_action: null
   repair_rounds: 0
 planning_status:
-  status: DONE
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -2530,8 +2565,9 @@ planning_status:
     DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F031
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
