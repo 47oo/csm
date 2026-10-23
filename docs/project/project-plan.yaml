@@ -2092,8 +2092,8 @@ features:
   - F028
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: 完成 Architecture Gate：布局/token/折叠/响应式方案。
+  current_stage: TEST_DESIGN
+  next_action: 完成 Test Design：四视口布局指标与回归映射。
   layers:
     database: false
     backend: false
@@ -2105,7 +2105,7 @@ features:
     contract: 不新增/不修改平台 API；既有 Contract 与响应形状不变。
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: PENDING
     contract: NOT_REQUIRED
@@ -2116,7 +2116,9 @@ features:
   evidence:
     product:
     - docs/features/F033/product.md
-  last_result: Product READY FOR ARCHITECT；A1–A11 已定义。
+    architecture:
+    - docs/features/F033/architecture.md
+  last_result: Architecture READY FOR DESIGN；布局/token/响应式方案已定。
   git:
     base_branch: v3.3
     branch: feature/F033-layout-css-refresh
@@ -2518,9 +2520,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 明确要求更新前端布局及不合理布局/CSS；批准按 F033 范围实施。
   current_feature: F033
-  current_stage: ARCHITECTURE
-  last_result: Product READY FOR ARCHITECT；A1–A11 已定义。
-  next_action: 完成 Architecture Gate：布局/token/折叠/响应式方案。
+  current_stage: TEST_DESIGN
+  last_result: Architecture READY FOR DESIGN；布局/token/响应式方案已定。
+  next_action: 完成 Test Design：四视口布局指标与回归映射。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
