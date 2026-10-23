@@ -2017,8 +2017,8 @@ features:
   - F025
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: 完成 Architecture Gate：确定 CLI 帮助/默认文件名/校验方案与验证策略。
+  current_stage: TEST_DESIGN
+  next_action: 完成 Database NOT_REQUIRED 签核与 Test Design。
   layers:
     database: false
     backend: false
@@ -2031,7 +2031,7 @@ features:
     contract: 不新增/不修改平台 API；字段与枚举唯一权威仍为 docs/api/F023.md §6，F032 不新建 Contract。
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: PENDING
     contract: NOT_REQUIRED
@@ -2042,7 +2042,9 @@ features:
   evidence:
     product:
     - docs/features/F032/product.md
-  last_result: Product READY FOR ARCHITECT；§24.4 与 T100–T106 已整理。
+    architecture:
+    - docs/features/F032/architecture.md
+  last_result: Architecture READY FOR DESIGN；CLI 方案与验证策略已定。
   git:
     base_branch: v3.3
     branch: feature/F032-collector-help-type-import
@@ -2444,9 +2446,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 回复「批准 plan revision 18 并实施 F032」。
   current_feature: F032
-  current_stage: ARCHITECTURE
-  last_result: Product READY FOR ARCHITECT；§24.4 与 T100–T106 已整理。
-  next_action: 完成 Architecture Gate：确定 CLI 帮助/默认文件名/校验方案与验证策略。
+  current_stage: TEST_DESIGN
+  last_result: Architecture READY FOR DESIGN；CLI 方案与验证策略已定。
+  next_action: 完成 Database NOT_REQUIRED 签核与 Test Design。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
