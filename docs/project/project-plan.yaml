@@ -2050,8 +2050,8 @@ features:
   - F029
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST_DESIGN
-  next_action: 完成 F030 TEST DESIGN，核对验收映射与可验证性。
+  current_stage: CONTRACT
+  next_action: 完成 F030 CONTRACT Gate：落盘 F026 v3、12 份域 Contract 签核行与 BQ18/BQ19 收敛记录。
   layers:
     database: false
     backend: true
@@ -2061,7 +2061,7 @@ features:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
+    test_design: COMPLETE
     contract: PENDING
     backend: PENDING
     frontend: PENDING
@@ -2074,6 +2074,8 @@ features:
     - docs/features/F030/product.md
     architecture:
     - docs/features/F030/architecture.md
+    test_design:
+    - docs/features/F030/test-report.md#test-designtd-12026-10-23-v1
   git:
     base_branch: v3.2
     branch: feature/F030-review-followup-closeout
@@ -2468,9 +2470,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。
   current_feature: F030
-  current_stage: TEST_DESIGN
-  last_result: F030 ARCHITECTURE Gate 通过（READY FOR DESIGN）；Database 判定 NOT_REQUIRED；已保存 architecture.md。
-  next_action: 完成 F030 TEST DESIGN。
+  current_stage: CONTRACT
+  last_result: F030 TEST DESIGN 通过（TEST DESIGN READY）；已保存 test-report.md 的 TD-1。
+  next_action: 完成 F030 CONTRACT Gate 并签核最终设计。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
