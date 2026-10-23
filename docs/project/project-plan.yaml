@@ -2016,9 +2016,9 @@ features:
   - F024
   - F025
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: TEST
-  next_action: Tester 独立执行 TEST（含真实 F023 /validate 预校验）。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: Reviewer 对候选 HEAD b474f53 做正式 Review。
   layers:
     database: false
     backend: false
@@ -2037,7 +2037,7 @@ features:
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   evidence:
     product:
@@ -2048,12 +2048,21 @@ features:
     - docs/database/f032-collector-cli.md
     test_design:
     - docs/features/F032/test-report.md#11-test-designtd-2--v2--2026-10-23
-  last_result: Backend 实现完成；脚本单测 83/83、scripts 全量 112/112 通过；真实 /validate 待 TEST。
+    test:
+    - docs/features/F032/test-report.md#12-test-executiontr-1--v3--2026-10-23
+    - docs/features/F032/implementation.md
+    - docs/features/F032/artifacts/test-collect-host-info.log
+    - docs/features/F032/artifacts/test-scripts-all.log
+    - docs/features/F032/artifacts/cli-smoke.log
+    - docs/features/F032/artifacts/real-validate/validate-f032-bm-real.json.raw
+    - docs/features/F032/artifacts/real-validate/validate-f032-vm-real.json.raw
+    - docs/features/F032/artifacts/real-validate/validate-f032-vm-nohost.json.raw
+  last_result: TEST READY FOR REVIEW；T100–T106 与 T73/T79/T84 PASS，真实 F023 /validate 完成。
   git:
     base_branch: v3.3
     branch: feature/F032-collector-help-type-import
     start_commit: 89a5d4ff61f9df35f8f4393887701e7015bc26d8
-    head_commit: null
+    head_commit: b474f534f82749bdcd3e6dd610e4fa84a896f251
     merge_commit: null
 decisions_required:
 - id: BQ6
@@ -2450,9 +2459,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 回复「批准 plan revision 18 并实施 F032」。
   current_feature: F032
-  current_stage: TEST
-  last_result: Backend 实现完成；脚本单测 83/83、scripts 全量 112/112 通过；真实 /validate 待 TEST。
-  next_action: Tester 独立执行 TEST（含真实 F023 /validate 预校验）。
+  current_stage: REVIEW
+  last_result: TEST READY FOR REVIEW；T100–T106 与 T73/T79/T84 PASS。
+  next_action: Reviewer 对候选 HEAD b474f53 做正式 Review。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -2462,8 +2471,8 @@ planning_status:
     CANCELLED: 0
     DONE: 31
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
