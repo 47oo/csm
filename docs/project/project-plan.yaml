@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 11
   plan_revision: 17
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 17
     feature_ids:
@@ -2142,18 +2142,18 @@ features:
   depends_on:
   - F030
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: null
+  status: IN_PROGRESS
+  current_stage: ARCHITECTURE
+  next_action: Architect 确认 F031 修复设计并签核 READY FOR DESIGN。
   layers:
     database: false
     backend: true
     frontend: true
   api_required: false
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
-    database: PENDING
+    database: NOT_REQUIRED
     test_design: PENDING
     contract: PENDING
     backend: PENDING
@@ -2161,7 +2161,17 @@ features:
     test: PENDING
     review: PENDING
   not_required:
+    database: 无 Schema/Migration 变更；仅为文档/注释/测试/前端文案修订。
     contract: 仅澄清 F026 头部历史 plan_revision 记载与 F030 设计 errata；不改契约正文/端点/字段/错误码/权限。
+  evidence:
+    product:
+    - docs/features/F031/product.md
+  git:
+    base_branch: v3.2
+    branch: feature/F031-review-closeout
+    start_commit: 2c827fb8a81f54fe6cb0889fd05eb9f12f0ccffa
+    head_commit: 2c827fb8a81f54fe6cb0889fd05eb9f12f0ccffa
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2548,26 +2558,31 @@ decisions_required:
     前端交互修正不新增端点/参数/权限；实现责任为 Backend / Frontend。
 pending_changes: []
 execution:
-  mode: null
-  authorization: null
-  current_feature: null
-  current_stage: null
-  last_result: 计划 revision 17 批准新增 F031；等待实施授权。
-  next_action: null
+  mode: SINGLE
+  authorization:
+    plan_revision: 17
+    feature_ids:
+    - F031
+    authorized_by: 用户
+    authorized_on: '2026-10-23'
+    basis: 用户于 2026-10-23 要求处理 F030 Review 剩余非阻塞项，批准 plan revision 17 并授权实施 F031。
+  current_feature: F031
+  current_stage: ARCHITECTURE
+  last_result: F031 Product 复用核对完成（READY FOR ARCHITECT）；等待设计签核。
+  next_action: Architect 确认 F031 修复设计。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 30
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F031
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
