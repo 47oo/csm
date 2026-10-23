@@ -1,0 +1,4571 @@
+{
+ "generated_at": "2026-10-23T14:55:39+0800",
+ "base_url": "http://127.0.0.1:15173/",
+ "viewports": [
+  [
+   1440,
+   900
+  ],
+  [
+   1024,
+   768
+  ],
+  [
+   768,
+   1024
+  ],
+  [
+   375,
+   667
+  ]
+ ],
+ "records": [
+  {
+   "viewport": "1440x900",
+   "page": "P1-login",
+   "metric": "V-A9.8 .login-main 宽度/页面溢出/h1",
+   "value": "460.0 / 1440/1440 / h1=1",
+   "rule": "460 (±1) 且无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P0-boot-loading",
+   "metric": "V-A9.8 .boot-main 宽度/无溢出",
+   "value": "720.0 max-width=720px / 1440/1440",
+   "rule": "<= 720 且无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P0-boot-error",
+   "metric": "V-A9.8 .boot-main 宽度/无溢出/错误呈现",
+   "value": "720.0 / 1440/1440 / «CSM Cluster Source Manager · 资源事实数据源 恢复登录态失败：无法连接服务器，请稍后重试 重试»",
+   "rule": "<= 720 且无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P1-login",
+   "metric": "V-A9.8 .login-main 宽度/页面溢出/h1",
+   "value": "460.0 / 1024/1024 / h1=1",
+   "rule": "460 (±1) 且无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P0-boot-loading",
+   "metric": "V-A9.8 .boot-main 宽度/无溢出",
+   "value": "720.0 max-width=720px / 1024/1024",
+   "rule": "<= 720 且无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P0-boot-error",
+   "metric": "V-A9.8 .boot-main 宽度/无溢出/错误呈现",
+   "value": "720.0 / 1024/1024 / «CSM Cluster Source Manager · 资源事实数据源 恢复登录态失败：无法连接服务器，请稍后重试 重试»",
+   "rule": "<= 720 且无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P1-login",
+   "metric": "V-A9.8 .login-main 宽度/页面溢出/h1",
+   "value": "460.0 / 768/768 / h1=1",
+   "rule": "无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P0-boot-loading",
+   "metric": "V-A9.8 .boot-main 宽度/无溢出",
+   "value": "720.0 max-width=720px / 768/768",
+   "rule": "<= 720 且无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P0-boot-error",
+   "metric": "V-A9.8 .boot-main 宽度/无溢出/错误呈现",
+   "value": "720.0 / 768/768 / «CSM Cluster Source Manager · 资源事实数据源 恢复登录态失败：无法连接服务器，请稍后重试 重试»",
+   "rule": "<= 720 且无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P1-login",
+   "metric": "V-A9.8 .login-main 宽度/页面溢出/h1",
+   "value": "375.0 / 375/375 / h1=1",
+   "rule": "无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P0-boot-loading",
+   "metric": "V-A9.8 .boot-main 宽度/无溢出",
+   "value": "375.0 max-width=720px / 375/375",
+   "rule": "<= 720 且无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P0-boot-error",
+   "metric": "V-A9.8 .boot-main 宽度/无溢出/错误呈现",
+   "value": "375.0 / 375/375 / «CSM Cluster Source Manager · 资源事实数据源 恢复登录态失败：无法连接服务器，请稍后重试 重试»",
+   "rule": "<= 720 且无溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P1-login",
+   "metric": "登录 admin（口令见 .env.test，日志中不外泄）",
+   "value": "进入 .app-shell",
+   "rule": "进入应用壳",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1440/1440, 1440/1440",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源概览']",
+   "rule": "1 / 资源概览",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源概览 / ['概览']",
+   "rule": "资源概览 / 1 个 [概览]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源概览」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A2.3/A2.4 nav 触达与 rail",
+   "value": "≥1024 竖排侧栏，不适用",
+   "rule": "N/A",
+   "result": "NOT_TESTED",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A7.2 计数卡列数",
+   "value": "5 (210.797px 210.797px 210.797px 210.797px 210.812px)",
+   "rule": "5",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A7.3 计数与 GET /api/v1/dashboard 一致",
+   "value": {
+    "ui": [
+     "9",
+     "7",
+     "6",
+     "1",
+     "6"
+    ],
+    "titles": [
+     "Clusters（集群）",
+     "Resources（资源总数）",
+     "BareMetal（物理机）",
+     "VM（虚拟机）",
+     "Networks（网络）"
+    ],
+    "api_expected": [
+     "9",
+     "7",
+     "6",
+     "1",
+     "6"
+    ]
+   },
+   "rule": "逐项相等",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A8.4 内容区宽度 / main max-width",
+   "value": "1216.0 / 1600px",
+   "rule": "> 1200 且 ≠ 720px",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A10.1 滚到底 header top/position/z-index",
+   "value": "0.0 / sticky / 30 / scrollY=777.0",
+   "rule": "top=0±1, sticky, z=30",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A10.2 滚动后 user-box/登出按钮在视口内",
+   "value": {
+    "user": {
+     "top": 16,
+     "bottom": 52
+    },
+    "btn": {
+     "top": 16,
+     "bottom": 52
+    },
+    "vh": 900
+   },
+   "rule": "在视口内",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P2-dashboard",
+   "metric": "V-A10.3 焦点不被 sticky header 遮挡",
+   "value": {
+    "headerBottom": 69,
+    "headerTop": 0,
+    "btnTop": 307.984375,
+    "btnBottom": 343.984375,
+    "focusedIsBtn": true,
+    "hitIsBtn": true,
+    "hitTag": "SPAN.",
+    "btnText": "搜索",
+    "scrollY": 0
+   },
+   "rule": "elementFromPoint 命中且 btnTop >= header.bottom",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P3-search",
+   "metric": "V-A6.1 details 默认折叠 / 可见 checkbox 数",
+   "value": "open=False hasOpen=False visible=0",
+   "rule": "open=false 且可见 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P3-search",
+   "metric": "V-A6.8 summary 文本/字号/role=group",
+   "value": "Resource 行展示字段（仅作用 resource 结果行） / 14.4px / Resource 行展示字段",
+   "rule": "原 legend 文案 + ≈14.4px + role=group",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P3-search",
+   "metric": "V-A6.7 默认选中 5 项",
+   "value": [
+    "global-search-field-hostname",
+    "global-search-field-resource_type",
+    "global-search-field-role",
+    "global-search-field-status",
+    "global-search-field-cluster"
+   ],
+   "rule": "hostname/resource_type/role/status/cluster",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P3-search",
+   "metric": "V-A6.6 折叠态 /api/v1/search 请求",
+   "value": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20",
+   "rule": "捕获到请求",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P3-search",
+   "metric": "V-A6.3 键盘展开 details.open / 可见 checkbox 数",
+   "value": "open=True visible=9",
+   "rule": "open=true 且 9 可见",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P3-search",
+   "metric": "V-A6.3 9 个 checkbox 可聚焦",
+   "value": "9/9",
+   "rule": "9/9",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P3-search",
+   "metric": "V-A6.2 搜索卡高度 折叠 < 展开",
+   "value": "501.5 < 583.3",
+   "rule": "折叠态更矮",
+   "result": "PASS",
+   "note": "F028 基线约 945px（375 展开态）"
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P3-search",
+   "metric": "V-A6.6 展开前后 /api/v1/search URL 逐字一致",
+   "value": {
+    "collapsed": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20",
+    "after_expand": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20"
+   },
+   "rule": "完全一致",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1440/1440, 1440/1440",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源台账']",
+   "rule": "1 / 资源台账",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源台账 / ['Resources']",
+   "rule": "资源台账 / 1 个 [Resources]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源台账」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 1102->1177 / docSW 1440->1440",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A8.4 表格可用宽度 / 内容区宽度",
+   "value": 0.906,
+   "rule": ">= 0.9",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A9.2 模糊搜索 q=lu",
+   "value": {
+    "url": "http://127.0.0.1:15173/api/v1/resources?q=lu&deleted=exclude&page=1&page_size=20&sort=created_at&order=desc",
+    "rows": 2
+   },
+   "rule": "URL 含 q=lu 且行均匹配（hostname 子串）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A9.2 排序 sort=hostname",
+   "value": "http://127.0.0.1:15173/api/v1/resources?deleted=exclude&page=1&page_size=20&sort=hostname&order=asc",
+   "rule": "URL 含 sort/order",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P4-resources",
+   "metric": "V-A9.2 分页控件渲染（共 7 项，单页）",
+   "value": {
+    "text": "共 7 项 1 20 条/页",
+    "m": "7"
+   },
+   "rule": "显示「共 7 项」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1440/1440, 1440/1440",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源台账']",
+   "rule": "1 / 资源台账",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源台账 / ['Resources']",
+   "rule": "资源台账 / 1 个 [Resources]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源台账」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A9.3 详情渲染 / 关系区呈现",
+   "value": {
+    "h2": [
+     "资源详情",
+     "Overview",
+     "Hardware（硬件信息）",
+     "Virtual Machines（虚拟机）",
+     "Interfaces（网络接口）",
+     "Services（运行服务）",
+     "IP Addresses（IP 地址）",
+     "系统信息"
+    ],
+    "has_base_sections": true,
+    "relation_sections": [
+     "Virtual Machines（虚拟机）",
+     "Interfaces（网络接口）",
+     "Services（运行服务）",
+     "IP Addresses（IP 地址）"
+    ],
+    "buttons": [
+     "返回列表",
+     "查看",
+     "新建接口",
+     "已绑定 IP",
+     "绑定 IP",
+     "编辑",
+     "删除",
+     "编辑",
+     "删除资源"
+    ]
+   },
+   "rule": "资源详情 + Overview + 系统信息 + 关系区（VM/Interfaces/Services/IP）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A9.5 删除二次确认 Modal 内容",
+   "value": {
+    "text": "删除资源 确认软删除资源 cn001？（不级联删除关联对象；软删后 同集群 hostname 可被新资源复用；若仍有未删除的虚拟机（VM）引用本宿主机，将被拒绝并到引用列表）） 取 消 确认删除",
+    "rectTop": 100,
+    "rectWidth": 520,
+    "okBtnText": "确认删除",
+    "okBtnDanger": true,
+    "cancelBtn": true,
+    "headerBottom": 69,
+    "hitInModal": true,
+    "hitTag": "DIV.ant-modal-title",
+    "wrapZ": "1000"
+   },
+   "rule": "含对象标识+软删说明+危险确认按钮+取消",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A10.6 Modal 不被 sticky header 覆盖",
+   "value": {
+    "hitInModal": true,
+    "hitTag": "DIV.ant-modal-title",
+    "headerBottom": 69,
+    "modalTop": 100,
+    "modalWrapZ": "1000"
+   },
+   "rule": "点击 Modal 标题命中 Modal 内部元素",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P5-resource-detail",
+   "metric": "V-A9.5 取消确认 Modal 零写请求",
+   "value": [],
+   "rule": "无 DELETE/POST/PATCH/PUT",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P6-clusters",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1440/1440, 1440/1440",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P6-clusters",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P6-clusters",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P6-clusters",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['集群管理']",
+   "rule": "1 / 集群管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P6-clusters",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "集群管理 / ['Clusters']",
+   "rule": "集群管理 / 1 个 [Clusters]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P6-clusters",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P6-clusters",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「集群管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P7-cluster-detail",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1440/1440, 1440/1440",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P7-cluster-detail",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['集群管理']",
+   "rule": "1 / 集群管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "集群管理 / ['Clusters']",
+   "rule": "集群管理 / 1 个 [Clusters]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「集群管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P8-networks",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1440/1440, 1440/1440",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P8-networks",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P8-networks",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P8-networks",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['网络管理']",
+   "rule": "1 / 网络管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P8-networks",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "网络管理 / ['Networks']",
+   "rule": "网络管理 / 1 个 [Networks]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P8-networks",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P8-networks",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「网络管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P9-services",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1440/1440, 1440/1440",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P9-services",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P9-services",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P9-services",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['服务登记']",
+   "rule": "1 / 服务登记",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P9-services",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "服务登记 / ['Services']",
+   "rule": "服务登记 / 1 个 [Services]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P9-services",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P9-services",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「服务登记」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P9-services",
+   "metric": "空态呈现（当前栈 total=0）",
+   "value": "CLUSTER SOURCE MANAGER 服务登记 统一登记、查询与维护集群资源 Services（服务登记） 新建服务 模糊搜索（name 子串，大小写不敏感） 所属资源 全部（默认） status 全部（默认） 筛选 重置 软删可见性（需 VIEW_DELETED 权限） 未删除（默认） 没有符合条件的服务（当",
+   "rule": "空态文案而非错误",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10-audit",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1440/1440, 1440/1440",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10-audit",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10-audit",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10-audit",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['审计查询']",
+   "rule": "1 / 审计查询",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10-audit",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "审计查询 / ['Audit']",
+   "rule": "审计查询 / 1 个 [Audit]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10-audit",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10-audit",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「审计查询」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10-audit",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 1102->1568 / docSW 1440->1440",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1440/1440, 1440/1440",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['IP 地址管理']",
+   "rule": "1 / IP 地址管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "IP 地址管理 / ['IP Addresses']",
+   "rule": "IP 地址管理 / 1 个 [IP Addresses]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「IP 地址管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 1102->1386 / docSW 1440->1440",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A9.3 Activity 只读流水可用",
+   "value": {
+    "opened": true,
+    "headings": [
+     "Activity — 10.1.96.1（BMC）"
+    ],
+    "rows": 3
+   },
+   "rule": "Activity 视图呈现且加载流水",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1440/1440, 1440/1440",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['系统管理']",
+   "rule": "1 / 系统管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "系统管理 / ['System']",
+   "rule": "系统管理 / 1 个 [System]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「系统管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.1/A5.2 授权面板 track 数",
+   "value": "2 (362px 724px)",
+   "rule": "2",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.2 双栏并排",
+   "value": {
+    "c1": [
+     281.0,
+     643.0,
+     366.0
+    ],
+    "c2": [
+     659.0,
+     1383.0,
+     366.0
+    ]
+   },
+   "rule": "c2.left >= c1.right-1 且 top 差 ≤2",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.3 子 section 在布局容器内",
+   "value": true,
+   "rule": "全部命中",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.6 面板容器/列表自身 inline style",
+   "value": {
+    "layout": null,
+    "userList": null,
+    "descendant_inline": [
+     "INPUT.ant-input css-dev-only-do-not-"
+    ]
+   },
+   "rule": "layout 与 user-list 均无 style 属性（Ant 组件内部 style 不计）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.5 授权表在自身区域横向滚动",
+   "value": {
+    "picked": "shixin · EDITOR · ACTIVE",
+    "clientWidth": 724,
+    "scrollWidth": 724,
+    "overflowX": "auto",
+    "scrolledTo": 0,
+    "docScrollWidthBefore": 1440,
+    "docScrollWidthAfter": 1440
+   },
+   "rule": "overflow-x∈{auto,scroll} 且页面不溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.7 选中账号后授权列表加载",
+   "value": {
+    "picked": "shixin · EDITOR · ACTIVE",
+    "hasTarget": true,
+    "text": "CLUSTER SOURCE MANAGER 系统管理 统一登记、查询与维护集群资源 System（系统管理） 账号管理 API Key 管理 集群授权 已删对象管理 ADMIN 不受集群范围限制，不建立授权行；ADMIN 降级为 VIEWER / EDITOR 后立即按既有授权解析（可能为空）。 本页管理授权事实；非 ADMIN 的可见范围按已授权 Cluster 逐请求生效。 账号 admin · ADMIN · ACTIVE shixin · EDITOR · ACTIVE viewer27168 · VIEWER · ACTIVE 集群授权 目标账号：shixin（EDITOR / A"
+   },
+   "rule": "呈现「目标账号」与授权区",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1024/1024, 1024/1024",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源概览']",
+   "rule": "1 / 资源概览",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源概览 / ['概览']",
+   "rule": "资源概览 / 1 个 [概览]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源概览」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A2.3/A2.4 nav 触达与 rail",
+   "value": "≥1024 竖排侧栏，不适用",
+   "rule": "N/A",
+   "result": "NOT_TESTED",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A7.2 计数卡列数",
+   "value": "3 (220.656px 220.672px 220.672px)",
+   "rule": "3",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A7.3 计数与 GET /api/v1/dashboard 一致",
+   "value": {
+    "ui": [
+     "9",
+     "7",
+     "6",
+     "1",
+     "6"
+    ],
+    "titles": [
+     "Clusters（集群）",
+     "Resources（资源总数）",
+     "BareMetal（物理机）",
+     "VM（虚拟机）",
+     "Networks（网络）"
+    ],
+    "api_expected": [
+     "9",
+     "7",
+     "6",
+     "1",
+     "6"
+    ]
+   },
+   "rule": "逐项相等",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A10.1 滚到底 header top/position/z-index",
+   "value": "0.0 / sticky / 30 / scrollY=1179.0",
+   "rule": "top=0±1, sticky, z=30",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A10.2 滚动后 user-box/登出按钮在视口内",
+   "value": {
+    "user": {
+     "top": 16,
+     "bottom": 52
+    },
+    "btn": {
+     "top": 16,
+     "bottom": 52
+    },
+    "vh": 768
+   },
+   "rule": "在视口内",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P2-dashboard",
+   "metric": "V-A10.3 焦点不被 sticky header 遮挡",
+   "value": {
+    "headerBottom": 69,
+    "headerTop": 0,
+    "btnTop": 331.984375,
+    "btnBottom": 367.984375,
+    "focusedIsBtn": true,
+    "hitIsBtn": true,
+    "hitTag": "SPAN.",
+    "btnText": "搜索",
+    "scrollY": 0
+   },
+   "rule": "elementFromPoint 命中且 btnTop >= header.bottom",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P3-search",
+   "metric": "V-A6.1 details 默认折叠 / 可见 checkbox 数",
+   "value": "open=False hasOpen=False visible=0",
+   "rule": "open=false 且可见 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P3-search",
+   "metric": "V-A6.8 summary 文本/字号/role=group",
+   "value": "Resource 行展示字段（仅作用 resource 结果行） / 14.4px / Resource 行展示字段",
+   "rule": "原 legend 文案 + ≈14.4px + role=group",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P3-search",
+   "metric": "V-A6.7 默认选中 5 项",
+   "value": [
+    "global-search-field-hostname",
+    "global-search-field-resource_type",
+    "global-search-field-role",
+    "global-search-field-status",
+    "global-search-field-cluster"
+   ],
+   "rule": "hostname/resource_type/role/status/cluster",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P3-search",
+   "metric": "V-A6.6 折叠态 /api/v1/search 请求",
+   "value": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20",
+   "rule": "捕获到请求",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P3-search",
+   "metric": "V-A6.3 键盘展开 details.open / 可见 checkbox 数",
+   "value": "open=True visible=9",
+   "rule": "open=true 且 9 可见",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P3-search",
+   "metric": "V-A6.3 9 个 checkbox 可聚焦",
+   "value": "9/9",
+   "rule": "9/9",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P3-search",
+   "metric": "V-A6.2 搜索卡高度 折叠 < 展开",
+   "value": "525.5 < 657.7",
+   "rule": "折叠态更矮",
+   "result": "PASS",
+   "note": "F028 基线约 945px（375 展开态）"
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P3-search",
+   "metric": "V-A6.6 展开前后 /api/v1/search URL 逐字一致",
+   "value": {
+    "collapsed": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20",
+    "after_expand": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20"
+   },
+   "rule": "完全一致",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1024/1024, 1024/1024",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源台账']",
+   "rule": "1 / 资源台账",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源台账 / ['Resources']",
+   "rule": "资源台账 / 1 个 [Resources]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源台账」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 686->1177 / docSW 1024->1024",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A9.2 模糊搜索 q=lu",
+   "value": {
+    "url": "http://127.0.0.1:15173/api/v1/resources?q=lu&deleted=exclude&page=1&page_size=20&sort=created_at&order=desc",
+    "rows": 2
+   },
+   "rule": "URL 含 q=lu 且行均匹配（hostname 子串）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A9.2 排序 sort=hostname",
+   "value": "http://127.0.0.1:15173/api/v1/resources?deleted=exclude&page=1&page_size=20&sort=hostname&order=asc",
+   "rule": "URL 含 sort/order",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P4-resources",
+   "metric": "V-A9.2 分页控件渲染（共 7 项，单页）",
+   "value": {
+    "text": "共 7 项 1 20 条/页",
+    "m": "7"
+   },
+   "rule": "显示「共 7 项」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P5-resource-detail",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1024/1024, 1024/1024",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P5-resource-detail",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源台账']",
+   "rule": "1 / 资源台账",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源台账 / ['Resources']",
+   "rule": "资源台账 / 1 个 [Resources]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源台账」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P5-resource-detail",
+   "metric": "V-A9.3 详情渲染 / 关系区呈现",
+   "value": {
+    "h2": [
+     "资源详情",
+     "Overview",
+     "Hardware（硬件信息）",
+     "Virtual Machines（虚拟机）",
+     "Interfaces（网络接口）",
+     "Services（运行服务）",
+     "IP Addresses（IP 地址）",
+     "系统信息"
+    ],
+    "has_base_sections": true,
+    "relation_sections": [
+     "Virtual Machines（虚拟机）",
+     "Interfaces（网络接口）",
+     "Services（运行服务）",
+     "IP Addresses（IP 地址）"
+    ],
+    "buttons": [
+     "返回列表",
+     "查看",
+     "新建接口",
+     "已绑定 IP",
+     "绑定 IP",
+     "编辑",
+     "删除",
+     "编辑",
+     "删除资源"
+    ]
+   },
+   "rule": "资源详情 + Overview + 系统信息 + 关系区（VM/Interfaces/Services/IP）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P6-clusters",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1024/1024, 1024/1024",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P6-clusters",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P6-clusters",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P6-clusters",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['集群管理']",
+   "rule": "1 / 集群管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P6-clusters",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "集群管理 / ['Clusters']",
+   "rule": "集群管理 / 1 个 [Clusters]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P6-clusters",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P6-clusters",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「集群管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P7-cluster-detail",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1024/1024, 1024/1024",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P7-cluster-detail",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['集群管理']",
+   "rule": "1 / 集群管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "集群管理 / ['Clusters']",
+   "rule": "集群管理 / 1 个 [Clusters]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「集群管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P8-networks",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1024/1024, 1024/1024",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P8-networks",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P8-networks",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P8-networks",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['网络管理']",
+   "rule": "1 / 网络管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P8-networks",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "网络管理 / ['Networks']",
+   "rule": "网络管理 / 1 个 [Networks]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P8-networks",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P8-networks",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「网络管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P9-services",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1024/1024, 1024/1024",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P9-services",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P9-services",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P9-services",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['服务登记']",
+   "rule": "1 / 服务登记",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P9-services",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "服务登记 / ['Services']",
+   "rule": "服务登记 / 1 个 [Services]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P9-services",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P9-services",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「服务登记」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P9-services",
+   "metric": "空态呈现（当前栈 total=0）",
+   "value": "CLUSTER SOURCE MANAGER 服务登记 统一登记、查询与维护集群资源 Services（服务登记） 新建服务 模糊搜索（name 子串，大小写不敏感） 所属资源 全部（默认） status 全部（默认） 筛选 重置 软删可见性（需 VIEW_DELETED 权限） 未删除（默认） 没有符合条件的服务（当",
+   "rule": "空态文案而非错误",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10-audit",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1024/1024, 1024/1024",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10-audit",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10-audit",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10-audit",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['审计查询']",
+   "rule": "1 / 审计查询",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10-audit",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "审计查询 / ['Audit']",
+   "rule": "审计查询 / 1 个 [Audit]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10-audit",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10-audit",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「审计查询」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10-audit",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 686->1568 / docSW 1024->1024",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1024/1024, 1024/1024",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['IP 地址管理']",
+   "rule": "1 / IP 地址管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "IP 地址管理 / ['IP Addresses']",
+   "rule": "IP 地址管理 / 1 个 [IP Addresses]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「IP 地址管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 686->1386 / docSW 1024->1024",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "1024/1024, 1024/1024",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['系统管理']",
+   "rule": "1 / 系统管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "系统管理 / ['System']",
+   "rule": "系统管理 / 1 个 [System]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「系统管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.1/A5.2 授权面板 track 数",
+   "value": "2 (240px 430px)",
+   "rule": "2",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.2 双栏并排",
+   "value": {
+    "c1": [
+     281.0,
+     521.0,
+     386.0
+    ],
+    "c2": [
+     537.0,
+     967.0,
+     386.0
+    ]
+   },
+   "rule": "c2.left >= c1.right-1 且 top 差 ≤2",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.3 子 section 在布局容器内",
+   "value": true,
+   "rule": "全部命中",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.6 面板容器/列表自身 inline style",
+   "value": {
+    "layout": null,
+    "userList": null,
+    "descendant_inline": [
+     "INPUT.ant-input css-dev-only-do-not-"
+    ]
+   },
+   "rule": "layout 与 user-list 均无 style 属性（Ant 组件内部 style 不计）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.5 授权表在自身区域横向滚动",
+   "value": {
+    "picked": "shixin · EDITOR · ACTIVE",
+    "clientWidth": 430,
+    "scrollWidth": 681,
+    "overflowX": "auto",
+    "scrolledTo": 251,
+    "docScrollWidthBefore": 1024,
+    "docScrollWidthAfter": 1024
+   },
+   "rule": "overflow-x∈{auto,scroll} 且页面不溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.7 选中账号后授权列表加载",
+   "value": {
+    "picked": "shixin · EDITOR · ACTIVE",
+    "hasTarget": true,
+    "text": "CLUSTER SOURCE MANAGER 系统管理 统一登记、查询与维护集群资源 System（系统管理） 账号管理 API Key 管理 集群授权 已删对象管理 ADMIN 不受集群范围限制，不建立授权行；ADMIN 降级为 VIEWER / EDITOR 后立即按既有授权解析（可能为空）。 本页管理授权事实；非 ADMIN 的可见范围按已授权 Cluster 逐请求生效。 账号 admin · ADMIN · ACTIVE shixin · EDITOR · ACTIVE viewer27168 · VIEWER · ACTIVE 集群授权 目标账号：shixin（EDITOR / A"
+   },
+   "rule": "呈现「目标账号」与授权区",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "768/768, 768/768",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源概览']",
+   "rule": "1 / 资源概览",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源概览 / ['概览']",
+   "rule": "资源概览 / 1 个 [概览]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源概览」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A2.3 nav 项高度(admin 9 项)",
+   "value": [
+    44,
+    44,
+    44,
+    44,
+    44,
+    44,
+    44,
+    44,
+    44
+   ],
+   "rule": "全部 >= 43.5 且含文本",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A2.4 激活项在 rail 可视区",
+   "value": "rail 16.0..752.0 / active 16.0..83.0",
+   "rule": "完全包含",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A7.2 计数卡列数",
+   "value": "3 (218px 218px 218px)",
+   "rule": "3",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A7.3 计数与 GET /api/v1/dashboard 一致",
+   "value": {
+    "ui": [
+     "9",
+     "7",
+     "6",
+     "1",
+     "6"
+    ],
+    "titles": [
+     "Clusters（集群）",
+     "Resources（资源总数）",
+     "BareMetal（物理机）",
+     "VM（虚拟机）",
+     "Networks（网络）"
+    ],
+    "api_expected": [
+     "9",
+     "7",
+     "6",
+     "1",
+     "6"
+    ]
+   },
+   "rule": "逐项相等",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P2-dashboard",
+   "metric": "V-A10.5 窄屏 header 非 sticky（top<0）",
+   "value": "-899.0 / static / scrollY=1014.0",
+   "rule": "top<0 且 position=static",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P3-search",
+   "metric": "V-A6.1 details 默认折叠 / 可见 checkbox 数",
+   "value": "open=False hasOpen=False visible=0",
+   "rule": "open=false 且可见 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P3-search",
+   "metric": "V-A6.8 summary 文本/字号/role=group",
+   "value": "Resource 行展示字段（仅作用 resource 结果行） / 14.4px / Resource 行展示字段",
+   "rule": "原 legend 文案 + ≈14.4px + role=group",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P3-search",
+   "metric": "V-A6.7 默认选中 5 项",
+   "value": [
+    "global-search-field-hostname",
+    "global-search-field-resource_type",
+    "global-search-field-role",
+    "global-search-field-status",
+    "global-search-field-cluster"
+   ],
+   "rule": "hostname/resource_type/role/status/cluster",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P3-search",
+   "metric": "V-A6.6 折叠态 /api/v1/search 请求",
+   "value": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20",
+   "rule": "捕获到请求",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P3-search",
+   "metric": "V-A6.3 键盘展开 details.open / 可见 checkbox 数",
+   "value": "open=True visible=9",
+   "rule": "open=true 且 9 可见",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P3-search",
+   "metric": "V-A6.3 9 个 checkbox 可聚焦",
+   "value": "9/9",
+   "rule": "9/9",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P3-search",
+   "metric": "V-A6.2 搜索卡高度 折叠 < 展开",
+   "value": "525.5 < 657.7",
+   "rule": "折叠态更矮",
+   "result": "PASS",
+   "note": "F028 基线约 945px（375 展开态）"
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P3-search",
+   "metric": "V-A6.6 展开前后 /api/v1/search URL 逐字一致",
+   "value": {
+    "collapsed": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20",
+    "after_expand": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20"
+   },
+   "rule": "完全一致",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "768/768, 768/768",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源台账']",
+   "rule": "1 / 资源台账",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源台账 / ['Resources']",
+   "rule": "资源台账 / 1 个 [Resources]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源台账」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 678->1177 / docSW 768->768",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A9.2 模糊搜索 q=lu",
+   "value": {
+    "url": "http://127.0.0.1:15173/api/v1/resources?q=lu&deleted=exclude&page=1&page_size=20&sort=created_at&order=desc",
+    "rows": 2
+   },
+   "rule": "URL 含 q=lu 且行均匹配（hostname 子串）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A9.2 排序 sort=hostname",
+   "value": "http://127.0.0.1:15173/api/v1/resources?deleted=exclude&page=1&page_size=20&sort=hostname&order=asc",
+   "rule": "URL 含 sort/order",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P4-resources",
+   "metric": "V-A9.2 分页控件渲染（共 7 项，单页）",
+   "value": {
+    "text": "共 7 项 1 20 条/页",
+    "m": "7"
+   },
+   "rule": "显示「共 7 项」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P5-resource-detail",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "768/768, 768/768",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P5-resource-detail",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源台账']",
+   "rule": "1 / 资源台账",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源台账 / ['Resources']",
+   "rule": "资源台账 / 1 个 [Resources]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源台账」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P5-resource-detail",
+   "metric": "V-A9.3 详情渲染 / 关系区呈现",
+   "value": {
+    "h2": [
+     "资源详情",
+     "Overview",
+     "Hardware（硬件信息）",
+     "Virtual Machines（虚拟机）",
+     "Interfaces（网络接口）",
+     "Services（运行服务）",
+     "IP Addresses（IP 地址）",
+     "系统信息"
+    ],
+    "has_base_sections": true,
+    "relation_sections": [
+     "Virtual Machines（虚拟机）",
+     "Interfaces（网络接口）",
+     "Services（运行服务）",
+     "IP Addresses（IP 地址）"
+    ],
+    "buttons": [
+     "返回列表",
+     "查看",
+     "新建接口",
+     "已绑定 IP",
+     "绑定 IP",
+     "编辑",
+     "删除",
+     "编辑",
+     "删除资源"
+    ]
+   },
+   "rule": "资源详情 + Overview + 系统信息 + 关系区（VM/Interfaces/Services/IP）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P6-clusters",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "768/768, 768/768",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P6-clusters",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P6-clusters",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P6-clusters",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['集群管理']",
+   "rule": "1 / 集群管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P6-clusters",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "集群管理 / ['Clusters']",
+   "rule": "集群管理 / 1 个 [Clusters]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P6-clusters",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P6-clusters",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「集群管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P7-cluster-detail",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "768/768, 768/768",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P7-cluster-detail",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['集群管理']",
+   "rule": "1 / 集群管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "集群管理 / ['Clusters']",
+   "rule": "集群管理 / 1 个 [Clusters]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「集群管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P8-networks",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "768/768, 768/768",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P8-networks",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P8-networks",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P8-networks",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['网络管理']",
+   "rule": "1 / 网络管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P8-networks",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "网络管理 / ['Networks']",
+   "rule": "网络管理 / 1 个 [Networks]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P8-networks",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P8-networks",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「网络管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P9-services",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "768/768, 768/768",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P9-services",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P9-services",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P9-services",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['服务登记']",
+   "rule": "1 / 服务登记",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P9-services",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "服务登记 / ['Services']",
+   "rule": "服务登记 / 1 个 [Services]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P9-services",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P9-services",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「服务登记」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P9-services",
+   "metric": "空态呈现（当前栈 total=0）",
+   "value": "CLUSTER SOURCE MANAGER 服务登记 统一登记、查询与维护集群资源 Services（服务登记） 新建服务 模糊搜索（name 子串，大小写不敏感） 所属资源 全部（默认） status 全部（默认） 筛选 重置 软删可见性（需 VIEW_DELETED 权限） 未删除（默认） 没有符合条件的服务（当",
+   "rule": "空态文案而非错误",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10-audit",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "768/768, 768/768",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10-audit",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10-audit",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10-audit",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['审计查询']",
+   "rule": "1 / 审计查询",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10-audit",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "审计查询 / ['Audit']",
+   "rule": "审计查询 / 1 个 [Audit]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10-audit",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10-audit",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「审计查询」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10-audit",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 678->1568 / docSW 768->768",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "768/768, 768/768",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['IP 地址管理']",
+   "rule": "1 / IP 地址管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "IP 地址管理 / ['IP Addresses']",
+   "rule": "IP 地址管理 / 1 个 [IP Addresses]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「IP 地址管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 678->1386 / docSW 768->768",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "768/768, 768/768",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['系统管理']",
+   "rule": "1 / 系统管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "系统管理 / ['System']",
+   "rule": "系统管理 / 1 个 [System]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / block",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「系统管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.1/A5.2 授权面板 track 数",
+   "value": "1 (678px)",
+   "rule": "1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.1 单列垂直堆叠",
+   "value": {
+    "c1": [
+     543.5,
+     739.5
+    ],
+    "c2": [
+     755.5,
+     908.5
+    ]
+   },
+   "rule": "c2.top >= c1.bottom - 1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.3 子 section 在布局容器内",
+   "value": true,
+   "rule": "全部命中",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.4 账号按钮高度/宽度占比",
+   "value": {
+    "heights": [
+     44,
+     44,
+     44
+    ],
+    "ratio": 1
+   },
+   "rule": "全部 >=43.5 且 width 占比 >=0.95",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.6 面板容器/列表自身 inline style",
+   "value": {
+    "layout": null,
+    "userList": null,
+    "descendant_inline": [
+     "INPUT.ant-input css-dev-only-do-not-"
+    ]
+   },
+   "rule": "layout 与 user-list 均无 style 属性（Ant 组件内部 style 不计）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.5 授权表在自身区域横向滚动",
+   "value": {
+    "picked": "shixin · EDITOR · ACTIVE",
+    "clientWidth": 678,
+    "scrollWidth": 681,
+    "overflowX": "auto",
+    "scrolledTo": 3,
+    "docScrollWidthBefore": 768,
+    "docScrollWidthAfter": 768
+   },
+   "rule": "overflow-x∈{auto,scroll} 且页面不溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.7 选中账号后授权列表加载",
+   "value": {
+    "picked": "shixin · EDITOR · ACTIVE",
+    "hasTarget": true,
+    "text": "CLUSTER SOURCE MANAGER 系统管理 统一登记、查询与维护集群资源 System（系统管理） 账号管理 API Key 管理 集群授权 已删对象管理 ADMIN 不受集群范围限制，不建立授权行；ADMIN 降级为 VIEWER / EDITOR 后立即按既有授权解析（可能为空）。 本页管理授权事实；非 ADMIN 的可见范围按已授权 Cluster 逐请求生效。 账号 admin · ADMIN · ACTIVE shixin · EDITOR · ACTIVE viewer27168 · VIEWER · ACTIVE 集群授权 目标账号：shixin（EDITOR / A"
+   },
+   "rule": "呈现「目标账号」与授权区",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "P11-system-authorizations",
+   "metric": "V-A2.5 切到最后一项(System)后激活项仍可见",
+   "value": "rail 16.0..752.0 / active 669.3..752.4 scrollLeft=89",
+   "rule": "完全包含",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "375/375, 375/375",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源概览']",
+   "rule": "1 / 资源概览",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源概览 / ['概览']",
+   "rule": "资源概览 / 1 个 [概览]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / none",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源概览」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A2.1 375 壳层高度(header.bottom)",
+   "value": 176.0,
+   "rule": "<= 200",
+   "result": "PASS",
+   "note": "arch §9.2 预算 ≤180；判定阈值 200"
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A2.2 h1 可见/top 与首个内容块",
+   "value": "True / 196.0 / 280.0",
+   "rule": "top<567 且内容块 top<667",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A2.3 nav 项高度(admin 9 项)",
+   "value": [
+    44,
+    44,
+    44,
+    44,
+    44,
+    44,
+    44,
+    44,
+    44
+   ],
+   "rule": "全部 >= 43.5 且含文本",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A2.4 激活项在 rail 可视区",
+   "value": "rail 16.0..359.0 / active 16.0..72.0",
+   "rule": "完全包含",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A7.2 计数卡列数",
+   "value": "2 (144.5px 144.5px)",
+   "rule": "2",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A7.1 375 末卡宽度比",
+   "value": "301/301=1",
+   "rule": ">= 0.95",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A7.3 计数与 GET /api/v1/dashboard 一致",
+   "value": {
+    "ui": [
+     "9",
+     "7",
+     "6",
+     "1",
+     "6"
+    ],
+    "titles": [
+     "Clusters（集群）",
+     "Resources（资源总数）",
+     "BareMetal（物理机）",
+     "VM（虚拟机）",
+     "Networks（网络）"
+    ],
+    "api_expected": [
+     "9",
+     "7",
+     "6",
+     "1",
+     "6"
+    ]
+   },
+   "rule": "逐项相等",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P2-dashboard",
+   "metric": "V-A10.5 窄屏 header 非 sticky（top<0）",
+   "value": "-1754.0 / static / scrollY=1869.0",
+   "rule": "top<0 且 position=static",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.1 details 默认折叠 / 可见 checkbox 数",
+   "value": "open=False hasOpen=False visible=0",
+   "rule": "open=false 且可见 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.8 summary 文本/字号/role=group",
+   "value": "Resource 行展示字段（仅作用 resource 结果行） / 14.4px / Resource 行展示字段",
+   "rule": "原 legend 文案 + ≈14.4px + role=group",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.7 默认选中 5 项",
+   "value": [
+    "global-search-field-hostname",
+    "global-search-field-resource_type",
+    "global-search-field-role",
+    "global-search-field-status",
+    "global-search-field-cluster"
+   ],
+   "rule": "hostname/resource_type/role/status/cluster",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.6 折叠态 /api/v1/search 请求",
+   "value": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20",
+   "rule": "捕获到请求",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.3 键盘展开 details.open / 可见 checkbox 数",
+   "value": "open=True visible=9",
+   "rule": "open=true 且 9 可见",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.3 9 个 checkbox 可聚焦",
+   "value": "9/9",
+   "rule": "9/9",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.2 搜索卡高度 折叠 < 展开",
+   "value": "677.6 < 997.7",
+   "rule": "折叠态更矮",
+   "result": "PASS",
+   "note": "F028 基线约 945px（375 展开态）"
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.6 展开前后 /api/v1/search URL 逐字一致",
+   "value": {
+    "collapsed": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20",
+    "after_expand": "http://127.0.0.1:15173/api/v1/search?q=gpu&deleted=exclude&page=1&page_size=20"
+   },
+   "rule": "完全一致",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.4 仅剩 1 项时该项 disabled",
+   "value": {
+    "checked": [
+     "global-search-field-hostname"
+    ],
+    "disabled": [
+     "global-search-field-hostname"
+    ]
+   },
+   "rule": "1 选中 + 该唯一项 disabled",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.5 localStorage 自定义集刷新后恢复且仍折叠",
+   "value": [
+    "global-search-field-role",
+    "global-search-field-status"
+   ],
+   "rule": "role/status 恢复 + 默认折叠",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P3-search",
+   "metric": "V-A6.5 损坏值静默回退默认集",
+   "value": [
+    "global-search-field-hostname",
+    "global-search-field-resource_type",
+    "global-search-field-role",
+    "global-search-field-status",
+    "global-search-field-cluster"
+   ],
+   "rule": "5 项默认集",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "375/375, 375/375",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源台账']",
+   "rule": "1 / 资源台账",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源台账 / ['Resources']",
+   "rule": "资源台账 / 1 个 [Resources]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / none",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源台账」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 301->1177 / docSW 375->375",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A9.2 模糊搜索 q=lu",
+   "value": {
+    "url": "http://127.0.0.1:15173/api/v1/resources?q=lu&deleted=exclude&page=1&page_size=20&sort=created_at&order=desc",
+    "rows": 2
+   },
+   "rule": "URL 含 q=lu 且行均匹配（hostname 子串）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A9.2 排序 sort=hostname",
+   "value": "http://127.0.0.1:15173/api/v1/resources?deleted=exclude&page=1&page_size=20&sort=hostname&order=asc",
+   "rule": "URL 含 sort/order",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P4-resources",
+   "metric": "V-A9.2 分页控件渲染（共 7 项，单页）",
+   "value": {
+    "text": "共 7 项 1",
+    "m": "7"
+   },
+   "rule": "显示「共 7 项」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "375/375, 375/375",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['资源台账']",
+   "rule": "1 / 资源台账",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "资源台账 / ['Resources']",
+   "rule": "资源台账 / 1 个 [Resources]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / none",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「资源台账」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A9.3 详情渲染 / 关系区呈现",
+   "value": {
+    "h2": [
+     "资源详情",
+     "Overview",
+     "Hardware（硬件信息）",
+     "Virtual Machines（虚拟机）",
+     "Interfaces（网络接口）",
+     "Services（运行服务）",
+     "IP Addresses（IP 地址）",
+     "系统信息"
+    ],
+    "has_base_sections": true,
+    "relation_sections": [
+     "Virtual Machines（虚拟机）",
+     "Interfaces（网络接口）",
+     "Services（运行服务）",
+     "IP Addresses（IP 地址）"
+    ],
+    "buttons": [
+     "返回列表",
+     "查看",
+     "新建接口",
+     "已绑定 IP",
+     "绑定 IP",
+     "编辑",
+     "删除",
+     "编辑",
+     "删除资源"
+    ]
+   },
+   "rule": "资源详情 + Overview + 系统信息 + 关系区（VM/Interfaces/Services/IP）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A9.5 删除二次确认 Modal 内容",
+   "value": {
+    "text": "删除资源 确认软删除资源 cn001？（不级联删除关联对象；软删后 同集群 hostname 可被新资源复用；若仍有未删除的虚拟机（VM）引用本宿主机，将被拒绝并到引用列表）） 取 消 确认删除",
+    "rectTop": 104,
+    "rectWidth": 359,
+    "okBtnText": "确认删除",
+    "okBtnDanger": true,
+    "cancelBtn": true,
+    "headerBottom": -2686,
+    "hitInModal": true,
+    "hitTag": "DIV.ant-modal-title",
+    "wrapZ": "1000"
+   },
+   "rule": "含对象标识+软删说明+危险确认按钮+取消",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A10.6 Modal 不被 sticky header 覆盖",
+   "value": {
+    "hitInModal": true,
+    "hitTag": "DIV.ant-modal-title",
+    "headerBottom": -2686,
+    "modalTop": 104,
+    "modalWrapZ": "1000"
+   },
+   "rule": "点击 Modal 标题命中 Modal 内部元素",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P5-resource-detail",
+   "metric": "V-A9.5 取消确认 Modal 零写请求",
+   "value": [],
+   "rule": "无 DELETE/POST/PATCH/PUT",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P6-clusters",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "375/375, 375/375",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P6-clusters",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P6-clusters",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P6-clusters",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['集群管理']",
+   "rule": "1 / 集群管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P6-clusters",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "集群管理 / ['Clusters']",
+   "rule": "集群管理 / 1 个 [Clusters]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P6-clusters",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / none",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P6-clusters",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「集群管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P7-cluster-detail",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "375/375, 375/375",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P7-cluster-detail",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['集群管理']",
+   "rule": "1 / 集群管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "集群管理 / ['Clusters']",
+   "rule": "集群管理 / 1 个 [Clusters]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / none",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P7-cluster-detail",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「集群管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P8-networks",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "375/375, 375/375",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P8-networks",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P8-networks",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P8-networks",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['网络管理']",
+   "rule": "1 / 网络管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P8-networks",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "网络管理 / ['Networks']",
+   "rule": "网络管理 / 1 个 [Networks]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P8-networks",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / none",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P8-networks",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「网络管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P9-services",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "375/375, 375/375",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P9-services",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P9-services",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P9-services",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['服务登记']",
+   "rule": "1 / 服务登记",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P9-services",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "服务登记 / ['Services']",
+   "rule": "服务登记 / 1 个 [Services]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P9-services",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / none",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P9-services",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「服务登记」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P9-services",
+   "metric": "空态呈现（当前栈 total=0）",
+   "value": "服务登记 统一登记、查询与维护集群资源 Services（服务登记） 新建服务 模糊搜索（name 子串，大小写不敏感） 所属资源 全部（默认） status 全部（默认） 筛选 重置 软删可见性（需 VIEW_DELETED 权限） 未删除（默认） 没有符合条件的服务（当前过滤 / 分页下无数据，非错误）。",
+   "rule": "空态文案而非错误",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10-audit",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "375/375, 375/375",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10-audit",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10-audit",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10-audit",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['审计查询']",
+   "rule": "1 / 审计查询",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10-audit",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "审计查询 / ['Audit']",
+   "rule": "审计查询 / 1 个 [Audit]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10-audit",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / none",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10-audit",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「审计查询」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10-audit",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 301->1568 / docSW 375->375",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "375/375, 375/375",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['IP 地址管理']",
+   "rule": "1 / IP 地址管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "IP 地址管理 / ['IP Addresses']",
+   "rule": "IP 地址管理 / 1 个 [IP Addresses]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / none",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「IP 地址管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P10b-ip-addresses",
+   "metric": "V-A1.2 宽表 overflow-x / 滚动后页面宽度",
+   "value": "auto / 301->1386 / docSW 375->375",
+   "rule": "overflow-x∈{auto,scroll} 且 docSW 不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A1.1 页面横向溢出 (docSW/docCW, bodySW/bodyCW)",
+   "value": "375/375, 375/375",
+   "rule": "SW<=CW+1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A1.3 html/body overflow-x != hidden",
+   "value": "visible/visible",
+   "rule": "!= hidden",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.1 .workspace-location 数量",
+   "value": 0,
+   "rule": "== 0",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.2 h1 数量/文本",
+   "value": "1 / ['系统管理']",
+   "rule": "1 / 系统管理",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.3 main[aria-label] / aria-current",
+   "value": "系统管理 / ['System']",
+   "rule": "系统管理 / 1 个 [System]",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.4 page-eyebrow aria-hidden/display",
+   "value": "true / none",
+   "rule": "true / none(≤480) 或 true / 非 none",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A4.5 header 文本不含当前页名",
+   "value": "admin ADMIN 登出",
+   "rule": "不含「系统管理」",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.1/A5.2 授权面板 track 数",
+   "value": "1 (301px)",
+   "rule": "1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.1 单列垂直堆叠",
+   "value": {
+    "c1": [
+     604.3,
+     800.3
+    ],
+    "c2": [
+     816.3,
+     969.3
+    ]
+   },
+   "rule": "c2.top >= c1.bottom - 1",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.3 子 section 在布局容器内",
+   "value": true,
+   "rule": "全部命中",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.4 账号按钮高度/宽度占比",
+   "value": {
+    "heights": [
+     44,
+     44,
+     44
+    ],
+    "ratio": 1
+   },
+   "rule": "全部 >=43.5 且 width 占比 >=0.95",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.6 面板容器/列表自身 inline style",
+   "value": {
+    "layout": null,
+    "userList": null,
+    "descendant_inline": [
+     "INPUT.ant-input css-dev-only-do-not-"
+    ]
+   },
+   "rule": "layout 与 user-list 均无 style 属性（Ant 组件内部 style 不计）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.5 授权表在自身区域横向滚动",
+   "value": {
+    "picked": "shixin · EDITOR · ACTIVE",
+    "clientWidth": 301,
+    "scrollWidth": 681,
+    "overflowX": "auto",
+    "scrolledTo": 380,
+    "docScrollWidthBefore": 375,
+    "docScrollWidthAfter": 375
+   },
+   "rule": "overflow-x∈{auto,scroll} 且页面不溢出",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A5.7 选中账号后授权列表加载",
+   "value": {
+    "picked": "shixin · EDITOR · ACTIVE",
+    "hasTarget": true,
+    "text": "系统管理 统一登记、查询与维护集群资源 System（系统管理） 账号管理 API Key 管理 集群授权 已删对象管理 ADMIN 不受集群范围限制，不建立授权行；ADMIN 降级为 VIEWER / EDITOR 后立即按既有授权解析（可能为空）。 本页管理授权事实；非 ADMIN 的可见范围按已授权 Cluster 逐请求生效。 账号 admin · ADMIN · ACTIVE shixin · EDITOR · ACTIVE viewer27168 · VIEWER · ACTIVE 集群授权 目标账号：shixin（EDITOR / ACTIVE） 全部状态 授予集群访问 Clus"
+   },
+   "rule": "呈现「目标账号」与授权区",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "375x667",
+   "page": "P11-system-authorizations",
+   "metric": "V-A2.5 切到最后一项(System)后激活项仍可见",
+   "value": "rail 16.0..359.0 / active 287.8..358.7 scrollLeft=369",
+   "rule": "完全包含",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A3-skip-link",
+   "metric": "V-A3.3 冷启动首按 Tab（默认起点观察，非判定）",
+   "value": {
+    "tag": "INPUT",
+    "cls": "ant-input css-dev-only-do-not-override-jdb7z4 ant-input-outlined css-var-r1 ant-input-css-var",
+    "text": ""
+   },
+   "rule": "记录（NOT NOTE 级观察）",
+   "result": "NOT_TESTED",
+   "note": "headless Chromium 的顺序焦点起点落在文档中部；skip-link 的 DOM 位置与 CSS 与基线 b741240 相同"
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A3-skip-link",
+   "metric": "V-A3.3 首按 Tab 焦点落到 .skip-link",
+   "value": {
+    "tag": "A",
+    "cls": "skip-link",
+    "text": "跳转到主要内容"
+   },
+   "rule": "focus=skip-link",
+   "result": "PASS",
+   "note": "起点复位为 document.body(tabindex=-1) 后测量"
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A3-skip-link",
+   "metric": "V-A3.3 Enter 后 hash/焦点/h1 未被遮挡",
+   "value": {
+    "hash": "#workspace-content",
+    "activeId": "workspace-content",
+    "h1Top": 117.65625,
+    "headerBottom": 69,
+    "scrollY": 0
+   },
+   "rule": "hash=#workspace-content 且焦点落内容区且 h1.top >= header.bottom",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A3-nav-sweep",
+   "metric": "V-A3.1/A3.2 9 项导航切换 h1/aria-label/焦点",
+   "value": "全部正确",
+   "rule": "9/9 h1+aria 更新，焦点落 #workspace-content",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1024x768",
+   "page": "A3-nav-sweep",
+   "metric": "V-A3.1/A3.2 9 项导航切换 h1/aria-label/焦点",
+   "value": "全部正确",
+   "rule": "9/9 h1+aria 更新，焦点落 #workspace-content",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "A3-nav-sweep",
+   "metric": "V-A3.1/A3.2 9 项导航切换 h1/aria-label/焦点",
+   "value": "全部正确",
+   "rule": "9/9 h1+aria 更新，焦点落 #workspace-content",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A3-tab-sweep",
+   "metric": "V-A3.4 连续 Tab 40 次无隐藏元素获得焦点",
+   "value": {
+    "bad": [],
+    "body_park_index": [
+     20
+    ],
+    "sample": [
+     "跳转到主要内容",
+     "概览",
+     "Clusters",
+     "Resources",
+     "Networks",
+     "IP Pools",
+     "IP Addresses",
+     "Services",
+     "Audit",
+     "System"
+    ]
+   },
+   "rule": "被聚焦元素均可见（BODY = Tab 走出文档末尾，允许）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "A3-nav-focus",
+   "metric": "N1 nav 项焦点指示可见（outline 或焦点环）",
+   "value": {
+    "found": true,
+    "cls": "ant-btn css-dev-only-do-not-override-jdb7z4 css-var-r1 ant-btn-text ant-btn-color-default ant-btn-variant-text csm-button nav-link nav-link-active",
+    "outline": "rgb(29, 78, 216) solid 0px",
+    "outlineOffset": "0px",
+    "boxShadow": "rgba(37, 99, 235, 0.35) 0px 0px 0px 3px",
+    "focusVisible": true,
+    "ringExtent": 3,
+    "activeLeft": 16,
+    "activeRight": 83,
+    "navLeft": 16,
+    "navRight": 752,
+    "clipLeft": 3,
+    "clipRight": 0,
+    "fullyVisible": true
+   },
+   "rule": "存在可见焦点指示（outline 宽度>0 或 box-shadow 环）",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "768x1024",
+   "page": "A3-nav-focus",
+   "metric": "N1 nav 焦点指示是否被 rail 裁切",
+   "value": {
+    "clipLeft": 3,
+    "clipRight": 0,
+    "ringExtent": 3
+   },
+   "rule": "0 表示未被裁切（>0 记 NOTE/LOW）",
+   "result": "FAIL",
+   "note": "TD-1 N1：overflow-x:auto 的 rail 可能裁切焦点环"
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A9-resource-create",
+   "metric": "V-A9.4 空表单提交：字段级错误 + 无 POST",
+   "value": {
+    "fieldErrors": [
+     "必须选择所属集群（服务端校验 cluster 存在且未删除）",
+     "hostname 不能为空（服务端会去除首尾空白后再校验）"
+    ],
+    "posts": [],
+    "text": "CLUSTER SOURCE MANAGER 资源台账 统一登记、查询与维护集群资源 新建资源 返回列表 cluster（所属集群，必填，创建后不可修改） 请选择集群 必须选择所属集群（服务端校验 cluster 存在且未删除） hostname（必填；允许 Unicode 与“.”，禁内部空白 / 控制字符，≤253） hostname 不能为空（服务端会去除首尾空白后再校验） resource"
+   },
+   "rule": "字段级错误呈现且无 POST",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A9-resource-create",
+   "metric": "V-A9.7 重复 hostname → 409 呈现且零写入",
+   "value": {
+    "hostnameSet": true,
+    "chosen": [
+     "F025REV — F025 Review E2E",
+     "BARE_METAL（物理机）"
+    ],
+    "posts": 1,
+    "total": [
+     7,
+     7
+    ],
+    "fieldErrors": [
+     "hostname 与该集群内现存（未删除）资源冲突：归一化（去首尾空白 + ASCII 小写折叠）后相同。跨集群允许同名；已软删资源不占用 hostname，可复用。"
+    ],
+    "text": "CLUSTER SOURCE MANAGER 资源台账 统一登记、查询与维护集群资源 新建资源 返回列表 cluster（所属集群，必填，创建后不可修改） F025REV — F025 Review E2E hostname（必填；允许 Unicode 与“.”，禁内部空白 / 控制字符，≤253） hostname 与该集群内现存（未删除）资源冲突：归一化（去首尾空白 + ASCII 小写折叠）后相同。跨集群允许同名；已软删资源不占用 hostname，可复用。 resou"
+   },
+   "rule": "1 次 POST 被拒 + 明确错误文案 + 总数不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A9-resource-create",
+   "metric": "V-A9.4 取消返回列表（无写入）",
+   "value": {
+    "h1": "资源台账",
+    "rows": 7
+   },
+   "rule": "回到资源台账且行数不变",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A9-import-422",
+   "metric": "V-A9.7 导入预校验 422 文案呈现（只读路径）",
+   "value": {
+    "statuses": [
+     [
+      "POST",
+      "http://127.0.0.1:15173/api/v1/imports/resources/validate",
+      422
+     ]
+    ],
+    "alerts": [
+     "预校验失败：文件不满足导入模板要求（unknown_columns）；缺失列：cluster、hostname、resource_type、role、status、host、vcpu、memory_mb、disk_gb、hypervisor；未定义列：foo、bar（IMPORT_INVALID_FILE）"
+    ],
+    "confirm_enabled": false
+   },
+   "rule": "服务端 422 + [role=alert] 明确错误文案 + 确认导入不可用",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "P10-audit",
+   "metric": "V-A9.2 审计翻页到第 2 页",
+   "value": {
+    "clicked": true,
+    "url": "http://127.0.0.1:15173/api/v1/audit?page=2&page_size=20&sort=created_at&order=desc"
+   },
+   "rule": "URL page=2 且行内容变化",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A9-401",
+   "metric": "V-A9.7 会话失效(401) → 回登录页",
+   "value": {
+    "loginVisible": true,
+    "shell": false,
+    "body": "CSM Cluster Source Manager · 资源事实数据源 登录 用户名 密码 登录"
+   },
+   "rule": "呈现 .login-main",
+   "result": "PASS",
+   "note": ""
+  },
+  {
+   "viewport": "1440x900",
+   "page": "A10.2-logout",
+   "metric": "V-A10.2 滚动后登出真实生效 + V-A9.8 登录页 460/无溢出",
+   "value": {
+    "login": true,
+    "loginW": 460,
+    "docSW": 1440,
+    "docCW": 1440
+   },
+   "rule": "回到登录页且 .login-main=460 无溢出",
+   "result": "PASS",
+   "note": ""
+  }
+ ]
+}

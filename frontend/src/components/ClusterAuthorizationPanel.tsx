@@ -271,7 +271,9 @@ export default function ClusterAuthorizationPanel() {
       />
       {notice && <SuccessState message={notice} />}
 
-      <div className="authorization-layout" style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1fr) 2fr", gap: 16 }}>
+      {/* F033 DR-F033-08：双栏/单列与账号列表样式全部下沉到 index.css
+          （.authorization-layout / .authorization-user-list），不再使用 inline style */}
+      <div className="authorization-layout">
         <section aria-label="账号列表">
           <h3>账号</h3>
           <form onSubmit={(event) => { event.preventDefault(); }}>
@@ -288,7 +290,7 @@ export default function ClusterAuthorizationPanel() {
             <EmptyState description="没有匹配的账号" />
           )}
           {usersState.kind === "success" && usersState.users.length > 0 && (
-            <ul className="authorization-user-list" style={{ listStyle: "none", padding: 0 }}>
+            <ul className="authorization-user-list">
               {usersState.users.map((user) => (
                 <li key={user.id}>
                   <Button

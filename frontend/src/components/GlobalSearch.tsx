@@ -547,10 +547,13 @@ export default function GlobalSearch({
       )}
 
       {/* F018 字段选择器：九字段多选，仅作用 resource 结果行（DR-327）；
-          偏好仅浏览器本地，读写失败静默回退（DR-326） */}
-      <fieldset className="search-fields-toggle">
-        <legend>Resource 行展示字段（仅作用 resource 结果行）</legend>
-        <div className="search-fields-options">
+          偏好仅浏览器本地，读写失败静默回退（DR-326）。
+          F033 DR-F033-07：fieldset/legend → details/summary，默认折叠
+          （不写 open、不持久化展开态）；selectedFields、localStorage
+          键/值、changeField、buildSearchQuery 与请求参数零变化。 */}
+      <details className="search-fields-toggle">
+        <summary>Resource 行展示字段（仅作用 resource 结果行）</summary>
+        <div className="search-fields-options" role="group" aria-label="Resource 行展示字段">
           {GLOBAL_SEARCH_FIELD_OPTIONS.map((option) => {
             const checked = selectedFields.includes(option.value);
             return (
@@ -571,7 +574,7 @@ export default function GlobalSearch({
           偏好仅保存在本浏览器（localStorage），刷新后沿用；未选择时保持默认展示
           （hostname / 类型 / 角色 / 状态 / 集群）。存储不可用时仅当前会话生效，不影响搜索。
         </p>
-      </fieldset>
+      </details>
 
       {state.kind === "idle" && (
         <InfoState message="输入关键字后点击「搜索」：hostname / Service name 模糊匹配，IP 整址精确匹配，Cluster code / name 匹配（大小写不敏感，归一化与唯一性同口径）。" />
