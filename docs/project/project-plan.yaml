@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 12
   plan_revision: 19
-  status: IN_PROGRESS
+  status: DONE
   approval:
     plan_revision: 19
     feature_ids:
@@ -46,7 +46,7 @@ project:
     approved_on: '2026-10-23'
     basis: 用户于 2026-10-23 要求「更新下前端布局，以及不合理的布局和CSS样式」，批准 plan revision 19 新增 F033 进行前端布局与 CSS 质量优化；不改变业务规则、Contract、Schema 或权限。
   acceptance:
-    status: PENDING
+    status: COMPLETE
     evidence:
     - docs/features/F031/test-report.md#test-executiontest-12026-10-23v1
     - docs/features/F031/review-report.md
@@ -79,6 +79,11 @@ project:
     - docs/features/F032/artifacts/real-validate/validate-f032-bm-real.json.raw
     - docs/features/F032/artifacts/real-validate/validate-f032-vm-real.json.raw
     - docs/features/F032/artifacts/real-validate/validate-f032-vm-nohost.json.raw
+    - docs/features/F033/test-report.md#test-executiontest-12026-10-23v1
+    - docs/features/F033/review-report.md
+    - docs/features/F033/artifacts/ui-metrics.json
+    - docs/features/F033/artifacts/run.log
+    - docs/features/F033/artifacts/smoke-client.log
 features:
 - id: F001
   title: 工程与部署底座
@@ -2091,9 +2096,9 @@ features:
   depends_on:
   - F028
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: Reviewer 对候选 HEAD 1ec018a 做正式 Review。
+  status: DONE
+  current_stage: null
+  next_action: null
   layers:
     database: false
     backend: false
@@ -2112,7 +2117,7 @@ features:
     backend: NOT_REQUIRED
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   evidence:
     product:
     - docs/features/F033/product.md
@@ -2134,13 +2139,15 @@ features:
     - docs/features/F033/artifacts/375x667-dashboard.png
     - docs/features/F033/artifacts/768x1024-system-authorizations.png
     - docs/features/F033/artifacts/1440x900-dashboard.png
-  last_result: TEST-1 READY FOR REVIEW；A1–A11 PASS，1 项 LOW 焦点环裁切；smoke 328 passed。
+    review:
+    - docs/features/F033/review-report.md
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD 1ec018a）；已合并（b3626bb）；F033 DONE。
   git:
     base_branch: v3.3
     branch: feature/F033-layout-css-refresh
     start_commit: b7412402125112f9188617803af05d1efda26cfc
     head_commit: 1ec018ae5c8296df810961fa9697e577679d8f9e
-    merge_commit: null
+    merge_commit: b3626bbcc222593297f2a7d677f9fe2fc94f4104
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2535,21 +2542,21 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 明确要求更新前端布局及不合理布局/CSS；批准按 F033 范围实施。
-  current_feature: F033
-  current_stage: REVIEW
-  last_result: TEST-1 READY FOR REVIEW；A1–A11 PASS。
-  next_action: Reviewer 对候选 HEAD 1ec018a 做正式 Review。
+  current_feature: null
+  current_stage: null
+  last_result: F033 Review APPROVED WITH FOLLOW-UP（approved HEAD 1ec018a）并已合并（b3626bb）；F033 DONE，project.acceptance=COMPLETE，项目 DONE。
+  next_action: null
   repair_rounds: 0
 planning_status:
-  status: IN_PROGRESS
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
-    DONE: 32
+    DONE: 33
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
