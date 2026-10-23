@@ -2049,9 +2049,9 @@ features:
   - F027
   - F029
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: REVIEW
-  next_action: Reviewer 审核 F030 的 Contract、实现、测试与范围。
+  status: IN_REVIEW
+  current_stage: MERGE
+  next_action: 完成最终状态提交并恢复 project.acceptance=COMPLETE。
   layers:
     database: false
     backend: true
@@ -2066,7 +2066,7 @@ features:
     backend: COMPLETE
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   not_required:
     database: 无 Schema/Migration 变更；仅补并发与完整性错误测试证据；DB-D401–D420 继续有效。
   evidence:
@@ -2108,12 +2108,14 @@ features:
     - docs/features/F030/artifacts/scope-check.log
     - docs/features/F030/artifacts/wiring-check.log
     - docs/features/F030/artifacts/p7-guard-scan.log
+    review:
+    - docs/features/F030/review-report.md
   git:
     base_branch: v3.2
     branch: feature/F030-review-followup-closeout
     start_commit: 70db846ca2ed4bad90281ad5f55c1e6a9b2c5300
-    head_commit: 56cc6ac8ccb823a64ecf6ad86b2bc1ef770006bf
-    merge_commit: null
+    head_commit: 891206a54aa0d5f1f731e6d9044ac8f98e11be2a
+    merge_commit: 44f101ceae33976370e964555ced4f5e4baa04f2
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2478,12 +2480,11 @@ decisions_required:
   - F026
   - F027
   owner: Architect / Database
-  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对
-    docs/database/f026-cluster-authorization.md v1（Database 2026-10-21；DB-D401–D420，含 DB-D407
-    全量 (user_id) 索引修订）、docs/features/F026/architecture.md v1 §2/§3.2、
-    docs/features/F027/architecture.md §1–§2、docs/api/F026.md v3、docs/api/F027.md v1：表 user_cluster_authorizations
-    的列/FK RESTRICT/CHECK/部分唯一索引 uq_user_cluster_authorizations_user_id_cluster_id 是有效行唯一权威；迁移
-    0015 手写 DDL + 幂等回填 + 计数断言；AccessScope 位于 app/core/access_scope.py，逐请求解析、request.state
+  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对 docs/database/f026-cluster-authorization.md
+    v1（Database 2026-10-21；DB-D401–D420，含 DB-D407 全量 (user_id) 索引修订）、docs/features/F026/architecture.md
+    v1 §2/§3.2、 docs/features/F027/architecture.md §1–§2、docs/api/F026.md v3、docs/api/F027.md
+    v1：表 user_cluster_authorizations 的列/FK RESTRICT/CHECK/部分唯一索引 uq_user_cluster_authorizations_user_id_cluster_id
+    是有效行唯一权威；迁移 0015 手写 DDL + 幂等回填 + 计数断言；AccessScope 位于 app/core/access_scope.py，逐请求解析、request.state
     复用、不跨请求缓存、不物化；范围过滤用 SQL 谓词（cluster_predicate / EXISTS 归属谓词）。未新增业务限制，requirements
     §35.2/§35.3 正文未改写；F030 不改变该设计。
 - id: CHG010-BQ19
@@ -2494,10 +2495,10 @@ decisions_required:
   - F026
   - F027
   owner: Architect / Backend
-  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对
-    docs/api/F026.md v3 §2/§3/§9/§10（D-7 列表默认与同刻 id 升序、D-8 未知查询参数 422 与 extra=forbid）、docs/features/F026/architecture.md
-    v1 §3.3/§4、docs/features/F030/architecture.md §7：授权列表分页/排序/过滤沿用既有列表契约口径，total 与 items
-    同 filters；System 授权 Tab 仅展示与逐条授予/撤销，不提供批量授予或批量撤销（属一期未纳入范围，需变更控制）。F030
+  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对 docs/api/F026.md v3 §2/§3/§9/§10（D-7
+    列表默认与同刻 id 升序、D-8 未知查询参数 422 与 extra=forbid）、docs/features/F026/architecture.md
+    v1 §3.3/§4、docs/features/F030/architecture.md §7：授权列表分页/排序/过滤沿用既有列表契约口径，total
+    与 items 同 filters；System 授权 Tab 仅展示与逐条授予/撤销，不提供批量授予或批量撤销（属一期未纳入范围，需变更控制）。F030
     前端交互修正不新增端点/参数/权限；实现责任为 Backend / Frontend。
 pending_changes: []
 execution:
@@ -2510,9 +2511,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。
   current_feature: F030
-  current_stage: REVIEW
-  last_result: F030 TEST 通过（READY FOR REVIEW）：定向 28、全量 728/6 skipped、前端 328；无必须修复缺陷。
-  next_action: Reviewer 审核 F030。
+  current_stage: MERGE
+  last_result: F030 Review APPROVED WITH FOLLOW-UP（approved HEAD 891206a）；已合并（44f101c）。
+  next_action: 完成最终状态提交并恢复 project.acceptance=COMPLETE。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -2522,8 +2523,8 @@ planning_status:
     CANCELLED: 0
     DONE: 29
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
