@@ -47,3 +47,21 @@
 - 端到端 `validate` 验收（T77）为环境依赖，见 `test-report.md`。
 
 **结论**：实现完成，符合设计与契约。
+
+---
+
+## revision 12 errata（2026-10-23，F032 承接）
+
+> 本节只追加，不修改上文任何历史原文与证据。
+
+- **依据**：`docs/product/requirements-v3.md` revision 12 §24.4、修订后的 §24.2 / §24.3 与 T73 / T79 / T84；`docs/features/F032/architecture.md` v2（DR-1001–DR-1016、ON-1）；`docs/features/F032/implementation.md`。
+- **已变更的 CLI 表面（覆盖上文 §2 中相应表述）**：
+  1. `--resource-type` 由可缺省改为**必填**，取值仅 `BARE_METAL` / `VIRTUAL_MACHINE`；缺失或非法时退出码 2，不采集、不写文件、不输出 CSV、不联网。
+  2. `--role` / `--status` 增加枚举 `choices`（7 / 4 值），不做大小写折叠、无短名映射；空串视为非法。
+  3. 默认输出文件名按类型区分：`csm_host_info_bare_metal.csv` / `csm_host_info_virtual_machine.csv`；`-o/--output` 优先，`--print` 不写文件。
+  4. `--help` 改为分区说明模板必填、`--push` 必填、枚举值与引用语义（离线内嵌常量生成）。
+  5. `BARE_METAL` + 非空 `--host` 为非法用法（退出码 2）；`--host ""` / `--cluster ""` / `--network ""` 视为未提供。
+- **未变更（继续有效）**：上文 §2 的采集范围、单位与归一化、`enabled` 三态、命令降级、留空不推断规则，以及 §3 的 F023 §6 26 列/列序、§6.2 省略语义、`interface_type=OTHER`；唯一写入仍为输出文件，默认仍离线只读。
+- **验证**：见 `docs/features/F032/implementation.md` §5（T100–T106 与 TD-2 R-1–R-5 自动化用例；T73 / T79 / T84 修订口径的本地部分）。
+
+**结论**：F024 历史交付结论不变；revision 12 口径下的 CLI 表面由 F032 交付。

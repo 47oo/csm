@@ -5,12 +5,16 @@
 ``docs/api/F023.md`` §6 冻结的「资源 + 网卡 + IP」26 列统一宽模板的 CSV，
 供维护人员补全业务字段后经既有的两步导入流程导入 CSM。
 
-定位与边界（requirements §24.2）：
+定位与边界（requirements §24.2 / §24.3 / §24.4）：
 
 * 离线、只读、手动：不连接 CSM、不调用平台 API、不上传、不写库；
-* 只生成文件，唯一写入目标是 ``-o/--output`` 指定的文件；
-* 无法可靠获得的业务/归属字段（cluster / resource_type / role / status /
-  host / network）一律留空，由人工补全，不写占位或推断值；
+* ``--resource-type`` 为必填参数（仅 ``BARE_METAL`` / ``VIRTUAL_MACHINE``），
+  写入 ``resource_type`` 列并决定填充硬件列或 VM 列；缺省或非法时本地失败，
+  不采集、不写文件、不输出 CSV、不联网；
+* 只生成文件，唯一写入目标是 ``-o/--output`` 指定的文件；未指定时默认文件名
+  按类型区分：``csm_host_info_bare_metal.csv`` / ``csm_host_info_virtual_machine.csv``；
+* 无法可靠获得的业务/归属字段（cluster / role / status / host / network）
+  一律留空，由人工补全或经参数提供，不写占位或推断值；
 * 无 root 时优先读取免特权来源（如 ``/sys/class/dmi/id``），其余特权字段
   留空且不报错，绝不自动提权；
 * 不修改、不扩展 F014 / F023 已冻结模板与导入行为。
@@ -571,22 +575,126 @@ def _push(rows: list[dict], args) -> int:
     return 0
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
+# ---------------------------------------------------------------------------
+# CLI 表面：枚举、帮助、默认文件名与参数校验
+# （F032 / DR-1001–DR-1009、DR-1014–DR-1016；帮助文本离线内嵌，不读取 CSM）
+# ---------------------------------------------------------------------------
+
+# §24.1 / §24.3 / §24.4 / F023 §6：枚举取值逐字匹配，不做大小写折叠或短名映射。
+RESOURCE_TYPE_VALUES = ("BARE_METAL", "VIRTUAL_MACHINE")
+ROLE_VALUES = ("COMPUTE", "LOGIN", "MANAGEMENT", "STORAGE", "SERVICE", "GPU", "OTHER")
+STATUS_VALUES = ("IDLE", "ALLOC", "DOWN", "UNKNOWN")
+
+# 未指定 -o/--output 时的默认文件名，按 --resource-type 区分（DR-1005）。
+DEFAULT_OUTPUT_BY_TYPE = {
+    "BARE_METAL": "csm_host_info_bare_metal.csv",
+    "VIRTUAL_MACHINE": "csm_host_info_virtual_machine.csv",
+}
+
+# help 内嵌的模板必填列（与 F023 §6 / §6.1 逐行导入校验一致，DR-1003 / DR-1004 ①）。
+TEMPLATE_REQUIRED_COLUMNS = ("cluster", "hostname", "resource_type", "name", "ip")
+TEMPLATE_REQUIRED_VM_EXTRA = ("host",)
+
+# --push 必填项（--resource-type 因全局必填自动满足，DR-1004 ②）。
+PUSH_REQUIRED_ITEMS = (
+    ("--api-url", "CSM 基础地址，例如 http://csm.example:8080"),
+    ("API Key", "环境变量 CSM_API_KEY 或 --api-key（不落盘、不打印）"),
+    ("--cluster", "Cluster code（大小写不敏感）或 UUID"),
+)
+
+
+def build_epilog() -> str:
+    """生成 --help 的分区说明：模板必填、--push 必填、枚举值、引用语义、输出默认名。
+
+    文本由本模块常量离线生成（DR-1003 / DR-1014），不请求 F023 模板端点，
+    因此帮助内容与实际 ``choices`` / ``required`` 不会漂移。
+    """
+    template_required = "、".join(TEMPLATE_REQUIRED_COLUMNS)
+    vm_extra = "、".join(TEMPLATE_REQUIRED_VM_EXTRA)
+    push_items = "\n".join(f"       {name}：{desc}" for name, desc in PUSH_REQUIRED_ITEMS)
+    default_names = "\n".join(f"       {value} → {name}" for value, name in DEFAULT_OUTPUT_BY_TYPE.items())
+    return (
+        "必填与取值说明（离线内嵌常量生成，与实际行为一致）：\n"
+        "\n"
+        "  ① 模板必填（每行 CSV 逐行校验要求有值，与导入预校验一致）\n"
+        f"       {template_required}；VIRTUAL_MACHINE 行另需 {vm_extra}。\n"
+        "       脚本可自动获得 hostname / name / ip，resource_type 由 --resource-type 自动写入；\n"
+        "       脚本无法自动获得、须经参数或人工补全的模板必填项：cluster（及 VM 的 host）。\n"
+        "\n"
+        "  ② --push 必填（仅 --push 时要求；脚本必填 ≠ 模板必填）\n"
+        f"{push_items}\n"
+        "       --resource-type 因全局必填已自动满足。\n"
+        "       未提供 --cluster 仍可离线生成 CSV，仅 --push 被拒绝。\n"
+        "\n"
+        "  ③ 枚举参数可填值（逐字匹配，不做大小写折叠或短名映射）\n"
+        f"       --resource-type：{' / '.join(RESOURCE_TYPE_VALUES)}\n"
+        f"       --role：{' / '.join(ROLE_VALUES)}\n"
+        f"       --status：{' / '.join(STATUS_VALUES)}\n"
+        "\n"
+        "  ④ 引用型参数语义（脚本只引用、不创建；对象须已存在且未软删）\n"
+        "       --cluster：Cluster code（大小写不敏感）或 UUID；须存在且未软删。\n"
+        "       --host：同 cluster 内已存在、未软删的 BARE_METAL Host 的 hostname 或 UUID；\n"
+        "               仅适用于 VIRTUAL_MACHINE；BARE_METAL 行 host 恒空；\n"
+        "               BARE_METAL 与非空 --host 同时给出属非法用法，本地失败（退出码 2）。\n"
+        "       --network：同 cluster Network 的 name 或 CIDR；留空时由 ip 的 /mask 解析。\n"
+        "\n"
+        "  ⑤ 输出与默认文件名\n"
+        f"{default_names}\n"
+        "       -o/--output 优先于类型默认名；--print 只输出标准输出、不写文件（即使给出 -o）。\n"
+    )
+
+
+def build_error_hint() -> str:
+    """参数错误时追加到 argparse 原始错误之后的内容（DR-1007 / R-5）。"""
+    return (
+        "允许值：\n"
+        f"  --resource-type: {', '.join(RESOURCE_TYPE_VALUES)}\n"
+        f"  --role: {', '.join(ROLE_VALUES)}\n"
+        f"  --status: {', '.join(STATUS_VALUES)}\n"
+        "使用 --help 查看必填项、枚举值与引用语义。\n"
+    )
+
+
+class _ArgumentParser(argparse.ArgumentParser):
+    """保留 argparse 原始错误行，追加允许值与 --help 提示，统一退出码 2（DR-1007）。"""
+
+    def error(self, message: str) -> None:  # type: ignore[override]
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: error: {message}\n{build_error_hint()}")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """构造 CLI parser（供 --help、参数解析与 DR-1014 一致性守卫复用）。"""
+    parser = _ArgumentParser(
         description="采集本机信息并生成 CSM「资源+网卡+IP」导入模板 CSV（默认离线、只读）。",
+        epilog=build_epilog(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--resource-type",
-        choices=["BARE_METAL", "VIRTUAL_MACHINE"],
-        default=None,
-        help="写入 resource_type 列并决定填充 CPU/GPU/硬件或 vCPU/磁盘/虚拟化列。",
+        required=True,
+        choices=RESOURCE_TYPE_VALUES,
+        help="必填。写入 resource_type 列并决定填充硬件列（BARE_METAL）或 vCPU/磁盘/虚拟化列（VIRTUAL_MACHINE）。",
     )
-    parser.add_argument("--cluster", default=None, help="补全 cluster 列（推送时必填）。")
-    parser.add_argument("--role", default=None, help="补全 role 列。")
-    parser.add_argument("--status", default=None, help="补全 status 列。")
-    parser.add_argument("--host", default=None, help="补全 host 列（VM 必填）。")
-    parser.add_argument("--network", default=None, help="补全 network 列。")
-    parser.add_argument("-o", "--output", default="csm_host_info.csv", help="输出 CSV 路径（默认 csm_host_info.csv）。")
+    parser.add_argument(
+        "--cluster",
+        default=None,
+        help="补全 cluster 列：Cluster code（大小写不敏感）或 UUID；--push 必填，离线可留空。",
+    )
+    parser.add_argument("--role", default=None, choices=ROLE_VALUES, help="补全 role 列；允许值见下方枚举说明。")
+    parser.add_argument("--status", default=None, choices=STATUS_VALUES, help="补全 status 列；允许值见下方枚举说明。")
+    parser.add_argument(
+        "--host",
+        default=None,
+        help="补全 host 列：同 cluster 内已存在、未软删的 BARE_METAL Host 的 hostname 或 UUID；仅适用于 VIRTUAL_MACHINE。",
+    )
+    parser.add_argument("--network", default=None, help="补全 network 列：同 cluster Network 的 name 或 CIDR。")
+    parser.add_argument(
+        "-o",
+        "--output",
+        default=None,
+        help="输出 CSV 路径；缺省按 --resource-type 使用类型默认文件名。",
+    )
     parser.add_argument("--print", dest="to_stdout", action="store_true", help="输出到标准输出（不写文件）。")
     parser.add_argument("--no-header", action="store_true", help="不输出表头。")
     parser.add_argument("--include-loopback", action="store_true", help="包含 loopback 接口（默认排除）。")
@@ -596,33 +704,66 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--api-key", default=None, help="API Key；建议改用环境变量 CSM_API_KEY。")
     parser.add_argument("--yes", action="store_true", help="预校验通过后确认写入。")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, help="HTTP 超时秒数（默认 30）。")
-    return parser.parse_args(argv)
+    return parser
+
+
+def _text_or_none(value: str | None) -> str | None:
+    """自由文本参数的「未提供」口径：None 或空白视为未提供（DR-1016）。"""
+    if value is None:
+        return None
+    return value if value.strip() else None
+
+
+def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """parse_args() 之后、采集之前的本地校验；任何错误以退出码 2 终止（DR-1008 / DR-1015）。
+
+    argparse 的 ``choices`` / ``required`` 已覆盖枚举与必填；此处只处理跨参数组合：
+    ``BARE_METAL`` 行的 ``host`` 恒空（F023 §6.1），因此与非空 ``--host`` 组合属非法用法。
+    """
+    if args.resource_type == "BARE_METAL" and _text_or_none(args.host) is not None:
+        parser.error("argument --host: BARE_METAL 行的 host 恒空，--host 仅适用于 VIRTUAL_MACHINE")
+
+
+def resolve_output_path(args: argparse.Namespace) -> str:
+    """输出路径优先级：``-o/--output`` > 按类型默认名（DR-1005 / DR-1006）。
+
+    ``--print`` 的更高优先级由 ``main()`` 处理（--print 时不写任何文件）。
+    """
+    explicit = _text_or_none(args.output)
+    if explicit is not None:
+        return explicit
+    return DEFAULT_OUTPUT_BY_TYPE[args.resource_type]
+
+
+def parse_args(argv: list[str] | None = None,
+               parser: argparse.ArgumentParser | None = None) -> argparse.Namespace:
+    return (parser or build_parser()).parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-    manual = {
-        "cluster": args.cluster,
-        "role": args.role,
-        "status": args.status,
-        "host": args.host,
-        "network": args.network,
-    }
+    # DR-1008：参数解析与本地校验先于采集、写文件、stdout 与网络，任何参数错误零副作用。
+    parser = build_parser()
+    args = parse_args(argv, parser)
+    _validate_args(parser, args)
+
+    manual = {column: _text_or_none(getattr(args, column))
+              for column in ("cluster", "role", "status", "host", "network")}
     rows = collect(args.resource_type, args.include_loopback, args.include_down, manual)
     include_header = not args.no_header
 
     if args.to_stdout:
         sys.stdout.write(render_csv(rows, include_header))
     else:
-        write_csv(rows, args.output, include_header)
-        print(f"已写出 {len(rows)} 行到 {args.output}", file=sys.stderr)
+        output_path = resolve_output_path(args)
+        write_csv(rows, output_path, include_header)
+        print(f"已写出 {len(rows)} 行到 {output_path}", file=sys.stderr)
     print(f"模板列：{len(TEMPLATE_COLUMNS)} 列（F023 §6 冻结）", file=sys.stderr)
 
     if args.push:
         return _push(rows, args)
 
     if not args.to_stdout:
-        print("可补全以下字段后再导入：cluster, resource_type, role, status, host, network", file=sys.stderr)
+        print("可补全以下字段后再导入：cluster, role, status, host（仅 VM）, network", file=sys.stderr)
     if platform.system() != "Linux":
         print("警告：本脚本面向 Linux；非 Linux 环境下多数采集项将留空。", file=sys.stderr)
     return 0

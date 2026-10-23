@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 12
   plan_revision: 18
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 18
     feature_ids:
@@ -2016,31 +2016,54 @@ features:
   - F024
   - F025
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: Preflight 后启动 F032 Product Gate
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: Reviewer 对候选 HEAD b474f53 做正式 Review。
   layers:
     database: false
     backend: false
     frontend: false
   api_required: false
   not_required:
-    database: 纯 CLI 脚本与测试变更，无 Schema/Migration/索引/约束变更。
+    database: 纯 CLI 脚本与测试变更，无 Schema/Migration/索引/约束变更；脚本不访问数据库，--push 复用 F023 既有端点。
     backend: 不改平台 FastAPI 服务层、路由、模型或权限；脚本仅消费既有 F023 端点。
     frontend: 无 UI/组件/交互改动。
     contract: 不新增/不修改平台 API；字段与枚举唯一权威仍为 docs/api/F023.md §6，F032 不新建 Contract。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
+    test_design: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
-  evidence: {}
-  last_result: plan revision 18 已批准；F032 READY，等待启动。
+  evidence:
+    product:
+    - docs/features/F032/product.md
+    architecture:
+    - docs/features/F032/architecture.md#9-contract--最终设计签核
+    database:
+    - docs/database/f032-collector-cli.md
+    test_design:
+    - docs/features/F032/test-report.md#11-test-designtd-2--v2--2026-10-23
+    test:
+    - docs/features/F032/test-report.md#12-test-executiontr-1--v3--2026-10-23
+    - docs/features/F032/implementation.md
+    - docs/features/F032/artifacts/test-collect-host-info.log
+    - docs/features/F032/artifacts/test-scripts-all.log
+    - docs/features/F032/artifacts/cli-smoke.log
+    - docs/features/F032/artifacts/real-validate/validate-f032-bm-real.json.raw
+    - docs/features/F032/artifacts/real-validate/validate-f032-vm-real.json.raw
+    - docs/features/F032/artifacts/real-validate/validate-f032-vm-nohost.json.raw
+  last_result: TEST READY FOR REVIEW；T100–T106 与 T73/T79/T84 PASS，真实 F023 /validate 完成。
+  git:
+    base_branch: v3.3
+    branch: feature/F032-collector-help-type-import
+    start_commit: 89a5d4ff61f9df35f8f4393887701e7015bc26d8
+    head_commit: b474f534f82749bdcd3e6dd610e4fa84a896f251
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2435,13 +2458,13 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 回复「批准 plan revision 18 并实施 F032」。
-  current_feature: null
-  current_stage: null
-  last_result: plan revision 18 已批准；F032 READY，尚未启动。
-  next_action: Preflight 后启动 F032 Product Gate
+  current_feature: F032
+  current_stage: REVIEW
+  last_result: TEST READY FOR REVIEW；T100–T106 与 T73/T79/T84 PASS。
+  next_action: Reviewer 对候选 HEAD b474f53 做正式 Review。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -2449,10 +2472,9 @@ planning_status:
     DONE: 31
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F032
+    IN_REVIEW: 1
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
