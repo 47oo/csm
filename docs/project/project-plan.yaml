@@ -2143,8 +2143,8 @@ features:
   - F030
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: Architect 确认 F031 修复设计并签核 READY FOR DESIGN。
+  current_stage: TEST_DESIGN
+  next_action: 完成 F031 TEST DESIGN 并核对 10 项验证项。
   layers:
     database: false
     backend: true
@@ -2152,10 +2152,10 @@ features:
   api_required: false
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: PENDING
-    contract: PENDING
+    contract: NOT_REQUIRED
     backend: PENDING
     frontend: PENDING
     test: PENDING
@@ -2166,6 +2166,8 @@ features:
   evidence:
     product:
     - docs/features/F031/product.md
+    architecture:
+    - docs/features/F031/architecture.md
   git:
     base_branch: v3.2
     branch: feature/F031-review-closeout
@@ -2567,9 +2569,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 要求处理 F030 Review 剩余非阻塞项，批准 plan revision 17 并授权实施 F031。
   current_feature: F031
-  current_stage: ARCHITECTURE
-  last_result: F031 Product 复用核对完成（READY FOR ARCHITECT）；等待设计签核。
-  next_action: Architect 确认 F031 修复设计。
+  current_stage: TEST_DESIGN
+  last_result: F031 ARCHITECTURE Gate 通过（READY FOR DESIGN）；Database/Contract NOT_REQUIRED。
+  next_action: 完成 F031 TEST DESIGN。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
