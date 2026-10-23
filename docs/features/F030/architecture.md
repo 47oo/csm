@@ -413,3 +413,55 @@ Integration scope convention (F030):
 - Database：按 §2 判定 NOT_REQUIRED；若 Database 认为触及 Schema 语义，返回 Architect，不得直接改设计。
 
 **Status：READY FOR DESIGN**
+
+## 16. 最终设计定稿（CONTRACT Gate）
+
+- **签核者**：Architect
+- **日期**：2026-10-23
+- **结论**：**READY FOR IMPLEMENTATION**（本 Feature 设计定稿；Contract 已按 §3/§4/§8/§10 字面落盘并逐项核对）
+
+### 16.1 核对对象版本
+
+| 对象 | 版本 / 状态 | 核对结论 |
+| --- | --- | --- |
+| `docs/api/F026.md` | **v3**（READY） | 头部状态/版本/签核/覆盖范围/确认来源齐全；§5「非唯一完整性错误语义」与 §8.2 字面一致且未改变既有 409/422 映射；§12 v3 行与 §13 v3 行日期一致；端点/字段/错误码/权限/错误顺序不变 |
+| `docs/api/{F002,F003,F004,F007,F008,F009,F010,F011,F012,F013,F014,F023}.md` | 各「F027 范围语义（加法引用）」增补节 **v1**（独立于正文版本） | 12/12 节末含签核五要素（签核者/日期/对象路径/覆盖范围/确认来源+上游依据）；修订记录各新增 1 行且列数与表头一致（F002 3 列、其余 4 列）；未发现正文语义变化 |
+| `docs/api/F027.md` | v1（**不变**，DR-F030-02） | 头部批准要素自足；本 Feature 不改其正文 |
+| `docs/database/f026-cluster-authorization.md` | v1（Database 2026-10-21；DB-D401–D420） | F030 不改设计；DB 层无表/列/索引/约束/迁移变更 |
+| `docs/features/F030/test-report.md` | TD-1 v1（TEST DESIGN READY） | P1–P9 全覆盖，断言/反空洞与最终 Contract 字面一致 |
+| `docs/project/project-plan.yaml` | plan_revision 16 | CHG010-BQ18 / BQ19 = **CONFIRMED**，`source/kind/affects/owner` 不变，basis 引用已签核设计正文路径+版本+签核者+日期；`pending_changes=[]`；`acceptance.status=PENDING`；layers（database=false/backend=true/frontend=true）、api_required=true、`implementation.database=NOT_REQUIRED` 与本文件 §2 一致 |
+| `docs/product/requirements-v3.md` | revision 11 | §35.2（BQ18/BQ19 仍为 DESIGN_INPUT 原句）与 §35.3 未改写；未新增业务规则 |
+
+### 16.2 覆盖范围
+
+- 本文件 §3–§10 的全部设计落点：①Contract 签核记载（Kind A + Kind B）；②BQ18/BQ19 计划状态与依据收敛；③`q` 边界断言；④真并发与非唯一完整性错误；⑤前端候选门控/重试/超大授权量提示；⑥`list_authorizations` 注释与 F026 §5 现状语义；⑦`real_scope` 默认规则约束。
+- 不变项确认：Endpoint / HTTP Method / 参数 / Request / Response Schema / 字段类型 / nullable、错误码与 error 顺序（401→403→422→404→409）、权限（仅 `USER_ADMIN`）、Audit 口径、数据库 Schema 与 Migration（DB-D401–D420 继续有效）。
+- **Contract 状态：READY**（`docs/api/F026.md` v3 与 12 份域 Contract 增补节 v1 已落盘并被本 Gate 核验接收）。
+
+### 16.3 关闭项
+
+| 项 | 状态 | 依据 |
+| --- | --- | --- |
+| F030 P1（Contract 签核完整） | 设计面 CLOSED | 13 份正文签核五要素 + 版本/修订记录一致性核对通过（测试证据待 TEST） |
+| F030 P2（设计输入收敛） | 设计面 CLOSED | BQ18/BQ19 = CONFIRMED，basis 引用 DB v1 / F026.md v3 / F027.md v1 / F026/F027/F030 architecture；需求正文未改写 |
+| F029-RV-01（Contract 签核记载缺失） | **CLOSED**（合同面） | F026 v3 §12/§13 + 12 份签核行 |
+| F029-RV-08（非唯一完整性错误语义缺证据/记载） | 记载面 **CLOSED**；证据待 TEST | F026 §5 现状语义 + §6.2 服务层用例设计 |
+| F029-RV-03（并发缺口）、RV-05/RV-06（前端交互与覆盖声明） | 设计面 CLOSED，证据待 TEST | §6.1 / §7 |
+| CHG010-BQ18 / BQ19 | **CONFIRMED** | plan `decisions_required` + requirements §35.2 未改写 |
+
+### 16.4 遗留（不阻塞实现）
+
+- I-1：TD-1 引用未定义的「Issue I-1 / I-3」，须由 Tester 在 TEST 判定前补齐 PASS/FAIL 口径。
+- I-2：已同批修正：`F026.md` §12 首条 bullet 已改为 v1/v2/v3 历史记载。
+- I-3：TD2-P3.1 文案计数（「四条」实为 5 条）与 TD2-P3.2 正向对照细化，须在 TEST Report 记录与 §5 字面的差异。
+- I-4：已同批补充：`F026.md` §13 v3 行含「F029-RV-01/RV-08」追溯 token。
+- I-5（沿用 §14 O1）：`docs/api/F027.md` v1 头部「确认来源」一行仍不补；若后续认为 BQ18 引用要件不足，仅加一行记载。
+- I-6：纯追加性（删除行 = 0）、requirements 空 diff、收集数一致性由 TEST 阶段按 TD2-P1.4 / P2.3 / TD-3 命令实地核验；本 Gate 未执行 git/脚本核对。
+
+### 16.5 绑定与复核
+
+- 本定稿绑定：requirements revision 11；`docs/api/F026.md` v3；12 份域 Contract 增补节 v1；`docs/api/F027.md` v1；DB 设计 v1（2026-10-21）；TD-1 v1；plan_revision 16。
+- 上游发生变更时仅复核受影响部分，不要求无变化内容重复设计。
+- 实现放行后任何涉及端点/字段/错误码/权限/错误顺序/Schema 的变更即超出本设计边界，须回 Product/用户按 `docs/project/change-control.md` 处理。
+
+**Status：READY FOR IMPLEMENTATION**

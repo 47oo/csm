@@ -2050,8 +2050,8 @@ features:
   - F029
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: CONTRACT
-  next_action: 完成 F030 CONTRACT Gate：落盘 F026 v3、12 份域 Contract 签核行与 BQ18/BQ19 收敛记录。
+  current_stage: IMPLEMENTATION
+  next_action: 完成 Backend / Frontend 实现并提交实现报告。
   layers:
     database: false
     backend: true
@@ -2062,7 +2062,7 @@ features:
     architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: COMPLETE
-    contract: PENDING
+    contract: COMPLETE
     backend: PENDING
     frontend: PENDING
     test: PENDING
@@ -2073,9 +2073,24 @@ features:
     product:
     - docs/features/F030/product.md
     architecture:
-    - docs/features/F030/architecture.md
+    - docs/features/F030/architecture.md#16-最终设计定稿contract-gate
     test_design:
     - docs/features/F030/test-report.md#test-designtd-12026-10-23-v1
+    contract:
+    - docs/api/F026.md
+    - docs/api/F027.md
+    - docs/api/F002.md
+    - docs/api/F003.md
+    - docs/api/F004.md
+    - docs/api/F007.md
+    - docs/api/F008.md
+    - docs/api/F009.md
+    - docs/api/F010.md
+    - docs/api/F011.md
+    - docs/api/F012.md
+    - docs/api/F013.md
+    - docs/api/F014.md
+    - docs/api/F023.md
   git:
     base_branch: v3.2
     branch: feature/F030-review-followup-closeout
@@ -2440,25 +2455,33 @@ decisions_required:
     是否受范围限制）。推荐：不接受，授权行的存在意义仅对非 ADMIN 生效。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ18
   source: docs/project/proposals/CHG-010-cluster-access.md#专业设计输入
-  status: OPEN
+  status: CONFIRMED
   kind: DESIGN_INPUT
   affects:
   - F026
   - F027
   owner: Architect / Database
-  basis: 专业可定（当前未签核）：授权表名与列、主键 / 唯一约束（user_id + cluster_id）、外键与软删联动、索引设计、迁移与回填实现方式、
-    AccessScope 的类型与逐请求解析位置、范围过滤的查询实现（JOIN / EXISTS / 子查询）、是否引入物化或缓存。推荐在 F026 DATABASE
-    Gate 与 F027 CONTRACT 一并签核，不提交用户裁定。
+  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对
+    docs/database/f026-cluster-authorization.md v1（Database 2026-10-21；DB-D401–D420，含 DB-D407
+    全量 (user_id) 索引修订）、docs/features/F026/architecture.md v1 §2/§3.2、
+    docs/features/F027/architecture.md §1–§2、docs/api/F026.md v3、docs/api/F027.md v1：表 user_cluster_authorizations
+    的列/FK RESTRICT/CHECK/部分唯一索引 uq_user_cluster_authorizations_user_id_cluster_id 是有效行唯一权威；迁移
+    0015 手写 DDL + 幂等回填 + 计数断言；AccessScope 位于 app/core/access_scope.py，逐请求解析、request.state
+    复用、不跨请求缓存、不物化；范围过滤用 SQL 谓词（cluster_predicate / EXISTS 归属谓词）。未新增业务限制，requirements
+    §35.2/§35.3 正文未改写；F030 不改变该设计。
 - id: CHG010-BQ19
   source: docs/project/proposals/CHG-010-cluster-access.md#专业设计输入
-  status: OPEN
+  status: CONFIRMED
   kind: DESIGN_INPUT
   affects:
   - F026
   - F027
   owner: Architect / Backend
-  basis: 专业可定（当前未签核）：授权列表的分页与排序口径、System 授权 UI 的展示与批量操作范围、受限列表的默认排序与分页语义是否保持不变、 total
-    的计算方式。推荐保持既有列表契约收敛口径，不改变既有排序 / 分页语义。
+  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对
+    docs/api/F026.md v3 §2/§3/§9/§10（D-7 列表默认与同刻 id 升序、D-8 未知查询参数 422 与 extra=forbid）、docs/features/F026/architecture.md
+    v1 §3.3/§4、docs/features/F030/architecture.md §7：授权列表分页/排序/过滤沿用既有列表契约口径，total 与 items
+    同 filters；System 授权 Tab 仅展示与逐条授予/撤销，不提供批量授予或批量撤销（属一期未纳入范围，需变更控制）。F030
+    前端交互修正不新增端点/参数/权限；实现责任为 Backend / Frontend。
 pending_changes: []
 execution:
   mode: SINGLE
@@ -2470,9 +2493,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。
   current_feature: F030
-  current_stage: CONTRACT
-  last_result: F030 TEST DESIGN 通过（TEST DESIGN READY）；已保存 test-report.md 的 TD-1。
-  next_action: 完成 F030 CONTRACT Gate 并签核最终设计。
+  current_stage: IMPLEMENTATION
+  last_result: F030 CONTRACT Gate 通过（READY FOR IMPLEMENTATION）；F026 v3、12 份 Contract 签核行与 BQ18/BQ19 已落盘。
+  next_action: 完成 Backend / Frontend 实现。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
