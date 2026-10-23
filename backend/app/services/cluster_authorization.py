@@ -127,6 +127,10 @@ def list_authorizations(
     order: str = "desc",
 ) -> tuple[list[tuple], int]:
     """Return the filtered page plus the filtered total (Contract §3)."""
+    # Path object semantics (Contract §3/§5.2 P-1): an unknown account is 404,
+    # before semantic query validation. This also removes the 422-vs-404
+    # existence oracle for unknown users combined with an invalid q.
+    _get_user_or_404(db, user_id)
     if sort not in SORT_FIELDS:
         raise _field_error("sort", "unsupported sort field")
     if order not in ORDERS:
@@ -134,9 +138,6 @@ def list_authorizations(
     if status is not None and status not in VALID_STATUSES:
         raise _field_error("status", "status must be ACTIVE or REVOKED")
     cleaned_q = _validate_q(q)
-    # Path object semantics (Contract §3/§5.2 P-1): an unknown account is 404,
-    # not an empty authorization list.
-    _get_user_or_404(db, user_id)
 
     filters = [UserClusterAuthorization.user_id == user_id]
     if status == "ACTIVE":
@@ -234,7 +235,12 @@ def grant_authorization(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise Conflict("already_granted") from exc
+        diag = getattr(exc.orig, "diag", None)
+        constraint = getattr(diag, "constraint_name", None)
+        if constraint == "uq_user_cluster_authorizations_user_id_cluster_id":
+            raise Conflict("already_granted") from exc
+        # Other integrity failures are not a duplicate grant; surface them.
+        raise
 
     row = _fetch_row(db, authorization.id)
     assert row is not None

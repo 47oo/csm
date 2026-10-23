@@ -12,8 +12,11 @@ import uuid
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import DBAPIError
 
 from integration.f015_helpers import create_cluster, role_client_factory  # noqa: F401
+
+pytestmark = pytest.mark.real_scope
 
 
 def _grant(client, user_id, cluster_id):
@@ -35,6 +38,12 @@ def _operator(user, role=None):
     from app.core.auth import Operator
     from app.core.permissions import Role
 
+    if isinstance(user, dict):
+        return Operator(
+            user_id=uuid.UUID(user["id"]),
+            username=user["username"],
+            role=Role(role or user["role"]),
+        )
     return Operator(
         user_id=user.id,
         username=user.username,
@@ -368,6 +377,60 @@ def test_list_filters_and_invalid_query(role_client_factory, make_user):  # noqa
     assert _list(admin, viewer_user.id, unexpected="x").status_code == 422
     assert _list(admin, viewer_user.id, cluster_id="not-a-uuid").status_code == 422
     assert _list(admin, viewer_user.id).status_code == 200
+    # Contract P-1: path 404 wins over semantic q validation.
+    assert _list(admin, uuid.uuid4(), q="").status_code == 404
+
+
+# --- A17/A18: admin upgrade/downgrade and disabled account -----------------
+
+
+def test_admin_upgrade_downgrade_and_disabled_account(
+    role_client_factory, auth_session_factory, make_user  # noqa: F811
+):
+    from app.models.user_cluster_authorization import UserClusterAuthorization
+
+    admin, _, _ = role_client_factory("ADMIN")
+    viewer_user, _ = make_user(
+        role="VIEWER", username="f026.lifecycle", password="f026-pass-123"
+    )
+    cluster = create_cluster(admin, "F26L", "F026 L")
+    assert _grant(admin, viewer_user.id, cluster["id"]).status_code == 201
+    assert uuid.UUID(cluster["id"]) in _scope(
+        auth_session_factory, _operator(viewer_user)
+    ).cluster_ids
+
+    upgraded = admin.patch(
+        f"/api/v1/users/{viewer_user.id}",
+        json={"version": viewer_user.version, "role": "ADMIN"},
+    )
+    assert upgraded.status_code == 200, upgraded.text
+    assert _scope(auth_session_factory, _operator(upgraded.json()["user"])).unrestricted is True
+
+    downgraded = admin.patch(
+        f"/api/v1/users/{viewer_user.id}",
+        json={"version": upgraded.json()["user"]["version"], "role": "VIEWER"},
+    )
+    assert downgraded.status_code == 200, downgraded.text
+    assert uuid.UUID(cluster["id"]) in _scope(
+        auth_session_factory, _operator(downgraded.json()["user"])
+    ).cluster_ids
+
+    disabled = admin.patch(
+        f"/api/v1/users/{viewer_user.id}",
+        json={"version": downgraded.json()["user"]["version"], "status": "DISABLED"},
+    )
+    assert disabled.status_code == 200, disabled.text
+    with auth_session_factory() as session:
+        rows = list(
+            session.execute(
+                select(UserClusterAuthorization).where(
+                    UserClusterAuthorization.user_id == viewer_user.id,
+                    UserClusterAuthorization.revoked_at.is_(None),
+                )
+            ).scalars()
+        )
+    assert len(rows) == 1
+    # A disabled account cannot authenticate; its grant row is retained.
 
 
 # --- A25/A26/A27/A29/T99: migration and backfill ---------------------------
@@ -470,7 +533,7 @@ def test_migration_and_backfill(pg_engine, alembic_runner):
                 "WHERE revoked_at IS NULL LIMIT 1"
             )
         ).one()
-    with pytest.raises(Exception):
+    with pytest.raises(DBAPIError) as update_exc:
         with pg_engine.begin() as conn:
             conn.execute(
                 text(
@@ -479,13 +542,15 @@ def test_migration_and_backfill(pg_engine, alembic_runner):
                 ),
                 {"new": uuid.uuid4(), "id": row.id},
             )
-    with pytest.raises(Exception):
+    assert update_exc.value.orig.sqlstate == "23514"
+    with pytest.raises(DBAPIError) as delete_exc:
         with pg_engine.begin() as conn:
             conn.execute(
                 text("DELETE FROM user_cluster_authorizations WHERE id = :id"),
                 {"id": row.id},
             )
-    with pytest.raises(Exception):
+    assert delete_exc.value.orig.sqlstate == "23001"
+    with pytest.raises(DBAPIError) as unique_exc:
         with pg_engine.begin() as conn:
             conn.execute(
                 text(
@@ -494,7 +559,70 @@ def test_migration_and_backfill(pg_engine, alembic_runner):
                 ),
                 {"u": row.user_id, "c": row.cluster_id},
             )
+    assert unique_exc.value.orig.sqlstate == "23505"
 
     # Restore head even if an assertion above failed.
     if alembic_runner.head_revision() != "0015_user_cluster_authorizations":
         alembic_runner.upgrade("head")
+
+
+def test_f026_0015_downgrade_removes_only_f026_objects(pg_engine, alembic_runner):
+    """F026-RV-08: 0015 down/up object symmetry is explicit."""
+    from sqlalchemy import text
+
+    def _objects():
+        with pg_engine.connect() as conn:
+            tables = set(
+                conn.execute(
+                    text(
+                        "SELECT tablename FROM pg_tables WHERE schemaname='public'"
+                    )
+                ).scalars()
+            )
+            funcs = set(
+                conn.execute(
+                    text(
+                        "SELECT proname FROM pg_proc WHERE pronamespace='public'::regnamespace"
+                    )
+                ).scalars()
+            )
+            triggers = set(
+                conn.execute(
+                    text(
+                        "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal"
+                    )
+                ).scalars()
+            )
+            indexes = set(
+                conn.execute(
+                    text(
+                        "SELECT indexname FROM pg_indexes WHERE schemaname='public'"
+                    )
+                ).scalars()
+            )
+        return tables, funcs, triggers, indexes
+
+    def _f026_objects(objects):
+        tables, funcs, triggers, indexes = objects
+        return (
+            "user_cluster_authorizations" in tables,
+            "fn_user_cluster_authorizations_immutable" in funcs,
+            "fn_user_cluster_authorizations_no_delete" in funcs,
+            "trg_user_cluster_authorizations_immutable" in triggers,
+            "trg_user_cluster_authorizations_no_delete" in triggers,
+            "uq_user_cluster_authorizations_user_id_cluster_id" in indexes,
+            "ix_user_cluster_authorizations_user_id" in indexes,
+            "ix_user_cluster_authorizations_cluster_id" in indexes,
+        )
+
+    try:
+        assert all(_f026_objects(_objects()))
+        alembic_runner.downgrade("0014_api_keys")
+        after_down = _objects()
+        assert not any(_f026_objects(after_down))
+        assert {"users", "clusters", "audit_logs"} <= after_down[0]
+        alembic_runner.upgrade("head")
+        assert all(_f026_objects(_objects()))
+    finally:
+        if alembic_runner.head_revision() != "0015_user_cluster_authorizations":
+            alembic_runner.upgrade("head")

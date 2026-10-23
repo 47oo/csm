@@ -1900,27 +1900,55 @@ features:
   - F027
   - F028
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: Preflight 后启动 PRODUCT / 实施。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: Reviewer 审核 F029 跟进项。
   layers:
     database: false
     backend: true
     frontend: true
   api_required: true
   implementation:
-    product: PENDING
-    architecture: PENDING
-    database: PENDING
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
-    frontend: PENDING
-    test: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
+    test: COMPLETE
     review: PENDING
   not_required:
     database: 仅测试/文档/前端/服务层小修；无 Schema/Migration 变更。
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F026/review-report.md
+    - docs/features/F027/review-report.md
+    - docs/features/F028/review-report.md
+    architecture:
+    - docs/api/F027.md
+    - docs/api/F026.md
+    test_design:
+    - docs/features/F029/implementation.md
+    contract:
+    - docs/api/F026.md
+    - docs/api/F027.md
+    backend:
+    - docs/features/F029/implementation.md#1-完成项
+    frontend:
+    - docs/features/F029/implementation.md#1-完成项
+    test:
+    - docs/features/F029/test-report.md#test-executiontest-12026-10-22
+    - docs/features/F029/artifacts/run.log
+    - docs/features/F029/artifacts/pytest.log
+    - docs/features/F029/artifacts/t36.log
+  last_result: 21 定向 + 721 全量 + F028 等价栈 4 passed + T36 B1–B7；证据日志已归档；等待复审。
+  git:
+    base_branch: v3.2
+    branch: feature/F029-review-followups
+    start_commit: 4f83a0eb8fc0c7b0a3ae2db64d3249ca45f159cf
+    head_commit: cd7681a
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2289,21 +2317,19 @@ decisions_required:
   basis: 专业可定（当前未签核）：授权列表的分页与排序口径、System 授权 UI 的展示与批量操作范围、受限列表的默认排序与分页语义是否保持不变、 total 的计算方式。推荐保持既有列表契约收敛口径，不改变既有排序 / 分页语义。
 pending_changes: []
 execution:
-  mode: CONTINUOUS
+  mode: SINGLE
   authorization:
-    plan_revision: 14
+    plan_revision: 15
     feature_ids:
-    - F026
-    - F027
-    - F028
+    - F029
     authorized_by: 用户
-    authorized_on: '2026-10-21'
-    basis: 用户于 2026-10-21 回复「批准并实施」，批准 revision 14 并授权连续实施 F026–F028。
-  current_feature: null
-  current_stage: null
-  last_result: Plan revision 15 已批准：新增 F029 Review 跟进项；F001–F028 保持 DONE。
-  next_action: 对 F029 执行 Preflight。
-  repair_rounds: 1
+    authorized_on: '2026-10-22'
+    basis: 用户于 2026-10-22 要求完成 Review 低优先级跟进项，批准 plan revision 15 并授权实施 F029。
+  current_feature: F029
+  current_stage: REVIEW
+  last_result: F029 TEST 通过，进入 REVIEW。
+  next_action: 完成 F029 Review 并合并，恢复 project.acceptance=COMPLETE。
+  repair_rounds: 0
 planning_status:
   status: ACCEPTED
   plan_completeness: complete
@@ -2313,10 +2339,9 @@ planning_status:
     DONE: 28
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F029
+    IN_REVIEW: 1
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []

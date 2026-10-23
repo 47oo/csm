@@ -37,7 +37,7 @@ F026 交付后、F027 合并前，非 ADMIN 的实际数据可见范围仍等于
 - 账号停用不删除/修改授权；停用期间无法认证；重新启用后按既有授权解析（A-1，推导口径）。
 - 回填：既有非 ADMIN 账号 × 既有 Cluster（含软删），幂等；ADMIN 无行；不改变角色/状态/业务对象。
 - 授权管理仅 ADMIN，复用 `USER_ADMIN`；VIEWER/EDITOR 403。
-- 授予/撤销各写一条 Audit，与业务写入同事务；含目标账号、Cluster、动作、操作者、时间；无敏感内容；回填不写业务 Audit（A-3，PROPOSED）。
+- 授予/撤销各写一条 Audit，与业务写入同事务；含目标账号、Cluster、动作、操作者、时间；无敏感内容；回填不写业务 Audit（A-3，已按 Contract §9.7 记录）。
 - `AccessScope`：ADMIN = unrestricted；非 ADMIN = 有效授权 ∩ Cluster 未软删；逐请求解析、同请求内稳定、不跨请求缓存；API Key 同口径。
 - F026 不将 `AccessScope` 用于既有业务端点过滤。
 

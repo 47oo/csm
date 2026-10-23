@@ -57,6 +57,7 @@ export default function ClusterAuthorizationPanel() {
   const [reloadToken, setReloadToken] = useState(0);
 
   const [grantOpen, setGrantOpen] = useState(false);
+  const [activeGrantIds, setActiveGrantIds] = useState<Set<string>>(new Set());
   const [clustersState, setClustersState] = useState<ClustersState>({ kind: "loading" });
   const [clusterQuery, setClusterQuery] = useState("");
   const [selectedClusterId, setSelectedClusterId] = useState("");
@@ -124,21 +125,43 @@ export default function ClusterAuthorizationPanel() {
     };
   }, [grantOpen, clusterQuery]);
 
-  const existingActiveClusterIds = new Set(
-    state.kind === "success"
-      ? state.data.items.filter((item) => item.status === "ACTIVE").map((item) => item.cluster.id)
-      : [],
-  );
+  async function loadActiveGrantIds(userId: string): Promise<Set<string>> {
+    const ids = new Set<string>();
+    let page = 1;
+    let total = 0;
+    do {
+      const data = await listClusterAuthorizations(userId, {
+        status: "ACTIVE",
+        page,
+        page_size: 100,
+      });
+      total = data.total;
+      for (const item of data.items) {
+        ids.add(item.cluster.id);
+      }
+      if (data.items.length === 0) break;
+      page += 1;
+    } while (ids.size < total && page <= 20);
+    return ids;
+  }
+
   const candidates =
     clustersState.kind === "success"
-      ? clustersState.clusters.filter((cluster) => !existingActiveClusterIds.has(cluster.id))
+      ? clustersState.clusters.filter((cluster) => !activeGrantIds.has(cluster.id))
       : [];
 
-  function openGrant() {
+  async function openGrant() {
+    if (selectedUser === null) return;
     setSelectedClusterId("");
     setClusterQuery("");
     setGrantError(null);
     setGrantOpen(true);
+    try {
+      setActiveGrantIds(await loadActiveGrantIds(selectedUser.id));
+    } catch (error: unknown) {
+      setGrantError(describeClusterAuthorizationError(error).message);
+      setActiveGrantIds(new Set());
+    }
   }
 
   async function submitGrant(event: FormEvent<HTMLFormElement>) {
@@ -151,6 +174,7 @@ export default function ClusterAuthorizationPanel() {
     setGrantError(null);
     try {
       await grantClusterAuthorization(selectedUser.id, selectedClusterId);
+      setActiveGrantIds((current) => new Set(current).add(selectedClusterId));
       setGrantOpen(false);
       setNotice("集群授权已授予。");
       setReloadToken((value) => value + 1);
@@ -171,7 +195,14 @@ export default function ClusterAuthorizationPanel() {
       setNotice("集群授权已撤销；历史记录保留。");
       setReloadToken((value) => value + 1);
     } catch (error: unknown) {
-      setRevokeError(describeClusterAuthorizationError(error).message);
+      const described = describeClusterAuthorizationError(error);
+      if (described.alreadyRevoked) {
+        setRevokeTarget(null);
+        setNotice("该授权已被撤销（可能已被他人操作），列表已刷新。");
+        setReloadToken((value) => value + 1);
+      } else {
+        setRevokeError(described.message);
+      }
     } finally {
       setRevokeBusy(false);
     }
@@ -372,7 +403,7 @@ export default function ClusterAuthorizationPanel() {
                   </option>
                 ))}
               </Select>
-              {clustersState.total > candidates.length + existingActiveClusterIds.size && (
+              {clustersState.total > candidates.length + activeGrantIds.size && (
                 <p>仅显示前 50 个候选，请用搜索缩小范围。</p>
               )}
             </>

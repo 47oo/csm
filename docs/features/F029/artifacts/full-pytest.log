@@ -1,0 +1,19 @@
+........................................................................ [  9%]
+........................................................................ [ 19%]
+........................................................................ [ 29%]
+............................................ssss........................ [ 39%]
+........................................................................ [ 49%]
+........................................................................ [ 59%]
+................s....................................................... [ 69%]
+........................................................................ [ 79%]
+........................................................................ [ 89%]
+........................................................................ [ 99%]
+......                                                                   [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/integration/test_f016_acceptance.py:50: F016 acceptance module disabled (set F016_ACCEPTANCE=1)
+SKIPPED [1] tests/integration/test_f028_acceptance.py:100: F028 acceptance requires F016_ACCEPTANCE=1
+SKIPPED [1] tests/integration/test_f028_acceptance.py:148: F028 acceptance requires F016_ACCEPTANCE=1
+SKIPPED [1] tests/integration/test_f028_acceptance.py:189: F028 acceptance requires F016_ACCEPTANCE=1
+SKIPPED [1] tests/integration/test_f028_acceptance.py:210: F028 acceptance requires F016_ACCEPTANCE=1
+SKIPPED [1] tests/integration/test_migrations.py:105: connected role 'csm' is superuser; run against a non-superuser DB owner to exercise V3b (DB-D11)
+721 passed, 6 skipped in 1114.77s (0:18:34)

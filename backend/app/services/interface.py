@@ -324,7 +324,7 @@ def list_interfaces(
     if interface_type is not None:
         _validate_interface_type(interface_type)
 
-    filters = [scope_filters.resource_predicate(scope)]
+    filters = [scope_filters.interface_parent_predicate(scope)]
     if resource_id is not None:
         filters.append(Interface.resource_id == resource_id)
     if interface_type is not None:
@@ -374,7 +374,7 @@ def get_interface(
 ) -> Interface | None:
     """Return an interface, hidden by the soft-delete filter unless requested."""
     statement = select(Interface).where(
-        Interface.id == interface_id, scope_filters.resource_predicate(scope)
+        Interface.id == interface_id, scope_filters.interface_parent_predicate(scope)
     )
     return (
         db.execute(statement, execution_options=_query_options(include_deleted))

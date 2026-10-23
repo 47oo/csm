@@ -20,7 +20,11 @@ from app.models.service_endpoint import ServiceEndpoint
 
 
 def normalize(scope: AccessScope | None) -> AccessScope:
-    """Return an explicit scope; internal ``None`` means unrestricted."""
+    """Return an explicit scope; internal ``None`` means unrestricted.
+
+    HTTP routes always pass a real ``AccessScope``; ``None`` is only for direct
+    service/test calls. New HTTP code must not rely on this default.
+    """
     return scope if scope is not None else AccessScope(True, frozenset())
 
 
@@ -28,8 +32,8 @@ def cluster_predicate(scope: AccessScope | None, column: ColumnElement[bool]):
     return normalize(scope).cluster_predicate(column)
 
 
-def resource_predicate(scope: AccessScope | None):
-    """Interfaces/Services belong to a Resource's Cluster."""
+def interface_parent_predicate(scope: AccessScope | None):
+    """Interfaces belong to their owning Resource's Cluster."""
     scoped = normalize(scope)
     if scoped.unrestricted:
         return true()

@@ -2,7 +2,7 @@
 
 name: frontend
 description: CSM Frontend 设计与实现 Agent。在已确认需求、Architecture Handoff 和 API Contract 内，负责管理控制台的信息层级、布局、操作体验、前端实现及视觉与行为验证。
-model: local/GLM-5.3:high
+model: local-29000/DeepSeek-V4.1-Flash-1017:high
 tools: read, grep, find, ls, write, edit, bash
 ---
 
