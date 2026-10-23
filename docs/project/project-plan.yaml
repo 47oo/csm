@@ -2017,8 +2017,8 @@ features:
   - F025
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: 完成 Product Gate：确认 §24.4 范围与 T100–T106 验收映射。
+  current_stage: ARCHITECTURE
+  next_action: 完成 Architecture Gate：确定 CLI 帮助/默认文件名/校验方案与验证策略。
   layers:
     database: false
     backend: false
@@ -2030,7 +2030,7 @@ features:
     frontend: 无 UI/组件/交互改动。
     contract: 不新增/不修改平台 API；字段与枚举唯一权威仍为 docs/api/F023.md §6，F032 不新建 Contract。
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -2039,8 +2039,10 @@ features:
     frontend: NOT_REQUIRED
     test: PENDING
     review: PENDING
-  evidence: {}
-  last_result: Preflight 通过；F032 进入 Product Gate。
+  evidence:
+    product:
+    - docs/features/F032/product.md
+  last_result: Product READY FOR ARCHITECT；§24.4 与 T100–T106 已整理。
   git:
     base_branch: v3.3
     branch: feature/F032-collector-help-type-import
@@ -2442,9 +2444,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 回复「批准 plan revision 18 并实施 F032」。
   current_feature: F032
-  current_stage: PRODUCT
-  last_result: Preflight 通过；F032 进入 Product Gate。
-  next_action: 完成 Product Gate：确认 §24.4 范围与 T100–T106 验收映射。
+  current_stage: ARCHITECTURE
+  last_result: Product READY FOR ARCHITECT；§24.4 与 T100–T106 已整理。
+  next_action: 完成 Architecture Gate：确定 CLI 帮助/默认文件名/校验方案与验证策略。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
