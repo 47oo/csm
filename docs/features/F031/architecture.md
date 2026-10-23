@@ -1,6 +1,6 @@
 # F031 F030 Review 非阻塞项收尾 — Architecture
 
-- 状态：READY FOR DESIGN（交 Test Design；Database NOT_REQUIRED；未放行编码）
+- 状态：READY FOR IMPLEMENTATION（CONTRACT Gate 已签核；Database/Contract NOT_REQUIRED）
 - 版本：v1（Architect，2026-10-23）
 - Feature：F031（ENABLER，P2，M22）；plan_revision 17；分支 `feature/F031-review-closeout`；Base/start_commit `2c827fb`
 - 需求依据：`docs/product/requirements-v3.md` revision 11（§23.2 CONFIRMED、§31、§32、§35）
@@ -123,7 +123,7 @@ canSubmitGrant(active: ActiveGrantLoad, candidates: GrantCandidates, selectedClu
 
 三处引用改指向真实规则位置，不新造 I-2 条目：
 
-- `ClusterAuthorizationPanel.tsx` 注释：`// 旧选中集群不在新候选中时不可提交（规则见 authorizationCandidates.ts::canSubmitGrant；F030 architecture §17.1）。`
+- `ClusterAuthorizationPanel.tsx` 注释：`// 旧选中集群不在新候选中时，选择框不呈现该脏值且不可提交（规则见 authorizationCandidates.ts::canSubmitGrant；F030 architecture §17.1）。`
 - `smoke-client.mjs` 文件头 F030 说明：`…旧选中集群已不在候选中时不可提交（规则见 canSubmitGrant；F030 architecture §17.1）…`
 - `smoke-client.mjs` 断言内注释：`// 已授权集群不在候选中 → 即使被旧选中也不可提交（canSubmitGrant 候选成员校验）`
 
@@ -158,13 +158,13 @@ reopen 条件：若未来 legacy shim 扩展到 `tests/integration` 以外，必
 | DB | `backend/alembic/**` diff=0；head 仍 0015 |
 | 前端契约层 | `frontend/src/api/**` diff=0；API 调用计数不变 |
 | 需求正文 | `docs/product/**` diff=0 |
-| Contract | `docs/api/` 仅 F026 头部 +1 行、删除行 0；其余 12 份与 F027 diff=0 |
+| Contract | `docs/api/` 仅 F026 头部 +1 行、删除行 0；除 F026 外的 15 份（含 F027）diff=0 |
 
 ## 4. Contract / 文档影响
 
 - 端点/方法/参数/请求体/响应 Schema/字段类型/nullable/错误码/reason/错误顺序（401→403→422→404→409→500）/权限/Audit/分页排序过滤：全部不变。
 - 数据库无 Schema/Migration/索引/约束/触发器变更；DB-D401–D420 有效。
-- 唯一 Contract 文件触碰：`docs/api/F026.md` 头部新增 1 行历史依据说明；版本保持 v3；§1–§13 不变；不重签。12 份域 Contract 与 F027 不改。
+- 唯一 Contract 文件触碰：`docs/api/F026.md` 头部新增 1 行历史依据说明；版本保持 v3；§1–§13 不变；不重签。除 F026 外的 15 份 Contract（含 F027）不改。
 
 ## 5. Implementation Layers
 
@@ -180,7 +180,7 @@ L2 与 L3 文件不重叠，可并行；L1 共享文档由协调器独占。
 - 真实 PostgreSQL：RV-06 并发用例、T03 新用例；其余沿用既有套件。
 - 必跑：
   1. 定向 3 文件 → 期望 **29 passed**；
-  2. `-k "concurrent_grant or internal_error_envelope"` → **2 passed**，含 `overlap=True` 与 attempts 计数；
+  2. `-k "test_concurrent_grant_two_connections_single_winner or test_grant_path_internal_error_envelope_end_to_end"` → **2 passed**，含 `overlap=True` 与 attempts 计数（不要用宽泛 `concurrent_grant or internal_error_envelope`，会命中 F002 用例得 3）；
   3. `--collect-only` → **734 + 1 module skip**；
   4. 全量 → **729 passed / 6 skipped**（skip 原因集合不变）；
   5. 前端 `npx tsc --noEmit` exit 0、`npm run build` exit 0、`npm run smoke:client` **328 passed**；
@@ -217,13 +217,76 @@ L2 与 L3 文件不重叠，可并行；L1 共享文档由协调器独占。
 
 本阶段只读设计分析，未修改仓库文件。layers/api_required 与 10 项实施设计明确，可交 TEST_DESIGN；Database NOT_REQUIRED；Contract NOT_REQUIRED（仅 1 行记载澄清）。
 
-**Status：READY FOR DESIGN**
+**Status：READY FOR IMPLEMENTATION**
 
-## 10. 最终设计签核（CONTRACT Gate，占位）
+## 10. 最终设计签核（CONTRACT Gate）
 
-> 取得 F031 Test Design 后由 Architect 填写并签核。
+- **签核者**：Architect
+- **日期**：2026-10-23
+- **Gate**：CONTRACT（F031 最终设计定稿）
+- **结论**：**READY FOR IMPLEMENTATION**
+- **Contract 状态**：**NOT_REQUIRED**（唯一 Contract 触碰为 `docs/api/F026.md` 头部新增 1 行历史依据说明，不改端点/参数/请求体/响应 Schema/字段类型/nullable/错误码/reason/错误顺序/权限/Audit/分页排序过滤，不升版本、不重签）
+- **Database**：**NOT_REQUIRED**（无 Schema/Migration/索引/约束/触发器变更；DB-D401–D420 继续有效）
 
-- 签核者：（待填）Architect
-- 日期：（待填）
-- 核对对象版本：（待填）
-- 结论：（待填）READY FOR IMPLEMENTATION / NOT READY FOR IMPLEMENTATION
+### 10.1 核对对象版本
+
+| 对象 | 版本 / 状态 | 核对结论 |
+| --- | --- | --- |
+| `docs/product/requirements-v3.md` | revision 11 | 有效，未改写 |
+| `docs/features/F031/product.md` | READY FOR ARCHITECT | 10 项复用结论与 §1 一致，无新增业务规则 |
+| 本文件 | v1 + §10 定稿 | 本文段为定稿 |
+| `docs/features/F031/test-report.md` | TD-1 v1（TEST DESIGN READY） | 10 项已映射为 P1–P10 + TD-PROD/REG/PLAN |
+| `docs/features/F030/review-report.md` | APPROVED WITH FOLLOW-UP，批准 HEAD `891206a` | F031 输入清单闭合口径一致 |
+| `docs/features/F030/architecture.md` | v1 + §16（467 行） | 仅追加 §17 errata + 头部指针，不改写既有正文 |
+| `docs/api/F026.md` | v3 | 头部 +1 行、版本保持 v3、§1–§13 不变、不重签 |
+| `docs/api/` 其余 15 份（含 F027） | 既有版本 | diff = 0 |
+| `docs/database/f026-cluster-authorization.md` | v1（DB-D401–D420） | 无变更 |
+| `docs/project/project-plan.yaml` | plan_revision 17；用户 2026-10-23 授权 | 批准覆盖 F031；layers/api_required/not_required 与 §2 一致 |
+
+### 10.2 覆盖范围
+
+- 10 项跟进：①RV-03 签名 errata（§3.1）②RV-04 空态文案（§3.2）③RV-05 注释（§3.3）④RV-06 并发尝试（§3.4）⑤RV-07 日志 errata（§3.5）⑥RV-08 F026 头部（§3.6）⑦RV-09 引用（§3.7）⑧RV-10 守卫边界（§3.8）⑨T03 500 信封（§3.9）⑩不新增矩阵（§3.10）。
+- layers：database=false、backend=true、frontend=true；api_required=false。
+- 测试策略与 TD-1 T5 一致；计数基线 28→29、728→729、733→734、smoke 328 不变。
+
+### 10.3 TD-1 缺陷处置
+
+| ID | 处置 |
+| --- | --- |
+| F031-TD1-01 | **已修正**：§6 第 2 条改为精确 `-k "test_concurrent_grant_two_connections_single_winner or test_grant_path_internal_error_envelope_end_to_end"` → 2 passed |
+| F031-TD1-02 | **已修正**：§3.7 注释同时覆盖「选择框不呈现脏值」与「不可提交」 |
+| F031-TD1-03 | **已修正**：§3.10/§4 改为「除 F026 外的 15 份（含 F027）diff=0」；§3.6「12 份引用 F026 v3 的域 Contract」为另一集合，保留 |
+| F031-TD1-04/05/06/07 | 非设计缺陷，Coordinator/Tester 落实，不阻塞 |
+
+### 10.4 不变项
+
+- 不新增/不改变：业务规则、对象、关系、状态、唯一性、生命周期、权限项、错误码、CONFLICT reason、错误顺序（401→403→422→404→409→500）、端点、HTTP 方法、参数、请求体、响应 Schema、字段类型、nullable。
+- §23.2 授权与 Audit、F027 范围语义、F026 §5 非唯一完整性错误语义不变。
+- 无 Schema/Migration/索引/约束/触发器变更；alembic 单 head 0015；DB-D401–D420 有效。
+- F030 architecture §7.2/§8.1/§16、F026 §1–§13、F030 test-report 历史证据不改写（仅追加/头部 +1 行）。
+
+### 10.5 接受边界
+
+- F026 头部 +1 行以 TD-1 P6（版本/签核行字节不变、其余 15 份空 diff、code/reason 计数不变）作等价回归覆盖。
+- T03 通过测试级 `get_current_operator` override 绕过认证，仅作 500 信封与零残留证据，不作为 401/403 语义证据。
+- `real_scope` 守卫维持 `tests/integration`；reopen 条件：legacy shim 扩展到其它目录时必须同步扩展 `INTEGRATION_DIR` 与 AST 扫描。
+- 空态按成因分文案不在本 Feature 范围。
+
+### 10.6 遗留项（非阻塞）
+
+| ID | 内容 | Owner |
+| --- | --- | --- |
+| L1 | 定向 3 文件在 TEST-1 具名并记录实际命令 | Tester |
+| L2 | 不可声明项（浏览器 DOM/焦点/窄屏、ACTIVE>2000 真机、并发压力、Compose）在 TEST-1 明示 NOT TESTED | Tester |
+| L3 | TD-1 P3-A3 旧短语 grep 处理注释换行，避免假阴性 | Tester |
+| L4 | plan scope ⑨ 的「测试专用路由」以设计主路径 override 为准；回退路由仅在不可行时使用并记录 | Coordinator |
+| L5 | F026 头部 +1 行按 §3.6 原文落盘 | Coordinator |
+| L6 | TEST 显式覆盖 55432；artifacts `git add -f`；acceptance 恢复口径 | Coordinator |
+
+### 10.7 绑定与复核
+
+- 本签核绑定 10.1 所列版本；上游变化时仅复核受影响部分。
+- 放行后触及端点/字段/错误码/权限/错误顺序/Schema 的变更即超出边界，须回 Product/用户。
+- 实现必须逐项满足 §3 与 §6；未执行项不得声明为已验证。
+
+**Status：READY FOR IMPLEMENTATION**
