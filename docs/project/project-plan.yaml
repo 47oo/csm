@@ -4,10 +4,10 @@ project:
   requirements:
     path: docs/product/requirements-v3.md
     revision: 11
-  plan_revision: 15
-  status: DONE
+  plan_revision: 16
+  status: ACCEPTED
   approval:
-    plan_revision: 15
+    plan_revision: 16
     feature_ids:
     - F001
     - F002
@@ -38,12 +38,13 @@ project:
     - F027
     - F028
     - F029
+    - F030
     approved_by: 用户
-    approved_on: '2026-10-22'
-    basis: 用户于 2026-10-22 要求「将 review 的低优先级跟进项完成一下」，批准 plan revision 15 新增 F029（Review
-      跟进：安全加固、契约回写、测试固化与 UI 修正），F001–F028 保持 DONE；需求基线保持 revision 11，不新增业务规则。
+    approved_on: '2026-10-23'
+    basis: 用户于 2026-10-23 要求「按建议合并」，批准 plan revision 16 将 F029 Review 的非阻塞跟进项与遗留设计输入收敛为新增
+      F030；F001–F029 保持 DONE，需求基线保持 revision 11，不新增业务规则。
   acceptance:
-    status: COMPLETE
+    status: PENDING
     evidence:
     - docs/features/F028/test-report.md#test-executiontest-12026-10-22
     - docs/features/F028/artifacts/run.log
@@ -59,6 +60,7 @@ project:
     - docs/features/F016/test-report.md#32-c1c15-上线验收
     - docs/features/F016/test-report.md#33-目标查询场景
     - docs/features/F016/test-report.md#t36-备份覆盖-audit
+    pending_reason: F030 完成后重新执行适用验证并恢复 COMPLETE。
 features:
 - id: F001
   title: 工程与部署底座
@@ -2023,6 +2025,48 @@ features:
     start_commit: 4f83a0eb8fc0c7b0a3ae2db64d3249ca45f159cf
     head_commit: 6e8abdb23ba2399efb6bb0a76eb30b7eaed4d5fc
     merge_commit: e6a492b696f93cfe68305a617b77424a280ed6f1
+- id: F030
+  title: Review 跟进收敛：Contract 签核、边界测试与前端交互修正
+  kind: ENABLER
+  priority: P2
+  milestone: M21 Review 跟进收敛
+  scope: 完成 F029 Review 的非阻塞跟进项并收敛遗留设计输入：①补 F026 v2 与 12 份域 Contract 的签核者/日期/版本记录；②由
+    Architect/Database 收敛 CHG010-BQ18、Architect/Backend 收敛 CHG010-BQ19 并记录依据；③补 q
+    边界断言（已知用户 q=""/控制字符 → 422；未知用户 + 未知查询参数 → 422）；④补 F026 授予真并发（201 + 409）与非唯一 IntegrityError
+    原样抛出测试；⑤前端候选加载期间门控提交/提示，评估 ACTIVE 授权 >2000 条时的排除完整性；⑥修正 list_authorizations 注释与
+    F026.md「非唯一完整性错误 → 500」语义；⑦声明集成测试默认 legacy unrestricted，真实 scope 必须使用 real_scope
+    marker。不新增业务规则，不改变已批准端点、权限或 Schema 语义。
+  acceptance: Contract 与 BQ18/BQ19 签核记录完整；q 两侧断言通过；F026 并发与非唯一完整性错误测试通过；前端候选加载不再短暂
+    呈现错误候选或提交由加载状态门控，超大授权量行为有明确结论；注释与 F026 Contract 500 语义修正；real_scope 默认规则已声明并有测试约束；定向与全量回归通过；Review
+    APPROVED 或 APPROVED WITH FOLLOW-UP。
+  requirements:
+  - docs/features/F029/review-report.md
+  - docs/api/F026.md
+  - docs/api/F027.md
+  - docs/project/proposals/CHG-010-cluster-access.md#专业设计输入
+  depends_on:
+  - F026
+  - F027
+  - F029
+  blocking_decisions: []
+  status: READY
+  current_stage: null
+  next_action: null
+  layers:
+    database: false
+    backend: true
+    frontend: true
+  api_required: true
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2402,22 +2446,15 @@ decisions_required:
     的计算方式。推荐保持既有列表契约收敛口径，不改变既有排序 / 分页语义。
 pending_changes: []
 execution:
-  mode: SINGLE
-  authorization:
-    plan_revision: 15
-    feature_ids:
-    - F029
-    authorized_by: 用户
-    authorized_on: '2026-10-22'
-    basis: 用户于 2026-10-22 要求完成 Review 低优先级跟进项，批准 plan revision 15 并授权实施 F029。
+  mode: null
+  authorization: null
   current_feature: null
   current_stage: null
-  last_result: F029 Review APPROVED WITH FOLLOW-UP 并已合并（e6a492b）；F029 DONE，project.acceptance=COMPLETE，项目
-    DONE。
+  last_result: 计划 revision 16 批准新增 F030；等待实施授权。
   next_action: null
   repair_rounds: 0
 planning_status:
-  status: DONE
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -2426,8 +2463,9 @@ planning_status:
     DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F030
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
