@@ -130,9 +130,11 @@ def list_authorizations(
     # Contract §3/§5 P-1: path object first — an unknown or non-UUID account is
     # 404 before any semantic query validation, so `q` is only validated after
     # the account exists. Typed query params (status/cluster_id/page/page_size/
-    # sort/order) and undeclared params are rejected by the route before the
-    # handler, hence 422 even for an unknown account. This is not an
-    # information-leak hardening measure: the endpoint is USER_ADMIN only.
+    # sort/order) are rejected by the route before the handler; undeclared
+    # params are rejected by `_reject_unknown_query` as the handler's first
+    # step, before path and semantic validation — hence 422 even for an unknown
+    # account. This is not an information-leak hardening measure: the endpoint
+    # is USER_ADMIN only.
     _get_user_or_404(db, user_id)
     if sort not in SORT_FIELDS:
         raise _field_error("sort", "unsupported sort field")

@@ -1,0 +1,15 @@
+=== P8/A3 guard module (real PG) ===
+rootdir: /home/hanhao/github/47oo/csm/backend
+configfile: pyproject.toml
+plugins: langsmith-0.7.33, anyio-4.2.0
+collecting ... collected 3 items
+
+tests/integration/test_f030_test_harness.py::test_unmarked_module_gets_legacy_scope PASSED [ 33%]
+tests/integration/test_f030_test_harness.py::test_real_scope_usage_requires_marker PASSED [ 66%]
+tests/integration/test_f030_test_harness.py::test_scope_scan_is_not_vacuous PASSED [100%]
+
+============================== 3 passed in 4.56s ===============================
+
+=== F017 acceptance file rerun (flake attribution) ===
+...............                                                          [100%]
+15 passed in 13.12s

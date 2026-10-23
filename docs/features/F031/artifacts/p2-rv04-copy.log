@@ -1,0 +1,29 @@
+=== P2/A1 new literal in frontend/src ===
+frontend/src/components/ClusterAuthorizationPanel.tsx:483:            <EmptyState description="没有可授予的集群（已有效授权的集群不会重复出现）" />
+
+=== P2/A2 old literal in frontend/src ===
+hits 0
+
+=== P2/A3 new literal vs 56cc6ac^ baseline ===
+56cc6ac^   1
+2c827fb    0
+0/err
+HEAD       1
+
+=== P2/A4 diff of Panel.tsx (base 2c827fb..HEAD) ===
+diff --git a/frontend/src/components/ClusterAuthorizationPanel.tsx b/frontend/src/components/ClusterAuthorizationPanel.tsx
+index de997f5..06b375d 100644
+--- a/frontend/src/components/ClusterAuthorizationPanel.tsx
++++ b/frontend/src/components/ClusterAuthorizationPanel.tsx
+@@ -193 +193 @@ export default function ClusterAuthorizationPanel() {
+-  // 旧选中集群在新候选集合中已不存在时，选择框不呈现该脏值（架构评审 I-2）。
++  // 旧选中集群不在新候选中时，选择框不呈现该脏值且不可提交（规则见 authorizationCandidates.ts::canSubmitGrant；F030 architecture §17.1）。
+@@ -483 +483 @@ export default function ClusterAuthorizationPanel() {
+-            <EmptyState description="该账号已拥有全部匹配集群的有效授权" />
++            <EmptyState description="没有可授予的集群（已有效授权的集群不会重复出现）" />
+
+=== P2/A5 canSubmitGrant call line byte-identical to base ===
+196:  const grantSubmittable = canSubmitGrant(activeGrants, candidates, selectedClusterId, grantBusy);
+196:  const grantSubmittable = canSubmitGrant(activeGrants, candidates, selectedClusterId, grantBusy);
+572dd04d3b92647b0f83bdd53d955488080fefb406c42303d461068e2c21ae17  -
+572dd04d3b92647b0f83bdd53d955488080fefb406c42303d461068e2c21ae17  -

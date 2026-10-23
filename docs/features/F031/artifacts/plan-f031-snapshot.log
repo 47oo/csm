@@ -1,0 +1,24 @@
+plan_revision: 17
+project.status: IN_PROGRESS
+project.acceptance: {'status': 'PENDING', 'evidence': ['docs/features/F030/test-report.md#test-executiontest-12026-10-23v1', 'docs/features/F030/review-report.md', 'docs/features/F030/artifacts/full-pytest.log', 'docs/features/F030/artifacts/frontend-smoke.log', 'docs/features/F028/test-report.md#test-executiontest-12026-10-22', 'docs/features/F028/artifacts/run.log', 'docs/features/F028/artifacts/pytest.log', 'docs/features/F028/artifacts/t36.log', 'docs/features/F028/artifacts/frontend-build.log', 'docs/features/F028/artifacts/frontend-smoke.log', 'docs/features/F027/test-report.md#repair-verification-1', 'docs/features/F027/test-report.md#te-4-验收映射a1a23--t85t99', 'docs/features/F026/review-report.md', 'docs/features/F016/test-report.md#test-execution', 'docs/features/F016/test-report.md#t01t41-evidence-index', 'docs/features/F016/test-report.md#32-c1c15-上线验收', 'docs/features/F016/test-report.md#33-目标查询场景', 'docs/features/F016/test-report.md#t36-备份覆盖-audit'], 'pending_reason': 'F031 完成后重新执行适用验证并恢复 COMPLETE。'}
+project.current_feature: None
+project.current_stage: None
+  id: F031
+  title: F030 Review 非阻塞项收尾：设计记载、文案、注释与证据修订
+  kind: ENABLER
+  priority: P2
+  milestone: M22 Review 跟进收尾
+  scope: 处理 F030 Review 的 10 项非阻塞跟进：①architecture 补 canSubmitGrant 签名 errata；②前端候选空态改回因中性文案并核对 wiring；③后端注释统一为「handler 内先于路径/语义校验」；④并发用例增加尝试次数并保留失败语义；⑤归档更正 static 日志路径笔误的证据说明；⑥F026 头部注明 plan_revision 14 为历史依据、16 为本次确认来源；⑦消除三处悬空「架构评审 I-2」引用；⑧评估并扩展 real_scope 守卫范围或记录接受边界；⑨补 grant 路径端到端 500 信封测试（测试专用路由）；⑩核对上述变更不改变端点/字段/错误码/权限/Schema。不新增业务规则。
+  acceptance: 每项跟进有明确关闭结果或接受理由；RV-03/04/05/06/07/08/09 已关闭，RV-10 有范围结论，T03 有端到端 500 证据或明确接受；定向与全量回归通过；前端 typecheck/build/smoke 通过；无 Contract/Schema/权限行为变化；Review APPROVED 或 APPROVED WITH FOLLOW-UP。
+  requirements: ['docs/features/F030/review-report.md', 'docs/features/F030/architecture.md', 'docs/features/F030/test-report.md', 'docs/api/F026.md']
+  depends_on: ['F030']
+  blocking_decisions: []
+  status: IN_PROGRESS
+  current_stage: TEST
+  next_action: 完成 F031 TEST 并按 TD-1 P1–P10 归档证据。
+  layers: {'database': False, 'backend': True, 'frontend': True}
+  api_required: False
+  implementation: {'product': 'COMPLETE', 'architecture': 'COMPLETE', 'database': 'NOT_REQUIRED', 'test_design': 'COMPLETE', 'contract': 'NOT_REQUIRED', 'backend': 'COMPLETE', 'frontend': 'COMPLETE', 'test': 'PENDING', 'review': 'PENDING'}
+  not_required: {'database': '无 Schema/Migration 变更；仅为文档/注释/测试/前端文案修订。', 'contract': '仅澄清 F026 头部历史 plan_revision 记载与 F030 设计 errata；不改契约正文/端点/字段/错误码/权限。'}
+  evidence: {'product': ['docs/features/F031/product.md'], 'architecture': ['docs/features/F031/architecture.md#10-最终设计签核contract-gate'], 'test_design': ['docs/features/F031/test-report.md#test-designtd-12026-10-23v1'], 'backend': ['docs/features/F031/implementation.md#1-backend'], 'frontend': ['docs/features/F031/implementation.md#2-frontend']}
+  git: {'base_branch': 'v3.2', 'branch': 'feature/F031-review-closeout', 'start_commit': '2c827fb8a81f54fe6cb0889fd05eb9f12f0ccffa', 'head_commit': '2c827fb8a81f54fe6cb0889fd05eb9f12f0ccffa', 'merge_commit': None}

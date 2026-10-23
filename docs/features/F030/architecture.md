@@ -9,6 +9,7 @@
 - 上游 Review：`docs/features/F029/review-report.md`（APPROVED WITH FOLLOW-UP；RV-01…RV-11，Follow-up 1/2/3/5/6/7）
 - 既有已签核设计（复用，不重开）：`docs/features/F026/architecture.md` v1 §2/§3/§4 + §10；`docs/features/F027/architecture.md` §1–§2；`docs/database/f026-cluster-authorization.md` v1（DB-D401–D420，Database 2026-10-21）；`docs/api/F026.md` v2；`docs/api/F027.md` v1
 - layers：database=false、backend=true、frontend=true；api_required=true
+- F031 errata（2026-10-23）：§7.2 的 `canSubmitGrant` 签名、候选空态文案与 §8.1 注释字面已被 §17 更正；以 §17 为准（依据 plan_revision 17、F030-RV-03/04/05/09）。
 
 ## 1. 方案摘要与边界
 
@@ -465,3 +466,41 @@ Integration scope convention (F030):
 - 实现放行后任何涉及端点/字段/错误码/权限/错误顺序/Schema 的变更即超出本设计边界，须回 Product/用户按 `docs/project/change-control.md` 处理。
 
 **Status：READY FOR IMPLEMENTATION**
+
+
+## 17. F031 errata（2026-10-23，Architect，F031 签核）
+
+本节由 F031 追加，用于记录 F030 Review 的非阻塞跟进（F030-RV-03/04/05/09）。**不改变 Contract、不改变行为、不使 F030 验收 P1–P9 失效**；与 §7.2/§8.1/§16 冲突时以本节为准。
+
+### 17.1 `canSubmitGrant` 实际签名（取代 §7.2 code block 与规则行）
+
+```ts
+export function canSubmitGrant(
+  active: ActiveGrantLoad,
+  candidates: GrantCandidates,
+  selectedClusterId: string,
+  busy: boolean,
+): boolean
+```
+
+判定规则：`busy === false` 且 `selectedClusterId !== ""` 且 `active.kind === "success"` 且 `candidates.kind === "success"` 且选中集群仍存在于 `candidates.clusters` 时为 `true`。实现比 §7.2 草案多 `candidates` 参数与候选成员校验，**更严格，不放松任何已签核语义**。权威实现位置：`frontend/src/components/authorizationCandidates.ts::canSubmitGrant`。
+
+### 17.2 候选空态文案（取代 §7.2 表「加载成功、候选为空」行）
+
+```tsx
+<EmptyState description="没有可授予的集群（已有效授权的集群不会重复出现）" />
+```
+
+该文案在「全部已授权」「搜索无匹配」「系统无 Cluster」三种成因下均成立；不按成因分支显示不同文案（属后续产品决定）。
+
+### 17.3 追溯引用口径（取代三处「架构评审 I-2」）
+
+`ClusterAuthorizationPanel.tsx` 与 `frontend/scripts/smoke-client.mjs` 中关于「旧选中集群」的注释统一指向 `authorizationCandidates.ts::canSubmitGrant` 与本文件 §17.1，不再引用不存在的「架构评审 I-2」。F030 test-report 中 F030-T02 的历史措辞不改写，由 F031 test-report 记录正确指向。
+
+### 17.4 §8.1 注释字面（取代 §8.1 引用的注释文本）
+
+`backend/app/services/cluster_authorization.py::list_authorizations` 注释明确：路径对象优先（未知/非 UUID 账号先 404，`q` 仅在账号存在后校验）；类型化查询参数在 route/handler 前拒绝；未声明参数由 `_reject_unknown_query` 在 handler 第一步拒绝，先于路径与语义校验；该端点仅 `USER_ADMIN`，注释结论不构成信息泄露加固承诺。
+
+### 17.5 结论
+
+§16.1「实现与最终设计一致」的表述以 §17 为准。上述 errata 仅为记载/文案/注释层面修订，不改变端点、参数、字段、错误码、错误顺序、权限、Audit 或 Schema。

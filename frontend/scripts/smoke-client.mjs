@@ -276,7 +276,8 @@
  *   永不返回候选且不可提交（消除「加载中已授权 Cluster 可提交」的误导性中间
  *   态，F029-RV-05）、clusters 非 success 不返回候选、仅两者 success 时过滤
  *   已授权 Cluster、truncated 两路传播（active.truncated 或 clusters.total >
- *   items.length，不静默截断）、旧选中集群已不在候选中时不可提交（架构 I-2）；
+ *   items.length，不静默截断）、旧选中集群已不在候选中时不可提交（规则见
+ *   canSubmitGrant；F030 architecture §17.1）；
  *   服务端唯一约束与 409 `already_granted` 仍是最终事实。
  *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
@@ -8585,7 +8586,7 @@ await test("F030 canSubmitGrant：success + 已选 + 非 busy 才可提交；bus
   assert.equal(canSubmitGrant(active, candidates, "c1", false), true);
   assert.equal(canSubmitGrant(active, candidates, "c1", true), false, "提交中不可重复提交");
   assert.equal(canSubmitGrant(active, candidates, "", false), false, "未选择不可提交");
-  // 架构评审 I-2：已授权集群不在候选中 → 即使被旧选中也不可提交
+  // 已授权集群不在候选中 → 即使被旧选中也不可提交（canSubmitGrant 候选成员校验）
   assert.equal(canSubmitGrant(active, candidates, "c2", false), false);
   // 搜索条件变化后旧选中集群已不在候选 → 不可提交
   const narrowed = computeGrantCandidates(active, {

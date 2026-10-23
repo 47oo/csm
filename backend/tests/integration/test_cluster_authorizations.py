@@ -690,6 +690,11 @@ def test_list_q_boundary_validation(role_client_factory, make_user):  # noqa: F8
 
 # --- F030 ④: real concurrent grant (F026-RV-03, Product N3) ------------------
 
+# F031 ④/F030-RV-06: attempt ceiling only; the failure semantics below are
+# unchanged (an attempt without interval intersection is a failure, never a skip
+# and never replaced by sequential calls).
+MAX_ATTEMPTS = 5
+
 
 def _run_concurrent_grant(client_a, client_b, user_id, cluster_id):
     """Fire two grants from two independent clients at the same instant."""
@@ -741,9 +746,12 @@ def test_concurrent_grant_two_connections_single_winner(
     Each worker uses its own logged-in ADMIN ``TestClient``; every request opens
     its own session from ``auth_session_factory`` (``committed_engine`` +
     ``NullPool``), i.e. two real database connections. The request time spans
-    must intersect at least once (a sequential pair must not count as evidence);
-    up to three attempts are allowed because HTTP-level thread scheduling is
-    timing dependent, while the DB invariants are asserted on every attempt.
+    must intersect at least once: a pair whose spans do not intersect is not
+    concurrent evidence, so ``assert overlap_observed`` fails the test (never a
+    skip, never a sequential call standing in for the race). Up to
+    ``MAX_ATTEMPTS`` (=5) attempts are allowed because HTTP-level thread
+    scheduling is timing dependent, while the DB invariants are asserted on
+    every attempt.
     """
     from app.models.audit_log import AuditLog
     from app.models.user_cluster_authorization import UserClusterAuthorization
@@ -753,7 +761,7 @@ def test_concurrent_grant_two_connections_single_winner(
 
     attempts: list[str] = []
     overlap_observed = False
-    for attempt in (1, 2, 3):
+    for attempt in range(1, MAX_ATTEMPTS + 1):
         viewer, _ = make_user(role="VIEWER", username=f"f030.race.viewer{attempt}")
         cluster = create_cluster(admin_a, f"F30R{attempt}", f"F030 race {attempt}")
         cluster_id = uuid.UUID(cluster["id"])
@@ -812,6 +820,7 @@ def test_concurrent_grant_two_connections_single_winner(
             break
 
     print("concurrent grant evidence:", *attempts, sep="\n  ")
+    print(f"attempts used: {len(attempts)}/{MAX_ATTEMPTS}")
     assert overlap_observed, attempts
 
 
@@ -905,6 +914,129 @@ def test_grant_non_unique_integrity_error_is_not_mapped_to_409(
         )
     assert len(rows) == 1
     assert rows[0].revoked_at is None
+    assert [audit.action for audit in audits] == ["CREATE"]
+
+
+# --- F031 ⑨/T03: grant path 500 envelope on the real Contract route ---------
+
+
+def test_grant_path_internal_error_envelope_end_to_end(
+    auth_app, role_client_factory, auth_session_factory, make_user  # noqa: F811
+):
+    """F031 ⑨/T03: the real grant route answers the exact 500 envelope.
+
+    The operator dependency is replaced *for this test only* through
+    ``auth_app.dependency_overrides[get_current_operator]``, so the request still
+    rides the real Contract path (``POST /api/v1/users/{id}/cluster-authorizations``),
+    the real ``require_permission``, the real service layer and the real
+    database. A ghost ``user_id`` (absent from ``users``) makes ``granted_by``
+    fail its foreign key with a genuine ``23503`` after all validation passes —
+    the non-unique integrity failure the service re-raises instead of mapping to
+    409 ``already_granted``.
+
+    This override deliberately **bypasses authentication**: the case is evidence
+    for the 500 envelope and for zero residue only. It is **not** evidence for
+    401/403 semantics (the un-overridden control request below still shows
+    ``401 AUTH_REQUIRED``). No test-only route is mounted and no production code
+    is changed.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.core.auth import Operator, get_current_operator
+    from app.core.permissions import Role
+    from app.models.audit_log import AuditLog
+    from app.models.user_cluster_authorization import UserClusterAuthorization
+
+    admin, admin_user, _ = role_client_factory("ADMIN")
+    viewer, _ = make_user(role="VIEWER", username="f031.t03.viewer")
+    cluster = create_cluster(admin, "F31T03", "F031 T03")
+    cluster_id = uuid.UUID(cluster["id"])
+    ghost_username = "f031.t03.ghost"
+    ghost = Operator(user_id=uuid.uuid4(), username=ghost_username, role=Role.ADMIN)
+
+    with TestClient(auth_app, raise_server_exceptions=False) as client:
+        # Control: without the override the very same request is a real 401.
+        anon = _grant(client, viewer.id, cluster["id"])
+        assert anon.status_code == 401, anon.text
+        assert anon.json()["error"]["code"] == "AUTH_REQUIRED"
+
+        auth_app.dependency_overrides[get_current_operator] = lambda: ghost
+        try:
+            resp = _grant(client, viewer.id, cluster["id"])
+        finally:
+            auth_app.dependency_overrides.pop(get_current_operator, None)
+
+    assert resp.status_code == 500, resp.text
+    assert resp.json() == {
+        "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "Internal server error",
+            "details": {},
+        }
+    }, resp.text
+    for leaked in (
+        "Traceback",
+        "fk_user_cluster_authorizations_granted_by_users",
+        "23503",
+        "IntegrityError",
+        ghost_username,
+        str(ghost.user_id),
+    ):
+        assert leaked not in resp.text, (leaked, resp.text)
+
+    # The failed grant leaves neither an authorization row nor an Audit row.
+    with auth_session_factory() as session:
+        rows = list(
+            session.execute(
+                select(UserClusterAuthorization).where(
+                    UserClusterAuthorization.user_id == viewer.id,
+                    UserClusterAuthorization.cluster_id == cluster_id,
+                )
+            ).scalars()
+        )
+        audits = list(
+            session.execute(
+                select(AuditLog).where(
+                    AuditLog.object_type == "user_cluster_authorization"
+                )
+            ).scalars()
+        )
+    assert rows == []
+    assert audits == []
+
+    # The 500 was produced on the shipped route table (no test-only routes).
+    assert [
+        getattr(route, "path", "")
+        for route in auth_app.routes
+        if getattr(route, "path", "").startswith("/_test")
+    ] == []
+
+    # Attribution control: the real operator grants the same pair -> 201.
+    created = _grant(admin, viewer.id, cluster["id"])
+    assert created.status_code == 201, created.text
+    granted_row = created.json()["cluster_authorization"]
+    assert granted_row["granted_by"] == str(admin_user.id)
+
+    with auth_session_factory() as session:
+        rows = list(
+            session.execute(
+                select(UserClusterAuthorization).where(
+                    UserClusterAuthorization.user_id == viewer.id,
+                    UserClusterAuthorization.cluster_id == cluster_id,
+                )
+            ).scalars()
+        )
+        audits = list(
+            session.execute(
+                select(AuditLog).where(
+                    AuditLog.object_type == "user_cluster_authorization",
+                    AuditLog.object_id == uuid.UUID(granted_row["id"]),
+                )
+            ).scalars()
+        )
+    assert len(rows) == 1, [row.id for row in rows]
+    assert rows[0].revoked_at is None
+    assert rows[0].granted_by == admin_user.id
     assert [audit.action for audit in audits] == ["CREATE"]
 
 

@@ -1,0 +1,5 @@
+db_now - app_now (ms) per sample: [0.41, -1.65, -2.48, -3.24, -3.92]
+mean skew (ms): -2.18
+interpretation: negative => PostgreSQL clock behind application clock;
+revoked_at=now() (DB clock, transaction start) can then be < created_at (app clock)
+for revokes issued within the skew window -> ck_api_keys_revoked_after_created 23514.

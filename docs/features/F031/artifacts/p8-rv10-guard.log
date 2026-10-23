@@ -1,0 +1,72 @@
+=== P8/A1 guard file diff (base..HEAD) ===
+136	4	backend/tests/integration/test_cluster_authorizations.py
+[only test_cluster_authorizations.py expected]
+
+=== P8/A1b INTEGRATION_DIR + legacy shim condition ===
+192:    * **default** — modules under ``tests/integration/`` WITHOUT
+200:    * **guard** — ``tests/integration/test_f030_test_harness.py`` enforces this
+211:        "tests/integration" in path
+
+=== P8/A2 out-of-scope modules using scope symbols (expect 0 outside tests/integration) ===
+0
+0
+smoke modules: 4
+
+=== P8/A2b scope-symbol usage map across test tree ===
+backend/tests/conftest.py
+backend/tests/integration/__pycache__/test_cluster_authorizations.cpython-312.pyc
+backend/tests/integration/__pycache__/test_f027_access_scope.cpython-312.pyc
+backend/tests/integration/__pycache__/test_f027_access_scope.cpython-312-pytest-7.4.4.pyc
+backend/tests/integration/__pycache__/test_f030_test_harness.cpython-312.pyc
+backend/tests/integration/test_cluster_authorizations.py
+backend/tests/integration/test_f027_access_scope.py
+backend/tests/integration/test_f030_test_harness.py
+backend/tests/__pycache__/conftest.cpython-312.pyc
+backend/tests/__pycache__/conftest.cpython-312-pytest-7.4.4.pyc
+=== P8/A1c INTEGRATION_DIR value & guard file diff ===
+"""F030 ⑦ guard: ``real_scope`` convention for ``tests/integration``.
+
+This module deliberately does **not** declare ``pytest.mark.real_scope``: it is
+the canary proving the legacy default (unrestricted ``AccessScope`` override) is
+a fact, and the AST guard that stops a future real-scope module from silently
+running as legacy coverage (F030 product P7, architecture §9.2).
+
+Rules (single authoritative statement lives in ``tests/conftest.py::auth_app``):
+unmarked ``tests/integration`` modules run with a test-only unrestricted scope
+override; any module touching ``AccessScope`` / ``resolve_access_scope`` /
+``get_access_scope`` must declare the marker. The only exemption here is this
+guard module itself — no wildcard or general allow-list exists on purpose.
+"""
+
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+INTEGRATION_DIR = Path(__file__).resolve().parent
+GUARD_MODULE = Path(__file__).name
+SCOPE_SYMBOLS = frozenset({"AccessScope", "resolve_access_scope", "get_access_scope"})
+KNOWN_MARKED = frozenset(
+    {"test_cluster_authorizations.py", "test_f027_access_scope.py"}
+)
+MIN_SCANNED = 20
+
+
+def _mentions_real_scope(node: ast.AST) -> bool:
+    return any(
+guard file numstat (base..HEAD):
+[empty = unchanged]
+
+=== P8/A3 guard cases in targeted run ===
+self = <conftest.AlembicRunner object at 0x7f64ba6039e0>
+
+    def _prepare(self) -> None:
+        # env.py reads the URL from Settings; point it at the test DB and
+        # invalidate the settings cache so the override takes effect.
+>       from app.core.config import get_settings
+E       ModuleNotFoundError: No module named 'app'
+
+backend/tests/conftest.py:59: ModuleNotFoundError
+=========================== short test summary info ============================
+ERROR backend/tests/integration/test_f030_test_harness.py::test_unmarked_module_gets_legacy_scope
+========================== 2 passed, 1 error in 1.77s ==========================

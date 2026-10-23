@@ -1,0 +1,67 @@
+=== P6/A1 numstat docs/api/F026.md ===
+1	0	docs/api/F026.md
+
+=== P6/A4 docs/api changed files (expect only F026) ===
+docs/api/F026.md
+total api files: 16
+unchanged count verification:
+15
+
+=== P6/A2/A3 F026 header: version & signoff lines byte-unchanged ===
+3:- **状态**：READY
+4:- **版本**：v3
+5:- **签核**：Architect，2026-10-21（v1）；2026-10-22（v2，F029 跟进：P-1 / q 顺序澄清）；2026-10-23（v3，F030 跟进：§5 记录非唯一完整性错误现状语义，补齐签核记载；**端点 / 字段 / 错误码 / 权限 / 错误顺序不变**）
+7:- **确认来源**：`docs/features/F030/product.md`（READY FOR ARCHITECT）；`docs/project/project-plan.yaml` plan_revision 16，`project.approval`（用户 2026-10-23，feature_ids 含 F030，basis「按建议合并」）；上游 `docs/features/F029/review-report.md` F029-RV-01 / F029-RV-08、Follow-up 1 与 6
+84:- 已撤销 → 409 `CONFLICT{reason:"already_revoked"}`，状态/撤销时间/操作者不变、不写 Audit。
+101:`already_granted` 首次引入并登记 F002 §1.2.1 v3；`already_revoked` 复用 F017 字面，F026 扩义到集群授权（不写审计、不改状态）。
+153:### 9.2 Cluster 状态
+160:重复授予 409 `already_granted`；撤销已撤销 409 `already_revoked`；均不改状态、不写 Audit。先查 + 条件写入 + 唯一约束兜底，不以异常做正常业务分支。
+--- diff of full file ---
++- **历史依据说明（F031 记载澄清，2026-10-23，Architect）**：「上游依据」中的 `plan_revision 14` 是 F026 v1/v2 的**历史批准依据**；本文件 v3 的签核依据为「确认来源」行的 `plan_revision 16`。本行仅澄清记载，不改变正文、版本及任何端点 / 字段 / 错误码 / 权限 / 错误顺序；因不改契约语义故版本保持 v3。
+
+--- version/signoff line byte compare ---
+base header lines:
+  B: - **状态**：READY
+  B: - **版本**：v3
+  B: - **签核**：Architect，2026-10-21（v1）；2026-10-22（v2，F029 跟进：P-1 / q 顺序澄清）；2026-10-23（v3，F030 跟进：§5 记录非唯一完整性错误现状语义，补齐签核记载；**端点 / 字段 / 错误码 / 权限 / 错误顺序不变**）
+  B: - **确认来源**：`docs/features/F030/product.md`（READY FOR ARCHITECT）；`docs/project/project-plan.yaml` plan_revision 16，`project.approval`（用户 2026-10-23，feature_ids 含 F030，basis「按建议合并」）；上游 `docs/features/F029/review-report.md` F029-RV-01 / F029-RV-08、Follow-up 1 与 6
+  B: ## 12. 签核
+  B: - 状态 READY；签核者 Architect；v1 2026-10-21 / v2 2026-10-22 / v3 2026-10-23。
+  B: | v1 | 2026-10-21 | 初次签核：三端点、Row、列表基线、错误/reason、P-1、权限、Audit、DB 依赖、业务边界、F002 v3 / F015 v3 errata、F017 无变更。 |
+  B: | v3 | 2026-10-23 | F030 跟进：§5 记录「非唯一完整性错误 → 原始异常上抛 → 500 `INTERNAL_ERROR`」的现状语义；补齐签核者/日期/版本/覆盖范围/确认来源；不改变端点/字段/错误码/权限与既有 409/422 映射（F029-RV-01/RV-08）。 |
+head header lines:
+  H: - **状态**：READY
+  H: - **版本**：v3
+  H: - **签核**：Architect，2026-10-21（v1）；2026-10-22（v2，F029 跟进：P-1 / q 顺序澄清）；2026-10-23（v3，F030 跟进：§5 记录非唯一完整性错误现状语义，补齐签核记载；**端点 / 字段 / 错误码 / 权限 / 错误顺序不变**）
+  H: - **确认来源**：`docs/features/F030/product.md`（READY FOR ARCHITECT）；`docs/project/project-plan.yaml` plan_revision 16，`project.approval`（用户 2026-10-23，feature_ids 含 F030，basis「按建议合并」）；上游 `docs/features/F029/review-report.md` F029-RV-01 / F029-RV-08、Follow-up 1 与 6
+  H: - **历史依据说明（F031 记载澄清，2026-10-23，Architect）**：「上游依据」中的 `plan_revision 14` 是 F026 v1/v2 的**历史批准依据**；本文件 v3 的签核依据为「确认来源」行的 `plan_revision 16`。本行仅澄清记载，不改变正文、版本及任何端点 / 字段 / 错误码 / 权限 / 错误顺序；因不改契约语义故版本保持 v3。
+  H: ## 12. 签核
+  H: - 状态 READY；签核者 Architect；v1 2026-10-21 / v2 2026-10-22 / v3 2026-10-23。
+  H: | v1 | 2026-10-21 | 初次签核：三端点、Row、列表基线、错误/reason、P-1、权限、Audit、DB 依赖、业务边界、F002 v3 / F015 v3 errata、F017 无变更。 |
+  H: | v3 | 2026-10-23 | F030 跟进：§5 记录「非唯一完整性错误 → 原始异常上抛 → 500 `INTERNAL_ERROR`」的现状语义；补齐签核者/日期/版本/覆盖范围/确认来源；不改变端点/字段/错误码/权限与既有 409/422 映射（F029-RV-01/RV-08）。 |
+IDENTICAL: False
+
+uppercase code tokens base: 32 head: 32 identical set: True
+  count already_granted: base=9 head=9
+  count already_revoked: base=7 head=7
+  count not_found: base=0 head=0
+  count no_candidates: base=0 head=0
+  count already_authorized: base=0 head=0
+total reason-ish token multiset equal: True
+
+=== P6/A3 refined: exact '版本' / '签核' / '状态' bullet lines byte-identical ===
+- **状态**： identical: True
+- **版本**： identical: True
+- **签核**： identical: True
+
+=== P6/A2 tokens present in the single added line ===
+added line count: 1
+  '历史依据说明': True
+  'plan_revision 14': True
+  '历史批准依据': True
+  'plan_revision 16': True
+  'v3': True
+  '不改变正文': True
+
+=== body byte-identity: HEAD minus added line == base ===
+HEAD-minus-line == base: True

@@ -1,0 +1,51 @@
+=== P1/A1 P5/A5 P6 diff numstat (base 2c827fb..HEAD bf384c8) ===
+1	0	docs/api/F026.md
+39	0	docs/features/F030/architecture.md
+12	0	docs/features/F030/artifacts/p3-p6-static.log
+
+=== P1/A2 F030 architecture first 467 lines sha256 (base vs HEAD) ===
+base lines: 467  head lines: 506
+30a9cf134f961d112335b0a8795d947755fe0a3537587f992a0126bd5185d0aa  /tmp/f030-arch-base.md
+b6d6b79ea353f00a967adf959adcbdcfa051ad6a3ee66eec8af0414e3d3e6669  -
+full base == head first 467 lines?
+b6d6b79ea353f00a967adf959adcbdcfa051ad6a3ee66eec8af0414e3d3e6669  -
+
+=== deletion lines in F030 architecture diff (should be 0) ===
+0
+
+=== P5/A1 p3-p6-static.log: base sha256 vs HEAD first 37 lines ===
+base lines: 37 head lines: 49
+3ce6f1f24223e0008522f6fe3985fe05d91be327b4bd36c53c391f264fbd73a4  /tmp/p3p6-base.log
+3ce6f1f24223e0008522f6fe3985fe05d91be327b4bd36c53c391f264fbd73a4  -
+deletion lines in log diff (should be 0):
+0
+=== P1/A2 equivalent check: HEAD minus the single inserted header line == base (byte-identical) ===
+base sha256: 30a9cf134f961d112335b0a8795d947755fe0a3537587f992a0126bd5185d0aa bytes: 38518
+inserted header line indexes: [11] [b'- F031 errata\xef\xbc\x882026-10-23\xef\xbc\x89\xef\xbc\x9a\xc2\xa77.2 \xe7\x9a\x84 `canSubmitGrant` \xe7']
+head-minus-line sha256: bf12b9f4f1e2be6736a9a83ac384b84b509d5d7c0d7744cf97aad2af65eb70dc bytes: 40943
+MATCH: False
+
+=== P1/A3 headings in appended section ===
+'## 17. F031 errata': 1
+'### 17.1': 1
+'### 17.2': 1
+'### 17.3': 1
+'### 17.4': 1
+'### 17.5': 1
+
+=== P1/A7 header pointer content ===
+- F031 errata（2026-10-23）：§7.2 的 `canSubmitGrant` 签名、候选空态文案与 §8.1 注释字面已被 §17 更正；以 §17 为准（依据 plan_revision 17、F030-RV-03/04/05/09）。
+contains F031: True | contains 17: True
+=== P1/A2' equivalent: strip the 39 pure-added lines from HEAD -> byte-identical to base? ===
+added lines in diff: 39
+reconstructed sha256: 131a40efa5001e13fb21efaed81ea72f8e54815f4450aec475c92154c0c4e30c
+base          sha256: 30a9cf134f961d112335b0a8795d947755fe0a3537587f992a0126bd5185d0aa
+MATCH: False
+deleted(-) lines in diff: 0
+hunk headers: ['@@ -11,0 +12 @@', '@@ -467,0 +469,38 @@ Integration scope convention (F030):']
+=== P1/A2' precise hunk replay: base + (header +1, tail +38) == HEAD ? ===
+insert counts: {11: 1, 467: 38}
+reconstructed sha256: a632bed65ee601388d4c9d8136afb19126011077a7a747fafd6eeb4b2dba2589
+HEAD          sha256: a632bed65ee601388d4c9d8136afb19126011077a7a747fafd6eeb4b2dba2589
+MATCH: True
+=> 既有正文零改写（仅 2 处纯插入：头部指针 1 行 + 文末 §17 38 行）
