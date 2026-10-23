@@ -1,0 +1,334 @@
+
+> csm-frontend@0.1.0 smoke:client
+> node scripts/smoke-client.mjs
+
+PASS: GET 200：credentials=include、解析 JSON、路径 /api/v1
+PASS: POST：JSON body + Content-Type + credentials=include
+PASS: 401 AUTH_REQUIRED：抛 ApiError 并触发全局 401 处理器；不重试
+PASS: 登录 401 AUTH_INVALID_CREDENTIALS：错误可呈现、不重试
+PASS: 403 FORBIDDEN（details.reason=csrf）：明确呈现、不触发 401 处理器、不重试
+PASS: 409 VERSION_CONFLICT（details.current_version）：可识别冲突信号、不静默重试
+PASS: 422 VALIDATION_ERROR：details.fields 可供字段级呈现
+PASS: 204 无正文：resolve undefined（logout 语义）
+PASS: 非 JSON 错误体（502 网关页）：回退 HTTP 状态、code=null、不重试
+PASS: 信封形状不符（缺 code）：回退、不伪造信封内容
+PASS: F003 listClusters 默认：GET /api/v1/clusters，无查询串
+PASS: F003 listClusters 组合查询：q/code/status/deleted/page/page_size/sort/order（AND 组合）
+PASS: F003 listClusters 空串过滤项不发（q=''/code=''），status 省略不发
+PASS: F003 createCluster：POST /clusters + JSON body；201 解析 {cluster}
+PASS: F003 getCluster：已删对象显式 ?deleted=true；默认不带
+PASS: F003 updateCluster：PATCH 且仅携带变化字段（省略 = 不重置，Contract §6.4）
+PASS: F003 updateCluster：description 显式 null = 清空
+PASS: F003 deleteCluster：DELETE + version 为 Query 参数；204 → undefined
+PASS: F003 restoreCluster：POST /{id}/restore + version Query 参数
+PASS: F003 409 CONFLICT unique_conflict：落到 code 字段级错误；不重试
+PASS: F003 409 VERSION_CONFLICT：标记刷新后重改、携带 current_version；不重试
+PASS: F003 409 CONFLICT reference_exists：展示引用语义
+PASS: F003 409 CONFLICT not_deleted：恢复未删对象的明确文案
+PASS: F003 422 VALIDATION_ERROR：details.fields 透传为字段级错误
+PASS: F003 404 / 403：明确文案（不泄露存在性 / 权限不足）
+PASS: F003 网络层错误（fetch reject）：不伪装成业务结果
+PASS: F004 listResources 默认：GET /api/v1/resources，无查询串
+PASS: F004 listResources 组合查询：q/cluster/type/role/status/deleted/分页/排序（AND 组合）
+PASS: F004 listResources cluster_id（UUID）过滤；空串项不发
+PASS: F004 createResource：POST /resources + JSON body；201 解析 {resource}
+PASS: F004 getResource：已删对象显式 ?deleted=true；默认不带
+PASS: F004 updateResource：PATCH 且仅携带变化字段（省略 = 不重置，Contract §6.4）
+PASS: F004 updateResource：description 显式 null = 清空
+PASS: F004 deleteResource：DELETE + version 为 Query 参数；204 → undefined
+PASS: F004 restoreResource：POST /{id}/restore + version Query 参数
+PASS: F004 getResourceActivity：GET /{id}/activity + deleted/page/page_size
+PASS: F004 409 CONFLICT unique_conflict：落到 hostname 字段级错误；不重试
+PASS: F004 409 VERSION_CONFLICT：标记刷新后重改、携带 current_version；不重试
+PASS: F004 409 CONFLICT dependency_deleted：恢复时解析 conflicts（所属 Cluster）
+PASS: F004 409 CONFLICT not_deleted：恢复未删对象的明确文案
+PASS: F004 422 VALIDATION_ERROR：details.fields 透传为字段级错误（含 cluster）
+PASS: F004 404 / 403：明确文案（不泄露存在性 / 权限不足）
+PASS: F004 网络层错误（fetch reject）：不伪装成业务结果
+PASS: F005 parseHardwareFormValues：合法值（trim / 严格整数 / 空串=null / gpu_count=0）
+PASS: F005 parseHardwareFormValues：非法输入 → 字段级错误（纯空白 / 超长 / 非整数 / 越界）
+PASS: F005 buildHardwareCreateInput：仅携带已登记子字段；全空 → undefined；gpu_count=0 照常携带
+PASS: F005 buildHardwarePatch：子字段级 exclude_unset 镜像（省略=保持；null=清空；0≠null；metadata 整值替换）
+PASS: F005 hardwareFormValuesFromResource：null → 全空；数值 / metadata 字符串化；空 metadata → 空文本
+PASS: F005 createResource BARE_METAL：hardware 嵌套对象进 body；响应解析 hardware（0 与 null 可区分）
+PASS: F005 createResource VIRTUAL_MACHINE：载荷不含 hardware 键（出现即 422，DR-51）；响应 hardware=null
+PASS: F005 updateResource：hardware 子字段级 PATCH（version + 变化子字段，含显式 null 清空）
+PASS: F005 422 VALIDATION_ERROR：hardware 点路径字段错误透传（hardware.cpu_cores / hardware）
+PASS: F006 parseVirtualMachineFormValues：合法值（trim / 严格整数 / 空串=null / disk_gb=0）
+PASS: F006 parseVirtualMachineFormValues：非法输入 → 字段级错误（未选宿主 / 0 / 负 / 非整数 / 纯空白 / 超长）
+PASS: F006 buildVirtualMachineCreateInput：恒携带 host_resource_id；容量仅携带已登记值；disk_gb=0 照常携带
+PASS: F006 buildVirtualMachinePatch：子字段级 exclude_unset 镜像（省略=保持；null=清空；换 Host；0≠null）
+PASS: F006 virtualMachineFormValuesFromResource：null → 全空；数值 0 不丢成空串；null → 空串
+PASS: F006 listResources host_resource_id 过滤（配 type=VIRTUAL_MACHINE，DR-67）；空串不发
+PASS: F006 createResource VIRTUAL_MACHINE：virtual_machine 嵌套对象进 body；响应解析 host 展开（0 与 null 可区分）
+PASS: F006 createResource VIRTUAL_MACHINE 最小载荷：仅 host_resource_id（容量省略 → null）
+PASS: F006 updateResource：virtual_machine 子字段级 PATCH（换 Host + 清空容量，version 必带）
+PASS: F006 422 VALIDATION_ERROR：virtual_machine 点路径字段错误透传（host 宿主校验 / vcpu）
+PASS: F006 409 CONFLICT reference_exists：宿主机被未删除 VM 引用，解析 references（含 label）；不重试
+PASS: F006 409 CONFLICT dependency_deleted：恢复 VM 时宿主机已删（conflicts object_type=resource）→ Host 文案
+PASS: F007 listInterfaces：默认 GET /api/v1/interfaces，无查询串
+PASS: F007 listInterfaces resource_id 过滤（V19 数据侧：Resource Detail Interfaces 区域）；空串不发
+PASS: F007 listInterfaces 组合查询：interface_type/enabled/q/parent_interface_id/deleted（AND 组合）
+PASS: F007 createInterface：POST body（resource/name 必带，可空仅携带已登记值）；响应解析（parent 展开 / null 可区分）
+PASS: F007 createInterface 最小载荷：仅 resource + name（其余省略 → 服务端默认）
+PASS: F007 getInterface：详情 + ?deleted=true（已删需 VIEW_DELETED）
+PASS: F007 updateInterface：PATCH 仅携带变化字段（version 必带，Contract §6.4）
+PASS: F007 deleteInterface / restoreInterface：version 为 Query 参数（Contract §6.5/§6.6）
+PASS: F007 getInterfaceActivity：URL + deleted/page 查询参数（VIEW_ACTIVITY 全角色）
+PASS: F007 409 VERSION_CONFLICT：可识别冲突信号（刷新后重改），不静默重试
+PASS: F007 409 CONFLICT unique_conflict（field="name"）→ name 字段级错误（同资源内唯一，区分大小写）
+PASS: F007 409 CONFLICT reference_exists：删除被未删子接口引用 → references（含 label）；不重试
+PASS: F007 409 CONFLICT dependency_deleted：恢复时父接口仍删（object_type=interface）→ 父接口文案，不覆盖新对象
+PASS: F007 409 CONFLICT dependency_deleted：恢复时所属 Resource 仍删（object_type=resource）→ 资源文案
+PASS: F007 409 CONFLICT not_deleted：对未软删对象 restore 的明确文案
+PASS: F007 422 VALIDATION_ERROR：顶层字段路径透传（name / parent_interface / resource，Contract §2.3）
+PASS: F007 403 / 404：明确文案（权限不足 / 对象不存在，不泄露存在性细节）
+PASS: F007 parseInterfaceFormValues：合法值（name trim / mac trim / 正整数 / 空串=null / parent 空串=根接口 null）
+PASS: F007 parseInterfaceFormValues：非法输入 → 字段级错误（空名 / 内部空白 / 控制字符 / 超长 / mac 纯空白 / 0 与负整数）
+PASS: F007 buildInterfaceCreateInput：resource/name/type/enabled 恒携带；可空仅携带已登记值；空 metadata 省略
+PASS: F007 buildInterfacePatch：exclude_unset 镜像（无变化 → null；变化才携带；显式 null=清空；version 必带）
+PASS: F007 interfaceFormValuesFromInterface：null → 空串；数值字符串化；parent 提取 id；metadata 空对象 → 空文本
+PASS: F008 listNetworks：默认 GET /api/v1/networks，无查询串
+PASS: F008 listNetworks 组合查询：q/cluster_id/status/auto_allocate/deleted/分页/排序（AND 组合）
+PASS: F008 createNetwork：POST body（cluster/name/cidr+status/auto_allocate；可空仅携带已登记值）；响应解析
+PASS: F008 createNetwork 最小载荷：仅 cluster + name + cidr（可空省略 → 服务端默认）
+PASS: F008 getNetwork：详情 + ?deleted=true（已删需 VIEW_DELETED）
+PASS: F008 updateNetwork：PATCH 仅携带变化字段（version 必带，Contract §6.4）
+PASS: F008 updateNetwork：gateway/description 显式 null = 清空
+PASS: F008 deleteNetwork / restoreNetwork：version 为 Query 参数（Contract §6.5/§6.6）
+PASS: F008 getNetworkActivity：URL + deleted/page 查询参数（VIEW_ACTIVITY 全角色）
+PASS: F008 409 VERSION_CONFLICT：可识别冲突信号（刷新后重改），不静默重试
+PASS: F008 409 CONFLICT unique_conflict（field="name"）→ name 字段级错误（同集群大小写不敏感唯一）
+PASS: F008 409 CONFLICT range_overlap（field="cidr"）→ cidr 字段级错误 + 重叠明细；不重试
+PASS: F008 409 CONFLICT reference_exists：删除/改 cidr 被未删 Pool/IP 引用 → references（含 label）；不重试
+PASS: F008 409 CONFLICT dependency_deleted：恢复时所属 Cluster 仍删（object_type=cluster）→ 集群文案，不覆盖新对象
+PASS: F008 409 CONFLICT not_deleted：对未软删对象 restore 的明确文案
+PASS: F008 422 VALIDATION_ERROR：顶层字段路径透传（name / cluster / cidr / gateway / metadata，Contract §2.3）
+PASS: F008 403 / 404：明确文案（权限不足 / 对象不存在，不泄露存在性细节）
+PASS: F008 parseNetworkFormValues：合法值（name trim / cidr 保留 host 位 / gateway trim / 空串=null）
+PASS: F008 parseNetworkFormValues：非法输入 → 字段级错误（空名 / 控制字符 / 超长 / cidr 非法或 IPv6 / gateway 非法 / 纯空白）
+PASS: F008 buildNetworkCreateInput：cluster/name/cidr/status/auto_allocate 恒携带；gateway/description 仅已登记值；空 metadata 省略
+PASS: F008 buildNetworkPatch：exclude_unset 镜像（无变化 → null；变化才携带；显式 null=清空 gateway/description；可改 cluster）
+PASS: F008 networkFormValuesFromNetwork：null → 默认空值；gateway/description 空串；metadata 空对象 → 空文本
+PASS: F009 listIpPools：默认 GET /api/v1/ip-pools，无查询串
+PASS: F009 listIpPools 组合查询：network_id/allocation_mode/q/deleted/分页/排序（AND 组合）
+PASS: F009 createIpPool：POST body（network/name/start/end/mode；description 仅已登记时携带）；响应解析
+PASS: F009 createIpPool 最小载荷：仅 network+name+start+end（mode 省略 → 服务端默认 MANUAL）
+PASS: F009 getIpPool：详情 + ?deleted=true（已删需 VIEW_DELETED）
+PASS: F009 updateIpPool：PATCH 仅携带变化字段（version 必带，Contract §6.4）
+PASS: F009 updateIpPool：description 显式 null = 清空
+PASS: F009 deleteIpPool / restoreIpPool：version 为 Query 参数（Contract §6.5/§6.6）
+PASS: F009 getIpPoolActivity：URL + deleted/page 查询参数（VIEW_ACTIVITY 全角色）
+PASS: F009 409 VERSION_CONFLICT：可识别冲突信号（刷新后重改），不静默重试
+PASS: F009 409 CONFLICT unique_conflict（field="name"）→ name 字段级错误（同网络大小写不敏感唯一）
+PASS: F009 409 CONFLICT range_overlap（field="start_address"）→ 字段级错误 + 重叠池明细（含起止地址）；不重试
+PASS: F009 409 CONFLICT address_in_use：occupancy 结构（conflict_count 总数 + conflicts 预览 + truncated，DR-110）
+PASS: F009 409 CONFLICT address_in_use：field=start_address（RESERVED 扩大范围）与字段回退
+PASS: F009 409 CONFLICT dependency_deleted：恢复时所属 Network 仍删（object_type=network）→ 网络文案，不覆盖新对象
+PASS: F009 409 CONFLICT not_deleted：对未软删对象 restore 的明确文案
+PASS: F009 422 VALIDATION_ERROR：顶层字段路径透传（network/name/start_address/end_address/allocation_mode/description，Contract §2.3）
+PASS: F009 403 / 404：明确文案（权限不足 / 对象不存在，不泄露存在性细节）
+PASS: F009 parseIpPoolFormValues：合法值（name trim / 地址 trim / 默认 MANUAL / 空描述=null / start=end 单地址池）
+PASS: F009 parseIpPoolFormValues：非法输入 → 字段级错误（空名 / 控制字符 / 超长 / 非法 IPv4 / 带掩码 / IPv6 / 逆序）
+PASS: F009 parseIpPoolFormValues：属 CIDR 本地提示（服务端仍权威校验；未知 / 异常 CIDR 不伪造结论）
+PASS: F009 ipPoolFormFieldFromPath：服务端 422 点路径 → 表单键（顶层直通；未知路径 → null）
+PASS: F009 buildIpPoolCreateInput：network/name/start/end/mode 恒携带；description 仅已登记值
+PASS: F009 buildIpPoolPatch：exclude_unset 镜像（无变化 → null；变化才携带；显式 null=清空 description；network 恒不上送，DR-107）
+PASS: F009 ipPoolFormValuesFromIpPool：null → 默认空值；description 空串；往返无变化（与 buildIpPoolPatch=null 联动）
+PASS: F010 listIpAddresses：默认 GET /api/v1/ip-addresses，无查询串
+PASS: F010 listIpAddresses 组合查询：network/cluster/interface/pool/address/bound/q/deleted/分页/排序（AND 组合）
+PASS: F010 createIpAddress（手动分配）：POST body（network/address/description）；201 解析嵌套展开
+PASS: F010 createIpAddress 最小载荷：仅 network + address（description 省略 → null）
+PASS: F010 autoAllocateIpAddress（自动分配）：POST /auto-allocate + network/ip_pool body；interface=null
+PASS: F010 getIpAddress：详情 + ?deleted=true（已删需 VIEW_DELETED）
+PASS: F010 updateIpAddress：PATCH 仅携带变化字段（version 必带；不含 network/address/ip_pool，DR-120/DR-122）
+PASS: F010 releaseIpAddress / restoreIpAddress：version 为 Query 参数（Contract §6.6/§6.7）
+PASS: F010 getIpAddressActivity：URL + deleted/page 查询参数（VIEW_ACTIVITY 全角色）
+PASS: F010 getNetworkCapacity：GET /networks/{id}/capacity；remaining 负值原样（不截断，DR-130）
+PASS: F010 409 CONFLICT unique_conflict（field="address"）→ address 字段级错误（同集群唯一）；不重试
+PASS: F010 409 CONFLICT allocation_not_allowed：三种 condition 各自文案（DR-125/DR-136）；不重试
+PASS: F010 409 CONFLICT no_available_address：解析 {network_id, ip_pool_id}；不切换其它池
+PASS: F010 409 CONFLICT reference_exists：解绑/转移/释放被未删 Endpoint 引用 → references；不重试
+PASS: F010 409 CONFLICT dependency_deleted：network→所属网络文案 / interface→绑定接口文案；不覆盖新对象
+PASS: F010 409 CONFLICT not_deleted：对未软删对象 restore 的明确文案
+PASS: F010 409 VERSION_CONFLICT：可识别冲突信号（刷新后重改），不静默重试
+PASS: F010 422 VALIDATION_ERROR：顶层字段路径透传（network/address/interface/description，Contract §2.3）
+PASS: F010 403 / 404：明确文案（权限不足 / 对象不存在，不泄露存在性细节）
+PASS: F010 网络层错误（fetch reject）：不伪装成业务结果
+PASS: F010 parseIpAddressFormValues（manual）：合法值（trim / 裸 IPv4 / 空描述=null / 空接口=null）
+PASS: F010 parseIpAddressFormValues（manual）：非法输入 → 字段级错误（空 / 非 IPv4 / 带掩码 / IPv6 / 越界 octet）
+PASS: F010 parseIpAddressFormValues（manual）：属 CIDR 本地提示（服务端仍权威；未知 / 异常 CIDR 不伪造结论）
+PASS: F010 parseIpAddressFormValues（auto/edit）：address 不参与校验（auto 服务端选址 / edit 不可改）
+PASS: F010 isValidBareIpv4：裸 IPv4 判定（列表过滤本地校验共用）
+PASS: F010 ipAddressFormFieldFromPath：服务端 422 点路径 → 表单键（顶层直通；未知路径 → null）
+PASS: F010 buildManualAllocateInput：network/address 恒携带；description 仅已登记值；不含 interface/ip_pool
+PASS: F010 buildAutoAllocateInput：network/ip_pool 恒携带；description 仅已登记值；不含 address/interface
+PASS: F010 buildIpAddressPatch：exclude_unset 镜像（无变化 → null；绑定/解绑/转移；network/address/ip_pool 恒不上送）
+PASS: F010 ipAddressFormValuesFromIpAddress：null → 默认空值；未绑定 → 空串；往返无变化（与 buildIpAddressPatch=null 联动）
+PASS: F011 listServices 默认：GET /api/v1/services，无查询串
+PASS: F011 listServices 组合查询：resource_id/status/q/deleted/page/page_size/sort/order（AND 组合）
+PASS: F011 listServices 空串过滤项不发（q=''/resource_id=''），status 省略不发
+PASS: F011 createService：POST /services + JSON body；201 解析 {service}
+PASS: F011 getService：已删对象显式 ?deleted=true；默认不带
+PASS: F011 updateService：PATCH 且仅携带变化字段（省略 = 不重置，Contract §6.4）
+PASS: F011 updateService：description 显式 null = 清空
+PASS: F011 deleteService：DELETE + version 为 Query 参数；204 → undefined
+PASS: F011 restoreService：POST /{id}/restore + version Query 参数
+PASS: F011 getServiceActivity：GET /{id}/activity + deleted/page/page_size
+PASS: F011 409 CONFLICT unique_conflict：落到 name 字段级错误；不重试
+PASS: F011 409 VERSION_CONFLICT：标记刷新后重改、携带 current_version；不重试
+PASS: F011 409 CONFLICT reference_exists：删除被未删 ServiceEndpoint 引用 → references；不重试
+PASS: F011 409 CONFLICT dependency_deleted：恢复时解析 conflicts（所属 Resource）
+PASS: F011 409 CONFLICT not_deleted：恢复未删对象的明确文案
+PASS: F011 422 VALIDATION_ERROR：details.fields 透传为字段级错误（含 resource）
+PASS: F011 403 / 404：明确文案（不泄露存在性 / 权限不足）
+PASS: F011 网络层错误（fetch reject）：不伪装成业务结果
+PASS: F011 parseServiceFormValues：合法值（trim / status 透传 / 空描述=null；内部空格与中文允许）
+PASS: F011 parseServiceFormValues：非法输入 → 字段级错误（空 / 纯空白 / 控制字符 / 超长）
+PASS: F011 serviceFormFieldFromPath：服务端 422 点路径 → 表单键（顶层直通；未知路径 → null）
+PASS: F011 buildServiceCreateInput：resource/name/status 恒携带；description/metadata 仅已登记值
+PASS: F011 buildServicePatch：exclude_unset 镜像（无变化 → null；name/status/description/metadata；resource 恒不上送）
+PASS: F011 serviceFormValuesFromService：null → 默认空值；metadata 对象 ↔ JSON 文本；空 metadata → 空文本
+PASS: F012 listServiceEndpoints 默认：GET /api/v1/service-endpoints，无查询串
+PASS: F012 listServiceEndpoints 组合查询：service_id/ip_address_id/protocol/deleted/分页/排序（AND 组合）
+PASS: F012 listServiceEndpoints 空串过滤项不发（service_id=''/ip_address_id=''），protocol 省略不发
+PASS: F012 createServiceEndpoint：POST /service-endpoints + JSON body；201 解析 {service_endpoint}
+PASS: F012 getServiceEndpoint：已删对象显式 ?deleted=true；默认不带
+PASS: F012 updateServiceEndpoint：PATCH 且仅携带变化字段（省略 = 不重置，Contract §6.4）
+PASS: F012 updateServiceEndpoint：description 显式 null = 清空
+PASS: F012 deleteServiceEndpoint：DELETE + version 为 Query 参数；204 → undefined
+PASS: F012 restoreServiceEndpoint：POST /{id}/restore + version Query 参数
+PASS: F012 getServiceEndpointActivity：GET /{id}/activity + deleted/page/page_size
+PASS: F012 409 CONFLICT unique_conflict：落到 port 字段级错误、携带冲突监听三元组；不重试
+PASS: F012 409 VERSION_CONFLICT：标记刷新后重改、携带 current_version；不重试
+PASS: F012 409 CONFLICT dependency_deleted：按 object_type 区分文案（service / ip_address / interface）
+PASS: F012 409 CONFLICT not_deleted：恢复未删对象的明确文案
+PASS: F012 409 CONFLICT reference_exists：解析 references（防御，Endpoint 无子对象）
+PASS: F012 422 VALIDATION_ERROR：details.fields 透传为字段级错误（含 service / ip_address）
+PASS: F012 403 / 404：明确文案（不泄露存在性 / 权限不足）
+PASS: F012 网络层错误（fetch reject）：不伪装成业务结果
+PASS: F012 parseServiceEndpointFormValues：合法值（trim / 边界 1 与 65535 / 空描述=null）
+PASS: F012 parseServiceEndpointFormValues：非法输入 → 字段级错误（空 / 0 / 65536 / 负 / 非整数 / 非法 protocol）
+PASS: F012 serviceEndpointFormFieldFromPath：422 点路径 → 表单键（顶层直通；不可变别名 → null）
+PASS: F012 buildServiceEndpointCreateInput：service/ip_address/protocol/port 恒携带；description 仅已登记值
+PASS: F012 buildServiceEndpointPatch：exclude_unset 镜像（无变化 → null；service/ip_address 恒不上送）
+PASS: F012 serviceEndpointFormValuesFromEndpoint：null → 默认空值；嵌套引用 id 提取与 port 字符串化
+PASS: F013 search：q 必携带；默认无其余参数（deleted 等由服务端默认生效）
+PASS: F013 search 组合查询：type/deleted/page/page_size 序列化（AND 组合）
+PASS: F013 search 响应解析：typed 行（4 类）、嵌套对象、未绑定 IP resource=null
+PASS: F013 空结果：200 空列表（非 404 / 500，I-3）
+PASS: F013 describeSearchError：401 / 403（permission 与未知 reason）/ 422 / 网络层
+PASS: F013 getDashboard 默认：GET /api/v1/dashboard，无查询串
+PASS: F013 getDashboard 分页：page/page_size 仅作用于 networks
+PASS: F013 getDashboard 响应解析：counts / capacity / auto_pools / 负 remaining 原样
+PASS: F013 describeDashboardError：401 / 403 / 422 / 网络层（不伪装成空数据）
+PASS: F013 buildSearchQuery：空 / 纯空白 q → null（不发请求，I-13）；trim 后携带
+PASS: F013 parseGlobalSearchFormValues：空 q / 超长 255 code point / 非法 type → 本地错误
+PASS: F013 searchFormFieldFromPath：422 点路径 → 表单键（顶层直通；未知 → null）
+PASS: F013 highlightSegments：ASCII 大小写不敏感子串；非子串模糊命中 / 空 q 不高亮
+PASS: F018 search v2 响应解析：resource 行 related/related_total；非 resource 行嵌套 resource 恒 null
+PASS: F018 F1：字段白名单恰九字段；未知字段被过滤（§17.1/A11）
+PASS: F018 F2：选择写入约定键（JSON 数组）并刷新读回（A11/DR-326）
+PASS: F018 F3：存储抛错/键缺失/JSON 损坏/非数组/未知字段 → 静默回退不抛错（DR-326）
+PASS: F018 F4：默认组合 == F013 现有 resource 行展示（A12，无回归）
+PASS: F018 F5：「还有 N 条」= related_total − 展示行数；≤10 不提示（DR-321/A6/B16）
+PASS: F018 F6：字段选择仅作用 resource 行；其余行不变（DR-327/B17）
+PASS: F018 F7：字段选择不改变 /search 请求 URL/参数（A9/B14）
+PASS: F018 F8：related/related_total 缺失/null/形状不符 → 安全回退（不抛错、不伪造）
+PASS: F014 getImportTemplates：GET /api/v1/imports/resources/templates；解析两套模板列描述
+PASS: F014 validateResourceImport：POST multipart（FormData：file+format），不手动设 Content-Type
+PASS: F014 importResources：POST /imports/resources multipart；201 解析 {created,total_rows}
+PASS: F014 上传 401：抛 ApiError、触发全局 401 处理器、不重试；describeImportError 明确文案
+PASS: F014 403 FORBIDDEN（permission / csrf）：明确文案（隐藏不替代服务端校验）
+PASS: F014 413 IMPORT_FILE_TOO_LARGE / IMPORT_ROW_LIMIT_EXCEEDED：携带上限值、无部分导入语义
+PASS: F014 422 IMPORT_INVALID_FILE：reason 映射与缺失 / 未定义列拼接
+PASS: F014 422 IMPORT_VALIDATION_FAILED：整批回滚语义 + 行错误明细（与预校验同形状）
+PASS: F014 422 IMPORT_VALIDATION_FAILED details 形状不符：不伪造行错误明细
+PASS: F014 422 VALIDATION_ERROR field=format：字段级错误（供表单 format 输入呈现）
+PASS: F014 500 / 网络层错误：兑底文案，不伪装成空结果、不重试
+PASS: F014 parseImportFormValues：空输入不发请求（file 未选 → 本地错误）；非法 format 防御
+PASS: F014 parseImportFormValues：xlsx 仅接受 .xlsx（.xls 拒绝、大小写不敏感）
+PASS: F014 parseImportFormValues：文件大小超上限本地拦截（§10 签核值 5,242,880 字节）
+PASS: F014 importTargetKey：format/文件名/大小/修改时间指纹，变化即失效
+PASS: F014 importFormFieldFromPath：422 点路径 → 表单键（format 直通；未知 → null）
+PASS: F014 模板渲染辅助：类型·单位/枚举标签、必填标签、表头行 CSV 生成（DR-208）
+PASS: F015 listAudit 默认：GET /api/v1/audit，无查询串
+PASS: F015 listAudit 组合查询：operator/object_type/object_id/action/created_from/created_to/分页/排序（AND 组合）
+PASS: F015 listAudit 空串过滤项不发（operator=''/object_id=''/created_from=''）
+PASS: F015 listAudit 响应解析：AuditRow 字段（operator_user_id/before_data 可 null；不含密码/令牌）
+PASS: F015 describeAuditQueryError：401/403/422（fields）/网络层兑底
+PASS: F015 listDeleted 默认：GET /api/v1/deleted，无查询串
+PASS: F015 listDeleted 组合查询：object_type/page/page_size/sort=deleted_at/order
+PASS: F015 listDeleted 响应解析：DeletedItem（label/version/cluster 可 null；不返回删除操作者）
+PASS: F015 restoreDeletedItem 路由表：按 object_type 调各域既有 restore（POST + version Query，§5）
+PASS: F015 describeDeletedActionError：409 reason 逐类映射 + VERSION_CONFLICT + 403 + 网络层；不重试
+PASS: F015 listUsers 默认：GET /api/v1/users，无查询串
+PASS: F015 listUsers 组合查询：role/status/q/分页/排序（AND 组合）
+PASS: F015 listUsers 空串 q 不发；响应不含 password_hash
+PASS: F015 createUser：POST /users + body 恰含 username/password/role；201 解析 {user}
+PASS: F015 getUser：GET /users/{id}；404 NOT_FOUND 描述
+PASS: F015 updateUser：PATCH /users/{id} 且仅携带变化字段（version + role 或 status；省略 = 不重置）
+PASS: F015 describeUserActionError：409 unique_conflict → username 字段级；VERSION_CONFLICT → 刷新后重改；422/403；不重试
+PASS: F015 parseIso8601UtcInput：datetime-local → ISO-8601 UTC（秒省略补 00；空 = 未提供）
+PASS: F015 parseAuditQueryFormValues：合法值（operator trim / object_id UUID / 时间归一；空 = 未提供）
+PASS: F015 parseAuditQueryFormValues：object_id 须与 object_type 同现（单独提供 → 本地错误；object_type 单独 → 合法）
+PASS: F015 parseAuditQueryFormValues：非法输入本地拦截（operator>64 / object_id 非 UUID / 时间非法 / from>to）
+PASS: F015 buildAuditQuery：过滤项省略不发（null → 不携带）；分页/sort/order 恒携带
+PASS: F015 auditQueryFieldFromPath：422 参数名（snake）→ 表单键（camel）；分页/排序/未知 → null
+PASS: F017 listApiKeys 默认：GET /api/v1/api-keys，无查询串
+PASS: F017 listApiKeys 组合查询：user_id/status/q/分页/排序（AND 组合）
+PASS: F017 listApiKeys 空串过滤项不发（q=''/user_id=''）；空结果 total=0
+PASS: F017 getApiKey：GET /api-keys/{id}；200 解析 {api_key}（无 key_hash/明文）
+PASS: F017 createApiKey：POST /api-keys + JSON body（恰含 user_id/label/validity_days）；201 解析 plaintext
+PASS: F017 revokeApiKey：POST /api-keys/{id}/revoke 无请求体；200 解析 {api_key}（REVOKED）
+PASS: F017 describeApiKeyQueryError：401/403/422/网络层兑底；不重试
+PASS: F017 describeApiKeyActionError：409 already_revoked / 422 fields / 403 / 404；不重试
+PASS: F017 parseApiKeyFormValues：合法值（label trim / 有效期默认 90 / 边界 1 与 365）
+PASS: F017 parseApiKeyFormValues：非法输入本地拦截（未选账号 / label 空·控制字符·超长 / 有效期 空·0·负·366·非整数）
+PASS: F017 apiKeyFormFieldFromPath：422 字段名（snake）→ 表单键；分页/排序/未知 → null
+PASS: F017 buildCreateApiKeyInput：恰含 user_id/label/validity_days（Contract §4.3）
+PASS: F019 IP-F1：选择集合以 id 为键增删、跨页保留快照、重复选择刷新 version
+PASS: F019 IP-F2：候选查询参数恰含 cluster_id/bound=false/deleted=exclude/q/分页/sort=address/order=asc
+PASS: F019 IP-F3：候选查询经 listIpAddresses 序列化为 Contract §6.1 查询串；空白 q 不发
+PASS: F019 IP-F4：已绑定查询恰含 interface_id/deleted=exclude/sort=address/order=asc/page=1/page_size=100
+PASS: F019 IP-F5：提交载荷每项恰 {version,interface}、按地址升序串行不中止、每项恰一次不重试
+PASS: F019 IP-F6：部分成功汇总——全成功才整体成功；计数逐项核对；空提交不误报
+PASS: F019 IP-F7：total 边界——total>items 截断 / ==items 完整 / ==0 空态（不静默截断）
+PASS: F019 IP-F8：权限 / 软删门控——仅 WRITE 且接口未软删渲染入口（服务端仍鉴权）
+PASS: F020 T06a：tryBegin once-only——首次 true、占用期间重复 false（双击 / 回车连发忽略）
+PASS: F020 T06b：取消 / 关闭 reset 后可再次 begin（对话框重开可再次提交）
+PASS: F020 T06c：settle（成功或失败）后可再次 begin——释放守卫且不自动重试
+PASS: F020 T06d：实例隔离——多个对话框的守卫互不影响
+PASS: F021 M5：referenceItemText——resource=「虚拟机（VM）：<label>」、无 label 仅类型、未知 object_type 原样
+PASS: F021 M6：conflictItemText——cluster / resource 已知文案、未知通用文案
+PASS: F022 M1：接口列表查询恰含 resource_id/deleted=exclude/sort=name/order=asc/page/page_size=100；经 listInterfaces 序列化
+PASS: F022 M2：逐接口 IP 查询与 F019 buildInterfaceBoundIpsQuery 深相等（interface_id/deleted=exclude/sort=address/order=asc/page=1/page_size=100）
+PASS: F022 M3：合并行数 = Σ 各未删接口 IP 数；归属正确；软删 / 加载失败接口不产生行
+PASS: F022 M4：比较器全序——interface.name 码序（含大小写）→ IP 数值（跨网段）→ id 兕底
+PASS: F022 M5：边界三态（复用 interfaceIpTotalBoundary）——聚合任一 truncated 即产生提示条目；接口列表超安全上限即 truncated
+PASS: F022 M6：部分失败汇总——全失败→allFailed（呈现层转 Error 可重试）；部分失败→anyFailed+失败清单；不折叠
+PASS: F022 M7：展示标签——ip_pool=null → 「池外（手动）」、description=null → 「—」（不以空串代替）
+PASS: F023 getResourceInterfaceIpImportTemplate：GET /imports/resource-interfaces-ips/templates；单一模板 key=resource_interfaces_ips、列含 applies_to
+PASS: F023 validateResourceInterfaceIpImport：POST multipart（file+format）到 /imports/resource-interfaces-ips/validate；响应复用 F014 形状
+PASS: F023 importResourceInterfacesIps：POST /imports/resource-interfaces-ips；201 解析 {created,total_rows,interfaces_created,ip_addresses_created}
+PASS: F023 上传 401 / 403（permission | csrf）：describeImportError(scope=resource-interfaces-ips) 明确文案、不重试
+PASS: F023 413 IMPORT_FILE_TOO_LARGE / IMPORT_ROW_LIMIT_EXCEEDED：携带上限值、无部分导入语义（上限复用 F014 签核值）
+PASS: F023 422 IMPORT_INVALID_FILE：reason 映射与缺失 / 未定义列拼接（表头 26 列冻结，不按列名重排）
+PASS: F023 422 IMPORT_VALIDATION_FAILED：整批回滚 +「未创建任何资源、网卡或 IP」（无部分成功）；行错误明细与预校验同形状；默认 scope（F014）文案不变
+PASS: F023 422 VALIDATION_ERROR field=format：字段级错误（服务端大小写不敏感，客户端恒发小写规范值）；422 点路径 → 表单键
+PASS: F023 parseResourceInterfaceIpImportFormValues：空输入不发请求；非法 format 防御；.xlsx 扩展名；大小上限本地拦截
+PASS: F023 resourceInterfaceIpImportTargetKey：file+format 指纹（文件名 / 大小 / 修改时间 + 格式），变化即失效
+PASS: F023 canConfirmResourceInterfaceIpImport：确认门控（预校验 0 错误 + 指纹一致 + 未成功导入才可用）
+PASS: F023 模板表头文本：冻结 26 列列名与顺序（§6/D03 签核）；表头行 CSV 生成
+PASS: F023 模板列渲染辅助：适用行标签（BM / VM）、类型标签（含 boolean · 单位 / 枚举）、必填标签
+PASS: F026 列表：URL 查询串（status/cluster_id/q/page/sort/order）与 GET 方法
+PASS: F026 授予 / 撤销：POST 路径与 cluster_id 请求体；撤销无请求体
+PASS: F026 describeClusterAuthorizationError：409 already_granted/already_revoked、422 fields、403 明确文案
+PASS: F030 computeGrantCandidates：active idle/loading 永不返回候选（无 clusters 字段）
+PASS: F030 computeGrantCandidates：active error → error（保留文案，不降级为空授权）
+PASS: F030 computeGrantCandidates：仅两者 success 时过滤已授权 cluster；truncated 两路独立传播
+PASS: F030 clusterListTruncated：total > items.length 为截断（相等/少量/非 success 为 false）
+PASS: F030 canSubmitGrant：active 非 success 恒 false（idle/loading/error 三态）
+PASS: F030 canSubmitGrant：success + 已选 + 非 busy 才可提交；busy/空选/旧选中集群不可提交
+
+328 passed, 0 failed

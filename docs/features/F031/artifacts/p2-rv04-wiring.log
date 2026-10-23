@@ -1,0 +1,6 @@
+=== RV-04 wiring: grantSubmittable / visibleSelectedClusterId usage in Panel ===
+194:  const visibleSelectedClusterId =
+196:  const grantSubmittable = canSubmitGrant(activeGrants, candidates, selectedClusterId, grantBusy);
+215:    if (!grantSubmittable) {
+488:                value={visibleSelectedClusterId}
+508:            <Button type="submit" variant="primary" disabled={!grantSubmittable}>

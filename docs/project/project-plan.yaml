@@ -2143,8 +2143,8 @@ features:
   - F030
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST
-  next_action: 完成 F031 TEST 并按 TD-1 P1–P10 归档证据。
+  current_stage: REVIEW
+  next_action: Reviewer 审核 F031 的文档、实现、测试与范围。
   layers:
     database: false
     backend: true
@@ -2158,7 +2158,7 @@ features:
     contract: NOT_REQUIRED
     backend: COMPLETE
     frontend: COMPLETE
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   not_required:
     database: 无 Schema/Migration 变更；仅为文档/注释/测试/前端文案修订。
@@ -2174,11 +2174,18 @@ features:
     - docs/features/F031/implementation.md#1-backend
     frontend:
     - docs/features/F031/implementation.md#2-frontend
+    test:
+    - docs/features/F031/test-report.md#test-executiontest-12026-10-23v1
+    - docs/features/F031/artifacts/targeted-pytest.log
+    - docs/features/F031/artifacts/full-pytest.log
+    - docs/features/F031/artifacts/targeted-two-new-cases.log
+    - docs/features/F031/artifacts/frontend-smoke.log
+    - docs/features/F031/artifacts/plan-validation.log
   git:
     base_branch: v3.2
     branch: feature/F031-review-closeout
     start_commit: 2c827fb8a81f54fe6cb0889fd05eb9f12f0ccffa
-    head_commit: 2c827fb8a81f54fe6cb0889fd05eb9f12f0ccffa
+    head_commit: bf384c8fb48ed2b5f373ce725d8332cfd10e9f3c
     merge_commit: null
 decisions_required:
 - id: BQ6
@@ -2575,9 +2582,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 要求处理 F030 Review 剩余非阻塞项，批准 plan revision 17 并授权实施 F031。
   current_feature: F031
-  current_stage: TEST
-  last_result: F031 实现完成：定向 29 passed、全量 729/6 skipped、前端 328 passed；文档 errata/文案/注释已修订。
-  next_action: 完成 F031 TEST。
+  current_stage: REVIEW
+  last_result: F031 TEST 通过（READY FOR REVIEW）：定向 29、全量 729/6 skipped、前端 328；无必须修复缺陷。
+  next_action: Reviewer 审核 F031。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

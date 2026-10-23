@@ -1,0 +1,42 @@
+=== P1/A4 signature in architecture §17.1 vs implementation ===
+### 17.1 `canSubmitGrant` 实际签名（取代 §7.2 code block 与规则行）
+
+```ts
+export function canSubmitGrant(
+  active: ActiveGrantLoad,
+  candidates: GrantCandidates,
+  selectedClusterId: string,
+  busy: boolean,
+): boolean
+```
+
+判定规则：`busy === false` 且 `selectedClusterId !== ""` 且 `active.kind === "success"` 且 `candidates.kind === "success"` 且选中集群仍存在于 `candidates.clusters` 时为 `true`。实现比 §7.2 草案多 `candidates` 参数与候选成员校验，**更严格，不放松任何已签核语义**。权威实现位置：`frontend/src/components/authorizationCandidates.ts::canSubmitGrant`。
+
+### 17.2 候选空态文案（取代 §7.2 表「加载成功、候选为空」行）
+--- implementation (authorizationCandidates.ts:86-97) ---
+export function canSubmitGrant(
+  active: ActiveGrantLoad,
+  candidates: GrantCandidates,
+  selectedClusterId: string,
+  busy: boolean,
+): boolean {
+  if (busy) return false;
+  if (selectedClusterId === "") return false;
+  if (active.kind !== "success") return false;
+  if (candidates.kind !== "success") return false;
+  return candidates.clusters.some((cluster) => cluster.id === selectedClusterId);
+}
+
+=== P1/A5 real call site arg order ===
+  const grantSubmittable = canSubmitGrant(activeGrants, candidates, selectedClusterId, grantBusy);
+
+=== P1/A6a §17.2 literal occurrences ===
+in F030 architecture: 1
+in Panel.tsx: 1
+
+=== P1/A6b §17.3 / §17.4 / §17.5 keywords ===
+159:| 未知用户 + 未声明参数 `unexpected="x"` | 422 | `details.fields` 含 `field == "unexpected"`（`_reject_unknown_query` 在路径/语义前） |
+502:`backend/app/services/cluster_authorization.py::list_authorizations` 注释明确：路径对象优先（未知/非 UUID 账号先 404，`q` 仅在账号存在后校验）；类型化查询参数在 route/handler 前拒绝；未声明参数由 `_reject_unknown_query` 在 handler 第一步拒绝，先于路径与语义校验；该端点仅 `USER_ADMIN`，注释结论不构成信息泄露加固承诺。
+12:- F031 errata（2026-10-23）：§7.2 的 `canSubmitGrant` 签名、候选空态文案与 §8.1 注释字面已被 §17 更正；以 §17 为准（依据 plan_revision 17、F030-RV-03/04/05/09）。
+473:本节由 F031 追加，用于记录 F030 Review 的非阻塞跟进（F030-RV-03/04/05/09）。**不改变 Contract、不改变行为、不使 F030 验收 P1–P9 失效**；与 §7.2/§8.1/§16 冲突时以本节为准。
+506:§16.1「实现与最终设计一致」的表述以 §17 为准。上述 errata 仅为记载/文案/注释层面修订，不改变端点、参数、字段、错误码、错误顺序、权限、Audit 或 Schema。
