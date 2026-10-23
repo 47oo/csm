@@ -36,6 +36,6 @@
 | F028 | 范围变更集成验收与回归 | FEATURE | P0 | DONE | F026, F027 | — | docs/product/requirements-v3.md#232-集群范围授权, docs/product/requirements-v3.md#31-测试, docs/product/requirements-v3.md#32-上线验收, docs/product/requirements-v3.md#33-目标查询场景, docs/product/requirements-v3.md#30-部署, docs/product/requirements-v3.md#22-audit-log |
 | F029 | Review 低优先级跟进项：安全加固、契约回写与测试固化 | ENABLER | P2 | DONE | F026, F027, F028 | — | docs/features/F026/review-report.md, docs/features/F027/review-report.md, docs/features/F028/review-report.md, docs/api/F026.md, docs/api/F027.md |
 | F030 | Review 跟进收敛：Contract 签核、边界测试与前端交互修正 | ENABLER | P2 | DONE | F026, F027, F029 | — | docs/features/F029/review-report.md, docs/api/F026.md, docs/api/F027.md, docs/project/proposals/CHG-010-cluster-access.md#专业设计输入 |
-| F031 | F030 Review 非阻塞项收尾：设计记载、文案、注释与证据修订 | ENABLER | P2 | IN_PROGRESS | F030 | — | docs/features/F030/review-report.md, docs/features/F030/architecture.md, docs/features/F030/test-report.md, docs/api/F026.md |
+| F031 | F030 Review 非阻塞项收尾：设计记载、文案、注释与证据修订 | ENABLER | P2 | IN_REVIEW | F030 | — | docs/features/F030/review-report.md, docs/features/F030/architecture.md, docs/features/F030/test-report.md, docs/api/F026.md |
 
-统计：BLOCKED=0；CANCELLED=0；DONE=30；DRAFT=0；IN_PROGRESS=1；IN_REVIEW=0；READY=0。
+统计：BLOCKED=0；CANCELLED=0；DONE=30；DRAFT=0；IN_PROGRESS=0；IN_REVIEW=1；READY=0。

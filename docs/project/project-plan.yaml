@@ -2142,9 +2142,9 @@ features:
   depends_on:
   - F030
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: REVIEW
-  next_action: Reviewer 审核 F031 的文档、实现、测试与范围。
+  status: IN_REVIEW
+  current_stage: MERGE
+  next_action: 完成最终状态提交并恢复 project.acceptance=COMPLETE。
   layers:
     database: false
     backend: true
@@ -2159,7 +2159,7 @@ features:
     backend: COMPLETE
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   not_required:
     database: 无 Schema/Migration 变更；仅为文档/注释/测试/前端文案修订。
     contract: 仅澄清 F026 头部历史 plan_revision 记载与 F030 设计 errata；不改契约正文/端点/字段/错误码/权限。
@@ -2181,12 +2181,14 @@ features:
     - docs/features/F031/artifacts/targeted-two-new-cases.log
     - docs/features/F031/artifacts/frontend-smoke.log
     - docs/features/F031/artifacts/plan-validation.log
+    review:
+    - docs/features/F031/review-report.md
   git:
     base_branch: v3.2
     branch: feature/F031-review-closeout
     start_commit: 2c827fb8a81f54fe6cb0889fd05eb9f12f0ccffa
-    head_commit: bf384c8fb48ed2b5f373ce725d8332cfd10e9f3c
-    merge_commit: null
+    head_commit: 137d8e6c05a763351bae5f6983c742cec92d2447
+    merge_commit: a3702046ca7d4b5f1bcca907a2419d0a23a38e43
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2582,9 +2584,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 要求处理 F030 Review 剩余非阻塞项，批准 plan revision 17 并授权实施 F031。
   current_feature: F031
-  current_stage: REVIEW
-  last_result: F031 TEST 通过（READY FOR REVIEW）：定向 29、全量 729/6 skipped、前端 328；无必须修复缺陷。
-  next_action: Reviewer 审核 F031。
+  current_stage: MERGE
+  last_result: F031 Review APPROVED WITH FOLLOW-UP（approved HEAD 137d8e6）；已合并（a370204）。
+  next_action: 完成最终状态提交并恢复 project.acceptance=COMPLETE。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -2594,8 +2596,8 @@ planning_status:
     CANCELLED: 0
     DONE: 30
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
