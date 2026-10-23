@@ -3,3 +3,9 @@ mean skew (ms): -2.18
 interpretation: negative => PostgreSQL clock behind application clock;
 revoked_at=now() (DB clock, transaction start) can then be < created_at (app clock)
 for revokes issued within the skew window -> ck_api_keys_revoked_after_created 23514.
+
+
+--- F031-RV-05 errata（Coordinator，2026-10-23）---
+上一段 "created_at (app clock)" 措辞不准确：`ApiKey.created_at` 为 `server_default=func.now()`，
+`revoked_at` 同样取 DB `func.now()`；两者均为数据库时钟。结论不变：样本窗口内 DB 时钟相对宿主回退，
+同一/相邻事务取时可能倒序，触发 `ck_api_keys_revoked_after_created` 23514（F017 既有用例，非 F031 改动）。

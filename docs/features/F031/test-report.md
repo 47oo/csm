@@ -236,8 +236,8 @@
 
 **执行过程披露（证据完整性）**
 
-- 首次全量运行被我方并发触发的用例 fixture（重建 `public`）干扰，产生 4 个伪失败，**主动中止并整份作废**，归档于 `artifacts/discarded/full-pytest-ABORTED-concurrent-db-reset.log`，不作为证据。
-- 第二次全量运行运行至 ~28% 时 `test_f017_tester_acceptance.py::test_concurrent_revoke_yields_single_success` 失败一次（728 passed / 1 failed / 6 skipped），归档于 `artifacts/discarded/full-pytest-run1-one-f017-flake.log`；隔离复跑 3/3 pass（`f017-flake-rerun.log`）、同文件 15 passed（`p8-guard-and-f017-file.log`），根因判定见 TE-9 `F031-TEST1-01`（F031 范围外）。
+- 首次全量运行被我方并发触发的用例 fixture（重建 `public`）干扰，产生 4 个伪失败，**主动中止并整份作废**，作废日志仅保留在工作区（未入库），不作为证据。
+- 第二次全量运行运行至 ~28% 时 `test_f017_tester_acceptance.py::test_concurrent_revoke_yields_single_success` 失败一次（728 passed / 1 failed / 6 skipped），作废日志仅保留在工作区（未入库）；隔离复跑 3/3 pass（`f017-flake-rerun.log`）、同文件 15 passed（`p8-guard-and-f017-file.log`），根因判定见 TE-9 `F031-TEST1-01`（F031 范围外）。
 - 第三次（最终）全量运行干净通过：**729 passed / 6 skipped**，即为 TD-REG-1 的判定依据（`full-pytest.log`）。三次运行均落在 `localhost:55432/csm_test`，未触碰生产或未知数据库。
 
 ### TE-5 验收映射（TD-1 P1–P10 逐项判定）
@@ -394,8 +394,8 @@
 | F031-TD1-08 | NOTE | Test Design 口径 | TD-1 T4 / P1-A2 | TD-1「前 467 行 sha256 与 base 相同」与已签核设计 §3.1/§3.7 的「头部 +1 行指针」互斥，字面不可满足 | 无；本段以更强的逐 hunk 回放（去掉唯一插入行后与 base 逐字节相同）替代 | Tester（本报告已登记） | 否 |
 | F031-TD1-09 | NOTE | Test Design 口径 | TD-1 P5-A3 | 「错误路径仅历史 1 处」实测 2 处（原文 1 + errata 引述 1） | 无；F030 原文区域仍为 1 处且逐字节保留 | Tester | 否 |
 | F031-TD1-10 | NOTE | Test Design 口径 | TD-1 P3-A2 / P7-A2 | `handler's first step` 等在注释中被设计原文换行断词，字面 grep 会假阴性（TD-1 L3 已预警）；三处引用中仅两处含 `§17.1`（与设计 §3.7 原文一致） | 无；按拼接归一口径与设计原文逐字节比对通过 | Tester | 否 |
-| F031-TEST1-02 | NOTE | 文档署名 | `docs/features/F030/artifacts/p3-p6-static.log` errata 首行 | 署名「Tester，2026-10-23」；该文件按设计 §5 属 L1（协调器独占），Tester 未撰写 | 记载归属不准确，不影响证据内容 | Coordinator / Architect | 否 |
-| F031-TEST1-03 | NOTE | 测试过程 | `artifacts/discarded/` | 首次全量被我方并发用例的 session fixture（重建 `public`）干扰产生 4 个伪失败，已中止作废；run-1 的 F017 失败单独作废并隔离 | 无；最终判定仅基于干净的第 3 次全量运行 | Tester | 否 |
+| F031-TEST1-02 | NOTE（CLOSED） | 文档署名 | `docs/features/F030/artifacts/p3-p6-static.log` errata 首行 | 原署名「Tester」已在候选 HEAD `137d8e6` 修正为「Coordinator」（符合设计 §5 L1 协调器独占）；本条 CLOSED | 无 | Coordinator | 否 |
+| F031-TEST1-03 | NOTE | 测试过程 | 工作区 `artifacts/discarded/`（未入库） | 首次全量被我方并发用例的 session fixture（重建 `public`）干扰产生 4 个伪失败，已中止作废；run-1 的 F017 失败单独作废并隔离 | 无；最终判定仅基于干净的第 3 次全量运行 | Tester | 否 |
 
 **无 BLOCKER / HIGH / 必须修复 MEDIUM；F031 范围内无实现缺陷。**
 
@@ -419,7 +419,7 @@
 
 ### TE-12 Issues / Next
 
-- 协调器：`git add -f docs/features/F031/artifacts/*.log`（含 `discarded/`），提交本报告 TEST 段；F031 交 Reviewer；DONE 前更新 `plan.git.head_commit` 与 evidence 指针（`#test-executiontest-12026-10-23v1`）。
+- 协调器：`git add -f docs/features/F031/artifacts/*.log`（不含 `discarded/`，作废运行不入库），提交本报告 TEST 段；F031 交 Reviewer；DONE 前更新 `plan.git.head_commit` 与 evidence 指针（`#test-executiontest-12026-10-23v1`）。
 - 协调器/Architect：处置 `F031-TEST1-02`（errata 署名）；F034/后续 Feature 可考虑收敛 `F031-TEST1-01`（F017 时钟敏感并发用例）。
 - 恢复 `project.acceptance=COMPLETE` 的口径需在 F031 完成后由协调器说明（`pending_reason` 已写明）。
 - TD-1 的 `F031-TD1-04/05/06/07` 已在本次落实：55432 显式覆盖、`*.log` 需 `git add -f`、T03 采用 dependency override 主路径（未用测试专用路由）、acceptance 保持 PENDING。
@@ -442,8 +442,7 @@
 | `artifacts/collect.log` | `--collect-only`：734 collected + 1 module skip（F016） |
 | `artifacts/targeted-file-counts.log` | 定向文件级计数 15/11/3 |
 | `artifacts/full-pytest.log` | 最终全量：729 passed / 6 skipped（1166.19s） |
-| `artifacts/discarded/full-pytest-ABORTED-concurrent-db-reset.log` | 作废：Tester 自干扰（4 伪失败） |
-| `artifacts/discarded/full-pytest-run1-one-f017-flake.log` | 作废：728 passed / 1 failed（F017 时钟敏感用例，见 TEST1-01） |
+| （作废日志） | 两次作废运行仅保留在工作区 `artifacts/discarded/`，**未入库**，不作为判定依据；正式判定见 `full-pytest.log` |
 | `artifacts/f017-flake-rerun.log` | 该用例隔离复跑 3/3 pass |
 | `artifacts/p8-guard-and-f017-file.log` | 守卫 3 passed（含非空洞）；F017 acceptance 文件 15 passed |
 | `artifacts/frontend-typecheck.log` / `frontend-build.log` / `frontend-smoke.log` | tsc 0 error / build exit 0 / smoke 328 passed |
@@ -460,3 +459,13 @@
 | `artifacts/plan-validation.log` / `plan-f031-snapshot.log` | 计划双脚本 VALID；F031 字段与 `project.acceptance=PENDING` |
 | `artifacts/environment.log` | PG 16.15 / Node v22.23.3 / Python 3.12.7 / 容器与端口 / superuser 说明 |
 | `artifacts/clock-skew-evidence.log` | DB 与宿主时钟偏移采样（F017 flake 归因依据） |
+
+
+### TE-15 F031 Review Follow-up Closeout（RV-03…RV-06，2026-10-23）
+
+| ID | 处理 |
+| --- | --- |
+| F031-RV-03 | Evidence Index 已移除未入库的 `discarded/` 文件引用，并明确两次作废运行仅保留在工作区、不作为判定依据；正式判定依据 `full-pytest.log`（已入库）。 |
+| F031-RV-04 | `F031-TEST1-02` 已标记 CLOSED：errata 署名已在 `137d8e6` 修正为 Coordinator。 |
+| F031-RV-05 | `clock-skew-evidence.log` 追加 errata：`created_at`/`revoked_at` 均为 DB `func.now()`，非 app clock；F017 flake 归因方向不变。 |
+| F031-RV-06 | `docs/api/F026.md` §5 证据行增列 F031 T03 端到端用例（真实 Contract 路径 + 真实 FK 23503 → 500 信封、零残留；不作为 401/403 证据）。 |
