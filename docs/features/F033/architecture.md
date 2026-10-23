@@ -145,3 +145,41 @@
 ## 8. 结论
 
 **READY FOR DESIGN**。数据库/API/权限/业务语义零影响；11 项 DR 均落在 `index.css` 与 4 个呈现层文件；A1–A11 可验证。待 Test Design 后定稿 `READY FOR IMPLEMENTATION`。
+
+## 9. 设计定稿与签核（v1 / 2026-10-23）
+
+- **状态**：READY FOR IMPLEMENTATION
+- **设计版本**：architecture v1（定稿，含本节修订）
+- **签核者**：Architect
+- **覆盖 Feature**：F033
+- **上游批准依据**：requirements revision 12 §28；用户 2026-10-23 布局/CSS 要求；plan revision 19；F028 前端验收基线。
+- **同级设计核对**：Test Design TD-1 / v1 / 2026-10-23（`docs/features/F033/test-report.md`，TEST DESIGN READY）；Database `NOT_REQUIRED`；Contract `NOT_REQUIRED`。
+
+### 9.1 核对结论
+
+1. A1–A11 已被 TD-1 全覆盖（11/11）；DR-F033-01..11 与验证项一一可映射。
+2. DR 与 Test Design 无冲突。A10 由 Product 可选、DR-02 选定实现，TD-1 据此列为必测。
+3. layers/API/Contract 成立：`frontend=true`、`backend=false`、`database=false`、`api_required=false`、Contract NOT_REQUIRED；写入面限 `index.css` + 4 个呈现层文件 + 文档 §5。
+4. TD-1 N1–N4 接受为 NOTE 级实现提醒，不改变 A 项判定。
+
+### 9.2 定稿修订
+
+- **R1 前提修正**：`main{max-width:720px}` 当前受类选择器优先级影响并未实际收窄 `.workspace-content`；真实影响是裸 `<main>`（App boot 两态）与全局 padding。删除仍必要，但不得把“宽表页变宽”作为改善证据；A8 宽度项按回归守护。
+- **375 预算修正**：由约 164px 修正为约 180px（sidebar ≈120 + header 单行 ≈60）。≤480 必须保持 header 单行（必要时隐藏 brand 副标题、收紧角色标签/登出按钮但保留可访问名与登出可用性）；375 实测 >200px 判 A2 FAIL 并回设计。
+- **激活导航项滚入**：使用 `<nav>` 原生 ref + `querySelector(".app-nav .nav-link-active")`；共享 `Button` 不转发 ref，不得修改 `components/ui`。
+- **token 补充**：保留 `--csm-muted`（或作为 `--csm-text-muted` 别名）；新增 token 与 `main.tsx` Ant token 对齐（primary `#2563eb`、text `#172b4d`、secondary `#52637a`、layout `#f4f6fa`、border `#e5eaf1`、radius 10px）；不新增 `.ant-*` 选择器。
+- **窄屏 padding**：保留 `@media (max-width:767px){ main { … } }` 或等价下沉到 `.boot-main`/`.login-main`。
+- **文档同步**：`frontend-ui-stack.md` §5 的“较窄屏幕导航换行”改写为“≤1023 单行横向滚动导航、≥1024 sticky header、token 单一来源、容器宽度收敛、details 折叠”；不改 §1/§2/§4 或 §3 行为兼容。
+- **测试执行**：TD-1 §8 临时 Vite 代理与 Playwright 脚本置于仓库外，避免 S-V4/S-V6 误判。
+
+### 9.3 移交实现的前置条件
+
+无阻塞。TEST-1 前按 TD-1 amendment 收敛判定式（`.app-nav .nav-link-active` 作用域、A8.4 宽度判定、A7.1/A6.2/A6.6 时序、smoke 基线计数以实测 log 为准），不改变 A 项与 DR 意图。
+
+### 9.4 签核
+
+| 角色 | 对象 | 结论 |
+| --- | --- | --- |
+| Architect | F033 架构设计 v1；Contract NOT_REQUIRED | CONFIRMED / READY FOR IMPLEMENTATION（2026-10-23） |
+| Database | Schema/Migration | NOT_REQUIRED |
+| Tester | Test Design TD-1 v1 | TEST DESIGN READY |
