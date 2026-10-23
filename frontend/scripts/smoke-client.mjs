@@ -268,6 +268,17 @@
  *   格式变化即失效）、确认导入门控（预校验 0 错误 + 指纹一致 + 未成功导入）、
  *   冻结 26 列表头文本与 CSV 生成、适用行 / 类型（含 boolean）标签。
  *
+ * F030 追加（Does not add endpoints/params；docs/features/F030/architecture.md
+ * §7.2 / DR-F030-06，前端机制级 P5）：
+ * - src/components/authorizationCandidates.ts（纯逻辑，无 JSX / React / antd）：
+ *   ActiveGrantLoad / GrantCandidates / computeGrantCandidates / canSubmitGrant /
+ *   clusterListTruncated 的不变量断言——active 非 success（idle/loading/error）
+ *   永不返回候选且不可提交（消除「加载中已授权 Cluster 可提交」的误导性中间
+ *   态，F029-RV-05）、clusters 非 success 不返回候选、仅两者 success 时过滤
+ *   已授权 Cluster、truncated 两路传播（active.truncated 或 clusters.total >
+ *   items.length，不静默截断）、旧选中集群已不在候选中时不可提交（架构 I-2）；
+ *   服务端唯一约束与 409 `already_granted` 仍是最终事实。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -552,6 +563,11 @@ import {
   conflictItemText,
   referenceItemText,
 } from "../src/components/resourceActionMessages.ts";
+import {
+  canSubmitGrant,
+  clusterListTruncated,
+  computeGrantCandidates,
+} from "../src/components/authorizationCandidates.ts";
 import {
   buildResourceInterfaceIpsQuery,
   buildResourceInterfacesQuery,
@@ -8452,6 +8468,136 @@ await test("F026 describeClusterAuthorizationError：409 already_granted/already
   });
   const forbidden = await expectApiError(listClusterAuthorizations("u"));
   assert.ok(describeClusterAuthorizationError(forbidden).message.includes("USER_ADMIN"));
+});
+
+// ---------- F030 授权候选纯逻辑（docs/features/F030/architecture.md §7.2 / DR-F030-06） ----------
+// 不新增端点/参数；仅断言 P5「加载门控 / 失败重试 / 截断传播 / 旧选中集群不可提交」不变式。
+
+function f030Cluster(id, code) {
+  return {
+    id,
+    code,
+    name: `${code}-name`,
+    status: "ACTIVE",
+    description: null,
+    metadata: {},
+    version: 1,
+    created_at: "2026-10-23T00:00:00Z",
+    updated_at: "2026-10-23T00:00:00Z",
+    deleted_at: null,
+  };
+}
+
+const f030Clusters = {
+  kind: "success",
+  clusters: [f030Cluster("c1", "F30C1"), f030Cluster("c2", "F30C2"), f030Cluster("c3", "F30C3")],
+  total: 3,
+};
+
+const f030ActiveSuccess = {
+  kind: "success",
+  ids: new Set(["c2"]),
+  loaded: 1,
+  total: 1,
+  truncated: false,
+};
+
+await test("F030 computeGrantCandidates：active idle/loading 永不返回候选（无 clusters 字段）", async () => {
+  for (const active of [{ kind: "idle" }, { kind: "loading" }]) {
+    const result = computeGrantCandidates(active, f030Clusters);
+    assert.equal(result.kind, "loading");
+    assert.equal("clusters" in result, false, "非 success 不得携带新候选集合");
+  }
+  // clusters 非 success 时同样不返回候选（不把错误/加载伪装为空结果）
+  assert.equal(computeGrantCandidates(f030ActiveSuccess, { kind: "loading" }).kind, "loading");
+  const clustersError = computeGrantCandidates(f030ActiveSuccess, { kind: "error", message: "集群列表加载失败" });
+  assert.equal(clustersError.kind, "error");
+  assert.equal(clustersError.message, "集群列表加载失败");
+  assert.equal("clusters" in clustersError, false);
+});
+
+await test("F030 computeGrantCandidates：active error → error（保留文案，不降级为空授权）", async () => {
+  const result = computeGrantCandidates({ kind: "error", message: "无法加载已有授权" }, f030Clusters);
+  assert.equal(result.kind, "error");
+  assert.equal(result.message, "无法加载已有授权");
+  assert.equal("clusters" in result, false);
+});
+
+await test("F030 computeGrantCandidates：仅两者 success 时过滤已授权 cluster；truncated 两路独立传播", async () => {
+  const result = computeGrantCandidates(f030ActiveSuccess, f030Clusters);
+  assert.equal(result.kind, "success");
+  assert.deepEqual(result.clusters.map((cluster) => cluster.id), ["c1", "c3"]);
+  assert.equal(result.truncated, false);
+
+  // 第一路：该账号 ACTIVE 授权加载被安全上限截断
+  const truncatedByActive = computeGrantCandidates(
+    { kind: "success", ids: new Set(["c2"]), loaded: 2000, total: 2001, truncated: true },
+    f030Clusters,
+  );
+  assert.equal(truncatedByActive.truncated, true);
+
+  // 第二路：集群列表 total > items.length（与 active.truncated=false 无关）
+  const truncatedByClusters = computeGrantCandidates(
+    { kind: "success", ids: new Set(), loaded: 0, total: 0, truncated: false },
+    { kind: "success", clusters: [f030Cluster("c1", "F30C1")], total: 50 },
+  );
+  assert.equal(truncatedByClusters.truncated, true);
+
+  // 两路均 false 时才为 false（不静默截断）
+  assert.equal(
+    computeGrantCandidates(
+      { kind: "success", ids: new Set(), loaded: 0, total: 0, truncated: false },
+      { kind: "success", clusters: [f030Cluster("c1", "F30C1")], total: 1 },
+    ).truncated,
+    false,
+  );
+});
+
+await test("F030 clusterListTruncated：total > items.length 为截断（相等/少量/非 success 为 false）", async () => {
+  assert.equal(clusterListTruncated(f030Clusters), false);
+  assert.equal(
+    clusterListTruncated({ kind: "success", clusters: [f030Cluster("c1", "F30C1")], total: 2 }),
+    true,
+  );
+  assert.equal(
+    clusterListTruncated({ kind: "success", clusters: [f030Cluster("c1", "F30C1")], total: 1 }),
+    false,
+  );
+  assert.equal(clusterListTruncated({ kind: "loading" }), false);
+  assert.equal(clusterListTruncated({ kind: "error", message: "x" }), false);
+});
+
+await test("F030 canSubmitGrant：active 非 success 恒 false（idle/loading/error 三态）", async () => {
+  const candidates = computeGrantCandidates(f030ActiveSuccess, f030Clusters);
+  assert.equal(candidates.kind, "success");
+  for (const active of [{ kind: "idle" }, { kind: "loading" }, { kind: "error", message: "加载失败" }]) {
+    assert.equal(
+      canSubmitGrant(active, candidates, "c1", false),
+      false,
+      `active=${active.kind} 时必须禁止提交`,
+    );
+  }
+});
+
+await test("F030 canSubmitGrant：success + 已选 + 非 busy 才可提交；busy/空选/旧选中集群不可提交", async () => {
+  const active = f030ActiveSuccess;
+  const candidates = computeGrantCandidates(active, f030Clusters);
+  assert.equal(canSubmitGrant(active, candidates, "c1", false), true);
+  assert.equal(canSubmitGrant(active, candidates, "c1", true), false, "提交中不可重复提交");
+  assert.equal(canSubmitGrant(active, candidates, "", false), false, "未选择不可提交");
+  // 架构评审 I-2：已授权集群不在候选中 → 即使被旧选中也不可提交
+  assert.equal(canSubmitGrant(active, candidates, "c2", false), false);
+  // 搜索条件变化后旧选中集群已不在候选 → 不可提交
+  const narrowed = computeGrantCandidates(active, {
+    kind: "success",
+    clusters: [f030Cluster("c3", "F30C3")],
+    total: 1,
+  });
+  assert.equal(canSubmitGrant(active, narrowed, "c1", false), false);
+  assert.equal(canSubmitGrant(active, narrowed, "c3", false), true);
+  // 候选非 success（加载中/失败）恒不可提交
+  assert.equal(canSubmitGrant(active, { kind: "loading" }, "c1", false), false);
+  assert.equal(canSubmitGrant(active, { kind: "error", message: "x" }, "c1", false), false);
 });
 
 // 还原全局状态

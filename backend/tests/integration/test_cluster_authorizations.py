@@ -8,6 +8,8 @@ business endpoints (F027).
 
 from __future__ import annotations
 
+import threading
+import time
 import uuid
 
 import pytest
@@ -626,3 +628,293 @@ def test_f026_0015_downgrade_removes_only_f026_objects(pg_engine, alembic_runner
     finally:
         if alembic_runner.head_revision() != "0015_user_cluster_authorizations":
             alembic_runner.upgrade("head")
+
+
+# --- F030 ③: q boundary validation (Contract §3 / §5 P-1) --------------------
+
+
+def _assert_q_validation_error(resp):
+    assert resp.status_code == 422, resp.text
+    error = resp.json()["error"]
+    assert error["code"] == "VALIDATION_ERROR", error
+    fields = error["details"]["fields"]
+    assert [item["field"] for item in fields] == ["q"], fields
+
+
+def test_list_q_boundary_validation(role_client_factory, make_user):  # noqa: F811
+    """F030 ③/F029-RV-02: both sides of the `q` rule are locked down.
+
+    The 200 positive control and the 422 group are mutually exclusive (removing
+    ``_validate_q`` turns the 422s into 200s), and the unknown-account 404 group
+    fails if the path/semantic order (P-1) is swapped.
+    """
+    admin, _, _ = role_client_factory("ADMIN")
+    viewer, _ = make_user(role="VIEWER", username="f030.qboundary")
+    cluster = create_cluster(admin, "F30Q1", "F030 Q one")
+    assert _grant(admin, viewer.id, cluster["id"]).status_code == 201
+
+    # Known account + invalid free-text q -> 422 with field "q".
+    for bad in ("", "   ", "a\x07b", "a\u200bb", "a" * 65):
+        _assert_q_validation_error(_list(admin, viewer.id, q=bad))
+
+    # Positive control: a valid q still succeeds (no blanket 422).
+    good = _list(admin, viewer.id, q=cluster["code"].lower())
+    assert good.status_code == 200, good.text
+    body = good.json()
+    assert body["total"] == 1, body
+    assert body["items"][0]["cluster"]["id"] == cluster["id"]
+
+    # Unknown account -> 404 before q validation (P-1: path object first).
+    missing = uuid.uuid4()
+    for bad in ("", "a\x07b"):
+        not_found = _list(admin, missing, q=bad)
+        assert not_found.status_code == 404, not_found.text
+        assert not_found.json()["error"]["code"] == "NOT_FOUND"
+
+    # Undeclared query params are rejected by the route, so 422 (not 404).
+    undeclared = _list(admin, missing, unexpected="x")
+    assert undeclared.status_code == 422, undeclared.text
+    assert undeclared.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert [
+        item["field"]
+        for item in undeclared.json()["error"]["details"]["fields"]
+    ] == ["unexpected"]
+
+    undeclared_and_q = _list(admin, missing, unexpected="x", q="")
+    assert undeclared_and_q.status_code == 422, undeclared_and_q.text
+    assert "unexpected" in [
+        item["field"]
+        for item in undeclared_and_q.json()["error"]["details"]["fields"]
+    ]
+
+
+# --- F030 ④: real concurrent grant (F026-RV-03, Product N3) ------------------
+
+
+def _run_concurrent_grant(client_a, client_b, user_id, cluster_id):
+    """Fire two grants from two independent clients at the same instant."""
+    barrier = threading.Barrier(2, timeout=30)
+    results: list[dict] = []
+    lock = threading.Lock()
+
+    def _worker(client, label):
+        barrier.wait()
+        started = time.monotonic()
+        resp = _grant(client, user_id, cluster_id)
+        finished = time.monotonic()
+        with lock:
+            results.append(
+                {
+                    "label": label,
+                    "status": resp.status_code,
+                    "body": resp.json(),
+                    "started": started,
+                    "finished": finished,
+                }
+            )
+
+    threads = [
+        threading.Thread(target=_worker, args=(client_a, "a")),
+        threading.Thread(target=_worker, args=(client_b, "b")),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    assert all(not thread.is_alive() for thread in threads), (
+        "concurrent grant threads did not finish within 30s"
+    )
+    return results
+
+
+def _intervals_intersect(first: dict, second: dict) -> bool:
+    return max(first["started"], second["started"]) <= min(
+        first["finished"], second["finished"]
+    )
+
+
+def test_concurrent_grant_two_connections_single_winner(
+    role_client_factory, auth_session_factory, make_user  # noqa: F811
+):
+    """F030 ④/F026-RV-03: two real connections -> exactly one 201 and one 409.
+
+    Each worker uses its own logged-in ADMIN ``TestClient``; every request opens
+    its own session from ``auth_session_factory`` (``committed_engine`` +
+    ``NullPool``), i.e. two real database connections. The request time spans
+    must intersect at least once (a sequential pair must not count as evidence);
+    up to three attempts are allowed because HTTP-level thread scheduling is
+    timing dependent, while the DB invariants are asserted on every attempt.
+    """
+    from app.models.audit_log import AuditLog
+    from app.models.user_cluster_authorization import UserClusterAuthorization
+
+    admin_a, _, _ = role_client_factory("ADMIN", username="f030.race.admin.a")
+    admin_b, _, _ = role_client_factory("ADMIN", username="f030.race.admin.b")
+
+    attempts: list[str] = []
+    overlap_observed = False
+    for attempt in (1, 2, 3):
+        viewer, _ = make_user(role="VIEWER", username=f"f030.race.viewer{attempt}")
+        cluster = create_cluster(admin_a, f"F30R{attempt}", f"F030 race {attempt}")
+        cluster_id = uuid.UUID(cluster["id"])
+
+        # Warm up both clients so the concurrent window contains only the write.
+        assert _list(admin_a, viewer.id).status_code == 200
+        assert _list(admin_b, viewer.id).status_code == 200
+
+        results = _run_concurrent_grant(admin_a, admin_b, viewer.id, cluster_id)
+        assert len(results) == 2, results
+        assert sorted(item["status"] for item in results) == [201, 409], results
+
+        winner = next(item for item in results if item["status"] == 201)
+        loser = next(item for item in results if item["status"] == 409)
+        winner_row = winner["body"]["cluster_authorization"]
+        assert winner_row["status"] == "ACTIVE"
+        assert winner_row["effective"] is True
+        assert winner_row["cluster"]["id"] == cluster["id"]
+        assert loser["body"]["error"]["code"] == "CONFLICT"
+        assert loser["body"]["error"]["details"]["reason"] == "already_granted"
+
+        with auth_session_factory() as session:
+            rows = list(
+                session.execute(
+                    select(UserClusterAuthorization).where(
+                        UserClusterAuthorization.user_id == viewer.id,
+                        UserClusterAuthorization.cluster_id == cluster_id,
+                    )
+                ).scalars()
+            )
+            active = [row for row in rows if row.revoked_at is None]
+            audits = list(
+                session.execute(
+                    select(AuditLog).where(
+                        AuditLog.object_type == "user_cluster_authorization",
+                        AuditLog.object_id.in_([row.id for row in rows]),
+                    )
+                ).scalars()
+            )
+
+        assert len(rows) == 1, [row.id for row in rows]
+        assert len(active) == 1
+        assert active[0].id == uuid.UUID(winner_row["id"])
+        assert len(audits) == 1, [audit.action for audit in audits]
+        assert audits[0].action == "CREATE"
+        assert audits[0].object_id == active[0].id
+
+        intersected = _intervals_intersect(results[0], results[1])
+        attempts.append(
+            f"attempt {attempt}: statuses={[item['status'] for item in results]} "
+            f"overlap={intersected} spans="
+            f"{[(round(item['started'], 4), round(item['finished'], 4)) for item in results]}"
+        )
+        if intersected:
+            overlap_observed = True
+            break
+
+    print("concurrent grant evidence:", *attempts, sep="\n  ")
+    assert overlap_observed, attempts
+
+
+# --- F030 ④: non-unique integrity error is surfaced, not mapped to 409 ------
+
+
+def test_grant_non_unique_integrity_error_is_not_mapped_to_409(
+    role_client_factory, auth_session_factory, make_user  # noqa: F811
+):
+    """F030 ④/F029-RV-08: only the partial unique index maps to 409.
+
+    A ghost operator (``user_id`` that does not exist in ``users``) makes the
+    ``granted_by`` FK fail with a real ``23503`` after validation passes; the
+    service must re-raise it instead of translating it into
+    ``CONFLICT{already_granted}`` and leave no row/Audit behind. The real
+    operator then grants the same pair to prove attribution.
+    """
+    from sqlalchemy.exc import IntegrityError as SAIntegrityError
+
+    from app.core.auth import Operator
+    from app.core.errors import Conflict
+    from app.core.permissions import Role
+    from app.models.audit_log import AuditLog
+    from app.models.user_cluster_authorization import UserClusterAuthorization
+    from app.services import cluster_authorization as authorization_service
+
+    admin, admin_user, _ = role_client_factory("ADMIN")
+    viewer, _ = make_user(role="VIEWER", username="f030.integrity")
+    cluster = create_cluster(admin, "F30I1", "F030 integrity")
+    cluster_id = uuid.UUID(cluster["id"])
+    ghost = Operator(user_id=uuid.uuid4(), username="f030.ghost", role=Role.ADMIN)
+
+    with auth_session_factory() as session:
+        with pytest.raises(SAIntegrityError) as excinfo:
+            authorization_service.grant_authorization(
+                session, ghost, user_id=viewer.id, cluster_id=cluster_id
+            )
+
+    error = excinfo.value
+    assert not isinstance(error, Conflict)
+    assert error.orig.sqlstate == "23503"
+    assert (
+        error.orig.diag.constraint_name
+        == "fk_user_cluster_authorizations_granted_by_users"
+    )
+
+    with auth_session_factory() as session:
+        rows = list(
+            session.execute(
+                select(UserClusterAuthorization).where(
+                    UserClusterAuthorization.user_id == viewer.id,
+                    UserClusterAuthorization.cluster_id == cluster_id,
+                )
+            ).scalars()
+        )
+        audits = list(
+            session.execute(
+                select(AuditLog).where(
+                    AuditLog.object_type == "user_cluster_authorization"
+                )
+            ).scalars()
+        )
+    assert rows == []
+    assert audits == []
+
+    # Attribution control: the same pair with a real operator succeeds.
+    with auth_session_factory() as session:
+        row = authorization_service.grant_authorization(
+            session, _operator(admin_user), user_id=viewer.id, cluster_id=cluster_id
+        )
+        granted = row[0]
+        assert granted.granted_by == admin_user.id
+        assert granted.revoked_at is None
+
+    with auth_session_factory() as session:
+        rows = list(
+            session.execute(
+                select(UserClusterAuthorization).where(
+                    UserClusterAuthorization.user_id == viewer.id,
+                    UserClusterAuthorization.cluster_id == cluster_id,
+                )
+            ).scalars()
+        )
+        audits = list(
+            session.execute(
+                select(AuditLog).where(
+                    AuditLog.object_type == "user_cluster_authorization",
+                    AuditLog.object_id == granted.id,
+                )
+            ).scalars()
+        )
+    assert len(rows) == 1
+    assert rows[0].revoked_at is None
+    assert [audit.action for audit in audits] == ["CREATE"]
+
+
+# --- F030 ⑦: marked-module canary -------------------------------------------
+
+
+def test_marked_module_has_no_legacy_scope_override(auth_app):
+    """This module declares ``real_scope``, so the legacy shim must be absent."""
+    from app.core.access_scope import get_access_scope
+    from app.core.db import get_db
+
+    assert get_db in auth_app.dependency_overrides
+    assert get_access_scope not in auth_app.dependency_overrides

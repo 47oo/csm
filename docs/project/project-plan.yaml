@@ -2050,8 +2050,8 @@ features:
   - F029
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: 完成 Backend / Frontend 实现并提交实现报告。
+  current_stage: TEST
+  next_action: 完成 F030 TEST，独立执行定向/全量/前端与文档计划核对。
   layers:
     database: false
     backend: true
@@ -2063,8 +2063,8 @@ features:
     database: NOT_REQUIRED
     test_design: COMPLETE
     contract: COMPLETE
-    backend: PENDING
-    frontend: PENDING
+    backend: COMPLETE
+    frontend: COMPLETE
     test: PENDING
     review: PENDING
   not_required:
@@ -2091,6 +2091,10 @@ features:
     - docs/api/F013.md
     - docs/api/F014.md
     - docs/api/F023.md
+    backend:
+    - docs/features/F030/implementation.md#1-backend
+    frontend:
+    - docs/features/F030/implementation.md#2-frontend
   git:
     base_branch: v3.2
     branch: feature/F030-review-followup-closeout
@@ -2493,9 +2497,9 @@ execution:
     authorized_on: '2026-10-23'
     basis: 用户于 2026-10-23 批准 plan revision 16 并要求自动实施 F030（Review 跟进收敛：Contract 签核、边界测试与前端交互修正）。
   current_feature: F030
-  current_stage: IMPLEMENTATION
-  last_result: F030 CONTRACT Gate 通过（READY FOR IMPLEMENTATION）；F026 v3、12 份 Contract 签核行与 BQ18/BQ19 已落盘。
-  next_action: 完成 Backend / Frontend 实现。
+  current_stage: TEST
+  last_result: F030 Backend/Frontend 实现完成；定向 28 passed、全量 728 passed/6 skipped、前端 328 passed。
+  next_action: 完成 F030 TEST 并提交 Test Report。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

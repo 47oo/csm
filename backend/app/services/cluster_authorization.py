@@ -127,9 +127,12 @@ def list_authorizations(
     order: str = "desc",
 ) -> tuple[list[tuple], int]:
     """Return the filtered page plus the filtered total (Contract §3)."""
-    # Path object semantics (Contract §3/§5.2 P-1): an unknown account is 404,
-    # before semantic query validation. This also removes the 422-vs-404
-    # existence oracle for unknown users combined with an invalid q.
+    # Contract §3/§5 P-1: path object first — an unknown or non-UUID account is
+    # 404 before any semantic query validation, so `q` is only validated after
+    # the account exists. Typed query params (status/cluster_id/page/page_size/
+    # sort/order) and undeclared params are rejected by the route before the
+    # handler, hence 422 even for an unknown account. This is not an
+    # information-leak hardening measure: the endpoint is USER_ADMIN only.
     _get_user_or_404(db, user_id)
     if sort not in SORT_FIELDS:
         raise _field_error("sort", "unsupported sort field")
