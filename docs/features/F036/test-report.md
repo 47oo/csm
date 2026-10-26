@@ -1,7 +1,7 @@
 # F036 F032–F035 Review 跟进项收敛 — Test Report
 
 > 同一份报告承载 TEST_DESIGN 与 TEST 两阶段，分开记录版本与证据。
-> **当前状态**：§1 TEST DESIGN = **TD-F036-1（v1，2026-10-26，`TEST DESIGN READY`）**；§2 TEST EXECUTION 尚未编写。
+> **当前状态**：§1 TEST DESIGN = **TD-F036-1（v1，2026-10-26，`TEST DESIGN READY`）**；§2 TEST EXECUTION = **TE-F036-2（2026-10-26，修复复测，`READY FOR REVIEW`，见 §2.1 / TE-8）**；上一版 **TE-F036-1 = `BLOCKED`** 作为历史保留（缺陷已 `CLOSED`，见 TE-8/TE-6）。
 > `TEST DESIGN READY` 仅表示方案可验证，**不是测试通过**，不批准实现、Contract 定稿或合并。
 
 **版本记录**
@@ -9,7 +9,8 @@
 | 阶段 | 版本 | 日期 | 结论 | 依据 HEAD |
 | --- | --- | --- | --- | --- |
 | TEST DESIGN | TD-F036-1 | 2026-10-26 | `TEST DESIGN READY` | `1ccab33`（architecture 已提交，实现未开始） |
-| TEST | TE-F036-1 | （待填） | （待填） | （待填） |
+| TEST | TE-F036-1 | 2026-10-26 | `BLOCKED`（2 项证据/文档缺陷：A3、A7；实现与回归全通过）—**历史，已由 TE-F036-2 修复复测取代** | `8b8f594` |
+| TEST（repair round 1） | TE-F036-2 | 2026-10-26 | **`READY FOR REVIEW`**（仅复测 V4.1/V4.2/V8.1；其余 50 项沿用 TE-F036-1，未重跑） | `8b8f594` + 两处文档修正（工作区） |
 
 ---
 
@@ -188,6 +189,171 @@
 - 发现 1 项架构事实偏差（`TD-I-1`：被跟踪的 `setup.log`/`cli-smoke.log` 仍含 MAC）与 9 条待裁定/登记项，**均不构成不可验证项**，故不返回 `TEST DESIGN BLOCKED`；请 CONTRACT Gate 在 §12 逐条裁定后再进入 TEST。
 - 本阶段**未执行**任何测试、构建或 Git 变更命令；`TEST DESIGN READY` 不批准实现、Contract 定稿或合并。
 
+## 2. Test Execution（TE-F036-1，2026-10-26）
+
+### TE-1 Task / Status / Basis
+
+- **Task**：F036「F032–F035 Review 跟进项收敛」；分支 `feature/F036-review-followup-closeout`，`start_commit` `a2e9194`，**候选 HEAD `8b8f594`**；`plan revision` 22，需求 **revision 14（不变）**；阶段 TEST，Tester 独立执行 + 仅写本文件、`docs/features/F036/artifacts/**`、`backend/tests/integration/test_f036_tester_independent.py`。
+- **Status**：**`BLOCKED`** —— 实现、回归、并发、前端与构建全部通过（50 项 PASS + 1 项并入），但 2 项证据/文档验收判据（**A3** MAC 扫描命中 0、**A7** 口令命中 0）实测**未满足**，见 TE-6。缺陷均为文档/证据字面修复，不涉及业务实现。
+- **依据**：§1 `TD-F036-1`（含 `TD-I-1…TD-I-10` 及 §12 定稿裁定）、`docs/features/F036/architecture.md` §3/§12、`docs/features/F036/implementation.md` §1–§3、`docs/features/F036/evidence-notes.md`、`docs/features/F032/artifacts/real-validate/REDACTION.md`、`docs/api/F023.md` v2 §11 澄清 + §17 修订行、`docs/project/{handoff,implementation-rules}.md`、`.pi/skills/{data-integrity,frontend-ui}/SKILL.md`。
+- **独立性**：全部用例由 Tester 自行执行；V2 竞态除运行 Backend 用例（`test_f036_attribution.py`）外，另写 `test_f036_tester_independent.py`（5 例，构造用**裸 SQL** 软删，不依赖 `delete_resource` 内部 commit）；V1/V7/V9 用自写 `u.mjs`（独立重算 FNV-1a/djb2 指纹，不复用 `smoke-client.mjs` 断言）；B 层自写 Playwright 脚本。
+
+### TE-2 Environment（实测）
+
+| 项 | 值 |
+| --- | --- |
+| 真实 PG | 容器 `csm-f035-pg`，**PostgreSQL 16.15**，`127.0.0.1:55432/csm_test`；`TEST_DATABASE_URL=postgresql+psycopg://csm:***@127.0.0.1:55432/csm_test`（口令值取 `.env.test` 的 `POSTGRES_PASSWORD`，**本报告一律 `***`**）；Tester 独占，`DATABASE_URL` 已 unset（DB-D10 双守卫保留） |
+| 隔离级别 | 两会话均显式 `SET TRANSACTION ISOLATION LEVEL READ COMMITTED` 并断言 `SHOW transaction_isolation == 'read committed'`（实测值记录在断言与日志中；REPEATABLE READ 分支未测，见 TE-8） |
+| 后端 / 前端工具链 | Python 3 / pytest（`backend/` 为 cwd）；Node **v22.23.3**（`.ts` 类型剥离直载）；`npm run typecheck` / `build` / `smoke:client` |
+| 前端构建来源 | **候选 HEAD `8b8f594` 的 `npm run build` 产物 `frontend/dist`**，用 `vite preview`（`--config /tmp/f036-t/vite.preview.config.mjs`，:4173）提供；`/api` 代理到真实后端 `http://localhost:18080`（`csmtest` 项目，**F035 时代镜像、不含 F036 改动**，仅作真 HTTP 后端） |
+| B 层视口 / 日期 | **375×812** 与 **1023×768**，Chromium（Playwright，`chromium-1248`），**2026-10-26**（`generated_at`=`2026-10-26T11:11:50Z`）；截图见 `docs/features/F036/artifacts/f036-nav-focus-{375x812,1023x768}.png`、`f036-carrier-switch-back-file-375x812.png` |
+| 证据落点 | 本报告同目录 `docs/features/F036/artifacts/`：`f036-ui-browser-check.json`、`f036-focus-negative-control.json`、上述 3 张截图、`static-scans.log`、`tester-u-layer.log`、`frontend-typecheck-build-smoke.log`、`pytest-{f036-attribution,f034-carrier,f023-f035,zero-regression,zero-regression-run1-flake,collect-host-info}.log` |
+| 测试库洁净 | `conftest.pg_engine` 会话级 `DROP SCHEMA public` + `alembic upgrade head`（→`0015`），函数级 `TRUNCATE`；未在生产/未知库执行任何测试 |
+
+### TE-3 逐条结果（V1–V15，53 条 `TD3-F036-*`）
+
+> 计数勘误（Tester 自纠）：§1 写「47 条」，按其表格实际列出的 ID 数为 **53 条**（4+5+2+4+3+2+3+3+4+3+4+3+7+4+2）。本条只作勘误记录，§1 正文不改。
+
+| 用例 | 状态 | 证据（命令 / 输出摘要 / 路径） |
+| --- | --- | --- |
+| V1.1 | **PASS** | `node /tmp/f036-t/u.mjs`（`artifacts/tester-u-layer.log`）：两入口切 `file` 补丁恰 3 键、`file===null`、`format` 保留（含 xlsx 不回填）、`text` 未触碰；切 `text` 仍 `{carrier,format:"csv"}` |
+| V1.2 | **PASS** | 同上：两入口 `targetKey===null`；`canConfirmResourceInterfaceIpImport===false`（同值对照为 true 证明 false 源自 key 失效）；F014 侧合取 `validatedKey!==null && validatedKey===currentKey` 判 false（源码 `ResourceImportPanel.tsx:201-212` 复核） |
+| V1.3 | **PASS** | 同上：两入口 `parse*` 对 `file:null` 返回 `ok:false`、`errors.file` 非空 |
+| V1.4 | **PASS** | `f036-ui-browser-check.json` `v14.steps`：预校验→`可导入 1 行，错误 0 项`、确认导入 enabled；切「文本」→ 结果区回到「尚未预校验」空态、确认导入 disabled；切回「文件」→ `input.value==""`（无文件名回显）、两结果区均空态、确认导入 disabled（375×812，2026-10-26，截图 `f036-carrier-switch-back-file-375x812.png`） |
+| V2.1 | **PASS** | `pytest tests/integration/test_f036_tester_independent.py tests/integration/test_f036_attribution.py -q` → **8 passed**（`artifacts/pytest-f036-attribution.log`）；两文件均以 `pg_blocking_pids` 轮询证实写入方阻塞于 B 会话行锁；断言 422 `IMPORT_VALIDATION_FAILED`、恰 1 条 `field=="hostname"`/`row==2`、`reason` 含 `does not exist or is not selectable`（TD-I-3 子串）、`related_row is None`；无 `40P01`/`InternalError` |
+| V2.2 | **PASS** | 同上：基线在竞态前采集，结束后 `resources`/`interfaces`/`ip_addresses` 计数与窗口内 `action='CREATE'` Audit **均不变**，宿主 `deleted_at IS NOT NULL`，子对象 0 |
+| V2.3 | **PASS** | 同上（对照例 2 条：Backend `…_soft_delete_before_write_is_treated_as_new` + Tester `test_tester_v2_3_control_…`）：软删先于写入 ⇒ `created==1`、新 id、原行仍软删（证明 V2.1 窗口真实命中） |
+| V2.4 | **PASS（实测，但 §1 期望文字与契约不符 → TE-6 `TD-I-11`）** | `test_tester_v2_4a/2_4b`：①「从未存在的 hostname」实测**新建** `created==1`（§8.1 二态判定，与 §1 V2.4 期望「422 + field=hostname」矛盾，且与其自身 V2.3 矛盾；见 TE-6 `TD-I-11`）；② VM 行 `host` 指向**其它 Cluster** 宿主 ⇒ 422、`field=="host"`（模板列名）、`row==2`、零写入残留。`_lock_resource` 的 `include_deleted` + 未删校验零 diff（`git diff` 空），未弱化由 V2.1 直接证明 |
+| V2.5 | **PASS** | 两文件 AST 读回 `mapped` 字面量：**恰四项**（`address→ip`、`virtual_machine.host_resource_id→host`、`interface→name`、`resource→hostname`），**无新增键**；行为面四项 + 兜底（`hardware.model→model`）；`_field_error("resource",…)` 产生点仍为既定 4 处（TD-I-8 守卫） |
+| V3.1 | **PASS** | `git diff a2e9194..HEAD -- docs/api/F023.md`：§11 末尾增 1 行归因澄清（覆盖 `field` 恒模板列名 / `hostname` / `reason` 自由文本 / `related_row=null` / 整批 422 / 1-based / 不新增码与字段）；§17 增 1 行「澄清（不升版，正文仍 v2）」；正文仍 v2 |
+| V3.2 | **PASS** | `docs/api/F014.md` 零 diff；`git diff --stat` 显示 F023 仅上述 2 行；26 列常量、`IMPORT_MAX_FILE_BYTES`、行数上限零 diff |
+| **V4.1** | **FAIL**（TE-F036-1 修复前；修复后复测 **PASS**，见 §2.1） | `grep -rnE "([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}" docs/features/F032/artifacts/` → **3 命中**（期望 0）：`real-validate/REDACTION.md:12-14` 的「原值」列把 3 个真实 MAC 明文写回（`08:00:58:00:00:05`、`d8:b3:2f:5f:a8:1f`、`00:ff:14:65:ff:5b`）。见 `DEF-F036-TE-01` |
+| V4.2 | **PASS** | 5 个被跟踪文件仍在；3 CSV 均 **4 行 × 26 列 + BOM `efbbbf`** 不变；`setup.log` **159** 行、`cli-smoke.log` **352** 行不变；`REDACTION.md` 存在且含 `mac_address`、`xx` 规则与 `git add -f` 入库事实（`artifacts/static-scans.log`） |
+| V4.3 | **PASS** | `REDACTION.md` §4 边界声明可见：脱敏后不得作逐字节等价性证据，等价性唯一来源 `docs/features/F034/artifacts/equivalence-observations*.json`（TD-I-5）；本报告未以脱敏 CSV 主张字节等价 |
+| V4.4 | **PASS** | `.gitignore` 零 diff；未删/未移证据（`git ls-files` 15 项不变）；`docs/features/F032/{test-report,review-report}.md` 仅口令字面量掩码（非结论改写） |
+| V5.1 | **PASS** | `git diff a2e9194..HEAD -- frontend/src/index.css`：窄屏块改为 `outline: 3px solid var(--csm-primary); outline-offset: -3px`，**删除** `box-shadow: var(--csm-focus-ring)` 覆盖，注释与实现一致；无新断点，`44px`/`padding-inline`/`scroll-snap`/`overflow` 零 diff |
+| V5.2 | **PASS** | 375×812：`getComputedStyle(link).outlineOffset === "-3px"`（outline `solid 3px rgb(37,99,235)`）；首项 @`scrollLeft=0` 环矩形 `[19,57]-[69,95]` 全在 `nav` 客户端矩形 `[16,50]-[359,102]` 内；末项 @`scrollLeft=369(=max)` 环 `[290.8,57]-[355.7,95]` 亦在内；`f036-ui-browser-check.json` + 截图 |
+| V5.3 | **PASS** | 1023×768：`outline`/`offset` 同判据，首末项环均在内（该宽度无横向溢出，`scrollMax=0`）；激活项 `background-color rgb(234,241,255)` 且 `box-shadow` 含 `inset`（左条保留）；负向对照 `f036-focus-negative-control.json`：同元素临时 `outline-offset: 3px` 时环左缘 13 < nav 左缘 16（`insideNav=false`）⇒ 判据有区分力 |
+| V6.1 | **PASS** | `cd frontend && npm run smoke:client` → **340 passed, 0 failed**（2026-10-26，`artifacts/frontend-typecheck-build-smoke.log`）；基线演进 322→328→337→339→**340** 记录于 `evidence-notes.md` §1 |
+| V6.2 | **PASS** | `grep -rn "322\|328" docs/features/F036/` 仅作**历史值**出现（architecture:152、evidence-notes:9、product:21、test-report:76-77），无「当前基线 322/328」表述 |
+| V7.1 | **PASS** | `tester-u-layer.log`：两常量均含「片段」；数据行字段数 **3 ≤ 4**（TD-I-7 唯一判据）；不含 26 列 `join(",")`、不含 `...`/`…`；`RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.length===26` |
+| V7.2 | **PASS** | 两面板 `placeholder={IMPORT_TEXT_PLACEHOLDER}`（`ResourceImportPanel.tsx:311`）、`placeholder={RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER}`（`ResourceInterfaceIpImportPanel.tsx:377`），非内联字面量；`rows`/`aria-*`/字节计数零 diff |
+| V7.3 | **PASS** | 26 列常量与上限常量 `git diff` 空（`V14.3` 同证据） |
+| **V8.1** | **FAIL**（TE-F036-1 修复前；修复后复测 **PASS**，见 §2.1） | 判据 A：F036 自有文档 `scheme://user:secret@` 仅 `***`（`implementation.md:34`）或占位符；判据 B（TD-I-2 操作性判据，临时 pattern 文件 `grep -rFf`，pattern 不入库）：`docs/` **命中 1 行**（期望 0）→ `docs/features/F036/evidence-notes.md:11` 仍含测试库口令明文（同一行内 2 处，用于描述掩码命令）。`frontend/`（排除 node_modules）= **0**、`backend/tests/` = **0**。见 `DEF-F036-TE-02` |
+| V8.2 | **PASS** | `git ls-files docs/features/F034/artifacts` = **83** 项（其中 `logs/**` **12** 项）；`git check-ignore -v docs/features/F034/artifacts/logs/some.log` = `.gitignore:125:logs/`，而 F032 的 `setup.log`/`cli-smoke.log` `check-ignore` **无输出**（已跟踪不受忽略）——入库集合与忽略集合分列可复核（`static-scans.log`） |
+| V8.3 | 并入 V8.1 | TD-I-2 裁定「原 V8.3 并入 V8.1」；仓库级（排除 `node_modules`/`.git`）明文命中 **4** 处，全部为 `.env.test`（git-ignored，3 处）+ `docs/features/F036/evidence-notes.md:11`（见上），F001–F035 历史报告未被本 Feature 改写 |
+| V9.1 | **PASS** | `tester-u-layer.log`：30 语料 × 2 入口 × 3 轮 = 180 次调用，digest+byteLength **逐字节稳定**且等于**独立重算**（自实现 FNV-1a/djb2/UTF-8 字节数，含中文/emoji/CRLF/NUL/4096B 边界）；F034 artifacts 不存 digest，故以独立重算 + 稳定性替代冻结值比对（已注明） |
+| V9.2 | **PASS** | 30 语料各改 1 个 code unit 均换 key；显式覆盖中文（甲→乙）、emoji（🙂→🙃）、代理对半替换 |
+| V9.3 | **PASS** | 两面板 `currentKey` 依赖恰 `[values.carrier, values.format, values.file, values.text]`、`pastedByteLength` 依赖 `[values.carrier, values.text]`；`useMemo` 自 `react` 导入；`importCarrier.ts` 零 diff |
+| V9.4 | **PASS** | `pytest test_f034_csv_text_carrier{,_scope}.py -q` → **31 passed**（含 `test_td5_equivalence_matrix_all_corpus[resources|interface-ips]` 30 语料 × 2 入口 deep-equal、`test_td5_write_error_equivalence`、`test_td3_t111_9_t114_non_ascii_roundtrip`、`test_td3_t114_field_boundaries`），0 skipped |
+| V10.1 | **PASS** | 跑 F034 套件前后 `git status --porcelain --untracked-files=no` **均 0 行**（`static-scans.log`）；用例 0 skipped，无 `pytest.skip` 触发 |
+| V10.2 | **PASS** | 默认产物落 `/tmp/csm-test-artifacts/f034/`（3 个 JSON）；显式 `CSM_TEST_ARTIFACT_DIR=/tmp/f036-t/collect` 复跑同 3 个产物出现在该目录；仓库树内无新文件 |
+| V10.3 | **PASS** | `git diff --stat a2e9194..HEAD -- docs/features/F034/artifacts` **空**（历史等价性证据冻结） |
+| V11.1 | **PASS** | 复核 `scripts/test_collect_host_info.py:392-457`：子进程 + 临时 `cwd`；①BM 批断言 `cluster/role/status/network/resource_type` 逐列写入且 `host==""`；②VM 批 `host` 写入；③不带可选参数五列全空；④缺 `--resource-type` `returncode!=0` + stderr 含 `--resource-type` + 临时目录零新增文件 |
+| V11.2 | **PASS** | `git diff scripts/collect_host_info.py`：仅 2 处 docstring（`collect` / `build_error_hint`），argparse 定义、`required=True`、`choices`、`_push` 零 diff |
+| V11.3 | **PASS** | `python3 -m pytest scripts/test_collect_host_info.py -q` → **84 passed**（基线 83，+1；`artifacts/pytest-collect-host-info.log`） |
+| V11.4 | **PASS** | 独立手跑：`collect_host_info.py --print --cluster T36C` → `rc=2`、stderr usage 点名 `--resource-type`；临时 cwd 无文件新增；正常六参数批实测 `T36C,...,BARE_METAL,COMPUTE,IDLE,,...`（`cluster/role/status/network/resource_type` 写入、`host` 空） |
+| V12.1 | **PASS** | `collect_host_info.py:657-665` 含 DR-1007 / 三组枚举 / `_ArgumentParser.error()` / 收窄须另立变更；`:480-490` 含单测与防御边界 / CLI 仍 `required=True` / `_push` 保留 |
+| V12.2 | **PASS** | 11c/11d/11e 在 `architecture.md:162-164` 与 `evidence-notes.md:19-21` 均含条目 ID + 触发条件（unknown_columns 既有 schema 收紧另立提案；1440×1000 既有视口、改布局须补 375/1023；5000 行性能 NOT TESTED + §5.7 + 不放松 V11.5） |
+| V12.3 | **PASS** | 本报告 §2 TE-2/TE-3 含命令/日期/实测值；`git diff --stat a2e9194..HEAD -- docs/features/F033` **空**（F033 报告正文零 diff） |
+| V13.1 | **PASS** | `npm run smoke:client` → **340 passed, 0 failed** ≥339 |
+| V13.2 | **PASS** | `test_f035_append_interface_ip_import.py` → 收集 **20**，与其余 3 文件合跑 **66 passed 0 failed** |
+| V13.3 | **PASS** | `test_f035_tester_acceptance.py`(16) + `test_f035_append_scope.py`(2) = **18**，全部 PASS（同一 66 passed 运行） |
+| V13.4 | **PASS** | `test_f023_resource_interface_ip_import.py` 收集 **28**，全部 PASS（含 PERF 用例） |
+| V13.5 | **PASS**（第二次全量；首轮见 TE-6 `OBS-F036-TE-03`） | 11 文件零回归集：首轮 **185 passed / 1 failed**（`test_ip_addresses.py::test_concurrent_gateway_change_and_allocation`），**复跑 186 passed 0 failed**（`artifacts/pytest-zero-regression{,-run1-flake}.log`）；收集数 == 基线 186，无用例消失 |
+| V13.6 | **PASS** | F034 集成 `29 + 2 = 31`（`test_f034_csv_text_carrier{,_scope}.py` → 31 passed） |
+| V13.7 | **PASS** | `npm run typecheck` → exit 0；`npm run build` → exit 0（`✓ built in ~18s`）；依赖零 diff（`frontend/package.json`、`package-lock.json`、Python 依赖文件）；新增第三方依赖 0（仅 stdlib `os`/`tempfile`/`csv`/`io`） |
+| V14.1 | **PASS** | `python3 -m alembic heads` → `0015_user_cluster_authorizations (head)`；`backend/alembic`、`backend/app/models` 零 diff |
+| V14.2 | **PASS** | `frontend/src/api/**` 零 diff；`docs/api/F023.md` 仅 §11/§17 两行（见 V3.1/V3.2） |
+| V14.3 | **PASS** | 26 列常量、`IMPORT_MAX_FILE_BYTES`、5000 行上限、权限矩阵相关文件零 diff |
+| V14.4 | **PASS** | `python3 scripts/validate_project_state.py` → `PROJECT STATE VALID (structure/gates/files; …)`（结构通过，不代表批准或 Git 证据有效） |
+| V15.1 | **PASS** | `test_f027_access_scope.py`(11)、`test_f035_append_scope.py`(2)、导入越权相关用例全 PASS；这些断言文件与 `test_imports.py` 等 `git diff` **空**（权限/范围口径零 diff） |
+| V15.2 | **PASS** | F035 `V11.1/V11.2/V11.3/V11.5` 四例在 20 passed 运行中全部 PASS，无 `40P01`；`_acquire_locks` 零 diff |
+
+**统计**：53 条 = **PASS 50** / **FAIL 2**（`V4.1`、`V8.1`）/ **并入 1**（`V8.3`→V8.1）。V2.4 记为 PASS（实测行为符合已批准契约，§1 期望文字偏差另立 `TD-I-11`）。
+
+### TE-4 V1–V15 ↔ A1–A14 映射
+
+| A | 判据摘要 | 覆盖用例 | 结果 |
+| --- | --- | --- | --- |
+| A1 | 切回文件后提交值为空 / 结果态重置 / 确认导入 disabled | V1.1–V1.4 | **PASS** |
+| A2 | 双会话竞态 422 + `field=="hostname"` + 1-based + 零残留；§11 澄清已签核 | V2.1–V2.4、V3.1、V3.2 | **PASS** |
+| A3 | F032 artifacts 全目录 MAC 命中 0（或仅掩码）+ 文件仍在 + 脱敏标注 | V4.1–V4.4 | **PASS**（TE-F036-1 时 V4.1 FAIL；修复后复测 PASS，见 §2.1） |
+| A4 | 375/1023 聚焦导航项焦点框完整可见（含视口记录） | V5.1–V5.3 | **PASS** |
+| A5 | 文档 smoke 基线 == 实测 且 ≥339 | V6.1、V6.2 | **PASS**（340） |
+| A6 | placeholder 不含完整 26 列表头 + 含「片段」 | V7.1–V7.3 | **PASS** |
+| A7 | 口令 grep 命中 0；入库范围表与 `ls-files`/`check-ignore` 一致 | V8.1–V8.3 | **PASS**（TE-F036-1 时 V8.1 FAIL；修复后复测 PASS，见 §2.1） |
+| A8 | 记忆化后等价；F034 等价性 60 例仍 deep-equal | V9.1–V9.4 | **PASS** |
+| A9 | 跑 F034 测试后已跟踪文件 `git status` 为空 | V10.1–V10.3 | **PASS** |
+| A10 | 新 T79 CLI 用例 PASS（六参数 / 留空 / 缺参非零退出） | V11.1–V11.4 | **PASS** |
+| A11 | 记载项可 grep 到条目 ID 与触发条件 | V12.1–V12.3 | **PASS** |
+| A12 | 回归计数不减少（340/20/18/28/186/31/84） | V13.1–V13.6 | **PASS** |
+| A13 | `alembic head=0015`、零 diff、`typecheck`/`build` exit 0、依赖 0 | V13.7、V14.1–V14.3（+V14.4） | **PASS** |
+| A14 | 权限与范围口径不变（零 diff + 用例 PASS） | V15.1、V15.2 | **PASS** |
+
+整体验收（需求 §31–33 跨功能）不在 F036 范围（`TD-5`），未执行，不得以本表局部 PASS 拼成整体 PASS。
+
+### TE-5 数据库 / 接口 / 前端 / 集成结果
+
+- **Database**：`NOT_REQUIRED`（零 DDL）——`alembic head=0015`、`backend/alembic`/`models` 零 diff；V2 在**真实 PG 16.15** 上验证「`_lock_resource` 加锁 + 未删校验未被弱化、并发软删败方 422 + 零写入」（§8.1 入口级不变量），未主张任何新增 DB 约束已验证。
+- **接口**：`write_import` 422 `IMPORT_VALIDATION_FAILED` 的 `field/row/reason/related_row` 与 F023 v2 §11 澄清逐项一致；预校验只读无写副作用（V2/V2.3 前后计数一致）；权限/范围语义零 diff（V15.1）。
+- **前端**：纯函数层（V1/V7/V9）与组件层（V1.4 真 API、V5.2/V5.3 真浏览器几何）分别取证；**均为候选 HEAD 构建**，未用旧镜像充当候选证据。
+- **集成**：需要真 HTTP 的用例经 `vite preview`(:4173) → 真实后端(:18080) 代理执行，非 Mock；未新增 Mock。
+
+### TE-6 缺陷清单
+
+| ID | Severity | Layer | 位置 / 证据 | 期望 vs 实际 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `DEF-F036-TE-01` | MEDIUM → **CLOSED**（TE-F036-2 复测，§2.1） | Docs/Evidence（安全） | `docs/features/F032/artifacts/real-validate/REDACTION.md:12-14`（`grep -rnE MAC` 3 命中，`static-scans.log`） | 期望「全目录免 ignore MAC 命中 0」（A3 / DR-F036-06 机械断言）；实际 3 个**真实 MAC 明文**写回「原值」列 | 协调器（L5 证据作者；不在 Tester 本次写入范围） | **是**（A3 不满足） |
+| `DEF-F036-TE-02` | MEDIUM → **CLOSED**（TE-F036-2 复测，§2.1） | Docs/Evidence（安全） | `docs/features/F036/evidence-notes.md:11`（判据 B `grep -rFf` → docs/ 1 行，`static-scans.log`） | 期望 `docs/` 明文口令命中 0（A7 / TD-I-2 判据 B）；实际该行含测试库口令明文 2 处（描述掩码命令处），与 §1 已被协调器掩码的口令同类 | 协调器（该文件作者；不在 Tester 本次写入范围） | **是**（A7 不满足） |
+| `OBS-F036-TE-03` | LOW | Test（既有，不属 F036） | `test_ip_addresses.py::test_concurrent_gateway_change_and_allocation` 首轮全量 **FAILED**（`['gateway','allocated']` 双成功），单跑 5/5 PASS、全量复跑 PASS（`pytest-zero-regression{,-run1-flake}.log`） | 该断言为 F0xx 既有并发用例；F036 后端 diff 仅 `_app_error_field` 词表（导入错误标签），不触及 network/IP 分配路径 ⇒ **非 F036 回归**，登记为既有 flaky 观察项，交协调器另立缺陷 | 协调器 / 后续 Feature | 否（但应另立跟进） |
+| `TD-I-11`（Tester 发现，需 Architect/协调器裁定） | LOW | Design/Docs | §1 `V2.4` 期望「从未存在的 hostname ⇒ 422 + `field=="hostname"`」 | 与已批准契约 §8.1 二态判定（不存在→新建）及其自身 `V2.3`（软删在先 ⇒ created==1）**矛盾**；实测：①不存在⇒新建 `created==1`；②VM `host` 在其它 Cluster ⇒ `field=="host"`。建议按实测口径修订 §1 V2.4 措辞（非实现缺陷） | Architect（确认即可） | 否 |
+
+### TE-7 未验证 / 降级 / `NOT_REQUIRED`
+
+1. **5000 行纯追加性能**（F035-FU-08 / R-12）：`NOT_REQUIRED`/`NOT TESTED`（契约无数值阈值）；触发时按 `docs/database/f023-import.md` §5.7 复核，且不得放松 V11.5 锁环判据。
+2. **REPEATABLE READ 下同一竞争**：未测（产品隔离级别未改；按 §12 计为 BLOCKED 类）；本轮 READ COMMITTED 实测并记录。
+3. **整体验收（需求 §31–33）**：`NOT_REQUIRED`（归后续整体验收）。
+4. **`useMemo` 运行时收益**：未度量（性能优化，非语义保证；语义由 V9.1/V9.2/V9.4 覆盖）。
+5. **B 层实现方式**：`vite preview` + 代理（真实后端）而非入口 Nginx；评审若要求 Nginx 链路，需协调器先提供含 F036 构建的 `csmtest` 前端镜像（当前镜像为 F035 时代，明确不用于候选证据）。
+6. **F034-RV-02**：未设用例、不宣称关闭（TD-I-10）。
+
+所有执行构件（`/tmp/f036-t/*.mjs|*.py`、临时 pattern 文件）均**不入库**；仓库内新增仅 `backend/tests/integration/test_f036_tester_independent.py`（5 例）与 `docs/features/F036/artifacts/**`。
+
+### TE-8 结论
+
+**当前结论（TE-F036-2，2026-10-26，repair round 1）：`READY FOR REVIEW`**
+
+- `DEF-F036-TE-01`（A3 MAC 命中 0）与 `DEF-F036-TE-02`（A7 口令命中 0）在协调器文档修正后**定点复测通过**，两项缺陷置 **`CLOSED`**（证据 §2.1 + `artifacts/static-scans-repair-round1.log`）。
+- 全部 53 条验收项现为 **PASS 52 / 并入 1**（V8.3→V8.1）；无必须修复问题，无 `BLOCKED` 项；实现与代码**零改动**（复测前后 `git diff` 仅两处文档修正）。
+- 未验证/降级项维持 TE-7 原样（5000 行性能、REPEATABLE READ、整体验收 §31–33、`useMemo` 收益、B 层链路方式、F034-RV-02）；`TD-I-11` 仍为 **NOTE**（设计措辞，待 Architect 下次修订，不构成行为变更）。
+- 本结论**不批准合并**、不代表整体验收通过，也不宣称关闭 F034-RV-02。
+
+---
+
+**历史结论（TE-F036-1，2026-10-26，修复前）：`BLOCKED`**（不等于实现缺陷；以下原文保留，不删除以便追溯）：
+
+- **实现与回归全通过**：V1/V2/V3/V5–V15 共 50 项 PASS，其中 V2 真实 PG 双会话竞态（Backend 5 例 + Tester 独立 5 例）、F023 28 / F035 20 / F035 验收+范围 18 / 零回归集 186 / F034 集成 31 / `smoke:client` 340 / `test_collect_host_info.py` 84 全部达标，无新增依赖、无 Schema/契约扩散、权限与范围零 diff。
+- **阻断点**：`DEF-F036-TE-01`（A3：F032 artifacts 全目录 MAC 命中 0）与 `DEF-F036-TE-02`（A7：`docs/` 明文口令命中 0）两项判据实测未满足，均为**文档/证据字面修复**（分别把 `REDACTION.md` 的「原值」列与 `evidence-notes.md:11` 的口令字面量掩码为 `***` / 掩码形式），Owner 为协调器（不在 Tester 写入范围）。
+- **重测范围（修复后）**：仅需复跑 `V4.1`（MAC 扫描）与 `V8.1`（判据 A+B 口令扫描）+ `V4.2` 结构复核；实现零改动，其余 50 项无需重跑（如需完整门禁可整轮复跑）。
+- 另需 Architect 确认 `TD-I-11`（§1 V2.4 期望文字与 §8.1 冲突，建议按实测修订），不阻断合并。
+- 本结论**不批准合并**、不代表整体验收通过，也不宣称关闭 F034-RV-02。
+
+### 2.1 修复复测（repair round 1，2026-10-26，TE-F036-2）
+
+前置：实现与代码**零改动**；工作区仅两处文档修正 `git diff --stat` = `REDACTION.md | 10 ++++++----`、`evidence-notes.md | 13 ++++++++++++-`（2 files, +18/-5）。仅复测 `V4.1`/`V4.2`/`V8.1`，其余 50 项按 TE-3 沿用，未重跑。证据：`artifacts/static-scans-repair-round1.log`。
+
+| 缺陷 | 复测命令 | 结果 | 状态 |
+| --- | --- | --- | --- |
+| `DEF-F036-TE-01`→`V4.1` | `grep -rnE "([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}" docs/features/F032/artifacts/`（免 ignore，全 15 文件） | 无输出、`wc -l`=**0**；`find -type f -print0 \| xargs grep -lE` 无文件名（rc=123）；`git status --porcelain --ignored` 仅 `REDACTION.md` 一处文档改动，无隐藏文件 | **CLOSED** |
+| `DEF-F036-TE-01`→`V4.2` | 5 文件 `git ls-files --error-unmatch`；3 CSV `csv.reader` 结构核对；`wc -l` 两个 log；`git show HEAD:…` 比对表头 | 5 个被跟踪文件**均在**；3 CSV 均 **4 行 × 26 列**、BOM `efbbbf`、表头与 HEAD **逐字节 SAME**；`setup.log` **159** / `cli-smoke.log` **352** 行不变；`REDACTION.md` §1 规则 + §2 矩阵 + §4 边界声明齐全，不含完整 MAC 形态 | **CLOSED** |
+| `DEF-F036-TE-02`→`V8.1-A` | `grep -rhoE "[A-Za-z0-9+._-]+://[^@[:space:]]*@" docs/features/F036 docs/features/F032 docs/features/F034 \| sort \| uniq -c` | 实际凭据 **3 处全部 `csm:***@`**；非掩码项仅 `<本地测试口令>` 占位符（1）与判据 A 规则元语 `scheme://user:secret@`（2），**无明文** | **CLOSED** |
+| `DEF-F036-TE-02`→`V8.1-B` | 明文写入**仓库外** pattern（`/tmp/f036-pattern.txt`，`-rw-------`，值不打印）→ `grep -rFf <pattern> {docs,frontend,backend,scripts} --exclude-dir=node_modules \| wc -l` → `rm -f` | `docs`=**0**、`frontend`=**0**、`backend`=**0**、`scripts`=**0**（写本报告后复扫仍全 0）；`git grep -Fn <口令字面量>` 被跟踪文件命中 **0**；唯一残留 `.env.test` 未被跟踪（`git ls-files --error-unmatch` 报未匹配） | **CLOSED** |
+
+**NOTE（`TD-I-11`，沿用 TE-6，非缺陷、非阻断）**：§1 `V2.4` 期望措辞与 §8.1 二态判定矛盾。**实测口径**：①hostname **不存在** ⇒ 新建 `created==1`（非 422）；②VM 行 `host` 指向**其它 Cluster** 宿主 ⇒ 422、`field=="host"`（模板列名）、`row==2`、零残留。实现与已批准契约一致，**设计措辞待 Architect 下次修订，不构成行为变更**，不进入修复循环。
+
+**结论**：三项复测全部通过，两项缺陷 `CLOSED`，§2 结论更新为 **`READY FOR REVIEW`**；TE-F036-1 的 `BLOCKED` 历史与原因保留于 TE-6/TE-8。
+
 ## Git 声明
 
 GIT: git status --short
@@ -201,3 +367,50 @@ GIT: git check-ignore -v docs/features/F032/artifacts/real-validate/setup.log do
 GIT: git status --porcelain --ignored docs/features/F032/artifacts
 GIT: git status --porcelain --ignored docs/features/F034/artifacts
 GIT: git ls-files docs
+
+### Git 声明（§2 TEST，TE-F036-1，Tester；全部为只读命令）
+
+GIT: git rev-parse --short HEAD
+GIT: git status --porcelain
+GIT: git status --porcelain --untracked-files=no
+GIT: git log --oneline -5
+GIT: git diff --stat a2e9194..HEAD
+GIT: git diff --stat a2e9194..HEAD -- backend/alembic backend/app/models frontend/src/api
+GIT: git diff --stat a2e9194..HEAD -- frontend/package.json frontend/package-lock.json backend/requirements*.txt backend/pyproject.toml
+GIT: git diff --stat a2e9194..HEAD -- .gitignore
+GIT: git diff --stat a2e9194..HEAD -- docs/features/F034/artifacts
+GIT: git diff --stat a2e9194..HEAD -- docs/features/F033
+GIT: git diff --stat a2e9194..HEAD -- docs/api/F014.md
+GIT: git diff a2e9194..HEAD -- docs/api/F023.md
+GIT: git diff a2e9194..HEAD -- frontend/src/index.css
+GIT: git diff a2e9194..HEAD -- scripts/collect_host_info.py
+GIT: git diff --stat a2e9194..HEAD -- backend/app frontend/src scripts
+GIT: git diff --stat a2e9194..HEAD -- frontend/src/components/importCarrier.ts
+GIT: git diff a2e9194..HEAD -- frontend/src/components/resourceInterfaceIpImportForm.ts
+GIT: git diff --stat a2e9194..HEAD -- backend/tests
+GIT: git diff --stat a2e9194..HEAD -- backend/tests/integration/test_f027_access_scope.py backend/tests/integration/test_f035_append_scope.py backend/tests/integration/test_imports.py backend/tests/integration/test_import_tester_acceptance.py backend/tests/integration/test_ip_addresses.py backend/tests/integration/test_interfaces.py backend/tests/integration/test_f019_interface_ip_binding.py
+GIT: git diff --stat a2e9194..HEAD -- backend/alembic backend/app/models frontend/src/api frontend/package.json frontend/package-lock.json .gitignore docs/api/F014.md docs/features/F034/artifacts docs/features/F033
+GIT: git ls-files docs/features/F032/artifacts
+GIT: git ls-files docs/features/F034/artifacts
+GIT: git check-ignore -v docs/features/F032/artifacts/real-validate/setup.log docs/features/F032/artifacts/cli-smoke.log
+GIT: git check-ignore -v docs/features/F034/artifacts/logs/some.log
+
+### Git 声明（§2.1 修复复测，TE-F036-2，Tester；全部为只读命令）
+
+GIT: git status --porcelain=v1
+GIT: git rev-parse --short HEAD
+GIT: git status --porcelain --ignored docs/features/F032/artifacts/
+GIT: git ls-files docs/features/F032/artifacts/
+GIT: git ls-files --error-unmatch docs/features/F032/artifacts/real-validate/f032-bm-real.csv
+GIT: git ls-files --error-unmatch docs/features/F032/artifacts/real-validate/f032-vm-nohost.csv
+GIT: git ls-files --error-unmatch docs/features/F032/artifacts/real-validate/f032-vm-real.csv
+GIT: git ls-files --error-unmatch docs/features/F032/artifacts/real-validate/setup.log
+GIT: git ls-files --error-unmatch docs/features/F032/artifacts/cli-smoke.log
+GIT: git ls-files --error-unmatch .env.test
+GIT: git show HEAD:docs/features/F032/artifacts/real-validate/f032-bm-real.csv | head -1
+GIT: git show HEAD:docs/features/F032/artifacts/real-validate/f032-vm-nohost.csv | head -1
+GIT: git show HEAD:docs/features/F032/artifacts/real-validate/f032-vm-real.csv | head -1
+GIT: git diff --stat HEAD -- docs/features/F032/artifacts/
+GIT: git diff --stat -- docs/features/F036/evidence-notes.md docs/features/F032/artifacts/real-validate/REDACTION.md
+GIT: git diff -- docs/features/F036/evidence-notes.md
+GIT: git grep -Fn <口令明文 pattern> --

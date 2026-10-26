@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | F033-RV-01 smoke 基线陈旧（322/328） | F036 起以**实测计数**为基线；F033 报告正文不改（历史记录） | 本次实测：`cd frontend && npm run smoke:client` → **340 passed, 0 failed**（2026-10-26，实现提交后）；基线演进：322（F028/F029）→ 328（F033）→ 337（F034）→ 339（F035）→ **340（F036，新增 placeholder 常量用例）** |
 | F034-RV-04 logs 入库范围描述不准 | 以 `git ls-files` / `git check-ignore -v` 逐项列出实际入库集合，二者并列，不笼统称「logs 被忽略」 | `git ls-files docs/features/F034/artifacts` 实际含 `logs/**`（12 个文件）+ JSON/脚本；`docs/features/F032/artifacts` 含 `real-validate/setup.log`、`cli-smoke.log`（`git add -f` 入库，`git check-ignore -v` 输出为空 ⇒ 已跟踪不受忽略规则影响） |
-| F032-RV-06 报告含明文测试库口令 | 全 `docs/` 范围统一掩码为 `***` | 掩码前 `grep -rl csmtestpw docs/` = 12 文件 / **18 行**；掩码后 `grep -rn csmtestpw docs/` = **0**。`***` 为测试库口令字面量（值在 `.env.test`），涉及检索命令的行仅把字面量替换为 `***`，原结论句保留 |
+| F032-RV-06 报告含明文测试库口令 | 全 `docs/` 范围统一掩码为 `***` | 掩码前按口令明文（记为 `***`，实际值见 `.env.test` 的 `POSTGRES_PASSWORD`）扫描 `docs/` = 12 文件 / **18 行**；掩码后同一扫描 = **0**（命令见 §5，pattern 用不入库的临时文件）。涉及检索命令的行仅把字面量替换为 `***`，原结论句保留 |
 
 ## 2. DR-F036-10 记载项落点
 
@@ -28,3 +28,14 @@
 ## 4. 明确不在本 Feature 范围
 
 **F034-RV-02（T114 等价性口径追认）**：属用户对需求正文的确认动作；F036 不实现、**不宣称已关闭**，需用户一句话追认后由需求 revision 15 落稿（CHG-014 §3）。
+
+## 5. 口令明文复核命令（TD-I-2 判据 B）
+
+```bash
+# pattern 写入不入库的临时文件（避免明文进仓库/命令历史记录）
+PW=$(grep -E '^POSTGRES_PASSWORD=' .env.test | cut -d= -f2-)
+printf '%s\n' "$PW" > /tmp/f036-pw.pattern
+grep -rFf /tmp/f036-pw.pattern docs/ | wc -l    # 期望 0
+grep -rFf /tmp/f036-pw.pattern frontend/ | wc -l # 期望 0
+rm -f /tmp/f036-pw.pattern
+```

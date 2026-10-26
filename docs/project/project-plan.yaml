@@ -2398,8 +2398,8 @@ features:
   - F035
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST
-  next_action: TEST：Tester 按 47 条 TD3-F036-* 执行（V2 真实 PG 竞态、V5 窄屏证据、V13 回归基线首日实测）。
+  current_stage: REVIEW
+  next_action: REVIEW：提交候选交付物后由 Reviewer 独立审查 TD3-F036-* 与 F023 §11 澄清一致性。
   layers:
     database: false
     backend: true
@@ -2413,7 +2413,7 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: COMPLETE
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   evidence:
     product:
@@ -2431,10 +2431,11 @@ features:
     - docs/features/F036/implementation.md#1-backend
     frontend:
     - docs/features/F036/implementation.md#2-frontend
-    test: null
+    test:
+    - docs/features/F036/test-report.md#2-test-execution
     review: null
-  last_result: IMPLEMENTATION 完成：backend（词表映射 + 真实 PG 竞态用例 5 passed、F023 28、F034 31、CLI 84）+ frontend（载体清值/记忆化/placeholder/焦点环 + smoke 340 passed）+ 证据（MAC 5 文件 20 处→0、口令 18 行掩码、REDACTION.md/evidence-notes.md）；Database
-    NOT_REQUIRED。
+  last_result: TEST READY FOR REVIEW（TE-F036-2）：53 条 PASS 52 / 并入 1；V2 真实 PG 双会话 8 passed（Backend 5 + Tester 独立 5）；smoke 340/0；F023 28、F035 20、验收+范围 18、零回归 186、F034 31、CLI 84；alembic head 0015；两必须修复缺陷（REDACTION.md
+    真实 MAC、evidence-notes 口令明文）已 CLOSED；TD-I-11 NOTE（V2.4 措辞）不阻断。
   git:
     base_branch: v3.3
     branch: feature/F036-review-followup-closeout
@@ -2936,9 +2937,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 同上「A B全部按照建议做」；授权 F036 实施。
   current_feature: F036
-  current_stage: TEST
-  last_result: F036 IMPLEMENTATION COMPLETE（backend+frontend+证据）。
-  next_action: F036 TEST Gate。
+  current_stage: REVIEW
+  last_result: F036 TEST READY FOR REVIEW（repair round 1 关闭 2 项缺陷）。
+  next_action: 提交候选 HEAD 并派发 Reviewer。
   repair_rounds: 0
 planning_status:
   status: ACCEPTED
