@@ -1,6 +1,6 @@
 /**
  * Import API（F014，Contract：docs/api/F014.md v1，READY；F023，Contract：
- * docs/api/F023.md v1，READY）。
+ * docs/api/F023.md v2，READY）。
  *
  * F014 端点（Contract §3/§4/§5）：
  * - POST /imports/resources/validate   预校验（IMPORT；无副作用幂等，不写 Audit）
@@ -156,7 +156,7 @@ export function getImportTemplates(): Promise<ImportTemplatesResponse> {
 }
 
 // ---------------------------------------------------------------------------
-// F023「资源+网卡+IP」三元组批量导入（Contract：docs/api/F023.md v1，READY）
+// F023「资源+网卡+IP」三元组批量导入（Contract：docs/api/F023.md v2，READY）
 // ---------------------------------------------------------------------------
 
 /** F023 统一宽模板 key（Contract §5：templates 响应 template.key 恒为该字面量）。 */

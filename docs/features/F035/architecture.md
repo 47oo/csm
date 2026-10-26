@@ -1,6 +1,6 @@
 # F035 向既有 Resource 追加 Interface/IP 导入 — ARCHITECTURE 阶段报告
 
-- **状态**：READY FOR DESIGN
+- **状态**：READY FOR IMPLEMENTATION（定稿与裁定见 §12；本文件头部原先的 `READY FOR DESIGN` 为 DESIGN 阶段记录，已由 §12 取代。`F035-RV-04` / FU-03）
 - **版本**：v1（2026-10-26）
 - **上游依据**：
   - `docs/product/requirements-v3.md` **revision 14**：§24.6（CONFIRMED 全节）、§24 / §24.1 / §24.5（经 §24.6 修订的措辞）、§11.1、§13.2、§14、§21、§22、§23、§23.2、§27、§31 **T117–T126** 及修订后的 T67 / T71、§32。

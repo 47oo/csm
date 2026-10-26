@@ -1,6 +1,6 @@
 # CHG-012 前端 CSV 文本导入载体
 
-- **状态**：READY FOR PLAN APPROVAL（需求内容待用户裁定 BQ-1 / BQ-2；候选计划 revision 20 尚未批准）
+- **状态**：**APPLIED**（用户 2026-10-26 裁定 BQ01=A / BQ02=A 并批准；需求 revision 13、plan revision 20、F034 已 DONE；本提案保留为历史记录）
 - **来源**：用户 2026-10-26 提出「前端除了支持使用文件导入数据，还应该支持直接使用 csv 格式的文本导入资源数据」。
 - **影响对象**：`docs/product/requirements-v3.md` revision 12 → 13（拟新增 §24.5、§31 T107–T116、§35.1 revision 13 行、§36 基线）；新 Feature **F034**；F014 / F023 已 DONE 交付行为由 F034 承接扩展，**不回写**其历史证据。
 - **不改动**：F014（BM 14 / VM 10 列模板）与 F023（26 列模板）已冻结模板、端点路径、`format` 取值语义、`IMPORT_*` 错误码与 `RowError` 形状、上限数值（5,242,880 B / 5000 行 / 1000 预览）、`IMPORT` 权限矩阵、§23.2 集群范围语义、§22 Audit 口径、数据库 Schema / Migration、后端导入实现、技术栈与依赖。

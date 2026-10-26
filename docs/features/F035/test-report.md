@@ -546,7 +546,11 @@ python3 docs/features/F035/artifacts/f035-ui-browser-check.py
 
 ---
 
-## Git
+## Git 声明（汇总）
+
+> **FU-02 补记（2026-10-26，协调器）**：本报告原分两段（TEST DESIGN 阶段 + TEST 执行阶段）分别声明 Git 命令，保留为分阶段历史记录；两段均为只读声明、无 Git 写操作。**Review 批准的最终候选 HEAD 为 `d3b5bd0`**（`187ddf3` 之后的 `d3b5bd0` 仅新增 Tester 用例、H/B 证据与本节 §2，实现代码零 diff；Reviewer 已在 `d3b5bd0` 复现全部数字）。合并后实现零改动，Merge SHA `8feebc5`。
+
+### Git（TEST DESIGN 阶段）
 
 本阶段仅新建 `docs/features/F035/test-report.md`，未修改任何实现、Schema、契约、计划或既有测试；未执行任何 Git 写操作（无 `add` / commit / branch / merge）。
 
@@ -561,7 +565,7 @@ GIT: git diff 76d8410..HEAD -- docs/api/F023.md | grep -E "^[-+]" | grep -vE "^[
 
 ---
 
-## Git（TEST 执行阶段）
+### Git（TEST 执行阶段）
 
 本阶段未执行任何改变 Git 状态的命令（无 `add` / `commit` / `branch` / `merge` / `stash` / `reset` / `clean` / `checkout`）。写入范围仅限：新增 `backend/tests/integration/test_f035_tester_acceptance.py`、新增 `docs/features/F035/artifacts/**`、修改 `docs/features/F035/test-report.md` §2（§1 正文未改动，仅更新文件头部状态行）。
 

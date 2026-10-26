@@ -1,6 +1,6 @@
 # CHG-013 向既有 Resource 追加 Interface / IP 导入
 
-- **状态**：READY FOR PLAN APPROVAL（需求内容待用户裁定 CHG013-BQ01–BQ08；候选计划 revision 21 尚未批准）
+- **状态**：**APPLIED**（用户 2026-10-26「按推荐执行」裁定 CHG013-BQ01=B / BQ02=B / BQ03=A / BQ04=A / BQ05=A / BQ06=C1 / BQ07=A / BQ08=A 并批准；需求 revision 14、plan revision 21、F035 已 DONE；本提案保留为历史记录）
 - **来源**：用户 2026-10-26 提出「自己提交 csv 格式的数据可能遇见这类情况，同一个机器有多个 IP 的情况，这种情况也允许录入」，并给出同一 hostname `luck` 的三行 26 列 CSV（`eth0/10.10.10.23`、`eth6/192.168.10.221`、`eth4/10.100.24.88`）。
 - **影响对象**：`docs/product/requirements-v3.md` revision 13 → 14（拟新增 §24.6、T117–T126，修订 §24 / §31 T67、T71）；`docs/api/F023.md` v1 → v2（正文升版，替代 §11/§13 负面边界与 §8.1/`created` 口径）；新 Feature **F035**；F023 已 DONE 的交付行为由 F035 承接，**不回写**其历史证据。
 - **不改动**：26 列模板与列序、端点与方法、错误码与 `reason` 集合、两步流程、行号口径、5 MiB / 5000 行上限、`IMPORT` 权限矩阵与 §23.2 集群范围、每新建对象 CREATE Audit、软删/恢复规则、F014 资源导入（BM 14 / VM 10 模板）行为、采集脚本 F024/F032、数据库 Schema。

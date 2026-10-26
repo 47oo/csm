@@ -1,5 +1,5 @@
 /**
- * 「资源+网卡+IP」批量导入表单纯逻辑（F023，Contract：docs/api/F023.md v1
+ * 「资源+网卡+IP」批量导入表单纯逻辑（F023，Contract：docs/api/F023.md v2
  * §2/§6/§10/§14；上限复用 F014 §10 签核值）。
  *
  * 纯逻辑模块（无 JSX / React 依赖）：scripts/smoke-client.mjs 以 Node type

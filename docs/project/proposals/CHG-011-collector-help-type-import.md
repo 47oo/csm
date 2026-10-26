@@ -1,6 +1,6 @@
 # CHG-011 采集脚本：类型必填、帮助信息与按类型生成
 
-- **状态**：READY FOR PLAN APPROVAL（需求内容已由用户确认；计划 revision 18 尚未批准）
+- **状态**：**APPLIED**（已批准并落库：需求 revision 12、plan revision 18、F032 已 DONE；本提案保留为历史记录。原记录：READY FOR PLAN APPROVAL）
 - **来源**：用户 2026-10-23 提出「可执行脚本还需要更新，--help 针对于必填项，如果是枚举类型，应告知可以填写的类型，针对于不同的类型，应该生成不同的导入方式」，随后明确「`--resource-type` 是必填项」，并确认推荐组合 **D / 3 / A**。
 - **影响对象**：`docs/product/requirements-v3.md` revision 11 → 12；新 Feature **F032**；F024 / F025 已 DONE 交付行为由 F032 承接，不回写历史证据。
 - **不改动**：F014（BM 14 / VM 10 列模板）、F023（26 列统一模板、端点、校验、上限、错误口径）、数据库 Schema、平台 API、前端、权限、审计。
