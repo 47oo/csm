@@ -29,20 +29,44 @@
  * - 模板表头文本（§6 冻结 26 列，D03 签核）：本地镜像常量与表头行 CSV
  *   生成，供页面即时展示与 smoke 断言；逐列必填 / 适用行 / 类型 / 单位 /
  *   枚举 / 说明以 templates 端点响应为权威（§5），不在此复制。
+ *
+ * F034 增补（Contract：docs/api/F023.md §「CSV 文本载体（加法引用）」增补节
+ * v1，READY 2026-10-26；architecture §3.1/§3.3/§3.4）：表单值增加载体维度
+ * （`carrier` = file | text）与粘贴文本（`text`）；语义与 F014 侧
+ * `importForm.ts` 逐项镜像（保持两模块既有写法），共享原语来自
+ * `./importCarrier.ts`（DR-F034-15，避免两侧漂移）。本地只拦截「空 / 纯空白」
+ * 「UTF-8 字节超上限」「文本载体下 format 非 csv（防御）」，26 列表头、分隔符、
+ * 行数与取值合法性一律交服务端。
  */
 import type { ImportFormat, ResourceInterfaceIpColumnSpec } from "../api/imports.ts";
 import { IMPORT_MAX_FILE_BYTES } from "../api/imports.ts";
+import {
+  fileImportTargetKey,
+  isBlankImportText,
+  pastedCsvFile,
+  textImportTargetKey,
+  utf8ByteLength,
+  type ImportCarrier,
+} from "./importCarrier.ts";
 
-/** F023 导入表单可校验字段键（file 为本地必选校验；format 与服务端 422 field 同名）。 */
-export type ResourceInterfaceIpImportFormFieldKey = "file" | "format";
+/** F023 导入表单可校验字段键（file / text 为本地输入校验；format 与服务端 422 field 同名）。 */
+export type ResourceInterfaceIpImportFormFieldKey = "carrier" | "format" | "file" | "text";
 
 /** 服务端 422 VALIDATION_ERROR 点路径全集（Contract §1.2/§2：format 缺失 / 非法）。 */
 export type ResourceInterfaceIpImportServerFieldKey = "format";
 
-/** F023 导入表单原始值（format 下拉恒合法；file 未选择为 null）。 */
+/**
+ * F023 导入表单原始值：
+ * - carrier：输入载体（默认 "file"；文本载体与文件载体并列，不替换）；
+ * - format：下拉恒合法；carrier="text" 时恒为 "csv"（UI 只读）；
+ * - file：carrier="file" 时有效，未选择为 null；
+ * - text：carrier="text" 时有效，原始粘贴内容（不 trim、不改写）。
+ */
 export interface ResourceInterfaceIpImportFormValues {
+  carrier: ImportCarrier;
   format: ImportFormat;
   file: File | null;
+  text: string;
 }
 
 /** 本地校验错误（键为字段名，format 与服务端 422 fields 同名）。 */
@@ -50,9 +74,20 @@ export type ResourceInterfaceIpImportFormErrors = Partial<
   Record<ResourceInterfaceIpImportFormFieldKey, string>
 >;
 
-/** 空白导入表单值（默认 CSV 格式、未选择文件）。 */
+/** 空白导入表单值（默认文件载体、CSV 格式、未选择文件、文本为空）。 */
 export function emptyResourceInterfaceIpImportFormValues(): ResourceInterfaceIpImportFormValues {
-  return { format: "csv", file: null };
+  return { carrier: "file", format: "csv", file: null, text: "" };
+}
+
+/**
+ * 载体切换的表单补丁（DR-F034-07/10）：切到 "text" 强制 format="csv"；
+ * 切回 "file" 保留当前 format、不回填历史 xlsx（旧结果由 changeInput 重置）。
+ */
+export function resourceInterfaceIpImportCarrierPatch(
+  values: ResourceInterfaceIpImportFormValues,
+  carrier: ImportCarrier,
+): Partial<ResourceInterfaceIpImportFormValues> {
+  return { carrier, format: carrier === "text" ? "csv" : values.format };
 }
 
 /** 服务端 422 点路径 → 表单字段键（仅 format；未知路径返回 null 不强行映射）。 */
@@ -69,53 +104,93 @@ function fileExtension(name: string): string {
 }
 
 /**
- * 输入指纹：format + 文件名 + 大小 + 修改时间。用于判断既有预校验结果是否
- * 仍对当前输入有效（文件 / 格式任一变化即失效，需重新预校验）。
- * 未选择文件 → null。
+ * 输入指纹（载体感知，DR-F034-08）：
+ * - 文件载体 → `file:<format>:<name>:<size>:<lastModified>`（语义与 F034 前
+ *   等价，只加 carrier 前缀）；未选择文件 → null；
+ * - 文本载体 → `text:csv:<digest>:<byteLength>`（任一字符变化即换指纹，含
+ *   非 ASCII）。满载门控见 canConfirmResourceInterfaceIpImport。
  */
 export function resourceInterfaceIpImportTargetKey(
-  values: Pick<ResourceInterfaceIpImportFormValues, "format" | "file">,
+  values: Pick<
+    ResourceInterfaceIpImportFormValues,
+    "carrier" | "format" | "file" | "text"
+  >,
 ): string | null {
+  if (values.carrier === "text") {
+    return textImportTargetKey(values.text);
+  }
   if (values.file === null) {
     return null;
   }
-  return `${values.format}:${values.file.name}:${values.file.size}:${values.file.lastModified}`;
+  return fileImportTargetKey(values.format, values.file);
 }
 
 /**
- * 解析 F023 导入表单值（本地快速反馈；服务端校验仍权威）：
- * - file 未选择 → 本地错误（空输入不发请求）；
- * - format 非 csv/xlsx → 本地错误（下拉恒合法，防御自由输入）；
- * - 文件大小超上限 → 本地错误（服务端 413 IMPORT_FILE_TOO_LARGE 同口径）；
- * - format=xlsx 且扩展名非 .xlsx（大小写不敏感）→ 本地错误
- *   （服务端 422 IMPORT_INVALID_FILE{unsupported_format} 同口径）。
+ * 解析 F023 导入表单值（本地快速反馈；服务端校验仍权威），并按当前载体
+ * 给出实际要提交的 `File`（文本载体每次重新构造）：
+ *
+ * 文件载体（既有三条本地校验不变）：未选择文件 / 文件大小超上限 /
+ * format=xlsx 且扩展名非 .xlsx。
+ *
+ * 文本载体（DR-F034-05：仅这四项）：载体非法值（防御）、空 / 纯空白、
+ * UTF-8 字节数严格大于上限、format 非 csv（预防）。**不**做 26 列表头校验 /
+ * CSV 解析 / 分隔符嗅探 / 补表头 / 行数镜像（DR-F034-06）。
  */
 export function parseResourceInterfaceIpImportFormValues(
   values: ResourceInterfaceIpImportFormValues,
-): { ok: true } | { ok: false; errors: ResourceInterfaceIpImportFormErrors } {
+):
+  | { ok: true; file: File }
+  | { ok: false; errors: ResourceInterfaceIpImportFormErrors } {
   const errors: ResourceInterfaceIpImportFormErrors = {};
 
   if (values.format !== "csv" && values.format !== "xlsx") {
     errors.format = "format 必须为 csv 或 xlsx（不接受其它自由输入值）";
   }
 
-  const file = values.file;
-  if (file === null) {
-    errors.file = "必须先选择要导入的文件（空输入不会发起请求）";
-  } else if (file.size > IMPORT_MAX_FILE_BYTES) {
-    errors.file =
-      `文件超过同步导入大小上限（${IMPORT_MAX_FILE_BYTES} 字节 ≈ 5 MiB）；` +
-      "请拆分文件后重试（服务端同样在解析前拒绝 413 IMPORT_FILE_TOO_LARGE）";
-  } else if (values.format === "xlsx" && fileExtension(file.name) !== "xlsx") {
-    errors.file =
-      "format=xlsx 时仅接受 .xlsx 文件（.xls 等旧格式不支持；" +
-      "服务端同样拒绝 IMPORT_INVALID_FILE/unsupported_format）";
+  if (values.carrier !== "file" && values.carrier !== "text") {
+    errors.carrier = "输入载体必须为「上传文件」或「粘贴 CSV 文本」（不接受其它值）";
+  } else if (values.carrier === "text") {
+    if (values.format !== "csv") {
+      errors.format = "粘贴 CSV 文本仅支持 csv 格式（format 固定为 csv，不提供 .xlsx 文本载体）";
+    }
+    const byteLength = utf8ByteLength(values.text);
+    if (isBlankImportText(values.text)) {
+      errors.text = "粘贴内容为空或只有空白字符（空输入不会发起请求）";
+    } else if (byteLength > IMPORT_MAX_FILE_BYTES) {
+      errors.text =
+        `粘贴内容超过同步导入大小上限（UTF-8 编码后 ${byteLength} 字节 > ${IMPORT_MAX_FILE_BYTES} 字节 ≈ 5 MiB）；` +
+        "请拆分后重试（服务端同样在解析前拒绝 413 IMPORT_FILE_TOO_LARGE）";
+    }
+  } else {
+    const file = values.file;
+    if (file === null) {
+      errors.file = "必须先选择要导入的文件（空输入不会发起请求）";
+    } else if (file.size > IMPORT_MAX_FILE_BYTES) {
+      errors.file =
+        `文件超过同步导入大小上限（${IMPORT_MAX_FILE_BYTES} 字节 ≈ 5 MiB）；` +
+        "请拆分文件后重试（服务端同样在解析前拒绝 413 IMPORT_FILE_TOO_LARGE）";
+    } else if (values.format === "xlsx" && fileExtension(file.name) !== "xlsx") {
+      errors.file =
+        "format=xlsx 时仅接受 .xlsx 文件（.xls 等旧格式不支持；" +
+        "服务端同样拒绝 IMPORT_INVALID_FILE/unsupported_format）";
+    }
   }
 
   if (Object.keys(errors).length > 0) {
     return { ok: false, errors };
   }
-  return { ok: true };
+
+  if (values.carrier === "text") {
+    return { ok: true, file: pastedCsvFile(values.text) };
+  }
+  if (values.file === null) {
+    // 不可达（上方已拦截）；保留防御，避免返回空文件
+    return {
+      ok: false,
+      errors: { file: "必须先选择要导入的文件（空输入不会发起请求）" },
+    };
+  }
+  return { ok: true, file: values.file };
 }
 
 /**

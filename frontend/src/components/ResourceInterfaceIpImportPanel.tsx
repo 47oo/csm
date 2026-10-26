@@ -1,4 +1,4 @@
-import { Button, Input, Select, DataTable } from "./ui/controls";
+import { Button, Input, Select, TextArea, DataTable } from "./ui/controls";
 import { Alert } from "antd";
 import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
 import { SurfaceCard } from "./ui/surfaces";
@@ -26,6 +26,7 @@ import {
   resourceInterfaceIpColumnAppliesToLabel,
   resourceInterfaceIpColumnTypeLabel,
   resourceInterfaceIpColumnRequiredLabel,
+  resourceInterfaceIpImportCarrierPatch,
   resourceInterfaceIpImportFormFieldFromPath,
   resourceInterfaceIpImportTargetKey,
   parseResourceInterfaceIpImportFormValues,
@@ -33,6 +34,11 @@ import {
   type ResourceInterfaceIpImportFormErrors,
   type ResourceInterfaceIpImportFormValues,
 } from "./resourceInterfaceIpImportForm";
+import {
+  PASTED_CSV_FILE_NAME,
+  utf8ByteLength,
+  type ImportCarrier,
+} from "./importCarrier";
 
 /** 预校验结果状态（四态：idle 空态 / loading / success 含结果 / error；Contract §3）。 */
 type ValidateState =
@@ -81,6 +87,13 @@ interface ResourceInterfaceIpImportPanelProps {
  *   403）与网络错误显式呈现，不伪装成空结果或 0 错误。
  * - 面板入口由 ResourcesPage 按 IMPORT 权限显示；隐藏不替代服务端校验
  *   （VIEWER 调用仍 403，§1.1）。
+ * - F034 输入载体（Contract §「CSV 文本载体（加法引用）」增补节 v1）：
+ *   「上传文件（CSV / .xlsx）」与「粘贴 CSV 文本（仅 CSV）」两种载体**并列**
+ *   （默认文件载体，既有行为零改动）。文本载体按 UTF-8 编码构造带固定文件名
+ *   的 `File`，走同一 multipart 端点；`format` 固定 csv 且只读；本地只做
+ *   非权威前置拦截（空 / 纯空白、UTF-8 字节超上限），26 列表头与逗号分隔口径
+ *   全由服务端权威判定（前端不解析 CSV、不补表头、不嗅探）。切换载体 /
+ *   修改内容 / 修改格式一律重置预校验与写入结果（防陈旧结果，T116）。
  */
 export default function ResourceInterfaceIpImportPanel({
   onImported,
@@ -149,10 +162,8 @@ export default function ResourceInterfaceIpImportPanel({
       setValidatedKey(null);
       return;
     }
-    const file = values.file;
-    if (file === null) {
-      return;
-    }
+    // 按当前载体取实际提交的 File（文本载体为新建的 csm-pasted-import.csv）
+    const file = parsed.file;
     setLocalErrors({});
     setValidateState({ kind: "loading" });
     try {
@@ -173,13 +184,16 @@ export default function ResourceInterfaceIpImportPanel({
     if (busy || !canConfirm) {
       return;
     }
-    const file = values.file;
-    if (file === null) {
+    // 写入时按当前载体重新构造 / 重取 File（不缓存字节，DR-F034-11）
+    const parsed = parseResourceInterfaceIpImportFormValues(values);
+    if (!parsed.ok) {
+      setLocalErrors(parsed.errors);
+      setValidatedKey(null);
       return;
     }
     setImportState({ kind: "loading" });
     try {
-      const data = await importResourceInterfacesIps(file, values.format);
+      const data = await importResourceInterfacesIps(parsed.file, values.format);
       setImportState({ kind: "success", data });
       onImported?.();
     } catch (error: unknown) {
@@ -197,6 +211,9 @@ export default function ResourceInterfaceIpImportPanel({
    * （同一文件再导入会因现存冲突被服务端整批拒绝，§11；换文件需重新预校验）。
    */
   const currentKey = resourceInterfaceIpImportTargetKey(values);
+  /** 文本载体下非权威 UTF-8 字节计数（纯展示，不参与门控；上限以服务端为准）。 */
+  const pastedByteLength = values.carrier === "text" ? utf8ByteLength(values.text) : 0;
+  const carrierIsText = values.carrier === "text";
   const canConfirm = canConfirmResourceInterfaceIpImport({
     validated:
       validateState.kind === "success" ? { errorCount: validateState.data.error_count } : null,
@@ -246,16 +263,46 @@ export default function ResourceInterfaceIpImportPanel({
       </p>
 
       <div className="form-field">
+        <label htmlFor="resource-interface-ip-import-carrier">导入载体（必选）</label>
+        <Select
+          id="resource-interface-ip-import-carrier"
+          value={values.carrier}
+          onChange={(event) =>
+            changeInput(
+              resourceInterfaceIpImportCarrierPatch(values, event.target.value as ImportCarrier),
+            )
+          }
+          disabled={busy}
+        >
+          <option value="file">上传文件（CSV / .xlsx）</option>
+          <option value="text">粘贴 CSV 文本（仅 CSV）</option>
+        </Select>
+        {localErrors.carrier && (
+          <p className="field-error" role="alert">
+            {localErrors.carrier}
+          </p>
+        )}
+      </div>
+
+      <div className="form-field">
         <label htmlFor="resource-interface-ip-import-format">文件格式（必选）</label>
         <Select
           id="resource-interface-ip-import-format"
           value={values.format}
           onChange={(event) => changeInput({ format: event.target.value as ImportFormat })}
-          disabled={busy}
+          disabled={busy || carrierIsText}
+          aria-describedby={
+            carrierIsText ? "resource-interface-ip-import-format-locked" : undefined
+          }
         >
           <option value="csv">CSV（UTF-8，逗号分隔，兼容 BOM）</option>
           <option value="xlsx">Excel（.xlsx，取首个工作表，不执行公式 / 宏）</option>
         </Select>
+        {carrierIsText && (
+          <p className="permissions-note" id="resource-interface-ip-import-format-locked">
+            粘贴 CSV 文本时格式固定为 CSV（不提供 .xlsx 文本载体）。
+          </p>
+        )}
         {(localErrors.format ?? serverFormatError) && (
           <p className="field-error" role="alert">
             {localErrors.format ?? serverFormatError}
@@ -263,21 +310,57 @@ export default function ResourceInterfaceIpImportPanel({
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="resource-interface-ip-import-file">导入文件（必选）</label>
-        <Input
-          id="resource-interface-ip-import-file"
-          type="file"
-          accept={values.format === "csv" ? ".csv" : ".xlsx"}
-          onChange={(event) => changeInput({ file: event.target.files?.[0] ?? null })}
-          disabled={busy}
-        />
-        {localErrors.file && (
-          <p className="field-error" role="alert">
-            {localErrors.file}
+      {carrierIsText ? (
+        <div className="form-field">
+          <label htmlFor="resource-interface-ip-import-text">粘贴 CSV 文本（必填，仅 CSV）</label>
+          <TextArea
+            id="resource-interface-ip-import-text"
+            className="import-carrier-textarea"
+            value={values.text}
+            rows={10}
+            spellCheck={false}
+            placeholder={"cluster,hostname,resource_type,role,status,...,network,ip\nN96P,cn001,BARE_METAL,COMPUTE,ACTIVE,..."}
+            onChange={(event) => changeInput({ text: event.target.value })}
+            disabled={busy}
+            aria-describedby={
+              "resource-interface-ip-import-text-hint resource-interface-ip-import-text-counter"
+            }
+            aria-invalid={localErrors.text ? true : undefined}
+          />
+          <p className="import-carrier-hint" id="resource-interface-ip-import-text-hint">
+            仅逗号分隔（不做分隔符嗅探，制表符分隔不会被受理）；必须包含与冻结{" "}
+            {RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.length} 列统一宽模板逐字逐序一致的表头
+            （可先展开「查看模板与逐列说明」复制表头列名或下载 CSV 模板表头行），不自动补表头、
+            不按列名重排；内容按 UTF-8 提交，前端不做 trim / 行尾 / 转义改写。
           </p>
-        )}
-      </div>
+          <p className="import-carrier-counter" id="resource-interface-ip-import-text-counter">
+            UTF-8 字节数（非权威提示）：{pastedByteLength} /{" "}
+            {IMPORT_MAX_FILE_BYTES.toLocaleString("en-US")}；以固定文件名（
+            {PASTED_CSV_FILE_NAME}）与 text/csv 类型提交，服务端按同一上限值权威判定。
+          </p>
+          {localErrors.text && (
+            <p className="field-error" role="alert">
+              {localErrors.text}
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="form-field">
+          <label htmlFor="resource-interface-ip-import-file">导入文件（必选）</label>
+          <Input
+            id="resource-interface-ip-import-file"
+            type="file"
+            accept={values.format === "csv" ? ".csv" : ".xlsx"}
+            onChange={(event) => changeInput({ file: event.target.files?.[0] ?? null })}
+            disabled={busy}
+          />
+          {localErrors.file && (
+            <p className="field-error" role="alert">
+              {localErrors.file}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="form-actions">
         <Button type="button" onClick={handleValidate} disabled={busy}>
@@ -391,7 +474,7 @@ export default function ResourceInterfaceIpImportPanel({
       <h3 className="detail-section-title">预校验结果</h3>
 
       {validateState.kind === "idle" && (
-        <EmptyState description="尚未预校验。选择文件后点击「预校验」查看全部错误行（只读，不写入任何数据）。" />
+        <EmptyState description="尚未预校验。选择文件或粘贴 CSV 文本后点击「预校验」查看全部错误行（只读，不写入任何数据）。" />
       )}
 
       {validateState.kind === "loading" && (
@@ -435,7 +518,7 @@ export default function ResourceInterfaceIpImportPanel({
 
       {importState.kind === "success" && (
         <Alert
-          description={`导入成功：新建资源 ${importState.data.created} 个、网卡 ${importState.data.interfaces_created} 个、IP ${importState.data.ip_addresses_created} 个（共 ${importState.data.total_rows} 行，整批成功）。如需导入另一批，请重新选择文件并预校验。`}
+          description={`导入成功：新建资源 ${importState.data.created} 个、网卡 ${importState.data.interfaces_created} 个、IP ${importState.data.ip_addresses_created} 个（共 ${importState.data.total_rows} 行，整批成功）。如需导入另一批，请重新选择文件或粘贴文本并预校验。`}
           showIcon
           type="success"
         />

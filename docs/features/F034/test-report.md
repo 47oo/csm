@@ -1,26 +1,31 @@
 # F034 导入 CSV 文本载体 — Test Report
 
 > 本文件同一份报告承载 TEST_DESIGN 与 TEST 两阶段，分开记录版本、结论与证据。
-> 当前**只有 TEST DESIGN**。`TEST DESIGN READY` 仅表示方案可验证，**不是测试通过**，不批准实现或合并。
+> 当前**只有 TEST DESIGN（v1.1，2026-10-26）**。`TEST DESIGN READY` 仅表示方案可验证，**不是测试通过**，不批准实现或合并。
 > 编写时分支 HEAD `bbc9e91`（`33d8a03..bbc9e91` 仅含 docs 变更，无前端/后端实现），因此本阶段只做设计检查，未执行任何验收。
 
 ---
 
-## Test Design（TD-1，2026-10-26，v1）
+## Test Design（TD-1，2026-10-26，v1 / v1.1）
+
+**版本记录（本阶段）**
+
+- **v1（2026-10-26）**：首次 TEST DESIGN —— TD-1–TD-14、56 条 `TD3-*` 用例、夹具 `F-01`–`F-26`、等价性判据 TD-5、原子性 TD-6、降级边界 TD-12。该版内容保留，除下列 v1.1 修订点外不改动。
+- **v1.1（2026-10-26）**：依 Architect §12 裁定收窄 TD3-T115.5①、落定 T114 判据、TD-I-2 记录为仅固定 reason 类别集合；同版仅更新上游**状态事实**（architecture v1 §12 = `READY FOR IMPLEMENTATION`；`docs/api/F014.md` / `docs/api/F023.md` 增补节 = **READY** 并附 3 条解释性裁定附注；requirements revision 13 §31 T114 已作编辑性澄清），**未放宽任何判据、未新增或删除验收项**。
 
 ### TD-1 Task / Status / Basis
 
-- **Task**：F034「导入 CSV 文本载体」（P1 / M25）；分支 `feature/F034-csv-text-import`（base `v3.3`，start_commit `33d8a03`，TD 编写时 HEAD `bbc9e91`）；`plan_revision` 20；阶段 **TEST_DESIGN**；Tester 只读分析 + 仅写本文件。
-- **Status**：`TEST DESIGN READY`（见 TD-14；同时登记 TD-13 的 1 项需裁定项，不阻断本阶段结论）。
+- **Task**：F034「导入 CSV 文本载体」（P1 / M25）；分支 `feature/F034-csv-text-import`（base `v3.3`，start_commit `33d8a03`，TD v1 编写时 HEAD `bbc9e91`）；`plan_revision` 20；阶段 **TEST_DESIGN**；Tester 只读分析 + 仅写本文件。
+- **Status**：`TEST DESIGN READY (v1.1)`（见 TD-14；TD-I-1 / TD-I-2 已由 Architect 于 architecture §12 裁定，不再是「需裁定」项）。
 - **Basis（版本与上游依据）**：
 
 | 对象 | 版本 / 状态 | 本 TD 的使用方式 |
 | --- | --- | --- |
-| `docs/product/requirements-v3.md` | **revision 13**（2026-10-26）；§24.5 CONFIRMED；§31 **T107–T116** CONFIRMED；修订后的 T28；§32 措辞；§35.1 revision 13 记录 | 验收映射的唯一上游（TD-3） |
+| `docs/product/requirements-v3.md` | **revision 13**（2026-10-26）；§24.5 CONFIRMED；§31 **T107–T116** CONFIRMED（**T114 已作编辑性澄清**：字段边界按等价性口径判定，见 §35.1 revision 13 记录）；修订后的 T28；§32 措辞 | 验收映射的唯一上游（TD-3） |
 | `docs/features/F034/product.md` | v1（READY FOR ARCHITECT） | §3 验收映射、§4 边界与风险（文本/文件必须同结论） |
-| `docs/features/F034/architecture.md` | **v1**（READY FOR DESIGN） | §3 前端设计（载体模型/`importCarrier.ts` 接口/指纹/UI）、§8 验证策略与「Test 输入要点 1–8」、§9 R-1–R-11、§10 分工、§4 DR-F034-01–17（含 PROPOSED 项） |
-| `docs/api/F014.md` §「CSV 文本载体（加法引用）」（增补节 v1） | **PROPOSED**（未签核，占位签核记录未生效） | 见证预期 wire 形状与不变项；**PROPOSED 不等于实施依据**，TEST 前须核对 CONTRACT 签核（见 TD-9 前置条件） |
-| `docs/api/F023.md` §「CSV 文本载体（加法引用）」（增补节 v1） | **PROPOSED**（同上） | 同上（26 列模板、§8 分组、§9 Network、§12 原子性不变） |
+| `docs/features/F034/architecture.md` | **v1**（`READY FOR DESIGN`；**§12 定稿签核 2026-10-26 = `READY FOR IMPLEMENTATION`**，含 TD-I-1 / TD-I-2 裁定与 TD3-T115.5① 收窄要求） | §3 前端设计（载体模型/`importCarrier.ts` 接口/指纹/UI）、§8 验证策略与「Test 输入要点 1–8」、§9 R-1–R-11、§10 分工、§4 DR-F034-01–17（§12 已将原 PROPOSED 的实现选择提升为 CONFIRMED） |
+| `docs/api/F014.md` §「CSV 文本载体（加法引用）」（增补节 v1） | **READY**（2026-10-26 签核生效；正文 v1 不变，附 3 条**解释性裁定附注**） | 见证 wire 形状与不变项，并作为实施/测试依据；解释性附注 1 = T114 按等价性口径、附注 2 = 制表符分隔的 `reason` 只固定类别、附注 3 = 表头级明细属既有 schema |
+| `docs/api/F023.md` §「CSV 文本载体（加法引用）」（增补节 v1） | **READY**（同上，附 3 条解释性裁定附注） | 同上（26 列模板、§8 分组、§9 Network、§12 原子性不变） |
 | 消费的既有 Contract | `docs/api/F014.md` v1（READY）、`docs/api/F023.md` v1（READY）、`docs/api/F027.md` v1（范围语义）、`docs/api/F002.md` | 上限 5,242,880 B / 5000 行 / 1000 预览；`IMPORT_INVALID_FILE.reason` 集合；`RowError` 形状；401/403；F027 行级范围拒绝 |
 | 代码基线（只读核对） | `frontend/src/api/imports.ts`、`frontend/src/components/{importForm.ts,resourceInterfaceIpImportForm.ts,ResourceImportPanel.tsx,ResourceInterfaceIpImportPanel.tsx,ImportErrorsTable.tsx,ui/controls.tsx}`、`frontend/scripts/smoke-client.mjs`、`backend/app/api/v1/imports.py`、`backend/app/services/{resource_import.py,resource_interface_ip_import.py}`、`backend/tests/conftest.py`、`backend/tests/integration/{test_imports.py,test_import_tester_acceptance.py,test_f023_resource_interface_ip_import.py,test_import_performance.py,test_f027_access_scope.py}` | 判定可复用点、既有口径与实际可实现断言 |
 | 规则 | `docs/project/handoff.md`、`docs/project/implementation-rules.md`、`AGENTS.md` §5–§9、`.pi/skills/data-integrity/SKILL.md`、`.pi/skills/frontend-ui/SKILL.md` | 交接/缺陷格式、验证纪律、完整性方法、前端可验证性 |
@@ -55,7 +60,7 @@
 | ID | 层 | 可观察断言 |
 | --- | --- | --- |
 | TD3-T107.1 | S | `ResourceImportPanel.tsx` 与 `ResourceInterfaceIpImportPanel.tsx` 均存在：载体选择控件（`Select`，两项文案「上传文件（CSV / .xlsx）」「粘贴 CSV 文本（仅 CSV）」）+ 文件分支 `<input type="file">` 保留 + 文本分支 `TextArea`。禁止「删除文件输入或用文本域替换文件输入」（grep 命中数 ≥1 且 `<input` 命中 ≥1） |
-| TD3-T107.2 | U | `importCarrierPatch(values,"text").format === "csv"`；`importCarrierPatch(textValues,"file").format === "csv"`（不回填 `xlsx`，DR-F034-07 PROPOSED 口径）；两 form 模块各一组 |
+| TD3-T107.2 | U | `importCarrierPatch(values,"text").format === "csv"`；`importCarrierPatch(textValues,"file").format === "csv"`（不回填 `xlsx`，DR-F034-07，架构 §12 已提升为 CONFIRMED）；两 form 模块各一组 |
 | TD3-T107.3 | S | `frontend/src/api/imports.ts` diff **仅注释**（逐行 `+` 行 strip 后以 `*`/`//`/空开头）；`ImportErrorsTable.tsx`、`ui/controls.tsx`、`ResourcesPage.tsx` 空 diff |
 | TD3-T107.4 | M | 模板表头生成函数输出逐字节不变：`buildTemplateCsv(BM)`/`buildTemplateCsv(VM)`/`buildResourceInterfaceIpTemplateHeaderCsv()` 与改造前基线（14 / 10 / 26 列列序）逐字节相等（守卫：F034 不得改模板） |
 | TD3-T107.5 | U+M | 文件载体 `.xlsx` 路径仍在：`parse*` 对 `format="xlsx"` + 非 `.xlsx` 扩展名返回 `ok:false`（errors.file 含 `.xlsx` 说明）；`format="xlsx"` 且 `.xlsx` 名 → `ok:true`；M 层 `importResources(file,"xlsx")` 的 `FormData.format === "xlsx"` 与 F014 既有断言一致 |
@@ -118,7 +123,7 @@
 | TD3-T112.3 | I | 多余未定义列（追加 `interface_name`，`F-17`）→ 422、`reason === "unknown_columns"`、`details.unknown_columns === ["interface_name"]` |
 | TD3-T112.4 | I | 列序不符（完全逆序 `F-18a`、仅交换前两列 `F-18b`）→ 422、`reason === "column_order"`；**不得 200、不得按名重排** |
 | TD3-T112.5 | I | 不做大小写折叠（`HOSTNAME` 替 `hostname`，`F-19`）→ 422；`reason ∈ {missing_columns, unknown_columns}`，**不得为 200/201** |
-| TD3-T112.6 | I | 制表符分隔（`F-14`，每行 `\t` 连接、内容其余同 `F-01`）→ 422 `IMPORT_INVALID_FILE`，`reason ∈` 已签核集合（契约未固定具体值，见 TD-I-2），且无写入 |
+| TD3-T112.6 | I | 制表符分隔（`F-14`，每行 `\t` 连接、内容其余同 `F-01`）→ 422 `IMPORT_INVALID_FILE`，`reason ∈` 已签核集合（契约仅固定**类别集合**，不固定具体取值，见 TD-I-2 裁定），且无写入 |
 | TD3-T112.7 | I | 不自动补表头：仅数据行文本 → 422（同 TD3-T112.1）且**不得以人工补出的表头解析成功** |
 | TD3-T112.8 | I | 以上每条均双载体提交并深比较响应（等价性） |
 
@@ -134,12 +139,14 @@
 
 #### T114 — CSV 字段边界
 
+> **口径（v1.1 落定）**：requirements revision 13 §31 T114 已作**编辑性澄清** —— 原表述「引号未闭合等字段边界错误按既有文件级错误呈现，不静默修补」澄清为「与既有文件载体同口径（等价性）：逐字节相同的 CSV 经两种载体提交，行为、错误码与行号完全一致；既有 CSV 解析行为不变，本 Feature 不新增字段边界错误判定」。裁定见 `docs/features/F034/architecture.md` §12（TD-I-1）与两份契约增补节「解释性裁定附注 1」。本组用例一律按**等价性**判定，**不要求 422**。
+
 | ID | 层 | 可观察断言 |
 | --- | --- | --- |
 | TD3-T114.1 | I | 含逗号字段（引号包裹 `"Dell, Inc."`，`F-12`）→ 解析值不改写：预校验 `error_count === 0`；写入后回读 `manufacturer === "Dell, Inc."` |
 | TD3-T114.2 | I | 含双引号转义（`"Manu""facturer"`）→ 回读值 `Manu"facturer`（标准 CSV 解转义，非静默改写原文） |
 | TD3-T114.3 | I | 引号内换行（`F-11`）→ `total_rows` 按**逻辑记录**计（2 条数据），后续错误行 `row === 3`（表头 1 行 + 逻辑记录 1 行） |
-| TD3-T114.4 | I | 未闭合引号（`F-13`）→ **等价性判据**：文本载体与文件载体 status + 响应体深比较相等即视为通过本项；实际观测（是否 200 静默接纳 / 422）必须原样记入报告，并按 TD-I-1 结论标注 |
+| TD3-T114.4 | I | 未闭合引号（`F-13`）→ **已由 Architect 裁定（architecture §12）：T114 按等价性口径判定，不要求 422**。**PASS 判据** = 同一字节（逐字节相同）经文本载体与文件载体提交后 `status` 相等 **且** 响应体深比较一致；同时**实际观测如实记录**（`status`、`status_code`、`total_rows`、`error_count`、`details.reason`（若有）、行为描述）。**不得**以「未返回 422」判 FAIL；仅当两载体出现差异时才判 FAIL |
 | TD3-T114.5 | U+S | 前端不解析 CSV：`pastedCsvFile` 对含引号/换行文本逐字节原样（无转义、无重排、无 `trim`）；载体模块内无 CSV 解析实现（`split(",")` / `split(/\r?\n/)` / 引号状态机等命中 **0**） |
 
 #### T115 — 权限 / 集群范围 / Audit / 不留痕
@@ -150,7 +157,7 @@
 | TD3-T115.2 | I | 未认证（无 Cookie / 无 API Key）：两入口两端点均 401 `AUTH_REQUIRED`，且 401 先于 403 |
 | TD3-T115.3 | I | 含未授权集群行（F027 形状，`F-20` 范围内）：`/validate` 200、`errors[0].row` 正确、`field === "cluster"`、响应体不含该未授权 Cluster 码（不泄露）；写入 → 422 整批失败 + 零残留（resources/audit 计数不变） |
 | TD3-T115.4 | I | 成功写入 Audit 同口径：每成功对象恰 1 条 `CREATE`；`operator` 为当前用户；Audit 字段集合与文件载体同一用例逐字段相等（除 `id`/时间戳/id 类按既有比较口径归一） |
-| TD3-T115.5 | I | 不留痕（DB 与响应）：以唯一标记 `F034-MARKER-<uuid>` 作为某合法字段值写入；①错误响应体不包含粘贴原文（只含 `RowError` 的形状字段）；②`audit_logs` 全表不出现「整段 CSV 原文」子串；③库里不存在新增的导入暂存/临时表（`pg_tables` 对比基线集合） |
+| TD3-T115.5 | I | 不留痕（DB 与响应）：以唯一标记 `F034-MARKER-<uuid>` 作为某合法字段值写入；①错误响应体不**回显整段**粘贴内容（不出现整段 CSV 原文；表头级 `details.unknown_columns` / `missing_columns` 属 F014/F023 §1.2 **既有 schema**，两载体逐字段相同，**不得**据此判 FAIL——依据契约增补节「解释性裁定附注 3」与 architecture §12）；②`audit_logs` 全表不出现「整段 CSV 原文」子串；③库里不存在新增的导入暂存/临时表（`pg_tables` 对比基线集合） |
 | TD3-T115.6 | I+H | 日志不留痕：同一标记文本请求后 `docker logs csmtest-backend-1 --since <ts>`（或 pytest `caplog`）中 marker 命中 **0** |
 | TD3-T115.7 | S | 前端不持久化 / 不泄出：`importCarrier.ts`、两 form、两 panel 中 `localStorage` / `sessionStorage` / `document.cookie` / `console.log|warn|error` 引用命中 **0**（既有非 payload 用途如无则一并 0）；载体不把内容拼进 URL/查询串（`grep` 命中 0） |
 | TD3-T115.8 | B | 真实浏览器 storage/console/network 面板核对 → **`NOT TESTED`**（无浏览器栈）；降级证据 = TD3-T115.7 静态断言 |
@@ -203,7 +210,7 @@
 | F-10 | `F-01` + 尾部 3 个空行 + 末尾换行 | 尾随空记录 | 200，`total_rows=2`，错误行号不移动 | 同 |
 | F-11 | `manufacturer` 为引号内换行 `"Manu\nal"`；第 2 条数据行 `hostname` 非法 | 引号内 `\n` | 200；`total_rows=2`；`hostname` 错误 `row=3` | 同 |
 | F-12 | `"Dell, Inc."`、`"Manu""facturer"` | 逗号 + 双引号转义 | 200；回读值不改写 | 同 |
-| F-13 | 末字段引号未闭合（`…,"Manu`） | 未闭合引号 | **等价性判据**（见 TD-I-1）；实际观测照录 | 同 |
+| F-13 | 末字段引号未闭合（`…,"Manu`） | 未闭合引号 | **等价性判据**（Architect §12 已裁定：按等价性判定、**不要求 422**，见 TD-I-1）；实际观测照录 | 同 |
 | F-14 | `F-01` 的逗号全替换为 `\t` | 制表符分隔 | 422 `IMPORT_INVALID_FILE`（reason ∈ 集合），无写入 | 同 |
 | F-15 | 首行为数据行（无表头） | | 422 `header_missing` | 同 |
 | F-16 | `BM` 去 `hostname`（`W26` 去 `ip`） | | 422 `missing_columns` + 列表精确 | 同 |
@@ -261,7 +268,7 @@
 | 前端基线 | `npm run smoke:client` = **328 passed / 0 failed**（`bbc9e91`，实现前基线） | 实际运行（只读，不改文件） |
 | 工作区 | `git status --porcelain=v1 -uall` 为空（TD 编写前） | `git status` |
 
-**命令（TEST 阶段执行；日志归档到 `docs/features/F034/artifacts/`，需协调器确认写权，见 TD-I-3）**
+**命令（TEST 阶段执行；日志归档到 `docs/features/F034/artifacts/`，写权已确认，见 TD-14「TEST 阶段文件所有权」）**
 
 1. 前端三项（必跑）：`cd frontend && npm run typecheck && npm run build && npm run smoke:client`
 2. 后端定向（真实 PG，F034 新增文件）：
@@ -308,8 +315,8 @@
 - **不得复用旧结论**：F014/F023 的既有 PASS 只作为回归与口径参照；T107–T116 每条须有 F034 阶段的独立执行证据。
 - **TEST 阶段前置条件**（不满足则相关项 BLOCKED，不得直接判实现 FAIL）：
   (a) F034 前端实现落地（`importCarrier.ts` 存在且两面板接线）；
-  (b) `docs/api/F014.md` / `docs/api/F023.md` 两份增补节由 Architect 签核为 **READY**（当前 PROPOSED）；
-  (c) 协调器划定测试文件所有权（TD-I-3）。
+  (b) `docs/api/F014.md` / `docs/api/F023.md` 两份增补节由 Architect 签核为 **READY** —— **已满足**（2026-10-26 签核生效，含 3 条解释性裁定附注，见 architecture §12）；
+  (c) 协调器划定测试文件所有权（TD-I-3）—— **已确认**（见 TD-14「TEST 阶段文件所有权」）。
 
 ### TD-10 反空洞设计
 
@@ -348,24 +355,47 @@
 | 全量后端 pytest（约 19 分钟） | 仅在确实需要证明全局无回归时执行 | 默认执行 TD-REG.7 定向套件；如协调器要求全量则记实际计数与耗时 |
 | `.xlsx` 文本载体 | 明确不做（§24.5） | `NOT_REQUIRED`（不是未验证）：不提供该入口，故无验收项 |
 
-### TD-13 缺陷与需裁定项
+### TD-13 缺陷与需裁定项（v1.1：TD-I-1 / TD-I-2 / TD-I-3 均已裁定，见各行末列）
 
 | ID | Severity | Layer | Location | 证据 / 复现 | 期望 vs 实际 | Owner | 必须修复 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **TD-I-1** | MEDIUM | 需求 / 契约可验证性 | 需求 T114 后半句 vs `backend/app/services/resource_import.py::_parse_csv`（第 419–425 行）与 `_validate_record` 的单元格填充（第 596 行） | `_parse_csv` 使用 `csv.reader(io.StringIO(text, newline=""))`（默认 `strict=False`）；`_validate_record` 只对短行补空、忽略超出表头长度的多余单元格。故 `F-13`（未闭合引号）会被"读到 EOF"**静默接纳**（可能吞掉后续行）而不产生文件级错误 | T114 字面要求「引号未闭合等字段边界错误按既有文件级错误呈现，**不静默修补**」；实际既有行为是不报错。F034 `layers.backend=false` 无法满足字面要求 | **Architect**（设计/契约解释）+ **Product Manager**（需求措辞） | 需裁定（阻断 T114 的 PASS/FAIL 判定，不阻断其它项）：①采用「与文件载体同口径（等价性）」判据（本 TD 默认，与 §24.5 等价性一致）；②若要求 422，则需后端 strict 解析改动，**超出 F034 已批准范围**，走 `change-control.md` |
-| TD-I-2 | LOW | 契约明确度 | `docs/api/F014.md` / `F023.md` 增补节「表头与分隔符」 | 制表符分隔被拒时的具体 `IMPORT_INVALID_FILE.details.reason` 未固定（既有实现由 `_resolve_template` 决定，可能是 `missing_columns` 或 `unknown_columns`） | TD 断言为「reason ∈ 已签核集合 + 非 200/201」；若希望固定取值，需在增补节补一句 | Architect | 不阻断（记录实际值即可） |
-| TD-I-3 | LOW | 测试基础设施 | 文件所有权 | TEST 需新增/写入：`frontend/scripts/smoke-client.mjs`（F034 段，架构 §10 已划给 Tester）、`backend/tests/integration/test_f034_csv_text_carrier.py`（新建）、`docs/features/F034/artifacts/`（语料与日志） | 架构 §10 已授权 Tester 出 smoke 段与集成用例，但需协调器在并行实现阶段明确占用与 artifacts 写权；否则 I/M 层用例无法落地 | 协调器 | 需在 TEST 前确认（不满足则该类用例 BLOCKED） |
+| **TD-I-1** | MEDIUM | 需求 / 契约可验证性 | 需求 T114 后半句 vs `backend/app/services/resource_import.py::_parse_csv`（第 419–425 行）与 `_validate_record` 的单元格填充（第 596 行） | `_parse_csv` 使用 `csv.reader(io.StringIO(text, newline=""))`（默认 `strict=False`）；`_validate_record` 只对短行补空、忽略超出表头长度的多余单元格。故 `F-13`（未闭合引号）会被"读到 EOF"**静默接纳**（可能吞掉后续行）而不产生文件级错误 | T114 **原表述**「引号未闭合等字段边界错误按既有文件级错误呈现，**不静默修补**」；实际既有行为是不报错。F034 `layers.backend=false` 无法满足该字面表述（requirements revision 13 已对 §31 T114 作**编辑性澄清**：字段边界按等价性口径判定） | **Architect**（设计/契约解释）+ **Product Manager**（需求措辞） | **已裁定 / RESOLVED（2026-10-26，architecture §12 + 契约增补节「解释性裁定附注 1」）**：采用方案 ①——T114 按 §24.5「等价性」口径判定，**不要求 422**。T114 相关用例的 PASS 判据 = 同字节两载体 `status` 与响应体深比较一致 + 实际观测如实记录。方案 ②（服务端 strict 解析、复用 `unreadable`）仍须另立变更提案（`change-control.md`），不在 F034 范围 |
+| TD-I-2 | LOW | 契约明确度 | `docs/api/F014.md` / `F023.md` 增补节「表头与分隔符」 | 制表符分隔被拒时的具体 `IMPORT_INVALID_FILE.details.reason` 未固定（既有实现由 `_resolve_template` 决定，可能是 `missing_columns` 或 `unknown_columns`） | TD 断言为「reason ∈ 已签核集合 + 非 200/201」 | Architect | **已裁定 / RESOLVED（2026-10-26，architecture §12 + 增补节「解释性裁定附注 2」）**：**仅固定类别集合**（422 `IMPORT_INVALID_FILE`、`reason ∈` §1.2 已签核集合 `header_missing` / `missing_columns` / `unknown_columns`、非 2xx 成功、无写入、与同字节文件载体响应逐字段相同），**不固定具体取值**；TEST 记录实际观测值即可 |
+| TD-I-3 | LOW | 测试基础设施 | 文件所有权 | TEST 需写入：`backend/tests/**`（含新建 `tests/integration/test_f034_csv_text_carrier.py`）、`docs/features/F034/artifacts/**`（语料与日志）、`docs/features/F034/test-report.md` | 架构 §10 已授权 Tester 出集成用例与验证产物，但需协调器在并行实现阶段明确文件所有权；否则 I/M 层用例无法落地 | 协调器 | **已确认（RESOLVED，TEST 阶段文件所有权）**：Tester = `backend/tests/**`、`docs/features/F034/artifacts/**`、`docs/features/F034/test-report.md`；`frontend/scripts/smoke-client.mjs` 归 **Frontend** 修改，Tester **只运行、不改**（Tester 在 `TD3-REG.8` 只断言 0 failed、计数与新增用例名，不新增/编辑 smoke 用例）；额外夹具仅限上述目录内（见 TD-14） |
 | TD-I-4 | NOTE | 边界表述 | 需求 §24.5「不落盘」/ 架构 ON-2 | 既有 Starlette 对 >1 MiB 请求体溢写匿名临时文件即抛 | TD 只断言应用层无残留，不主张"全路径不落盘"；不作为缺陷 | Architect（如需改写措辞则走变更） | 否 |
 | TD-I-5 | NOTE | 前端/服务端层差 | 仅 BOM 文本（`F-24`） | JS `trim()` 把 `U+FEFF` 视为空白 → 前端本地拦截、不发请求；服务端则会判 `empty_file` | 两者均**拒绝且无写入**，只是拦截层不同；TD 允许二者之一，不作缺陷；若产品要求提示文案一致可另行调整 | Architect / Frontend（文案） | 否 |
 
 ### TD-14 结论
 
-**Status：`TEST DESIGN READY`**
+**Status：`TEST DESIGN READY (v1.1)`**
 
 - T107–T116 每条均已映射到具体用例 ID、层次（U/M/I/H/S/B）与可观察断言，可用现有环境（Node 22 + pytest + 真实 PostgreSQL 16.15 + `csmtest` 栈 18080）执行；等价性有机械可判据（TD-5），并发与原子性有真实 PG 方案（TD-6），数据完整性无新增约束需验证（TD-11）。
 - READY 的**含义与限制**：仅表示方案可验证，**不**表示测试通过、**不**批准实现或合并；B 层（浏览器）与 5 MiB 真实载荷等项已如实预登记为 `NOT TESTED`（TD-12）。
-- **进入 TEST 的三项前置**（TD-9）：实现落地、两份契约增补节签核 READY、测试文件写权确认。
-- **需裁定**：TD-I-1（T114 未闭合引号口径），由 Architect + Product 决定；TEST 不会自行选定口径，裁定前 T114 只出等价性证据、不出 PASS/FAIL 结论。
+- **进入 TEST 的三项前置**（TD-9）：实现落地、两份契约增补节签核 READY（**已满足**）、测试文件写权确认（**已确认**）。
+- **已裁定（2026-10-26，替代 v1 的「需裁定」结论）**：
+  - **TD-I-1 → RESOLVED**：依 architecture §12，T114 按**等价性口径**判定，**不要求 422**（requirements revision 13 §31 T114 已作编辑性澄清，§35.1 有记录）。`TD3-T114.4` / 夹具 `F-13` 的 **PASS 判据 = 同字节两载体 `status` 与响应体深比较一致 + 实际观测如实记录**，不得以「未返回 422」判 FAIL。
+  - **TD-I-2 → RESOLVED**：制表符分隔的 `IMPORT_INVALID_FILE.details.reason` **仅固定类别集合**（见增补节附注 2），不固定具体取值；TEST 记录实际观测值。
+  - 本 TD 不再产出「待裁定」结论；TEST 阶段逐项给出 PASS / FAIL / BLOCKED / NOT TESTED。
+
+### TD-15 TEST 阶段文件所有权（确认）
+
+| 路径 | Owner | Tester 行为 |
+| --- | --- | --- |
+| `backend/tests/**`（含新建 `tests/integration/test_f034_csv_text_carrier.py`、按需的 fixtures 辅助模块） | **Tester** | 可新建/修改 |
+| `docs/features/F034/artifacts/**`（`corpus/`、日志、H 层 Node 脚本、证据文件） | **Tester** | 可新建/写入 |
+| `docs/features/F034/test-report.md` | **Tester** | 可写入（本报告唯一输出） |
+| `frontend/scripts/smoke-client.mjs` | **Frontend** | **只运行、不改**（`npm run smoke:client`）；不以修改该文件取证，若用例不满足判据则记缺陷并退回 Frontend |
+| `frontend/src/**`、`backend/app/**`、`backend/alembic/**`、`docs/api/**`、`docs/product/**`、`docs/project/**` | Frontend / Architect / 协调器 | Tester 不写入 |
+
+**需要的额外夹具文件（均限于 `docs/features/F034/artifacts/` 下，不跨目录）**：
+
+1. `docs/features/F034/artifacts/corpus/F-01.txt` … `F-26.txt`（+ `F-05b`）：UTF-8 语料单一来源（TD-8.1）。
+2. `docs/features/F034/artifacts/corpus/F-xx.csv`：由 Node 侧 `Buffer.from(text,"utf8")` 一次性生成的逐字节对照文件。
+3. `docs/features/F034/artifacts/corpus/gen-corpus.mjs`：语料生成/校验脚本（含 `F-21`/`F-22` 程序化边界构造）。
+4. `docs/features/F034/artifacts/f034-live-validate.mjs`：H 层真实 HTTP 只读脚本（复用 `pastedCsvFile()`）。
+5. `docs/features/F034/artifacts/logs/`：pytest / smoke / typecheck / build / `docker logs` 归档（若被 `.gitignore` 忽略须在 TEST 报告声明）。
+
+以上文件如协调器要求入版，均由协调器统一暂存提交；Tester 不执行任何改变 Git 状态的命令。
 
 ---
 

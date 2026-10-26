@@ -2238,8 +2238,8 @@ features:
   - F023
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: IMPLEMENTATION：前端实现 importCarrier.ts、两 form 纯逻辑模块、两面板 UI 与样式；后端/数据库零改动。
+  current_stage: TEST
+  next_action: TEST：Tester 按 TEST DESIGN v1.1 在 csmtest 栈执行真实后端等价性、权限、上限与不漏痕用例。
   layers:
     database: false
     backend: false
@@ -2251,8 +2251,8 @@ features:
     database: NOT_REQUIRED
     test_design: COMPLETE
     contract: COMPLETE
-    backend: PENDING
-    frontend: PENDING
+    backend: NOT_REQUIRED
+    frontend: COMPLETE
     test: PENDING
     review: PENDING
   evidence:
@@ -2268,8 +2268,11 @@ features:
     - docs/api/F014.md#csv-文本载体加法引用增补节-v1独立于上文正文版本
     - docs/api/F023.md#csv-文本载体加法引用增补节-v1独立于上文正文版本
     - docs/features/F034/architecture.md#12-定稿签核
-  last_result: TEST_DESIGN READY（56 条用例、夹具 F-01–F-26、等价性判据）；CONTRACT READY FOR IMPLEMENTATION：F014/F023「CSV 文本载体（加法引用）」增补节 v1 由 Architect 于 2026-10-26 签核 READY；TD-I-1 裁定按等价性口径（不新增字段边界判定），TD-I-2 仅固定 reason
-    类别集合；需求 §31 T114 作编辑性澄清。
+    frontend:
+    - docs/features/F034/implementation.md#1-前端实现frontend-complete
+    backend:
+    - docs/features/F034/implementation.md#2-后端与数据库not_required
+  last_result: IMPLEMENTATION 完成：前端新增 importCarrier.ts 并扩展两 form 模块 / 两面板 / index.css / smoke-client（F034 段 9 条）；typecheck、build、smoke:client 337 passed / 0 failed；后端与数据库 NOT_REQUIRED（零 diff）。
   git:
     base_branch: v3.3
     branch: feature/F034-csv-text-import
@@ -2278,6 +2281,8 @@ features:
     merge_commit: null
   not_required:
     database: layers.database=false：本 Feature 只新增前端输入载体，不新增或修改任何表、列、索引、约束、Migration 与事务边界；导入写入路径与 Service Layer 完全复用 F014/F023 已交付实现（Inspector 结论见 docs/features/F034/architecture.md §5、§6）。
+    backend: layers.backend=false：文本→UTF-8 CSV 字节后复用 F014/F023 既有 multipart 端点，解析/校验/事务/审计/范围/上限全部沿用既有 Service Layer；backend/app/**、backend/alembic/** 零 diff（见 docs/features/F034/implementation.md §4 与
+      test-report TD3-REG.2 守卫）。
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2699,9 +2704,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 用户 2026-10-26 在批准 plan revision 20 的同一次指令中明确要求实施（「看推荐执行并实施」），授权范围为本轮新增的 F034。
   current_feature: F034
-  current_stage: IMPLEMENTATION
-  last_result: TEST_DESIGN READY + CONTRACT READY FOR IMPLEMENTATION（两份契约增补节已签核 READY）。
-  next_action: 派发 Frontend 实现（L1 纯逻辑 + L2 UI）并同步由 Tester 修订 TD3-T115.5 措辞。
+  current_stage: TEST
+  last_result: FRONTEND COMPLETE（typecheck/build/smoke 337 passed）；BACKEND 与 DATABASE NOT_REQUIRED。
+  next_action: 派发 Tester TEST 模式做独立验证。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

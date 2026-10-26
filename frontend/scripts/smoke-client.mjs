@@ -280,6 +280,22 @@
  *   canSubmitGrant；F030 architecture §17.1）；
  *   服务端唯一约束与 409 `already_granted` 仍是最终事实。
  *
+ * F034 追加（Contract：docs/api/F014.md / docs/api/F023.md §「CSV 文本载体
+ * （加法引用）」增补节 v1，READY 2026-10-26；architecture §3.2/§3.3/§3.4，
+ * DR-F034-02–09/17，前端机制级）：
+ * - src/components/importCarrier.ts（纯逻辑，无 JSX / React / antd）：文本 →
+ *   `File` 的固定文件名 / MIME 与 UTF-8 字节数相等（含中文、emoji 用例，
+ *   非 String.length）、不添加 BOM（自带 U+FEFF 原样计入）、空/纯空白判定；
+ *   载体感知指纹（file 载体与 F034 前等价、只加 carrier 前缀；text 载体
+ *   `text:csv:<digest>:<byteLength>`，改 1 字符含非 ASCII 必换指纹，T116）；
+ * - FormData / 既有端点不变：文本构造的 `File` 经 validate / 写入端点提交时
+ *   `file` part 带固定 filename（缺 filename 会退化为 422 VALIDATION_ERROR）、
+ *   `format=csv`、URL 与方法与文件载体一致（不新增端点 / 字段）；
+ * - 两表单模块的文本载体本地前置拦截：空 / 纯空白不发请求、UTF-8 字节严格
+ *   大于上限才拦截（限额−1 / 限额 / 限额+1）、文本载体 format 非 csv 防御、
+ *   非法载体值防御；不镜像行数上限、不做 CSV 解析 / 表头校验 / 分隔符嗅探；
+ * - 载体切换补丁：切 text 强制 format=csv，切回 file 不回填历史 xlsx。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -487,6 +503,7 @@ import {
 import {
   buildTemplateCsv,
   emptyImportFormValues,
+  importCarrierPatch,
   importFormFieldFromPath,
   importTargetKey,
   parseImportFormValues,
@@ -502,10 +519,21 @@ import {
   resourceInterfaceIpColumnAppliesToLabel,
   resourceInterfaceIpColumnTypeLabel,
   resourceInterfaceIpColumnRequiredLabel,
+  resourceInterfaceIpImportCarrierPatch,
   resourceInterfaceIpImportFormFieldFromPath,
   resourceInterfaceIpImportTargetKey,
   resourceInterfaceIpTemplateHeaderCsvFrom,
 } from "../src/components/resourceInterfaceIpImportForm.ts";
+import {
+  fileImportTargetKey,
+  importTextDigest,
+  isBlankImportText,
+  PASTED_CSV_FILE_NAME,
+  PASTED_CSV_MIME_TYPE,
+  pastedCsvFile,
+  textImportTargetKey,
+  utf8ByteLength,
+} from "../src/components/importCarrier.ts";
 import {
   describeAuditQueryError,
   listAudit,
@@ -6358,28 +6386,36 @@ await test("F014 parseImportFormValues：空输入不发请求（file 未选 →
   assert.ok(empty.errors.file.includes("选择"), "未选文件应本地报错（不发起请求）");
 
   // format 下拉恒合法；防御自由输入的非法值（服务端同样 422 field="format"）
-  const badFormat = parseImportFormValues({ format: "xls", file: importCsvFile() });
+  const badFormat = parseImportFormValues({ carrier: "file", format: "xls", file: importCsvFile() });
   assert.equal(badFormat.ok, false);
   assert.ok(badFormat.errors.format);
 
   // 合法最小输入通过（csv 不限扩展名）
-  const ok = parseImportFormValues({ format: "csv", file: importCsvFile("resources") });
+  const ok = parseImportFormValues({ carrier: "file", format: "csv", file: importCsvFile("resources") });
   assert.equal(ok.ok, true);
 });
 
 await test("F014 parseImportFormValues：xlsx 仅接受 .xlsx（.xls 拒绝、大小写不敏感）", async () => {
-  const xls = parseImportFormValues({ format: "xlsx", file: new File(["x"], "resources.xls") });
+  const xls = parseImportFormValues({
+    carrier: "file",
+    format: "xlsx",
+    file: new File(["x"], "resources.xls"),
+  });
   assert.equal(xls.ok, false);
   assert.ok(xls.errors.file.includes(".xlsx"));
 
-  const upper = parseImportFormValues({ format: "xlsx", file: new File(["x"], "Resources.XLSX") });
+  const upper = parseImportFormValues({
+    carrier: "file",
+    format: "xlsx",
+    file: new File(["x"], "Resources.XLSX"),
+  });
   assert.equal(upper.ok, true);
 });
 
 await test("F014 parseImportFormValues：文件大小超上限本地拦截（§10 签核值 5,242,880 字节）", async () => {
   const big = new File(["x"], "big.csv");
   Object.defineProperty(big, "size", { value: IMPORT_MAX_FILE_BYTES + 1 });
-  const tooBig = parseImportFormValues({ format: "csv", file: big });
+  const tooBig = parseImportFormValues({ carrier: "file", format: "csv", file: big });
   assert.equal(tooBig.ok, false);
   assert.ok(tooBig.errors.file.includes("5242880"));
   assert.ok(tooBig.errors.file.includes("IMPORT_FILE_TOO_LARGE"));
@@ -6387,18 +6423,21 @@ await test("F014 parseImportFormValues：文件大小超上限本地拦截（§1
   // 恰好等于上限：本地通过（服务端拦 > 上限；> 为严格比较）
   const exact = new File(["x"], "exact.csv");
   Object.defineProperty(exact, "size", { value: IMPORT_MAX_FILE_BYTES });
-  assert.equal(parseImportFormValues({ format: "csv", file: exact }).ok, true);
+  assert.equal(
+    parseImportFormValues({ carrier: "file", format: "csv", file: exact }).ok,
+    true,
+  );
 });
 
 await test("F014 importTargetKey：format/文件名/大小/修改时间指纹，变化即失效", async () => {
   const fileA = new File(["a,b\n"], "a.csv");
   const fileB = new File(["a,b\n"], "a.csv", { lastModified: 12345 });
-  const keyA = importTargetKey({ format: "csv", file: fileA });
+  const keyA = importTargetKey({ carrier: "file", format: "csv", file: fileA });
   assert.ok(keyA !== null);
-  assert.equal(keyA, importTargetKey({ format: "csv", file: fileA }));
-  assert.notEqual(keyA, importTargetKey({ format: "xlsx", file: fileA }));
-  assert.notEqual(keyA, importTargetKey({ format: "csv", file: fileB }));
-  assert.equal(importTargetKey({ format: "csv", file: null }), null);
+  assert.equal(keyA, importTargetKey({ carrier: "file", format: "csv", file: fileA }));
+  assert.notEqual(keyA, importTargetKey({ carrier: "file", format: "xlsx", file: fileA }));
+  assert.notEqual(keyA, importTargetKey({ carrier: "file", format: "csv", file: fileB }));
+  assert.equal(importTargetKey({ carrier: "file", format: "csv", file: null }), null);
 });
 
 await test("F014 importFormFieldFromPath：422 点路径 → 表单键（format 直通；未知 → null）", async () => {
@@ -8237,6 +8276,7 @@ await test("F023 parseResourceInterfaceIpImportFormValues：空输入不发请�
 
   // format 下拉恒合法；防御自由输入的非法值（服务端同样 422 field="format"）
   const badFormat = parseResourceInterfaceIpImportFormValues({
+    carrier: "file",
     format: "xls",
     file: tripleImportCsvFile(),
   });
@@ -8245,12 +8285,14 @@ await test("F023 parseResourceInterfaceIpImportFormValues：空输入不发请�
 
   // format=xlsx 仅接受 .xlsx（.xls 拒绝、大小写不敏感）
   const xls = parseResourceInterfaceIpImportFormValues({
+    carrier: "file",
     format: "xlsx",
     file: new File(["x"], "triple.xls"),
   });
   assert.equal(xls.ok, false);
   assert.ok(xls.errors.file.includes(".xlsx"));
   const upper = parseResourceInterfaceIpImportFormValues({
+    carrier: "file",
     format: "xlsx",
     file: new File(["x"], "triple.XLSX"),
   });
@@ -8259,16 +8301,24 @@ await test("F023 parseResourceInterfaceIpImportFormValues：空输入不发请�
   // 文件大小超上限本地拦截（§14 复用 F014 签核值 5,242,880 字节；恰好等于上限通过）
   const big = new File(["x"], "big.csv");
   Object.defineProperty(big, "size", { value: IMPORT_MAX_FILE_BYTES + 1 });
-  const tooBig = parseResourceInterfaceIpImportFormValues({ format: "csv", file: big });
+  const tooBig = parseResourceInterfaceIpImportFormValues({
+    carrier: "file",
+    format: "csv",
+    file: big,
+  });
   assert.equal(tooBig.ok, false);
   assert.ok(tooBig.errors.file.includes("5242880"));
   assert.ok(tooBig.errors.file.includes("IMPORT_FILE_TOO_LARGE"));
   const exact = new File(["x"], "exact.csv");
   Object.defineProperty(exact, "size", { value: IMPORT_MAX_FILE_BYTES });
-  assert.equal(parseResourceInterfaceIpImportFormValues({ format: "csv", file: exact }).ok, true);
+  assert.equal(
+    parseResourceInterfaceIpImportFormValues({ carrier: "file", format: "csv", file: exact }).ok,
+    true,
+  );
 
   // 合法最小输入通过（csv 不限扩展名）
   const ok = parseResourceInterfaceIpImportFormValues({
+    carrier: "file",
     format: "csv",
     file: tripleImportCsvFile("triple"),
   });
@@ -8278,16 +8328,20 @@ await test("F023 parseResourceInterfaceIpImportFormValues：空输入不发请�
 await test("F023 resourceInterfaceIpImportTargetKey：file+format 指纹（文件名 / 大小 / 修改时间 + 格式），变化即失效", async () => {
   const fileA = new File(["a,b\n"], "a.csv");
   const fileB = new File(["a,b\n"], "a.csv", { lastModified: 12345 });
-  const keyA = resourceInterfaceIpImportTargetKey({ format: "csv", file: fileA });
+  const keyA = resourceInterfaceIpImportTargetKey({ carrier: "file", format: "csv", file: fileA });
   assert.ok(keyA !== null);
-  assert.equal(keyA, resourceInterfaceIpImportTargetKey({ format: "csv", file: fileA }));
-  assert.notEqual(keyA, resourceInterfaceIpImportTargetKey({ format: "xlsx", file: fileA }));
-  assert.notEqual(keyA, resourceInterfaceIpImportTargetKey({ format: "csv", file: fileB }));
+  assert.equal(keyA, resourceInterfaceIpImportTargetKey({ carrier: "file", format: "csv", file: fileA }));
+  assert.notEqual(keyA, resourceInterfaceIpImportTargetKey({ carrier: "file", format: "xlsx", file: fileA }));
+  assert.notEqual(keyA, resourceInterfaceIpImportTargetKey({ carrier: "file", format: "csv", file: fileB }));
   assert.notEqual(
     keyA,
-    resourceInterfaceIpImportTargetKey({ format: "csv", file: new File(["a,b\n"], "b.csv") }),
+    resourceInterfaceIpImportTargetKey({
+      carrier: "file",
+      format: "csv",
+      file: new File(["a,b\n"], "b.csv"),
+    }),
   );
-  assert.equal(resourceInterfaceIpImportTargetKey({ format: "csv", file: null }), null);
+  assert.equal(resourceInterfaceIpImportTargetKey({ carrier: "file", format: "csv", file: null }), null);
 });
 
 await test("F023 canConfirmResourceInterfaceIpImport：确认门控（预校验 0 错误 + 指纹一致 + 未成功导入才可用）", async () => {
@@ -8599,6 +8653,381 @@ await test("F030 canSubmitGrant：success + 已选 + 非 busy 才可提交；bus
   // 候选非 success（加载中/失败）恒不可提交
   assert.equal(canSubmitGrant(active, { kind: "loading" }, "c1", false), false);
   assert.equal(canSubmitGrant(active, { kind: "error", message: "x" }, "c1", false), false);
+});
+
+// ---------- F034 导入 CSV 文本载体（Contract：docs/api/F014.md / docs/api/F023.md
+// §「CSV 文本载体（加法引用）」增补节 v1；architecture §3.2/§3.3/§3.4） ----------
+
+await test("F034 pastedCsvFile / utf8ByteLength / isBlankImportText：固定名与 MIME、UTF-8 字节（非 String.length）、不加 BOM", async () => {
+  const text = "cluster,hostname,resource_type\nN96P,中文主机名,BARE_METAL\n";
+  const file = pastedCsvFile(text);
+  // DR-F034-03：固定常量文件名与 MIME，不掺时间戳 / 用户输入 / 摘要
+  assert.equal(file.name, PASTED_CSV_FILE_NAME);
+  assert.equal(PASTED_CSV_FILE_NAME, "csm-pasted-import.csv");
+  assert.equal(file.type, PASTED_CSV_MIME_TYPE);
+  assert.equal(PASTED_CSV_MIME_TYPE, "text/csv;charset=utf-8");
+  // DR-F034-04：字节计量按 UTF-8，File.size 与 utf8ByteLength 一致
+  assert.equal(utf8ByteLength("abc"), 3);
+  assert.equal(file.size, utf8ByteLength(text));
+  assert.notEqual(utf8ByteLength(text), text.length); // 含中文：字节 ≠ code unit
+  assert.equal(utf8ByteLength("中文"), 6);
+  assert.equal("中文".length, 2);
+  assert.equal(utf8ByteLength("🚀"), 4); // emoji 4 字节 vs length 2
+  assert.equal(utf8ByteLength(""), 0);
+  // 不加 BOM：文本自带 U+FEFF 时原样计入（服务端 utf-8-sig 解码，§24.5）
+  assert.equal(utf8ByteLength("\uFEFFa"), 4);
+  assert.equal(pastedCsvFile("\uFEFFa").size, 4);
+  assert.notEqual(importTextDigest("\uFEFFa").digest, importTextDigest("a").digest);
+  // 不做本地归一化：payload 原样进入字节序列（不 trim / 不改行尾 / 不补尾换行）
+  assert.equal(pastedCsvFile(" a,b\r\n").size, utf8ByteLength(" a,b\r\n"));
+  assert.equal(pastedCsvFile("a,b\n").size, 4);
+  assert.notEqual(pastedCsvFile("a,b\n").size, pastedCsvFile("a,b").size);
+  // 空 / 纯空白判定（判定用 trim，payload 不 trim；DR-F034-05）
+  assert.equal(isBlankImportText(""), true);
+  assert.equal(isBlankImportText("   \n\t\r\n"), true);
+  assert.equal(isBlankImportText(" a"), false);
+  // 注意：ECMAScript 空白集合包含 U+FEFF（ZWNBSP），故「仅 BOM」被判为纯空白而本地拦截
+  // （architecture §3.3「空/纯空白判定用 trim()」的直接结果；payload 本身不做任何改写）。
+  assert.equal(isBlankImportText("\uFEFF"), true);
+  assert.equal(isBlankImportText("\uFEFFcluster,hostname"), false); // BOM + 内容照常提交
+});
+
+await test("F034 文本载体 multipart：file part 带固定 filename、format=csv；缺 filename 会退化为 422（DR-F034-03）", async () => {
+  const text = "cluster,hostname,resource_type\nN96P,cn001,BARE_METAL\n";
+  const parsed = parseImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text,
+  });
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.file.name, PASTED_CSV_FILE_NAME);
+  assert.equal(parsed.file.size, utf8ByteLength(text));
+
+  respond = () =>
+    jsonResponse(200, {
+      format: "csv",
+      total_rows: 1,
+      importable_rows: 1,
+      error_count: 0,
+      errors: [],
+      errors_truncated: false,
+    });
+  const data = await validateResourceImport(parsed.file, "csv");
+  assert.equal(data.error_count, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resources/validate");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  const body = calls[0].init.body;
+  assert.ok(body instanceof FormData, "body 应为 FormData（multipart，wire 形状不变）");
+  assert.ok(!("Content-Type" in (calls[0].init.headers ?? {})), "不得手动设置 Content-Type");
+  assert.equal(body.get("format"), "csv");
+  const part = body.get("file");
+  // 必须仍是 File（append 时带 filename）；退化为字符串即服务端 422 VALIDATION_ERROR
+  assert.ok(part instanceof File, "file part 必须是 File（带 filename）");
+  assert.equal(part.name, PASTED_CSV_FILE_NAME);
+  assert.equal(part.size, utf8ByteLength(text));
+  // multipart 序列化确实携带固定 filename
+  const wire = await new Response(body).text();
+  assert.ok(
+    wire.includes(`filename="${PASTED_CSV_FILE_NAME}"`),
+    "multipart 序列化应包含固定 filename",
+  );
+  assert.ok(wire.includes("N96P,cn001,BARE_METAL"), "文本字节原样提交，不改写内容");
+});
+
+await test("F034 指纹：file 载体与改动前等价（仅加 carrier 前缀）；carrier / format / 文件变化即失效", async () => {
+  const file = new File(["a,b\n"], "a.csv", { lastModified: 1700000000000 });
+  // 回归：文件载体指纹语义与 F034 前 `${format}:${name}:${size}:${lastModified}` 等价
+  assert.equal(
+    fileImportTargetKey("csv", file),
+    `file:${"csv"}:${file.name}:${file.size}:${file.lastModified}`,
+  );
+  assert.equal(fileImportTargetKey("csv", file).includes("a.csv"), true);
+  assert.equal(fileImportTargetKey("xlsx", file).startsWith("file:xlsx:"), true);
+  assert.notEqual(fileImportTargetKey("csv", file), fileImportTargetKey("xlsx", file));
+  const other = new File(["a,b\n"], "a.csv", { lastModified: 1700000000001 });
+  assert.notEqual(fileImportTargetKey("csv", file), fileImportTargetKey("csv", other));
+
+  // importTargetKey 载体感知：同一输入下 file / text 指纹互不串用
+  const fileKey = importTargetKey({ carrier: "file", format: "csv", file, text: "" });
+  const textKey = importTargetKey({
+    carrier: "text",
+    format: "csv",
+    file,
+    text: "a,b\n",
+  });
+  assert.equal(fileKey, fileImportTargetKey("csv", file));
+  assert.equal(textKey, textImportTargetKey("a,b\n"));
+  assert.notEqual(fileKey, textKey);
+  assert.equal(importTargetKey({ carrier: "file", format: "csv", file: null, text: "" }), null);
+  // 同一文本 → 同一指纹（可重复预校验、无副作用）
+  assert.equal(
+    importTargetKey({ carrier: "text", format: "csv", file: null, text: "a,b\n" }),
+    textImportTargetKey("a,b\n"),
+  );
+});
+
+await test("F034 文本指纹：改 1 字符（含非 ASCII）必换指纹；摘要格式与字节长度随内容变化（T116 / R-1 / R-2）", async () => {
+  const base = "cluster,hostname\nN96P,cn001\n";
+  const digest = importTextDigest(base);
+  assert.match(digest.digest, /^[0-9a-z]+-[0-9a-z]+$/);
+  assert.equal(digest.byteLength, utf8ByteLength(base));
+  assert.equal(textImportTargetKey(base), `text:csv:${digest.digest}:${digest.byteLength}`);
+  assert.equal(textImportTargetKey(base), textImportTargetKey(base));
+  // 改 1 个 ASCII 字符
+  assert.notEqual(textImportTargetKey(base), textImportTargetKey("cluster,hostname\nN96P,cn002\n"));
+  // 改 1 个非 ASCII 字符（中文）——字节长度可以不变也必须换指纹
+  const zhA = "cluster,hostname\nN96P,主机甲\n";
+  const zhB = "cluster,hostname\nN96P,主机乙\n";
+  assert.equal(utf8ByteLength(zhA), utf8ByteLength(zhB));
+  assert.notEqual(textImportTargetKey(zhA), textImportTargetKey(zhB));
+  // 行尾变化（CRLF → LF）也换指纹：等价性按实际发送字节判定（ON-1）
+  assert.notEqual(textImportTargetKey("a,b\r\n"), textImportTargetKey("a,b\n"));
+  // 大小写不同的宿主名不共享指纹（不做大小写折叠）
+  assert.notEqual(textImportTargetKey("A,B\n"), textImportTargetKey("a,B\n"));
+});
+
+await test("F034 importCarrierPatch / resourceInterfaceIpImportCarrierPatch：切 text 强制 csv，切回 file 不回填 xlsx（DR-F034-07）", async () => {
+  const fileValues = { carrier: "file", format: "xlsx", file: new File(["x"], "a.xlsx"), text: "" };
+  const toText = importCarrierPatch(fileValues, "text");
+  assert.deepEqual(toText, { carrier: "text", format: "csv" });
+  // 切回 file：保留当前 format（csv），不回填历史 xlsx
+  const textValues = { ...fileValues, ...toText };
+  assert.equal(textValues.format, "csv");
+  assert.deepEqual(importCarrierPatch(textValues, "file"), { carrier: "file", format: "csv" });
+  // 文件载体切 file → file 不改 format
+  assert.deepEqual(importCarrierPatch(fileValues, "file"), { carrier: "file", format: "xlsx" });
+
+  const tripleFileValues = {
+    carrier: "file",
+    format: "xlsx",
+    file: new File(["x"], "a.xlsx"),
+    text: "",
+  };
+  assert.deepEqual(resourceInterfaceIpImportCarrierPatch(tripleFileValues, "text"), {
+    carrier: "text",
+    format: "csv",
+  });
+  assert.deepEqual(
+    resourceInterfaceIpImportCarrierPatch({ ...tripleFileValues, carrier: "text", format: "csv" }, "file"),
+    { carrier: "file", format: "csv" },
+  );
+});
+
+await test("F034 parseImportFormValues 文本载体：空 / 纯空白不发请求、上限−1/＝/+1 严格大于口径、format 与载体防御（T110/T111）", async () => {
+  const maxBytes = IMPORT_MAX_FILE_BYTES;
+  // 空 / 纯空白 → 本地错误落 errors.text（不发请求）；不误报到 errors.file
+  const blank = parseImportFormValues({ carrier: "text", format: "csv", file: null, text: "  \n\t\r\n " });
+  assert.equal(blank.ok, false);
+  assert.ok(blank.errors.text.includes("空白"));
+  assert.equal(blank.errors.file, undefined);
+  const emptyText = parseImportFormValues({ carrier: "text", format: "csv", file: null, text: "" });
+  assert.equal(emptyText.ok, false);
+  assert.ok(emptyText.errors.text.includes("空白"));
+
+  // 上限：严格大于才拦截（服务端 413 IMPORT_FILE_TOO_LARGE 同口径）
+  const under = parseImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "a".repeat(maxBytes - 1),
+  });
+  assert.equal(under.ok, true);
+  assert.equal(under.file.size, maxBytes - 1);
+  const exact = parseImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "a".repeat(maxBytes),
+  });
+  assert.equal(exact.ok, true, "恰好等于上限应放行（仅严格大于才拦截）");
+  assert.equal(exact.file.size, maxBytes);
+  const over = parseImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "a".repeat(maxBytes + 1),
+  });
+  assert.equal(over.ok, false);
+  assert.ok(over.errors.text.includes(String(maxBytes)));
+  assert.ok(over.errors.text.includes("IMPORT_FILE_TOO_LARGE"));
+
+  // 非 ASCII 计量：字符数远小于字节数（含中文不误放行）
+  const chinese = "主机名,集群\n".repeat(1000);
+  const chineseParsed = parseImportFormValues({ carrier: "text", format: "csv", file: null, text: chinese });
+  assert.equal(chineseParsed.ok, true);
+  assert.equal(chineseParsed.file.size, utf8ByteLength(chinese));
+  assert.ok(utf8ByteLength(chinese) > chinese.length);
+
+  // 文本载体下 format 非 csv（防御；UI 只读恒 csv）
+  const xlsxText = parseImportFormValues({ carrier: "text", format: "xlsx", file: null, text: "a,b\n" });
+  assert.equal(xlsxText.ok, false);
+  assert.ok(xlsxText.errors.format.includes("csv"));
+
+  // 非法载体值（防御；UI 下拉恒合法）
+  const badCarrier = parseImportFormValues({ carrier: "clipboard", format: "csv", file: null, text: "a,b\n" });
+  assert.equal(badCarrier.ok, false);
+  assert.ok(badCarrier.errors.carrier);
+
+  // 文件载体既有三条校验不受影响（回归）
+  const fileCarrierEmpty = parseImportFormValues(emptyImportFormValues());
+  assert.equal(fileCarrierEmpty.ok, false);
+  assert.ok(fileCarrierEmpty.errors.file.includes("选择"));
+});
+
+await test("F034 parseResourceInterfaceIpImportFormValues 文本载体：同一拦截口径（空/纯空白、上限、format 防御）", async () => {
+  const maxBytes = IMPORT_MAX_FILE_BYTES;
+  const blank = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "\n\n  \n",
+  });
+  assert.equal(blank.ok, false);
+  assert.ok(blank.errors.text.includes("空白"));
+
+  const ok26 = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.join(",") + "\n",
+  });
+  assert.equal(ok26.ok, true, "仅表头行不作为本地拦截条件（empty_file 由服务端权威判定）");
+  assert.equal(ok26.file.name, PASTED_CSV_FILE_NAME);
+  assert.equal(ok26.file.size, utf8ByteLength(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.join(",") + "\n"));
+
+  const exact = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "a".repeat(maxBytes),
+  });
+  assert.equal(exact.ok, true);
+  const over = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "a".repeat(maxBytes + 1),
+  });
+  assert.equal(over.ok, false);
+  assert.ok(over.errors.text.includes(String(maxBytes)));
+
+  const xlsxText = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "xlsx",
+    file: null,
+    text: "a,b\n",
+  });
+  assert.equal(xlsxText.ok, false);
+  assert.ok(xlsxText.errors.format.includes("csv"));
+
+  const badCarrier = parseResourceInterfaceIpImportFormValues({
+    carrier: "text2",
+    format: "csv",
+    file: null,
+    text: "a,b\n",
+  });
+  assert.equal(badCarrier.ok, false);
+  assert.ok(badCarrier.errors.carrier);
+
+  // 文件载体既有校验回归（未选文件 / .xlsx 扩展名）
+  assert.ok(emptyResourceInterfaceIpImportFormValues().carrier === "file");
+  assert.ok(emptyResourceInterfaceIpImportFormValues().text === "");
+});
+
+await test("F034 两入口文本载体提交：F023 validate 的 URL / method / format / 固定文件名与文件载体一致（等价性前提）", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      format: "csv",
+      total_rows: 2,
+      importable_rows: 2,
+      error_count: 0,
+      errors: [],
+      errors_truncated: false,
+    });
+  const text = RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.join(",") + "\nN96P,cn001,BARE_METAL\n";
+  const parsed = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text,
+  });
+  assert.equal(parsed.ok, true);
+  const data = await validateResourceInterfaceIpImport(parsed.file, "csv");
+  assert.equal(data.format, "csv");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resource-interfaces-ips/validate");
+  assert.equal(calls[0].init.method, "POST");
+  const body = calls[0].init.body;
+  assert.ok(body instanceof FormData);
+  assert.equal(body.get("format"), "csv");
+  assert.ok(body.get("file") instanceof File);
+  assert.equal(body.get("file").name, PASTED_CSV_FILE_NAME);
+  assert.equal(body.get("file").size, utf8ByteLength(text));
+
+  // 写入端点同样复用（同一 multipart 形状，不新增端点）
+  respond = () =>
+    jsonResponse(201, {
+      created: 1,
+      total_rows: 2,
+      interfaces_created: 1,
+      ip_addresses_created: 2,
+    });
+  const created = await importResourceInterfacesIps(parsed.file, "csv");
+  assert.equal(created.total_rows, 2);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].url, "/api/v1/imports/resource-interfaces-ips");
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[1].init.body.get("format"), "csv");
+  assert.equal(calls[1].init.body.get("file").name, PASTED_CSV_FILE_NAME);
+});
+
+await test("F034 陈旧结果防护（T116）：文本改 1 字符 / 切换载体后 validatedKey !== currentKey，确认导入不可用", async () => {
+  const text = "cluster,hostname\nN96P,cn001\n";
+  const validatedValues = { carrier: "text", format: "csv", file: null, text };
+  const validatedKey = importTargetKey(validatedValues);
+  // 同一内容 → 指纹不变，门控仍可用
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey,
+      currentKey: importTargetKey(validatedValues),
+      importSucceeded: false,
+    }),
+    true,
+  );
+  // 改 1 个非 ASCII 字符 → 指纹失效，不可确认
+  const editedKey = importTargetKey({
+    ...validatedValues,
+    text: "cluster,hostname\nN96P,主机甲\n",
+  });
+  assert.notEqual(editedKey, validatedKey);
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey,
+      currentKey: editedKey,
+      importSucceeded: false,
+    }),
+    false,
+  );
+  // 切换载体（text → file，且未选文件）→ 指纹失效，不可确认
+  const switchedKey = importTargetKey({ carrier: "file", format: "csv", file: null, text });
+  assert.notEqual(switchedKey, validatedKey);
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey,
+      currentKey: switchedKey,
+      importSucceeded: false,
+    }),
+    false,
+  );
+  // 切换载体（text → file，同一字节的 .csv 文件）→ 指纹也不同（载体前缀区分）
+  const fileWithSameBytes = new File([text], "same.csv");
+  assert.notEqual(fileImportTargetKey("csv", fileWithSameBytes), validatedKey);
 });
 
 // 还原全局状态
