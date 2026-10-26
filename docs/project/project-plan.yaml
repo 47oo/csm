@@ -2417,7 +2417,7 @@ features:
     review: PENDING
   evidence:
     product:
-    - docs/features/F036/product.md#2-逐条映射chg-014-1-第-111-项第-11-项拆为-5-条
+    - docs/features/F036/product.md#2-逐条映射
     architecture: null
     database: null
     test_design: null
