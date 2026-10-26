@@ -46,11 +46,9 @@ project:
     - F035
     approved_by: 用户
     approved_on: '2026-10-26'
-    basis: 用户 2026-10-26 提出「同一个机器有多个 IP 的情况，这种情况也允许录入」并给出同 hostname 三行 CSV；审阅 CHG-013
-      提案与候选计划 revision 21 后回复「按推荐执行」：批准需求 revision 14（新增 §24.6 与 T117–T126、修订 §24/§24.1/§24.5/§31
-      T67/T71/§32）与 plan revision 21（新增 F035），并确认推荐组合 CHG013-BQ01=B（允许向既有 Resource
-      追加 Interface/IP 且不改既有字段）、BQ02=B（Resource 级列须与现存规范化值一致，留空不比较）、BQ03=A（既有子对象仍报错）、BQ04=A（仅「资源+网卡+IP」入口）、BQ05=A（不支持向既有
-      Interface 追加 IP）、BQ06=C1（created 仍为新建 Resource 数）、BQ07=A（留空=省略）、BQ08=A（只提交新增行为唯一补录路径）。同一指令「执行」记录为实施授权。
+    basis: 用户 2026-10-26 提出「同一个机器有多个 IP 的情况，这种情况也允许录入」并给出同 hostname 三行 CSV；审阅 CHG-013 提案与候选计划 revision 21 后回复「按推荐执行」：批准需求 revision 14（新增 §24.6 与 T117–T126、修订 §24/§24.1/§24.5/§31 T67/T71/§32）与 plan revision
+      21（新增 F035），并确认推荐组合 CHG013-BQ01=B（允许向既有 Resource 追加 Interface/IP 且不改既有字段）、BQ02=B（Resource 级列须与现存规范化值一致，留空不比较）、BQ03=A（既有子对象仍报错）、BQ04=A（仅「资源+网卡+IP」入口）、BQ05=A（不支持向既有 Interface 追加 IP）、BQ06=C1（created
+      仍为新建 Resource 数）、BQ07=A（留空=省略）、BQ08=A（只提交新增行为唯一补录路径）。同一指令「执行」记录为实施授权。
   acceptance:
     status: PENDING
     evidence:
@@ -102,15 +100,11 @@ features:
   kind: ENABLER
   priority: P0
   milestone: M1 基础与访问控制
-  scope: 建立前后端工程骨架与部署基线：FastAPI / Pydantic 后端与 React / TypeScript / Vite 前端脚手架、Nginx
-    入口代理、docker compose up -d 启动 Nginx→Frontend/FastAPI→PostgreSQL；SQLAlchemy 2.x
-    + Alembic 迁移基线与首个基准迁移；扩展启用策略（pg_trgm、btree_gist 等）在基线迁移明确并经本 Feature DATABASE
-    Gate 签核；真实 PostgreSQL 集成测试基线（pytest fixture 可建 schema、执行 Alembic、事务级清理；SQLite
-    仅用于纯逻辑冒烟，不作约束证据）；备份机制骨架（pg_dump 流程、恢复文档与冒烟验证，不宣称已覆盖 Audit 数据）；配置与凭据注入机制（真实初始凭据不入仓）；为
-    T07/T35 并发验证准备多连接并发与最终持久化状态断言前提。
-  acceptance: docker compose up -d 可启动完整链路并访问健康检查；Alembic 基线可在真实 PostgreSQL 建库并回滚；pytest
-    集成基线可运行并清理；扩展启用策略在迁移中明确；备份骨架可执行 pg_dump 并按文档恢复；D02 基础部分（软件版本、目录结构、迁移基线、扩展、测试基线）在本
-    Feature 由 Architect / Database 签核。
+  scope: 建立前后端工程骨架与部署基线：FastAPI / Pydantic 后端与 React / TypeScript / Vite 前端脚手架、Nginx 入口代理、docker compose up -d 启动 Nginx→Frontend/FastAPI→PostgreSQL；SQLAlchemy 2.x + Alembic 迁移基线与首个基准迁移；扩展启用策略（pg_trgm、btree_gist
+    等）在基线迁移明确并经本 Feature DATABASE Gate 签核；真实 PostgreSQL 集成测试基线（pytest fixture 可建 schema、执行 Alembic、事务级清理；SQLite 仅用于纯逻辑冒烟，不作约束证据）；备份机制骨架（pg_dump 流程、恢复文档与冒烟验证，不宣称已覆盖 Audit 数据）；配置与凭据注入机制（真实初始凭据不入仓）；为 T07/T35
+    并发验证准备多连接并发与最终持久化状态断言前提。
+  acceptance: docker compose up -d 可启动完整链路并访问健康检查；Alembic 基线可在真实 PostgreSQL 建库并回滚；pytest 集成基线可运行并清理；扩展启用策略在迁移中明确；备份骨架可执行 pg_dump 并按文档恢复；D02 基础部分（软件版本、目录结构、迁移基线、扩展、测试基线）在本 Feature 由 Architect / Database
+    签核。
   requirements:
   - docs/product/requirements-v3.md#26-数据库
   - docs/product/requirements-v3.md#27-数据完整性
@@ -138,8 +132,7 @@ features:
     test: COMPLETE
     review: COMPLETE
   not_required:
-    contract: F001 无业务 API（api_required=false）；健康检查为运维端点已在 docs/features/F001/architecture.md
-      §1.4 定义；最终设计签核见同文件「最终设计定稿」章节（Architect 2026-10-06，核对 f001-baseline.md v1 与 TD-2）
+    contract: F001 无业务 API（api_required=false）；健康检查为运维端点已在 docs/features/F001/architecture.md §1.4 定义；最终设计签核见同文件「最终设计定稿」章节（Architect 2026-10-06，核对 f001-baseline.md v1 与 TD-2）
   evidence:
     product:
     - docs/features/F001/product.md
@@ -168,11 +161,9 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M1 基础与访问控制
-  scope: 请求级横切：本地账号登录、部署时初始化首个 ADMIN 实体与创建流程、服务端权限矩阵、当前操作者上下文注入、401/403 语义、敏感字段不落日志策略骨架、编辑版本冲突
-    409 语义定义；认证、初始账号、版本冲突与错误语义、敏感字段、连接池、乐观锁版本列等 D02 认证部分在本 Feature CONTRACT 签核；权限矩阵端到端在
-    F003 起完整回归（T25/T26 分阶段闭合）。遵循公共 API 约定。
-  acceptance: 本地登录与初始 ADMIN 创建可用；服务端按权限矩阵执行鉴权并返回 401/403；过期版本编辑返回 409 且无静默覆盖；不记录或展示密码/令牌等敏感内容；T25/T26
-    的认证与权限部分在 F003 交付后完整回归通过。
+  scope: 请求级横切：本地账号登录、部署时初始化首个 ADMIN 实体与创建流程、服务端权限矩阵、当前操作者上下文注入、401/403 语义、敏感字段不落日志策略骨架、编辑版本冲突 409 语义定义；认证、初始账号、版本冲突与错误语义、敏感字段、连接池、乐观锁版本列等 D02 认证部分在本 Feature CONTRACT 签核；权限矩阵端到端在 F003 起完整回归（T25/T26 分阶段闭合）。遵循公共
+    API 约定。
+  acceptance: 本地登录与初始 ADMIN 创建可用；服务端按权限矩阵执行鉴权并返回 401/403；过期版本编辑返回 409 且无静默覆盖；不记录或展示密码/令牌等敏感内容；T25/T26 的认证与权限部分在 F003 交付后完整回归通过。
   requirements:
   - docs/product/requirements-v3.md#23-用户与权限
   - docs/product/requirements-v3.md#22-audit-log
@@ -230,15 +221,11 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M2 集群与裸金属闭环
-  scope: Cluster 实体（name、code、status、description、metadata 及审计字段）；code 全局唯一、大小写不敏感、创建后不可改、软删除后不重用（全量唯一索引）；name
-    可改、允许中文、不强制唯一；status ACTIVE/INACTIVE 人工维护、不级联其他对象状态、不释放 IP；INACTIVE 仍按既有权限维护，默认查询含停用且支持状态过滤。持久化横切随首个业务对象落地：deleted_at
-    软删列与默认过滤、ADMIN 查看已删除对象与恢复（首个对象）、Audit 表与写路径（operator/action/object_type/object_id/before_data/after_data/created_at，与业务写入同事务）、端到端乐观锁（过期版本拒绝、无静默覆盖）、名称归一化、稳定
-    ID；D01 共享约定基座（名称归一化与字符长度、稳定 ID、必填、时间存储/接口/展示时区、MiB/GiB 单位与数值上限、nullable、省略语义）在本
-    Feature CONTRACT 签核；D02 审计一致性部分签核。Cluster 列表（组合过滤/排序/分页，向统一契约收敛）、Cluster Detail（§19）与
-    Cluster 维度基础搜索入口；本域字段契约补齐 D01，归一化键列与唯一约束首次建表落地。
-  acceptance: code 规则与 T13 通过；停用集群维护、默认查询含停用与状态过滤通过（T29）；软删默认隐藏且 ADMIN 可恢复、恢复重检冲突（T24
-    首个对象）；关键修改写入 Audit 且与业务同事务（T26 部分）；过期版本编辑被 409 拒绝（T26）；名称归一化与稳定 ID 固化为共享契约（T40
-    部分）；D01 基座与 D02 审计一致性在本 Feature CONTRACT 签核。
+  scope: Cluster 实体（name、code、status、description、metadata 及审计字段）；code 全局唯一、大小写不敏感、创建后不可改、软删除后不重用（全量唯一索引）；name 可改、允许中文、不强制唯一；status ACTIVE/INACTIVE 人工维护、不级联其他对象状态、不释放 IP；INACTIVE 仍按既有权限维护，默认查询含停用且支持状态过滤。持久化横切随首个业务对象落地：deleted_at
+    软删列与默认过滤、ADMIN 查看已删除对象与恢复（首个对象）、Audit 表与写路径（operator/action/object_type/object_id/before_data/after_data/created_at，与业务写入同事务）、端到端乐观锁（过期版本拒绝、无静默覆盖）、名称归一化、稳定 ID；D01 共享约定基座（名称归一化与字符长度、稳定 ID、必填、时间存储/接口/展示时区、MiB/GiB
+    单位与数值上限、nullable、省略语义）在本 Feature CONTRACT 签核；D02 审计一致性部分签核。Cluster 列表（组合过滤/排序/分页，向统一契约收敛）、Cluster Detail（§19）与 Cluster 维度基础搜索入口；本域字段契约补齐 D01，归一化键列与唯一约束首次建表落地。
+  acceptance: code 规则与 T13 通过；停用集群维护、默认查询含停用与状态过滤通过（T29）；软删默认隐藏且 ADMIN 可恢复、恢复重检冲突（T24 首个对象）；关键修改写入 Audit 且与业务同事务（T26 部分）；过期版本编辑被 409 拒绝（T26）；名称归一化与稳定 ID 固化为共享契约（T40 部分）；D01 基座与 D02 审计一致性在本 Feature CONTRACT
+    签核。
   requirements:
   - docs/product/requirements-v3.md#5-cluster
   - docs/product/requirements-v3.md#41-创建必填项与名称规范
@@ -300,15 +287,10 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M2 集群与裸金属闭环
-  scope: 统一 Resource 模型（cluster、hostname、resource_type、role、status、description、metadata
-    及审计字段）；resource_type 仅 BARE_METAL/VIRTUAL_MACHINE（后续类型扩展本期不实现）；Role 枚举默认 OTHER、显式
-    null 拒绝、可扩展；Status 默认 UNKNOWN、人工维护；同 Cluster hostname 去空白转小写归一化唯一、软删后可重用、跨 Cluster
-    允许同名；普通 API、导入、搜索与数据库唯一性共用同一归一化规则；创建后不可直接改所属 Cluster 或 resource_type；Resource
-    列表（组合过滤 cluster/type/role/status，§25 示例）、Resource Detail Overview 区域（§18）与 hostname
-    基础搜索接入全局搜索入口；软删/恢复/审计接入横切基座；本域字段契约补齐 D01，hostname 归一化键列与 (cluster, hostname) 部分唯一约束首次建表落地。
-  acceptance: 同 Cluster 重复 hostname 创建失败、跨 Cluster 同名允许、软删后可重建（T01、T02、T03）；大小写与首尾空白归一化一致（T11）；默认值生效与
-    Role 显式 null 拒绝（T37）；不能直接改 Cluster 或类型（T19 相关）；列表组合过滤符合 §25；DATABASE Gate 由 Database
-    签核。
+  scope: 统一 Resource 模型（cluster、hostname、resource_type、role、status、description、metadata 及审计字段）；resource_type 仅 BARE_METAL/VIRTUAL_MACHINE（后续类型扩展本期不实现）；Role 枚举默认 OTHER、显式 null 拒绝、可扩展；Status 默认 UNKNOWN、人工维护；同
+    Cluster hostname 去空白转小写归一化唯一、软删后可重用、跨 Cluster 允许同名；普通 API、导入、搜索与数据库唯一性共用同一归一化规则；创建后不可直接改所属 Cluster 或 resource_type；Resource 列表（组合过滤 cluster/type/role/status，§25 示例）、Resource Detail Overview 区域（§18）与
+    hostname 基础搜索接入全局搜索入口；软删/恢复/审计接入横切基座；本域字段契约补齐 D01，hostname 归一化键列与 (cluster, hostname) 部分唯一约束首次建表落地。
+  acceptance: 同 Cluster 重复 hostname 创建失败、跨 Cluster 同名允许、软删后可重建（T01、T02、T03）；大小写与首尾空白归一化一致（T11）；默认值生效与 Role 显式 null 拒绝（T37）；不能直接改 Cluster 或类型（T19 相关）；列表组合过滤符合 §25；DATABASE Gate 由 Database 签核。
   requirements:
   - docs/product/requirements-v3.md#6-resource
   - docs/product/requirements-v3.md#7-hostname-唯一性
@@ -367,12 +349,9 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M2 集群与裸金属闭环
-  scope: BareMetalDetail 硬件字段（manufacturer、model、serial_number、cpu_model、cpu_sockets、cpu_cores、memory_mb、gpu_model、gpu_count）；硬件参数可空、未知值保存
-    null 不以 0 表示；cpu_sockets/cpu_cores 正整数、gpu_count 非负整数（0 表示明确无 GPU）、memory_mb 单位
-    MiB；SN 一期无全局唯一约束；经常查询/排序/统计的数据结构化，厂商特有或低频数据用 JSONB；明细跟随 Resource 生命周期、无独立删除入口；Resource
-    Detail Hardware 区域展示（§18）；本域字段契约补齐 D01。
-  acceptance: 未知为 null 与单位语义通过（T38）；cpu_cores 为整机物理核心总数、不含超线程（T39）；Hardware 区域展示符合
-    §18；DATABASE Gate 由 Database 签核。
+  scope: BareMetalDetail 硬件字段（manufacturer、model、serial_number、cpu_model、cpu_sockets、cpu_cores、memory_mb、gpu_model、gpu_count）；硬件参数可空、未知值保存 null 不以 0 表示；cpu_sockets/cpu_cores 正整数、gpu_count 非负整数（0 表示明确无 GPU）、memory_mb
+    单位 MiB；SN 一期无全局唯一约束；经常查询/排序/统计的数据结构化，厂商特有或低频数据用 JSONB；明细跟随 Resource 生命周期、无独立删除入口；Resource Detail Hardware 区域展示（§18）；本域字段契约补齐 D01。
+  acceptance: 未知为 null 与单位语义通过（T38）；cpu_cores 为整机物理核心总数、不含超线程（T39）；Hardware 区域展示符合 §18；DATABASE Gate 由 Database 签核。
   requirements:
   - docs/product/requirements-v3.md#8-bare-metal
   - docs/product/requirements-v3.md#18-resource-detail
@@ -428,11 +407,9 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M3 虚拟化与接口
-  scope: VirtualMachineDetail（host_resource_id、vcpu、memory_mb、disk_gb、hypervisor、metadata）；VM
-    必关联未删除的 BARE_METAL Host 且同 Cluster；同 Cluster 内可更换 Host 并记录 Audit；存在未删除 VM 引用时
-    Host 不可删除；容量参数可空及单位语义；明细跟随 Resource 生命周期；不校验 VM 总 vCPU/内存是否超过 Host 容量；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。
-  acceptance: VM Host 类型与集群校验通过（T08、T09）；换 Host 审计与 Host 引用删除限制通过（T19）；容量单位与零值语义通过（T38、T39）；登记不因超过
-    Host 容量被拒绝（T39）；DATABASE Gate 由 Database 签核。
+  scope: VirtualMachineDetail（host_resource_id、vcpu、memory_mb、disk_gb、hypervisor、metadata）；VM 必关联未删除的 BARE_METAL Host 且同 Cluster；同 Cluster 内可更换 Host 并记录 Audit；存在未删除 VM 引用时 Host 不可删除；容量参数可空及单位语义；明细跟随 Resource
+    生命周期；不校验 VM 总 vCPU/内存是否超过 Host 容量；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。
+  acceptance: VM Host 类型与集群校验通过（T08、T09）；换 Host 审计与 Host 引用删除限制通过（T19）；容量单位与零值语义通过（T38、T39）；登记不因超过 Host 容量被拒绝（T39）；DATABASE Gate 由 Database 签核。
   requirements:
   - docs/product/requirements-v3.md#9-virtual-machine
   - docs/product/requirements-v3.md#6-resource
@@ -491,11 +468,9 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M3 虚拟化与接口
-  scope: Interface（resource、name、interface_type、mac_address、speed_mbps、mtu、parent_interface、enabled、description、metadata）；接口类型枚举默认
-    OTHER、不由名称推断；同 Resource 名称唯一、区分大小写、禁止内部空白、删除后可复用；parent_interface 归属同 Resource、禁自引用与环路（应用层或触发器缺口在本
+  scope: Interface（resource、name、interface_type、mac_address、speed_mbps、mtu、parent_interface、enabled、description、metadata）；接口类型枚举默认 OTHER、不由名称推断；同 Resource 名称唯一、区分大小写、禁止内部空白、删除后可复用；parent_interface 归属同 Resource、禁自引用与环路（应用层或触发器缺口在本
     Feature DATABASE Gate 明确）；MAC 可空、一期无全局唯一；speed_mbps 表示标称速率；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。
-  acceptance: Interface 名称唯一与复用通过（T12、T40、T41）；parent_interface 约束通过（T20）；默认值与类型不由名称推断通过（T37）；DATABASE
-    Gate 由 Database 签核并记录环路检测缺口处理。
+  acceptance: Interface 名称唯一与复用通过（T12、T40、T41）；parent_interface 约束通过（T20）；默认值与类型不由名称推断通过（T37）；DATABASE Gate 由 Database 签核并记录环路检测缺口处理。
   requirements:
   - docs/product/requirements-v3.md#10-interface
   - docs/product/requirements-v3.md#41-创建必填项与名称规范
@@ -552,13 +527,9 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M4 网络与 IPAM
-  scope: Network（cluster、name、cidr、gateway、status、auto_allocate、description、metadata）；仅
-    IPv4，CIDR 优先使用 PostgreSQL CIDR；同 Cluster 未删除 Network 不允许 CIDR 重叠、INACTIVE 仍参与；有未删除
-    Pool 或 IP 时禁止改 CIDR 或所属 Cluster；gateway 必须属于 CIDR 并从可分配集合排除；status ACTIVE/INACTIVE
-    且 INACTIVE 禁新增分配；auto_allocate 默认 false；名称大小写不敏感、Cluster 内唯一、可复用；数据库设计热点（跨表 CIDR
-    归属、软删引用限制与恢复重检）在本 Feature DATABASE Gate 由 Database 签核；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。
-  acceptance: CIDR 重叠与变更限制、gateway 规则通过（T14，T30 相关）；INACTIVE 禁分配与默认查询通过（T16、T29）；名称规则通过（T40、T41）；跨表
-    CIDR 归属与软删引用由 Database 签核；DATABASE Gate 由 Database 签核。
+  scope: Network（cluster、name、cidr、gateway、status、auto_allocate、description、metadata）；仅 IPv4，CIDR 优先使用 PostgreSQL CIDR；同 Cluster 未删除 Network 不允许 CIDR 重叠、INACTIVE 仍参与；有未删除 Pool 或 IP 时禁止改 CIDR 或所属 Cluster；gateway
+    必须属于 CIDR 并从可分配集合排除；status ACTIVE/INACTIVE 且 INACTIVE 禁新增分配；auto_allocate 默认 false；名称大小写不敏感、Cluster 内唯一、可复用；数据库设计热点（跨表 CIDR 归属、软删引用限制与恢复重检）在本 Feature DATABASE Gate 由 Database 签核；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。
+  acceptance: CIDR 重叠与变更限制、gateway 规则通过（T14，T30 相关）；INACTIVE 禁分配与默认查询通过（T16、T29）；名称规则通过（T40、T41）；跨表 CIDR 归属与软删引用由 Database 签核；DATABASE Gate 由 Database 签核。
   requirements:
   - docs/product/requirements-v3.md#11-network
   - docs/product/requirements-v3.md#111-ipv4-地址边界
@@ -616,13 +587,9 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M4 网络与 IPAM
-  scope: IPPool（network、name、start_address、end_address、allocation_mode、description）；起止地址属于
-    Network 且起不大于止，同 Network 未删除池互不重叠；allocation_mode MANUAL/AUTO/RESERVED 及分配行为；名称大小写不敏感、Network
-    内唯一、可复用；保留范围与网关变更冲突（新建或扩大 RESERVED、AUTO/MANUAL 改为 RESERVED、已占用地址设为 gateway 均拒绝并返回冲突数量与可查询明细）；删除或缩小池不回收
-    IP 且保留来源历史；数据库设计热点（Pool 范围重叠表示、软删引用限制与恢复重检）在本 Feature DATABASE Gate 由 Database
-    签核；字段契约补齐 D01。
-  acceptance: 越界、逆序、有效池重叠与分配模式行为通过（T15）；保留范围与网关冲突返回数量与明细通过（T33）；池变更不回收与来源历史通过（T34）；名称规则通过（T40、T41）；DATABASE
-    Gate 由 Database 签核。
+  scope: IPPool（network、name、start_address、end_address、allocation_mode、description）；起止地址属于 Network 且起不大于止，同 Network 未删除池互不重叠；allocation_mode MANUAL/AUTO/RESERVED 及分配行为；名称大小写不敏感、Network 内唯一、可复用；保留范围与网关变更冲突（新建或扩大
+    RESERVED、AUTO/MANUAL 改为 RESERVED、已占用地址设为 gateway 均拒绝并返回冲突数量与可查询明细）；删除或缩小池不回收 IP 且保留来源历史；数据库设计热点（Pool 范围重叠表示、软删引用限制与恢复重检）在本 Feature DATABASE Gate 由 Database 签核；字段契约补齐 D01。
+  acceptance: 越界、逆序、有效池重叠与分配模式行为通过（T15）；保留范围与网关冲突返回数量与明细通过（T33）；池变更不回收与来源历史通过（T34）；名称规则通过（T40、T41）；DATABASE Gate 由 Database 签核。
   requirements:
   - docs/product/requirements-v3.md#12-ip-pool
   - docs/product/requirements-v3.md#121-保留范围及网关变更冲突
@@ -680,14 +647,9 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M4 网络与 IPAM
-  scope: IPAddress 独立对象与 Network→IPAddress→Interface 关系、未绑定仍占用；自动分配（ACTIVE 加 auto_allocate
-    加 AUTO 池、按地址升序、池耗尽不切换、并发不重复）；手动分配（池内或池外合法、禁 gateway/RESERVED/禁用地址）；解绑与释放语义（解绑不释放、释放需
-    ADMIN、Endpoint 引用先处理）；IP 完整性（属于 CIDR、同 Cluster 全局唯一、Cluster 一致性）；IPv4 地址边界与禁用网段；Dashboard
-    Network 与 AUTO 池容量公式；共享 Network 级锁域与并发保护；软删引用限制与恢复重检；D02 约束/索引/锁/IPAM 并发在本 Feature
-    CONTRACT 后关闭；字段契约补齐 D01。
-  acceptance: 自动与手动分配、并发不重复通过（T07、T16、T17）；完整性与地址边界通过（T04、T05、T06、T10、T30、T31）；解绑/释放与
-    Endpoint 引用通过（T22、T23）；容量公式通过（T32）；并发冲突保护通过（T35）；D02 在本 Feature CONTRACT 关闭；DATABASE
-    Gate 由 Database 签核。
+  scope: IPAddress 独立对象与 Network→IPAddress→Interface 关系、未绑定仍占用；自动分配（ACTIVE 加 auto_allocate 加 AUTO 池、按地址升序、池耗尽不切换、并发不重复）；手动分配（池内或池外合法、禁 gateway/RESERVED/禁用地址）；解绑与释放语义（解绑不释放、释放需 ADMIN、Endpoint 引用先处理）；IP 完整性（属于
+    CIDR、同 Cluster 全局唯一、Cluster 一致性）；IPv4 地址边界与禁用网段；Dashboard Network 与 AUTO 池容量公式；共享 Network 级锁域与并发保护；软删引用限制与恢复重检；D02 约束/索引/锁/IPAM 并发在本 Feature CONTRACT 后关闭；字段契约补齐 D01。
+  acceptance: 自动与手动分配、并发不重复通过（T07、T16、T17）；完整性与地址边界通过（T04、T05、T06、T10、T30、T31）；解绑/释放与 Endpoint 引用通过（T22、T23）；容量公式通过（T32）；并发冲突保护通过（T35）；D02 在本 Feature CONTRACT 关闭；DATABASE Gate 由 Database 签核。
   requirements:
   - docs/product/requirements-v3.md#13-ip-address
   - docs/product/requirements-v3.md#131-自动分配
@@ -751,10 +713,8 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M5 服务与端点
-  scope: Service（resource、name、status、description、metadata）；状态 RUNNING/STOPPED/UNKNOWN
-    默认 UNKNOWN 且人工维护；名称大小写不敏感、同 Resource 内唯一、删除后可复用；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。
-  acceptance: 名称归一化与同 Resource 唯一通过（T21、T40、T41）；默认状态与人工维护通过（T21、T37）；DATABASE Gate
-    由 Database 签核。
+  scope: Service（resource、name、status、description、metadata）；状态 RUNNING/STOPPED/UNKNOWN 默认 UNKNOWN 且人工维护；名称大小写不敏感、同 Resource 内唯一、删除后可复用；字段契约补齐 D01，归一化键列与唯一约束首次建表落地。
+  acceptance: 名称归一化与同 Resource 唯一通过（T21、T40、T41）；默认状态与人工维护通过（T21、T37）；DATABASE Gate 由 Database 签核。
   requirements:
   - docs/product/requirements-v3.md#15-service
   - docs/product/requirements-v3.md#41-创建必填项与名称规范
@@ -810,11 +770,9 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M5 服务与端点
-  scope: ServiceEndpoint（service、ip_address、protocol、port、description）；IP 必填、未删除且绑定在
-    Service 所属 Resource 的 Interface；协议仅 TCP/UDP、端口 1 到 65535；同一有效 IP 上 protocol 加
-    port 不重复；不支持通配地址、Unix Socket 或跨资源共享 VIP；有 Endpoint 引用时禁解绑、转移或释放 IP；字段契约补齐 D01。
-  acceptance: Endpoint 归属与监听唯一通过（T22）；协议与端口校验通过；有 Endpoint 引用时 IP 不可解绑/转移/释放通过（T22、T23）；DATABASE
-    Gate 由 Database 签核。
+  scope: ServiceEndpoint（service、ip_address、protocol、port、description）；IP 必填、未删除且绑定在 Service 所属 Resource 的 Interface；协议仅 TCP/UDP、端口 1 到 65535；同一有效 IP 上 protocol 加 port 不重复；不支持通配地址、Unix Socket 或跨资源共享 VIP；有
+    Endpoint 引用时禁解绑、转移或释放 IP；字段契约补齐 D01。
+  acceptance: Endpoint 归属与监听唯一通过（T22）；协议与端口校验通过；有 Endpoint 引用时 IP 不可解绑/转移/释放通过（T22、T23）；DATABASE Gate 由 Database 签核。
   requirements:
   - docs/product/requirements-v3.md#16-service-endpoint
   - docs/product/requirements-v3.md#15-service
@@ -872,13 +830,9 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M6 检索、导入与系统功能
-  scope: 首页全局搜索入口，支持 hostname、IP、Cluster、Service 模糊搜索并定位 Resource；使用 pg_trgm 支持模糊搜索（GIN
-    索引为建议，具体索引在数据库设计签核）；Dashboard 展示 Cluster/Resource/BareMetal/VM/Network 数量与 IP
-    使用情况，含 Network 与 AUTO 池可分配、占用、剩余口径；各实体列表组合过滤/排序/分页属各域 Feature（向同一契约收敛），全局 /api/v1/search
-    与 Dashboard 汇总属本 Feature；需要 API 契约并遵循公共 API 约定；pg_trgm 索引引入点（F004 或 F013）由首个需要模糊查询的
-    Feature Contract 加 D02 裁定。
-  acceptance: 按 hostname/IP/Cluster/Service 命中对应 Resource（§33）；Dashboard 计数与容量口径符合
-    §20（T32）；模糊搜索使用 pg_trgm 且索引方案经 Database 签核；本 Feature Contract 明确列表契约收敛与索引引入点。
+  scope: 首页全局搜索入口，支持 hostname、IP、Cluster、Service 模糊搜索并定位 Resource；使用 pg_trgm 支持模糊搜索（GIN 索引为建议，具体索引在数据库设计签核）；Dashboard 展示 Cluster/Resource/BareMetal/VM/Network 数量与 IP 使用情况，含 Network 与 AUTO 池可分配、占用、剩余口径；各实体列表组合过滤/排序/分页属各域
+    Feature（向同一契约收敛），全局 /api/v1/search 与 Dashboard 汇总属本 Feature；需要 API 契约并遵循公共 API 约定；pg_trgm 索引引入点（F004 或 F013）由首个需要模糊查询的 Feature Contract 加 D02 裁定。
+  acceptance: 按 hostname/IP/Cluster/Service 命中对应 Resource（§33）；Dashboard 计数与容量口径符合 §20（T32）；模糊搜索使用 pg_trgm 且索引方案经 Database 签核；本 Feature Contract 明确列表契约收敛与索引引入点。
   requirements:
   - docs/product/requirements-v3.md#17-全局搜索
   - docs/product/requirements-v3.md#20-dashboard
@@ -944,11 +898,9 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M6 检索、导入与系统功能
-  scope: CSV 与 .xlsx 资源新增导入（不按 hostname 更新或覆盖现存资源）；固定模板与逐列说明（VM 模板含 Host 引用列，依 D03）；先校验并展示错误行再由用户确认，正式写入再次校验；整批成功或整批回滚，回滚不留业务变更记录；文件内重复、现存冲突、非法字段或关系报错含行号、字段、原因；走与普通
-    API 相同的 Service Layer 校验；同步处理并设置文件大小与行数上限；cluster 列校验；预校验与写入均执行权限检查；D03 模板与性能上限在本
-    Feature CONTRACT 签核，并在最终合并核对后关闭 D01 记录。
-  acceptance: 先校验后确认、整批回滚、错误行明细通过（T27）；VM Host 必须已存在且不隐式创建通过（T28）；不更新或覆盖现存资源通过；文件与行数上限按签核契约验证通过（T28）；D03
-    在本 Feature CONTRACT 签核、D01 最终关闭核对完成。
+  scope: CSV 与 .xlsx 资源新增导入（不按 hostname 更新或覆盖现存资源）；固定模板与逐列说明（VM 模板含 Host 引用列，依 D03）；先校验并展示错误行再由用户确认，正式写入再次校验；整批成功或整批回滚，回滚不留业务变更记录；文件内重复、现存冲突、非法字段或关系报错含行号、字段、原因；走与普通 API 相同的 Service Layer 校验；同步处理并设置文件大小与行数上限；cluster
+    列校验；预校验与写入均执行权限检查；D03 模板与性能上限在本 Feature CONTRACT 签核，并在最终合并核对后关闭 D01 记录。
+  acceptance: 先校验后确认、整批回滚、错误行明细通过（T27）；VM Host 必须已存在且不隐式创建通过（T28）；不更新或覆盖现存资源通过；文件与行数上限按签核契约验证通过（T28）；D03 在本 Feature CONTRACT 签核、D01 最终关闭核对完成。
   requirements:
   - docs/product/requirements-v3.md#24-批量导入
   - docs/product/requirements-v3.md#4-核心模型
@@ -977,8 +929,7 @@ features:
     frontend: true
   api_required: true
   not_required:
-    database: 导入只写既有 resources/bare_metal_details/virtual_machine_details，复用既有部分唯一/FK/CHECK（f014-import.md
-      v1 NOT_REQUIRED）；无新表/列/索引/迁移。
+    database: 导入只写既有 resources/bare_metal_details/virtual_machine_details，复用既有部分唯一/FK/CHECK（f014-import.md v1 NOT_REQUIRED）；无新表/列/索引/迁移。
   implementation:
     product: COMPLETE
     architecture: COMPLETE
@@ -1013,13 +964,9 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M6 检索、导入与系统功能
-  scope: 完整 Audit 查询 API 与页面（限 ADMIN，按操作者、对象类型、时间等过滤分页；资源 Activity 对所有基础角色可见，已随各域
-    Feature 提供，本 Feature 提供跨对象完整审计查询）；ADMIN 已删除对象统一查看与恢复入口（覆盖 Cluster/Resource/Interface/Network/IPPool/IPAddress/Service/ServiceEndpoint；恢复只恢复当前对象、重新检查唯一性与依赖有效性、标识被重用或依赖仍被删除时失败、不覆盖新对象；各对象删除/恢复规则随其自身
-    Feature 落地，本 Feature 提供统一入口与查询）；用户与账号管理（ADMIN 创建账号、分配角色、停用账号；不开放自行注册；账号停用保留历史操作者身份并记录审计）；System
-    页面（§28）；Audit 持续保留、不自动过期、无修改/删除/清空入口（含 ADMIN）。
-  acceptance: ADMIN 可查看及恢复已删除对象、恢复不自动恢复关联对象、标识重用或依赖仍被删除时恢复失败（T24）；完整 Audit 查询限 ADMIN、资源
-    Activity 全角色可见（T25）；账号停用不改变旧审计、审计保留历史操作者（T26、T36）；Audit 无修改/删除/清空入口（T36）；名称复用后旧对象恢复失败且新对象不被覆盖（T41
-    恢复侧）。
+  scope: 完整 Audit 查询 API 与页面（限 ADMIN，按操作者、对象类型、时间等过滤分页；资源 Activity 对所有基础角色可见，已随各域 Feature 提供，本 Feature 提供跨对象完整审计查询）；ADMIN 已删除对象统一查看与恢复入口（覆盖 Cluster/Resource/Interface/Network/IPPool/IPAddress/Service/ServiceEndpoint；恢复只恢复当前对象、重新检查唯一性与依赖有效性、标识被重用或依赖仍被删除时失败、不覆盖新对象；各对象删除/恢复规则随其自身
+    Feature 落地，本 Feature 提供统一入口与查询）；用户与账号管理（ADMIN 创建账号、分配角色、停用账号；不开放自行注册；账号停用保留历史操作者身份并记录审计）；System 页面（§28）；Audit 持续保留、不自动过期、无修改/删除/清空入口（含 ADMIN）。
+  acceptance: ADMIN 可查看及恢复已删除对象、恢复不自动恢复关联对象、标识重用或依赖仍被删除时恢复失败（T24）；完整 Audit 查询限 ADMIN、资源 Activity 全角色可见（T25）；账号停用不改变旧审计、审计保留历史操作者（T26、T36）；Audit 无修改/删除/清空入口（T36）；名称复用后旧对象恢复失败且新对象不被覆盖（T41 恢复侧）。
   requirements:
   - docs/product/requirements-v3.md#21-逻辑删除
   - docs/product/requirements-v3.md#22-audit-log
@@ -1063,9 +1010,8 @@ features:
     frontend: true
   api_required: true
   not_required:
-    database: 无 Schema 交付：audit_logs.object_type 为 varchar(64) 无枚举 CHECK，登记 user 无需迁移；不新增
-      operator_username 索引（DB-D168）；已删聚合复用既有 ix_*_deleted_at（DB-D169）；无新迁移，单 head
-      0013_search_indexes。依据 docs/database/f015-audit-admin.md v1。
+    database: 无 Schema 交付：audit_logs.object_type 为 varchar(64) 无枚举 CHECK，登记 user 无需迁移；不新增 operator_username 索引（DB-D168）；已删聚合复用既有 ix_*_deleted_at（DB-D169）；无新迁移，单 head 0013_search_indexes。依据 docs/database/f015-audit-admin.md
+      v1。
   evidence:
     product:
     - docs/features/F015/product.md
@@ -1090,11 +1036,8 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M7 一期整体验收
-  scope: 在真实 Docker Compose 环境（Nginx→Frontend/FastAPI→PostgreSQL）执行 §31–§33 跨功能验收；备份与恢复验证包含
-    Audit 覆盖（T36）；承接 project.acceptance；其 layers 与 api_required 由本 Feature 自身 Architecture
-    阶段确定（计划不预设）。
-  acceptance: Compose 环境可 docker compose up -d 并完成 §32 上线验收；T01–T41 映射完整并有真实执行证据；备份覆盖
-    Audit 验证通过（T36）；验收证据写入 project.acceptance，由协调器核验后置 COMPLETE。
+  scope: 在真实 Docker Compose 环境（Nginx→Frontend/FastAPI→PostgreSQL）执行 §31–§33 跨功能验收；备份与恢复验证包含 Audit 覆盖（T36）；承接 project.acceptance；其 layers 与 api_required 由本 Feature 自身 Architecture 阶段确定（计划不预设）。
+  acceptance: Compose 环境可 docker compose up -d 并完成 §32 上线验收；T01–T41 映射完整并有真实执行证据；备份覆盖 Audit 验证通过（T36）；验收证据写入 project.acceptance，由协调器核验后置 COMPLETE。
   requirements:
   - docs/product/requirements-v3.md#31-测试
   - docs/product/requirements-v3.md#32-上线验收
@@ -1133,13 +1076,9 @@ features:
     frontend: false
   api_required: false
   not_required:
-    contract: F016 无新增业务 API/Endpoint/Schema（被验收 API 来自 F001–F015 READY Contract），api_required=false，不新建
-      docs/api/F016.md。
-    database: 验收型 Feature 无 Schema 交付：无新表/列/约束/触发器/索引/迁移；迁移链单 head 0013_search_indexes；T36
-      备份复用整库 pg_dump（默认含 audit_logs 及 append-only 触发器）。依据 docs/database/f016-acceptance.md
-      v1。
-    backend: F016 无新业务路由/服务/模型；验收脚本与夹具为测试基础设施（scripts/acceptance、backend/tests/integration），非
-      Backend 实现层。
+    contract: F016 无新增业务 API/Endpoint/Schema（被验收 API 来自 F001–F015 READY Contract），api_required=false，不新建 docs/api/F016.md。
+    database: 验收型 Feature 无 Schema 交付：无新表/列/约束/触发器/索引/迁移；迁移链单 head 0013_search_indexes；T36 备份复用整库 pg_dump（默认含 audit_logs 及 append-only 触发器）。依据 docs/database/f016-acceptance.md v1。
+    backend: F016 无新业务路由/服务/模型；验收脚本与夹具为测试基础设施（scripts/acceptance、backend/tests/integration），非 Backend 实现层。
     frontend: F016 无新页面/组件；前端仅 npm run build 产物用于入口验证。
   implementation:
     product: COMPLETE
@@ -1169,14 +1108,9 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M8 API 机器访问
-  scope: 新增 api_keys 表与迁移；audit_logs 增加可空 Key 标签列；扩展认证解析支持 API Key 与 csm_session Cookie
-    双凭据并存；API Key 服务（高熵明文仅创建响应返回一次、SHA-256 哈希存储、有效期默认 90 天上限 365 天、吊销）；仅 ADMIN 的创建/列表/吊销端点并复用
-    §23 USER_ADMIN，不新增权限项；审计写入绑定账号 username 与 Key 标签；日志与响应脱敏；ADMIN 管理界面；修订 docs/api/F002.md
-    的认证载体口径并新增 docs/api/F017.md Contract。明确不做 scope-down、不新增账号或角色类型、不支持永不过期、不改变 Cookie
-    认证行为。
-  acceptance: 通过 T42–T49；有效 API Key 无 Cookie 可创建 BareMetal 与 VM；无效/过期/吊销一律 401 且不泄露存在性、401
-    先于 403；Key 权限不超出绑定账号角色；审计可归属到绑定账号 username 与 Key 标签；明文仅创建响应一次且库内仅存哈希；吊销与账号停用即时失效；Cookie
-    认证不回归；真实 PostgreSQL 验证迁移与约束。
+  scope: 新增 api_keys 表与迁移；audit_logs 增加可空 Key 标签列；扩展认证解析支持 API Key 与 csm_session Cookie 双凭据并存；API Key 服务（高熵明文仅创建响应返回一次、SHA-256 哈希存储、有效期默认 90 天上限 365 天、吊销）；仅 ADMIN 的创建/列表/吊销端点并复用 §23 USER_ADMIN，不新增权限项；审计写入绑定账号
+    username 与 Key 标签；日志与响应脱敏；ADMIN 管理界面；修订 docs/api/F002.md 的认证载体口径并新增 docs/api/F017.md Contract。明确不做 scope-down、不新增账号或角色类型、不支持永不过期、不改变 Cookie 认证行为。
+  acceptance: 通过 T42–T49；有效 API Key 无 Cookie 可创建 BareMetal 与 VM；无效/过期/吊销一律 401 且不泄露存在性、401 先于 403；Key 权限不超出绑定账号角色；审计可归属到绑定账号 username 与 Key 标签；明文仅创建响应一次且库内仅存哈希；吊销与账号停用即时失效；Cookie 认证不回归；真实 PostgreSQL 验证迁移与约束。
   requirements:
   - docs/product/requirements-v3.md#231-api-key-机器凭据
   - docs/product/requirements-v3.md#22-audit-log
@@ -1236,13 +1170,9 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M9 搜索字段组合
-  scope: 扩展 GET /api/v1/search 的 resource 结果行，按分页结果批量聚合关联 Interface / IPAddress /
-    Network（无 N+1），返回固定超集：关联数组（每个已绑定 IP 一行，含 interface{id,name,interface_type}、ip_address{id,address}、network{id,name}）与截断前总数；确定性排序
-    interface.name ASC → IP 地址数值 ASC → id ASC；每 Resource 上限 10 行；关联严格继承软删与权限口径；前端全局搜索结果增加字段选择器与多值展开，超出显示「还有
-    N 条」，偏好存 localStorage；不改匹配语义、结果集、去重、顶层排序、分页与 total，仍只读无审计，无 Schema/索引/迁移。明确不做：导出、命名/共享视图、各域列表列自定义、账号级服务端偏好、新实体/关系/权限/错误码。
-  acceptance: 通过 T50–T53；resource 行返回关联且排序与上限确定、返回截断前总数；多网卡/多 IP 正确展开、无关联不伪造；关联继承
-    deleted 口径且无 VIEW_DELETED 仍 403；改变展示组合不改变结果集/去重/排序/分页/total；只读无 Audit；既有 F013
-    行为无回归。
+  scope: 扩展 GET /api/v1/search 的 resource 结果行，按分页结果批量聚合关联 Interface / IPAddress / Network（无 N+1），返回固定超集：关联数组（每个已绑定 IP 一行，含 interface{id,name,interface_type}、ip_address{id,address}、network{id,name}）与截断前总数；确定性排序
+    interface.name ASC → IP 地址数值 ASC → id ASC；每 Resource 上限 10 行；关联严格继承软删与权限口径；前端全局搜索结果增加字段选择器与多值展开，超出显示「还有 N 条」，偏好存 localStorage；不改匹配语义、结果集、去重、顶层排序、分页与 total，仍只读无审计，无 Schema/索引/迁移。明确不做：导出、命名/共享视图、各域列表列自定义、账号级服务端偏好、新实体/关系/权限/错误码。
+  acceptance: 通过 T50–T53；resource 行返回关联且排序与上限确定、返回截断前总数；多网卡/多 IP 正确展开、无关联不伪造；关联继承 deleted 口径且无 VIEW_DELETED 仍 403；改变展示组合不改变结果集/去重/排序/分页/total；只读无 Audit；既有 F013 行为无回归。
   requirements:
   - docs/product/requirements-v3.md#171-搜索结果字段组合
   depends_on:
@@ -1263,8 +1193,7 @@ features:
     frontend: true
   api_required: true
   not_required:
-    database: 无新表/列/约束/索引/迁移；关联查询命中既有 ix_interfaces_resource_id、ix_ip_addresses_interface_id
-      与 networks PK
+    database: 无新表/列/约束/索引/迁移；关联查询命中既有 ix_interfaces_resource_id、ix_ip_addresses_interface_id 与 networks PK
   implementation:
     product: COMPLETE
     architecture: COMPLETE
@@ -1297,14 +1226,10 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M10 接口侧 IP 绑定
-  scope: 在 Interface 创建成功后，于接口视图（Resource Detail 的 Interfaces 区域 / 接口列表）内选择并绑定 IP，减少在接口与
-    IP 页面之间跳转。候选仅「同 Cluster、未绑定（interface 为空）且未删除」的 IPAddress；支持按 IP 地址搜索与分页、跨页多选；复用既有
-    GET /api/v1/ip-addresses（cluster_id+bound=false+deleted=exclude+q）与 PATCH /api/v1/ip-addresses/{id}（interface+version）逐条绑定；允许部分成功并逐条呈现成功/失败及原因，不静默重试；接口侧展示已绑定
-    IP（interface_id 过滤，懒加载）。明确不做：新增端点/查询参数、Interface 响应嵌套 IP、批量事务、从接口侧解绑/转移、流程内手动输入或自动分配
-    IP、跨 Cluster 候选；无 Schema/索引/迁移，无契约修订。
-  acceptance: 通过 T54–T58；候选仅同 Cluster 未绑定未删除 IP；多选逐条绑定且各产生 UPDATE Audit、部分失败逐条呈现且不静默重试；空态/错误态显式区分、不静默截断；VIEWER
-    不可绑定且服务端仍拒绝，绑定不改变 IP 占用/address/Network 且不触发 Endpoint 引用拒绝；并发绑定不产生重复绑定（后到者 409
-    VERSION_CONFLICT）；既有 IP 页面手动/自动分配、解绑/转移、容量与 Audit 无回归。
+  scope: 在 Interface 创建成功后，于接口视图（Resource Detail 的 Interfaces 区域 / 接口列表）内选择并绑定 IP，减少在接口与 IP 页面之间跳转。候选仅「同 Cluster、未绑定（interface 为空）且未删除」的 IPAddress；支持按 IP 地址搜索与分页、跨页多选；复用既有 GET /api/v1/ip-addresses（cluster_id+bound=false+deleted=exclude+q）与
+    PATCH /api/v1/ip-addresses/{id}（interface+version）逐条绑定；允许部分成功并逐条呈现成功/失败及原因，不静默重试；接口侧展示已绑定 IP（interface_id 过滤，懒加载）。明确不做：新增端点/查询参数、Interface 响应嵌套 IP、批量事务、从接口侧解绑/转移、流程内手动输入或自动分配 IP、跨 Cluster 候选；无 Schema/索引/迁移，无契约修订。
+  acceptance: 通过 T54–T58；候选仅同 Cluster 未绑定未删除 IP；多选逐条绑定且各产生 UPDATE Audit、部分失败逐条呈现且不静默重试；空态/错误态显式区分、不静默截断；VIEWER 不可绑定且服务端仍拒绝，绑定不改变 IP 占用/address/Network 且不触发 Endpoint 引用拒绝；并发绑定不产生重复绑定（后到者 409 VERSION_CONFLICT）；既有
+    IP 页面手动/自动分配、解绑/转移、容量与 Audit 无回归。
   requirements:
   - docs/product/requirements-v3.md#134-接口侧选择绑定
   - docs/product/requirements-v3.md#14-ip-完整性
@@ -1359,10 +1284,8 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M11 前端确认交互统一
-  scope: 将前端删除（cluster/resource/interface/network/ip_pool/service/service_endpoint
-    软删）、释放 IP（软删）与恢复的内联二次确认（WarningState + div.inline-confirm，共 9 文件 11 处）统一改为模态对话框；新增共享
-    ui/ConfirmDialog 组件承载弹层呈现（不持业务状态、不发请求），以既有吊销 API Key Modal 为一致样式基准并同步迁移该处；对话框含对象标识与软删/引用检查提示，确认按钮语义化且删除/释放为危险样式；取消不发起请求、请求中加载态且不可重复提交、非提交态
-    Esc/遮罩可关闭且不执行；动作级错误在对话框内呈现（含引用列表/版本冲突/刷新按钮）；移除 index.css 的 .inline-confirm 死样式。明确不做：修改删除/释放/恢复语义、权限门禁、引用检查、Audit、错误码、需要二次确认的操作集合、后端/API/Schema/契约；不新增
+  scope: 将前端删除（cluster/resource/interface/network/ip_pool/service/service_endpoint 软删）、释放 IP（软删）与恢复的内联二次确认（WarningState + div.inline-confirm，共 9 文件 11 处）统一改为模态对话框；新增共享 ui/ConfirmDialog 组件承载弹层呈现（不持业务状态、不发请求），以既有吊销
+    API Key Modal 为一致样式基准并同步迁移该处；对话框含对象标识与软删/引用检查提示，确认按钮语义化且删除/释放为危险样式；取消不发起请求、请求中加载态且不可重复提交、非提交态 Esc/遮罩可关闭且不执行；动作级错误在对话框内呈现（含引用列表/版本冲突/刷新按钮）；移除 index.css 的 .inline-confirm 死样式。明确不做：修改删除/释放/恢复语义、权限门禁、引用检查、Audit、错误码、需要二次确认的操作集合、后端/API/Schema/契约；不新增
     DOM 测试框架。
   acceptance: 通过 T59–T63；删除/释放/恢复均以带遮罩模态对话框确认，页面无内联二次确认残留；确认执行原请求且载荷/端点不变，取消/Esc/遮罩非提交态关闭不发起请求；提交中加载且不可重复提交；错误在对话框内按既有方式呈现且对象状态不变；权限门禁与既有行为无回归。
   requirements:
@@ -1415,13 +1338,9 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M12 列表删除入口
-  scope: 在 Resource 列表页 frontend/src/pages/ResourcesPage.tsx 行内「操作」列新增单行「删除」按钮（仅 deleted_at=null
-    且具备 DELETE_OBJECT 时显示）；点击复用 F020 ConfirmDialog 模态确认（含 hostname 对象标识、软删/引用检查提示、确认删除危险样式、取消不发请求、提交中不可重复）；确认调用既有
-    DELETE /api/v1/resources/{id}?version=N；成功 204 后关闭对话框并保留过滤/排序/分页重载列表；失败（409 reference_exists
-    / VERSION_CONFLICT）在对话框内按 describeResourceActionError 呈现引用列表/版本冲突且对象未删；抽取 ResourceDetailPage
-    的引用/冲突文案助手为共享模块避免复制分叉。明确不做：批量/多选删除、列表内恢复、其它列表页删除、改删除语义/权限/Audit/端点/载荷。
-  acceptance: 映射 §28 T59–T63、§23、F004 §6.5；未删除行且具 DELETE_OBJECT 显示删除按钮，已删行/无权限不显示；确认仅发一次删除请求、取消/Esc/遮罩不发请求；成功刷新且保留查询；reference_exists（含
-    references 列表）/VERSION_CONFLICT 在对话框内呈现且对象未删；VIEWER 服务端仍 403；其它列表页行为不变、删除语义/权限/Audit
+  scope: 在 Resource 列表页 frontend/src/pages/ResourcesPage.tsx 行内「操作」列新增单行「删除」按钮（仅 deleted_at=null 且具备 DELETE_OBJECT 时显示）；点击复用 F020 ConfirmDialog 模态确认（含 hostname 对象标识、软删/引用检查提示、确认删除危险样式、取消不发请求、提交中不可重复）；确认调用既有
+    DELETE /api/v1/resources/{id}?version=N；成功 204 后关闭对话框并保留过滤/排序/分页重载列表；失败（409 reference_exists / VERSION_CONFLICT）在对话框内按 describeResourceActionError 呈现引用列表/版本冲突且对象未删；抽取 ResourceDetailPage 的引用/冲突文案助手为共享模块避免复制分叉。明确不做：批量/多选删除、列表内恢复、其它列表页删除、改删除语义/权限/Audit/端点/载荷。
+  acceptance: 映射 §28 T59–T63、§23、F004 §6.5；未删除行且具 DELETE_OBJECT 显示删除按钮，已删行/无权限不显示；确认仅发一次删除请求、取消/Esc/遮罩不发请求；成功刷新且保留查询；reference_exists（含 references 列表）/VERSION_CONFLICT 在对话框内呈现且对象未删；VIEWER 服务端仍 403；其它列表页行为不变、删除语义/权限/Audit
     无回归。
   requirements:
   - docs/product/requirements-v3.md#23-用户与权限
@@ -1476,16 +1395,10 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M13 Resource 详情 IP 明细
-  scope: 补齐 requirements §18 已确认的 Resource Detail「IP Addresses」区域（当前 ResourceDetailPage
-    仅占位）：只读展示该 Resource 各未删除 Interface 绑定的未删除 IP 的 address、network{name,cidr}、interface.name、ip_pool.name（池外
-    null 显示「池外（手动）」）、description；数据获取采用前端逐接口查询（GET /interfaces?resource_id + 每接口 GET
-    /ip-addresses?interface_id，复用 F019 的 buildInterfaceBoundIpsQuery），排除未绑定 IP（无 Resource
-    归属）与已删除 IP（deleted=exclude），默认也不显示绑定到已软删 Interface 的 IP；按 interface.name ASC →
-    IP 数值 ASC → id ASC 确定性排序；空/错/加载/超上限截断态显式区分（不静默截断）。明确不做：编辑/绑定/解绑/转移/释放/分配等写入口、修改
-    F019 每接口「已绑定 IP」展示、后端/API/Schema/契约变更、展示未绑定或已删 IP、cluster 列（Overview 已有）。
-  acceptance: §18/§32 区域实现；展示 address/network/interface/ip_pool/description；跨接口多 IP
-    正确展开且按 interface.name→IP 数值→id 确定性排序；无绑定 IP 空态；不展示未绑定/已删 IP；只读无写入口、全角色内容一致（READ）；加载失败可重试且不伪装空列表、超上限显式提示；F019
-    每接口「已绑定 IP」无回归。
+  scope: 补齐 requirements §18 已确认的 Resource Detail「IP Addresses」区域（当前 ResourceDetailPage 仅占位）：只读展示该 Resource 各未删除 Interface 绑定的未删除 IP 的 address、network{name,cidr}、interface.name、ip_pool.name（池外 null 显示「池外（手动）」）、description；数据获取采用前端逐接口查询（GET
+    /interfaces?resource_id + 每接口 GET /ip-addresses?interface_id，复用 F019 的 buildInterfaceBoundIpsQuery），排除未绑定 IP（无 Resource 归属）与已删除 IP（deleted=exclude），默认也不显示绑定到已软删 Interface 的 IP；按 interface.name ASC →
+    IP 数值 ASC → id ASC 确定性排序；空/错/加载/超上限截断态显式区分（不静默截断）。明确不做：编辑/绑定/解绑/转移/释放/分配等写入口、修改 F019 每接口「已绑定 IP」展示、后端/API/Schema/契约变更、展示未绑定或已删 IP、cluster 列（Overview 已有）。
+  acceptance: §18/§32 区域实现；展示 address/network/interface/ip_pool/description；跨接口多 IP 正确展开且按 interface.name→IP 数值→id 确定性排序；无绑定 IP 空态；不展示未绑定/已删 IP；只读无写入口、全角色内容一致（READ）；加载失败可重试且不伪装空列表、超上限显式提示；F019 每接口「已绑定 IP」无回归。
   requirements:
   - docs/product/requirements-v3.md#18-resource-detail
   - docs/product/requirements-v3.md#32-上线验收
@@ -1543,17 +1456,12 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M14 资源+网卡+IP 导入
-  scope: 扩展批量导入，支持「资源+网卡+IP」三元组（§24.1）：新增独立第三套模板（以 resource_type 区分 BM/VM，不改动 F014
-    已冻结 BM 14/VM 10 模板）；每行一个「资源+网卡+IP」，同 hostname 多行合并为一个 Resource、同资源 Interface 按
-    name 去重、同 Interface 多行=多 IP；Network 须已存在并在同 Cluster 内解析（名称/CIDR 列或 /mask 包含匹配），IP
-    须属该 CIDR 且满足 §11.1 边界，不创建 Network/Pool/Cluster/Host；导入内新建并绑定 IP（手动分配语义 §13.2/§14），不触发自动分配；导入内创建
-    Interface（默认 interface_type=OTHER，列 name 必填 + 可选 interface_type/mac_address/speed_mbps/mtu/enabled，一期不含
-    parent_interface）；Resource+Interface+IPAddress 跨对象整批原子回滚（无部分成功、无残留 Audit/Activity）；沿用
-    §24 两步流程/错误行号字段原因/VM Host 已存在/同一 Service Layer/IMPORT 权限/同步上限；新增独立契约 docs/api/F023.md。明确边界：仅「资源+网卡+IP」，不含
-    Service/Endpoint/Cluster 导入，不创建 Network/Pool。
-  acceptance: 通过 T64–T72；三元组正确生成 Resource+Interface+IP 且绑定、IP 属正确 Network 且同 Cluster；同
-    hostname 合并/去重正确；重复或非法行报错含行号/字段/原因；任一行失败整批回滚无残留；预校验后状态变化写入失败不覆盖；VM Host 仅允许已存在；API
-    与导入唯一性结果一致；无 IMPORT 权限拒绝、列序/超限 422/413；F014 既有 BM/VM 模板与历史行为无回归。
+  scope: 扩展批量导入，支持「资源+网卡+IP」三元组（§24.1）：新增独立第三套模板（以 resource_type 区分 BM/VM，不改动 F014 已冻结 BM 14/VM 10 模板）；每行一个「资源+网卡+IP」，同 hostname 多行合并为一个 Resource、同资源 Interface 按 name 去重、同 Interface 多行=多 IP；Network 须已存在并在同
+    Cluster 内解析（名称/CIDR 列或 /mask 包含匹配），IP 须属该 CIDR 且满足 §11.1 边界，不创建 Network/Pool/Cluster/Host；导入内新建并绑定 IP（手动分配语义 §13.2/§14），不触发自动分配；导入内创建 Interface（默认 interface_type=OTHER，列 name 必填 + 可选 interface_type/mac_address/speed_mbps/mtu/enabled，一期不含
+    parent_interface）；Resource+Interface+IPAddress 跨对象整批原子回滚（无部分成功、无残留 Audit/Activity）；沿用 §24 两步流程/错误行号字段原因/VM Host 已存在/同一 Service Layer/IMPORT 权限/同步上限；新增独立契约 docs/api/F023.md。明确边界：仅「资源+网卡+IP」，不含 Service/Endpoint/Cluster
+    导入，不创建 Network/Pool。
+  acceptance: 通过 T64–T72；三元组正确生成 Resource+Interface+IP 且绑定、IP 属正确 Network 且同 Cluster；同 hostname 合并/去重正确；重复或非法行报错含行号/字段/原因；任一行失败整批回滚无残留；预校验后状态变化写入失败不覆盖；VM Host 仅允许已存在；API 与导入唯一性结果一致；无 IMPORT 权限拒绝、列序/超限 422/413；F014
+    既有 BM/VM 模板与历史行为无回归。
   requirements:
   - docs/product/requirements-v3.md#241-资源--网卡--ip-批量导入revision-8
   - docs/product/requirements-v3.md#24-批量导入
@@ -1582,8 +1490,7 @@ features:
     frontend: true
   api_required: true
   not_required:
-    database: 预期无新表/列/约束/索引/迁移；复用既有 resources/interfaces/ip_addresses/network 唯一索引与触发器（待
-      Database 轻量 NOT_REQUIRED 复核 Network 包含解析索引）
+    database: 预期无新表/列/约束/索引/迁移；复用既有 resources/interfaces/ip_addresses/network 唯一索引与触发器（待 Database 轻量 NOT_REQUIRED 复核 Network 包含解析索引）
   implementation:
     product: COMPLETE
     architecture: COMPLETE
@@ -1618,17 +1525,11 @@ features:
   kind: FEATURE
   priority: P2
   milestone: M15 离线主机信息采集
-  scope: 仓库内正式交付的 Linux 只读采集脚本（Python 3 标准库，Architect 倾向），在目标主机本地手工运行、离线：不连接 CSM、
-    不调用平台 API、不上传、不写库；读取本机 hostname、CPU（型号/插槽/整机物理核心数）、内存容量、GPU 型号/数量、网卡 名称/类型/MAC/速率/MTU、本机
-    IPv4 地址/掩码等，按 docs/api/F023.md §6 冻结的 26 列统一宽模板生成可导入 CSV（UTF-8 兼容 BOM），表头列名与列序逐字一致；无法可靠获得的业务/归属字段
-    cluster/resource_type/role/status/host/network 留空由人工补全，不写占位或推断值；无 root 时优先读 /sys/class/dmi/id
-    等免特权来源，其余特权字段留空且不报错、不自动提权； 内嵌模板常量并以 pytest 守卫与冻结列集一致；不修改、不扩展 F014/F023 已冻结模板、契约或既有导入行为；不新增实体/字段/
-    迁移/API；不随 Compose 分发。明确不做：平台自动采集、连接/写库、在线导入、新建 Network/Pool/Cluster/Host、xlsx
-    一期必需。
-  acceptance: 通过 T73–T78；脚本在代表性 Linux 主机（含/不含 root、含/不含 CSM 网络）手工运行成功并产出文件；表头逐字逐序等于
-    F023 §6 的 26 列；可采集字段为 D01 规范化与单位口径值、不可采集业务字段留空且无占位值；无 root 时特权字段留空且不抛异常； 全程只读、无网络写、不写
-    CSM；产出文件经真实 POST /imports/resource-interfaces-ips/validate 仅报业务字段行级错误、无表头/ 列/格式类错误，人工补全后可通过预校验；提供
-    README 与逐列字段映射说明；F014/F023 历史行为无回归。
+  scope: 仓库内正式交付的 Linux 只读采集脚本（Python 3 标准库，Architect 倾向），在目标主机本地手工运行、离线：不连接 CSM、 不调用平台 API、不上传、不写库；读取本机 hostname、CPU（型号/插槽/整机物理核心数）、内存容量、GPU 型号/数量、网卡 名称/类型/MAC/速率/MTU、本机 IPv4 地址/掩码等，按 docs/api/F023.md
+    §6 冻结的 26 列统一宽模板生成可导入 CSV（UTF-8 兼容 BOM），表头列名与列序逐字一致；无法可靠获得的业务/归属字段 cluster/resource_type/role/status/host/network 留空由人工补全，不写占位或推断值；无 root 时优先读 /sys/class/dmi/id 等免特权来源，其余特权字段留空且不报错、不自动提权； 内嵌模板常量并以 pytest
+    守卫与冻结列集一致；不修改、不扩展 F014/F023 已冻结模板、契约或既有导入行为；不新增实体/字段/ 迁移/API；不随 Compose 分发。明确不做：平台自动采集、连接/写库、在线导入、新建 Network/Pool/Cluster/Host、xlsx 一期必需。
+  acceptance: 通过 T73–T78；脚本在代表性 Linux 主机（含/不含 root、含/不含 CSM 网络）手工运行成功并产出文件；表头逐字逐序等于 F023 §6 的 26 列；可采集字段为 D01 规范化与单位口径值、不可采集业务字段留空且无占位值；无 root 时特权字段留空且不抛异常； 全程只读、无网络写、不写 CSM；产出文件经真实 POST /imports/resource-interfaces-ips/validate
+    仅报业务字段行级错误、无表头/ 列/格式类错误，人工补全后可通过预校验；提供 README 与逐列字段映射说明；F014/F023 历史行为无回归。
   requirements:
   - docs/product/requirements-v3.md#24-批量导入
   - docs/product/requirements-v3.md#242-离线主机信息采集脚本revision-9
@@ -1683,17 +1584,11 @@ features:
   kind: FEATURE
   priority: P2
   milestone: M16 采集脚本增强
-  scope: 在 F024 离线采集脚本上增强（§24.3）：①新增 CLI 参数补全默认留空字段 --cluster、--resource-type、--role、
-    --status、--host、--network，运行后无需手工编辑 CSV；--resource-type（BARE_METAL/VIRTUAL_MACHINE）同时写入该列并决定类型专属列填充。
-    ②--print 输出到 stdout，--no-header 控制是否输出表头；默认仍写文件。③--push 经 API Key（HTTP `Authorization`
-    头使用 Bearer， 复用 F017/§23.1）按 §24 两步流程调用 F023 导入端点：先 POST /imports/resource-interfaces-ips/validate
-    展示结果，经显式确认（--yes）后再 POST /imports/resource-interfaces-ips 写入；沿用整批原子回滚与 IMPORT
-    权限。 仅标准库 urllib，不新增依赖。默认行为仍离线只读、不连接 CSM。明确不做：不改 F014/F023 契约与平台 API、不新增平台 API、不创建
-    Network/Pool/Cluster/Host、不绕过 Service Layer、不持久化 API Key、不改写 F024 历史交付。
-  acceptance: 通过 T79–T84；参数补全后无需手改文件即可通过 F023 预校验（除仍无法获得字段）；--resource-type 写列且仅填对应
-    类型列；--print 输出 stdout 且默认含表头、--no-header 首行为数据；--push 先预校验后确认写入、确认前不产生写入、写入 整批原子；API
-    Key 缺失/无效/过期 401 且非零退出、Key 不出现在输出/日志；默认不加 --push 时无任何网络请求，F024 既有文件输出与 T73–T78
-    无回归。
+  scope: 在 F024 离线采集脚本上增强（§24.3）：①新增 CLI 参数补全默认留空字段 --cluster、--resource-type、--role、 --status、--host、--network，运行后无需手工编辑 CSV；--resource-type（BARE_METAL/VIRTUAL_MACHINE）同时写入该列并决定类型专属列填充。 ②--print 输出到 stdout，--no-header
+    控制是否输出表头；默认仍写文件。③--push 经 API Key（HTTP `Authorization` 头使用 Bearer， 复用 F017/§23.1）按 §24 两步流程调用 F023 导入端点：先 POST /imports/resource-interfaces-ips/validate 展示结果，经显式确认（--yes）后再 POST /imports/resource-interfaces-ips
+    写入；沿用整批原子回滚与 IMPORT 权限。 仅标准库 urllib，不新增依赖。默认行为仍离线只读、不连接 CSM。明确不做：不改 F014/F023 契约与平台 API、不新增平台 API、不创建 Network/Pool/Cluster/Host、不绕过 Service Layer、不持久化 API Key、不改写 F024 历史交付。
+  acceptance: 通过 T79–T84；参数补全后无需手改文件即可通过 F023 预校验（除仍无法获得字段）；--resource-type 写列且仅填对应 类型列；--print 输出 stdout 且默认含表头、--no-header 首行为数据；--push 先预校验后确认写入、确认前不产生写入、写入 整批原子；API Key 缺失/无效/过期 401 且非零退出、Key 不出现在输出/日志；默认不加
+    --push 时无任何网络请求，F024 既有文件输出与 T73–T78 无回归。
   requirements:
   - docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
   - docs/product/requirements-v3.md#24-批量导入
@@ -1751,19 +1646,12 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M17 集群范围授权基座
-  scope: 在既有基础角色之上建立「用户 × Cluster」授权事实，并提供仅 ADMIN 可用的授权管理能力。范围含：新增用户-集群授权持久化结构 （含授权/撤销时间与操作者，撤销保留历史而非物理删除，具体表名
-    / 列 / 索引 / 约束由 Database 在 DATABASE Gate 签核）； Alembic 迁移与既有数据回填（按裁定口径为既有非 ADMIN
-    × 既有 Cluster 建立授权，是否含软删 Cluster、是否允许为 ADMIN 建授权行按决策结果执行）；授权查询 / 授予 / 撤销 API（Contract
-    由 Architect 签核，遵循 §25 与公共 API 约定，越权与错误语义按 裁定统一处理）；System 页面内的授权管理 UI（仅 ADMIN 可见可操作，按既有
-    Ant Design + Tailwind 基线，列出用户 / 角色 / 已授权集群 / 授权与撤销状态，支持新增与撤销并呈现结果）；授权授予与撤销写入 Audit（operator
-    / action / object_type / object_id / before_data / after_data，与业务写入同事务，不记录敏感内容）；定义统一的访问范围类型（如
-    AccessScope）与逐请求解析入口 （ADMIN 解析为不受限，非 ADMIN 解析为授权集群集合），供 F027 复用。明确不做：在 F026 内对既有个各业务域端点施加范围过滤
-    （由 F027 承接）；新增角色类型；资源实例级授权；组织 / 租户模型；授权审批流。
-  acceptance: 映射 §23.2 与 T85-T90。迁移可在真实 PostgreSQL 上正向执行与回滚，回填结果与裁定口径逐条一致且可核对计数； 授权授予
-    / 撤销仅 ADMIN 可用，非 ADMIN 调用被服务端拒绝；撤销即时生效并保留可追溯的撤销时间与操作者，不物理删除历史；授权授予与 撤销各产生一条 Audit
-    且与业务写入同事务、失败不留残留；AccessScope 对 ADMIN 为不受限、对非 ADMIN 为显式集群集合，同一请求内 解析结果稳定可复用；System
-    页面授权 UI 仅 ADMIN 可达且不泄露给其它角色；针对 ADMIN 立授权行的处理符合裁定；新增集群的默认授权 行为符合裁定。本 Feature 不改动任何既有端点的可见数据范围，既有
-    T01-T84 行为无回归。
+  scope: 在既有基础角色之上建立「用户 × Cluster」授权事实，并提供仅 ADMIN 可用的授权管理能力。范围含：新增用户-集群授权持久化结构 （含授权/撤销时间与操作者，撤销保留历史而非物理删除，具体表名 / 列 / 索引 / 约束由 Database 在 DATABASE Gate 签核）； Alembic 迁移与既有数据回填（按裁定口径为既有非 ADMIN × 既有 Cluster
+    建立授权，是否含软删 Cluster、是否允许为 ADMIN 建授权行按决策结果执行）；授权查询 / 授予 / 撤销 API（Contract 由 Architect 签核，遵循 §25 与公共 API 约定，越权与错误语义按 裁定统一处理）；System 页面内的授权管理 UI（仅 ADMIN 可见可操作，按既有 Ant Design + Tailwind 基线，列出用户 / 角色 / 已授权集群
+    / 授权与撤销状态，支持新增与撤销并呈现结果）；授权授予与撤销写入 Audit（operator / action / object_type / object_id / before_data / after_data，与业务写入同事务，不记录敏感内容）；定义统一的访问范围类型（如 AccessScope）与逐请求解析入口 （ADMIN 解析为不受限，非 ADMIN 解析为授权集群集合），供
+    F027 复用。明确不做：在 F026 内对既有个各业务域端点施加范围过滤 （由 F027 承接）；新增角色类型；资源实例级授权；组织 / 租户模型；授权审批流。
+  acceptance: 映射 §23.2 与 T85-T90。迁移可在真实 PostgreSQL 上正向执行与回滚，回填结果与裁定口径逐条一致且可核对计数； 授权授予 / 撤销仅 ADMIN 可用，非 ADMIN 调用被服务端拒绝；撤销即时生效并保留可追溯的撤销时间与操作者，不物理删除历史；授权授予与 撤销各产生一条 Audit 且与业务写入同事务、失败不留残留；AccessScope 对 ADMIN
+    为不受限、对非 ADMIN 为显式集群集合，同一请求内 解析结果稳定可复用；System 页面授权 UI 仅 ADMIN 可达且不泄露给其它角色；针对 ADMIN 立授权行的处理符合裁定；新增集群的默认授权 行为符合裁定。本 Feature 不改动任何既有端点的可见数据范围，既有 T01-T84 行为无回归。
   requirements:
   - docs/product/requirements-v3.md#232-集群范围授权
   - docs/product/requirements-v3.md#23-用户与权限
@@ -1829,22 +1717,13 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M18 服务端范围强制执行
-  scope: 将 F026 的 AccessScope 施加到全部服务端读写路径，使非 ADMIN 只能观察与操作其被授权 Cluster 内对象，且未授权 Cluster
-    及其对象 完全不可见。范围含：11 个业务域的列表与详情（Cluster、Resource、Interface、Network、IPPool、IPAddress、Service、
-    ServiceEndpoint 及 Cluster Detail / Resource Detail 聚合视图）默认按范围收敛；创建 / 修改 / 删除 /
-    恢复 / 解绑 / 释放等写路径按范围校验并拒绝越权，且失败不产生业务变更或 Audit 残留；Activity / Audit 的可见性按既有 §22 规则叠加范围口径
-    （完整审计查询仍限 ADMIN）；跨对象父级派生（IP → Interface → Resource → Cluster；Endpoint → Service
-    → Resource → Cluster；明细跟随 Resource）与未绑定 IP 的 Cluster 归属推导；全局搜索 4 类候选匹配、关联行展开（含
-    F018 字段组合）与 total 均按范围收敛，分页与 total 不泄露未授权对象；Dashboard 各计数与 Network / AUTO 池容量口径按范围重算（零授权行为按裁定）；
-    F014 / F023 导入的预校验与写入行级归因（未授权 Cluster 行报错含行号 / 字段 / 原因，整批原子性不变）与 F025 采集脚本 --push
-    走同一范围口径；错误语义按裁定统一（404 与 403 的选择与不泄露存在性要求）。明确不做：新增角色或权限项；资源实例级授权； 修改既有 §23 权限矩阵中角色可执行的操作类别；修改
-    F014 / F023 冻结模板与列集；前端新增授权管理界面（F026 已交付）。
-  acceptance: 映射 §23.2 与 T91-T97。非 ADMIN 在全部 11 域列表 / 详情 / 聚合视图中仅能看到已授权 Cluster 内对象，未授权
-    Cluster 的对象完全不出现且不通过 total / 计数 / 搜索推断存在性；写路径（创建 / 修改 / 删除 / 恢复 / 解绑 / 释放 / 导入
-    / 批量绑定 / 脚本推送）对未授权对象一律拒绝，拒绝后对象状态、关联与 Audit 均无变化；跨对象父级派生与未绑定 IP 归属结果与 裁定口径一致；全局搜索
-    4 类候选、关联行与 total 按范围收敛且既有匹配 / 排序 / 去重 / 分页语义不变；Dashboard 计数与 Network / AUTO 池容量按范围重算，零授权时行为符合裁定且不报错；API
-    Key 继承绑定账号范围；导入预校验与写入的越权行均可定位 到行号且整批回滚无残留；ADMIN 不受范围限制且既有 T01-T84 行为无回归。本 Feature
-    的读写限制必须在同一次合并内整体生效，不得 以「部分端点已受限、其余仍全局可见」的中间态合并。
+  scope: 将 F026 的 AccessScope 施加到全部服务端读写路径，使非 ADMIN 只能观察与操作其被授权 Cluster 内对象，且未授权 Cluster 及其对象 完全不可见。范围含：11 个业务域的列表与详情（Cluster、Resource、Interface、Network、IPPool、IPAddress、Service、 ServiceEndpoint 及 Cluster
+    Detail / Resource Detail 聚合视图）默认按范围收敛；创建 / 修改 / 删除 / 恢复 / 解绑 / 释放等写路径按范围校验并拒绝越权，且失败不产生业务变更或 Audit 残留；Activity / Audit 的可见性按既有 §22 规则叠加范围口径 （完整审计查询仍限 ADMIN）；跨对象父级派生（IP → Interface → Resource → Cluster；Endpoint
+    → Service → Resource → Cluster；明细跟随 Resource）与未绑定 IP 的 Cluster 归属推导；全局搜索 4 类候选匹配、关联行展开（含 F018 字段组合）与 total 均按范围收敛，分页与 total 不泄露未授权对象；Dashboard 各计数与 Network / AUTO 池容量口径按范围重算（零授权行为按裁定）； F014 / F023 导入的预校验与写入行级归因（未授权
+    Cluster 行报错含行号 / 字段 / 原因，整批原子性不变）与 F025 采集脚本 --push 走同一范围口径；错误语义按裁定统一（404 与 403 的选择与不泄露存在性要求）。明确不做：新增角色或权限项；资源实例级授权； 修改既有 §23 权限矩阵中角色可执行的操作类别；修改 F014 / F023 冻结模板与列集；前端新增授权管理界面（F026 已交付）。
+  acceptance: 映射 §23.2 与 T91-T97。非 ADMIN 在全部 11 域列表 / 详情 / 聚合视图中仅能看到已授权 Cluster 内对象，未授权 Cluster 的对象完全不出现且不通过 total / 计数 / 搜索推断存在性；写路径（创建 / 修改 / 删除 / 恢复 / 解绑 / 释放 / 导入 / 批量绑定 / 脚本推送）对未授权对象一律拒绝，拒绝后对象状态、关联与
+    Audit 均无变化；跨对象父级派生与未绑定 IP 归属结果与 裁定口径一致；全局搜索 4 类候选、关联行与 total 按范围收敛且既有匹配 / 排序 / 去重 / 分页语义不变；Dashboard 计数与 Network / AUTO 池容量按范围重算，零授权时行为符合裁定且不报错；API Key 继承绑定账号范围；导入预校验与写入的越权行均可定位 到行号且整批回滚无残留；ADMIN 不受范围限制且既有
+    T01-T84 行为无回归。本 Feature 的读写限制必须在同一次合并内整体生效，不得 以「部分端点已受限、其余仍全局可见」的中间态合并。
   requirements:
   - docs/product/requirements-v3.md#232-集群范围授权
   - docs/product/requirements-v3.md#23-用户与权限
@@ -1912,16 +1791,11 @@ features:
   kind: FEATURE
   priority: P0
   milestone: M19 范围变更集成验收
-  scope: 在真实 Docker Compose 环境（Nginx → Frontend / FastAPI → PostgreSQL）对 CHG-010 新增范围做集成验收，并回归既有能力。
-    范围含：准备多角色 / 多集群 / 多授权组合的验收数据（ADMIN、无授权非 ADMIN、单集群授权、多集群授权、撤销后账号、API Key 绑定账号），在真实环境执行拟新增
-    T85-T99；执行既有 T01-T84 的关键回归子集（至少覆盖唯一性、跨 Cluster 关系、软删与恢复、 Audit 与 Activity、权限矩阵、编辑版本冲突、导入两步流程与整批回滚、全局搜索字段组合、Dashboard
-    容量口径、二次确认与 API Key 认证）；核对前端在受限范围下的列表 / 详情 / 搜索 / Dashboard / System 授权页表现（空态、无越权入口、错误提示）；核实
-    迁移与回填在真实数据量下的结果与可回滚性；更新候选 revision 的整体验收证据并把 project.acceptance 由 PENDING 置 COMPLETE（由协调器核验后写入）。明确不做：新增业务规则或绕过已签核设计；改写
-    F001-F025 的已交付范围与证据；以本 Feature 名义提交未在 F026 / F027 设计内的行为变更；把未实际执行的项目写成 PASS。
-  acceptance: 映射 §31 / §32 与 T85-T99。docker compose up -d 可在真实环境完成启动并跑通新增范围验收；T85-T99
-    全部 有真实执行证据且无未解释失败；T01-T84 关键回归无回归失败；受限范围内不出现越权可见或越权写入；撤销授权、账号降级与 API Key 失效后行为即时收敛且无残留缓存；迁移回填结果与裁定口径一致并可回滚；验收证据写入
-    project.acceptance（含本 Feature 的 test-report 锚点），由协调器核验后置 COMPLETE。环境限制（如镜像源不可达导致等价替代栈）必须如实记录，不得写成
-    PASS。
+  scope: 在真实 Docker Compose 环境（Nginx → Frontend / FastAPI → PostgreSQL）对 CHG-010 新增范围做集成验收，并回归既有能力。 范围含：准备多角色 / 多集群 / 多授权组合的验收数据（ADMIN、无授权非 ADMIN、单集群授权、多集群授权、撤销后账号、API Key 绑定账号），在真实环境执行拟新增 T85-T99；执行既有
+    T01-T84 的关键回归子集（至少覆盖唯一性、跨 Cluster 关系、软删与恢复、 Audit 与 Activity、权限矩阵、编辑版本冲突、导入两步流程与整批回滚、全局搜索字段组合、Dashboard 容量口径、二次确认与 API Key 认证）；核对前端在受限范围下的列表 / 详情 / 搜索 / Dashboard / System 授权页表现（空态、无越权入口、错误提示）；核实 迁移与回填在真实数据量下的结果与可回滚性；更新候选
+    revision 的整体验收证据并把 project.acceptance 由 PENDING 置 COMPLETE（由协调器核验后写入）。明确不做：新增业务规则或绕过已签核设计；改写 F001-F025 的已交付范围与证据；以本 Feature 名义提交未在 F026 / F027 设计内的行为变更；把未实际执行的项目写成 PASS。
+  acceptance: 映射 §31 / §32 与 T85-T99。docker compose up -d 可在真实环境完成启动并跑通新增范围验收；T85-T99 全部 有真实执行证据且无未解释失败；T01-T84 关键回归无回归失败；受限范围内不出现越权可见或越权写入；撤销授权、账号降级与 API Key 失效后行为即时收敛且无残留缓存；迁移回填结果与裁定口径一致并可回滚；验收证据写入 project.acceptance（含本
+    Feature 的 test-report 锚点），由协调器核验后置 COMPLETE。环境限制（如镜像源不可达导致等价替代栈）必须如实记录，不得写成 PASS。
   requirements:
   - docs/product/requirements-v3.md#232-集群范围授权
   - docs/product/requirements-v3.md#31-测试
@@ -1983,16 +1857,10 @@ features:
   kind: ENABLER
   priority: P2
   milestone: M20 Review 跟进
-  scope: 完成 F026/F027/F028 Review 中非阻塞跟进项：①F026 未知用户 + 非法 q 的 404/422 顺序；②F026 撤销
-    409 关闭并刷新、候选授权跨分页过滤；③F026 grant 的 IntegrityError 收窄到有效唯一冲突；④F026 迁移触发器 SQLSTATE
-    与 0015 down 对象对称性断言；⑤F027 各域 Contract 回写范围交叉引用；⑥F027 测试 scope 覆盖改为显式 real_scope
-    marker；⑦F027 resource_predicate 命名/注释修正；⑧F027 normalize(None) 风险说明与路由覆盖断言；⑨F028
-    整体验收证据补充 F027 T87/T89/T96/T99 锚点；⑩补充 F026 并发/升降级/停用等可重复回归测试。不新增业务规则、不改变已批准范围语义、不改
-    Schema/端点/权限。
-  acceptance: F026 未知用户 + 非法 q 返回 404；撤销 409 关闭并刷新；候选排除覆盖全部有效授权；grant 仅唯一冲突映射 409；触发器
-    SQLSTATE 与 downgrade 对象对称性有断言；各域 Contract 含 F027 交叉引用；scope 测试使用 real_scope marker；resource_predicate
-    命名清晰；normalize(None) 风险有说明且路由覆盖断言通过；project.acceptance 含 F027 锚点；新增回归测试通过；全量既有测试无回归；Review
-    APPROVED。
+  scope: 完成 F026/F027/F028 Review 中非阻塞跟进项：①F026 未知用户 + 非法 q 的 404/422 顺序；②F026 撤销 409 关闭并刷新、候选授权跨分页过滤；③F026 grant 的 IntegrityError 收窄到有效唯一冲突；④F026 迁移触发器 SQLSTATE 与 0015 down 对象对称性断言；⑤F027 各域 Contract 回写范围交叉引用；⑥F027
+    测试 scope 覆盖改为显式 real_scope marker；⑦F027 resource_predicate 命名/注释修正；⑧F027 normalize(None) 风险说明与路由覆盖断言；⑨F028 整体验收证据补充 F027 T87/T89/T96/T99 锚点；⑩补充 F026 并发/升降级/停用等可重复回归测试。不新增业务规则、不改变已批准范围语义、不改 Schema/端点/权限。
+  acceptance: F026 未知用户 + 非法 q 返回 404；撤销 409 关闭并刷新；候选排除覆盖全部有效授权；grant 仅唯一冲突映射 409；触发器 SQLSTATE 与 downgrade 对象对称性有断言；各域 Contract 含 F027 交叉引用；scope 测试使用 real_scope marker；resource_predicate 命名清晰；normalize(None)
+    风险有说明且路由覆盖断言通过；project.acceptance 含 F027 锚点；新增回归测试通过；全量既有测试无回归；Review APPROVED。
   requirements:
   - docs/features/F026/review-report.md
   - docs/features/F027/review-report.md
@@ -2065,15 +1933,11 @@ features:
   kind: ENABLER
   priority: P2
   milestone: M21 Review 跟进收敛
-  scope: 完成 F029 Review 的非阻塞跟进项并收敛遗留设计输入：①补 F026 v2 与 12 份域 Contract 的签核者/日期/版本记录；②由
-    Architect/Database 收敛 CHG010-BQ18、Architect/Backend 收敛 CHG010-BQ19 并记录依据；③补 q
-    边界断言（已知用户 q=""/控制字符 → 422；未知用户 + 未知查询参数 → 422）；④补 F026 授予真并发（201 + 409）与非唯一 IntegrityError
-    原样抛出测试；⑤前端候选加载期间门控提交/提示，评估 ACTIVE 授权 >2000 条时的排除完整性；⑥修正 list_authorizations 注释与
-    F026.md「非唯一完整性错误 → 500」语义；⑦声明集成测试默认 legacy unrestricted，真实 scope 必须使用 real_scope
-    marker。不新增业务规则，不改变已批准端点、权限或 Schema 语义。
-  acceptance: Contract 与 BQ18/BQ19 签核记录完整；q 两侧断言通过；F026 并发与非唯一完整性错误测试通过；前端候选加载不再短暂
-    呈现错误候选或提交由加载状态门控，超大授权量行为有明确结论；注释与 F026 Contract 500 语义修正；real_scope 默认规则已声明并有测试约束；定向与全量回归通过；Review
-    APPROVED 或 APPROVED WITH FOLLOW-UP。
+  scope: 完成 F029 Review 的非阻塞跟进项并收敛遗留设计输入：①补 F026 v2 与 12 份域 Contract 的签核者/日期/版本记录；②由 Architect/Database 收敛 CHG010-BQ18、Architect/Backend 收敛 CHG010-BQ19 并记录依据；③补 q 边界断言（已知用户 q=""/控制字符 → 422；未知用户 + 未知查询参数
+    → 422）；④补 F026 授予真并发（201 + 409）与非唯一 IntegrityError 原样抛出测试；⑤前端候选加载期间门控提交/提示，评估 ACTIVE 授权 >2000 条时的排除完整性；⑥修正 list_authorizations 注释与 F026.md「非唯一完整性错误 → 500」语义；⑦声明集成测试默认 legacy unrestricted，真实 scope 必须使用
+    real_scope marker。不新增业务规则，不改变已批准端点、权限或 Schema 语义。
+  acceptance: Contract 与 BQ18/BQ19 签核记录完整；q 两侧断言通过；F026 并发与非唯一完整性错误测试通过；前端候选加载不再短暂 呈现错误候选或提交由加载状态门控，超大授权量行为有明确结论；注释与 F026 Contract 500 语义修正；real_scope 默认规则已声明并有测试约束；定向与全量回归通过；Review APPROVED 或 APPROVED
+    WITH FOLLOW-UP。
   requirements:
   - docs/features/F029/review-report.md
   - docs/api/F026.md
@@ -2157,13 +2021,9 @@ features:
   kind: ENABLER
   priority: P2
   milestone: M22 Review 跟进收尾
-  scope: 处理 F030 Review 的 10 项非阻塞跟进：①architecture 补 canSubmitGrant 签名 errata；②前端候选空态改回因中性文案并核对
-    wiring；③后端注释统一为「handler 内先于路径/语义校验」；④并发用例增加尝试次数并保留失败语义；⑤归档更正 static 日志路径笔误的证据说明；⑥F026
-    头部注明 plan_revision 14 为历史依据、16 为本次确认来源；⑦消除三处悬空「架构评审 I-2」引用；⑧评估并扩展 real_scope 守卫范围或记录接受边界；⑨补
-    grant 路径端到端 500 信封测试（测试专用路由）；⑩核对上述变更不改变端点/字段/错误码/权限/Schema。不新增业务规则。
-  acceptance: 每项跟进有明确关闭结果或接受理由；RV-03/04/05/06/07/08/09 已关闭，RV-10 有范围结论，T03 有端到端 500
-    证据或明确接受；定向与全量回归通过；前端 typecheck/build/smoke 通过；无 Contract/Schema/权限行为变化；Review
-    APPROVED 或 APPROVED WITH FOLLOW-UP。
+  scope: 处理 F030 Review 的 10 项非阻塞跟进：①architecture 补 canSubmitGrant 签名 errata；②前端候选空态改回因中性文案并核对 wiring；③后端注释统一为「handler 内先于路径/语义校验」；④并发用例增加尝试次数并保留失败语义；⑤归档更正 static 日志路径笔误的证据说明；⑥F026 头部注明 plan_revision 14
+    为历史依据、16 为本次确认来源；⑦消除三处悬空「架构评审 I-2」引用；⑧评估并扩展 real_scope 守卫范围或记录接受边界；⑨补 grant 路径端到端 500 信封测试（测试专用路由）；⑩核对上述变更不改变端点/字段/错误码/权限/Schema。不新增业务规则。
+  acceptance: 每项跟进有明确关闭结果或接受理由；RV-03/04/05/06/07/08/09 已关闭，RV-10 有范围结论，T03 有端到端 500 证据或明确接受；定向与全量回归通过；前端 typecheck/build/smoke 通过；无 Contract/Schema/权限行为变化；Review APPROVED 或 APPROVED WITH FOLLOW-UP。
   requirements:
   - docs/features/F030/review-report.md
   - docs/features/F030/architecture.md
@@ -2225,19 +2085,12 @@ features:
   kind: FEATURE
   priority: P2
   milestone: M23 采集脚本可用性
-  scope: 更新 scripts/collect_host_info.py：--resource-type 全局必填（仅 BARE_METAL / VIRTUAL_MACHINE）；--help
-    分区说明模板必填与 --push 必填，列出 --role / --status 枚举值及 --cluster / --host / --network 引用语义；仍使用
-    F023 §6 同一 26 列模板与同一导入端点，按类型只填适用列并生成按类型区分的默认 CSV；-o/--output 优先，--print 只输出 stdout
-    不写文件；非法枚举本地 fail-fast，非零退出、不写文件、不输出 CSV、不联网，不做大小写折叠或短名映射。保持 --push 两步流程、API Key
-    不落盘、默认离线只读、列名列序不变；更新 .gitignore 的类型化默认文件名条目并保留旧条目；更新 F024 README / field-mapping
-    的用法示例并标注 revision 12，不改写 F024 历史证据；不修改 F014 / F023 模板、契约、端点、Schema、前端、权限或审计，不新增平台
-    API。
-  acceptance: 通过 T100–T106，并显式承接 revision 12 修订后的 T73 / T79 / T84：--help 覆盖必填/枚举/引用语义并分区；缺
-    --resource-type 无副作用失败；BM/VM 各自只填适用列且表头为 F023 §6 26 列同序；按类型默认文件名生效且 -o 优先、--print
-    不写文件；非法枚举本地失败；F014/F023 契约零 diff，T75/T77/T78/T82/T83 无回归；T73/T79/T84 按 §24.4 新口径通过。F032
-    test-report 同时作为 plan revision 18 的整体验收证据：以生成的真实 BM/VM CSV 经 F023 `/api/v1/imports/resource-interfaces-ips/validate`
-    验证（或在环境受限时如实记录替代证据），并由协调器与 F001–F031 历史证据一并核验后置 `project.acceptance=COMPLETE`；不以单一
-    Feature PASS 代替。
+  scope: 更新 scripts/collect_host_info.py：--resource-type 全局必填（仅 BARE_METAL / VIRTUAL_MACHINE）；--help 分区说明模板必填与 --push 必填，列出 --role / --status 枚举值及 --cluster / --host / --network 引用语义；仍使用 F023 §6 同一 26 列模板与同一导入端点，按类型只填适用列并生成按类型区分的默认
+    CSV；-o/--output 优先，--print 只输出 stdout 不写文件；非法枚举本地 fail-fast，非零退出、不写文件、不输出 CSV、不联网，不做大小写折叠或短名映射。保持 --push 两步流程、API Key 不落盘、默认离线只读、列名列序不变；更新 .gitignore 的类型化默认文件名条目并保留旧条目；更新 F024 README / field-mapping
+    的用法示例并标注 revision 12，不改写 F024 历史证据；不修改 F014 / F023 模板、契约、端点、Schema、前端、权限或审计，不新增平台 API。
+  acceptance: 通过 T100–T106，并显式承接 revision 12 修订后的 T73 / T79 / T84：--help 覆盖必填/枚举/引用语义并分区；缺 --resource-type 无副作用失败；BM/VM 各自只填适用列且表头为 F023 §6 26 列同序；按类型默认文件名生效且 -o 优先、--print 不写文件；非法枚举本地失败；F014/F023 契约零 diff，T75/T77/T78/T82/T83
+    无回归；T73/T79/T84 按 §24.4 新口径通过。F032 test-report 同时作为 plan revision 18 的整体验收证据：以生成的真实 BM/VM CSV 经 F023 `/api/v1/imports/resource-interfaces-ips/validate` 验证（或在环境受限时如实记录替代证据），并由协调器与 F001–F031 历史证据一并核验后置
+    `project.acceptance=COMPLETE`；不以单一 Feature PASS 代替。
   requirements:
   - docs/product/requirements-v3.md#244-采集脚本类型必填帮助信息与按类型生成revision-12
   - docs/product/requirements-v3.md#242-离线主机信息采集脚本revision-9
@@ -2305,11 +2158,9 @@ features:
   kind: FEATURE
   priority: P2
   milestone: M24 前端布局优化
-  scope: 在不改变业务规则、数据、Contract、权限和既有交互语义的前提下，优化运维控制台的整体布局与 CSS 可维护性：收敛应用壳（页头信息去重、桌面端粘性工具条、移动端紧凑横向导航、减少首屏纵向占用）；统一页面标题/卡片/间距/表格工具栏的视觉层级；用语义
-    CSS 变量替换散落硬编码颜色并收口 main 宽度冲突；修复 System 授权面板固定双栏在窄屏的溢出、搜索高级字段选择改为可展开区域、Dashboard
+  scope: 在不改变业务规则、数据、Contract、权限和既有交互语义的前提下，优化运维控制台的整体布局与 CSS 可维护性：收敛应用壳（页头信息去重、桌面端粘性工具条、移动端紧凑横向导航、减少首屏纵向占用）；统一页面标题/卡片/间距/表格工具栏的视觉层级；用语义 CSS 变量替换散落硬编码颜色并收口 main 宽度冲突；修复 System 授权面板固定双栏在窄屏的溢出、搜索高级字段选择改为可展开区域、Dashboard
     移动端计数卡最后一项跨列；保留服务端分页/排序/过滤、权限、错误与表单语义，以及 Ant Design + Tailwind 组件边界。
-  acceptance: 通过 frontend typecheck/build/smoke；在 1440/1024/768/375px 检查代表页面，页面无意外横向溢出、表格在自身区域滚动、导航与主要操作无遮挡；移动端首屏导航高度明显下降且导航项键盘可达；授权面板在窄屏单列堆叠；搜索字段选择默认折叠且可键盘展开；既有列表/详情/表单/弹窗行为与测试无回归；无
-    API/Schema/权限变更。
+  acceptance: 通过 frontend typecheck/build/smoke；在 1440/1024/768/375px 检查代表页面，页面无意外横向溢出、表格在自身区域滚动、导航与主要操作无遮挡；移动端首屏导航高度明显下降且导航项键盘可达；授权面板在窄屏单列堆叠；搜索字段选择默认折叠且可键盘展开；既有列表/详情/表单/弹窗行为与测试无回归；无 API/Schema/权限变更。
   requirements:
   - docs/product/requirements-v3.md#28-前端
   - docs/architecture/frontend-ui-stack.md
@@ -2375,19 +2226,12 @@ features:
   kind: FEATURE
   priority: P1
   milestone: M25 导入文本载体
-  scope: 在前端批量导入页新增第三种输入载体「粘贴 CSV 文本」：把用户粘贴的 CSV 文本按 UTF-8 编码为字节，以既有 multipart `file`
-    字段（format=csv）提交，复用 F014 `/api/v1/imports/resources*` 与 F023 `/api/v1/imports/resource-interfaces-ips*`
-    的预校验 / 写入端点；服务端零代码变更，不新增端点、查询参数、错误码、权限或 Schema。沿用既有「先预校验、再确认写入」两步流程与整批成功 / 整批回滚语义，写入时仍重新提交同一内容并完整重校验；模板、列名与列序、CSV
-    解析、行号、错误呈现、权限与 Audit 路径均不变。文本固定 format=csv（不提供文本载体上传 .xlsx）；本地只拦截空（含纯空白）输入与 5
-    MiB 字节上限，行数上限不在本地镜像、以服务端 413 `IMPORT_FILE_TOO_LARGE` 及 `IMPORT_*` 为权威。输入指纹由 file+format
-    扩展为 carrier（file | text）+ format + 内容摘要：文本载体取内容摘要，文件载体保留文件名 / 大小 / 修改时间，载体或内容任一变化即令既有预校验结果失效。不新增
-    npm 依赖；同步处理。明确不做：新端点或参数、Service Layer / Schema / 迁移改动、文本载体 .xlsx、模板编辑、本地行数上限或分隔符自动探测、多文件批量或流式上传、跳过预校验直接写入。载体切换与文本域交互细节由本
+  scope: 在前端批量导入页新增第三种输入载体「粘贴 CSV 文本」：把用户粘贴的 CSV 文本按 UTF-8 编码为字节，以既有 multipart `file` 字段（format=csv）提交，复用 F014 `/api/v1/imports/resources*` 与 F023 `/api/v1/imports/resource-interfaces-ips*` 的预校验 / 写入端点；服务端零代码变更，不新增端点、查询参数、错误码、权限或
+    Schema。沿用既有「先预校验、再确认写入」两步流程与整批成功 / 整批回滚语义，写入时仍重新提交同一内容并完整重校验；模板、列名与列序、CSV 解析、行号、错误呈现、权限与 Audit 路径均不变。文本固定 format=csv（不提供文本载体上传 .xlsx）；本地只拦截空（含纯空白）输入与 5 MiB 字节上限，行数上限不在本地镜像、以服务端 413 `IMPORT_FILE_TOO_LARGE`
+    及 `IMPORT_*` 为权威。输入指纹由 file+format 扩展为 carrier（file | text）+ format + 内容摘要：文本载体取内容摘要，文件载体保留文件名 / 大小 / 修改时间，载体或内容任一变化即令既有预校验结果失效。不新增 npm 依赖；同步处理。明确不做：新端点或参数、Service Layer / Schema / 迁移改动、文本载体 .xlsx、模板编辑、本地行数上限或分隔符自动探测、多文件批量或流式上传、跳过预校验直接写入。载体切换与文本域交互细节由本
     Feature ARCHITECTURE（前端）在 Contract 增补节签核边界内确定。
-  acceptance: 通过 requirements revision 13 新增测试项（拟 T107–T112，ID 以 revision 13 落稿为准）；文本载体与同字节
-    CSV 文件走同一预校验 / 写入端点，响应形状、行号、错误码、权限与 file 载体一致（F014 / F023 既有契约零回归）；空与纯空白文本本地拦截且不发请求；超过
-    5 MiB 文本本地拦截，服务端 413 口径一致；行数超 5000 不在本地拦截、由服务端权威拒绝且无部分写入；载体或内容变化后旧预校验结果失效、必须重新预校验；无新增依赖、既有
-    file/.xlsx 载体行为与其它页面无回归。`docs/api/F014.md` 与 `docs/api/F023.md` 的「CSV 文本载体（加法引用）」增补节须在本
-    Feature CONTRACT 阶段由 Architect 签核后方可作为实施依据。
+  acceptance: 通过 requirements revision 13 新增测试项（拟 T107–T112，ID 以 revision 13 落稿为准）；文本载体与同字节 CSV 文件走同一预校验 / 写入端点，响应形状、行号、错误码、权限与 file 载体一致（F014 / F023 既有契约零回归）；空与纯空白文本本地拦截且不发请求；超过 5 MiB 文本本地拦截，服务端 413 口径一致；行数超
+    5000 不在本地拦截、由服务端权威拒绝且无部分写入；载体或内容变化后旧预校验结果失效、必须重新预校验；无新增依赖、既有 file/.xlsx 载体行为与其它页面无回归。`docs/api/F014.md` 与 `docs/api/F023.md` 的「CSV 文本载体（加法引用）」增补节须在本 Feature CONTRACT 阶段由 Architect 签核后方可作为实施依据。
   requirements:
   - docs/product/requirements-v3.md#245-前端-csv-文本导入载体revision-13
   - docs/product/requirements-v3.md#24-批量导入
@@ -2440,8 +2284,7 @@ features:
     - docs/features/F034/test-report.md#2-test-execution
     review:
     - docs/features/F034/review-report.md#8-结论
-  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD 7531665；无 BLOCKER/HIGH/必须修复项；5
-    项非阻塞 follow-up 见审查报告 §6）；已合并 v3.3（merge d2a847a，父 33d8a03 + 7531665）。
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD 7531665；无 BLOCKER/HIGH/必须修复项；5 项非阻塞 follow-up 见审查报告 §6）；已合并 v3.3（merge d2a847a，父 33d8a03 + 7531665）。
   git:
     base_branch: v3.3
     branch: feature/F034-csv-text-import
@@ -2449,39 +2292,24 @@ features:
     head_commit: 753166524e723f745ef71699be85bf4bde5d1b62
     merge_commit: d2a847af733ebf55f292d8c966a038c8aee14ba4
   not_required:
-    database: layers.database=false：本 Feature 只新增前端输入载体，不新增或修改任何表、列、索引、约束、Migration
-      与事务边界；导入写入路径与 Service Layer 完全复用 F014/F023 已交付实现（Inspector 结论见 docs/features/F034/architecture.md
-      §5、§6）。
-    backend: layers.backend=false：文本→UTF-8 CSV 字节后复用 F014/F023 既有 multipart 端点，解析/校验/事务/审计/范围/上限全部沿用既有
-      Service Layer；backend/app/**、backend/alembic/** 零 diff（见 docs/features/F034/implementation.md
-      §4 与 test-report TD3-REG.2 守卫）。
+    database: layers.database=false：本 Feature 只新增前端输入载体，不新增或修改任何表、列、索引、约束、Migration 与事务边界；导入写入路径与 Service Layer 完全复用 F014/F023 已交付实现（Inspector 结论见 docs/features/F034/architecture.md §5、§6）。
+    backend: layers.backend=false：文本→UTF-8 CSV 字节后复用 F014/F023 既有 multipart 端点，解析/校验/事务/审计/范围/上限全部沿用既有 Service Layer；backend/app/**、backend/alembic/** 零 diff（见 docs/features/F034/implementation.md §4 与
+      test-report TD3-REG.2 守卫）。
 - id: F035
   title: 向既有 Resource 追加 Interface / IP 批量导入
   kind: FEATURE
   priority: P1
   milestone: M26 导入追加网卡/IP
-  scope: 在 F023「资源+网卡+IP」批量导入（冻结 26 列模板、`/api/v1/imports/resource-interfaces-ips*`
-    预校验与写入两个端点）上新增「追加到既有 Resource」能力：导入行可指向已存在且未删除的 Resource，为其新建 Interface 并在其下新建、绑定
-    IP，而不修改该 Resource 的任何既有字段（hostname、cluster、 resource_type、role、status 及 BareMetal
-    / VM 明细）；既有 Resource 不产生 UPDATE、也不产生对应 Audit，新增 Interface / IPAddress 按既有写路径产生
-    Audit。复用同一模板与列集列序、同一两步流程（先预校验、确认后写入，写入时完整重校验）、同一 Service Layer 校验、同一 IMPORT 权限与集群范围口径、同一错误口径（行号
-    / 字段 / 原因）、同一整批原子回滚（无部分成功、无残留 Audit / Activity）、同一同步处理与字节 / 行数上限；不新增端点、查询参数、错误码、权限项、表
-    / 列 / 索引 / Migration。 分支判定（行指向新建资源还是既有资源）、Resource 级列语义、重复提交与已存在子对象处理、留空列语义、响应计数口径、同一网卡多
-    IP、F014 入口是否同步等业务口径按 CHG013-BQ01–CHG013-BQ08 裁定；未裁定前按各 BQ 推荐项条件化，不得作为实施依据。契约影响：`docs/api/F023.md`
-    正文升版为 v2（现文 §13 等「不向既有 Resource 追加」的负面边界被本能力否定），端点与字段不变。明确不做：新端点 / 参数 / 错误码 /
-    权限 / Schema / Migration；修改既有 Resource 字段（若 CHG013-BQ01 选 C 需单独变更控制）；创建 Network
-    / IP Pool / Cluster / Host；Service / Endpoint / Cluster 导入；对已软删 Resource 追加（应报错）；改写
-    F014 / F023 已冻结模板与历史行为（若 CHG013-BQ04 选 B，F014 入口同步范围另行签核）。
-  acceptance: 通过 requirements revision 14 拟新增测试项 T117–T126（ID 与正文以 revision 14 落稿为准）；追加批可为已存在且未删除的
-    Resource 新建 Interface 并新建、绑定 IP，既有 Resource 字段与明细零变更（不产生既有行 UPDATE 与对应 Audit）；新建与追加混合批在同一整批原子性内整体成功或整体回滚、无残留
-    Audit / Activity；同 hostname 多行合并与同资源 Interface 名称去重正确，既存 Interface 重名按裁定报错且不被静默覆盖；重复提交已存在
-    Resource+Interface+IP 的行为符合 CHG013-BQ03；追加行 Resource 级列语义符合 CHG013-BQ02；留空列语义符合
-    CHG013-BQ07；同一 Interface 多 IP 是否允许符合 CHG013-BQ05；响应计数按 CHG013-BQ06 口径（待 BQ06 裁定、默认按
-    Architect C1：`created` 保持「新建 Resource 数」，纯追加批为 0；C3 的 `resources_reused` 属新字段，须单独批准后方可采用）；F014
-    资源导入入口按 CHG013-BQ04 保持一致（推荐 A 时零改动）；错误行含行号 / 字段 / 原因，IP 属正确 Network 且同 Cluster，不创建
-    Network / Pool / Cluster / Host；无 IMPORT 权限被服务端拒绝，含未授权集群行整批失败并返回行号与权限原因；F023 既有「仅新建」行为与
-    T64–T72 无回归，T89（导入行级范围归因）与 T115（CSV 文本载体权限 / 范围 / 审计）回归通过；`docs/api/F023.md` v2
-    须在本 Feature CONTRACT 阶段由 Architect 签核后方可作为实施依据。
+  scope: 在 F023「资源+网卡+IP」批量导入（冻结 26 列模板、`/api/v1/imports/resource-interfaces-ips*` 预校验与写入两个端点）上新增「追加到既有 Resource」能力：导入行可指向已存在且未删除的 Resource，为其新建 Interface 并在其下新建、绑定 IP，而不修改该 Resource 的任何既有字段（hostname、cluster、
+    resource_type、role、status 及 BareMetal / VM 明细）；既有 Resource 不产生 UPDATE、也不产生对应 Audit，新增 Interface / IPAddress 按既有写路径产生 Audit。复用同一模板与列集列序、同一两步流程（先预校验、确认后写入，写入时完整重校验）、同一 Service Layer 校验、同一 IMPORT 权限与集群范围口径、同一错误口径（行号
+    / 字段 / 原因）、同一整批原子回滚（无部分成功、无残留 Audit / Activity）、同一同步处理与字节 / 行数上限；不新增端点、查询参数、错误码、权限项、表 / 列 / 索引 / Migration。 分支判定（行指向新建资源还是既有资源）、Resource 级列语义、重复提交与已存在子对象处理、留空列语义、响应计数口径、同一网卡多 IP、F014 入口是否同步等业务口径按 CHG013-BQ01–CHG013-BQ08
+    裁定；未裁定前按各 BQ 推荐项条件化，不得作为实施依据。契约影响：`docs/api/F023.md` 正文升版为 v2（现文 §13 等「不向既有 Resource 追加」的负面边界被本能力否定），端点与字段不变。明确不做：新端点 / 参数 / 错误码 / 权限 / Schema / Migration；修改既有 Resource 字段（若 CHG013-BQ01 选 C 需单独变更控制）；创建
+    Network / IP Pool / Cluster / Host；Service / Endpoint / Cluster 导入；对已软删 Resource 追加（应报错）；改写 F014 / F023 已冻结模板与历史行为（若 CHG013-BQ04 选 B，F014 入口同步范围另行签核）。
+  acceptance: 通过 requirements revision 14 拟新增测试项 T117–T126（ID 与正文以 revision 14 落稿为准）；追加批可为已存在且未删除的 Resource 新建 Interface 并新建、绑定 IP，既有 Resource 字段与明细零变更（不产生既有行 UPDATE 与对应 Audit）；新建与追加混合批在同一整批原子性内整体成功或整体回滚、无残留
+    Audit / Activity；同 hostname 多行合并与同资源 Interface 名称去重正确，既存 Interface 重名按裁定报错且不被静默覆盖；重复提交已存在 Resource+Interface+IP 的行为符合 CHG013-BQ03；追加行 Resource 级列语义符合 CHG013-BQ02；留空列语义符合 CHG013-BQ07；同一 Interface 多 IP
+    是否允许符合 CHG013-BQ05；响应计数按 CHG013-BQ06 口径（待 BQ06 裁定、默认按 Architect C1：`created` 保持「新建 Resource 数」，纯追加批为 0；C3 的 `resources_reused` 属新字段，须单独批准后方可采用）；F014 资源导入入口按 CHG013-BQ04 保持一致（推荐 A 时零改动）；错误行含行号 / 字段 /
+    原因，IP 属正确 Network 且同 Cluster，不创建 Network / Pool / Cluster / Host；无 IMPORT 权限被服务端拒绝，含未授权集群行整批失败并返回行号与权限原因；F023 既有「仅新建」行为与 T64–T72 无回归，T89（导入行级范围归因）与 T115（CSV 文本载体权限 / 范围 / 审计）回归通过；`docs/api/F023.md`
+    v2 须在本 Feature CONTRACT 阶段由 Architect 签核后方可作为实施依据。
   requirements:
   - docs/product/requirements-v3.md#246-向既有-resource-追加-interface--ipaddressrevision-14
   - docs/product/requirements-v3.md#24-批量导入
@@ -2494,8 +2322,8 @@ features:
   - F023
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: ARCHITECTURE：出追加路径设计（写入路径二态、锁集合、比较列集）并起草 F023 v2 契约。
+  current_stage: TEST_DESIGN
+  next_action: TEST_DESIGN：Tester 出 V1–V12 验收映射、边界与并发场景、环境与可验证性检查。
   layers:
     database: false
     backend: true
@@ -2503,8 +2331,8 @@ features:
   api_required: true
   implementation:
     product: COMPLETE
-    architecture: PENDING
-    database: PENDING
+    architecture: COMPLETE
+    database: NOT_REQUIRED
     test_design: PENDING
     contract: PENDING
     backend: PENDING
@@ -2514,14 +2342,19 @@ features:
   evidence:
     product:
     - docs/features/F035/product.md
-  last_result: PRODUCT READY FOR ARCHITECT：复用 PM 2026-10-26 澄清结论 + 需求 revision 14
-    §24.6（CONFIRMED）与 CHG013-BQ01–BQ08 全部 CONFIRMED。
+    architecture:
+    - docs/features/F035/architecture.md#3-方案
+    database:
+    - docs/features/F035/architecture.md#5-数据完整性data-integrity-对应表
+  last_result: ARCHITECTURE READY FOR DESIGN：组级二态方案（existing_resource_id）、锁集合并入追加宿主、预校验新增两条只读检查、计数 C1；F023 已升版 v2（Architect 签核 2026-10-26）；DATABASE NOT_REQUIRED。
   git:
     base_branch: v3.3
     branch: feature/F035-append-interface-ip
     start_commit: 76d8410ef02c06e10c4c268cf08a4221a269ef62
     head_commit: null
     merge_commit: null
+  not_required:
+    database: layers.database=false：本 Feature 只改造 F023 导入服务的组级二态与只读校验，不新增/修改表、列、索引、约束、触发器或 Migration；追加依赖的三个部分唯一索引已由 F004/F007/F010 交付（见 docs/features/F035/architecture.md §5、§6、§11）。
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2554,8 +2387,7 @@ decisions_required:
   affects:
   - F025
   owner: Product Manager / 用户
-  basis: revision 10：--resource-type 写入该列并决定类型列；§24.2「一律留空」修订为「默认留空，可由参数提供」。 revision
-    12 / CHG011-BQ04 已将 --resource-type 由可选修订为全局必填；本项作为历史依据保留。
+  basis: revision 10：--resource-type 写入该列并决定类型列；§24.2「一律留空」修订为「默认留空，可由参数提供」。 revision 12 / CHG011-BQ04 已将 --resource-type 由可选修订为全局必填；本项作为历史依据保留。
 - id: BQ10
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
   status: CONFIRMED
@@ -2687,9 +2519,8 @@ decisions_required:
   - F012
   - F014
   owner: Architect / Database
-  basis: 专业设计已签核：docs/architecture/d01-conventions.md v11（READY，Architect 2026-10-09）覆盖
-    F003–F012 的字段字典/hostname/数值上限/时间/单位/归一化口径；F014 CONTRACT v1 §12 记录「D01 已最终核对关闭」（导入字段口径逐项一致、无新增/偏离；D01
-    v11 无字段变更）。原 status OPEN 为滞后记录，由协调器按 change-control 依已完成的专业签核更正为 CONFIRMED，不改变任何已批准行为。
+  basis: 专业设计已签核：docs/architecture/d01-conventions.md v11（READY，Architect 2026-10-09）覆盖 F003–F012 的字段字典/hostname/数值上限/时间/单位/归一化口径；F014 CONTRACT v1 §12 记录「D01 已最终核对关闭」（导入字段口径逐项一致、无新增/偏离；D01 v11 无字段变更）。原
+    status OPEN 为滞后记录，由协调器按 change-control 依已完成的专业签核更正为 CONFIRMED，不改变任何已批准行为。
 - id: D02
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
   status: CONFIRMED
@@ -2703,9 +2534,8 @@ decisions_required:
   - F010
   - F016
   owner: Architect / Database
-  basis: F010 CONTRACT Gate 关闭 D02 的约束/索引/锁/IPAM 并发部分（docs/database/f010-ip-address.md
-    v1 DB-D113/119/125 + docs/api/F010.md v1 §2/§6/§7）；其余部分（软件版本/目录、认证、版本冲突与错误语义、敏感字段、审计一致性与备份）已由
-    F001–F003/F008/F009 设计签核关闭；F016 仅承接备份覆盖 Audit 的验证。
+  basis: F010 CONTRACT Gate 关闭 D02 的约束/索引/锁/IPAM 并发部分（docs/database/f010-ip-address.md v1 DB-D113/119/125 + docs/api/F010.md v1 §2/§6/§7）；其余部分（软件版本/目录、认证、版本冲突与错误语义、敏感字段、审计一致性与备份）已由 F001–F003/F008/F009 设计签核关闭；F016
+    仅承接备份覆盖 Audit 的验证。
 - id: D03
   source: docs/product/requirements-v3.md#353-专业设计输入open按职责签核
   status: CONFIRMED
@@ -2713,8 +2543,7 @@ decisions_required:
   affects:
   - F014
   owner: Architect / Backend / Tester
-  resolution: F014 CONTRACT v1 §10 签核（模板 BM 14/VM 10 列、VM Host 引用列、同步上限 5 MiB/5000
-    行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
+  resolution: F014 CONTRACT v1 §10 签核（模板 BM 14/VM 10 列、VM Host 引用列、同步上限 5 MiB/5000 行、错误预览 1000、413 超限）；性能证据义务交 TEST。依据 docs/api/F014.md v1。
 - id: CHG010-BQ01
   source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
   status: CONFIRMED
@@ -2723,8 +2552,7 @@ decisions_required:
   - F026
   - F027
   owner: 用户
-  basis: ADMIN 是否完全不受集群范围限制（推荐：不受限，且不为其建立授权行）。合并原 U7：若采纳「ADMIN 不受限」，是否仍允许为 ADMIN 建冗余授权行（推荐：拒绝或忽略并保持单一事实来源）。
-    用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: ADMIN 是否完全不受集群范围限制（推荐：不受限，且不为其建立授权行）。合并原 U7：若采纳「ADMIN 不受限」，是否仍允许为 ADMIN 建冗余授权行（推荐：拒绝或忽略并保持单一事实来源）。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ02
   source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
   status: CONFIRMED
@@ -2733,8 +2561,7 @@ decisions_required:
   - F026
   - F027
   owner: 用户
-  basis: 非 ADMIN 无任何授权时的默认语义（推荐：deny-by-default，可见集合为空；不隐含「全部可见」）。需与 CHG010-BQ15 （零授权
-    Dashboard 行为）一致。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 非 ADMIN 无任何授权时的默认语义（推荐：deny-by-default，可见集合为空；不隐含「全部可见」）。需与 CHG010-BQ15 （零授权 Dashboard 行为）一致。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ03
   source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
   status: CONFIRMED
@@ -2743,8 +2570,7 @@ decisions_required:
   - F027
   - F028
   owner: 用户
-  basis: 范围是同时限制读与写（推荐），还是只限制写或只限制读；若不同步则须明确越权读的可见范围与泄露风险。 用户于 2026-10-21 回复「批准并实施」，按提案第
-    6 节推荐组合确认。
+  basis: 范围是同时限制读与写（推荐），还是只限制写或只限制读；若不同步则须明确越权读的可见范围与泄露风险。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ04
   source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
   status: CONFIRMED
@@ -2754,8 +2580,7 @@ decisions_required:
   - F028
   - F017
   owner: 用户
-  basis: API Key 是否继承绑定账号的集群范围（推荐：继承，且不提供 Key 级 scope-down，与 §23.1 既有约定一致）。 用户于 2026-10-21
-    回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: API Key 是否继承绑定账号的集群范围（推荐：继承，且不提供 Key 级 scope-down，与 §23.1 既有约定一致）。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ05
   source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
   status: CONFIRMED
@@ -2763,8 +2588,7 @@ decisions_required:
   affects:
   - F026
   owner: 用户
-  basis: 授权授予与撤销是否写入 Audit（推荐：写入，含目标用户 / 集群 / 动作 / 操作者），是否也要求记录在用户 Activity 中。 用户于
-    2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 授权授予与撤销是否写入 Audit（推荐：写入，含目标用户 / 集群 / 动作 / 操作者），是否也要求记录在用户 Activity 中。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ06
   source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
   status: CONFIRMED
@@ -2773,8 +2597,7 @@ decisions_required:
   - F027
   - F028
   owner: 用户
-  basis: 非 ADMIN 是否永不可见已删除对象（推荐：永不，即使被授权该 Cluster；ADMIN 仍按 §21 查看与恢复）。 用户于 2026-10-21
-    回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 非 ADMIN 是否永不可见已删除对象（推荐：永不，即使被授权该 Cluster；ADMIN 仍按 §21 查看与恢复）。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ07
   source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
   status: CONFIRMED
@@ -2783,8 +2606,7 @@ decisions_required:
   - F027
   - F028
   owner: 用户
-  basis: 未授权集群是否完全不可见（推荐：是；不得通过列表 total、Dashboard 计数、搜索结果或错误信息推断其存在）。 用户于 2026-10-21
-    回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 未授权集群是否完全不可见（推荐：是；不得通过列表 total、Dashboard 计数、搜索结果或错误信息推断其存在）。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ08
   source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
   status: CONFIRMED
@@ -2792,8 +2614,7 @@ decisions_required:
   affects:
   - F026
   owner: 用户
-  basis: 迁移回填是否为「既有非 ADMIN × 既有 Cluster」全量建立授权（推荐：是，避免上线即造成非 ADMIN 数据雪崩式不可见）； 回填是否含软删
-    Cluster 见 CHG010-BQ14。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 迁移回填是否为「既有非 ADMIN × 既有 Cluster」全量建立授权（推荐：是，避免上线即造成非 ADMIN 数据雪崩式不可见）； 回填是否含软删 Cluster 见 CHG010-BQ14。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ09
   source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
   status: CONFIRMED
@@ -2801,8 +2622,7 @@ decisions_required:
   affects:
   - F026
   owner: 用户
-  basis: 是否仅 ADMIN 可管理授权（推荐：是，复用 §23「用户、角色、系统设置」权限，不新增权限项）。 用户于 2026-10-21 回复「批准并实施」，按提案第
-    6 节推荐组合确认。
+  basis: 是否仅 ADMIN 可管理授权（推荐：是，复用 §23「用户、角色、系统设置」权限，不新增权限项）。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ10
   source: docs/product/requirements-v3.md#232-集群范围授权（PROPOSED）
   status: CONFIRMED
@@ -2810,8 +2630,7 @@ decisions_required:
   affects:
   - F027
   owner: 用户
-  basis: 新建 Cluster 的默认授权（原 U1）。推荐：创建时不自动授权给任何非 ADMIN，仅创建者（ADMIN）可见，由 ADMIN 显式授予；
-    备选为自动授予创建者或全部非 ADMIN。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 新建 Cluster 的默认授权（原 U1）。推荐：创建时不自动授权给任何非 ADMIN，仅创建者（ADMIN）可见，由 ADMIN 显式授予； 备选为自动授予创建者或全部非 ADMIN。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ11
   source: docs/project/proposals/CHG-010-cluster-access.md#u2-admin-降级
   status: CONFIRMED
@@ -2819,8 +2638,7 @@ decisions_required:
   affects:
   - F026
   owner: 用户
-  basis: ADMIN 降级为非 ADMIN 时的范围（原 U2）。推荐：立即按该账号既有授权行解析（可能为零授权），不做隐式补偿；是否需要在降级前 强制校验授权数需明确。
-    用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: ADMIN 降级为非 ADMIN 时的范围（原 U2）。推荐：立即按该账号既有授权行解析（可能为零授权），不做隐式补偿；是否需要在降级前 强制校验授权数需明确。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ12
   source: docs/project/proposals/CHG-010-cluster-access.md#u3-撤销历史
   status: CONFIRMED
@@ -2829,8 +2647,7 @@ decisions_required:
   - F026
   - F028
   owner: 用户
-  basis: 撤销是否保留 revoked_at / 撤销操作者历史（原 U3）。推荐：保留，撤销为状态变更而非物理删除，重新授予产生新记录或重置撤销标记需 明确。
-    用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 撤销是否保留 revoked_at / 撤销操作者历史（原 U3）。推荐：保留，撤销为状态变更而非物理删除，重新授予产生新记录或重置撤销标记需 明确。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ13
   source: docs/project/proposals/CHG-010-cluster-access.md#u4-错误语义
   status: CONFIRMED
@@ -2838,8 +2655,7 @@ decisions_required:
   affects:
   - F027
   owner: 用户
-  basis: 越权访问返回 404 还是 403（原 U4）。推荐：对非 ADMIN 的未授权对象统一 404（不泄露存在性），与 §23 的 401 / 403
-    语义及既有错误码契约的兼容方式需确认。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 越权访问返回 404 还是 403（原 U4）。推荐：对非 ADMIN 的未授权对象统一 404（不泄露存在性），与 §23 的 401 / 403 语义及既有错误码契约的兼容方式需确认。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ14
   source: docs/project/proposals/CHG-010-cluster-access.md#u5-零授权-dashboard
   status: CONFIRMED
@@ -2849,8 +2665,7 @@ decisions_required:
   - F027
   - F028
   owner: 用户
-  basis: 零授权非 ADMIN 的 Dashboard / 搜索 / 列表行为（原 U5）。推荐：返回显式空态（计数 0、空结果、页面提示无授权集群），不报错
-    也不回退为全局。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 零授权非 ADMIN 的 Dashboard / 搜索 / 列表行为（原 U5）。推荐：返回显式空态（计数 0、空结果、页面提示无授权集群），不报错 也不回退为全局。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ15
   source: docs/project/proposals/CHG-010-cluster-access.md#u6-软删-cluster-回填
   status: CONFIRMED
@@ -2858,8 +2673,7 @@ decisions_required:
   affects:
   - F026
   owner: 用户
-  basis: 回填是否包含软删 Cluster（原 U6）。推荐：包含，使恢复后行为与回填前一致；若排除，需明确恢复后是否自动补授权。 用户于 2026-10-21
-    回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 回填是否包含软删 Cluster（原 U6）。推荐：包含，使恢复后行为与回填前一致；若排除，需明确恢复后是否自动补授权。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ16
   source: docs/project/proposals/CHG-010-cluster-access.md#u8-导入与推送同口径
   status: CONFIRMED
@@ -2867,8 +2681,7 @@ decisions_required:
   affects:
   - F027
   owner: 用户
-  basis: 导入 / 批量绑定 / 采集脚本 --push 是否与普通 API 同口径（原 U8）。推荐：完全同口径，预校验与写入均按行做范围校验并给出行号
-    级拒绝原因，不提供「导入绕过范围」的特例。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 导入 / 批量绑定 / 采集脚本 --push 是否与普通 API 同口径（原 U8）。推荐：完全同口径，预校验与写入均按行做范围校验并给出行号 级拒绝原因，不提供「导入绕过范围」的特例。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ17
   source: docs/project/proposals/CHG-010-cluster-access.md#u7-admin-授权行
   status: CONFIRMED
@@ -2877,8 +2690,7 @@ decisions_required:
   - F026
   - F027
   owner: 用户
-  basis: 是否允许为 ADMIN 建立授权行（原 U7，与 CHG010-BQ01 弱相关但不重复：本项决定数据层是否接受此类行，BQ01 决定 ADMIN
-    是否受范围限制）。推荐：不接受，授权行的存在意义仅对非 ADMIN 生效。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
+  basis: 是否允许为 ADMIN 建立授权行（原 U7，与 CHG010-BQ01 弱相关但不重复：本项决定数据层是否接受此类行，BQ01 决定 ADMIN 是否受范围限制）。推荐：不接受，授权行的存在意义仅对非 ADMIN 生效。 用户于 2026-10-21 回复「批准并实施」，按提案第 6 节推荐组合确认。
 - id: CHG010-BQ18
   source: docs/project/proposals/CHG-010-cluster-access.md#专业设计输入
   status: CONFIRMED
@@ -2887,13 +2699,10 @@ decisions_required:
   - F026
   - F027
   owner: Architect / Database
-  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对 docs/database/f026-cluster-authorization.md
-    v1（Database 2026-10-21；DB-D401–D420，含 DB-D407 全量 (user_id) 索引修订）、docs/features/F026/architecture.md
-    v1 §2/§3.2、 docs/features/F027/architecture.md §1–§2、docs/api/F026.md v3、docs/api/F027.md
-    v1：表 user_cluster_authorizations 的列/FK RESTRICT/CHECK/部分唯一索引 uq_user_cluster_authorizations_user_id_cluster_id
-    是有效行唯一权威；迁移 0015 手写 DDL + 幂等回填 + 计数断言；AccessScope 位于 app/core/access_scope.py，逐请求解析、request.state
-    复用、不跨请求缓存、不物化；范围过滤用 SQL 谓词（cluster_predicate / EXISTS 归属谓词）。未新增业务限制，requirements
-    §35.2/§35.3 正文未改写；F030 不改变该设计。
+  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对 docs/database/f026-cluster-authorization.md v1（Database 2026-10-21；DB-D401–D420，含 DB-D407 全量 (user_id) 索引修订）、docs/features/F026/architecture.md
+    v1 §2/§3.2、 docs/features/F027/architecture.md §1–§2、docs/api/F026.md v3、docs/api/F027.md v1：表 user_cluster_authorizations 的列/FK RESTRICT/CHECK/部分唯一索引 uq_user_cluster_authorizations_user_id_cluster_id
+    是有效行唯一权威；迁移 0015 手写 DDL + 幂等回填 + 计数断言；AccessScope 位于 app/core/access_scope.py，逐请求解析、request.state 复用、不跨请求缓存、不物化；范围过滤用 SQL 谓词（cluster_predicate / EXISTS 归属谓词）。未新增业务限制，requirements §35.2/§35.3 正文未改写；F030
+    不改变该设计。
 - id: CHG010-BQ19
   source: docs/project/proposals/CHG-010-cluster-access.md#专业设计输入
   status: CONFIRMED
@@ -2902,11 +2711,8 @@ decisions_required:
   - F026
   - F027
   owner: Architect / Backend
-  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对 docs/api/F026.md v3 §2/§3/§9/§10（D-7
-    列表默认与同刻 id 升序、D-8 未知查询参数 422 与 extra=forbid）、docs/features/F026/architecture.md
-    v1 §3.3/§4、docs/features/F030/architecture.md §7：授权列表分页/排序/过滤沿用既有列表契约口径，total
-    与 items 同 filters；System 授权 Tab 仅展示与逐条授予/撤销，不提供批量授予或批量撤销（属一期未纳入范围，需变更控制）。F030
-    前端交互修正不新增端点/参数/权限；实现责任为 Backend / Frontend。
+  basis: 专业设计已在既有批准边界内签核收敛（F030 P2）。Architect 2026-10-23 核对 docs/api/F026.md v3 §2/§3/§9/§10（D-7 列表默认与同刻 id 升序、D-8 未知查询参数 422 与 extra=forbid）、docs/features/F026/architecture.md v1 §3.3/§4、docs/features/F030/architecture.md
+    §7：授权列表分页/排序/过滤沿用既有列表契约口径，total 与 items 同 filters；System 授权 Tab 仅展示与逐条授予/撤销，不提供批量授予或批量撤销（属一期未纳入范围，需变更控制）。F030 前端交互修正不新增端点/参数/权限；实现责任为 Backend / Frontend。
 - id: CHG011-BQ01
   source: docs/project/proposals/CHG-011-collector-help-type-import.md#1-用户确认的裁定
   status: CONFIRMED
@@ -2914,8 +2720,7 @@ decisions_required:
   affects:
   - F032
   owner: 用户
-  basis: 用户 2026-10-23 确认组合 D：仍使用 F023 同一 26 列模板与同一导入端点；按 BARE_METAL / VIRTUAL_MACHINE
-    只填适用列，生成不同默认 CSV 文件。
+  basis: 用户 2026-10-23 确认组合 D：仍使用 F023 同一 26 列模板与同一导入端点；按 BARE_METAL / VIRTUAL_MACHINE 只填适用列，生成不同默认 CSV 文件。
 - id: CHG011-BQ02
   source: docs/project/proposals/CHG-011-collector-help-type-import.md#1-用户确认的裁定
   status: CONFIRMED
@@ -2939,8 +2744,7 @@ decisions_required:
   affects:
   - F032
   owner: 用户
-  basis: 用户 2026-10-23 明确确认「--resource-type 是必填项」：仅 BARE_METAL / VIRTUAL_MACHINE，缺失或非法时本地失败且无副作用；替代
-    BQ9 中 --resource-type 可选的旧口径。
+  basis: 用户 2026-10-23 明确确认「--resource-type 是必填项」：仅 BARE_METAL / VIRTUAL_MACHINE，缺失或非法时本地失败且无副作用；替代 BQ9 中 --resource-type 可选的旧口径。
 - id: CHG012-BQ01
   source: docs/project/proposals/CHG-012-csv-text-import.md#1-bq-1-载体覆盖范围与入口关系
   status: CONFIRMED
@@ -2950,8 +2754,7 @@ decisions_required:
   - F023
   - F034
   owner: 用户
-  basis: 用户 2026-10-26 回复「看推荐执行并实施」，确认推荐项 A：F014 资源导入与 F023 资源+网卡+IP 导入两个入口都新增「粘贴
-    CSV 文本」载体，文件上传保留并列、不替换、不削弱。
+  basis: 用户 2026-10-26 回复「看推荐执行并实施」，确认推荐项 A：F014 资源导入与 F023 资源+网卡+IP 导入两个入口都新增「粘贴 CSV 文本」载体，文件上传保留并列、不替换、不削弱。
 - id: CHG012-BQ02
   source: docs/project/proposals/CHG-012-csv-text-import.md#2-bq-2-文本解析口径严格度
   status: CONFIRMED
@@ -2970,8 +2773,7 @@ decisions_required:
   - F023
   - F035
   owner: 用户
-  basis: 用户 2026-10-26 回复「按推荐执行」，确认推荐项 B：允许向既有 Resource 追加 Interface/IP，且不修改既有 Resource
-    字段、不覆盖既有子对象。
+  basis: 用户 2026-10-26 回复「按推荐执行」，确认推荐项 B：允许向既有 Resource 追加 Interface/IP，且不修改既有 Resource 字段、不覆盖既有子对象。
 - id: CHG013-BQ02
   source: docs/project/proposals/CHG-013-append-interface-ip.md#2-bq-2-追加行-resource-级列语义
   status: CONFIRMED
@@ -3046,10 +2848,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 用户 2026-10-26 在批准 plan revision 21 的同一次指令中回复「按推荐执行」，授权本轮新增范围 F035 的实施。
   current_feature: F035
-  current_stage: PRODUCT
-  last_result: Git Preflight 通过；创建分支 feature/F035-append-interface-ip（start_commit
-    76d8410）。
-  next_action: ARCHITECTURE 阶段派发 Architect 设计模式。
+  current_stage: TEST_DESIGN
+  last_result: ARCHITECTURE Gate 通过（READY FOR DESIGN）；F023 v2 已签核；DATABASE NOT_REQUIRED。
+  next_action: 派发 Tester TEST_DESIGN，随后 Architect 定稿 READY FOR IMPLEMENTATION。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
