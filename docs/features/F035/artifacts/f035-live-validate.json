@@ -1,0 +1,198 @@
+{
+  "feature": "F035",
+  "layer": "H (real stack)",
+  "base": "http://localhost:18080",
+  "candidate_head": "187ddf3",
+  "executed_at": "2026-10-26T08:15:01.711Z",
+  "password_used": "TEST stack credential (.env.test INITIAL_ADMIN_PASSWORD); not recorded",
+  "pasted_carrier_file": "csm-pasted-import.csv",
+  "pasted_carrier_mime": "text/csv;charset=utf-8",
+  "read_only_host": {
+    "cluster": "N96P",
+    "hostname": "luck",
+    "id": "bd482b66-7cd9-4920-9757-605899556605"
+  },
+  "write_scope": {
+    "cluster": "F35TE82Z",
+    "network": "f35th-net",
+    "hostname": "f35th-host"
+  },
+  "cleanup": [
+    {
+      "label": "ip 10.180.0.10",
+      "status": 204
+    },
+    {
+      "label": "ip 10.180.0.11",
+      "status": 204
+    },
+    {
+      "label": "interface eth0",
+      "status": 204
+    },
+    {
+      "label": "interface f35th-eth1",
+      "status": 204
+    },
+    {
+      "label": "resource f35th-host",
+      "status": 204
+    },
+    {
+      "label": "network f35th-net",
+      "status": 204
+    },
+    {
+      "label": "cluster F35TE82Z",
+      "status": 204
+    }
+  ],
+  "failures": 0,
+  "results": [
+    {
+      "name": "login",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "templates 26 列且首列 cluster 末列 ip",
+      "ok": true,
+      "detail": "status=200 cols=26"
+    },
+    {
+      "name": "既有 Cluster N96P 存在",
+      "ok": true,
+      "detail": "\"41c9fc43-1ce1-45b0-b104-47310d0d1a15\""
+    },
+    {
+      "name": "既有 Network TEST/TESTNET 存在且 ACTIVE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "既有 Resource luck 存在（BM）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "T117.4 追加行预校验 200 / 0 错误",
+      "ok": true,
+      "detail": "{\"status\":200,\"format\":\"csv\",\"total_rows\":1,\"importable_rows\":1,\"error_count\":0,\"errors\":[],\"errors_truncated\":false}"
+    },
+    {
+      "name": "文本载体与文件载体逐字段一致（F034 增补节沿用）",
+      "ok": true,
+      "detail": "text.status=200"
+    },
+    {
+      "name": "T119.2 既有 role 不一致 → field=role / related_row=null",
+      "ok": true,
+      "detail": "{\"row\":2,\"field\":\"role\",\"reason\":\"role does not match the existing resource value\",\"related_row\":null}"
+    },
+    {
+      "name": "T119.1 resource_type 不一致 → field=resource_type",
+      "ok": true,
+      "detail": "{\"typeError\":{\"row\":2,\"field\":\"resource_type\",\"reason\":\"resource_type does not match the existing resource value\",\"related_row\":null},\"fields\":[\"resource_type\",\"host\",\"vcpu\",\"memory_mb\"]}"
+    },
+    {
+      "name": "T120.1 宿主既有 Interface 同名 → field=name",
+      "ok": true,
+      "detail": "{\"row\":2,\"field\":\"name\",\"reason\":\"interface name already exists on this resource\",\"related_row\":null}"
+    },
+    {
+      "name": "T120.3 同 Cluster 既有 IP → field=ip",
+      "ok": true,
+      "detail": "{\"row\":2,\"field\":\"ip\",\"reason\":\"ip already exists in this cluster\",\"related_row\":null}"
+    },
+    {
+      "name": "预校验无写入副作用：宿主 version/updated_at 不变",
+      "ok": true,
+      "detail": "version=1 updated_at=2026-10-26T07:17:52.134400+00:00"
+    },
+    {
+      "name": "预校验无写入副作用：Activity total / interfaces / ip 计数不变",
+      "ok": true,
+      "detail": "{\"activity\":[1,1],\"resourceIfaces\":[1,1],\"ifaces\":[1,1],\"ips\":[1,1]}"
+    },
+    {
+      "name": "自建 Cluster F35TE82Z",
+      "ok": true,
+      "detail": "status=201"
+    },
+    {
+      "name": "自建 Network f35th-net 10.180.0.0/24",
+      "ok": true,
+      "detail": "status=201"
+    },
+    {
+      "name": "自建既有宿主 f35th-host",
+      "ok": true,
+      "detail": "status=201"
+    },
+    {
+      "name": "自建既有 Interface eth0",
+      "ok": true,
+      "detail": "status=201"
+    },
+    {
+      "name": "自建既有 IP 10.180.0.10",
+      "ok": true,
+      "detail": "status=201"
+    },
+    {
+      "name": "绑定既有 IP → eth0（F010 PATCH）",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "写入前预校验（追加行）0 错误",
+      "ok": true,
+      "detail": "{\"format\":\"csv\",\"total_rows\":1,\"importable_rows\":1,\"error_count\":0,\"errors\":[],\"errors_truncated\":false}"
+    },
+    {
+      "name": "T117.1 真实栈追加写入 201 / created===0 / 响应键恰 4 个",
+      "ok": true,
+      "detail": "{\"created\":0,\"total_rows\":1,\"interfaces_created\":1,\"ip_addresses_created\":1}"
+    },
+    {
+      "name": "T118.1 真实栈追加后既有 Resource 未变（version/updated_at/全字段）",
+      "ok": true,
+      "detail": "version 1→1"
+    },
+    {
+      "name": "T118.3 宿主 Activity 无 UPDATE 项且 total 不变",
+      "ok": true,
+      "detail": "{\"actions\":[\"CREATE\"],\"totals\":[1,1]}"
+    },
+    {
+      "name": "T117.2 新 Interface 归属既有宿主 + 新 IP 绑定新 Interface",
+      "ok": true,
+      "detail": "{\"newIface\":\"f0ad0770-bb5a-4500-bd6e-1098f73171cb\",\"newIp\":\"ab7120c8-790c-4e40-beb5-1b5abb68ea86\",\"bound\":\"f0ad0770-bb5a-4500-bd6e-1098f73171cb\"}"
+    },
+    {
+      "name": "T123.2 混合批失败 → 422 IMPORT_VALIDATION_FAILED + field=role",
+      "ok": true,
+      "detail": "{\"status\":422,\"code\":\"IMPORT_VALIDATION_FAILED\",\"role\":{\"row\":3,\"field\":\"role\",\"reason\":\"role does not match the existing resource value\",\"related_row\":null}}"
+    },
+    {
+      "name": "T123.2 零残留：新建组 Resource 不留存、无新 Interface/IP",
+      "ok": true,
+      "detail": "{\"newHostPresent\":false,\"ifaceNames\":[\"f35th-eth1\",\"eth0\"]}"
+    },
+    {
+      "name": "T123.2 宿主仍零变化（失败批不产生 UPDATE）",
+      "ok": true,
+      "detail": "version 1→1"
+    },
+    {
+      "name": "清理：自建对象全部软删成功（204）",
+      "ok": true,
+      "detail": "[{\"label\":\"ip 10.180.0.10\",\"status\":204},{\"label\":\"ip 10.180.0.11\",\"status\":204},{\"label\":\"interface eth0\",\"status\":204},{\"label\":\"interface f35th-eth1\",\"status\":204},{\"label\":\"resource f35th-host\",\"status\":204},{\"label\":\"network f35th-net\",\"status\":204},{\"label\":\"cluster F35TE82Z\",\"status\":204}]"
+    },
+    {
+      "name": "清理：自建 hostname 不再出现在默认列表",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

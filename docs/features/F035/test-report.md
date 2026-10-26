@@ -1,7 +1,7 @@
 # F035 向既有 Resource 追加 Interface/IP 导入 — Test Report
 
 > 本文件同一份报告承载 TEST_DESIGN 与 TEST 两阶段，分开记录版本、结论与证据。
-> **当前状态**：§1 TEST DESIGN 为 **TD-F035-1（v1，2026-10-26，`TEST DESIGN READY`）**；§2 TEST EXECUTION **尚未编写**（实现未开始，`backend/app/**` 在 `76d8410..9e80a7c` 内零 diff）。
+> **当前状态**：§1 TEST DESIGN 为 **TD-F035-1（v1，2026-10-26，`TEST DESIGN READY`）**；§2 TEST EXECUTION 为 **TE-F035-1（v1，2026-10-26，候选 HEAD `187ddf3`，`READY FOR REVIEW`）**。
 > `TEST DESIGN READY` 仅表示方案可验证，**不是测试通过**，也不批准实现、Contract 定稿或合并。
 
 ---
@@ -347,7 +347,202 @@ python3 docs/features/F035/artifacts/f035-ui-browser-check.py
 
 ## 2. Test Execution
 
-**NOT STARTED**（实现未开始：`76d8410..9e80a7c` 内 `backend/**`、`frontend/**` 零 diff）。本节将在实现完成、PR-1/PR-2 就绪后按 TD-8 命令与 TD-9 判定标准填写：Environment、验收映射执行结果（含数据库/接口/前端/集成）、Defects、未验证项与结论。
+### TE-1 Task / Status / Basis
+
+- **Task**：F035「向既有 Resource 追加 Interface / IP 导入」TEST（独立执行验证）。分支 `feature/F035-append-interface-ip`（base `v3.3`，`start_commit` `76d8410`，**候选 HEAD `187ddf3`**）；`plan_revision` 21；角色 Tester。
+- **版本**：**TE-F035-1（v1，2026-10-26）**；执行窗口主机本地时间 16:05–17:50。
+- **Status**：**`READY FOR REVIEW`**（72 条 `TD3-F035-*` 全部 PASS，0 FAIL，0 BLOCKED，0 NOT TESTED 验收项；NOTE/INFO 级观察项见 TE-9，不阻塞）。
+- **Basis**：`docs/product/requirements-v3.md` **revision 14** §24.6 / §31 T117–T126（含修订后 T67/T71）；CHG013-BQ01…BQ08（plan_revision 21）；`docs/api/F023.md` **v2**；`docs/features/F035/architecture.md` §12（含 §12.4 裁定）；`docs/database/f023-import.md` **§5**（A1–A5）；`docs/features/F035/implementation.md` v1；本文件 §1 **TD-F035-1**；`docs/project/handoff.md`、`docs/project/implementation-rules.md`、`.pi/skills/data-integrity/SKILL.md`。
+- **独立性声明**：全部命令由 Tester 独立执行（未复制 Backend 报告数字）；Backend 用例作为**执行对象**而非通过依据，另新增 16 条 Tester 独立用例（`backend/tests/integration/test_f035_tester_acceptance.py`）覆盖其未直接覆盖或需独立复述的判据（T117.3 / T118 全量硬判据 / T119.3·.4 / T121.* / T122.1·3·4·5·6 / T123.4 / T67.1 / T71.1 / V11.4 / A1–A2–A5）。
+
+### TE-2 Environment（实测事实）
+
+| 项 | 实测值 |
+| --- | --- |
+| 候选代码 | `git rev-parse --short HEAD` = **`187ddf3`**；`76d8410..187ddf3` 的实现改动仅 `backend/app/services/resource_interface_ip_import.py`（+308/−27）与 3 个前端文案 / 冒烟文件 |
+| 测试库（I 层） | 容器 `csm-f035-pg`，**PostgreSQL 16.15**（`127.0.0.1:55432`），`TEST_DATABASE_URL=postgresql+psycopg://csm:…@127.0.0.1:55432/csm_test`；Tester **独占**使用；`conftest.pg_engine` 会话级 `DROP SCHEMA public` + `alembic upgrade head`（16 步至 `0015`），函数级 `TRUNCATE`（排除 `alembic_version`） |
+| 真实栈（H/B 层） | `csmtest`（nginx `:18080`）后端与前端镜像均为候选 HEAD：后端 `md5(/app/app/services/resource_interface_ip_import.py)=c1a205e18499d9694c229f957578f6c0`（与工作区一致）、前端产物 `assets/index-TGYZNgB0.js`；`GET /api/v1/health/ready` = 200；账号 `admin`（`.env.test` 的 TEST 口令，不落库） |
+| 真实栈既有数据 | Cluster `N96P`；Network `TEST`(192.168.10.0/24) / `TESTNET`(10.100.24.0/24) 均 ACTIVE；Resource `luck`(BM/LOGIN/ALLOC，`eth6` + `192.168.10.221`)、`cn-ui-01`、`cn001` |
+| 工具链 | Python 3.12.7 / pytest 7.4.4 / SQLAlchemy 2.0.34 / openpyxl 3.1.5；Node 22.23.3（type stripping 直接加载 `importCarrier.ts`）；Playwright + Chromium |
+| 写入纪律 | 业务写库仅发生在 `csm_test`（pytest）与真实栈**自建** `F35T*` / `F35B*` Cluster（前缀隔离 + 结束后软删）；未在生产或未知库执行；未对 `N96P` 既有数据写入（H 层只发 `/validate`，已用快照证明无副作用） |
+| 项目状态一致性 | `python3 scripts/validate_project_state.py` → `PROJECT STATE VALID`（结构核对，不代表批准或 Git 证据有效） |
+
+### TE-3 执行命令与结果
+
+| # | 命令（`backend/` 下，除注明外） | 结果 | 日志 |
+| --- | --- | --- | --- |
+| 1 | `pytest tests/integration/test_f035_append_interface_ip_import.py tests/integration/test_f035_append_scope.py tests/integration/test_f035_tester_acceptance.py -q` | **38 passed**（20 + 2 + 16，47.25s） | `artifacts/pytest-f035-all.log` |
+| 2 | `pytest tests/integration/test_f023_resource_interface_ip_import.py -q`（含 5000 行 PERF 基线） | **28 passed**（310.13s） | `artifacts/pytest-f023.log` |
+| 3 | `pytest tests/integration/{test_imports,test_import_tester_acceptance,test_import_constraints,test_f034_csv_text_carrier,test_f034_csv_text_carrier_scope,test_f027_access_scope,test_interfaces,test_interface_constraints,test_ip_addresses,test_ip_address_constraints,test_f019_interface_ip_binding}.py -q` | **186 passed**（29+9+4+29+2+11+21+13+38+16+14，155.54s） | `artifacts/pytest-regression.log` |
+| 4 | `python3 -m pytest scripts/test_collect_host_info.py -q`（仓库根） | **83 passed**（0.51s） | `artifacts/pytest-collect-host-info.log` |
+| 5 | `cd frontend && npm run typecheck && npm run build && npm run smoke:client` | typecheck **PASS**；build **PASS**（18.33s，产物 `index-TGYZNgB0.js`）；smoke **339 passed / 0 failed** | `artifacts/frontend-typecheck-build.log`、`artifacts/frontend-smoke.log` |
+| 6 | `CSM_PASSWORD=… node docs/features/F035/artifacts/f035-live-validate.mjs`（H 层，真实栈） | **29/29 checks PASS** | `artifacts/f035-live-validate.json`、`artifacts/logs/f035-live-validate.log` |
+| 7 | `CSM_PASSWORD=… python3 docs/features/F035/artifacts/f035-ui-browser-check.py`（B 层，Playwright + 真实栈） | **29 checks / 0 failures** | `artifacts/f035-browser-check.json`、`artifacts/logs/f035-browser-check.log` + 3 张截图 |
+| 8 | 静态守卫（零 diff / 模板 / 契约引用 / 无追加数 / 无直写旁路） | 全部符合 | `artifacts/static-guards.log` |
+
+> **证据文件声明**：`docs/features/F035/artifacts/**`（脚本、JSON、pytest / smoke / build 日志）为本轮本地证据，除 `artifacts/logs/**` 被仓库 `.gitignore:125 logs/` 忽略外均可入库；截图（`logs/*.png`）与 H/B 层运行日志仅存在于本地工作区。
+
+### TE-4 验收映射执行结果（72 条 `TD3-F035-*`）
+
+记号：层 = U/I/H/M/S/B（§1 TD-2）；证据列给出可复核用例名或日志。**所有 PASS 均为 Tester 实际执行所得**。
+
+| 用例 ID | 层 | 状态 | 证据（用例 / 断言摘要） |
+| --- | --- | --- | --- |
+| `TD3-F035-T117.1` | I+H | **PASS** | I：`test_td3_f035_v1_1_t118_bm_append_keeps_host_untouched`（`/validate` 0 错误 → 写入 201）；H：「T117.4 追加行预校验 200 / 0 错误」+「T117.1 真实栈追加写入 201 / created===0 / 响应键恰 4 个」 |
+| `TD3-F035-T117.2` | I+H | **PASS** | I：同用例（新 Interface `resource_id`=宿主、新 IP `interface_id`=新 Interface、`resources` 计数不变）；H：「T117.2 新 Interface 归属既有宿主 + 新 IP 绑定新 Interface」 |
+| `TD3-F035-T117.3` | I | **PASS** | Tester `test_td3_f035_t117_3_csv_and_xlsx_append_identically`：csv / xlsx 各成功追加，落库投影（name / interface_type / mac / speed / mtu / enabled / network / cluster / address）逐字段一致 |
+| `TD3-F035-T117.4` | H | **PASS** | 真实栈文件载体 multipart：200、`error_count=0`、`importable_rows==total_rows==1`；文本载体（真实 `pastedCsvFile` 原语）逐字段一致 |
+| `TD3-F035-T117.5` | B | **PASS** | 浏览器（1440×1000）：粘贴追加行 → 预校验 0 错误 → 「确认导入」可用 → 写入 201 → 成功提示；截图 `logs/f035-append-success.png` |
+| `TD3-F035-T118.1` | I | **PASS** | Tester `test_td3_f035_t118_full_zero_change_gate_on_bm_host`：`resources` / `bare_metal_details` / `virtual_machine_details` 全列 + `xmin::text` + `version` + `updated_at` 逐字段相等；Backend 用例同判据 |
+| `TD3-F035-T118.2` | I | **PASS** | 同上：既有 Interface / 既有 IP 全列（含 `interface_id` / `version` / `updated_at`）逐字段相等；`interfaces` +2、`ip_addresses` +2 |
+| `TD3-F035-T118.3` | I | **PASS** | 同上：`object_type='resource' AND object_id=宿主 AND action='UPDATE'` == 0；非 CREATE Audit 增量 == 0；本批 `audit_logs` +4，新增 2 Interface / 2 IP 各恰 1 条 CREATE |
+| `TD3-F035-T118.4` | I+H | **PASS** | `GET /resources/{host}/activity`：`items[].action ⊆ {CREATE}` 且 `total` 不变（I 层 + H 层真实栈各一次） |
+| `TD3-F035-T118.5` | I | **PASS** | `test_td3_f035_v1_2_t118_5_vm_append_keeps_host_untouched`：VM 宿主明细全列零变化、`host` 必须与既有 `host_resource_id` 一致、无 `resource` UPDATE Audit |
+| `TD3-F035-T119.1` | I+H | **PASS** | `test_td3_f035_t119_resource_level_mismatch_attribution`；H 层 `field="resource_type"`、`related_row=null`、422 整批回滚 |
+| `TD3-F035-T119.2` | I+H | **PASS** | `role` / `status` 各自归因；H 层 `field="role"`、`related_row=null` |
+| `TD3-F035-T119.3` | I | **PASS** | Tester `test_td3_f035_t119_3_bm_hardware_column_attribution`：9 个 BM 硬件列逐列不一致 → `field`=对应模板列名，写入 422 且零残留 |
+| `TD3-F035-T119.4` | I | **PASS** | Tester `test_td3_f035_t119_4_vm_column_attribution`：`vcpu` / `disk_gb` / `hypervisor` / `memory_mb` / `host` 逐列归因，422 且宿主全列不变 |
+| `TD3-F035-T119.5` | I | **PASS** | `test_td3_f035_t119_omitted_and_null_columns`：留空列不比较、不置空，`error_count=0`、写入 201、宿主快照不变 |
+| `TD3-F035-T119.6` | I | **PASS** | 同用例：既有 `null`（BM `memory_mb` / `cpu_cores`）行给值 → 该列行错误；行留空 → 无错误且仍为 `null` |
+| `TD3-F035-T119.7` | I | **PASS** | 同用例：`Dell` vs `DELL` → `field="manufacturer"`；带首尾空格的 `Dell` trim 后 0 错误（精确比较、不折叠大小写） |
+| `TD3-F035-T119.8` | I+H | **PASS** | 一致性错误 `related_row is None`、`reason` 非空、`field` 为模板列名（I：`test_td3_f035_t119_*`；H：五类真实栈探针均 `related_row=null`） |
+| `TD3-F035-T119.9` | I | **PASS** | 不一致 → 422；`resources` / `*_details` / `interfaces` / `ip_addresses` / `audit_logs` 计数与基线相等；宿主各列不变（`_residue_free` + `_assert_host_untouched`） |
+| `TD3-F035-T119.10` | U+源码 | **PASS** | 源码核对 `_check_existing_consistency`：比较列集 = 组内 canonical `resource_cells` 键集合（留空列不出现）、`(row, field)` 去重、归因模板列名；行为侧由 `test_td3_f035_t119_tdi4_tdi5_recorded_row_sets` 的 (a)–(d) 断言佐证 |
+| `TD3-F035-T119.11` | I | **PASS** | `test_td3_f035_t119_11_write_revalidates_consistency`：预校验 0 错误 → 外部改宿主 `role` → 写入 422 `field="role"`、零残留（不静默覆盖） |
+| `TD3-F035-T120.1` | I+H | **PASS** | `test_td3_f035_t120_existing_interface_name_and_case_sensitivity`；H：`eth6` → `field="name"`、`related_row=null` |
+| `TD3-F035-T120.2` | I | **PASS** | 同用例：宿主 `Eth0` + 行 `eth0` → 0 错误、201，二者并存（大小写敏感） |
+| `TD3-F035-T120.3` | I+H | **PASS** | `test_td3_f035_t120_existing_ip_same_cluster_only`；H：`192.168.10.221` → `field="ip"`、422、零残留 |
+| `TD3-F035-T120.4` | I | **PASS** | 同用例：另一 Cluster 同地址不冲突 → 本 Cluster 201 |
+| `TD3-F035-T120.5` | I | **PASS** | 同用例：命中既有 Interface 名时不向其追加 IP（该 Interface 下 `ip_addresses` 计数与各行 `interface_id` 不变，BQ05=A） |
+| `TD3-F035-T120.6` | I+H | **PASS** | `/validate`（200 + `errors`）与写入（422 `IMPORT_VALIDATION_FAILED`）的 `row` / `field` / `reason` 一致（H 层同形） |
+| `TD3-F035-T121.1` | I | **PASS** | Tester `test_td3_f035_t121_1_2_3_interface_defaults_and_formats`：`interface_type` 留空 → `OTHER`（不据 name 推断） |
+| `TD3-F035-T121.2` | I | **PASS** | 同上：`enabled` 留空 → `true`；`0` / `false` → `false` |
+| `TD3-F035-T121.3` | I | **PASS** | 同上：`mac_address` 保留大小写与格式；`speed_mbps` / `mtu` 正整数落库；`mtu=0` / `-1` / 非整数 → 对应列行错误、整批 422 零残留 |
+| `TD3-F035-T121.4` | I | **PASS** | Tester `test_td3_f035_t121_4_5_same_name_group_in_one_interface`：同组两行同名不同 IP → `interfaces_created=1`、`ip_addresses_created=2`、2 个 IP 绑定同一 Interface |
+| `TD3-F035-T121.5` | I | **PASS** | 同上：新 Interface `parent_interface_id IS NULL`、`description IS NULL`、`metadata == {}` |
+| `TD3-F035-T122.1` | I | **PASS** | Tester `test_td3_f035_t122_1_allocatable_boundaries_on_append_path`：`/30` 网络/广播地址、gateway、RESERVED 池内、越 CIDR、**禁用段 `127/8` / `169.254/16` / `224/4`** → `field="ip"`、422、零残留；相邻合法地址 0 错误 |
+| `TD3-F035-T122.2` | I | **PASS** | Tester `test_td3_f035_t67_1_*`（同 Cluster 既有 IP）+ `test_pg06`（文件内重复 `related_row`）+ 并发 `V11.3` |
+| `TD3-F035-T122.3` | I | **PASS** | Tester `test_td3_f035_t122_3_cross_cluster_binding_on_append_path`：跨 Cluster Network 名 → `field="network"`；`ip` 的 `/mask` 解析到跨 Cluster 段 → `field="ip"`；两者均 422 零残留 |
+| `TD3-F035-T122.4` | I | **PASS** | Tester `test_td3_f035_t122_4_5_manual_allocation_without_auto`：新 IP `ip_pool_id` == 覆盖该地址的 Pool id；Pool 行全列不变；不新增 Pool / Network |
+| `TD3-F035-T122.5` | I | **PASS** | 同上：AUTO 模式 Pool 上追加单地址只产生 1 个 IP（无额外地址），`allocation_mode` / `auto_allocate` 不变 |
+| `TD3-F035-T122.6` | I | **PASS** | Tester `test_td3_f035_t122_6_network_state_and_soft_delete`：INACTIVE → 行错误；软删 Network 视为不存在 → 行错误；`networks` 计数不变 |
+| `TD3-F035-T123.1` | I | **PASS** | `test_td3_f035_t123_1_mixed_batch_counts`：`created=1`、`total_rows==ip_addresses_created`、新建 Resource 与追加子对象同事务落库 |
+| `TD3-F035-T123.2` | I+H | **PASS** | `test_td3_f035_t123_2_mixed_batch_rolls_back_entirely`；H 层混合批 → 422 `field="role"`、新建组 `f35th-new` 不留存、无新 Interface/IP、宿主零变化 |
+| `TD3-F035-T123.3` | I | **PASS** | `test_td3_f035_t123_3_write_revalidates_existing_interface`：预校验后外部建同名 Interface → 写入 422 `field="name"`、零残留 |
+| `TD3-F035-T123.4` | I | **PASS** | Tester `test_td3_f035_t123_4_write_revalidates_ip_on_append_path`：预校验后外部占用目标 IP → 422 `field="ip"`、宿主与计数零变化 |
+| `TD3-F035-T123.5` | I | **PASS（观察项）** | `test_td3_f035_t123_5_host_soft_deleted_after_validate`：`created=1`、新 id ≠ 原 id、原行仍软删且子对象不变（V12/R3 观察项，未断言为错误） |
+| `TD3-F035-T124.1` | I+H | **PASS** | 纯追加 `created==0`，`interfaces_created` / `ip_addresses_created` / `total_rows` 按实际（I + H 层） |
+| `TD3-F035-T124.2` | I+H | **PASS** | 响应键集合恰 `{created,total_rows,interfaces_created,ip_addresses_created}`（I 断言 + H 真实栈断言 + B 层真实写入） |
+| `TD3-F035-T124.3` | I | **PASS** | `test_td3_f035_t124_permissions_and_templates`：VIEWER `/validate` 与写入均 403 `FORBIDDEN{reason:"permission"}`，`GET /templates` 200 |
+| `TD3-F035-T124.4` | I | **PASS** | 同用例：未认证 401 `AUTH_REQUIRED` 且先于 403 |
+| `TD3-F035-T124.5` | I（`real_scope`） | **PASS** | `test_f035_append_scope.py::test_td3_f035_t124_5_out_of_scope_append_row`：未授权 Cluster 行 → 整批失败、`field="cluster"`、响应不含 Cluster code、零写入 |
+| `TD3-F035-T124.6` | I（`real_scope`） | **PASS** | 同文件 `..._t124_6_mixed_batch_with_out_of_scope_append`：授权集群新建组 + 未授权追加组 → 整批失败、新建组不留存、计数零 delta |
+| `TD3-F035-T125.1` | I | **PASS** | `test_td3_f035_t125_soft_deleted_host_is_absent`：`created=1`、新 id、软删行仍软删（`deleted_at` / 子对象不变，不复活） |
+| `TD3-F035-T125.2` | I | **PASS** | 同用例：软删宿主曾用 `eth0`，新 Resource 下 `eth0` 合法创建 |
+| `TD3-F035-T125.3` | I | **PASS** | 同用例 + Tester `test_td3_f035_t118_*` 内断言：`clusters` / `networks` / `ip_pools` / `services` / `service_endpoints` 零 delta |
+| `TD3-F035-T125.4` | I | **PASS** | BQ05=A：追加行命中既有 Interface 名一律 `field="name"`，既有 IP 的 `interface_id` 不变（`T120.1/.5` 交叉） |
+| `TD3-F035-T126.1` | I | **PASS** | F014 入口零回归：`test_imports.py` 29 passed + `test_import_tester_acceptance.py` 9 passed + `test_td3_f035_t126_1_t67_2_f014_entry_still_conflicts`（既有 hostname 仍 `field="hostname"`） |
+| `TD3-F035-T126.2` | I | **PASS** | `test_f023_resource_interface_ip_import.py` **28 passed**（含 5000 行 PERF、`created>0`、Network 解析、VM Host、整批回滚） |
+| `TD3-F035-T126.3` | I | **PASS** | T64–T72 覆盖保持（`test_pg01`–`test_pg14` 全绿，用例数未减少）；`test_pg06` / `test_pg08` / `test_pg11` 三处期望按 v2 更新且强度未降（TE-6 末段） |
+| `TD3-F035-T126.4` | I | **PASS** | `test_f034_csv_text_carrier.py` 29 + `test_f034_csv_text_carrier_scope.py` 2 passed（载体等价性 / 上限 / 范围 / 无痕迹） |
+| `TD3-F035-T126.5` | U | **PASS** | `scripts/test_collect_host_info.py` **83 passed**（T73–T84 / T100–T106） |
+| `TD3-F035-T126.6` | I+S | **PASS** | `test_td3_f035_t116_4_d1_templates_and_routes_unchanged` + H 层 `GET /templates`（26 列、首列 `cluster` / 末列 `ip`）+ `static-guards.log`（F023.md 变更行不触及模板 / 上限 / 错误码；`imports.py` 零 diff） |
+| `TD3-F035-T126.7` | S | **PASS** | `git diff --stat 76d8410..187ddf3 -- backend/app/models backend/alembic backend/app/api/v1/imports.py backend/app/services/{resource_import,resource,interface,ip_address,network,ip_capacity}.py docs/api/F002.md` → **空输出**；`backend/app/**` 仅 `resource_interface_ip_import.py` 改动 |
+| `TD3-F035-T126.8` | M | **PASS** | `npm run smoke:client` **339 passed / 0 failed**（基线 337 + F035 新增 2 条机制用例；既有 F023 / F034 段零失败） |
+| `TD3-F035-T67.1` | I | **PASS** | Tester `test_td3_f035_t67_1_file_duplicates_and_existing_ip_still_reported`：文件内重复 IP → `field="ip"` + `related_row`；现存 IP → `field="ip"`；既有 hostname **不再报错**（`error_count==2`） |
+| `TD3-F035-T67.2` | I | **PASS** | `test_td3_f035_t126_1_t67_2_f014_entry_still_conflicts`（F014 仍报 hostname 冲突）+ H/B 层面板差异文案 |
+| `TD3-F035-T71.1` | I | **PASS** | Tester `test_td3_f035_t71_1_api_uniqueness_scopes_after_append`：导入创建后 `POST /interfaces` 同名 → 409、`POST /ip-addresses` 同地址 → 409（唯一性范围一致，未绕过） |
+| `TD3-F035-T71.2` | I+S | **PASS** | `test_td3_f035_t126_7_t71_zero_diff_guards`（无独立直写 SQL，`stage_*` / `prepare_*` 命中）+ Tester T118 断言「追加批无 `object_type='resource'` 的 CREATE/UPDATE Audit」 |
+| `TD3-F035-V1.1` | I | **PASS** | BM 纯追加：201、`created==0`、宿主 id 不变、子对象归属正确（I + H 层各一次） |
+| `TD3-F035-V1.2` | I | **PASS** | VM 纯追加：`host` 必须与既有 `host_resource_id` 一致（R5），明细零变化 |
+| `TD3-F035-V11.1` | I | **PASS** | `test_td3_f035_v11_1_concurrent_appends_same_host`：两批均成功；宿主全列 + `xmin` 不变；`interfaces` +2、`ip_addresses` +2、`audit_logs` +4 |
+| `TD3-F035-V11.2` | I | **PASS** | `test_td3_f035_v11_2_concurrent_same_interface_name`：恰一批成功、败方 `field="name"`；最终 1 新 Interface + 1 新 IP、`audit_logs` +2 |
+| `TD3-F035-V11.3` | I | **PASS** | `test_td3_f035_v11_3_concurrent_same_ip_on_two_append_hosts`：恰一成功、败方 `field="ip"`、`ip_addresses` +1、无残留 |
+| `TD3-F035-V11.4` | I | **PASS** | Tester `test_td3_f035_v11_4_concurrent_same_hostname_create`：两批新建同 hostname，恰一成功、败方 `field="hostname"`、`resources` / `interfaces` / `ip_addresses` 各 +1、`audit_logs` +3 |
+| `TD3-F035-V11.5` | I | **PASS** | `test_td3_f035_v11_5_no_lock_cycle_between_vm_host_and_append_host`：反向 VM-Host / 追加宿主集合两批**都成功**、无 `40P01` / 500，最终 `resources` +2（锁环判据未放松） |
+| `TD3-F035-V12` | I | **PASS（观察项）** | = `TD3-F035-T123.5`（R3；实现未改为报错，无行为差异需交 Architect） |
+
+**统计**：PASS **72** / FAIL **0** / BLOCKED **0** / NOT TESTED **0**（验收项）。§1 TD-10 的「5000 行纯追加批性能」仍为 NOT TESTED（非验收项，见 TE-8）。
+
+### TE-5 数据库结果（`layers.database=false` → 零 Schema 漂移 A1–A5）
+
+| 断言 | 结果 | 证据 |
+| --- | --- | --- |
+| **A1** 零新迁移，唯一 head `0015_user_cluster_authorizations` | **PASS** | `test_td3_f035_a1_a2_a5_zero_schema_drift`（`head_revision()==0015_user_cluster_authorizations`；`versions/*.py` 恰 15 个且无 `f035`）；`git diff --stat 76d8410..187ddf3 -- backend/alembic` 空 |
+| **A2** 三条部分唯一索引仍 `UNIQUE` + `deleted_at IS NULL` | **PASS** | 同用例直查 `pg_indexes.indexdef`（`uq_resources_cluster_id_hostname_key`、`uq_interfaces_resource_id_name`、`uq_ip_addresses_cluster_id_address`）；`test_import_constraints.py` 4 + `test_interface_constraints.py` 13 + `test_ip_address_constraints.py` 16 passed |
+| **A3** ORM 未引入新对象 | **PASS（静态）** | `backend/app/models/**` 零 diff + `pg_tables` 集合断言（16 张既有表，无新增） |
+| **A4** 追加后宿主全列 + `version` + `updated_at` + `xmin` 不变、无 `resource` UPDATE Audit、新子对象各一条 CREATE | **PASS** | Tester `test_td3_f035_t118_full_zero_change_gate_on_bm_host` + `test_td3_f035_v1_1` / `..._v1_2` |
+| **A5** `trg_resources_immutable_fields` 仍为 BEFORE UPDATE（追加不触发） | **PASS** | 同 A1/A2 用例查 `pg_get_triggerdef` 含 `BEFORE UPDATE` |
+| Migration / 既有数据影响 | **NOT_REQUIRED** | 无 DDL、无回填；`alembic upgrade head` 在空测试库 16 步成功（pytest 会话日志） |
+
+### TE-6 接口结果（H 层，真实栈 `http://localhost:18080`）
+
+- **只读 `/validate`（既有 `N96P` / `luck`）**：追加行 200 / `error_count=0`；文本载体与文件载体响应**逐字段一致**；`role` / `resource_type` / `name` / `ip` 四类归因均为 `field`=模板列名 + `related_row=null`；`resource_type` 不一致时**附加**报 `host` / `vcpu` / `memory_mb`（TD-I-5 记录项）。
+- **无副作用证明**：`luck` 的 `version` / `updated_at` 不变、Activity `total` 1→1、该资源 Interface 数 1→1、全局 interface / IP 计数不变。
+- **写入用例（自建 Cluster，前缀 `F35T*` / `f35th-`）**：成功追加 1 次（`created=0`、`interfaces_created=1`、`ip_addresses_created=1`、响应键恰 4 个；宿主全字段快照前后一致、Activity 无 UPDATE）；混合批（新建组 + `role` 不一致追加组）失败 1 次（422 `IMPORT_VALIDATION_FAILED`、`field="role"`、新建组不留存、无新 Interface/IP、宿主零变化）。
+- **清理策略（已执行）**：按 IP → Interface → Resource → Network → Cluster 顺序 `DELETE`（软删，均 204）；两轮成功写入各清理 7 个对象，3 个调试轮次的自建对象也已清理；`F35TH` / `F35TE82Z` / `F35B*` Cluster 已软删且不再出现在默认列表。**残留说明**：软删行按设计保留（`deleted_at IS NOT NULL`，`f35th-*` / `f35b-*` 前缀可检索），未复活、不影响默认查询（NOTE-03）。
+- **F023 用例更新核对**（§1 TD-6 清单）：`test_pg06`（既有 hostname 行改为合法追加，保留文件内重复 / 现存 IP / 折叠 / 边界断言）、`test_pg08`（`field` 由 `hostname` 改 `role`，保留「既有值不变 + `version==1` + 无 UPDATE Audit」）、`test_pg11`（改为外部建宿主 + 同名 Interface → `field="name"`，新增零残留）——三处均在本次 28 passed 中实际执行，覆盖由 §1 TD-6 承接用例补齐，**无覆盖删除**。
+
+### TE-7 前端结果（M / S / B 层）
+
+| 项 | 结果 | 证据 |
+| --- | --- | --- |
+| `npm run typecheck` | **PASS** | `TYPECHECK=0` |
+| `npm run build` | **PASS**（18.33s，产物 `dist/assets/index-TGYZNgB0.js`，与部署容器一致） | `BUILD=0` |
+| `npm run smoke:client` | **PASS 339 / 0 failed** | 新增 2 条 F035 机制用例（纯追加 `created=0` wire 透传、既有子对象冲突整批失败）；既有 wire 断言零改动 |
+| 面板追加规则「6 条」 | **PASS**（恰 6 条 `<li>`，逐条关键措辞命中：必须与既有值完全一致（区分大小写）/ 留空=省略·不能经导入补填 / 既有同名网卡与同集群既有 IP 仍报行错误 / 不支持向既有网卡再绑定 IP / 补录只提交新增行 / VM 追加行 host 必填且一致） | `f035-browser-check.json#appendRules` |
+| 标题含「已存在机器可追加网卡/IP」 | **PASS** | 同上 |
+| `created===0` 定性说明 + **不展示追加数 M**（DR-F035-11） | **PASS** | 成功提示为「导入成功：本批未新建资源（全部追加到既有资源）；新建网卡 1 个、IP 1 个…」，无「追加 N」字样；源码仅注释说明不展示 |
+| F014 面板差异说明 | **PASS** | 「资源导入不支持向已存在 hostname 追加网卡/IP（已存在 hostname 仍报冲突）；需追加请用「资源+网卡+IP」导入」+ 截图 `logs/f035-f014-panel.png` |
+| 行错误呈现 + 门控 | **PASS** | `field=role` + reason 呈现；存在错误行时「确认导入」禁用（截图 `logs/f035-panel-role-error.png`） |
+| 无 console error / 文本不落 storage | **PASS** | `consoleErrors=[]`；`localStorage` / `sessionStorage` 无粘贴内容 |
+| 契约引用升版 | **PASS（含 1 NOTE）** | `ResourceInterfaceIpImportPanel.tsx` 与 `smoke-client.mjs` 已引用 F023 v2；`frontend/src/api/imports.ts` 与 `resourceInterfaceIpImportForm.ts` 注释仍写 v1（NOTE-01） |
+
+### TE-8 TD-I-* 记录项实测（只登记，不据此判 FAIL）
+
+| ID | 实测结果 |
+| --- | --- |
+| **TD-I-4** | 实现采用「组内每行凡显式给出且不一致的值全部报出」的确定性策略：宿主 `role=COMPUTE`、组内 3 行均给 `role=GPU`（文件行 2/3/4）→ **实际行号集合 `[2, 3, 4]`**；满足裁定 (a) `field="role"`、(b) `related_row=null`、(c) ≥1 条同列不一致行被报出、(d) `(row, field)` 无重复。与 `implementation.md` 登记一致 |
+| **TD-I-5** | 宿主 BM、行 `resource_type=VIRTUAL_MACHINE` → `field="resource_type"` 必报；**附加错误实测字段集合 = `{resource_type, host, memory_mb, vcpu}`**；整批 422 + 零残留。符合裁定（是否附加自由） |
+| **TD-I-6** | V12 保持观察项：预校验后宿主被软删 → `created=1`、新 id、原行仍软删且子对象不变；实现未改为报错，无需回 Architect |
+| **TD-I-7** | 实际符号与 `implementation.md` 一致：`ParsedRow.existing_resource_id`、`PreparedGroup.existing_resource_id`、`ExistingSnapshot`、`_load_existing_snapshots`、`_check_existing_consistency`、`_check_existing_interface_names`、`_as_text` / `_HARDWARE_SNAPSHOT_COLUMNS` / `_VM_SNAPSHOT_COLUMNS`；语义与架构 §3.2 / §3.3 一致 |
+| **TD-I-1 / TD-I-2** | 已由协调器解决（PR-1：测试库 `csm-f035-pg` 可达；PR-2：候选构建已部署，md5 与资产哈希核对一致） |
+| **TD-I-3** | `docs/database/f023-import.md` §5 已补 F035 复核（NOT_REQUIRED + A1–A5），NOTE 关闭 |
+| 5000 行纯追加批性能 | **NOT TESTED**（契约无数值阈值；F023 5000 行新建批 PERF 在本轮 28 passed 内通过；追加路径新增 3 条只读查询，未做专项基线——如实登记，不折算为 PASS） |
+
+### TE-9 Defects
+
+**必须修复缺陷：0（无 FAIL 用例）。** 以下为非阻塞观察项：
+
+| ID | Severity | Layer | Location | 证据 | 期望 vs 实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **F035-TEST-NOTE-01** | NOTE | S（注释） | `frontend/src/api/imports.ts`、`frontend/src/components/resourceInterfaceIpImportForm.ts` 注释仍写「Contract：docs/api/F023.md v1」 | `grep -rn "F023.md v1" frontend/src` | 期望注释与 Contract v2 一致 | 仅注释陈旧，零 wire / 零行为影响；§7.3 要求的「面板 + smoke 引用升版」已满足 | Frontend | 否 |
+| **F035-TEST-NOTE-02** | NOTE | I（性能） | 追加批 5000 行基线未测 | TE-8 | 期望有数值基线 | 契约未定阈值；锁集合扩张仅增加 `resources` 行锁，`V11.5` 锁环判据已通过 | Tester / Backend（如需） | 否 |
+| **F035-TEST-NOTE-03** | NOTE | 环境 | 真实栈 `csmtest` 存留软删对象（`f35th-*` / `f35b-*` / `F35T*` / `F35B*`） | `f035-live-validate.json#cleanup`、`f035-browser-check.json#cleanup` | 期望零残留 | 均为软删行（`deleted_at IS NOT NULL`），不在默认列表、不影响既有业务数据（`N96P` / `luck` / `cn001` / `cn-ui-01` 原状）；占用唯一键空间（`clusters.code_key` 全局唯一） | 协调器（如需物理清理） | 否 |
+| **F035-TEST-NOTE-04** | INFO | U | `_check_existing_consistency` 全报策略 | TD-I-4（行号 `[2,3,4]`） | 契约允许自由 | 无 | — | 否 |
+| **F035-TEST-NOTE-05** | INFO | U | `resource_type` 不一致时附加报 `host` / `vcpu` / `memory_mb` | TD-I-5 | 契约允许自由（R4 已接受） | 用户可能看到多于一条同源错误 | Architect（若需收敛，走变更） | 否 |
+
+### TE-10 未验证项与降级边界
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| 72 条 `TD3-F035-*` 验收用例 | **全部执行** | 无 BLOCKED、无 NOT TESTED |
+| 5000 行纯追加批性能基线 | **NOT TESTED** | 见 TE-8 / NOTE-02；不折算为 PASS |
+| 整体上线验收（requirements §32 跨功能场景 / §31 全局矩阵） | **NOT_APPLICABLE（本 Feature 范围外）** | 按 Agent 定义归后续整体验收任务；本报告不得用于拼接整体 PASS |
+| 多浏览器 / 多视口 | **部分降级** | B 层仅 Chromium 1440×1000（候选容器真实产物）；其它视口与浏览器未测 |
+| 真实栈 VIEWER / EDITOR 权限与范围 | **I 层覆盖，H/B 层未覆盖** | H/B 层只用 ADMIN（真实栈唯一可用账号）；权限矩阵由 I 层真实 PG 用例证明 |
+| 测试库清理 | **已完成** | `pg_engine` 会话结束 `DROP SCHEMA public`；夹具 `TRUNCATE` 排除 `alembic_version` |
+
+### TE-11 结论
+
+**`READY FOR REVIEW`**
+
+- T117–T126（含修订后 T67 / T71）+ V1 / V11 / V12 共 **72** 条用例 **全部 PASS**；V2 六条硬判据（含 PostgreSQL `xmin` 物理层证据）在 I 层与真实栈各验证一次；V11 五个真实 PG 双会话并发场景（含锁环回归 V11.5）实测通过且无 `40P01`。
+- `layers.database=false` 以 **A1–A5 零 Schema 漂移断言**替代约束验证：零新迁移、三条部分唯一索引与不可变触发器原样、`resources` 行与既有子对象快照（含 `xmin` / `version` / `updated_at`）零变化、无 `resource` UPDATE Audit、新子对象各一条 CREATE。
+- 零回归：F014（29 + 9）、F023（28，含 PERF）、F034 载体（29 + 2）、F027 范围（11）、Interface / IP 及其约束（21 + 13 + 38 + 16）、F019 绑定（14）、采集脚本（83）、前端 smoke（339）全部通过；模板 / 端点 / 错误码 / 上限 / 权限零变更。
+- 结论不批准合并：合并仍须正式 Review 与 Merge Gate；本报告仅为 TEST 阶段放行证据。
+
+**测试代码**：新增 `backend/tests/integration/test_f035_tester_acceptance.py`（16 用例，属 Review 范围）；未修改任何业务实现、Schema、契约、产品规则或其它角色文件。
 
 ---
 
@@ -363,3 +558,32 @@ GIT: git diff 76d8410..HEAD --stat -- backend/ docs/api/F002.md docs/api/F014.md
 GIT: git diff 76d8410..HEAD -- docs/api/F023.md | grep -E "^[-+]" | grep -vE "^[-+]{3}" | head -40
 
 （环境核对使用的非 Git 只读命令记录在 TD-8：`docker ps -a`、`docker images`、`docker exec csmtest-db-1 psql …`、`curl` 登录与 `GET /clusters|/networks|/resources`、`python3 scripts/validate_project_state.py`；均不改变 Git 或业务数据状态。）
+
+---
+
+## Git（TEST 执行阶段）
+
+本阶段未执行任何改变 Git 状态的命令（无 `add` / `commit` / `branch` / `merge` / `stash` / `reset` / `clean` / `checkout`）。写入范围仅限：新增 `backend/tests/integration/test_f035_tester_acceptance.py`、新增 `docs/features/F035/artifacts/**`、修改 `docs/features/F035/test-report.md` §2（§1 正文未改动，仅更新文件头部状态行）。
+
+实际执行的只读 Git 命令（逐条，本次 TEST 阶段）：
+
+GIT: git rev-parse --short HEAD
+GIT: git status --porcelain | head -50
+GIT: git branch --show-current
+GIT: git diff --stat 76d8410..187ddf3
+GIT: git diff --stat 76d8410..187ddf3 -- backend/app/models backend/alembic backend/app/api/v1/imports.py backend/app/services/resource_import.py backend/app/services/resource.py backend/app/services/interface.py backend/app/services/ip_address.py backend/app/services/network.py backend/app/services/ip_capacity.py docs/api/F002.md
+GIT: git diff --stat 76d8410..187ddf3 -- backend/app
+GIT: git diff --stat 76d8410..187ddf3 -- backend/alembic/versions | wc -l
+GIT: git diff 76d8410..187ddf3 -- docs/api/F023.md | grep -E '^[-+]' | grep -vE '^[-+]{3}' | grep -cE 'IMPORT_|import_max|26 列|^\+\| [0-9]+ \|'
+GIT: git diff 76d8410..187ddf3 -- docs/api/F023.md | grep -E '^[-+]' | grep -vE '^[-+]{3}' | grep -E 'IMPORT_|import_max|26 列'
+GIT: git diff 76d8410..187ddf3 -- docs/api/F023.md | grep -E '^[-+]' | grep -vE '^[-+]{3}' | grep -E '^\+\| [0-9]'
+GIT: git diff 76d8410..187ddf3 -- frontend/src/components/ResourceInterfaceIpImportPanel.tsx | head -140
+GIT: git diff 76d8410..187ddf3 -- frontend/src/components/ResourceImportPanel.tsx
+GIT: git diff 76d8410..187ddf3 -- frontend/scripts/smoke-client.mjs | grep -E "^\+.*(check|describe|test|PASS|case)" | grep -oE '"[^"]{10,120}"' | head -10
+GIT: git check-ignore -v dist 2>&1 | head -3   (cwd: frontend/)
+GIT: git status --porcelain
+GIT: git diff --stat docs/features/F035/test-report.md
+GIT: git diff docs/features/F035/test-report.md | head -12
+GIT: git check-ignore -v docs/features/F035/artifacts/logs/f035-browser-check.log docs/features/F035/artifacts/f035-live-validate.json
+
+（非 Git 只读命令另外记录在 TE-2 / TE-3：`docker ps`、`docker exec … md5sum`、`pytest …`、`npm run typecheck|build|smoke:client`、`curl` 登录与 `GET /clusters|/networks|/resources|/interfaces|/ip-addresses`、`node …/f035-live-validate.mjs`、`python3 …/f035-ui-browser-check.py`、`python3 scripts/validate_project_state.py`；均不改变 Git 状态。）

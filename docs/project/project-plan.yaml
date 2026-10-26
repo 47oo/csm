@@ -2322,8 +2322,8 @@ features:
   - F023
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST
-  next_action: TEST：Tester 按 TEST DESIGN 在重建后的 csmtest 栈执行真实 HTTP 与浏览器验证并写 §2 TEST EXECUTION。
+  current_stage: REVIEW
+  next_action: REVIEW：提交候选交付物后由 Reviewer 独立审查 T117–T126、F023 v2 与零回归。
   layers:
     database: false
     backend: true
@@ -2337,7 +2337,7 @@ features:
     contract: COMPLETE
     backend: COMPLETE
     frontend: COMPLETE
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   evidence:
     product:
@@ -2355,7 +2355,10 @@ features:
     - docs/features/F035/implementation.md#1-backendbackend-complete
     frontend:
     - docs/features/F035/implementation.md#2-frontendfrontend-complete
-  last_result: IMPLEMENTATION 完成：后端组级二态 + 两条只读检查 + 锁集合 + 计数（F035 定向 22 passed；F023 28、F014 29、F034 31、脚本 83 全通过）；前端文案与 smoke 339 passed；Database NOT_REQUIRED 复核确认。
+    test:
+    - docs/features/F035/test-report.md#2-test-execution
+  last_result: TEST READY FOR REVIEW：F035 38 passed（含 Tester 新增 16）、F023 28 passed、零回归 186 passed、脚本 83 passed、前端 smoke 339 passed；H 层 29/29、B 层 29 checks；V11 真实 PG 五场景无 40P01；A1–A5 零 Schema 漂移；必须修复缺陷 0（3
+    条 NOTE）。
   git:
     base_branch: v3.3
     branch: feature/F035-append-interface-ip
@@ -2857,9 +2860,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 用户 2026-10-26 在批准 plan revision 21 的同一次指令中回复「按推荐执行」，授权本轮新增范围 F035 的实施。
   current_feature: F035
-  current_stage: TEST
-  last_result: BACKEND + FRONTEND COMPLETE；DATABASE NOT_REQUIRED 确认；零 diff 守卫成立。
-  next_action: 重建测试栈后派发 Tester TEST 模式。
+  current_stage: REVIEW
+  last_result: TEST READY FOR REVIEW（无必须修复缺陷）。
+  next_action: 提交候选 HEAD 并派发 Reviewer。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
