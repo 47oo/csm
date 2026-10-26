@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 14
   plan_revision: 21
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 21
     feature_ids:
@@ -2493,17 +2493,16 @@ features:
   depends_on:
   - F023
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 按 Feature Workflow 启动：PRODUCT 复用 revision 14 §24.6 + CHG-013 澄清；ARCHITECTURE
-    出追加路径设计并起草 F023 v2；TEST_DESIGN；CONTRACT；Backend 实现 + 前端文案；独立 Test；Review；Merge。
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: ARCHITECTURE：出追加路径设计（写入路径二态、锁集合、比较列集）并起草 F023 v2 契约。
   layers:
     database: false
     backend: true
     frontend: true
   api_required: true
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: PENDING
     test_design: PENDING
@@ -2512,9 +2511,17 @@ features:
     frontend: PENDING
     test: PENDING
     review: PENDING
-  evidence: {}
-  last_result: 候选计划 revision 21 已获用户批准（2026-10-26「按推荐执行」）；CHG013-BQ01–BQ08 全部 CONFIRMED；依赖
-    F023 已 DONE；等待 Preflight 后进入 PRODUCT 阶段。
+  evidence:
+    product:
+    - docs/features/F035/product.md
+  last_result: PRODUCT READY FOR ARCHITECT：复用 PM 2026-10-26 澄清结论 + 需求 revision 14
+    §24.6（CONFIRMED）与 CHG013-BQ01–BQ08 全部 CONFIRMED。
+  git:
+    base_branch: v3.3
+    branch: feature/F035-append-interface-ip
+    start_commit: 76d8410ef02c06e10c4c268cf08a4221a269ef62
+    head_commit: null
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -3038,25 +3045,24 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-26'
     basis: 用户 2026-10-26 在批准 plan revision 21 的同一次指令中回复「按推荐执行」，授权本轮新增范围 F035 的实施。
-  current_feature: null
-  current_stage: null
-  last_result: plan revision 21 已批准并应用；F035 READY；尚未启动 Implementation。
-  next_action: 按 Feature Workflow 对 F035 执行 Git Preflight 并创建 feature/F035-append-interface-ip
-    分支。
+  current_feature: F035
+  current_stage: PRODUCT
+  last_result: Git Preflight 通过；创建分支 feature/F035-append-interface-ip（start_commit
+    76d8410）。
+  next_action: ARCHITECTURE 阶段派发 Architect 设计模式。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 34
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F035
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
