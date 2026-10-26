@@ -73,16 +73,24 @@ export function emptyImportFormValues(): ImportFormValues {
 }
 
 /**
- * 载体切换的表单补丁（DR-F034-07/10）：
+ * 载体切换的表单补丁（DR-F034-07/10，F036 DR-F036-02）：
  * - 切到 "text" 强制 format="csv"（不提供 .xlsx 文本载体）；
  * - 切回 "file" 保留当前 format，**不回填**历史 xlsx（避免「以为在上传 xlsx
  *   实际是文本」类误判，切换后的旧结果由 changeInput 统一重置）。
+ * - 切到 "file" 时置 `file: null`：文本载体下原生 file input 已卸载，切回后
+ *   重挂载为空 ⇒ 界面显示「未选择文件」而 values.file 仍指旧文件，会让预校验
+ *   结果与将要提交的内容不一致（F034-RV-01，§24.5 T116 忠实度）。清值后
+ *   importTargetKey 返回 null，既有门控（validatedKey === currentKey）自动使
+ *   「确认导入」不可用。
  */
 export function importCarrierPatch(
   values: ImportFormValues,
   carrier: ImportCarrier,
 ): Partial<ImportFormValues> {
-  return { carrier, format: carrier === "text" ? "csv" : values.format };
+  if (carrier === "text") {
+    return { carrier, format: "csv" };
+  }
+  return { carrier, format: values.format, file: null };
 }
 
 /** 服务端 422 点路径 → 表单字段键（仅 format；未知路径返回 null 不强行映射）。 */
@@ -186,6 +194,18 @@ export function parseImportFormValues(
   }
   return { ok: true, file: values.file };
 }
+
+/**
+ * 粘贴文本输入框的占位示例（DR-F036-04 / F034-RV-03）：
+ * - 首行明确「片段」，避免被误当作完整表头照抄；
+ * - 示例数据行只取冻结模板前 3 列（列数 ≤ 4，TD-I-7），**不**列全部 26 列，
+ *   **不**用 `...` 模拟截断（那会被当成可照抄的省略写法）；
+ * - 完整表头以「查看模板」的 templates 响应为准（§5/§6，DR-208）。
+ */
+export const IMPORT_TEXT_PLACEHOLDER =
+  "示例片段（非完整表头，勿整段照抄；请先复制「查看模板」中的表头行）\n" +
+  "cluster,hostname,resource_type\n" +
+  "N96P,cn001,BARE_METAL";
 
 /** 模板列「类型 · 单位 / 枚举」展示文本（单位 / 枚举原样呈现，§5/§6）。 */
 export function templateColumnTypeLabel(column: ImportColumnSpec): string {

@@ -218,7 +218,7 @@ csm_host_info_virtual_machine.csv rows= 3 resource_type set= ['VIRTUAL_MACHINE']
 ### S14 stdout/stderr of BM --print (raw, first 2 lines)
 模板列：26 列（F023 §6 冻结）
 cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,gpu_model,gpu_count,name,interface_type,mac_address,speed_mbps,mtu,enabled,network,ip
-,luck,BARE_METAL,,,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth0,OTHER,08:00:58:00:00:05,10000,1300,true,,10.10.10.23/24
+,luck,BARE_METAL,,,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth0,OTHER,08:00:xx:xx:xx:xx,10000,1300,true,,10.10.10.23/24
 
 ### S15 zero-network verification via strace (trace=connect, socket) — failure paths and offline run
 -- A) no args --
@@ -313,7 +313,7 @@ F023 §6 column count: 26
 ### S23 workstation residue: stale ignored file scripts/csm_host_info.csv (pre-existing, NOT created by this TEST run)
 2026-10-23 13:43:03.352381427 +0800 scripts/csm_host_info.csv
 ﻿cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor,manufacturer,mo
-N96P,luck,,,ALLOC,,,15634,,,,,,,,,,,eth0,OTHER,08:00:58:00:00:05,10000,1300,true,,10.10.10.23/24
+N96P,luck,,,ALLOC,,,15634,,,,,,,,,,,eth0,OTHER,08:00:xx:xx:xx:xx,10000,1300,true,,10.10.10.23/24
 !! scripts/csm_host_info.csv
 
 ### S24 additional DR-1016 / DR-1015 edge observations (free-text empty = unset; enum empty = invalid)

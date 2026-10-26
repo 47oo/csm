@@ -168,7 +168,7 @@
 | ID | 内容 | Owner |
 | --- | --- | --- |
 | `TD-I-1` | **架构事实偏差（HIGH for 范围）**：DR-F036-06 称 `setup.log`/`cli-smoke.log`「不在仓库树内」，实测 `git ls-files` 显示二者**均被跟踪**，且实测 **5 个被跟踪文件**命中 MAC 正则（3 CSV + `real-validate/setup.log`(9 处) + `cli-smoke.log`(2 处)）。A3/CHG-014 §1 item 3 的范围含这两个文件 ⇒ `V4.1` 按其**字面范围**断言命中 0（不缩窄），请 Architect 修正 DR-F036-06 的清单与脱敏格式适用性 | Architect → Tester/协调器 |
-| `TD-I-2` | **口令掩码范围**：A7 写「仓库 grep 命中 0」，但实测 `docs/features/F032/test-report.md:394`（`csm:csmtestpw@db:5432`）、`docs/features/F035/implementation.md:18` 等历史文档仍有明文，而 §8 禁止改写 F001–F035 历史报告。请裁定 F036 掩码扫描的**具体文件集合**（建议 `docs/features/F03{2,3,4,5}` 报告中**仅口令**行 + F036 自有文档），并明确「仓库级 0 命中」不作为 F036 验收判据 | Architect |
+| `TD-I-2` | **口令掩码范围**：A7 写「仓库 grep 命中 0」，但实测 `docs/features/F032/test-report.md:394`（`csm:***@db:5432`）、`docs/features/F035/implementation.md:18` 等历史文档仍有明文，而 §8 禁止改写 F001–F035 历史报告。请裁定 F036 掩码扫描的**具体文件集合**（建议 `docs/features/F03{2,3,4,5}` 报告中**仅口令**行 + F036 自有文档），并明确「仓库级 0 命中」不作为 F036 验收判据 | Architect |
 | `TD-I-3` | `RowError.reason` 精确文本：DR-F036-01 称不改 `_error_message` 输出（自由文本，F023 v2 §1.2 F035-RV-05）；§4.1 澄清行又给出具体文本。本 TD 只断言 `reason` **含** `does not exist or is not selectable`（子串），差异登记不判 FAIL。若要求逐字符固定，请裁定 | Architect |
 | `TD-I-4` | `row` 期望值：单数据行批次固定 `row==2`（1-based）。多行组失败时契约只保证「组首行」（`interface_group.first_row`），本 TD 对多行场景只断言 `row ∈ 该组物理行集合`，不新增规则 | Architect（确认即可） |
 | `TD-I-5` | 脱敏后 CSV 是否可作等价性证据：DR-F036-06 / R-8 已声明**不可**。请确认 `V4.3` 的表述，并确认等价性证据唯一来源为 `docs/features/F034/artifacts/equivalence-observations*.json` | Architect |

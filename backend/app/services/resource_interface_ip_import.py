@@ -1332,6 +1332,15 @@ def _app_error_field(exc: AppError) -> str:
         "address": "ip",
         "virtual_machine.host_resource_id": "host",
         "interface": "name",
+        # ``interface._lock_resource`` is the only producer of
+        # ``_field_error("resource", ...)`` on this path: the row's host is
+        # missing / soft-deleted / not selectable while the batch is being
+        # written. In the import context the column that identifies a row's
+        # resource is always ``hostname`` (the group-key column), so the
+        # service point-path is mapped to that frozen template column
+        # (F023 v2 §11 attribution clarification, F036 / F035-FU-01;
+        # registered producers: TD-I-8, docs/features/F036/implementation.md §1).
+        "resource": "hostname",
     }
     return mapped.get(raw, _template_field(raw))
 

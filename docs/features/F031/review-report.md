@@ -104,7 +104,7 @@
 - 静态：F026 `1 0`；F030 architecture `39 0`；static log `12 0`；受保护目录空 diff；router 83→83；`/_test` 0；单 head 0015；frontend I-2 0；旧文案 0/新文案 1；tests/smoke scope 符号 0。
 - 计划：`validate_project_state.py` VALID；`render_project_views.py` VALID。
 - 独立复跑（真实 PG 16.15 @ 55432/csm_test）：定向 29 passed；两新例 2 passed（`overlap=True`、`attempts used: 1/5`）；F017 隔离 3/3；tsc exit 0；smoke 328 passed。
-- 凭据扫描：`csmtestpw` 在 F031 artifacts 命中 0。
+- 凭据扫描：`***` 在 F031 artifacts 命中 0。
 
 ## 10. 批准边界
 

@@ -482,7 +482,7 @@ GIT: NONE
 
 ```bash
 # 1) F027 目标套件 + F026 回归
-export TEST_DATABASE_URL='postgresql+psycopg://csm:csmtestpw@127.0.0.1:55432/csm_test'
+export TEST_DATABASE_URL='postgresql+psycopg://csm:***@127.0.0.1:55432/csm_test'
 unset DATABASE_URL
 python3 -m pytest -q tests/integration/test_f027_access_scope.py \
   tests/integration/test_cluster_authorizations.py
@@ -656,7 +656,7 @@ GIT: NONE
 
 | 项 | 值 |
 | --- | --- |
-| 数据库 | 真实 PostgreSQL，`TEST_DATABASE_URL=postgresql+psycopg://csm:csmtestpw@127.0.0.1:55432/csm_test`（库名含 `test`，通过 DB-D10 双守卫）；已 `unset DATABASE_URL` |
+| 数据库 | 真实 PostgreSQL，`TEST_DATABASE_URL=postgresql+psycopg://csm:***@127.0.0.1:55432/csm_test`（库名含 `test`，通过 DB-D10 双守卫）；已 `unset DATABASE_URL` |
 | 应用 | 生产 `create_app()` + 真实依赖，仅覆盖 `get_db`；真实 HTTP（`TestClient`） |
 | 迁移 head | `0015_user_cluster_authorizations`（F027 无新迁移，修复未引入迁移） |
 | 执行方式 | 串行；先目标套件，再关联回归，再独立探针，最后全量（全量在探针结束后启动，避免共享测试库冲突） |

@@ -140,8 +140,8 @@
 
 ```
 docker run --rm --network csmtest_default \
-  -e TEST_DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm_test' \
-  -e DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm' \
+  -e TEST_DATABASE_URL='postgresql+psycopg://csm:***@db:5432/csm_test' \
+  -e DATABASE_URL='postgresql+psycopg://csm:***@db:5432/csm' \
   -e PYTHONDONTWRITEBYTECODE=1 csm-backend-f019test \
   pytest tests/integration/test_f022_resource_ip_area.py -q -p no:cacheprovider
 ```
@@ -166,8 +166,8 @@ docker run --rm --network csmtest_default \
 
 ```
 docker run --rm --network csmtest_default \
-  -e TEST_DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm_test' \
-  -e DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm' \
+  -e TEST_DATABASE_URL='postgresql+psycopg://csm:***@db:5432/csm_test' \
+  -e DATABASE_URL='postgresql+psycopg://csm:***@db:5432/csm' \
   -e PYTHONDONTWRITEBYTECODE=1 csm-backend-f019test \
   pytest tests/ -q -p no:cacheprovider
 ```

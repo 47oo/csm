@@ -22,6 +22,7 @@ would otherwise mask the row-level Cluster rejection.
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import threading
 import uuid
@@ -44,7 +45,34 @@ from integration.f015_helpers import (  # noqa: F401
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_DIR.parent
 CORPUS = REPO_ROOT / "docs/features/F034/artifacts/corpus"
-ARTIFACTS = REPO_ROOT / "docs/features/F034/artifacts"
+
+
+def artifact_dir() -> Path:
+    """测试产物落点（DR-F036-08 / TD-I-9）。
+
+    默认系统临时目录，可用 ``CSM_TEST_ARTIFACT_DIR`` 显式收集证据。
+    **绝不** 回退到被跟踪的仓库树（``docs/features/F034/artifacts``）：F034 的
+    ``equivalence-observations*.json`` 是冻结的历史证据，重跑不得改写它。
+    目录不可写时调用方 ``pytest.skip`` 并登记（TD-I-9），不降级写仓库。
+    """
+    base = Path(os.environ.get("CSM_TEST_ARTIFACT_DIR") or tempfile.gettempdir())
+    out = base / "csm-test-artifacts" / "f034"
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:  # TD-I-9：不可写即 skip 并登记，不回退仓库树
+        pytest.skip(f"artifact dir {out} is not writable ({exc}); 产物留证跳过（不回退仓库树）")
+    return out
+
+
+def write_artifact(name: str, payload: str) -> Path:
+    """写一份测试产物到临时落点；不可写时 skip（TD-I-9，绝不写仓库树）。"""
+    path = artifact_dir() / name
+    try:
+        path.write_text(payload, encoding="utf-8")
+    except OSError as exc:
+        pytest.skip(f"artifact {path} is not writable ({exc}); 产物留证跳过（不回退仓库树）")
+    return path
+
 
 R_VALIDATE = "/api/v1/imports/resources/validate"
 R_WRITE = "/api/v1/imports/resources"
@@ -236,9 +264,10 @@ def test_td5_equivalence_matrix_all_corpus(seeded, path):
             }
         observations[f"{path}|{name}"] = record
 
-    ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    out = ARTIFACTS / f"equivalence-observations{'' if path == R_VALIDATE else '-interface-ips'}.json"
-    out.write_text(json.dumps(observations, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_artifact(
+        f"equivalence-observations{'' if path == R_VALIDATE else '-interface-ips'}.json",
+        json.dumps(observations, indent=2, ensure_ascii=False) + "\n",
+    )
 
     # Spot-check that the corpus actually exercises both outcomes (anti-vacuity).
     statuses = {record["status"] for record in observations.values()}
@@ -716,8 +745,8 @@ def test_td3_t114_field_boundaries(seeded, auth_session_factory):
     file_resp, text_resp = both(client, R_VALIDATE, "F-13")
     assert_equivalent("F-13", R_VALIDATE, file_resp, text_resp)
     observed = file_resp.json()
-    ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    (ARTIFACTS / "t114-unclosed-quote-observation.json").write_text(
+    write_artifact(
+        "t114-unclosed-quote-observation.json",
         json.dumps(
             {
                 "fixture": "F-13",
@@ -729,7 +758,6 @@ def test_td3_t114_field_boundaries(seeded, auth_session_factory):
             ensure_ascii=False,
         )
         + "\n",
-        encoding="utf-8",
     )
 
 

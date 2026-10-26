@@ -15,7 +15,7 @@
 - TD-I-5 行为：`resource_type` 必报且归因 `resource_type`，同时报告该组其它显式给出且不符的列（如 BM 宿主上的 VM 行额外报 `host`）；整批 422、零残留。
 - TD-I-7 实际符号：`ParsedRow.existing_resource_id`、`PreparedGroup.existing_resource_id`、`ExistingSnapshot`（含 `existing_value(column)`）、`_load_existing_snapshots`、`_check_existing_consistency`、`_check_existing_interface_names`、辅助 `_as_text` / `_HARDWARE_SNAPSHOT_COLUMNS` / `_VM_SNAPSHOT_COLUMNS`；`_parse_row(..., existing_cache=None)`。
 
-**实际执行（真实 PostgreSQL 16.15，容器 `csm-f035-pg`，`TEST_DATABASE_URL=postgresql+psycopg://csm:csmtestpw@127.0.0.1:55432/csm_test`）**：
+**实际执行（真实 PostgreSQL 16.15，容器 `csm-f035-pg`，`TEST_DATABASE_URL=postgresql+psycopg://csm:***@127.0.0.1:55432/csm_test`）**：
 
 | 命令（`cd backend`） | 结果 |
 | --- | --- |

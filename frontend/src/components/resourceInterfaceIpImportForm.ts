@@ -80,14 +80,22 @@ export function emptyResourceInterfaceIpImportFormValues(): ResourceInterfaceIpI
 }
 
 /**
- * 载体切换的表单补丁（DR-F034-07/10）：切到 "text" 强制 format="csv"；
- * 切回 "file" 保留当前 format、不回填历史 xlsx（旧结果由 changeInput 重置）。
+ * 载体切换的表单补丁（DR-F034-07/10，F036 DR-F036-02）：切到 "text" 强制
+ * format="csv"；切回 "file" 保留当前 format、不回填历史 xlsx（旧结果由
+ * changeInput 重置）。切到 "file" 时置 `file: null`：文本载体下原生 file
+ * input 已卸载，切回后重挂载为空 ⇒ 界面看不到文件却仍提交 values.file 的旧
+ * 文件，界面状态与提交值不一致（F034-RV-01）。清值后
+ * resourceInterfaceIpImportTargetKey 返回 null，canConfirmResourceInterfaceIpImport
+ * 的「validatedKey === currentKey」门控自动使「确认导入」不可用。
  */
 export function resourceInterfaceIpImportCarrierPatch(
   values: ResourceInterfaceIpImportFormValues,
   carrier: ImportCarrier,
 ): Partial<ResourceInterfaceIpImportFormValues> {
-  return { carrier, format: carrier === "text" ? "csv" : values.format };
+  if (carrier === "text") {
+    return { carrier, format: "csv" };
+  }
+  return { carrier, format: values.format, file: null };
 }
 
 /** 服务端 422 点路径 → 表单字段键（仅 format；未知路径返回 null 不强行映射）。 */
@@ -216,6 +224,18 @@ export function canConfirmResourceInterfaceIpImport(input: {
     !input.importSucceeded
   );
 }
+
+/**
+ * 粘贴文本输入框的占位示例（DR-F036-04 / F034-RV-03；与 F014 侧
+ * `IMPORT_TEXT_PLACEHOLDER` 同主体）：首行明确「片段」，避免被当作完整表头
+ * 照抄；示例数据行只取 26 列冻结模板的前 3 列（列数 ≤ 4，TD-I-7），**不**列
+ * 全部 26 列、**不**用 `...` 模拟截断；完整表头以 templates 响应 /「查看模板」
+ * 与 buildResourceInterfaceIpTemplateHeaderCsv 为准（§5/§6）。
+ */
+export const RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER =
+  "示例片段（非完整表头，勿整段照抄；请先复制「查看模板」中的表头行）\n" +
+  "cluster,hostname,resource_type\n" +
+  "N96P,cn001,BARE_METAL";
 
 /**
  * 统一宽模板冻结列名（Contract §6，D03 签核；单一 26 列模板，

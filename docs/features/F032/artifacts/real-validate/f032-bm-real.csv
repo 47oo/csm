@@ -1,4 +1,4 @@
 ﻿cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,gpu_model,gpu_count,name,interface_type,mac_address,speed_mbps,mtu,enabled,network,ip
-F032CHK,luck,BARE_METAL,COMPUTE,IDLE,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth0,OTHER,08:00:58:00:00:05,10000,1300,true,,10.10.10.23/24
-F032CHK,luck,BARE_METAL,COMPUTE,IDLE,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth6,OTHER,d8:b3:2f:5f:a8:1f,10000,1500,true,,192.168.10.221/24
-F032CHK,luck,BARE_METAL,COMPUTE,IDLE,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth4,OTHER,00:ff:14:65:ff:5b,10000,1500,true,,10.100.24.211/32
+F032CHK,luck,BARE_METAL,COMPUTE,IDLE,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth0,OTHER,08:00:xx:xx:xx:xx,10000,1300,true,,10.10.10.23/24
+F032CHK,luck,BARE_METAL,COMPUTE,IDLE,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth6,OTHER,d8:b3:xx:xx:xx:xx,10000,1500,true,,192.168.10.221/24
+F032CHK,luck,BARE_METAL,COMPUTE,IDLE,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth4,OTHER,00:ff:xx:xx:xx:xx,10000,1500,true,,10.100.24.211/32
