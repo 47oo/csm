@@ -3,11 +3,11 @@ project:
   version: V3 phase 1
   requirements:
     path: docs/product/requirements-v3.md
-    revision: 13
-  plan_revision: 20
-  status: DONE
+    revision: 14
+  plan_revision: 21
+  status: ACCEPTED
   approval:
-    plan_revision: 20
+    plan_revision: 21
     feature_ids:
     - F001
     - F002
@@ -43,14 +43,16 @@ project:
     - F032
     - F033
     - F034
+    - F035
     approved_by: 用户
     approved_on: '2026-10-26'
-    basis: 用户 2026-10-26 提出「前端除了支持使用文件导入数据，还应该支持直接使用 csv 格式的文本导入资源数据」，审阅 CHG-012 提案与候选计划
-      revision 20 后回复「看推荐执行并实施」：批准需求 revision 13（新增 §24.5 与 T107–T116、修订 T28/§32 措辞）与
-      plan revision 20（新增 F034 导入 CSV 文本载体），并同时确认 CHG012-BQ01 = A（F014 与 F023 两个入口都新增文本载体，文件上传保留并列）、CHG012-BQ02
-      = A（文本须自带逐字逐序表头、仅逗号分隔、不嗅探、不自动补表头）。同一指令明确要求实施，故记录 execution.authorization。
+    basis: 用户 2026-10-26 提出「同一个机器有多个 IP 的情况，这种情况也允许录入」并给出同 hostname 三行 CSV；审阅 CHG-013
+      提案与候选计划 revision 21 后回复「按推荐执行」：批准需求 revision 14（新增 §24.6 与 T117–T126、修订 §24/§24.1/§24.5/§31
+      T67/T71/§32）与 plan revision 21（新增 F035），并确认推荐组合 CHG013-BQ01=B（允许向既有 Resource
+      追加 Interface/IP 且不改既有字段）、BQ02=B（Resource 级列须与现存规范化值一致，留空不比较）、BQ03=A（既有子对象仍报错）、BQ04=A（仅「资源+网卡+IP」入口）、BQ05=A（不支持向既有
+      Interface 追加 IP）、BQ06=C1（created 仍为新建 Resource 数）、BQ07=A（留空=省略）、BQ08=A（只提交新增行为唯一补录路径）。同一指令「执行」记录为实施授权。
   acceptance:
-    status: COMPLETE
+    status: PENDING
     evidence:
     - docs/features/F034/test-report.md#2-test-execution
     - docs/features/F034/review-report.md
@@ -2453,6 +2455,66 @@ features:
     backend: layers.backend=false：文本→UTF-8 CSV 字节后复用 F014/F023 既有 multipart 端点，解析/校验/事务/审计/范围/上限全部沿用既有
       Service Layer；backend/app/**、backend/alembic/** 零 diff（见 docs/features/F034/implementation.md
       §4 与 test-report TD3-REG.2 守卫）。
+- id: F035
+  title: 向既有 Resource 追加 Interface / IP 批量导入
+  kind: FEATURE
+  priority: P1
+  milestone: M26 导入追加网卡/IP
+  scope: 在 F023「资源+网卡+IP」批量导入（冻结 26 列模板、`/api/v1/imports/resource-interfaces-ips*`
+    预校验与写入两个端点）上新增「追加到既有 Resource」能力：导入行可指向已存在且未删除的 Resource，为其新建 Interface 并在其下新建、绑定
+    IP，而不修改该 Resource 的任何既有字段（hostname、cluster、 resource_type、role、status 及 BareMetal
+    / VM 明细）；既有 Resource 不产生 UPDATE、也不产生对应 Audit，新增 Interface / IPAddress 按既有写路径产生
+    Audit。复用同一模板与列集列序、同一两步流程（先预校验、确认后写入，写入时完整重校验）、同一 Service Layer 校验、同一 IMPORT 权限与集群范围口径、同一错误口径（行号
+    / 字段 / 原因）、同一整批原子回滚（无部分成功、无残留 Audit / Activity）、同一同步处理与字节 / 行数上限；不新增端点、查询参数、错误码、权限项、表
+    / 列 / 索引 / Migration。 分支判定（行指向新建资源还是既有资源）、Resource 级列语义、重复提交与已存在子对象处理、留空列语义、响应计数口径、同一网卡多
+    IP、F014 入口是否同步等业务口径按 CHG013-BQ01–CHG013-BQ08 裁定；未裁定前按各 BQ 推荐项条件化，不得作为实施依据。契约影响：`docs/api/F023.md`
+    正文升版为 v2（现文 §13 等「不向既有 Resource 追加」的负面边界被本能力否定），端点与字段不变。明确不做：新端点 / 参数 / 错误码 /
+    权限 / Schema / Migration；修改既有 Resource 字段（若 CHG013-BQ01 选 C 需单独变更控制）；创建 Network
+    / IP Pool / Cluster / Host；Service / Endpoint / Cluster 导入；对已软删 Resource 追加（应报错）；改写
+    F014 / F023 已冻结模板与历史行为（若 CHG013-BQ04 选 B，F014 入口同步范围另行签核）。
+  acceptance: 通过 requirements revision 14 拟新增测试项 T117–T126（ID 与正文以 revision 14 落稿为准）；追加批可为已存在且未删除的
+    Resource 新建 Interface 并新建、绑定 IP，既有 Resource 字段与明细零变更（不产生既有行 UPDATE 与对应 Audit）；新建与追加混合批在同一整批原子性内整体成功或整体回滚、无残留
+    Audit / Activity；同 hostname 多行合并与同资源 Interface 名称去重正确，既存 Interface 重名按裁定报错且不被静默覆盖；重复提交已存在
+    Resource+Interface+IP 的行为符合 CHG013-BQ03；追加行 Resource 级列语义符合 CHG013-BQ02；留空列语义符合
+    CHG013-BQ07；同一 Interface 多 IP 是否允许符合 CHG013-BQ05；响应计数按 CHG013-BQ06 口径（待 BQ06 裁定、默认按
+    Architect C1：`created` 保持「新建 Resource 数」，纯追加批为 0；C3 的 `resources_reused` 属新字段，须单独批准后方可采用）；F014
+    资源导入入口按 CHG013-BQ04 保持一致（推荐 A 时零改动）；错误行含行号 / 字段 / 原因，IP 属正确 Network 且同 Cluster，不创建
+    Network / Pool / Cluster / Host；无 IMPORT 权限被服务端拒绝，含未授权集群行整批失败并返回行号与权限原因；F023 既有「仅新建」行为与
+    T64–T72 无回归，T89（导入行级范围归因）与 T115（CSV 文本载体权限 / 范围 / 审计）回归通过；`docs/api/F023.md` v2
+    须在本 Feature CONTRACT 阶段由 Architect 签核后方可作为实施依据。
+  requirements:
+  - docs/product/requirements-v3.md#246-向既有-resource-追加-interface--ipaddressrevision-14
+  - docs/product/requirements-v3.md#24-批量导入
+  - docs/product/requirements-v3.md#241-资源--网卡--ip-批量导入revision-8
+  - docs/product/requirements-v3.md#23-用户与权限
+  - docs/product/requirements-v3.md#31-测试
+  - docs/product/requirements-v3.md#32-上线验收
+  - docs/api/F023.md
+  depends_on:
+  - F023
+  blocking_decisions: []
+  status: READY
+  current_stage: null
+  next_action: 按 Feature Workflow 启动：PRODUCT 复用 revision 14 §24.6 + CHG-013 澄清；ARCHITECTURE
+    出追加路径设计并起草 F023 v2；TEST_DESIGN；CONTRACT；Backend 实现 + 前端文案；独立 Test；Review；Merge。
+  layers:
+    database: false
+    backend: true
+    frontend: true
+  api_required: true
+  implementation:
+    product: PENDING
+    architecture: PENDING
+    database: PENDING
+    test_design: PENDING
+    contract: PENDING
+    backend: PENDING
+    frontend: PENDING
+    test: PENDING
+    review: PENDING
+  evidence: {}
+  last_result: 候选计划 revision 21 已获用户批准（2026-10-26「按推荐执行」）；CHG013-BQ01–BQ08 全部 CONFIRMED；依赖
+    F023 已 DONE；等待 Preflight 后进入 PRODUCT 阶段。
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2893,24 +2955,97 @@ decisions_required:
   - F034
   owner: 用户
   basis: 用户 2026-10-26 回复「看推荐执行并实施」，确认推荐项 A：文本必须自带与冻结模板逐字逐序一致的表头、仅逗号分隔、不做分隔符嗅探、不自动补表头、不做列名映射。
+- id: CHG013-BQ01
+  source: docs/project/proposals/CHG-013-append-interface-ip.md#1-bq-1-目标能力范围
+  status: CONFIRMED
+  kind: BUSINESS_DECISION
+  affects:
+  - F023
+  - F035
+  owner: 用户
+  basis: 用户 2026-10-26 回复「按推荐执行」，确认推荐项 B：允许向既有 Resource 追加 Interface/IP，且不修改既有 Resource
+    字段、不覆盖既有子对象。
+- id: CHG013-BQ02
+  source: docs/project/proposals/CHG-013-append-interface-ip.md#2-bq-2-追加行-resource-级列语义
+  status: CONFIRMED
+  kind: BUSINESS_DECISION
+  affects:
+  - F023
+  - F035
+  owner: 用户
+  basis: 用户回复「按推荐执行」，确认推荐项 B：追加行 Resource 级列可填但须与既有规范化值完全一致，不一致报行错误、不覆盖。
+- id: CHG013-BQ03
+  source: docs/project/proposals/CHG-013-append-interface-ip.md#3-bq-3-重复提交与已存在子对象
+  status: CONFIRMED
+  kind: BUSINESS_DECISION
+  affects:
+  - F023
+  - F035
+  owner: 用户
+  basis: 用户回复「按推荐执行」，确认推荐项 A：既有同名 Interface / 同 Cluster 既有 IP 仍报错，不做幂等跳过。
+- id: CHG013-BQ04
+  source: docs/project/proposals/CHG-013-append-interface-ip.md#4-bq-4-一致性范围
+  status: CONFIRMED
+  kind: BUSINESS_DECISION
+  affects:
+  - F023
+  - F035
+  owner: 用户
+  basis: 用户回复「按推荐执行」，确认推荐项 A：仅「资源+网卡+IP」导入支持追加；资源导入入口维持冲突即报错。
+- id: CHG013-BQ05
+  source: docs/project/proposals/CHG-013-append-interface-ip.md#5-bq-5-同一网卡多-ip
+  status: CONFIRMED
+  kind: BUSINESS_DECISION
+  affects:
+  - F023
+  - F035
+  owner: 用户
+  basis: 用户回复「按推荐执行」，确认推荐项 A：不支持向既有 Interface 追加 IP。
+- id: CHG013-BQ06
+  source: docs/project/proposals/CHG-013-append-interface-ip.md#6-bq-6-响应计数口径
+  status: CONFIRMED
+  kind: BUSINESS_DECISION
+  affects:
+  - F023
+  - F035
+  owner: 用户
+  basis: 用户回复「按推荐执行」，确认推荐项 C1：created 仍为新建 Resource 数，纯追加批次为 0，不新增响应字段。
+- id: CHG013-BQ07
+  source: docs/project/proposals/CHG-013-append-interface-ip.md#7-bq-7-留空列语义
+  status: CONFIRMED
+  kind: BUSINESS_DECISION
+  affects:
+  - F023
+  - F035
+  owner: 用户
+  basis: 用户回复「按推荐执行」，确认推荐项 A：追加行留空的 Resource 级列视为省略、不参与比较。
+- id: CHG013-BQ08
+  source: docs/project/proposals/CHG-013-append-interface-ip.md#8-bq-8-重复提交可用路径
+  status: CONFIRMED
+  kind: BUSINESS_DECISION
+  affects:
+  - F023
+  - F035
+  owner: 用户
+  basis: 用户回复「按推荐执行」，确认推荐项 A：接受「只提交新增行」为补录既有机器时的唯一可用路径。
 pending_changes: []
 execution:
-  mode: null
+  mode: SINGLE
   authorization:
-    plan_revision: 20
+    plan_revision: 21
     feature_ids:
-    - F034
+    - F035
     authorized_by: 用户
     authorized_on: '2026-10-26'
-    basis: 用户 2026-10-26 在批准 plan revision 20 的同一次指令中明确要求实施（「看推荐执行并实施」），授权范围为本轮新增的
-      F034。
+    basis: 用户 2026-10-26 在批准 plan revision 21 的同一次指令中回复「按推荐执行」，授权本轮新增范围 F035 的实施。
   current_feature: null
   current_stage: null
-  last_result: F034 已合并 v3.3（d2a847a）并完成最终状态提交；项目范围（F001–F034）全部 DONE，一期整体验收 COMPLETE。
-  next_action: null
+  last_result: plan revision 21 已批准并应用；F035 READY；尚未启动 Implementation。
+  next_action: 按 Feature Workflow 对 F035 执行 Git Preflight 并创建 feature/F035-append-interface-ip
+    分支。
   repair_rounds: 0
 planning_status:
-  status: DONE
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -2919,8 +3054,9 @@ planning_status:
     DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F035
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
