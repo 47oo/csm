@@ -2398,8 +2398,8 @@ features:
   - F035
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: ARCHITECTURE：复核 layers、设计 F035-FU-01 归因映射与 F034-RV-01 清空时机，DATABASE 预计 NOT_REQUIRED。
+  current_stage: TEST_DESIGN
+  next_action: TEST_DESIGN（Tester，覆盖 V1–V15，V2 必须真实 PG 双会话）+ DATABASE NOT_REQUIRED 复核。
   layers:
     database: false
     backend: true
@@ -2407,7 +2407,7 @@ features:
   api_required: true
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: PENDING
     contract: PENDING
@@ -2418,7 +2418,8 @@ features:
   evidence:
     product:
     - docs/features/F036/product.md#2-逐条映射
-    architecture: null
+    architecture:
+    - docs/features/F036/architecture.md#3-逐项设计
     database: null
     test_design: null
     contract: null
@@ -2426,7 +2427,7 @@ features:
     frontend: null
     test: null
     review: null
-  last_result: PRODUCT READY FOR ARCHITECT：15 行映射覆盖 CHG-014 §1 全部条目；无 Blocking Question；F034-RV-02 显式排除。
+  last_result: ARCHITECTURE READY FOR DESIGN：DR-F036-01…11；layers={db:false,backend:true,frontend:true}、api_required=true（仅 F023 §11 归因澄清）；V1–V15 验证项对应 product A1–A14。
   git:
     base_branch: v3.3
     branch: feature/F036-review-followup-closeout
@@ -2434,7 +2435,7 @@ features:
     head_commit: null
     merge_commit: null
   not_required:
-    database: layers.database=false：本 Feature 只改造 F023 导入服务的组级二态与只读校验，不新增/修改表、列、索引、约束、触发器或 Migration；追加依赖的三个部分唯一索引已由 F004/F007/F010 交付（见 docs/features/F035/architecture.md §5、§6、§11）。
+    database: 零 DDL：唯一后端改动是 `_app_error_field` 错误标签词表 +1 项；无表/列/索引/约束/触发器/Migration，无 SQL 与锁序变更（Database 复核见 docs/features/F036/implementation.md §3）。
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2928,9 +2929,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 同上「A B全部按照建议做」；授权 F036 实施。
   current_feature: F036
-  current_stage: ARCHITECTURE
-  last_result: F036 PRODUCT COMPLETE。
-  next_action: F036 ARCHITECTURE Gate。
+  current_stage: TEST_DESIGN
+  last_result: F036 ARCHITECTURE COMPLETE。
+  next_action: F036 TEST_DESIGN + DATABASE 复核。
   repair_rounds: 0
 planning_status:
   status: ACCEPTED
