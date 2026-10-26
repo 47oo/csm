@@ -2398,15 +2398,15 @@ features:
   - F035
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT：确认范围为纯收敛，无新业务规则；随后 ARCHITECTURE 复核 layers 与归因映射设计。
+  current_stage: ARCHITECTURE
+  next_action: ARCHITECTURE：复核 layers、设计 F035-FU-01 归因映射与 F034-RV-01 清空时机，DATABASE 预计 NOT_REQUIRED。
   layers:
     database: false
     backend: true
     frontend: true
   api_required: true
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -2416,7 +2416,8 @@ features:
     test: PENDING
     review: PENDING
   evidence:
-    product: null
+    product:
+    - docs/features/F036/product.md#2-逐条映射chg-014-1-第-111-项第-11-项拆为-5-条
     architecture: null
     database: null
     test_design: null
@@ -2425,7 +2426,7 @@ features:
     frontend: null
     test: null
     review: null
-  last_result: READY（plan revision 22 已批准；未开始 PRODUCT Gate）。
+  last_result: PRODUCT READY FOR ARCHITECT：15 行映射覆盖 CHG-014 §1 全部条目；无 Blocking Question；F034-RV-02 显式排除。
   git:
     base_branch: v3.3
     branch: feature/F036-review-followup-closeout
@@ -2927,9 +2928,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 同上「A B全部按照建议做」；授权 F036 实施。
   current_feature: F036
-  current_stage: PRODUCT
-  last_result: plan revision 22 已批准：新增 F036（ENABLER/P2）；F001–F035 保持 DONE。
-  next_action: F036 PRODUCT Gate。
+  current_stage: ARCHITECTURE
+  last_result: F036 PRODUCT COMPLETE。
+  next_action: F036 ARCHITECTURE Gate。
   repair_rounds: 0
 planning_status:
   status: ACCEPTED
