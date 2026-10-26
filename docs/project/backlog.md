@@ -41,6 +41,6 @@
 | F033 | 前端布局与 CSS 质量优化 | FEATURE | P2 | DONE | F028 | — | docs/product/requirements-v3.md#28-前端, docs/architecture/frontend-ui-stack.md, .pi/skills/frontend-ui/SKILL.md, docs/features/F028/test-report.md#test-execution |
 | F034 | 导入 CSV 文本载体 | FEATURE | P1 | DONE | F014, F023 | — | docs/product/requirements-v3.md#245-前端-csv-文本导入载体revision-13, docs/product/requirements-v3.md#24-批量导入, docs/product/requirements-v3.md#241-资源--网卡--ip-批量导入revision-8, docs/product/requirements-v3.md#23-用户与权限, docs/product/requirements-v3.md#31-测试, docs/product/requirements-v3.md#32-上线验收, docs/api/F014.md, docs/api/F023.md |
 | F035 | 向既有 Resource 追加 Interface / IP 批量导入 | FEATURE | P1 | DONE | F023 | — | docs/product/requirements-v3.md#246-向既有-resource-追加-interface--ipaddressrevision-14, docs/product/requirements-v3.md#24-批量导入, docs/product/requirements-v3.md#241-资源--网卡--ip-批量导入revision-8, docs/product/requirements-v3.md#23-用户与权限, docs/product/requirements-v3.md#31-测试, docs/product/requirements-v3.md#32-上线验收, docs/api/F023.md |
-| F036 | F032–F035 Review 跟进项收敛 | ENABLER | P2 | IN_PROGRESS | F032, F033, F034, F035 | — | docs/features/F032/review-report.md, docs/features/F033/review-report.md, docs/features/F034/review-report.md, docs/features/F035/review-report.md, docs/project/proposals/CHG-014-review-followup-closeout.md |
+| F036 | F032–F035 Review 跟进项收敛 | ENABLER | P2 | IN_REVIEW | F032, F033, F034, F035 | — | docs/features/F032/review-report.md, docs/features/F033/review-report.md, docs/features/F034/review-report.md, docs/features/F035/review-report.md, docs/project/proposals/CHG-014-review-followup-closeout.md |
 
-统计：BLOCKED=0；CANCELLED=0；DONE=35；DRAFT=0；IN_PROGRESS=1；IN_REVIEW=0；READY=0。
+统计：BLOCKED=0；CANCELLED=0；DONE=35；DRAFT=0；IN_PROGRESS=0；IN_REVIEW=1；READY=0。
