@@ -79,6 +79,9 @@ interface ResourceImportPanelProps {
  *   逐列说明含必填、类型、单位（MiB/GiB）、枚举与示例；可下载表头行 CSV。
  * - 面板入口由 ResourcesPage 按 IMPORT 权限显示；隐藏不替代服务端校验
  *   （VIEWER 调用仍 403，§1.1/I-11）。
+ * - 与「资源+网卡+IP」导入的差异（F035，Contract v2 §13 / requirements §24.6）：
+ *   本入口**不支持**向已存在 hostname 追加网卡/IP，已存在 hostname 仍按冲突报错；
+ *   面板须明示该差异并指向「资源+网卡+IP」导入。
  * - F034 输入载体（Contract §「CSV 文本载体（加法引用）」增补节 v1）：
  *   「上传文件（CSV / .xlsx）」与「粘贴 CSV 文本（仅 CSV）」两种载体**并列**
  *   （默认文件载体，既有行为零改动）。文本载体把粘贴内容按 UTF-8 编码构造为
@@ -237,6 +240,10 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
         预校验通过（0 错误）后「确认导入」，服务端将在写入前基于最新状态再次校验，
         任一行失败整批回滚，不产生部分成功。同步导入上限：单文件 ≤{" "}
         {IMPORT_MAX_FILE_BYTES} 字节（5 MiB）、数据行数 ≤ {IMPORT_MAX_ROWS}（超限在解析前拒绝）。
+      </p>
+      <p className="permissions-note">
+        资源导入不支持向已存在 hostname 追加网卡/IP（已存在 hostname 仍报冲突）；
+        需追加请用「资源+网卡+IP」导入。
       </p>
 
       <div className="form-field">

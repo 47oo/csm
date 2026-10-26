@@ -67,8 +67,8 @@ interface ResourceInterfaceIpImportPanelProps {
 }
 
 /**
- * 「资源+网卡+IP」三元组批量导入面板（F023，Contract：docs/api/F023.md v1；
- * 产品 §24.1）：
+ * 「资源+网卡+IP」三元组批量导入面板（F023，Contract：docs/api/F023.md v2；
+ * 产品 §24.1、§24.6）：
  * - 两步流程：先「预校验」（只读、无副作用、不写 Audit、不加锁），一次性展示
  *   全部错误行（行号 / 字段 / 原因 / 关联行，可滚动）；预校验通过（0 错误）
  *   且输入指纹（文件 / 格式）一致后才能「确认导入」——存在错误行时整批不可
@@ -81,12 +81,22 @@ interface ResourceInterfaceIpImportPanelProps {
  *   templates（§5），逐列说明含适用行、必填、类型、单位、枚举与示例；冻结
  *   表头文本另由本地镜像即时展示（列名 / 顺序与契约一致）。
  * - 输入（文件 / 格式）变化 → 既有预校验与写入结果全部失效重置，避免陈旧
- *   结果误导；同一文件重复确认由服务端按现存 (cluster,hostname)/(cluster,ip)
- *   冲突整批拒绝（§11）。
+ *   结果误导；同一文件重复确认由服务端按现存 (cluster,ip) 与既有同名网卡 /
+ *   既有 IP 冲突整批拒绝（§11 v2）。
  * - 文件级错误（413 超限 / 422 IMPORT_INVALID_FILE 表头或格式不符 / 401 /
  *   403）与网络错误显式呈现，不伪装成空结果或 0 错误。
  * - 面板入口由 ResourcesPage 按 IMPORT 权限显示；隐藏不替代服务端校验
  *   （VIEWER 调用仍 403，§1.1）。
+ * - F035 追加语义（Contract v2 §4/§8.1/§11/§13；requirements §24.6）：组键
+ *   `(cluster, hostname)` 已存在且未软删时，该组按「追加」处理——只在该既有
+ *   Resource 下新建 Interface 与 IPAddress 并绑定，**不新建、不修改既有
+ *   Resource 任何字段、不覆盖既有子对象**。面板须写明：资源级列可填但须与
+ *   既有值完全一致（区分大小写）、留空=省略（不比较、不置空）、既有 null
+ *   不能经导入补填（只能走资源编辑）；既有同名网卡与同集群既有 IP 仍报行错误
+ *   （不跳过、无部分成功）；不支持向既有网卡再加 IP；补录既有机器时只提交
+ *   新增行；VM 追加行 host 仍必填且须与既有宿主机一致。`created===0`（纯追加
+ *   批次）只给「本批未新建资源（全部追加到既有资源）」定性说明，**不展示**
+ *   追加数（DR-F035-11：前端不推导、不改响应类型、零 wire 变更）。
  * - F034 输入载体（Contract §「CSV 文本载体（加法引用）」增补节 v1）：
  *   「上传文件（CSV / .xlsx）」与「粘贴 CSV 文本（仅 CSV）」两种载体**并列**
  *   （默认文件载体，既有行为零改动）。文本载体按 UTF-8 编码构造带固定文件名
@@ -208,7 +218,8 @@ export default function ResourceInterfaceIpImportPanel({
    * 确认导入可用条件（门控纯逻辑见 canConfirmResourceInterfaceIpImport）：
    * 当前输入已完成预校验且 0 错误（存在错误行时整批不可能成功，不进入写入）
    * 且指纹一致（防止「换了文件但沿用旧校验结果」）；本次导入已成功后禁用
-   * （同一文件再导入会因现存冲突被服务端整批拒绝，§11；换文件需重新预校验）。
+   * （同一文件再导入会因现存同名网卡 / 同集群既有 IP 被服务端整批拒绝，
+   * v2 §11；换文件需重新预校验）。
    */
   const currentKey = resourceInterfaceIpImportTargetKey(values);
   /** 文本载体下非权威 UTF-8 字节计数（纯展示，不参与门控；上限以服务端为准）。 */
@@ -252,7 +263,7 @@ export default function ResourceInterfaceIpImportPanel({
 
   return (
     <SurfaceCard className="panel">
-      <h2>批量导入资源+网卡+IP（CSV / Excel .xlsx，仅新增）</h2>
+      <h2>批量导入资源+网卡+IP（CSV / Excel .xlsx，仅新增；已存在机器可追加网卡/IP）</h2>
       <p className="permissions-note">
         三元组导入：每行一个「资源 + 网卡 + IP」；同一 hostname 多行合并为一个资源、
         同一资源内网卡按 name 去重、每行对应一个 IP。两步导入：先「预校验」（只读，
@@ -261,6 +272,41 @@ export default function ResourceInterfaceIpImportPanel({
         （不产生部分成功，未创建任何资源、网卡或 IP）。同步导入上限：单文件 ≤{" "}
         {IMPORT_MAX_FILE_BYTES} 字节（5 MiB）、数据行数 ≤ {IMPORT_MAX_ROWS}（超限在解析前拒绝）。
       </p>
+
+      {/* 追加语义说明（§24.6；R1 null 不能补填、R2 只提交新增行、R5 VM host 必填）：
+          组键已存在且未软删时按「追加」处理，只新增子对象、不改既有资源字段。 */}
+      <div className="mt-3 mb-4">
+        <InfoState
+          message={
+            <>
+              <p>
+                集群 + hostname 已存在且未删除时，该组按「追加」处理：只在该资源下新建网卡与
+                IP，不新建资源、不修改既有资源任何字段、不覆盖既有网卡与 IP。规则：
+              </p>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
+                <li>
+                  资源级列（resource_type / role / status / host / vcpu / memory_mb / disk_gb /
+                  hypervisor 及硬件列）可填，但必须与既有值完全一致（区分大小写）；不一致报行错误，
+                  不覆盖既有值。
+                </li>
+                <li>
+                  资源级列留空 = 省略：不参与比较，也不会把既有值置空；既有为空的列不能经导入补填，
+                  只能到资源编辑页维护。
+                </li>
+                <li>
+                  既有同名网卡（区分大小写）与同集群既有 IP 仍报行错误；不跳过、不忽略重复行，无部分成功。
+                </li>
+                <li>
+                  不支持向既有网卡再绑定 IP：同一张网卡的多个 IP 须在同一批首次导入中提供，
+                  或改用 IP 侧绑定入口维护。
+                </li>
+                <li>补录已有机器时只提交新增行：文件含已导入过的行会整批失败（整批原子回滚）。</li>
+                <li>VM 追加行的 host 仍必填，且必须与该机器既有宿主机一致。</li>
+              </ul>
+            </>
+          }
+        />
+      </div>
 
       <div className="form-field">
         <label htmlFor="resource-interface-ip-import-carrier">导入载体（必选）</label>
@@ -518,7 +564,13 @@ export default function ResourceInterfaceIpImportPanel({
 
       {importState.kind === "success" && (
         <Alert
-          description={`导入成功：新建资源 ${importState.data.created} 个、网卡 ${importState.data.interfaces_created} 个、IP ${importState.data.ip_addresses_created} 个（共 ${importState.data.total_rows} 行，整批成功）。如需导入另一批，请重新选择文件或粘贴文本并预校验。`}
+          description={
+            importState.data.created === 0
+              ? // 纯追加批次：created=0 是成功信号（v2 §4）。只给定性说明，
+                // 不展示追加数量 M（DR-F035-11：前端不推导、响应字段零变更）。
+                `导入成功：本批未新建资源（全部追加到既有资源）；新建网卡 ${importState.data.interfaces_created} 个、IP ${importState.data.ip_addresses_created} 个（共 ${importState.data.total_rows} 行，整批成功）。如需导入另一批，请重新选择文件或粘贴文本并预校验。`
+              : `导入成功：新建资源 ${importState.data.created} 个、网卡 ${importState.data.interfaces_created} 个、IP ${importState.data.ip_addresses_created} 个（共 ${importState.data.total_rows} 行，整批成功）。如需导入另一批，请重新选择文件或粘贴文本并预校验。`
+          }
           showIcon
           type="success"
         />
