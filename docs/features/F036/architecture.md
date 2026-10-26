@@ -1,7 +1,7 @@
 # F036 F032–F035 Review 跟进项收敛 — ARCHITECTURE 阶段报告
 
-- **状态**：READY FOR DESIGN（定稿与裁定见 §12，由 CONTRACT Gate 填写）
-- **版本**：v1（2026-10-26）；ENABLER / P2 / M27；分支 `feature/F036-review-followup-closeout`；plan revision 22；**需求 revision 14（不变）**
+- **状态**：**READY FOR IMPLEMENTATION**（§12 定稿；CONTRACT Gate 已签核）
+- **版本**：v2（2026-10-26，CONTRACT Gate：裁定 TD-I-1…TD-I-10 + 契约签核 + §12 定稿；v1 为 ARCHITECTURE Gate 记录）；ENABLER / P2 / M27；分支 `feature/F036-review-followup-closeout`；plan revision 22；**需求 revision 14（不变）**
 - **上游依据**：`docs/features/F036/product.md` v1（READY FOR ARCHITECT；15 行映射 + A1–A14）；`docs/project/proposals/CHG-014`（APPROVED）；plan revision 22（`layers={database:false,backend:true,frontend:true}`、`api_required=true`）；缺陷原文 `docs/features/F03{2,3,4,5}/review-report.md`；已签核既有设计（消费不重开）`docs/features/F035/architecture.md` §12、`F034/architecture.md` §12、`docs/api/F023.md` **v2**；代码只读核对 `resource_interface_ip_import.py`、`interface.py`、两 form/两面板、`importCarrier.ts`、`index.css`、`smoke-client.mjs`、`collect_host_info.py`、`test_collect_host_info.py`、`test_f034_csv_text_carrier.py`；方法 `.pi/skills/{frontend-ui,data-integrity}/SKILL.md`。
 
 ## 1. 范围与性质
@@ -108,12 +108,14 @@
 
 ### DR-F036-06（F032-RV-03）已入库证据 MAC 脱敏
 
-- **范围（代码事实）**：仓库中命中 MAC 正则的仅 `docs/features/F032/artifacts/real-validate/{f032-bm-real.csv,f032-vm-nohost.csv,f032-vm-real.csv}`；`validate-*.json.raw`、`help.txt` 命中 0；`setup.log`/`cli-smoke.log` **不在仓库树内**（`.gitignore:124 *.log`、`:125 logs/`），以 `git ls-files`/`git check-ignore -v` 复核即可，不改写。
+- **范围（代码事实，TD-I-1 修正）**：命中 MAC 正则的**被跟踪文件共 5 个 / 20 处**：`real-validate/f032-bm-real.csv`(3)、`real-validate/f032-vm-real.csv`(3)、`real-validate/f032-vm-nohost.csv`(3)、`real-validate/setup.log`(9)、`cli-smoke.log`(2)。命中 0：`validate-f032-{bm-real,vm-real,vm-nohost}.json.raw`、`help.txt`、`real-validate/cleanup.log`。
+  **复核方式**：对 `docs/features/F032/artifacts/` **全目录、不遵守 `.gitignore`** 做正则扫描（`grep -rnE` 或 `rg --no-ignore`），输出「文件 × 命中数」矩阵，脱敏前后各一次；默认 `rg`（遵守 ignore）会漏掉 `setup.log` / `cli-smoke.log`，不得以此作为「命中 0」证据。
+  **`.log` 文件的入库事实**：`setup.log`、`cli-smoke.log` 虽被 `.gitignore:124 *.log` 规则覆盖，但已通过 `git add -f` 入库（`git ls-files` 可见）；F036 **不改 `.gitignore`、不 `git rm`**，脱敏后按最小改动回写。
 - **格式（确定性）**：`mac_address` 保留前 2 个八位组，后 4 组替换为字面 `xx`：`08:00:58:00:00:05 → 08:00:xx:xx:xx:xx`、`d8:b3:2f:5f:a8:1f → d8:b3:xx:xx:xx:xx`、`00:ff:14:65:ff:5b → 00:ff:xx:xx:xx:xx`。
 - **回写**：逐字节仅替换对应单元格值；保留 BOM、表头行、26 列、4 行、列序、其余单元格与行尾。
 - **标注**：新增 `docs/features/F032/artifacts/real-validate/REDACTION.md`（脱敏日期、规则、受影响文件与列、边界声明「仅掩盖 `mac_address` 后 4 组，结构与行号不变；运行摘要见同目录 `validate-*.json.raw`，比对结论不受影响」）；**不**在 CSV 内插注释行。
 - **不做**：不改 `.gitignore`、不移动/删除证据、不重跑采集、不改写 F032/F034 报告结论。
-- **机械断言（A3）**：MAC 正则命中 0；三 CSV 仍在且表头与行数不变；`REDACTION.md` 含「mac_address」与「xx」。
+- **机械断言（A3，TD-I-1 口径）**：全目录免 ignore 扫描命中 0；5 个文件仍在且 CSV 表头/行数不变、`.log` 行数不变；`REDACTION.md` 含「mac_address」「xx」并登记 `.log` 属 `git add -f` 入库事实。
 - **风险**：R-8 脱敏后与原始字节不等 ⇒ 禁止再作逐字节等价性证据（sidecar 声明）；R-9 证据中真实 `hostname`/内网 IP 仍在 ⇒ **超 CHG-014 范围**，登记观察项交 Product/用户。
 
 ### DR-F036-07（F032-RV-02）T79 CLI 自动化用例
@@ -199,7 +201,7 @@
 | V1 | 载体切回 file：`file` 置空、结果态重置、`currentKey=null`、`canConfirm*=false`；切 text 仍强制 csv、切回 file 不回填 xlsx | U（smoke 纯函数）+ B（浏览器留证，记视口） | A1 |
 | V2 | **真实 PG 双会话**：追加组预校验通过 → 另一会话持 `resources` 行锁并软删宿主提交 → 写入锁争用后 `_lock_resource` 失败 ⇒ 422、`error_count≥1`、该行 `field=="hostname"`、`row==2`、`reason` 含服务层文本、零写入（interfaces/ip_addresses/audit_logs/resources 计数不变） | **I（必须真实 PostgreSQL）** | A2（前半） |
 | V3 | 契约核对：§11 澄清行存在且措辞覆盖 `hostname`/自由文本/`related_row=null`/整批回滚；正文仍 v2；`F014.md` 零 diff | S | A2（后半） |
-| V4 | 脱敏：MAC 正则命中 0；三 CSV 仍在且表头行数不变；`REDACTION.md` 含规则与影响列；logs 入库范围复核 | S | A3 |
+| V4 | 脱敏：**全目录免 ignore** MAC 扫描命中 0；**5 个**被跟踪文件仍在（CSV 表头/行数不变、`.log` 行数不变）；`REDACTION.md` 含规则与影响列与 `git add -f` 事实；logs 入库范围复核 | S | A3 |
 | V5 | 窄屏焦点：375/1023 聚焦首末导航项（两种滚动位置）三边可见、current 标识保留；记录视口 | B（无 DOM 环境时人工留证 + 几何脚本） | A4 |
 | V6 | smoke 基线：文档计数 == 实测计数且 ≥339，含命令与日期 | S + 实跑 | A5 |
 | V7 | placeholder：常量含「片段」、不含完整 26 列表头、示例 ≤4 列、无 `...` 拼接 | U | A6 |
@@ -225,7 +227,7 @@
 | R-5 | `useMemo` 依赖漏项 ⇒ 陈旧指纹 | HIGH | 依赖固定四要素 + 「改 1 字符换 key」断言 |
 | R-6 | 把 `useMemo` 误当语义保证 | LOW | 注释写明；`changeInput` 复位不可删 |
 | R-7 | placeholder 仍被照抄 | LOW | 既有 hint 与「查看模板」路径不变 |
-| R-8 | 脱敏后 CSV 与原始字节不等 | MEDIUM | `REDACTION.md` 声明边界；禁止作逐字节等价性证据 |
+| R-8 | 脱敏后 CSV/`.log` 与原始字节不等 | MEDIUM | `REDACTION.md` 声明边界；禁止作逐字节等价性证据（唯一来源 F034 artifacts，TD-I-5） |
 | R-9 | 证据中真实 `hostname`/内网 IP 仍在 | LOW | **超范围**，观察项交 Product/用户 |
 | R-10 | 表头级 `unknown_columns` 回显表头原文 | LOW | 记载为既有 schema；收紧另立变更 |
 | R-11 | B 层证据视口缺失 | LOW | 新证据必记视口；改布局须补窄屏 |
@@ -265,17 +267,34 @@
 
 全部条目落在 CHG-014 §1 与 requirements revision 14 的既有口径内：无新业务规则、无新端点/字段/错误码/`reason` 集合/模板/上限/权限、无 Schema 变更、无新依赖。两项用户可感知变化（F034-RV-01、F035-FU-01）均为把实现拉回已批准口径。**READY FOR DESIGN**（交 Database / Tester 检查；定稿见 §12）。
 
-## 12. 定稿与裁定（CONTRACT Gate 填写）
+## 12. 定稿与裁定（CONTRACT Gate，2026-10-26）
 
-- **状态**：`（待填）`
-- **签核**：Architect，`（日期）`；本节与 §1–§11 冲突时以本节为准。
-- **核对输入**：`（requirements revision 14 / plan revision 22 / Test Design 版本 / Database 结论 / F023 澄清行签核状态）`
-- **Contract 状态**：`（本 Gate DRAFT；CONTRACT 签核后 READY）`
-- **layers**：`{database:false, backend:true, frontend:true}`；`api_required=true`
-- **定稿裁量表（对 Tester `TD-I-*`）**：`（待填）`
-- **一致性核对**：`（设计 ↔ 契约 §11 ↔ Test Design ↔ V2 判据）`
-- **技术决策冻结**：DR-F036-01…11
-- **变更边界**：绑定 `（requirements revision 14 / plan revision 22 / F023 v2 + §4.1 澄清 / Test Design / Database NOT_REQUIRED）`
-- **后续关注**：R-1…R-13、§10 两项上游确认
+- **状态**：**`READY FOR IMPLEMENTATION`**（无阻断项）
+- **签核**：Architect，2026-10-26；本节与 §1–§11 冲突时以本节为准。
+- **核对输入**：requirements revision 14（§24.5 / §24.6 / §28 / §31 T67、T71、T79、T100、T107–T126）；plan revision 22；`docs/features/F036/test-report.md` §1（`TD-F036-1`，47 条）；Database `NOT_REQUIRED`（`docs/features/F036/implementation.md` §3，含 `F036-DB-NOTE-01`）；F023 §11 澄清行。
+- **Contract 状态**：**READY**｜签核人 Architect｜日期 2026-10-26｜`docs/api/F023.md` **正文仍 v2**（§11 增补归因澄清 bullet + §17 修订表一行，均标「不升版」）；`docs/api/F014.md` 零影响。
+- **layers**：`{database:false, backend:true, frontend:true}`；`api_required=true`（仅 §11 澄清）。
+- **定稿裁量表（对 Tester `TD-I-*`）**：
 
-NEXT: TEST_DESIGN
+| ID | 裁定 | 对实现的约束 | 对测试的约束 |
+| --- | --- | --- | --- |
+| TD-I-1 | **采纳**：DR-F036-06 脱敏范围修正为 **5 个被跟踪文件 / 20 处**（3 CSV 各 3、`setup.log` 9、`cli-smoke.log` 2）；`validate-*.json.raw`、`help.txt`、`cleanup.log` 命中 0 | 仅字面替换 `mac_address` 后 4 组为 `xx`；CSV 表头/行数与 `.log` 行数不变；不改 `.gitignore`、不 `git rm` | 「文件 × 命中数」矩阵脱敏前后各一次，扫描须**全目录且免 ignore** |
+| TD-I-2 | **允许掩码**（安全修正、不改结论）：「仓库 grep 明文口令命中 0」成为验收判据（原 `V8.3` 并入 `V8.1`） | 口令段统一 `***`；检索词上下文仅最小替换、**不得删除原结论句**；`diff` 行数须等于命中行数 | 判据 A：所有 `scheme://user:secret@` 的 secret 段为 `***`；判据 B：明文值经**不入库的临时 pattern 文件** `grep -rFf` → `docs/` 0 命中（报告只记命令与 `0`） |
+| TD-I-3 | **不逐字符固定** `RowError.reason` | 不得改 `_error_message` / `_field_error` 文案 | 只断言子串 `does not exist or is not selectable` |
+| TD-I-4 | 单行批 `row==2` 可固定；多行组只断言 `row ∈ 组物理行集合` 并记实测 | 行号口径（§7，1-based）不得改 | 按上述断言 |
+| TD-I-5 | **确认**：脱敏后 CSV/`.log` 不得作等价性证据 | — | 等价性唯一来源 `docs/features/F034/artifacts/equivalence-observations*.json` |
+| TD-I-6 | **同意**：V13 基线以 TEST 首日实测为准、`≥` 比较；低于基线先判 `BLOCKED` | 不得下调基线、不得删/跳用例 | 判 `BLOCKED` 须附命令/环境/collection 与 skip 清单及**差异用例名清单**；仅「环境可比且用例消失或失败」判 `FAIL` |
+| TD-I-7 | **唯一判据**：示例数据行字段数 ≤ 4（DR-F036-04 的 3 列为上界内实例；删去「≤3 逗号」双口径） | placeholder 示例数据行 ≤4 列 | 按唯一判据断言 |
+| TD-I-8 | **要求登记 + 守卫**：`"resource"` 映射须登记全部 `_field_error("resource", …)` 产生点（应仅 `interface.py::_lock_resource`） | 注释列产生点；`implementation.md` 登记 grep 清单 | `V2.5` 精确断言四项映射且无新增键，配 `V2.4` / `V13.4` |
+| TD-I-9 | **允许** `CSM_TEST_ARTIFACT_DIR`；目录不可写即 `pytest.skip` 并登记 | 写入失败**不得**回退仓库树 | `V10.1` / `V10.3` 洁净断言**永不 skip** |
+| TD-I-10 | **确认**：F034-RV-02 不设用例、不宣称关闭 | 不实现 | F036 文档禁止写「已关闭 / 已修」 |
+
+- **Database 观察项裁定**：`docs/database/f023-import.md` §5.7 第 6 项读作「**若要求 DB 层（约束/触发器）**保证『预校验→写入间宿主被软删 ⇒ 报错』才需重设计」；F035/F036 采用应用层方案（§5.8 首条），**未触发** ⇒ 零 DDL。建议 Database 下次修订加限定语（非 F036 交付项）。
+- **Database 环境前提**：V2 须在测试会话内显式 `SET` **READ COMMITTED**，不得改 `core/db.py` 或产品隔离级别；REPEATABLE READ 下该竞争为 40001 → 500，按 `BLOCKED` 记录。
+- **一致性核对**：设计条款（§3 DR-F036-01…11）↔ 契约（F023 v2 §11 澄清）↔ Test Design（V1–V15 / 47 条）↔ Database `NOT_REQUIRED` 四方一致；**无任何放宽**（未新增/收窄业务规则，未改错误码 / `reason` 集合 / 模板 / 上限 / 权限 / 端点 / Schema）。
+- **技术决策冻结**：DR-F036-01…11 自本 Gate 起生效（纯设计内可调项仍限 §8 末段所列）。
+- **风险增量**：R-14（TD-I-2 掩码范围若被判越 §8「不得改写历史报告结论」，则退回仅 `docs/features/F032/test-report.md:394` 与 `docs/features/F035/implementation.md:18` 两处，其余登记观察项）。裁定：字面掩码不改变任何结论句，**R-14 不触发**。
+- **变更边界**：本定稿绑定 requirements revision 14、plan revision 22、`TD-F036-1`、Database `NOT_REQUIRED`、F023 v2 + §11 澄清；任一变化须复核受影响部分。
+- **后续关注**：R-1…R-14；§10.1 两项上游确认（脱敏是否扩到 `hostname`/IP；F034-RV-02 待用户追认）。
+
+NEXT: IMPLEMENTATION

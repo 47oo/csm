@@ -2398,8 +2398,8 @@ features:
   - F035
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: CONTRACT
-  next_action: CONTRACT：Architect 裁定 TD-I-1…TD-I-10，签核 F023 §11 归因澄清（正文 v2 不变），§12 定稿 READY FOR IMPLEMENTATION。
+  current_stage: IMPLEMENTATION
+  next_action: IMPLEMENTATION：Backend（DR-F036-01/07/08/10）+ Frontend（DR-F036-02/03/04/05 + smoke 同步）+ 证据类（DR-F036-06/09）。
   layers:
     database: false
     backend: true
@@ -2410,7 +2410,7 @@ features:
     architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: COMPLETE
-    contract: PENDING
+    contract: COMPLETE
     backend: PENDING
     frontend: PENDING
     test: PENDING
@@ -2424,13 +2424,14 @@ features:
     - docs/features/F036/implementation.md#3-databasenot_required-确认
     test_design:
     - docs/features/F036/test-report.md#1-test-design
-    contract: null
+    contract:
+    - docs/features/F036/architecture.md#12-定稿与裁定contract-gate2026-10-26
+    - docs/api/F023.md#11-文件内重复与现存冲突
     backend: null
     frontend: null
     test: null
     review: null
-  last_result: TEST_DESIGN READY：47 条 TD3-F036-*（U 9 / I 16 / S 20 / B 2），V2 用真实 PG 双会话 + pg_blocking_pids 证实交错；DATABASE NOT_REQUIRED CONFIRMED（零 DDL，新增 F036-DB-NOTE-01）；Tester 提出 10 项 TD-I 待 CONTRACT 裁定（含
-    DR-F036-06 脱敏清单事实修正为 5 个被跟踪文件）。
+  last_result: CONTRACT READY FOR IMPLEMENTATION：TD-I-1…TD-I-10 全部裁定（TD-I-1 修正脱敏范围=5 文件 20 处；TD-I-2 允许口令掩码）；F023 v2 §11 归因澄清 + §17 修订行已签核（正文仍 v2）；§12 定稿。
   git:
     base_branch: v3.3
     branch: feature/F036-review-followup-closeout
@@ -2932,9 +2933,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 同上「A B全部按照建议做」；授权 F036 实施。
   current_feature: F036
-  current_stage: CONTRACT
-  last_result: F036 TEST_DESIGN + DATABASE 完成。
-  next_action: F036 CONTRACT Gate。
+  current_stage: IMPLEMENTATION
+  last_result: F036 CONTRACT COMPLETE。
+  next_action: F036 IMPLEMENTATION Gate。
   repair_rounds: 0
 planning_status:
   status: ACCEPTED
