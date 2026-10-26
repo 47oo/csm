@@ -1,6 +1,6 @@
 # F034 导入 CSV 文本载体 — ARCHITECTURE 阶段报告
 
-- **状态**：READY FOR DESIGN
+- **状态**：READY FOR IMPLEMENTATION（定稿 2026-10-26，见 §12）
 - **版本**：v1（2026-10-26）
 - **上游依据**：
   - `docs/product/requirements-v3.md` **revision 13**：§24.5（CONFIRMED，全节）、§24 / §24.1（两种导入模板与两步流程，未改动）、§23 / §23.2（`IMPORT` 权限与集群范围行级校验）、§22（Audit）、§31 验收表 **T107–T116** 及修订后的 T28、§32、§35.1 revision 13 确认记录。
@@ -27,7 +27,7 @@
 | 前端职责边界 | 非权威前置提示（空输入、超上限、扩展名） | 非权威前置提示（空/纯空白、UTF-8 字节超上限）；**不做 CSV 解析、不补表头、不嗅探、不改行尾、不加 BOM** |
 | 陈旧结果防护 | 指纹 `format:文件名:大小:修改时间` | 指纹扩展为 `carrier:format:<payload>`，文本 payload = 内容摘要 + UTF-8 字节长度 |
 
-因此 layers 判定为 `frontend=true` / `backend=false` / `database=false`，`api_required=true` 但**只以增补节形式存在**，且本阶段为 **PROPOSED**（CONTRACT 阶段在 Test Design 到位后签核为 READY）。
+因此 layers 判定为 `frontend=true` / `backend=false` / `database=false`，`api_required=true` 但**只以增补节形式存在**，两份增补节已由 Architect 于 2026-10-26 签核为 READY（见 §12），正文版本不提升。
 
 ---
 
@@ -159,17 +159,17 @@ textImportTargetKey(text) => `text:csv:${digest}:${byteLength}`
 | **DR-F034-04** | 字节计量按 **UTF-8 编码字节**（`utf8ByteLength`），严格大于 `IMPORT_MAX_FILE_BYTES` 才拦截；上限值复用既有常量 | CONFIRMED | 需求 §24.5；T111；F014 §10 |
 | **DR-F034-05** | 本地只拦截：载体非法值、空/纯空白（`trim` 判定）、字节超限、`text` 载体下 `format !== "csv"`；其余交服务端；payload 不 trim | CONFIRMED | T110 / T111；需求 §24.5 |
 | **DR-F034-06** | 前端不镜像行数上限、不做任何 CSV 解析（表头/分隔符/引号/行尾/BOM/枚举） | CONFIRMED | 需求 §24.5；CHG012-BQ02=A；T112–T114 |
-| **DR-F034-07** | `text` 载体强制 `format="csv"` 且 UI 只读；切回 `file` 不回填历史 `xlsx` | CONFIRMED（text⇒csv）/ PROPOSED（不回填） | 需求 §24.5；T107 |
+| **DR-F034-07** | `text` 载体强制 `format="csv"` 且 UI 只读；切回 `file` 不回填历史 `xlsx` | CONFIRMED | 需求 §24.5；T107 |
 | **DR-F034-08** | 指纹扩展为 `carrier:format:<payload>`；file payload 保留 `name:size:lastModified`，text payload = `digest:byteLength` | CONFIRMED | T116 |
-| **DR-F034-09** | 摘要实现：同步双 32 位哈希（FNV-1a + djb2），禁止异步 `crypto.subtle`，不新增依赖 | PROPOSED | 实现选择；见 R-4 |
-| **DR-F034-10** | 载体/格式/文件/文本任一变化 → 复用既有 `changeInput` 重置结果态；已输入内容保留、结果失效 | CONFIRMED（重置结果）/ PROPOSED（保留内容） | T116 |
+| **DR-F034-09** | 摘要实现：同步双 32 位哈希（FNV-1a + djb2），禁止异步 `crypto.subtle`，不新增依赖 | CONFIRMED | 实现选择；见 R-4 |
+| **DR-F034-10** | 载体/格式/文件/文本任一变化 → 复用既有 `changeInput` 重置结果态；已输入内容保留、结果失效 | CONFIRMED | T116 |
 | **DR-F034-11** | 写入阶段由当前载体**重新构造/重取** `File`，不缓存字节；同一 `text` ⇒ 同一字节 ⇒ 服务端完整再校验 | CONFIRMED | F014 §4/§8、F023 §12.2；T108 |
-| **DR-F034-12** | 不新增 npm 依赖、不改 `ui/controls.tsx`、不改 Ant 主题：文本域用现有 `TextArea`（`rows={10}`），载体选择复用现有 `Select` | PROPOSED | `frontend-ui` skill；`frontend/package.json` |
+| **DR-F034-12** | 不新增 npm 依赖、不改 `ui/controls.tsx`、不改 Ant 主题：文本域用现有 `TextArea`（`rows={10}`），载体选择复用现有 `Select` | CONFIRMED | `frontend-ui` skill；`frontend/package.json` |
 | **DR-F034-13** | 粘贴内容仅存组件 state；禁止写入 storage/URL/console/错误文案；不新增响应字段或错误码 | CONFIRMED | 需求 §24.5「不持久化」；T115 |
 | **DR-F034-14** | 契约以 F014 / F023 各一节「CSV 文本载体（加法引用）」增补节 v1 承载，正文版本不提升（照 F027 先例）；CONTRACT 阶段签核 READY | CONFIRMED（形式）/ PROPOSED（当前未签核） | CHG-012 §3.2 |
-| **DR-F034-15** | 载体原语集中到新纯逻辑模块 `importCarrier.ts`，两调用方共享；不建通用导入框架 | PROPOSED | AGENTS.md §2.3/§2.6 |
-| **DR-F034-16** | 文本域旁必须写明「仅逗号分隔、须含模板一致表头、可先下载模板表头、不自动补表头/不嗅探」，并显示非权威 UTF-8 字节计数 | PROPOSED | CHG012-BQ02=A 的用户可操作性；T112 |
-| **DR-F034-17** | 机制级冒烟采用纯逻辑断言（不引入 DOM 环境）：`FormData` 中 `file` 的 `name`/`size`/`type`、文本字节数（含中文）、改 1 字符换指纹、空/纯空白与超限返回 `ok:false` 且不构造请求 | PROPOSED | 既有 `smoke:client` 基线 |
+| **DR-F034-15** | 载体原语集中到新纯逻辑模块 `importCarrier.ts`，两调用方共享；不建通用导入框架 | CONFIRMED | AGENTS.md §2.3/§2.6 |
+| **DR-F034-16** | 文本域旁必须写明「仅逗号分隔、须含模板一致表头、可先下载模板表头、不自动补表头/不嗅探」，并显示非权威 UTF-8 字节计数 | CONFIRMED | CHG012-BQ02=A 的用户可操作性；T112 |
+| **DR-F034-17** | 机制级冒烟采用纯逻辑断言（不引入 DOM 环境）：`FormData` 中 `file` 的 `name`/`size`/`type`、文本字节数（含中文）、改 1 字符换指纹、空/纯空白与超限返回 `ok:false` 且不构造请求 | CONFIRMED | 既有 `smoke:client` 基线 |
 | **ON-1** | 文本域行尾由浏览器控件呈现（通常 LF）；「等价性」以**实际发送的字节**为准，不以剪贴板原始 CRLF 字节为准；不因此新增前端归一化 | OPEN（记录，不构成验收判据） | 需求 §24.5 等价性 + 浏览器行为 |
 | **ON-2** | 「不落盘」沿用既有文件上传边界（>1 MiB 请求体由 Starlette 溢写匿名临时文件后即抛）；F034 不改变该层，不新增保证 | OPEN（沿用既有边界） | CHG-012 §4.4 LOW 风险 |
 
@@ -187,8 +187,8 @@ api_required: true   # 仅 F014 / F023 各加一节「加法引用」增补节�
 
 | Contract 对象 | 本阶段状态 | 说明 |
 | --- | --- | --- |
-| `docs/api/F014.md` §「CSV 文本载体（加法引用）」 | **PROPOSED**（待 CONTRACT 阶段签核 READY） | 草案见该文件增补节 |
-| `docs/api/F023.md` §「CSV 文本载体（加法引用）」 | **PROPOSED**（待 CONTRACT 阶段签核 READY） | 草案见该文件增补节 |
+| `docs/api/F014.md` §「CSV 文本载体（加法引用）」 | **READY**（增补节 v1，签核生效 2026-10-26，见 §12） | 正文见该文件增补节 |
+| `docs/api/F023.md` §「CSV 文本载体（加法引用）」 | **READY**（增补节 v1，签核生效 2026-10-26，见 §12） | 正文见该文件增补节 |
 | 端点 / 字段 / `RowError` / `reason` 集合 / 上限 / 权限矩阵 / F027 范围语义 | **不变** | 无新增、无删改 |
 
 ---
@@ -227,9 +227,9 @@ api_required: true   # 仅 F014 / F023 各加一节「加法引用」增补节�
 | 行错误同形状 | 枚举/整数/长度/批内重复/现存冲突/集群范围外 → `row` / `field` / `reason` / `related_row` 与文件载体一致，不 fail-fast | T109 |
 | 本地前置拦截 | 空/纯空白：`parse*` 返回 `ok:false` 且不发请求；仅表头无数据行 → 服务端 422 `IMPORT_INVALID_FILE{empty_file}`；无写入、无 Audit | T110 |
 | 上限 | UTF-8 字节超 5,242,880 → 本地拦截（不发请求）；等值放行；行数 > 5000 不在本地拦截、服务端 413 `IMPORT_ROW_LIMIT_EXCEEDED`；超限无部分导入 | T111、T28 |
-| 表头严格性 | 缺表头 / 缺列 / 未定义列 / 列序不符 → 422 对应 reason；制表符分隔被拒（不嗅探）；不补表头 | T112 |
+| 表头严格性 | 缺表头 / 缺列 / 未定义列 / 列序不符 → 422 对应 reason；制表符分隔被拒（不嗅探）；不补表头；制表符分隔被拒的 `reason` 不固定具体取值，∈ §1.2 已签核集合（TD-I-2） | T112 |
 | 编码与行尾 | 无 BOM 生成；粘贴内容自带 `U+FEFF` 原样提交（服务端 `utf-8-sig`）；CRLF/LF/混用与尾部空行按服务端口径 | T113 |
-| CSV 字段边界 | 逗号/双引号/引号内换行按标准 CSV 解析且不改写；引号未闭合 → 既有文件级错误 | T114 |
+| CSV 字段边界 | 逗号 / 双引号 / 引号内换行按标准 CSV 解析且不改写（前端不转义、不重排、不 trim）；引号未闭合等字段边界情况按**等价性**判定：同字节两载体 status + 响应体逐字段一致，实际行为照录（既有 csv 解析行为不变，见 §12 的 TD-I-1 裁定） | T114、TD3-T114.1–.5 |
 | 权限 / 范围 / 审计 / 不留痕 | VIEWER 403、未认证 401；含未授权集群行整批失败并行号+权限原因；Audit 同口径；文本不进 Audit/日志/错误响应/storage/URL/console | T115 |
 | 陈旧结果防护 | 改文本 1 字符、文件↔文本互切、改 format → `validatedKey !== currentKey`，「确认导入」不可用；同一内容重复预校验结果一致 | T116 |
 | 等价性 | 同一 CSV 字节分别以文件载体与文本载体提交，`/validate` 与写入响应逐字段一致（真实后端） | T108、T114 |
@@ -285,9 +285,21 @@ api_required: true   # 仅 F014 / F023 各加一节「加法引用」增补节�
 
 ## 11. 结论
 
-方案完全落在 §24.5 与 T107–T116 的已确认边界内：不新增业务规则、不新增端点/字段/错误码/上限、不改后端与数据库，`format` 语义与模板冻结不变；两入口并列新增文本载体且文件载体零回归。**READY FOR DESIGN**。
+方案完全落在 §24.5 与 T107–T116 的已确认边界内：不新增业务规则、不新增端点/字段/错误码/上限、不改后端与数据库，`format` 语义与模板冻结不变；两入口并列新增文本载体且文件载体零回归。**READY FOR DESIGN**（2026-10-26 定稿见 §12：`READY FOR IMPLEMENTATION`）。
 
 ## 12. 定稿签核
 
-- **状态**：待 CONTRACT 阶段填写（取得 Database `NOT_REQUIRED` 结论与 Test Design 后，由 Architect 核对一致性并签署 `READY FOR IMPLEMENTATION`，同时把两份契约增补节由 PROPOSED 签核为 READY）。
-- **变更边界**：定稿后若 T107–T116、模板、上限、错误码或权限语义变化，本设计与契约增补节需重新核对并重新签核。
+- **状态**：**READY FOR IMPLEMENTATION**（定稿 2026-10-26；本文件仍为 v1，内容除状态记录外未改动）。
+- **核对输入（均已实读）**：
+  1. TEST DESIGN：`docs/features/F034/test-report.md#1-test-design`（`TEST DESIGN READY`；56 条 `TD3-*` 用例、夹具 `F-01`–`F-26`、等价性判据 TD-5、原子性 TD-6、降级边界 TD-12）。
+  2. TD-I-1 裁定：**采用等价性口径（方案 a）**——T114 后半句按 §24.5「口径一致 / 不另立规则」与「等价性」读为「与既有文件载体同口径」，F034 不改变 `csv` 解析行为、不新增字段边界判定；严格拒绝（方案 b）需服务端改动，超出 `layers.backend=false` 与 CHG-012 范围，须另立变更提案。裁定记录：本节 + 两份增补节「解释性裁定附注 1」。
+  3. TD-I-2 裁定：制表符分隔被拒的 `details.reason` **不固定具体取值**，只固定类别约束（422 `IMPORT_INVALID_FILE`、`reason ∈` §1.2 已签核集合、非 2xx 成功、无写入、与同字节文件载体逐字段相同）。记录于两份增补节附注 2。
+  4. Database：`layers.database=false` → `NOT_REQUIRED`（§5、§10）。**事实披露**：F034 无独立 `docs/database/f034-*.md` 签核物；`NOT_REQUIRED` 结论记录于本文件与 `docs/project/project-plan.yaml` 的 `implementation.not_required.database`，并由 `backend/app/**`、`backend/alembic/**` 空 diff 作为事实证据。因无 Schema 交付，不构成本 Gate 阻塞。
+  5. 两份契约增补节：`docs/api/F014.md` / `docs/api/F023.md` §「CSV 文本载体（加法引用）」= **READY**（2026-10-26 签核，见各自签核记录与修订表新增行）。
+- **定稿结论**：`layers = {database:false, backend:false, frontend:true}`、`api_required=true`；实现点为 `L1`（`importCarrier.ts` + 两 form 模块 + smoke）与 `L2`（两面板 + `index.css`）；`api/imports.ts`、`ImportErrorsTable.tsx`、`ui/controls.tsx`、`ResourcesPage.tsx` 与 `backend/app/**`、`backend/alembic/**` 零改动。§3 前端设计、§4 DR-F034-01–17、§7 事务口径、§8 验证策略与 Test Design 映射一致；定稿把 §4 中原 PROPOSED 的实现选择（DR-F034-07 / 09 / 10 / 12 / 14 / 15 / 16 / 17）提升为 CONFIRMED 设计决定（均为已批准边界内的实现选择，不新增业务规则）。
+- **与 Test Design 的一致性核对（定稿附带修正，未放宽任何契约）**：
+  1. §8「CSV 字段边界」行原措辞「引号未闭合 → 既有文件级错误」与本裁定同源歧义，本文件已修正为等价性措辞；契约正文不变。
+  2. Test Design `TD3-T115.5` ①「错误响应体不包含粘贴原文」需**收窄为「不回显整段粘贴内容」**（表头级 `details.unknown_columns` / `missing_columns` 属 §1.2 既有 schema 且两载体逐字段相同）；由 Tester 修正用例措辞，契约不放宽、§1.2 不改。
+  3. 其余一致：本地拦截三项、行数不在前端镜像、指纹 `text:csv:<digest>:<byteLength>`、固定文件名与 MIME、`rows={10}`、`format` 只读与切换重置、`imports.ts` 仅注释 diff、后端与 Schema 空 diff、无 `crypto.subtle`、无新增依赖。
+- **变更边界**：本定稿绑定 TEST DESIGN v1、两份增补节 v1（READY，2026-10-26）、requirements revision 13 §24.5 与 §31 T107–T116、plan_revision 20。上述任一变化（含 T107–T116 措辞、模板 / 列序、上限数值、错误码或 `reason` 集合、权限矩阵、F027 范围语义）须重新核对并重新签核本节与两份增补节。
+- **后续关注（不阻塞）**：① 未闭合引号等宽松解析会静默吞并后续物理行，属既有文件载体行为，建议另立变更评估严格解析（复用 `unreadable`）；② T114 措辞编辑性澄清已随 F034 落稿（见 requirements §31 T114 与 §35.1 记录）；③ TD-I-3 测试文件所有权与 `artifacts/` 写权由协调器在 TEST 前确认。

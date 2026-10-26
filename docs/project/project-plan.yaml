@@ -2238,8 +2238,8 @@ features:
   - F023
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST_DESIGN
-  next_action: TEST_DESIGN：Tester 出验收映射、边界与并发场景、环境与可验证性检查。
+  current_stage: IMPLEMENTATION
+  next_action: IMPLEMENTATION：前端实现 importCarrier.ts、两 form 纯逻辑模块、两面板 UI 与样式；后端/数据库零改动。
   layers:
     database: false
     backend: false
@@ -2249,8 +2249,8 @@ features:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: COMPLETE
     backend: PENDING
     frontend: PENDING
     test: PENDING
@@ -2262,8 +2262,14 @@ features:
     - docs/features/F034/architecture.md#1-方案摘要
     database:
     - docs/features/F034/architecture.md#5-layersapi_required-与-contract-状态
-  last_result: ARCHITECTURE READY FOR DESIGN：前端载体方案与 DR-F034-01–17 定稿；layers database=false / backend=false / frontend=true，api_required=true（F014/F023 各起草「CSV 文本载体（加法引用）」增补节，状态 PROPOSED）；DATABASE 记 NOT_REQUIRED（理由见
-    not_required.database）。
+    test_design:
+    - docs/features/F034/test-report.md#1-test-design
+    contract:
+    - docs/api/F014.md#csv-文本载体加法引用增补节-v1独立于上文正文版本
+    - docs/api/F023.md#csv-文本载体加法引用增补节-v1独立于上文正文版本
+    - docs/features/F034/architecture.md#12-定稿签核
+  last_result: TEST_DESIGN READY（56 条用例、夹具 F-01–F-26、等价性判据）；CONTRACT READY FOR IMPLEMENTATION：F014/F023「CSV 文本载体（加法引用）」增补节 v1 由 Architect 于 2026-10-26 签核 READY；TD-I-1 裁定按等价性口径（不新增字段边界判定），TD-I-2 仅固定 reason
+    类别集合；需求 §31 T114 作编辑性澄清。
   git:
     base_branch: v3.3
     branch: feature/F034-csv-text-import
@@ -2693,9 +2699,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 用户 2026-10-26 在批准 plan revision 20 的同一次指令中明确要求实施（「看推荐执行并实施」），授权范围为本轮新增的 F034。
   current_feature: F034
-  current_stage: TEST_DESIGN
-  last_result: ARCHITECTURE Gate 通过（READY FOR DESIGN）；DATABASE NOT_REQUIRED；两份契约增补节已起草为 PROPOSED，待 CONTRACT 签核。
-  next_action: 派发 Tester TEST_DESIGN，之后由 Architect 定稿 READY FOR IMPLEMENTATION 并签核两份增补节。
+  current_stage: IMPLEMENTATION
+  last_result: TEST_DESIGN READY + CONTRACT READY FOR IMPLEMENTATION（两份契约增补节已签核 READY）。
+  next_action: 派发 Frontend 实现（L1 纯逻辑 + L2 UI）并同步由 Tester 修订 TD3-T115.5 措辞。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
