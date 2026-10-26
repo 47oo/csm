@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 13
   plan_revision: 20
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 20
     feature_ids:
@@ -2393,17 +2393,16 @@ features:
   - F014
   - F023
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 按 Feature Workflow 启动：PRODUCT 复用 revision 13 §24.5 + CHG-012 澄清记录；ARCHITECTURE
-    出方案并签核 F014/F023「CSV 文本载体（加法引用）」增补节；TEST_DESIGN；CONTRACT；Frontend 实现；独立 Test；Review；Merge。
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: ARCHITECTURE：出前端载体方案与 API 草案，并起草 F014/F023「CSV 文本载体（加法引用）」增补节。
   layers:
     database: false
     backend: false
     frontend: true
   api_required: true
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: PENDING
     test_design: PENDING
@@ -2412,9 +2411,17 @@ features:
     frontend: PENDING
     test: PENDING
     review: PENDING
-  evidence: {}
-  last_result: 候选计划 revision 20 已获用户批准（2026-10-26「看推荐执行并实施」）；CHG012-BQ01/BQ02 均 CONFIRMED
-    = A；依赖 F014/F023 均 DONE；等待 Preflight 后进入 PRODUCT 阶段。
+  evidence:
+    product:
+    - docs/features/F034/product.md
+  last_result: PRODUCT READY FOR ARCHITECT：复用 Product Manager 2026-10-26 澄清结论 + 需求
+    revision 13 §24.5（CONFIRMED）与 CHG012-BQ01/BQ02 = A。
+  git:
+    base_branch: v3.3
+    branch: feature/F034-csv-text-import
+    start_commit: 33d8a037dcef81a138d29389ff1e021ddc30271f
+    head_commit: null
+    merge_commit: null
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -2866,25 +2873,24 @@ execution:
     authorized_on: '2026-10-26'
     basis: 用户 2026-10-26 在批准 plan revision 20 的同一次指令中明确要求实施（「看推荐执行并实施」），授权范围为本轮新增的
       F034。
-  current_feature: null
-  current_stage: null
-  last_result: plan revision 20 已批准并应用；F034 READY；尚未启动 Implementation。
-  next_action: 按 Feature Workflow 对 F034 执行 Git Preflight 并创建 feature/F034-csv-text-import
-    分支。
+  current_feature: F034
+  current_stage: PRODUCT
+  last_result: Git Preflight 通过（HEAD 非 detached、工作区 clean、无进行中操作）；创建分支 feature/F034-csv-text-import（start_commit
+    33d8a03）。
+  next_action: ARCHITECTURE 阶段派发 Architect 设计模式。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 0
     DONE: 33
     DRAFT: 0
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F034
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
