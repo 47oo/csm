@@ -1,0 +1,1748 @@
+[
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-01",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 2,
+      "importable_rows": 0,
+      "error_count": 2,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-02",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 1,
+      "importable_rows": 0,
+      "error_count": 1,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-03",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "unknown_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-03f",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "unknown_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-04",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "empty_file"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-05",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "missing_columns": [
+            "cluster",
+            "hostname",
+            "resource_type",
+            "role",
+            "status",
+            "host",
+            "vcpu",
+            "memory_mb",
+            "disk_gb",
+            "hypervisor"
+          ],
+          "unknown_columns": [
+            "   "
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-05b",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "header_missing"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-06a",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "empty_file"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-06b",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "unknown_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-07",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 2,
+      "importable_rows": 0,
+      "error_count": 2,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-08",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 2,
+      "importable_rows": 0,
+      "error_count": 2,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-09",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 2,
+      "importable_rows": 0,
+      "error_count": 2,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-10",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 2,
+      "importable_rows": 0,
+      "error_count": 2,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-10b",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 3,
+      "importable_rows": 0,
+      "error_count": 4,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 4,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 4,
+          "field": "hostname",
+          "reason": "hostname must not contain whitespace",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-11",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 2,
+      "importable_rows": 0,
+      "error_count": 4,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 2,
+          "field": "manufacturer",
+          "reason": "hardware.manufacturer must not contain control characters",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "hostname",
+          "reason": "hostname must not contain whitespace",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-12",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 2,
+      "importable_rows": 0,
+      "error_count": 2,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-13",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 1,
+      "importable_rows": 0,
+      "error_count": 2,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 2,
+          "field": "manufacturer",
+          "reason": "hardware.manufacturer must not contain control characters",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-14",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "missing_columns": [
+            "cluster",
+            "hostname",
+            "resource_type",
+            "role",
+            "status",
+            "host",
+            "vcpu",
+            "memory_mb",
+            "disk_gb",
+            "hypervisor"
+          ],
+          "unknown_columns": [
+            "cluster\thostname\tresource_type\trole\tstatus\tmanufacturer\tmodel\tserial_number\tcpu_model\tcpu_sockets\tcpu_cores\tmemory_mb\tgpu_model\tgpu_count"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-15",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "missing_columns": [
+            "cluster",
+            "hostname",
+            "resource_type",
+            "role",
+            "status",
+            "host",
+            "vcpu",
+            "memory_mb",
+            "disk_gb",
+            "hypervisor"
+          ],
+          "unknown_columns": [
+            "F34A",
+            "f34-h1",
+            "BARE_METAL",
+            "COMPUTE",
+            "IDLE",
+            "Dell",
+            "PowerEdge R750",
+            "F34-SN-1",
+            "Intel Xeon 6338",
+            "2",
+            "32",
+            "262144",
+            "NVIDIA A100",
+            "4"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-15a",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "header_missing"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-16",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "hostname"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-17",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "unknown_columns": [
+            "interface_name"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-18a",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "column_order"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-18b",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "column_order"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-19",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "missing_columns": [
+            "hostname"
+          ],
+          "unknown_columns": [
+            "HOSTNAME"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-20",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 7,
+      "importable_rows": 0,
+      "error_count": 10,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 2,
+          "field": "role",
+          "reason": "role must be one of COMPUTE, LOGIN, MANAGEMENT, STORAGE, SERVICE, GPU, OTHER",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "memory_mb",
+          "reason": "memory_mb must be an integer",
+          "related_row": null
+        },
+        {
+          "row": 4,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 4,
+          "field": "manufacturer",
+          "reason": "hardware.manufacturer must be at most 255 characters",
+          "related_row": null
+        },
+        {
+          "row": 5,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 6,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 7,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 8,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-20w",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "unknown_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-24",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "empty_file"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-25",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 1,
+      "importable_rows": 0,
+      "error_count": 1,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resources/validate",
+    "fixture": "F-26",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 1,
+      "importable_rows": 0,
+      "error_count": 1,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-01",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-02",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "manufacturer",
+            "model",
+            "serial_number",
+            "cpu_model",
+            "cpu_sockets",
+            "cpu_cores",
+            "gpu_model",
+            "gpu_count",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-03",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 3,
+      "importable_rows": 0,
+      "error_count": 3,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 4,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-03f",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 3,
+      "importable_rows": 0,
+      "error_count": 3,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 4,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-04",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "empty_file"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-05",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "missing_columns": [
+            "cluster",
+            "hostname",
+            "resource_type",
+            "role",
+            "status",
+            "host",
+            "vcpu",
+            "memory_mb",
+            "disk_gb",
+            "hypervisor",
+            "manufacturer",
+            "model",
+            "serial_number",
+            "cpu_model",
+            "cpu_sockets",
+            "cpu_cores",
+            "gpu_model",
+            "gpu_count",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ],
+          "unknown_columns": [
+            "   "
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-05b",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "header_missing"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-06a",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-06b",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "empty_file"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-07",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-08",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-09",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-10",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-10b",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-11",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-12",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-13",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-14",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "missing_columns": [
+            "cluster",
+            "hostname",
+            "resource_type",
+            "role",
+            "status",
+            "host",
+            "vcpu",
+            "memory_mb",
+            "disk_gb",
+            "hypervisor",
+            "manufacturer",
+            "model",
+            "serial_number",
+            "cpu_model",
+            "cpu_sockets",
+            "cpu_cores",
+            "gpu_model",
+            "gpu_count",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ],
+          "unknown_columns": [
+            "cluster\thostname\tresource_type\trole\tstatus\tmanufacturer\tmodel\tserial_number\tcpu_model\tcpu_sockets\tcpu_cores\tmemory_mb\tgpu_model\tgpu_count"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-15",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "missing_columns": [
+            "cluster",
+            "hostname",
+            "resource_type",
+            "role",
+            "status",
+            "host",
+            "vcpu",
+            "memory_mb",
+            "disk_gb",
+            "hypervisor",
+            "manufacturer",
+            "model",
+            "serial_number",
+            "cpu_model",
+            "cpu_sockets",
+            "cpu_cores",
+            "gpu_model",
+            "gpu_count",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ],
+          "unknown_columns": [
+            "F34A",
+            "f34-h1",
+            "BARE_METAL",
+            "COMPUTE",
+            "IDLE",
+            "Dell",
+            "PowerEdge R750",
+            "F34-SN-1",
+            "Intel Xeon 6338",
+            "2",
+            "32",
+            "262144",
+            "NVIDIA A100",
+            "4"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-15a",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "header_missing"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-16",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "hostname",
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-17",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ],
+          "unknown_columns": [
+            "interface_name"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-18a",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-18b",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-19",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "unknown_columns",
+          "missing_columns": [
+            "hostname",
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ],
+          "unknown_columns": [
+            "HOSTNAME"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-20",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-20w",
+    "textStatus": 200,
+    "fileStatus": 200,
+    "identicalBody": true,
+    "body": {
+      "format": "csv",
+      "total_rows": 4,
+      "importable_rows": 0,
+      "error_count": 5,
+      "errors": [
+        {
+          "row": 2,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 3,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 4,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 5,
+          "field": "cluster",
+          "reason": "cluster does not exist or is not selectable",
+          "related_row": null
+        },
+        {
+          "row": 5,
+          "field": "vcpu",
+          "reason": "vcpu is not applicable to BARE_METAL",
+          "related_row": null
+        }
+      ],
+      "errors_truncated": false
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-24",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "empty_file"
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-25",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "endpoint": "/api/v1/imports/resource-interfaces-ips/validate",
+    "fixture": "F-26",
+    "textStatus": 422,
+    "fileStatus": 422,
+    "identicalBody": true,
+    "body": {
+      "error": {
+        "code": "IMPORT_INVALID_FILE",
+        "message": "Invalid import file",
+        "details": {
+          "reason": "missing_columns",
+          "missing_columns": [
+            "host",
+            "vcpu",
+            "disk_gb",
+            "hypervisor",
+            "name",
+            "interface_type",
+            "mac_address",
+            "speed_mbps",
+            "mtu",
+            "enabled",
+            "network",
+            "ip"
+          ]
+        }
+      }
+    }
+  }
+]

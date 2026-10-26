@@ -1,0 +1,244 @@
+{
+  "cluster": "F34A",
+  "marker": "F034-MARKER-8a1f4c0d-6f4f-4ef3-9d4a-9f7f3c1b2e55",
+  "headers": {
+    "BM": [
+      "cluster",
+      "hostname",
+      "resource_type",
+      "role",
+      "status",
+      "manufacturer",
+      "model",
+      "serial_number",
+      "cpu_model",
+      "cpu_sockets",
+      "cpu_cores",
+      "memory_mb",
+      "gpu_model",
+      "gpu_count"
+    ],
+    "VM": [
+      "cluster",
+      "hostname",
+      "resource_type",
+      "role",
+      "status",
+      "host",
+      "vcpu",
+      "memory_mb",
+      "disk_gb",
+      "hypervisor"
+    ],
+    "W26": [
+      "cluster",
+      "hostname",
+      "resource_type",
+      "role",
+      "status",
+      "host",
+      "vcpu",
+      "memory_mb",
+      "disk_gb",
+      "hypervisor",
+      "manufacturer",
+      "model",
+      "serial_number",
+      "cpu_model",
+      "cpu_sockets",
+      "cpu_cores",
+      "gpu_model",
+      "gpu_count",
+      "name",
+      "interface_type",
+      "mac_address",
+      "speed_mbps",
+      "mtu",
+      "enabled",
+      "network",
+      "ip"
+    ]
+  },
+  "files": [
+    {
+      "name": "F-01",
+      "bytes": 352,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-02",
+      "bytes": 148,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-03",
+      "bytes": 499,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-04",
+      "bytes": 0,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-05",
+      "bytes": 3,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-05b",
+      "bytes": 4,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-06a",
+      "bytes": 138,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-06b",
+      "bytes": 233,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-07",
+      "bytes": 355,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-08",
+      "bytes": 355,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-09",
+      "bytes": 354,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-10",
+      "bytes": 355,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-10b",
+      "bytes": 469,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-11",
+      "bytes": 312,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-12",
+      "bytes": 374,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-13",
+      "bytes": 288,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-14",
+      "bytes": 352,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-15",
+      "bytes": 214,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-15a",
+      "bytes": 108,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-16",
+      "bytes": 158,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-17",
+      "bytes": 204,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-18a",
+      "bytes": 245,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-18b",
+      "bytes": 150,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-19",
+      "bytes": 245,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-20",
+      "bytes": 747,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-24",
+      "bytes": 3,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-25",
+      "bytes": 289,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-26",
+      "bytes": 258,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-03f",
+      "bytes": 499,
+      "identical": true,
+      "roundTrip": true
+    },
+    {
+      "name": "F-20w",
+      "bytes": 598,
+      "identical": true,
+      "roundTrip": true
+    }
+  ]
+}

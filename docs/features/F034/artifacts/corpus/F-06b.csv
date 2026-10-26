@@ -1,0 +1,1 @@
+cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,gpu_model,gpu_count,name,interface_type,mac_address,speed_mbps,mtu,enabled,network,ip

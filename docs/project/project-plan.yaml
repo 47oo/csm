@@ -2238,8 +2238,8 @@ features:
   - F023
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST
-  next_action: TEST：Tester 按 TEST DESIGN v1.1 在 csmtest 栈执行真实后端等价性、权限、上限与不漏痕用例。
+  current_stage: REVIEW
+  next_action: REVIEW：提交候选交付物后由 Reviewer 独立审查 T107–T116、契约增补节与零回归。
   layers:
     database: false
     backend: false
@@ -2253,7 +2253,7 @@ features:
     contract: COMPLETE
     backend: NOT_REQUIRED
     frontend: COMPLETE
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   evidence:
     product:
@@ -2272,7 +2272,9 @@ features:
     - docs/features/F034/implementation.md#1-前端实现frontend-complete
     backend:
     - docs/features/F034/implementation.md#2-后端与数据库not_required
-  last_result: IMPLEMENTATION 完成：前端新增 importCarrier.ts 并扩展两 form 模块 / 两面板 / index.css / smoke-client（F034 段 9 条）；typecheck、build、smoke:client 337 passed / 0 failed；后端与数据库 NOT_REQUIRED（零 diff）。
+    test:
+    - docs/features/F034/test-report.md#2-test-execution
+  last_result: TEST READY FOR REVIEW：等价性 I 层 60/60、H 层 60/60 相等；后端 F034 集成 31 passed，回归 112 passed；U 层 36 checks、B 层浏览器 18 checks 全通过；前端 typecheck/build/smoke 337 passed；后端与契约零 diff；无实现缺陷（4 条 NOTE）。
   git:
     base_branch: v3.3
     branch: feature/F034-csv-text-import
@@ -2704,9 +2706,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 用户 2026-10-26 在批准 plan revision 20 的同一次指令中明确要求实施（「看推荐执行并实施」），授权范围为本轮新增的 F034。
   current_feature: F034
-  current_stage: TEST
-  last_result: FRONTEND COMPLETE（typecheck/build/smoke 337 passed）；BACKEND 与 DATABASE NOT_REQUIRED。
-  next_action: 派发 Tester TEST 模式做独立验证。
+  current_stage: REVIEW
+  last_result: TEST READY FOR REVIEW（等价性 60/60 + 60/60，集成 31 passed，回归 112 passed，浏览器 18 checks）。
+  next_action: 提交候选 HEAD 并派发 Reviewer。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
