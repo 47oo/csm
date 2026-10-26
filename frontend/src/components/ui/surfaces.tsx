@@ -25,6 +25,11 @@ export function SurfaceCard({
     <Card
       aria-label={ariaLabel}
       className={className}
+      classNames={{ body: "surface-card-body", header: "surface-card-header" }}
+      styles={{
+        body: { padding: "var(--csm-card-padding)" },
+        header: { paddingInline: "var(--csm-card-padding)" },
+      }}
       extra={extra}
       size="small"
       title={semanticTitle}

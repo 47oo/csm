@@ -73,6 +73,7 @@
   /* 布局 */
   --csm-content-max: 1600px;
   --csm-content-gutter: 32px;
+  --csm-card-padding: 24px;
   --csm-header-offset: 72px;
   --csm-nav-item-height: 42px;
   --csm-touch-target: 44px;
@@ -103,6 +104,8 @@ body {
 h1 {
   margin: 0;
   font-size: var(--csm-font-h1);
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .subtitle {
@@ -118,6 +121,15 @@ h1 {
 .panel h2 {
   margin: 0 0 0.75rem;
   font-size: var(--csm-font-h2);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* Card 的公开语义类：内边距随容器收缩，不依赖组件内部 DOM。 */
+.surface-card-body,
+.surface-card-header {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- 启动态 / 登录页容器（原先依赖全局 main） ---------- */
@@ -153,11 +165,12 @@ h1 {
 
 .form-field {
   margin-bottom: 1rem;
+  min-width: 0;
 }
 
 .form-field label {
   display: block;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
   font-size: 0.9rem;
   color: var(--csm-text-label);
 }
@@ -254,13 +267,14 @@ h1 {
 }
 
 .filter-form {
-  @apply flex flex-wrap items-end gap-x-4 gap-y-4 rounded-xl p-4;
+  @apply flex flex-wrap items-end gap-x-4 gap-y-4 p-4;
+  border-radius: var(--csm-radius-md);
   background: var(--csm-surface-raised);
   border: 1px solid var(--csm-border);
 }
 
 .filter-form .form-field {
-  flex: 1 1 180px;
+  flex: 1 1 200px;
   min-width: min(160px, 100%);
   margin-bottom: 0;
 }
@@ -276,7 +290,8 @@ h1 {
 }
 
 .deleted-toggle {
-  margin-top: 1rem;
+  margin-block: var(--csm-space-4);
+  width: min(100%, 320px);
 }
 
 .table-wrap {
@@ -340,8 +355,31 @@ h1 {
 
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.88em;
+  font-size: var(--csm-font-note);
+  font-variant-numeric: tabular-nums;
 }
+
+/* 两列按 DOM 顺序排列；长文本、反馈与操作区独占一行。 */
+.resource-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--csm-space-5);
+}
+
+.resource-form > .form-field { margin-bottom: 0; }
+.resource-form > .form-field-wide,
+.resource-form > :not(.form-field) { grid-column: 1 / -1; }
+.resource-form > .detail-section-title { margin: var(--csm-space-2) 0 0; }
+.resource-form > .form-actions { margin-top: 0; }
+
+/* 换行标签保留自然高度；输入控件仍对齐，错误紧跟控件。 */
+.resource-form > .form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.resource-form > .form-field > label,
+.resource-form > .form-field > .field-label { flex-grow: 1; }
 
 .unset {
   color: var(--csm-muted);
@@ -392,9 +430,10 @@ h1 {
   margin: 1.5rem 0 0.5rem;
   font-size: 0.95rem;
   color: var(--csm-text-label);
+  font-weight: 600;
 }
 
-.detail-section-title:first-of-type {
+.detail-section-title:first-child {
   margin-top: 0;
 }
 
@@ -514,8 +553,7 @@ mark {
 .count-card {
   height: 100%;
   border-radius: var(--csm-radius-lg);
-  background: var(--csm-primary-wash);
-  border-top: 3px solid var(--csm-primary-soft-border);
+  background: var(--csm-surface-raised);
 }
 
 @media (min-width: 1280px) {
@@ -546,8 +584,8 @@ mark {
    F033 DR-F033-07：fieldset/legend → details/summary，默认折叠，
    偏好读写、选中集与请求参数不变 */
 .search-fields-toggle {
-  margin: 1rem 0 0;
-  padding: 0.25rem 0.75rem 0.625rem;
+  margin: 1rem 0;
+  padding: 0 var(--csm-space-3);
   border: 1px solid var(--csm-border-subtle);
   border-radius: var(--csm-radius-sm);
 }
@@ -577,6 +615,7 @@ mark {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem 1.1rem;
+  padding-top: var(--csm-space-2);
 }
 
 .search-fields-options label {
@@ -588,7 +627,7 @@ mark {
 }
 
 .search-fields-note {
-  margin: 0.5rem 0 0;
+  margin: 0.5rem 0 var(--csm-space-3);
   font-size: 0.8rem;
 }
 
@@ -810,6 +849,7 @@ mark {
 }
 
 .page-heading { @apply flex min-w-0 flex-wrap items-end justify-between gap-3; }
+.page-heading > div { min-width: 0; }
 .page-heading h1 { @apply text-2xl font-semibold tracking-tight; font-size: var(--csm-font-h1); }
 .page-heading .subtitle { @apply text-sm; }
 .page-eyebrow { @apply mb-1 mt-0 text-[10px] font-semibold tracking-[0.16em]; color: var(--csm-muted); }
@@ -958,6 +998,7 @@ mark {
 @media (max-width: 767px) {
   :root {
     --csm-content-gutter: var(--csm-space-4);
+    --csm-card-padding: var(--csm-space-4);
   }
 
   .boot-main,
@@ -977,6 +1018,11 @@ mark {
   .panel {
     @apply mt-4;
   }
+
+  .resource-form { grid-template-columns: minmax(0, 1fr); }
+  .resource-form > .form-field > label,
+  .resource-form > .form-field > .field-label { flex-grow: 0; }
+  .deleted-toggle { width: 100%; }
 
   .app-header {
     @apply items-center px-4 py-3;
@@ -1016,7 +1062,7 @@ mark {
   }
 
   .form-actions > *,
-  .filter-actions > * {
+  .filter-actions > .csm-button {
     @apply grow;
   }
 
