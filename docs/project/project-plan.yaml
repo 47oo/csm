@@ -2398,8 +2398,8 @@ features:
   - F035
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST_DESIGN
-  next_action: TEST_DESIGN（Tester，覆盖 V1–V15，V2 必须真实 PG 双会话）+ DATABASE NOT_REQUIRED 复核。
+  current_stage: CONTRACT
+  next_action: CONTRACT：Architect 裁定 TD-I-1…TD-I-10，签核 F023 §11 归因澄清（正文 v2 不变），§12 定稿 READY FOR IMPLEMENTATION。
   layers:
     database: false
     backend: true
@@ -2409,7 +2409,7 @@ features:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
+    test_design: COMPLETE
     contract: PENDING
     backend: PENDING
     frontend: PENDING
@@ -2420,14 +2420,17 @@ features:
     - docs/features/F036/product.md#2-逐条映射
     architecture:
     - docs/features/F036/architecture.md#3-逐项设计
-    database: null
-    test_design: null
+    database:
+    - docs/features/F036/implementation.md#3-databasenot_required-确认
+    test_design:
+    - docs/features/F036/test-report.md#1-test-design
     contract: null
     backend: null
     frontend: null
     test: null
     review: null
-  last_result: ARCHITECTURE READY FOR DESIGN：DR-F036-01…11；layers={db:false,backend:true,frontend:true}、api_required=true（仅 F023 §11 归因澄清）；V1–V15 验证项对应 product A1–A14。
+  last_result: TEST_DESIGN READY：47 条 TD3-F036-*（U 9 / I 16 / S 20 / B 2），V2 用真实 PG 双会话 + pg_blocking_pids 证实交错；DATABASE NOT_REQUIRED CONFIRMED（零 DDL，新增 F036-DB-NOTE-01）；Tester 提出 10 项 TD-I 待 CONTRACT 裁定（含
+    DR-F036-06 脱敏清单事实修正为 5 个被跟踪文件）。
   git:
     base_branch: v3.3
     branch: feature/F036-review-followup-closeout
@@ -2929,9 +2932,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 同上「A B全部按照建议做」；授权 F036 实施。
   current_feature: F036
-  current_stage: TEST_DESIGN
-  last_result: F036 ARCHITECTURE COMPLETE。
-  next_action: F036 TEST_DESIGN + DATABASE 复核。
+  current_stage: CONTRACT
+  last_result: F036 TEST_DESIGN + DATABASE 完成。
+  next_action: F036 CONTRACT Gate。
   repair_rounds: 0
 planning_status:
   status: ACCEPTED
