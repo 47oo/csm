@@ -16,6 +16,23 @@ Parsing, header matching, caps and the ``RowError`` shape are the F014 primitive
 non-committing Service Layer cores (``prepare/stage_resource``,
 ``prepare/stage_interface``, ``prepare/stage_ip_address``) so import and API stay
 consistent (A8/T71). There is no direct SQL/ORM bypass.
+
+F035 append mode (Contract F023 **v2** §4/§8.1/§11/§12.3/§13, requirements
+§24.6): the resource group key ``(cluster, hostname)`` is resolved to a
+*host* Resource and the decision is taken **per group** (DR-F035-01):
+
+* key absent (including "only soft-deleted rows") -> **create**: the group
+  stages its own Resource and counts towards ``created``;
+* key present and undeleted -> **append**: the group stages *no* Resource and
+  only creates Interfaces/IPAddresses under that host, so no Resource field is
+  written (no UPDATE, no ``version``/``updated_at`` change, no UPDATE Audit) and
+  ``created`` stays 0 (DR-F035-02/DR-F035-04).
+
+Append groups must agree with the host's existing *normalised* values for every
+Resource-level column they fill in; omitted columns are not compared and never
+overwrite existing values (BQ02=B/BQ07=A, DR-F035-06/DR-F035-07). Existing
+same-name Interfaces and same-cluster addresses are still row errors — there is
+no idempotent skip and no appending IPs to an existing Interface (BQ05=A).
 """
 
 from __future__ import annotations
@@ -28,6 +45,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import cast, select
 from sqlalchemy.dialects.postgresql import CIDR, INET
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from app.core.errors import (
     AppError,
@@ -39,6 +57,7 @@ from app.core.errors import (
     ValidationError,
 )
 from app.models.cluster import Cluster
+from app.models.interface import Interface
 from app.models.ip_address import IPAddress
 from app.models.network import Network
 from app.models.resource import Resource
@@ -261,7 +280,12 @@ class UnifiedImportResult:
 
 @dataclass
 class ParsedRow:
-    """One individually-valid data row (before grouping/merging)."""
+    """One individually-valid data row (before grouping/merging).
+
+    ``existing_resource_id`` is the group key's undeleted host Resource, or
+    ``None`` when the group will create one (F035 §3.1). It is looked up once
+    per ``(cluster, hostname_key)`` and is identical for every row of a group.
+    """
 
     row: int
     cluster: Cluster
@@ -273,6 +297,7 @@ class ParsedRow:
     name: str
     resource_cells: dict[str, Any]
     interface_cells: dict[str, Any]
+    existing_resource_id: uuid.UUID | None = None
 
 
 @dataclass
@@ -300,6 +325,9 @@ class PreparedGroup:
     prepared: resource_service.PreparedResource
     interfaces: list[PreparedInterfaceGroup]
     first_row: int
+    # F035 group-level two-state: ``None`` -> create the Resource,
+    # a uuid -> append Interfaces/IPs to that existing undeleted Resource.
+    existing_resource_id: uuid.UUID | None = None
 
 
 class _RowProblem(Exception):
@@ -478,8 +506,11 @@ def _parse_row(
     row: int,
     cluster_cache: dict[str, Any],
     scope=None,
+    existing_cache: dict[tuple[uuid.UUID, str], uuid.UUID | None] | None = None,
 ) -> tuple[ParsedRow | None, list[RowError]]:
     errors: list[RowError] = []
+    if existing_cache is None:
+        existing_cache = {}
 
     def add(field_name: str, reason: str, related_row: int | None = None) -> None:
         errors.append(
@@ -718,17 +749,25 @@ def _parse_row(
         except _RowProblem as problem:
             add(problem.field, problem.reason)
 
-    # --- existing DB conflicts (batch-external snapshot) ---
+    # --- existing host (F035 append; batch-external, undeleted only) ---
+    # F023 v2 §8.1/§11: an undeleted ``(cluster, hostname)`` is no longer a
+    # conflict; the group appends to it. Only soft-deleted rows count as
+    # "absent" (they are neither appended to nor restored, DR-F035-10).
+    existing_resource_id: uuid.UUID | None = None
     if cluster is not None and hostname_key is not None:
-        existing = db.execute(
-            select(Resource.id).where(
-                Resource.cluster_id == cluster.id,
-                Resource.hostname_key == hostname_key,
-                Resource.deleted_at.is_(None),
+        host_key = (cluster.id, hostname_key)
+        if host_key not in existing_cache:
+            existing = db.execute(
+                select(Resource.id).where(
+                    Resource.cluster_id == cluster.id,
+                    Resource.hostname_key == hostname_key,
+                    Resource.deleted_at.is_(None),
+                )
+            ).first()
+            existing_cache[host_key] = (
+                None if existing is None else existing[0]
             )
-        ).first()
-        if existing is not None:
-            add("hostname", "hostname already exists in this cluster")
+        existing_resource_id = existing_cache[host_key]
     if cluster is not None and address is not None:
         existing_ip = db.execute(
             select(IPAddress.id).where(
@@ -763,6 +802,7 @@ def _parse_row(
             name=interface_name,
             resource_cells=resource_cells,
             interface_cells=interface_cells,
+            existing_resource_id=existing_resource_id,
         ),
         [],
     )
@@ -862,11 +902,215 @@ def _merge_and_check(rows: list[ParsedRow]) -> list[RowError]:
     return errors
 
 
+# --- append mode: existing host projection + read-only checks (F035) -------
+
+# Resource-level template columns that live in the existing detail rows. The
+# comparison object is the audit projection (:func:`resource._hardware_snapshot`
+# / :func:`resource._virtual_machine_snapshot`) so there is exactly one
+# normalisation source (DR-F035-07).
+_HARDWARE_SNAPSHOT_COLUMNS = tuple(
+    column for column in BM_HARDWARE_COLUMNS if column != "memory_mb"
+)
+_VM_SNAPSHOT_COLUMNS = ("vcpu", "disk_gb", "hypervisor")
+
+
+def _as_text(value: Any) -> str | None:
+    return None if value is None else str(value)
+
+
+@dataclass(frozen=True)
+class ExistingSnapshot:
+    """Read-only projection of an append host Resource (F035 §3.2).
+
+    ``hardware`` / ``virtual_machine`` are the audit snapshots produced by the
+    Resource service (``None`` for the other row type, and ``None`` inside the
+    detail dict for a value the host does not have). Values are therefore the
+    already normalised existing values — never a second, import-local
+    projection.
+    """
+
+    resource_id: uuid.UUID
+    resource_type: str
+    role: str
+    status: str
+    hardware: dict[str, Any] | None
+    virtual_machine: dict[str, Any] | None
+
+    def existing_value(self, column: str) -> Any:
+        """Existing normalised value for a Resource-level template column."""
+        if column == "resource_type":
+            return self.resource_type
+        if column == "role":
+            return self.role
+        if column == "status":
+            return self.status
+        if column == "host":
+            if self.virtual_machine is None:
+                return None
+            return _as_text(self.virtual_machine["host_resource_id"])
+        if column in _VM_SNAPSHOT_COLUMNS:
+            if self.virtual_machine is None:
+                return None
+            return self.virtual_machine[column]
+        if column == "memory_mb":
+            # #8 is mapped by row type: BM -> hardware, VM -> virtual_machine.
+            if self.hardware is not None:
+                return self.hardware["memory_mb"]
+            if self.virtual_machine is not None:
+                return self.virtual_machine["memory_mb"]
+            return None
+        if column in _HARDWARE_SNAPSHOT_COLUMNS:
+            if self.hardware is None:
+                return None
+            return self.hardware[column]
+        return None  # pragma: no cover - exhaustive over resource_cells keys
+
+
+def _load_existing_snapshots(
+    db: "Session", rows: list[ParsedRow]
+) -> dict[uuid.UUID, ExistingSnapshot]:
+    """Batch-load append hosts (+ their 1:1 details) in one statement (§3.2)."""
+    host_ids = sorted(
+        {
+            row.existing_resource_id
+            for row in rows
+            if row.existing_resource_id is not None
+        }
+    )
+    if not host_ids:
+        return {}
+    resources = (
+        db.execute(
+            select(Resource)
+            .where(Resource.id.in_(host_ids), Resource.deleted_at.is_(None))
+            .options(
+                selectinload(Resource.bare_metal_detail),
+                selectinload(Resource.virtual_machine_detail),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {
+        resource.id: ExistingSnapshot(
+            resource_id=resource.id,
+            resource_type=resource.resource_type,
+            role=resource.role,
+            status=resource.status,
+            hardware=resource_service._hardware_snapshot(resource),
+            virtual_machine=resource_service._virtual_machine_snapshot(resource),
+        )
+        for resource in resources
+    }
+
+
+def _check_existing_consistency(
+    rows: list[ParsedRow], snapshots: dict[uuid.UUID, ExistingSnapshot]
+) -> list[RowError]:
+    """Append groups must agree with the host's existing normalised values.
+
+    Comparison column set = the keys present in the group's canonical
+    ``resource_cells`` map, i.e. only cells that carried a value: an empty
+    Resource-level cell is *omitted* (never compared, never used to blank an
+    existing value; BQ02=B/BQ07=A). Values are compared with the normalised
+    scalar produced by the Service Layer validators — strings exactly (no case
+    folding), integers numerically, ``host`` by identity of the referenced
+    Resource.
+
+    Deterministic attribution (identical for every column, TD-I-4): every row
+    of the group that supplies a differing value is reported, ``field`` is the
+    template column name, ``related_row`` is ``None`` and ``(row, field)`` is
+    de-duplicated (DR-F035-08).
+    """
+    errors: list[RowError] = []
+    seen: set[tuple[int, str]] = set()
+    for group_rows in _group_by_resource(rows).values():
+        host_id = group_rows[0].existing_resource_id
+        if host_id is None:
+            continue
+        snapshot = snapshots.get(host_id)
+        if snapshot is None:  # pragma: no cover - host vanished between reads
+            continue
+        canonical, _ = _canonicalize(group_rows, "resource_cells")
+        for column in canonical:
+            existing_value = snapshot.existing_value(column)
+            for row in group_rows:
+                if column not in row.resource_cells:
+                    continue
+                supplied = row.resource_cells[column]
+                if column == "host":
+                    matches = _as_text(supplied) == _as_text(existing_value)
+                else:
+                    matches = supplied == existing_value
+                if matches:
+                    continue
+                key = (row.row, column)
+                if key in seen:
+                    continue
+                seen.add(key)
+                errors.append(
+                    RowError(
+                        row=row.row,
+                        field=column,
+                        reason=(
+                            f"{column} does not match the existing resource value"
+                        ),
+                        related_row=None,
+                    )
+                )
+    return errors
+
+
+def _check_existing_interface_names(
+    db: "Session", rows: list[ParsedRow]
+) -> list[RowError]:
+    """Reject append rows whose ``name`` hits an undeleted Interface (T120).
+
+    One read-only batch statement over the append hosts. The match is exact and
+    case-sensitive (``Eth0`` and ``eth0`` coexist, §11) and only undeleted
+    Interfaces participate. A hit is a row error — no idempotent skip, no
+    appending IPs to an existing Interface (BQ05=A).
+    """
+    append_rows = [
+        row for row in rows if row.existing_resource_id is not None
+    ]
+    if not append_rows:
+        return []
+    taken = set(
+        db.execute(
+            select(Interface.resource_id, Interface.name).where(
+                Interface.resource_id.in_(
+                    {row.existing_resource_id for row in append_rows}
+                ),
+                Interface.name.in_({row.name for row in append_rows}),
+                Interface.deleted_at.is_(None),
+            )
+        ).all()
+    )
+    return [
+        RowError(
+            row=row.row,
+            field="name",
+            reason="interface name already exists on this resource",
+            related_row=None,
+        )
+        for row in append_rows
+        if (row.existing_resource_id, row.name) in taken
+    ]
+
+
 def _build_groups(rows: list[ParsedRow]) -> list[PreparedGroup]:
     """Build the write plan (only called once no validation errors remain)."""
     groups: list[PreparedGroup] = []
     for group_rows in _group_by_resource(rows).values():
         canonical, _ = _canonicalize(group_rows, "resource_cells")
+        # The create/append decision is group-level (F023 v2 §8.1): every row of
+        # the group shares one host lookup, asserted here as a defence in depth.
+        group_hosts = {row.existing_resource_id for row in group_rows}
+        assert len(group_hosts) == 1, (
+            "existing_resource_id must be identical within a resource group"
+        )
+        existing_resource_id = group_hosts.pop()
         resource_type = group_rows[0].resource_type
         if resource_type == BARE_METAL:
             hardware_raw = {
@@ -931,6 +1175,7 @@ def _build_groups(rows: list[ParsedRow]) -> list[PreparedGroup]:
                 prepared=prepared,
                 interfaces=interfaces,
                 first_row=group_rows[0].row,
+                existing_resource_id=existing_resource_id,
             )
         )
     return groups
@@ -967,16 +1212,28 @@ def parse_and_validate(
         raise ImportInvalidFile("empty_file")
 
     cluster_cache: dict[str, Any] = {}
+    existing_cache: dict[tuple[uuid.UUID, str], uuid.UUID | None] = {}
     rows: list[ParsedRow] = []
     errors: list[RowError] = []
     for index, record in enumerate(data_records):
         parsed, row_errors = _parse_row(
-            db, record, index + 2, cluster_cache, scope=scope
+            db,
+            record,
+            index + 2,
+            cluster_cache,
+            scope=scope,
+            existing_cache=existing_cache,
         )
         if parsed is not None:
             rows.append(parsed)
         errors.extend(row_errors)
     errors.extend(_merge_and_check(rows))
+    # F035 append checks: same function backs pre-validate and write-time
+    # re-validation, so both phases compare against the same current state
+    # (Contract §11, DR-F035-12). Read-only: no locks, no Audit.
+    snapshots = _load_existing_snapshots(db, rows)
+    errors.extend(_check_existing_consistency(rows, snapshots))
+    errors.extend(_check_existing_interface_names(db, rows))
     return UnifiedImportResult(
         format=fmt, total_rows=len(data_records), rows=rows, errors=errors
     )
@@ -1018,12 +1275,23 @@ def _acquire_locks(db: "Session", groups: list[PreparedGroup]) -> None:
     """Deterministic lock order: ``resources`` then ``networks``, id ascending.
 
     Taken once, before any SAVEPOINT, so all batches acquire locks in the same
-    order (DR-421 / F023-DB-01).
+    order (DR-421 / F023-DB-01). F023 v2 §12.3: the ``resources`` pre-lock set is
+    the union of the batch's VM Host ids and the append hosts, locked with a
+    **single** statement in ascending id order — splitting them into two
+    statements over the same table would re-introduce a cross-batch lock cycle
+    (DR-F035-03).
     """
-    host_ids = sorted(
-        group.prepared.virtual_machine["host_resource_id"]
-        for group in groups
-        if group.prepared.virtual_machine is not None
+    resource_ids = sorted(
+        {
+            group.prepared.virtual_machine["host_resource_id"]
+            for group in groups
+            if group.prepared.virtual_machine is not None
+        }
+        | {
+            group.existing_resource_id
+            for group in groups
+            if group.existing_resource_id is not None
+        }
     )
     network_ids = sorted(
         iprow.network.id
@@ -1031,10 +1299,10 @@ def _acquire_locks(db: "Session", groups: list[PreparedGroup]) -> None:
         for interface in group.interfaces
         for iprow in interface.ips
     )
-    if host_ids:
+    if resource_ids:
         db.execute(
             select(Resource.id)
-            .where(Resource.id.in_(host_ids))
+            .where(Resource.id.in_(resource_ids))
             .order_by(Resource.id.asc())
             .with_for_update()
         )
@@ -1175,10 +1443,17 @@ def write_import(
 ) -> tuple[int, int, int, int]:
     """Validate then insert the batch atomically (Contract §4, DR-419).
 
-    Returns ``(created, interfaces_created, ip_addresses_created, total_rows)``.
-    Any validation, concurrency or DB error rolls the whole batch back and
-    raises :class:`ImportValidationFailed`; a residual deadlock (40P01) rolls
-    back and raises 500 ``INTERNAL_ERROR`` without retrying (DR-421/F023-DB-01).
+    Returns ``(created, interfaces_created, ip_addresses_created, total_rows)``;
+    ``created`` counts **new Resource objects only**, so a batch that appends to
+    existing hosts reports ``created=0`` (F023 v2 §4, DR-F035-04).
+
+    Append groups (``group.existing_resource_id``) skip ``stage_resource`` and
+    never touch the loaded host instance, so the existing Resource row is not
+    written at all (no UPDATE, no ``version``/``updated_at`` change, no UPDATE
+    Audit — F023 v2 §8.1/T118). Any validation, concurrency or DB error rolls
+    the whole batch back and raises :class:`ImportValidationFailed`; a residual
+    deadlock (40P01) rolls back and raises 500 ``INTERNAL_ERROR`` without
+    retrying (DR-421/F023-DB-01, §12.4).
     """
     result = parse_and_validate(
         db,
@@ -1209,15 +1484,21 @@ def write_import(
                             cluster_id=group.cluster.id,
                             lock=False,
                         )
-                    resource = resource_service.stage_resource(
-                        db, operator, group.prepared
-                    )
-                    created += 1
+                    if group.existing_resource_id is not None:
+                        # Append: the host exists and is left untouched (its
+                        # approved columns were compared read-only).
+                        resource_id = group.existing_resource_id
+                    else:
+                        resource = resource_service.stage_resource(
+                            db, operator, group.prepared
+                        )
+                        resource_id = resource.id
+                        created += 1
                     for interface_group in group.interfaces:
                         failure_row = interface_group.first_row
                         prepared_interface = interface_service.prepare_interface(
                             db,
-                            resource=resource.id,
+                            resource=resource_id,
                             name=interface_group.name,
                             interface_type=interface_group.interface_type,
                             mac_address=interface_group.mac_address,

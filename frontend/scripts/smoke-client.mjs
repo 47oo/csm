@@ -253,7 +253,7 @@
  *   truncated / 接口列表超安全上限（M5）、部分失败汇总不折叠（M6）、
  *   ip_pool=null→「池外（手动）」、description=null→「—」标签（M7）。
  *
- * F023 追加（Contract：docs/api/F023.md v1，前端机制级）：
+ * F023 追加（Contract：docs/api/F023.md v2，前端机制级）：
  * - src/api/imports.ts 的 F023 三端点（§3/§4/§5：POST /imports/resource-
  *   interfaces-ips/validate、POST /imports/resource-interfaces-ips（FormData：
  *   file+format）、GET /imports/resource-interfaces-ips/templates（单一模板
@@ -267,6 +267,16 @@
  *   反馈（空输入 / 非法 format / .xlsx 扩展名 / 5 MiB 上限）、输入指纹（文件 /
  *   格式变化即失效）、确认导入门控（预校验 0 错误 + 指纹一致 + 未成功导入）、
  *   冻结 26 列表头文本与 CSV 生成、适用行 / 类型（含 boolean）标签。
+ *
+ * F035 追加（Contract：docs/api/F023.md v2 正文升版；requirements revision 14
+ * §24.6 / §31 T117–T126；architecture §7.3，前端机制级，**零 wire 变更**）：
+ * v2 的实质变化全部在服务端（§4 计数口径 `created`=新建 Resource 数、§8.1
+ * 组键→Resource 二态、§11 一处冲突口径改写、§12.3 锁集合、§13 业务边界），
+ * 端点 / 请求字段 / 响应字段 / 错误码 / `reason` 集合 / 26 列模板 / 行号 /
+ * 上限 / 权限矩阵均不变，因此本文件的 wire 断言不改动。前端只改面板文案
+ * （ResourceInterfaceIpImportPanel 说明追加语义与 `created===0` 定性提示；
+ * ResourceImportPanel 声明不支持追加）；`created===0`（纯追加批次，成功信号）
+ * 原样透传，前端不推导追加数 M、不新增响应字段（DR-F035-11）。
  *
  * F030 追加（Does not add endpoints/params；docs/features/F030/architecture.md
  * §7.2 / DR-F030-06，前端机制级 P5）：
@@ -7984,7 +7994,7 @@ await test("F022 M7：展示标签——ip_pool=null → 「池外（手动）�
 });
 
 // ---------------------------------------------------------------------------
-// F023：「资源+网卡+IP」三元组导入（Contract：docs/api/F023.md v1）
+// F023：「资源+网卡+IP」三元组导入（Contract：docs/api/F023.md v2）
 // ---------------------------------------------------------------------------
 
 /** 构造最小三元组 CSV 测试文件（multipart file 字段）。 */
@@ -8460,6 +8470,78 @@ await test("F023 模板列渲染辅助：适用行标签（BM / VM）、类型�
   );
   assert.equal(resourceInterfaceIpColumnRequiredLabel({ required: true }), "必填");
   assert.ok(resourceInterfaceIpColumnRequiredLabel({ required: false }).includes("省略"));
+});
+
+await test("F035 纯追加批次 created=0：201 响应原样透传（成功信号，非失败/空批次）；不派生追加数、不新增响应字段（v2 §4/§8.1，DR-F035-11）", async () => {
+  // v2 §4：纯追加批次 created=0；interfaces_created / ip_addresses_created 仍计新建子对象。
+  // 前端只透传（不推导「追加了 M 个资源」），wire 与字段集合同 v1 完全一致。
+  respond = () =>
+    jsonResponse(201, {
+      created: 0,
+      total_rows: 2,
+      interfaces_created: 1,
+      ip_addresses_created: 2,
+    });
+  const data = await importResourceInterfacesIps(tripleImportCsvFile(), "csv");
+  assert.equal(data.created, 0);
+  assert.equal(data.total_rows, 2);
+  assert.equal(data.interfaces_created, 1);
+  assert.equal(data.ip_addresses_created, 2);
+  // 响应字段集合与 v1 相同（无 appended_* / updated_* 等派生字段）
+  assert.deepEqual(Object.keys(data).sort(), [
+    "created",
+    "interfaces_created",
+    "ip_addresses_created",
+    "total_rows",
+  ]);
+  // wire 零变更：同一端点、同一 multipart（file + format）
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resource-interfaces-ips");
+  assert.equal(calls[0].init.method, "POST");
+  assert.ok(calls[0].init.body instanceof FormData);
+  assert.equal(calls[0].init.body.get("format"), "csv");
+  assert.ok(calls[0].init.body.get("file") instanceof File);
+});
+
+await test("F035 追加批次的既有子对象冲突仍整批失败：field=name / field=ip 行错误原样呈现（不跳过、无部分成功）", async () => {
+  // v2 §11：既有同名 Interface → field="name"；同 Cluster 既有 IP → field="ip"；
+  // 整批回滚（无幂等跳过 / 无部分成功），行号/字段/原因/related_row 形状不变。
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_VALIDATION_FAILED",
+        message: "import validation failed",
+        details: {
+          total_rows: 3,
+          importable_rows: 1,
+          error_count: 2,
+          errors: [
+            { row: 3, field: "name", reason: "interface name already exists on this resource", related_row: null },
+            { row: 4, field: "ip", reason: "ip address already exists in this cluster", related_row: null },
+          ],
+          errors_truncated: false,
+        },
+      },
+    });
+  const described = describeImportError(
+    await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.equal(described.code, "IMPORT_VALIDATION_FAILED");
+  assert.ok(described.validationFailed !== null);
+  assert.equal(described.validationFailed.total_rows, 3);
+  assert.equal(described.validationFailed.importable_rows, 1);
+  assert.equal(described.validationFailed.error_count, 2);
+  assert.equal(described.validationFailed.errors.length, 2);
+  assert.equal(described.validationFailed.errors[0].row, 3);
+  assert.equal(described.validationFailed.errors[0].field, "name");
+  assert.equal(described.validationFailed.errors[0].related_row, null);
+  assert.equal(described.validationFailed.errors[1].field, "ip");
+  assert.equal(described.validationFailed.errors_truncated, false);
+  // 整批回滚语义：不递归重试、不报成功
+  assert.ok(described.message.includes("整批失败"));
+  assert.ok(described.message.includes("未创建任何资源、网卡或 IP"));
+  assert.equal(calls.length, 1);
 });
 
 await test("F026 列表：URL 查询串（status/cluster_id/q/page/sort/order）与 GET 方法", async () => {

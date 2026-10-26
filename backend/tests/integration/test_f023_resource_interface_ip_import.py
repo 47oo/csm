@@ -1,12 +1,18 @@
 """F023 资源+网卡+IP 三元组批量导入 — 独立验收集成测试（TEST 模式）。
 
-验证 `docs/api/F023.md` v1（§6 26 列模板、§9 Network 解析、§12 原子性/锁序/归因）、
-`docs/features/F023/product.md` A1–A10 与 `requirements-v3.md` revision 8 §24/§24.1
-（T64–T72）。真实 PostgreSQL（`TEST_DATABASE_URL`，DB-D10 guard），复用 conftest 的
+验证 `docs/api/F023.md` **v2**（§6 26 列模板、§8.1 组键 → Resource 二态、§9 Network
+解析、§11 现存冲突、§12 原子性/锁序/归因）、`docs/features/F023/product.md` A1–A10 与
+`requirements-v3.md` revision 8 §24/§24.1（T64–T72；T67/T71 按 revision 14 §24.6
+修订措辞）。真实 PostgreSQL（`TEST_DATABASE_URL`，DB-D10 guard），复用 conftest 的
 `auth_app`/`auth_session_factory`/`committed_engine`/`make_user` 与 F007/F010 的
 helper。不复制开发者结果，独立断言可观察行为。
 
 覆盖 PG-01…PG-14 与 U-01…U-07（纯逻辑直调）以及上限/性能（PERF）。
+
+F035（BQ01=B）后的一处口径变化：现存 `(cluster, hostname)` 不再是行错误，而是按
+§8.1 追加到该既有 Resource（追加语义、零变化与一致性比较由
+`test_f035_append_interface_ip_import.py` 承接）。并发新建同 hostname 的数据库兜底
+归因（`test_pg05a`）保持不变。
 """
 
 from __future__ import annotations
@@ -142,6 +148,10 @@ def _find_error(payload: dict, field: str, row: int | None = None) -> dict | Non
         if error["field"] == field and (row is None or error["row"] == row):
             return error
     return None
+
+
+def _errors_at(payload: dict, row: int) -> list[dict]:
+    return [error for error in payload["errors"] if error["row"] == row]
 
 
 def _api_resource(client, cluster_code, hostname, resource_type="BARE_METAL", **overrides):
@@ -534,7 +544,7 @@ def test_pg06_uniqueness_and_allocatable_boundaries(role_client_factory, auth_se
             # file-internal duplicate ip
             _row(cluster=c["code"], hostname="dup1", resource_type=BM, name="eth0", network="mgmt", ip="10.0.0.20"),
             _row(cluster=c["code"], hostname="dup2", resource_type=BM, name="eth0", network="mgmt", ip="10.0.0.20"),
-            # existing hostname conflict
+            # pre-existing hostname: no longer a conflict (F023 v2 §8.1 -> append)
             _row(cluster=c["code"], hostname="existing", resource_type=BM, name="eth0", network="mgmt", ip="10.0.0.21"),
             # existing ip conflict
             _row(cluster=c["code"], hostname="new1", resource_type=BM, name="eth0", network="mgmt", ip="10.0.0.50"),
@@ -542,7 +552,9 @@ def test_pg06_uniqueness_and_allocatable_boundaries(role_client_factory, auth_se
     ).json()
     dup = _find_error(payload, "ip", 3)
     assert dup is not None and dup["related_row"] == 2
-    assert _find_error(payload, "hostname", 4) is not None
+    # F035/BQ01=B: an undeleted hostname is a valid append target, not an error;
+    # the append semantics themselves are covered by the F035 suite.
+    assert _errors_at(payload, 4) == []
     assert _find_error(payload, "ip", 5) is not None
 
     # case folding: CN001 / cn001 merge into one resource (non-error)
@@ -682,8 +694,13 @@ def test_pg08_two_phase_consistency(role_client_factory, auth_session_factory):
     ]
     v_conf = _validate(editor, conflict_rows).json()
     w_conf = _write(editor, conflict_rows).json()["error"]["details"]
-    assert _find_error(v_conf, "hostname", 2) is not None
-    assert _find_error(w_conf, "hostname", 2) is not None
+    # F023 v2 §11: the hostname is no longer a conflict; the differing
+    # Resource-level column is attributed to its template column name.
+    v_role = _find_error(v_conf, "role", 2)
+    w_role = _find_error(w_conf, "role", 2)
+    assert v_role is not None and w_role is not None
+    assert v_role["related_row"] is None and w_role["related_row"] is None
+    assert _find_error(v_conf, "hostname", 2) is None
     with auth_session_factory() as session:
         row = session.execute(
             text("SELECT role, version FROM resources WHERE id = :id"), {"id": existing["id"]}
@@ -752,7 +769,13 @@ def test_pg10_whole_batch_rollback_zero_residue(role_client_factory, auth_sessio
 # --- PG-11: write-time re-validation -----------------------------------------
 
 
-def test_pg11_write_revalidates_after_state_change(role_client_factory):
+def test_pg11_write_revalidates_after_state_change(role_client_factory, auth_session_factory):
+    """T69/§12.2 (F023 v2 §8.1): a state change between the two phases still wins.
+
+    The pre-existing hostname is no longer a conflict, so the observable
+    "state changed after pre-validate" signal is a same-name Interface created
+    on the host in between: the write must fail the whole batch.
+    """
     editor, _, _ = role_client_factory("EDITOR")
     c = _cluster(editor, code="C1")
     _network(editor, c["id"], name="mgmt", cidr="10.0.0.0/24")
@@ -761,14 +784,21 @@ def test_pg11_write_revalidates_after_state_change(role_client_factory):
     ]
     assert _validate(editor, rows).json()["errors"] == []
 
-    # external actor occupies the hostname between validate and write
-    _api_resource(editor, c["code"], "cn001")
+    # external actor creates the host AND an `eth0` Interface on it
+    host = _api_resource(editor, c["code"], "cn001")
+    _interface(editor, host["id"], "eth0")
 
+    with auth_session_factory() as session:
+        before = _counts(session)
     resp = _write(editor, rows)
     assert resp.status_code == 422
     details = resp.json()["error"]["details"]
-    assert _find_error(details, "hostname", 2) is not None
+    assert _find_error(details, "name", 2) is not None
+    with auth_session_factory() as session:
+        after = _counts(session)
+    assert after == before, "rejected write left residue"
     assert editor.get("/api/v1/resources", params={"q": "cn001"}).json()["total"] == 1
+    assert editor.get("/api/v1/ip-addresses", params={"address": "10.0.0.11"}).json()["total"] == 0
 
 
 def test_pg11b_write_revalidates_ip_conflict(role_client_factory):
