@@ -421,7 +421,7 @@
 | 工具链 | Node v22.23.3、Python 3.12.7、pytest 7.4.4、Playwright(Python)+Chromium（宿主既有，**未新增仓库依赖**） | 命令输出（本报告 §2.5–§2.7） |
 | `csmtest-frontend-1` | 运行**实现之前**的旧前端镜像 → 不用作 F034 UI 证据；B 层改以「`npm run build` 产物 + 本机静态服务 + 真实后端 API」执行（§2.7） | §2.7 |
 | 写入纪律 | 真实写业务数据**仅**在 `csm_test`（pytest，`committed_engine` teardown TRUNCATE）；`csmtest` 栈只发**只读** `/validate` 与认证请求（另有 `GET /clusters`、登录会话），**未向该库写入任何业务数据** | `artifacts/logs/live-validate.log`、`artifacts/logs/backend-logs-since-marker.log` |
-| 凭据 | 未写入仓库与任何 artifact（`grep testadmin\|csmtestpw docs/features/F034/artifacts/` = 0；脚本改为从环境变量读取，缺失即退出） | 本报告 §2.10 |
+| 凭据 | 未写入仓库与任何 artifact（`grep testadmin\|*** docs/features/F034/artifacts/` = 0；脚本改为从环境变量读取，缺失即退出） | 本报告 §2.10 |
 
 ### 2.3 语料与夹具（TD-8）
 
@@ -650,7 +650,7 @@
 | `docs/features/F034/artifacts/logs/**`（environment / typecheck / build / smoke-client / gen-corpus / pytest-f034-targeted / pytest-import-regression / live-validate / boundary-check / browser-check / backend-logs-since-marker / browser-text-carrier.png） | 命令原始输出 | **是**：`.gitignore:125 logs/`（另 `*.log`）。关键结论已内联进本节，若需入库须由协调器单独处理 |
 
 - 未跟踪文件合计 **74** 个，全部为 Tester 本阶段产物；**未执行任何改变 Git 状态的命令**（无 `add` / `commit` / 分支 / merge / stash / reset）。
-- 凭据核查：`grep -rn "testadmin\|csmtestpw" docs/features/F034/artifacts/` → **0 命中**。
+- 凭据核查：`grep -rn "testadmin\|***" docs/features/F034/artifacts/` → **0 命中**。
 
 ### 2.11 结论
 

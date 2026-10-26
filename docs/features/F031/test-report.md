@@ -215,7 +215,7 @@
 - 显式覆盖 `TEST_DATABASE_URL=postgresql+psycopg://csm:<pw>@localhost:55432/csm_test`（`.env.test` 的 5432 不可达，本段未使用）；每次 session fixture 重建 `public` + alembic head（`0015_user_cluster_authorizations`）。
 - 后端运行参数：`PYTHONDONTWRITEBYTECODE=1`、`-p no:cacheprovider`（全段一致，无 `.pyc`/缓存落盘）。
 - 前端：Node **v22.23.3**；`npx tsc --noEmit` 不落盘；`npm run build`（tsc + vite build，3214 modules，仅既有 >500 kB chunk 告警）写 gitignored `dist/`。
-- 证据：`docs/features/F031/artifacts/*.log`（`.gitignore:124 *.log` 覆盖，协调器需 `git add -f`）；已核查 artifacts 中 **无凭据字符串**（`grep -rl csmtestpw` = 0），日志内引擎 URL 由 SQLAlchemy 掩码为 `csm:***`。
+- 证据：`docs/features/F031/artifacts/*.log`（`.gitignore:124 *.log` 覆盖，协调器需 `git add -f`）；已核查 artifacts 中 **无凭据字符串**（`grep -rl ***` = 0），日志内引擎 URL 由 SQLAlchemy 掩码为 `csm:***`。
 - SQLite / Mock 未用于任何约束或并发证据。
 
 ### TE-4 命令与实际结果

@@ -4,10 +4,10 @@ project:
   requirements:
     path: docs/product/requirements-v3.md
     revision: 14
-  plan_revision: 21
-  status: DONE
+  plan_revision: 22
+  status: ACCEPTED
   approval:
-    plan_revision: 21
+    plan_revision: 22
     feature_ids:
     - F001
     - F002
@@ -44,15 +44,15 @@ project:
     - F033
     - F034
     - F035
+    - F036
     approved_by: 用户
     approved_on: '2026-10-26'
-    basis: 用户 2026-10-26 提出「同一个机器有多个 IP 的情况，这种情况也允许录入」并给出同 hostname 三行 CSV；审阅 CHG-013
-      提案与候选计划 revision 21 后回复「按推荐执行」：批准需求 revision 14（新增 §24.6 与 T117–T126、修订 §24/§24.1/§24.5/§31
-      T67/T71/§32）与 plan revision 21（新增 F035），并确认推荐组合 CHG013-BQ01=B（允许向既有 Resource
-      追加 Interface/IP 且不改既有字段）、BQ02=B（Resource 级列须与现存规范化值一致，留空不比较）、BQ03=A（既有子对象仍报错）、BQ04=A（仅「资源+网卡+IP」入口）、BQ05=A（不支持向既有
-      Interface 追加 IP）、BQ06=C1（created 仍为新建 Resource 数）、BQ07=A（留空=省略）、BQ08=A（只提交新增行为唯一补录路径）。同一指令「执行」记录为实施授权。
+    basis: 用户 2026-10-26 在审阅「阻塞任务清单」后回复「A B全部按照建议做」：批准 A-2 建议——新立 ENABLER Feature
+      F036「F032–F035 Review 跟进项收敛」，以 CHG-014 §1 第 1–11 项为范围（含 4 项优先项：F034-RV-01、F035-FU-01、F032-RV-03
+      及证据/文案收敛），并批准 B 组文档与分支收口由协调器直接执行。需求文档 revision 保持 14（无业务规则变更）；F034-RV-02 属用户追认动作，不在
+      F036 范围。
   acceptance:
-    status: COMPLETE
+    status: PENDING
     evidence:
     - docs/features/F035/test-report.md#2-test-execution
     - docs/features/F035/review-report.md
@@ -2548,6 +2548,86 @@ features:
     database: layers.database=false：本 Feature 只改造 F023 导入服务的组级二态与只读校验，不新增/修改表、列、索引、约束、触发器或
       Migration；追加依赖的三个部分唯一索引已由 F004/F007/F010 交付（见 docs/features/F035/architecture.md
       §5、§6、§11）。
+- id: F036
+  title: F032–F035 Review 跟进项收敛
+  kind: ENABLER
+  priority: P2
+  milestone: M27 Review 跟进收敛
+  scope: 收敛 F032–F035 审查报告中未阻塞但未关闭的跟进项（CHG-014 §1 第 1–11 项）：①前端载体切回「文件」时清空旧文件并重置结果态，消除「看不到文件却提交旧文件」的误操作（F034-RV-01）；②追加路径资源侧锁定失败时
+    `RowError.field` 映射为模板列名 `hostname`（F035-FU-01）；③已入库 F032 证据中真实主机 MAC 脱敏并标注（F032-RV-03）；④≤1023px
+    导航焦点态 outline 裁切修正（F033-RV-03）；⑤证据与文案忠实度修正：smoke 基线计数（F033-RV-01）、文本载体 placeholder
+    明确为片段（F034-RV-03）、logs 入库范围描述（F034-RV-04）、测试库口令掩码（F032-RV-06）、大文本哈希记忆化（F034-RV-06）、F034
+    测试写回被跟踪 artifacts 改为临时目录（F034-RV-09）、补 T79 CLI 级自动化用例（F032-RV-02）；⑥以文档/注释记载既有取舍：F032-RV-05、F032-RV-07、F034-RV-08、F035-FU-05、F035-FU-08。明确不做：任何已确认业务规则、错误码、`reason`
+    枚举、响应字段、26 列模板、上限、权限、端点、Schema / Migration 变更；不重构服务层或前端架构；不新增 npm / Python 依赖。F034-RV-02（T114
+    口径追认）属用户确认动作，不在本 Feature 范围内，不得宣称已关闭。
+  acceptance: 1) 载体从文本切回「文件」后界面状态与提交值一致：旧文件被清空（或已选文件名显式回显），确认导入门控不可用直至重新选择，并有自动化断言；2)
+    追加路径在宿主被并发软删时返回 `RowError.field="hostname"`（模板列名），数据行为（整批 422、零写入）不变，且 F023 v2
+    §11 相应澄清已签核；3) `docs/features/F032/artifacts/**` 中真实 MAC 已脱敏且文件仍可作为证据引用，脱敏事实在报告登记；4)
+    ≤1023px 导航项焦点态三边可见，`.github`/受控视口证据记录；5) smoke 基线引用与当前计数一致；文本载体 placeholder 不再形似完整表头；F034
+    测试不再写回被跟踪文件；测试库口令在报告中掩码；6) T79 具备 CLI 级自动化用例并通过；7) 全量回归零下降：F014/F023/F034/F035
+    相关套件与前端 smoke 计数不减少；8) 未新增端点/字段/错误码/上限/权限/Schema，`alembic head` 不变，`models`/`api`
+    零 diff（除 F035-FU-01 归因映射所在的导入服务）。
+  requirements:
+  - docs/features/F032/review-report.md
+  - docs/features/F033/review-report.md
+  - docs/features/F034/review-report.md
+  - docs/features/F035/review-report.md
+  - docs/project/proposals/CHG-014-review-followup-closeout.md
+  depends_on:
+  - F032
+  - F033
+  - F034
+  - F035
+  blocking_decisions: []
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：提交候选交付物后由 Reviewer 独立审查 TD3-F036-* 与 F023 §11 澄清一致性。
+  layers:
+    database: false
+    backend: true
+    frontend: true
+  api_required: true
+  implementation:
+    product: COMPLETE
+    architecture: COMPLETE
+    database: NOT_REQUIRED
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
+    frontend: COMPLETE
+    test: COMPLETE
+    review: COMPLETE
+  evidence:
+    product:
+    - docs/features/F036/product.md#2-逐条映射
+    architecture:
+    - docs/features/F036/architecture.md#3-逐项设计
+    database:
+    - docs/features/F036/implementation.md#3-databasenot_required-确认
+    test_design:
+    - docs/features/F036/test-report.md#1-test-design
+    contract:
+    - docs/features/F036/architecture.md#12-定稿与裁定contract-gate2026-10-26
+    - docs/api/F023.md#11-文件内重复与现存冲突
+    backend:
+    - docs/features/F036/implementation.md#1-backend
+    frontend:
+    - docs/features/F036/implementation.md#2-frontend
+    test:
+    - docs/features/F036/test-report.md#2-test-execution
+    review:
+    - docs/features/F036/review-report.md#8-结论
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD 224291b；BLOCKER/HIGH/MEDIUM=0；6
+    LOW + 5 NOTE 均非阻塞）；Reviewer 独立复跑 10/59/38/186/84/340 全通过，负向对照证明两项修复真实生效。
+  git:
+    base_branch: v3.3
+    branch: feature/F036-review-followup-closeout
+    start_commit: a2e91949cb2d812c1e0ab48f9f957718fdba2e81
+    head_commit: 224291bc15ee31d563c7bb1e5460272d053ac9ec
+    merge_commit: null
+  not_required:
+    database: 零 DDL：唯一后端改动是 `_app_error_field` 错误标签词表 +1 项；无表/列/索引/约束/触发器/Migration，无
+      SQL 与锁序变更（Database 复核见 docs/features/F036/implementation.md §3）。
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -3063,21 +3143,21 @@ decisions_required:
   basis: 用户回复「按推荐执行」，确认推荐项 A：接受「只提交新增行」为补录既有机器时的唯一可用路径。
 pending_changes: []
 execution:
-  mode: null
+  mode: SINGLE
   authorization:
-    plan_revision: 21
+    plan_revision: 22
     feature_ids:
-    - F035
+    - F036
     authorized_by: 用户
     authorized_on: '2026-10-26'
-    basis: 用户 2026-10-26 在批准 plan revision 21 的同一次指令中回复「按推荐执行」，授权本轮新增范围 F035 的实施。
-  current_feature: null
-  current_stage: null
-  last_result: F035 已合并 v3.3（8feebc5）并完成最终状态提交；项目范围 F001–F035 全部 DONE，一期整体验收 COMPLETE。
-  next_action: null
-  repair_rounds: 0
+    basis: 同上「A B全部按照建议做」；授权 F036 实施。
+  current_feature: F036
+  current_stage: REVIEW
+  last_result: F036 TEST READY FOR REVIEW（repair round 1 关闭 2 项缺陷）。
+  next_action: 提交候选 HEAD 并派发 Reviewer。
+  repair_rounds: 1
 planning_status:
-  status: DONE
+  status: ACCEPTED
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -3085,9 +3165,10 @@ planning_status:
     DONE: 35
     DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT: []
+plan_revision: 22

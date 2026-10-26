@@ -515,6 +515,7 @@ import {
   emptyImportFormValues,
   importCarrierPatch,
   importFormFieldFromPath,
+  IMPORT_TEXT_PLACEHOLDER,
   importTargetKey,
   parseImportFormValues,
   templateColumnTypeLabel,
@@ -526,6 +527,7 @@ import {
   emptyResourceInterfaceIpImportFormValues,
   parseResourceInterfaceIpImportFormValues,
   RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS,
+  RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER,
   resourceInterfaceIpColumnAppliesToLabel,
   resourceInterfaceIpColumnTypeLabel,
   resourceInterfaceIpColumnRequiredLabel,
@@ -8865,22 +8867,41 @@ await test("F034 文本指纹：改 1 字符（含非 ASCII）必换指纹；摘
   const zhB = "cluster,hostname\nN96P,主机乙\n";
   assert.equal(utf8ByteLength(zhA), utf8ByteLength(zhB));
   assert.notEqual(textImportTargetKey(zhA), textImportTargetKey(zhB));
+  // 改 1 个 4 字节 emoji（代理对）——字节长度不变也必须换指纹（F036 DR-F036-03 回归）
+  const emojiA = "cluster,hostname\nN96P,cn001\u{1F600}\n";
+  const emojiB = "cluster,hostname\nN96P,cn001\u{1F601}\n";
+  assert.equal(utf8ByteLength(emojiA), utf8ByteLength(emojiB));
+  assert.notEqual(textImportTargetKey(emojiA), textImportTargetKey(emojiB));
+  // 同文本 → 同指纹 / 同字节数（记忆化前提：纯函数，同输入同输出）
+  assert.equal(textImportTargetKey(emojiA), textImportTargetKey(emojiA));
+  assert.equal(utf8ByteLength(emojiA), utf8ByteLength(emojiA));
   // 行尾变化（CRLF → LF）也换指纹：等价性按实际发送字节判定（ON-1）
   assert.notEqual(textImportTargetKey("a,b\r\n"), textImportTargetKey("a,b\n"));
   // 大小写不同的宿主名不共享指纹（不做大小写折叠）
   assert.notEqual(textImportTargetKey("A,B\n"), textImportTargetKey("a,B\n"));
 });
 
-await test("F034 importCarrierPatch / resourceInterfaceIpImportCarrierPatch：切 text 强制 csv，切回 file 不回填 xlsx（DR-F034-07）", async () => {
+await test("F034/F036 importCarrierPatch / resourceInterfaceIpImportCarrierPatch：切 text 强制 csv，切回 file 不清空 text 但置空 file（DR-F034-07 / DR-F036-02）", async () => {
   const fileValues = { carrier: "file", format: "xlsx", file: new File(["x"], "a.xlsx"), text: "" };
   const toText = importCarrierPatch(fileValues, "text");
   assert.deepEqual(toText, { carrier: "text", format: "csv" });
-  // 切回 file：保留当前 format（csv），不回填历史 xlsx
+  // 切回 file：保留当前 format（csv），不回填历史 xlsx；file 置空（F034-RV-01）
   const textValues = { ...fileValues, ...toText };
   assert.equal(textValues.format, "csv");
-  assert.deepEqual(importCarrierPatch(textValues, "file"), { carrier: "file", format: "csv" });
-  // 文件载体切 file → file 不改 format
-  assert.deepEqual(importCarrierPatch(fileValues, "file"), { carrier: "file", format: "xlsx" });
+  assert.deepEqual(importCarrierPatch(textValues, "file"), {
+    carrier: "file",
+    format: "csv",
+    file: null,
+  });
+  // 文件载体切 file → file 不改 format，但仍置空 file（界面与提交值一致）
+  assert.deepEqual(importCarrierPatch(fileValues, "file"), {
+    carrier: "file",
+    format: "xlsx",
+    file: null,
+  });
+  // 切 text 不清空 text；也不在 text 载体下清 file（不参与指纹与提交）
+  assert.equal("text" in toText, false);
+  assert.equal("file" in toText, false);
 
   const tripleFileValues = {
     carrier: "file",
@@ -8894,8 +8915,77 @@ await test("F034 importCarrierPatch / resourceInterfaceIpImportCarrierPatch：�
   });
   assert.deepEqual(
     resourceInterfaceIpImportCarrierPatch({ ...tripleFileValues, carrier: "text", format: "csv" }, "file"),
-    { carrier: "file", format: "csv" },
+    { carrier: "file", format: "csv", file: null },
   );
+
+  // DR-F036-02 门控后果：切回 file 后无文件 ⇒ 指纹 null ⇒ 不可确认导入
+  const pastedText = "cluster,hostname,resource_type\nN96P,cn001,BARE_METAL\n";
+  const textState = { carrier: "text", format: "csv", file: null, text: pastedText };
+  const validatedKey = resourceInterfaceIpImportTargetKey(textState);
+  assert.notEqual(validatedKey, null);
+  const backToFile = {
+    ...textState,
+    ...resourceInterfaceIpImportCarrierPatch(textState, "file"),
+  };
+  assert.equal(backToFile.text, pastedText, "切回 file 不清空已粘贴文本");
+  assert.equal(backToFile.file, null, "切回 file 后 values.file 必须为 null");
+  assert.equal(
+    resourceInterfaceIpImportTargetKey(backToFile),
+    null,
+    "切回 file 且未选文件 ⇒ importTargetKey === null",
+  );
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey,
+      currentKey: resourceInterfaceIpImportTargetKey(backToFile),
+      importSucceeded: false,
+    }),
+    false,
+    "切回 file 后 canConfirmResourceInterfaceIpImport === false",
+  );
+  // F014 侧同口径：切回 file 且未选文件 ⇒ importTargetKey === null
+  assert.equal(
+    importTargetKey({ ...textState, ...importCarrierPatch(textState, "file") }),
+    null,
+  );
+});
+
+await test("F036 文本占位符常量：含「片段」、非完整表头、示例数据行字段数 ≤4、无 `...` 模拟截断（DR-F036-04 / TD-I-7）", async () => {
+  const placeholderSampleRowCount = (placeholder) => {
+    const lines = placeholder.split("\n");
+    // 首行为说明行，其后为示例数据行（表头行 + 1 行数据）
+    assert.ok(lines[0].includes("片段"), "首行必须声明示例为「片段」");
+    assert.equal(lines[0].includes(","), false, "说明行不应用逗号模拟表头");
+    const dataLines = lines.slice(1).filter((line) => line.trim() !== "");
+    assert.equal(dataLines.length, 2, "示例应为一个表头行 + 一行数据");
+    for (const line of dataLines) {
+      assert.equal(line.includes("..."), false, "不得用 `...` 模拟截断列");
+      assert.equal(line.includes("…"), false, "不得用 `…` 模拟截断列");
+    }
+    return Math.max(...dataLines.map((line) => line.split(",").length));
+  };
+
+  assert.equal(typeof IMPORT_TEXT_PLACEHOLDER, "string");
+  assert.equal(typeof RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER, "string");
+  for (const placeholder of [IMPORT_TEXT_PLACEHOLDER, RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER]) {
+    assert.ok(placeholder.length > 0, "占位符不应为空");
+    const fieldCount = placeholderSampleRowCount(placeholder);
+    assert.ok(fieldCount <= 4, `示例数据行字段数应 ≤4（实际 ${fieldCount}）`);
+    // 不得内联 26 列完整表头（两种可读形式）
+    assert.equal(
+      placeholder.includes(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.join(",")),
+      false,
+      "placeholder 不得内联 26 列完整表头",
+    );
+    assert.equal(placeholder.includes("network,ip"), false, "placeholder 不得以末列片段冒充完整表头");
+    assert.ok(
+      placeholder.includes(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.slice(0, 3).join(",")),
+      "示例表头行应取冻结模板前 3 列（与契约列序一致）",
+    );
+  }
+  // 两面板同主体（口径一致，避免两入口漂移）
+  assert.equal(IMPORT_TEXT_PLACEHOLDER, RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER);
 });
 
 await test("F034 parseImportFormValues 文本载体：空 / 纯空白不发请求、上限−1/＝/+1 严格大于口径、format 与载体防御（T110/T111）", async () => {

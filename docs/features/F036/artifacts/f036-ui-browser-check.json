@@ -1,0 +1,412 @@
+{
+  "generated_at": "2026-10-26T11:12:18+00:00",
+  "head": "8b8f594",
+  "build_source": "frontend/dist built from candidate HEAD 8b8f594 (npm run build, 2026-10-26)",
+  "serve": "vite preview :4173 (candidate dist), /api proxied to real backend http://localhost:18080",
+  "viewport_samples": [
+    {
+      "viewport": "375x812",
+      "samples": [
+        {
+          "which": "first",
+          "text": "概览",
+          "isNavLink": true,
+          "outline": "solid 3px rgb(37, 99, 235)",
+          "outlineStyle": "solid",
+          "outlineWidth": "3px",
+          "outlineOffset": "-3px",
+          "boxShadow": "rgb(37, 99, 235) 3px 0px 0px 0px inset",
+          "backgroundColor": "rgb(234, 241, 255)",
+          "linkRect": {
+            "x": 16,
+            "y": 54,
+            "width": 56,
+            "height": 44,
+            "top": 54,
+            "right": 72,
+            "bottom": 98,
+            "left": 16
+          },
+          "navClientRect": {
+            "left": 16,
+            "top": 50,
+            "right": 359,
+            "bottom": 102
+          },
+          "navScrollLeft": 0,
+          "navScrollMax": 369,
+          "navOverflowX": "auto",
+          "ringRect": {
+            "left": 19,
+            "top": 57,
+            "right": 69,
+            "bottom": 95
+          },
+          "ringInsideNav": true,
+          "offsetMatchesWidth": true
+        },
+        {
+          "which": "first",
+          "text": "概览",
+          "isNavLink": true,
+          "outline": "solid 3px rgb(37, 99, 235)",
+          "outlineStyle": "solid",
+          "outlineWidth": "3px",
+          "outlineOffset": "-3px",
+          "boxShadow": "rgb(37, 99, 235) 3px 0px 0px 0px inset",
+          "backgroundColor": "rgb(234, 241, 255)",
+          "linkRect": {
+            "x": -353,
+            "y": 54,
+            "width": 56,
+            "height": 44,
+            "top": 54,
+            "right": -297,
+            "bottom": 98,
+            "left": -353
+          },
+          "navClientRect": {
+            "left": 16,
+            "top": 50,
+            "right": 359,
+            "bottom": 102
+          },
+          "navScrollLeft": 369,
+          "navScrollMax": 369,
+          "navOverflowX": "auto",
+          "ringRect": {
+            "left": -350,
+            "top": 57,
+            "right": -300,
+            "bottom": 95
+          },
+          "ringInsideNav": false,
+          "offsetMatchesWidth": true
+        },
+        {
+          "which": "last",
+          "text": "System",
+          "isNavLink": true,
+          "outline": "solid 3px rgb(37, 99, 235)",
+          "outlineStyle": "solid",
+          "outlineWidth": "3px",
+          "outlineOffset": "-3px",
+          "boxShadow": "none",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "linkRect": {
+            "x": 287.84375,
+            "y": 54,
+            "width": 70.84375,
+            "height": 44,
+            "top": 54,
+            "right": 358.6875,
+            "bottom": 98,
+            "left": 287.84375
+          },
+          "navClientRect": {
+            "left": 16,
+            "top": 50,
+            "right": 359,
+            "bottom": 102
+          },
+          "navScrollLeft": 369,
+          "navScrollMax": 369,
+          "navOverflowX": "auto",
+          "ringRect": {
+            "left": 290.84375,
+            "top": 57,
+            "right": 355.6875,
+            "bottom": 95
+          },
+          "ringInsideNav": true,
+          "offsetMatchesWidth": true
+        },
+        {
+          "which": "last",
+          "text": "System",
+          "isNavLink": true,
+          "outline": "solid 3px rgb(37, 99, 235)",
+          "outlineStyle": "solid",
+          "outlineWidth": "3px",
+          "outlineOffset": "-3px",
+          "boxShadow": "none",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "linkRect": {
+            "x": 656.84375,
+            "y": 54,
+            "width": 70.84375,
+            "height": 44,
+            "top": 54,
+            "right": 727.6875,
+            "bottom": 98,
+            "left": 656.84375
+          },
+          "navClientRect": {
+            "left": 16,
+            "top": 50,
+            "right": 359,
+            "bottom": 102
+          },
+          "navScrollLeft": 0,
+          "navScrollMax": 369,
+          "navOverflowX": "auto",
+          "ringRect": {
+            "left": 659.84375,
+            "top": 57,
+            "right": 724.6875,
+            "bottom": 95
+          },
+          "ringInsideNav": false,
+          "offsetMatchesWidth": true
+        }
+      ],
+      "active": {
+        "text": "概览",
+        "backgroundColor": "rgb(234, 241, 255)",
+        "boxShadow": "rgb(37, 99, 235) 3px 0px 0px 0px inset",
+        "hasInset": true
+      },
+      "screenshot": "/tmp/csm-test-artifacts/f036/f036-nav-focus-375x812.png"
+    },
+    {
+      "viewport": "1023x768",
+      "samples": [
+        {
+          "which": "first",
+          "text": "概览",
+          "isNavLink": true,
+          "outline": "solid 3px rgb(37, 99, 235)",
+          "outlineStyle": "solid",
+          "outlineWidth": "3px",
+          "outlineOffset": "-3px",
+          "boxShadow": "rgb(37, 99, 235) 3px 0px 0px 0px inset",
+          "backgroundColor": "rgb(234, 241, 255)",
+          "linkRect": {
+            "x": 16,
+            "y": 54,
+            "width": 67,
+            "height": 44,
+            "top": 54,
+            "right": 83,
+            "bottom": 98,
+            "left": 16
+          },
+          "navClientRect": {
+            "left": 16,
+            "top": 50,
+            "right": 1007,
+            "bottom": 102
+          },
+          "navScrollLeft": 0,
+          "navScrollMax": 0,
+          "navOverflowX": "auto",
+          "ringRect": {
+            "left": 19,
+            "top": 57,
+            "right": 80,
+            "bottom": 95
+          },
+          "ringInsideNav": true,
+          "offsetMatchesWidth": true
+        },
+        {
+          "which": "first",
+          "text": "概览",
+          "isNavLink": true,
+          "outline": "solid 3px rgb(37, 99, 235)",
+          "outlineStyle": "solid",
+          "outlineWidth": "3px",
+          "outlineOffset": "-3px",
+          "boxShadow": "rgb(37, 99, 235) 3px 0px 0px 0px inset",
+          "backgroundColor": "rgb(234, 241, 255)",
+          "linkRect": {
+            "x": 16,
+            "y": 54,
+            "width": 67,
+            "height": 44,
+            "top": 54,
+            "right": 83,
+            "bottom": 98,
+            "left": 16
+          },
+          "navClientRect": {
+            "left": 16,
+            "top": 50,
+            "right": 1007,
+            "bottom": 102
+          },
+          "navScrollLeft": 0,
+          "navScrollMax": 0,
+          "navOverflowX": "auto",
+          "ringRect": {
+            "left": 19,
+            "top": 57,
+            "right": 80,
+            "bottom": 95
+          },
+          "ringInsideNav": true,
+          "offsetMatchesWidth": true
+        },
+        {
+          "which": "last",
+          "text": "System",
+          "isNavLink": true,
+          "outline": "solid 3px rgb(37, 99, 235)",
+          "outlineStyle": "solid",
+          "outlineWidth": "3px",
+          "outlineOffset": "-3px",
+          "boxShadow": "none",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "linkRect": {
+            "x": 758.28125,
+            "y": 54,
+            "width": 83.078125,
+            "height": 44,
+            "top": 54,
+            "right": 841.359375,
+            "bottom": 98,
+            "left": 758.28125
+          },
+          "navClientRect": {
+            "left": 16,
+            "top": 50,
+            "right": 1007,
+            "bottom": 102
+          },
+          "navScrollLeft": 0,
+          "navScrollMax": 0,
+          "navOverflowX": "auto",
+          "ringRect": {
+            "left": 761.28125,
+            "top": 57,
+            "right": 838.359375,
+            "bottom": 95
+          },
+          "ringInsideNav": true,
+          "offsetMatchesWidth": true
+        },
+        {
+          "which": "last",
+          "text": "System",
+          "isNavLink": true,
+          "outline": "solid 3px rgb(37, 99, 235)",
+          "outlineStyle": "solid",
+          "outlineWidth": "3px",
+          "outlineOffset": "-3px",
+          "boxShadow": "none",
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "linkRect": {
+            "x": 758.28125,
+            "y": 54,
+            "width": 83.078125,
+            "height": 44,
+            "top": 54,
+            "right": 841.359375,
+            "bottom": 98,
+            "left": 758.28125
+          },
+          "navClientRect": {
+            "left": 16,
+            "top": 50,
+            "right": 1007,
+            "bottom": 102
+          },
+          "navScrollLeft": 0,
+          "navScrollMax": 0,
+          "navOverflowX": "auto",
+          "ringRect": {
+            "left": 761.28125,
+            "top": 57,
+            "right": 838.359375,
+            "bottom": 95
+          },
+          "ringInsideNav": true,
+          "offsetMatchesWidth": true
+        }
+      ],
+      "active": {
+        "text": "概览",
+        "backgroundColor": "rgb(234, 241, 255)",
+        "boxShadow": "rgb(37, 99, 235) 3px 0px 0px 0px inset",
+        "hasInset": true
+      },
+      "screenshot": "/tmp/csm-test-artifacts/f036/f036-nav-focus-1023x768.png"
+    }
+  ],
+  "v14": {
+    "hostname": "f036-ui-1793013142",
+    "steps": [
+      {
+        "step": "validate",
+        "carrier_selection": null,
+        "file_input_present": true,
+        "file_input_value": "C:\\fakepath\\f036-ui-import.csv",
+        "text_area_present": false,
+        "validate_section": [
+          "预校验完成（csv）：共 1 行数据，可导入 1 行，错误 0 项。",
+          "预校验通过：未发现行错误。可点击「确认导入」；写入时服务端将基于最新状态再次校验，若状态变化导致冲突仍会整批回滚。"
+        ],
+        "write_section": [
+          "暂无数据尚未导入（需先通过预校验）。"
+        ],
+        "confirm_buttons": [
+          {
+            "disabled": false
+          }
+        ],
+        "pasted_file_label_present": false
+      },
+      {
+        "step": "switch_text",
+        "carrier_selection": null,
+        "file_input_present": false,
+        "file_input_value": null,
+        "text_area_present": true,
+        "validate_section": [
+          "暂无数据尚未预校验。选择文件或粘贴 CSV 文本后点击「预校验」查看全部错误行（只读，不写入任何数据）。"
+        ],
+        "write_section": [
+          "暂无数据尚未导入（需先通过预校验）。"
+        ],
+        "confirm_buttons": [
+          {
+            "disabled": true
+          }
+        ],
+        "pasted_file_label_present": true
+      },
+      {
+        "step": "switch_back_file",
+        "carrier_selection": null,
+        "file_input_present": true,
+        "file_input_value": "",
+        "text_area_present": false,
+        "validate_section": [
+          "暂无数据尚未预校验。选择文件或粘贴 CSV 文本后点击「预校验」查看全部错误行（只读，不写入任何数据）。"
+        ],
+        "write_section": [
+          "暂无数据尚未导入（需先通过预校验）。"
+        ],
+        "confirm_buttons": [
+          {
+            "disabled": true
+          }
+        ],
+        "pasted_file_label_present": false
+      }
+    ],
+    "setup": {
+      "cluster": {
+        "status": 200,
+        "code": "F036UI",
+        "id": "4cb254c5-6aa6-4951-b2c1-8d381d3a80f8"
+      },
+      "network": {
+        "status": 200,
+        "name": "f036uin"
+      }
+    },
+    "screenshot": "/tmp/csm-test-artifacts/f036/f036-carrier-switch-back-file-375x812.png"
+  },
+  "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+}

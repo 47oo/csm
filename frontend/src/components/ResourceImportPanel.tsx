@@ -2,7 +2,7 @@ import { Button, Input, Select, TextArea, DataTable } from "./ui/controls";
 import { Alert } from "antd";
 import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
 import { SurfaceCard } from "./ui/surfaces";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { displayError, isApiError } from "../api/client";
 import {
   describeImportError,
@@ -24,6 +24,7 @@ import {
   emptyImportFormValues,
   importCarrierPatch,
   importFormFieldFromPath,
+  IMPORT_TEXT_PLACEHOLDER,
   importTargetKey,
   parseImportFormValues,
   templateColumnTypeLabel,
@@ -195,9 +196,17 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
    * 本次导入已成功后禁用（同一文件再导入会因 hostname 冲突被服务端整批
    * 拒绝，A23；换文件需重新预校验）。
    */
-  const currentKey = importTargetKey(values);
+  // 仅省算力（DR-F036-03）：两函数都是纯函数，输入恰为这四项，故依赖即
+  // 全量输入；语义不依赖缓存（输入变化失效仍由 changeInput 重置保证）。
+  const currentKey = useMemo(
+    () => importTargetKey(values),
+    [values.carrier, values.format, values.file, values.text],
+  );
   /** 文本载体下非权威 UTF-8 字节计数（纯展示，不参与门控；上限以服务端为准）。 */
-  const pastedByteLength = values.carrier === "text" ? utf8ByteLength(values.text) : 0;
+  const pastedByteLength = useMemo(
+    () => (values.carrier === "text" ? utf8ByteLength(values.text) : 0),
+    [values.carrier, values.text],
+  );
   const carrierIsText = values.carrier === "text";
   const validatePassed =
     validateState.kind === "success" &&
@@ -299,7 +308,7 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
             value={values.text}
             rows={10}
             spellCheck={false}
-            placeholder={"cluster,hostname,resource_type\nN96P,cn001,BARE_METAL"}
+            placeholder={IMPORT_TEXT_PLACEHOLDER}
             onChange={(event) => changeInput({ text: event.target.value })}
             disabled={busy}
             aria-describedby="resource-import-text-hint resource-import-text-counter"

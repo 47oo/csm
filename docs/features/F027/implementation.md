@@ -45,7 +45,7 @@
 
 ```bash
 cd backend
-export TEST_DATABASE_URL='postgresql+psycopg://csm:csmtestpw@127.0.0.1:55432/csm_test'
+export TEST_DATABASE_URL='postgresql+psycopg://csm:***@127.0.0.1:55432/csm_test'
 unset DATABASE_URL
 ```
 

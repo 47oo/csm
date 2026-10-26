@@ -2,7 +2,7 @@ import { Button, Input, Select, TextArea, DataTable } from "./ui/controls";
 import { Alert } from "antd";
 import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
 import { SurfaceCard } from "./ui/surfaces";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { displayError, isApiError } from "../api/client";
 import {
   describeImportError,
@@ -23,6 +23,7 @@ import {
   canConfirmResourceInterfaceIpImport,
   emptyResourceInterfaceIpImportFormValues,
   RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS,
+  RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER,
   resourceInterfaceIpColumnAppliesToLabel,
   resourceInterfaceIpColumnTypeLabel,
   resourceInterfaceIpColumnRequiredLabel,
@@ -221,9 +222,17 @@ export default function ResourceInterfaceIpImportPanel({
    * （同一文件再导入会因现存同名网卡 / 同集群既有 IP 被服务端整批拒绝，
    * v2 §11；换文件需重新预校验）。
    */
-  const currentKey = resourceInterfaceIpImportTargetKey(values);
+  // 仅省算力（DR-F036-03）：两函数都是纯函数，输入恰为这四项，故依赖即全量
+  // 输入；语义不依赖缓存（输入变化失效仍由 changeInput 重置保证）。
+  const currentKey = useMemo(
+    () => resourceInterfaceIpImportTargetKey(values),
+    [values.carrier, values.format, values.file, values.text],
+  );
   /** 文本载体下非权威 UTF-8 字节计数（纯展示，不参与门控；上限以服务端为准）。 */
-  const pastedByteLength = values.carrier === "text" ? utf8ByteLength(values.text) : 0;
+  const pastedByteLength = useMemo(
+    () => (values.carrier === "text" ? utf8ByteLength(values.text) : 0),
+    [values.carrier, values.text],
+  );
   const carrierIsText = values.carrier === "text";
   const canConfirm = canConfirmResourceInterfaceIpImport({
     validated:
@@ -365,7 +374,7 @@ export default function ResourceInterfaceIpImportPanel({
             value={values.text}
             rows={10}
             spellCheck={false}
-            placeholder={"cluster,hostname,resource_type,role,status,...,network,ip\nN96P,cn001,BARE_METAL,COMPUTE,ACTIVE,..."}
+            placeholder={RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER}
             onChange={(event) => changeInput({ text: event.target.value })}
             disabled={busy}
             aria-describedby={

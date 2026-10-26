@@ -978,10 +978,15 @@ mark {
     scroll-snap-align: start;
   }
 
-  /* 横向滚动时聚焦环在滚动容器内完整可见（TD-1 N1）；柔光环补充轮廓 */
+  /* 横向滚动时聚焦环在滚动容器内完整可见（TD-1 N1，F036 DR-F036-05）：
+     `.app-nav` 在窄屏是 `overflow-x:auto / overflow-y:hidden` 的滚动容器，只
+     绘制内边距盒内的内容 ⇒ 元素盒外的 outline（全局 offset 3px）与柔光外阴影
+     会被裁切。因此把聚焦环画在元素内侧（offset -3px），任意滚动位置（含左右
+     边缘）均完整可见；**不覆盖 box-shadow**，激活项的 inset 左条（current 标识）
+     保持原样。不新增断点，不改 44px / padding-inline / scroll-snap / overflow。 */
   .app-nav .nav-link:focus-visible {
-    outline-offset: 0;
-    box-shadow: var(--csm-focus-ring);
+    outline: 3px solid var(--csm-primary);
+    outline-offset: -3px;
   }
 
   /* 右缘渐隐提示：说明导航可横向滚动（不依赖颜色 / 阴影） */

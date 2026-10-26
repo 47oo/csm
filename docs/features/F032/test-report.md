@@ -391,7 +391,7 @@ python3 scripts/collect_host_info.py --help | grep -n -i "host"
 | Python | `Python 3.12.7`（脚本仅标准库） |
 | 采集到的接口（默认排除 loopback / down） | `eth0 10.10.10.23/24`、`eth6 192.168.10.221/24`、`eth4 10.100.24.211/32`；hostname 归一化后 `luck`（3 条数据行） |
 | 测试栈 | `docker compose -p csmtest`：`csmtest-nginx-1`（`0.0.0.0:18080->80`）、`csmtest-backend-1`（healthy）、`csmtest-db-1`（postgres:16, healthy）、`csmtest-frontend-1`；`GET /api/v1/health/ready` = **200** |
-| 数据库 | 测试 PostgreSQL（`.env.test`：`csm` / `csm:csmtestpw@db:5432/csm`，独立 `csm_test` 保留给后端集成测试）。**未连接、未写入任何生产或未知数据库。** |
+| 数据库 | 测试 PostgreSQL（`.env.test`：`csm` / `csm:***@db:5432/csm`，独立 `csm_test` 保留给后端集成测试）。**未连接、未写入任何生产或未知数据库。** |
 | 凭据 | `admin`（ADMIN，含 `IMPORT`）经 `POST /api/v1/auth/login` 取得 `csm_session` Cookie；另创建一次性 API Key（label `f032-validate`）仅用于脚本 `--push` 预校验腿，**明文仅存 `/tmp` 且用完即删、未出现在任何报告或输出中** |
 | 测试隔离 | 所有会写文件的用例在 `mktemp -d` 临时目录执行；单元测试用 `tempfile.TemporaryDirectory()` + `chdir` 复原；仓库工作区未出现本次执行产生的 `csm_host_info*.csv`（见 §12.9 OB-1 的既有残留说明） |
 | 写入边界 | **只调用 `/validate` 预校验**；全程未带 `--yes`、未调用写入端点 `POST /imports/resource-interfaces-ips`，未触发 `scripts/collect_host_info.py` 的写入腿 |

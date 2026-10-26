@@ -389,6 +389,59 @@ class EnhancementTests(unittest.TestCase):
         self.assertEqual(row["network"], "mgmt")
         self.assertEqual(row["host"], "")
 
+    def test_cli_all_manual_params_written(self):
+        """T79 端到端（DR-F036-07）：五个可选参数经真实 CLI 逐列写入。
+
+        用子进程 + 临时 cwd：T79 的验收对象是 CLI→列端到端路径（含 argparse
+        ``required``/``choices``、``_validate_args`` 与 ``main`` 的 manual 组装），
+        进程内 monkeypatch 无法证明 exit code 与零副作用。``--include-loopback``
+        仅用于让采集行数与网卡硬件无关（``lo`` 恒有 IPv4），不改被断言的列。
+        """
+        script = os.path.abspath(collect_host_info.__file__)
+
+        def run(argv):
+            return subprocess.run([sys.executable, script, *argv], cwd=tmpdir,
+                                  capture_output=True, text=True)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # ① BM 批：五个可选参数（含 --resource-type）逐列写入，host 恒空。
+            bm = run(["--print", "--include-loopback", "--resource-type", "BARE_METAL",
+                      "--cluster", "F036CLI", "--role", "COMPUTE", "--status", "IDLE",
+                      "--network", "f036net"])
+            self.assertEqual(bm.returncode, 0, bm.stderr)
+            bm_rows = _parse_csv(bm.stdout)
+            self.assertEqual(bm_rows[0], FROZEN_COLUMNS)
+            self.assertTrue(bm_rows[1:], "采集行数为 0，无法证明列写入")
+            for column, value in (("cluster", "F036CLI"), ("role", "COMPUTE"),
+                                  ("status", "IDLE"), ("network", "f036net"),
+                                  ("resource_type", "BARE_METAL")):
+                self.assertEqual(set(_column_values(bm_rows, column)), {value}, column)
+            self.assertEqual(set(_column_values(bm_rows, "host")), {""})
+
+            # ② VM 批：--host 写入 host 列。
+            vm = run(["--print", "--include-loopback", "--resource-type", "VIRTUAL_MACHINE",
+                      "--host", "f036host"])
+            self.assertEqual(vm.returncode, 0, vm.stderr)
+            vm_rows = _parse_csv(vm.stdout)
+            self.assertEqual(vm_rows[0], FROZEN_COLUMNS)
+            self.assertTrue(vm_rows[1:], "采集行数为 0，无法证明 host 写入")
+            self.assertEqual(set(_column_values(vm_rows, "host")), {"f036host"})
+
+            # ③ 不带五个可选参数重跑：对应列全为空串。
+            plain = run(["--print", "--include-loopback", "--resource-type", "BARE_METAL"])
+            self.assertEqual(plain.returncode, 0, plain.stderr)
+            plain_rows = _parse_csv(plain.stdout)
+            self.assertTrue(plain_rows[1:], "采集行数为 0，无法证明列留空")
+            for column in ("cluster", "role", "status", "host", "network"):
+                self.assertEqual(set(_column_values(plain_rows, column)), {""}, column)
+
+            # ④ 缺 --resource-type：非零退出、stderr 指明该参数、不写任何文件。
+            missing = run(["--print", "--cluster", "F036CLI"])
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertIn("--resource-type", missing.stderr)
+            self.assertFalse(missing.stdout.strip())
+            self.assertEqual(sorted(os.listdir(tmpdir)), [], "参数错误不得写文件")
+
     def test_resource_type_column_written_and_type_columns(self):
         # T80：--resource-type 写入该列并仅填对应类型列。
         bm = _sample_rows({"cluster": "C1"}, "BARE_METAL")[0]

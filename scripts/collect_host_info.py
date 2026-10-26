@@ -479,6 +479,15 @@ def write_csv(rows: list[dict], output_path: str, include_header: bool = True) -
 
 def collect(resource_type: str | None, include_loopback: bool, include_down: bool,
             manual: dict | None = None) -> list[dict]:
+    """采集本机信息并按 ``resource_type`` 组装模板行。
+
+    ``resource_type: str | None`` 的取值范围**仅供** ``build_rows`` 单测与防御
+    边界使用（``None`` ⇒ 类型列留空，见 ``RowMappingTests``）；CLI 侧
+    ``--resource-type`` 仍是 ``required=True``（F032 / DR-1007，T101 保证四种调用
+    形式缺参均本地失败、零副作用），因此 ``main`` 不会传入 ``None``。
+    ``_push`` 对 ``args.resource_type`` 的防御检查同样保留（F036 DR-F036-10 / 11b，
+    属既有行为登记，无行为变更）。
+    """
     hostname = collect_hostname()
     memory_mb = collect_memory_mb()
     cpu = collect_cpu()
@@ -645,7 +654,14 @@ def build_epilog() -> str:
 
 
 def build_error_hint() -> str:
-    """参数错误时追加到 argparse 原始错误之后的内容（DR-1007 / R-5）。"""
+    """参数错误时追加到 argparse 原始错误之后的内容（DR-1007 / R-5）。
+
+    **记载（F036 DR-F036-10 / 11a，F032-RV-05，不改行为）**：「任意 argparse
+    错误统一追加三组枚举允许值（--resource-type / --role / --status）」是
+    DR-1007 的既有取舍：触发点为 ``_ArgumentParser.error()``，所有参数错误
+    （含与本提示无关的参数）都会附上这段文本。收窄为按错误参数精确追加需另立
+    变更（涉及 ``error()`` 签名与既有 T101/T102 期望），不属本次范围。
+    """
     return (
         "允许值：\n"
         f"  --resource-type: {', '.join(RESOURCE_TYPE_VALUES)}\n"

@@ -117,7 +117,7 @@ ADMIN/VIEWER 各执行：①入口显示规则；②模态文案/危险样式/�
 ## 4. 后端真 PG 全量回归
 
 - 命令（只读容器）：
-  `docker run --rm --network csmtest_default -e TEST_DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm_test' -e DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm' -e PYTHONDONTWRITEBYTECODE=1 csm-backend-f019test pytest tests/ -q -p no:cacheprovider`
+  `docker run --rm --network csmtest_default -e TEST_DATABASE_URL='postgresql+psycopg://csm:***@db:5432/csm_test' -e DATABASE_URL='postgresql+psycopg://csm:***@db:5432/csm' -e PYTHONDONTWRITEBYTECODE=1 csm-backend-f019test pytest tests/ -q -p no:cacheprovider`
 - 结果：**664 passed, 2 skipped**（用时 664.89s）。
 - 跳过项（与 F021 无关）：
   - `tests/integration/test_f016_acceptance.py:50` — F016 acceptance module disabled（`F016_ACCEPTANCE=1` 才启用）。

@@ -70,7 +70,7 @@ F014 模板/端点/行为无回归；F007 `create_interface` 与 F010 `create_ip
 | --- | --- |
 | 数据库 | 真 PostgreSQL `csmtest-db-1`，库 `csm_test`，网络 `csmtest_default` |
 | 后端镜像 | `docker build --target test -t csm-backend-f019test ./backend`（含 `main` 实现 `524a729`） |
-| 集成命令 | `docker run --rm --network csmtest_default -e TEST_DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm_test' -e DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm' -e PYTHONDONTWRITEBYTECODE=1 csm-backend-f019test pytest <file> -q -p no:cacheprovider` |
+| 集成命令 | `docker run --rm --network csmtest_default -e TEST_DATABASE_URL='postgresql+psycopg://csm:***@db:5432/csm_test' -e DATABASE_URL='postgresql+psycopg://csm:***@db:5432/csm' -e PYTHONDONTWRITEBYTECODE=1 csm-backend-f019test pytest <file> -q -p no:cacheprovider` |
 | 前端 | `cd frontend && npm run typecheck && npm run build && npm run smoke:client` |
 | 说明 | 新增测试文件以只读卷挂载 `/app/tests`；镜像内为已合入的 `v3`/`main` 实现。未对生产库执行任何测试（DB-D10 guard 生效）。 |
 
@@ -198,7 +198,7 @@ GIT: git ls-files --others --exclude-standard backend/tests
 | --- | --- |
 | 数据库 | 真 PostgreSQL `csmtest-db-1`，库 `csm_test`，网络 `csmtest_default` |
 | 后端镜像 | 重建 `docker build --target test -t csm-backend-f023r1 ./backend`（构建上下文 = HEAD `37284b6`）；镜像内 `_app_error_field` 已含 `details["field"]` 回退（`docker run … inspect.getsource` 核对 `HAS_FALLBACK`） |
-| 集成命令 | `docker run --rm --network csmtest_default -e TEST_DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm_test' -e DATABASE_URL='postgresql+psycopg://csm:csmtestpw@db:5432/csm' -e PYTHONDONTWRITEBYTECODE=1 csm-backend-f023r1 pytest <target> -q -p no:cacheprovider` |
+| 集成命令 | `docker run --rm --network csmtest_default -e TEST_DATABASE_URL='postgresql+psycopg://csm:***@db:5432/csm_test' -e DATABASE_URL='postgresql+psycopg://csm:***@db:5432/csm' -e PYTHONDONTWRITEBYTECODE=1 csm-backend-f023r1 pytest <target> -q -p no:cacheprovider` |
 | 前端 | `cd frontend && npm run typecheck && npm run build && npm run smoke:client` |
 | 说明 | 未对生产库执行任何测试（DB-D10 guard 生效）。测试文件 `backend/tests/integration/test_f023_resource_interface_ip_import.py` 为已提交内容，本轮未新增/修改测试代码（`git diff --stat` 为空）。 |
 
