@@ -1,0 +1,19 @@
+== environment snapshot 2026-10-26T06:43:59Z ==
+HEAD: 717385b
+branch: feature/F034-csv-text-import
+
+node: v22.23.3
+python: Python 3.12.7
+
+csmtest-backend-1	Up 45 minutes (healthy)
+csmtest-frontend-1	Up 45 minutes
+csmtest-nginx-1	Up 46 minutes
+csmtest-db-1	Up 46 minutes (healthy)
+csm-f026-pg	Up 3 days
+
+health/ready: 200
+health: 200
+
+test PG:
+PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+public tables: 0

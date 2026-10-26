@@ -1,0 +1,4 @@
+cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,gpu_model,gpu_count,name,interface_type,mac_address,speed_mbps,mtu,enabled,network,ip
+F34A,f34-f-bm1,BARE_METAL,COMPUTE,IDLE,,,,,,,,,,,,,,eth0,PHYSICAL,,,,,f34-net,10.34.0.21
+F34A,f34-f-bm1,BARE_METAL,COMPUTE,IDLE,,,,,,,,,,,,,,eth1,PHYSICAL,,,,,f34-net,10.34.0.22
+F34A,f34-f-h1,BARE_METAL,COMPUTE,IDLE,,,,,,,,,,,,,,eth0,PHYSICAL,,,,,f34-net,10.34.0.23

@@ -1,0 +1,3 @@
+cluster,hostname,resource_type,role,status,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,memory_mb,gpu_model,gpu_count
+F34A,f34-q2,BARE_METAL,COMPUTE,IDLE,"Dell, Inc.",PowerEdge R750,F34-SN-Q3,Intel Xeon 6338,2,32,262144,NVIDIA A100,4
+F34A,f34-q3,BARE_METAL,COMPUTE,IDLE,"Manu""facturer",PowerEdge R750,F34-SN-Q4,Intel Xeon 6338,2,32,262144,NVIDIA A100,4

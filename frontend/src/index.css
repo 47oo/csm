@@ -721,6 +721,32 @@ mark {
   word-break: break-all;
 }
 
+/* ---------- F034 导入 CSV 文本载体（复用 F014/F023 既有风格，最小新增） ---------- */
+
+/* 粘贴文本域：等宽便于核对表头与逗号分隔（高度由 rows={10} 固定，内部滚动） */
+.import-carrier-textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--csm-font-note);
+  line-height: 1.5;
+  tab-size: 4;
+}
+
+/* 载体说明（仅逗号分隔 / 须含模板表头 / 不自动补表头），弱于标签、强于计数 */
+.import-carrier-hint {
+  margin: 0.25rem 0 0;
+  color: var(--csm-text-subtle);
+  font-size: 0.85rem;
+}
+
+/* 非权威 UTF-8 字节计数：与错误区分（不用 danger 色），数字对齐便于快速比较 */
+.import-carrier-counter {
+  margin: 0.25rem 0 0;
+  color: var(--csm-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- F015 Audit 查询 / System（复用既有风格，最小样式） ---------- */
 
 /* 审计行 before/after 摘要：可换行 + 限宽（覆盖 data-table 默认 nowrap） */

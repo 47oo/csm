@@ -1,0 +1,2 @@
+cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor
+F34A,f34-vm1,VIRTUAL_MACHINE,COMPUTE,IDLE,f34-pre,8,16384,200,KVM

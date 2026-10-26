@@ -1,0 +1,2 @@
+cluster,hostname,resource_type,role,status,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,memory_mb,gpu_model,gpu_count
+F34A,f34-marker,BARE_METAL,COMPUTE,IDLE,Dell,PowerEdge R750,F034-MARKER-8a1f4c0d-6f4f-4ef3-9d4a-9f7f3c1b2e55,Intel Xeon 6338,2,32,262144,NVIDIA A100,4

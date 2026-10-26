@@ -1,0 +1,2 @@
+cluster,resource_type,role,status,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,memory_mb,gpu_model,gpu_count
+F34A,BARE_METAL,COMPUTE,IDLE
