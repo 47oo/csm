@@ -2322,8 +2322,8 @@ features:
   - F023
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST_DESIGN
-  next_action: TEST_DESIGN：Tester 出 V1–V12 验收映射、边界与并发场景、环境与可验证性检查。
+  current_stage: IMPLEMENTATION
+  next_action: IMPLEMENTATION：Backend 改造资源+网卡+IP 导入服务（组级二态 + 两条只读检查 + 锁集合 + 计数）并补测试；Frontend 落文案；Database 补 F023 NOT_REQUIRED 复核记录。
   layers:
     database: false
     backend: true
@@ -2333,8 +2333,8 @@ features:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: COMPLETE
     backend: PENDING
     frontend: PENDING
     test: PENDING
@@ -2346,7 +2346,12 @@ features:
     - docs/features/F035/architecture.md#3-方案
     database:
     - docs/features/F035/architecture.md#5-数据完整性data-integrity-对应表
-  last_result: ARCHITECTURE READY FOR DESIGN：组级二态方案（existing_resource_id）、锁集合并入追加宿主、预校验新增两条只读检查、计数 C1；F023 已升版 v2（Architect 签核 2026-10-26）；DATABASE NOT_REQUIRED。
+    test_design:
+    - docs/features/F035/test-report.md#1-test-design
+    contract:
+    - docs/api/F023.md#17-签核与修订
+    - docs/features/F035/architecture.md#12-定稿签核
+  last_result: TEST_DESIGN READY（72 条 TD3-F035-*）；CONTRACT READY FOR IMPLEMENTATION：F023 v2 已签核，TD-I-3/4/5/6/7 已裁定；DATABASE NOT_REQUIRED。
   git:
     base_branch: v3.3
     branch: feature/F035-append-interface-ip
@@ -2848,9 +2853,9 @@ execution:
     authorized_on: '2026-10-26'
     basis: 用户 2026-10-26 在批准 plan revision 21 的同一次指令中回复「按推荐执行」，授权本轮新增范围 F035 的实施。
   current_feature: F035
-  current_stage: TEST_DESIGN
-  last_result: ARCHITECTURE Gate 通过（READY FOR DESIGN）；F023 v2 已签核；DATABASE NOT_REQUIRED。
-  next_action: 派发 Tester TEST_DESIGN，随后 Architect 定稿 READY FOR IMPLEMENTATION。
+  current_stage: IMPLEMENTATION
+  last_result: TEST_DESIGN READY + CONTRACT READY FOR IMPLEMENTATION（F023 v2 签核）。
+  next_action: 并行派发 Backend 实现、Frontend 文案、Database 文档复核记录。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

@@ -150,7 +150,7 @@
 | DR-F035-04 | 计数 C1：`created` = 新建 Resource 组数；纯追加批为 0；无新响应字段 | CONFIRMED |
 | DR-F035-05 | 预校验新增只读「宿主内未软删同名 Interface」批量检查 | REQUIRED |
 | DR-F035-06 | BQ02 比较列集 = canonical `resource_cells` 键集合；组级比较；归一化标量；批量取数 | CONFIRMED + 实现形态 |
-| DR-F035-07 | 既有值投影复用 `_hardware_snapshot` / `_virtual_machine_snapshot` | PROPOSED → CONFIRMED（定稿） |
+| DR-F035-07 | 既有值投影复用 `_hardware_snapshot` / `_virtual_machine_snapshot` | CONFIRMED（定稿 2026-10-26，见 §12.3） |
 | DR-F035-08 | 归因：`field` = 模板列名（含 `resource_type`），`related_row=null`，去重 | CONFIRMED（定稿） |
 | DR-F035-09 | 删除 hostname 业务冲突检查，保留 DB 唯一归因（并发新建兜底） | REQUIRED |
 | DR-F035-10 | 软删 Resource 不参与判定、按不存在处理、不复活 | CONFIRMED |
@@ -182,5 +182,77 @@
 
 ## 12. 定稿签核
 
-- **状态**：待 CONTRACT 阶段填写（取得 Database `NOT_REQUIRED` 结论与 Test Design 后，由 Architect 核对一致性并签署 `READY FOR IMPLEMENTATION`）。
-- **变更边界**：本设计绑定 requirements revision 14 §24.6 与 T117–T126、CHG013-BQ01–BQ08、F023 v2；任一变化须重新核对并重新签核。
+- **状态**：`READY FOR IMPLEMENTATION`
+- **签核**：Architect，CONTRACT Gate 定稿，**定稿时间 2026-10-26**；本设计 = §1–§11（v1）+ 本节。本节与 §1–§11 冲突时以本节为准。
+- **契约**：`docs/api/F023.md` **v2 READY**（Architect 正文升版签核 2026-10-26）；**Contract 状态 = READY**。
+- **layers**：`{database: false, backend: true, frontend: true}`；`api_required = true`（仅 F023 正文 v1→v2，零新端点）。
+
+### 12.1 核对输入
+
+| 对象 | 版本 / 状态 | 结论 |
+| --- | --- | --- |
+| `docs/product/requirements-v3.md` | **revision 14**：§24.6、修订后的 §24/§24.1/§24.5、§31 T117–T126 与 T67/T71 | 与 §1–§5 一致，无未落稿裁定 |
+| 用户裁定 | CHG013-BQ01=B / BQ02=B / BQ03=A / BQ04=A / BQ05=A / BQ06=C1 / BQ07=A / BQ08=A；plan_revision 21 | 未被放宽或收窄 |
+| `docs/api/F023.md` | **v2 READY**（替代 v1 §4 计数 bullet、§8.1、§11、§12.3 第 1–2 项、§13 第 1/3 项；含增补节衔接段） | 与 §3–§5 逐条对应 |
+| `docs/features/F035/test-report.md` §1 | **TEST DESIGN READY**（72 条 `TD3-F035-*`；V2 六条机械硬判据、V11 真实 PG 五场景、V10 八项零回归 + 静态零 diff 守卫、F023 用例更新清单） | 可执行且未超契约 |
+| Database | **`NOT_REQUIRED`**（`layers.database=false`；无表/列/索引/约束/触发器/Migration；三项部分唯一索引已由 F004/F007/F010 交付） | 无 Schema 交付，不安排无实现者的 Schema 变更 |
+| 既有 Contract | `docs/api/F014.md` v1（+「追加能力不适用」补注）、F023 两个增补节、F002 §1.1/§1.2 | 叠加适用、无矛盾 |
+
+### 12.2 核对结论：设计 ↔ 契约 ↔ 测试 三方一致，无放宽
+
+| 设计条款 | F023 v2 条款 | Test Design | 结论 |
+| --- | --- | --- | --- |
+| §3.1 组级二态 | §4 计数 bullet、§8.1、§11、§13 | T117/T123/T124、V1/V12 | 一致 |
+| §3.2 比较列集/位置/归一化/归因 | §11（含 `resource_type`、留空不比较、null 不补填） | T119.1–.11 | 一致 |
+| §3.3 两条只读预校验 | §11、§8.1 末 bullet（BQ05=A） | T120、T125.4 | 一致 |
+| §3.4 软删视为不存在 | §8.1、§13 | T125、T123.5 | 一致 |
+| §3.5 删除 hostname 业务分支、保留 DB 归因 | §11 末 bullet、§12.5 | T67.2、T126.1、V11.4 | 一致 |
+| §4 锁序 | §12.3 | V11.1–.5（含锁环回归） | 一致 |
+| §5 完整性表 | §12.3/§12.5、§14 | TD-7、T126.6/.7 | 一致 |
+| §7.1 零 diff 守卫 | §15 F014 兼容边界 | T126.7、T71.2 | 一致 |
+| §7.3 前端文案（不展示追加数 M） | §4、§13 | T126.8、M/S 层、TD-10 | 一致 |
+
+结论：无任何测试判据宽于/严于契约到改变业务行为；V2 六条硬判据是 T118 与 §5 的机械化；V11 五场景对应 §4 与 §12.3；未新增错误码、`reason` 取值、响应字段、模板列、上限、权限、端点。
+
+### 12.3 技术决策状态冻结
+
+- **DR-F035-07 提升为 CONFIRMED（2026-10-26）**：复用 `_hardware_snapshot` / `_virtual_machine_snapshot` 是既有值归一化的唯一投影来源，自建第二套投影会造成隐式放宽/收紧（BQ02=B 的比较对象是「既有规范化值」）。
+- 其余决策状态不变：DR-01/02/04/06/08/10/11/13 = CONFIRMED；DR-03/05/09/12/14 = REQUIRED（由 §24.6 / T118 / T120 / §12.3 / §13 必然产生）。
+- 冻结为实现约束：§3.2 列集与归一化、§3.3 两条只读检查、§4 锁序、§5 完整性表、§7.1 第 1–11 项、§7.3 文案要点、§12.4 裁定。
+
+### 12.4 CONTRACT 阶段裁定（对 Tester `TD-I-*`）
+
+| ID | 裁定 |
+| --- | --- |
+| TD-I-3 | NOTE 非阻塞：`docs/database/f023-import.md` 宜补一行 F035 复核记录（作者 Database / 协调器执行）；不改变 `NOT_REQUIRED` 结论，不阻塞实施 |
+| TD-I-4 | 实现自由度：不固定「多行均不一致」的行号集合。必需义务 (a) `field`=模板列名、(b) `related_row=null`、(c) 组内至少一条同列不一致行被报出（否则等于静默忽略，违 T119）、(d) `(row,field)` 去重；全部列须用同一确定性策略并登记。Tester 只断言 (a)–(d) |
+| TD-I-5 | 实现自由度：`resource_type` 不一致须至少一条 `field="resource_type"` + 整批 422 + 零残留；是否附加其它列错误自由；**漏报 `resource_type` 或归因到其它列 → FAIL** |
+| TD-I-6 | 确认：V12（T123.5）是观察项（R3），断言 `created==1`、新 id ≠ 原 id、原行仍软删且子对象不变；实现改报错须回 Architect |
+| TD-I-7 | 不影响契约：`existing_resource_id` / `ExistingSnapshot` / `_load_existing_snapshots` / `_check_existing_consistency` / `_check_existing_interface_names` 为内部符号，改名不需 F023 升版；须在 `implementation.md` 登记实际符号名，Tester 按语义断言 |
+
+### 12.5 变更边界
+
+本签核绑定 requirements revision 14 §24.6 + T117–T126、CHG013-BQ01–BQ08、plan_revision 21、F023 v2、Test Design TD-F035-1、Database `NOT_REQUIRED`。
+
+| 变化类型 | 处理 |
+| --- | --- |
+| 任一 BQ 裁定变化 | 本签核失效 → 用户重新裁定 → F023 v3 → 重走 Database / Test Design / Contract |
+| F023 v2 声明外条款变动（端点/字段/响应/错误码/`reason`/模板/行号/上限/权限/原子性） | 变更控制 + 用户决定；本签核失效 |
+| 新增业务行为（幂等跳过、部分成功、复活软删、upsert、跨 Cluster、自动分配） | 明确不做；提出即回 Product |
+| Schema / Migration 需求出现 | `layers.database` 变 true，本签核失效 |
+| 实现自由度选择（TD-I-4/5/7） | 不触发重签，须在 `implementation.md` 登记 |
+| 前端文案调整（不改 wire、不展示追加数 M） | §7.3 内自由；改变语义须用户确认 |
+| Test Design 判据调整 | 由 Tester 走变更并回 Architect 复核，不得以测试侧放宽替代设计变更 |
+
+### 12.6 后续关注
+
+1. **TD-I-3**：建议在 `docs/database/f023-import.md` 追加「§5 F035 复核（2026-10-26）：`NOT_REQUIRED` 继续有效；不新增/修改表、列、索引、约束、触发器或 Migration；不产生既有行 `UPDATE`；追加能力的数据库兜底仍是三项部分唯一索引；F023-DB-01 锁序扩展为追加宿主并入 `resources` 预锁集合；以零 Schema 漂移断言替代约束验证」。
+2. **TD-I-4/5**：Tester 按 §12.4 断言；实际行号集合与附加错误只登记、不判 FAIL；Backend 须固定并登记策略。
+3. **TD-I-7**：Backend 登记实际符号名；语义偏离回 Architect。
+4. **V12 观察项**（R3）：改为报错需新提案。
+5. **文案义务须被 S/B 层验证**：R1（null 不能补填）、R2/BQ08（只提交新增行）、R5（VM 追加行 `host` 必填且须一致）、BQ05（不支持向既有网卡加 IP）、BQ04（资源导入不支持追加）、DR-11（不展示追加数 M）。
+6. **R4**：`resource_type` 两套归因并存被接受，测试须区分。
+7. **性能**：5000 行追加批默认 `NOT TESTED`；锁集合扩张若造成明显回归走变更控制，V11.5 锁环判据不可放松。
+8. **环境**：PR-1（可达 `csm_test`）/PR-2（候选构建）由协调器提供；未满足时 I 层 `BLOCKED`、H/B 层 `NOT TESTED`，不得折算为 PASS。
+
+**定稿结论：`READY FOR IMPLEMENTATION`**（实现可开始；合并仍须 TEST 执行 + Review + Merge Gate）。
