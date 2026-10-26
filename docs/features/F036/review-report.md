@@ -96,6 +96,8 @@ REPEATABLE READ 分支（`NOT TESTED`）；5000 行纯追加性能（`NOT TESTED
 
 ## 11. Merge 记录与证据入库口径（协调器补记，2026-10-26）
 
-- Merge：`git switch v3.3` → `git merge --no-ff feature/F036-review-followup-closeout`，Merge SHA 见 `project-plan.yaml` F036 `git.merge_commit`；无冲突、无额外实现改动。
+- Merge：`git switch v3.3` → `git merge --no-ff feature/F036-review-followup-closeout`，Merge SHA **`a50f0ea`**（父 `a2e9194` + `5481c92`）；无冲突、无额外实现改动。
 - `git.head_commit` 记录为批准 HEAD `224291b`（RV-F036-06 / FU-01 关闭）。
 - **证据入库口径（RV-F036-03 / FU-03）**：`docs/features/F036/artifacts/` 下 `.log` 文件命中 `.gitignore:124 *.log`，故**本地生成、不入库**；入库证据为 JSON（`f036-live-*.json` / `f036-browser-*.json` / 静态扫描 JSON）、截图 PNG 与 `test-report.md` / 本报告。引用 `.log` 的复跑命令均在报告中可重建，不作为可追溯入库路径。
+
+- **批准 HEAD 与合并 HEAD 的差异（透明记录）**：批准候选 HEAD 为 `224291b`；merge 前另有一个**纯文档**提交 `5481c92`（本审查报告 + 计划状态置 `IN_REVIEW`），`git diff --name-only 224291b..5481c92` 仅含 `docs/`（4 文件，零实现/零测试/零契约变更），已核验 `grep -v '^docs/' | wc -l` = 0。因此集成树与批准候选在实现层面完全一致。
