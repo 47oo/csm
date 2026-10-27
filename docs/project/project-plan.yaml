@@ -4,10 +4,10 @@ project:
   requirements:
     path: docs/product/requirements-v3.md
     revision: 15
-  plan_revision: 23
+  plan_revision: 24
   status: DONE
   approval:
-    plan_revision: 23
+    plan_revision: 24
     feature_ids:
     - F001
     - F002
@@ -48,7 +48,8 @@ project:
     approved_by: 用户
     approved_on: '2026-10-26'
     basis: 用户 2026-10-26 在审阅「阻塞任务清单」后回复「A B全部按照建议做」：批准 A-2 建议——新立 ENABLER Feature F036「F032–F035 Review 跟进项收敛」，以 CHG-014 §1 第 1–11 项为范围（含 4 项优先项：F034-RV-01、F035-FU-01、F032-RV-03 及证据/文案收敛），并批准 B 组文档与分支收口由协调器直接执行。需求文档
-      revision 保持 14（无业务规则变更）；F034-RV-02 属用户追认动作，不在 F036 范围。 ｜ 2026-10-26 追加：用户就 F034-RV-02（T114 等价性口径追认）回复「追认」，批准需求 revision 15（仅追认留痕、无业务规则变化）与 plan revision 23（仅同步需求基线）。
+      revision 保持 14（无业务规则变更）；F034-RV-02 属用户追认动作，不在 F036 范围。 ｜ 2026-10-26 追加：用户就 F034-RV-02（T114 等价性口径追认）回复「追认」，批准需求 revision 15（仅追认留痕、无业务规则变化）与 plan revision 23（仅同步需求基线）。 ｜ 2026-10-26 追加：用户批准交付线迁至 `v3.4`（新建远端分支与
+      `v3.4` 标签、删除已废弃的 `v3.3` 分支、文档基线口径改为 `v3.4`），plan revision 24 仅同步该 Git 基线口径，需求 revision 保持 15。
   acceptance:
     status: COMPLETE
     evidence:
@@ -2935,7 +2936,7 @@ pending_changes: []
 execution:
   mode: null
   authorization:
-    plan_revision: 23
+    plan_revision: 24
     feature_ids:
     - F036
     authorized_by: 用户
@@ -2943,7 +2944,7 @@ execution:
     basis: 同上「A B全部按照建议做」；授权 F036 实施。
   current_feature: null
   current_stage: null
-  last_result: F001–F036 全部 DONE；需求 revision 15（T114 等价性口径获用户追认，F034-RV-02 关闭）、plan revision 23 已批准并同步基线。
+  last_result: F001–F036 全部 DONE；需求 revision 15；交付线迁至 `v3.4`（`v3.3` 分支已删除、`v3.3` 标签保留）。
   next_action: null
   repair_rounds: 1
 planning_status:
