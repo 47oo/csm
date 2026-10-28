@@ -1,0 +1,82 @@
+=== P10/A1 changed files base 2c827fb..HEAD ===
+backend/app/services/cluster_authorization.py
+backend/tests/integration/test_cluster_authorizations.py
+docs/api/F026.md
+docs/features/F030/architecture.md
+docs/features/F030/artifacts/p3-p6-static.log
+docs/features/F031/architecture.md
+docs/features/F031/implementation.md
+docs/features/F031/product.md
+docs/features/F031/test-report.md
+docs/project/backlog.md
+docs/project/dependency-map.md
+docs/project/milestones.md
+docs/project/project-plan.yaml
+frontend/scripts/smoke-client.mjs
+frontend/src/components/ClusterAuthorizationPanel.tsx
+
+=== P10/A2 protected dirs must be empty ===
+  backend/app/api : 0 changed file(s)
+  backend/app/schemas : 0 changed file(s)
+  backend/app/models : 0 changed file(s)
+  backend/app/core : 0 changed file(s)
+  backend/alembic : 0 changed file(s)
+  frontend/src/api : 0 changed file(s)
+  docs/product : 0 changed file(s)
+  docs/database : 0 changed file(s)
+
+=== P10/A3 /_test routes in app + router decorator counts ===
+0
+router decorators base vs HEAD:
+  (main.py readable)
+  base total: 83
+  HEAD total: 83
+
+=== P10/A4 permissions.py diff + added lines without permission tokens ===
+  [empty = unchanged]
+  added lines containing ROLE_PERMISSIONS/permission: in backend diff:
+0
+
+=== P10/A7 frontend API call count (api client usages) ===
+  base: 133
+  HEAD: 133
+
+=== P10/A8 requirements diff (expect empty) ===
+  [empty = unchanged]
+=== P10/A5 new tokens in added lines: code/reason ⊆ base set ===
+added uppercase tokens: ['ACTIVE', 'ADMIN', 'APPROVED', 'ARCHITECT', 'AUTH_REQUIRED', 'BACKEND', 'BLOCKED', 'BLOCKER', 'CANCELLED', 'COMPLETE', 'CONFIRMED', 'CONFLICT', 'CONTRACT', 'CREATE', 'D401', 'D420', 'DESIGN', 'DONE', 'DRAFT', 'ENABLER', 'F002', 'F026', 'F027', 'F030', 'F031', 'F31T03', 'F811', 'FOLLOW', 'FRONTEND', 'HEAD', 'HIGH', 'HTTP', 'IMPLEMENTATION', 'INTEGRATION_DIR', 'INTERNAL_ERROR', 'IN_PROGRESS', 'IN_REVIEW', 'MAX_ATTEMPTS', 'MEDIUM', 'NOTE', 'NOT_REQUIRED', 'PASS', 'PENDING', 'PLAN', 'POST', 'PROD', 'PYTHONDONTWRITEBYTECODE', 'READY', 'ROLE_PERMISSIONS', 'SINGLE', 'TEST', 'TESTED', 'TEST_DATABASE_URL', 'TEST_DESIGN', 'USER_ADMIN', 'UUID', 'VALID', 'VIEWER', 'WITH']
+  not in base: ['APPROVED', 'BACKEND', 'BLOCKED', 'BLOCKER', 'CANCELLED', 'COMPLETE', 'DRAFT', 'ENABLER', 'F031', 'F31T03', 'FOLLOW', 'FRONTEND', 'HIGH', 'IN_PROGRESS', 'IN_REVIEW', 'MAX_ATTEMPTS', 'MEDIUM', 'PENDING', 'PLAN', 'PROD', 'SINGLE', 'TESTED', 'TEST_DESIGN', 'VALID']
+added snake_case tokens: ['admin_user', 'already_granted', 'api_required', 'audit_log', 'auth_app', 'auth_session_factory', 'authorized_by', 'authorized_on', 'base_branch', 'cluster_authorization', 'cluster_authorizations', 'cluster_id', 'concurrent_grant', 'create_app', 'create_cluster', 'csm_test', 'current_feature', 'current_stage', 'dependency_overrides', 'feature_ids', 'fk_user_cluster_authorizations_granted_by_users', 'get_current_operator', 'ghost_username', 'granted_by', 'granted_row', 'head_commit', 'internal_error_envelope', 'last_result', 'list_authorizations', 'make_user', 'merge_commit', 'next_action', 'not_required', 'object_id', 'object_type', 'overlap_observed', 'page_size', 'plan_revision', 'raise_server_exceptions', 'ready_features', 'real_scope', 'render_project_views', 'require_permission', 'revoked_at', 'role_client_factory', 'start_commit', 'status_code', 'test_cluster_authorizations', 'test_concurrent_grant_two_connections_single_winner', 'test_design', 'test_grant_path_internal_error_envelope_end_to_end', 'user_cluster_authorization', 'user_id', 'validate_project_state']
+  not in base: ['authorized_by', 'authorized_on', 'base_branch', 'concurrent_grant', 'csm_test', 'current_feature', 'current_stage', 'ghost_username', 'granted_row', 'head_commit', 'internal_error_envelope', 'last_result', 'merge_commit', 'next_action', 'not_required', 'ready_features', 'render_project_views', 'start_commit', 'test_design', 'test_grant_path_internal_error_envelope_end_to_end', 'validate_project_state']
+
+=== P10/A6 alembic heads ===
+heads: ['0015_user_cluster_authorizations']
+count: 1
+=== P10/A5 refined: product-code / Contract diff added lines contain no new error code or reason ===
+-- backend/app + frontend/src diff added lines (excluding comments) --
+grep: 不匹配的 ( 或 \(
+(only comment lines expected)
+
+-- docs/api diff added lines --
++- **历史依据说明（F031 记载澄清，2026-10-23，Architect）**：「上游依据」中的 `plan_revision 14` 是 F026 v1/v2 的**历史批准依据**；本文件 v3 的签核依据为「确认来源」行的 `plan_revision 16`。本行仅澄清记载，不改变正文、版本及任何端点 / 字段 / 错误码 / 权限 / 错误顺序；因不改契约语义故版本保持 v3。
+
+-- test file added lines with error code literals, compare to base module set --
+string literals added: ['ADMIN', 'AUTH_REQUIRED', 'CREATE', 'INTERNAL_ERROR', 'VIEWER', 'cluster_authorization', 'fk_user_cluster_authorizations_granted_by_users', 'granted_by', 'user_cluster_authorization']
+in base module already: ['ADMIN', 'AUTH_REQUIRED', 'CREATE', 'VIEWER', 'cluster_authorization', 'fk_user_cluster_authorizations_granted_by_users', 'granted_by', 'user_cluster_authorization']
+NOT in base module: ['INTERNAL_ERROR']
+=== P10/A5 product-code added lines (backend/app + frontend/src) ===
++    # sort/order) are rejected by the route before the handler; undeclared
++    # params are rejected by `_reject_unknown_query` as the handler's first
++    # step, before path and semantic validation — hence 422 even for an unknown
++    # account. This is not an information-leak hardening measure: the endpoint
++    # is USER_ADMIN only.
++  // 旧选中集群不在新候选中时，选择框不呈现该脏值且不可提交（规则见 authorizationCandidates.ts::canSubmitGrant；F030 architecture §17.1）。
++            <EmptyState description="没有可授予的集群（已有效授权的集群不会重复出现）" />
+
+--- non-comment added lines in backend/app + frontend/src:
+2
+
+=== INTERNAL_ERROR provenance in base (Contract + code) ===
+2c827fb:backend/app/core/errors.py:3
+2c827fb:docs/api/F002.md:2
+2c827fb:docs/api/F026.md:3

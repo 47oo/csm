@@ -1,0 +1,20 @@
+PASS browser login against real backend — [{'method': 'POST', 'url': 'http://127.0.0.1:4173/api/v1/auth/login', 'status': 200}]
+PASS F014 panel exposes the carrier control
+PASS TD3-T107.7 both carriers listed side by side — ['上传文件（CSV / .xlsx）', '粘贴 CSV 文本（仅 CSV）']
+PASS TD3-T107.1 file input still present next to the text carrier
+PASS TD3-T107.7 text carrier renders a textarea
+PASS TD3-T116.4/5 format is locked to csv in the text carrier — ant-select ant-select-outlined css-var-r0 ant-select-css-var css-jdb7z4 ant-select-single ant-select-show-arrow ant-select-disabled ant-select-show-search
+PASS TD3-T116.4 switching carrier clears the result area
+PASS TD3-T108.4 confirm disabled before any pre-validation
+PASS real /validate round-trip from the browser — [{'method': 'POST', 'url': 'http://127.0.0.1:4173/api/v1/imports/resources/validate', 'status': 200}]
+PASS pre-validation result is rendered (row errors visible)
+PASS TD3-T108.4 confirm still disabled with row errors
+PASS TD3-T116.9 editing the text resets the result area
+PASS TD3-T116.9 confirm stays disabled after editing
+PASS TD3-T107.7 F023 panel exposes both carriers too — ['上传文件（CSV / .xlsx）', '粘贴 CSV 文本（仅 CSV）']
+PASS TD3-T107.7 F023 text carrier renders its own textarea
+PASS TD3-T115.8 no pasted payload in localStorage/sessionStorage/document.cookie — localKeys=[] sessionKeys=[] cookies=''
+PASS TD3-T115.8 no browser console errors — []
+PASS TD3-T115.7 no payload in any request URL — []
+
+0 failures

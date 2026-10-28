@@ -22,6 +22,8 @@ import {
 type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> & {
   type?: "button" | "submit" | "reset";
   danger?: boolean;
+  variant?: "primary" | "default" | "text" | "link";
+  icon?: ReactNode;
 };
 
 /**
@@ -29,16 +31,19 @@ type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> & {
  * The visual variant is inferred from the existing semantic class names so page
  * business logic does not need to know about Ant Design.
  */
-export function Button({ type, className, children, danger = false, disabled, ...props }: ButtonProps) {
+export function Button({ type, className, children, danger = false, disabled, variant, icon, ...props }: ButtonProps) {
   const classes = className ?? "";
   const visualType =
-    type === "submit" ? "primary" : classes.includes("link-button") ? "link" : "default";
+    variant ?? (type === "submit" ? "primary" : classes.includes("link-button") ? "link" : classes.includes("sort-button") ? "text" : "default");
   const antProps = props as unknown as ComponentProps<typeof AntButton>;
   return (
     <AntButton
       {...antProps}
-      className={className}
+      autoInsertSpace={false}
+      className={`csm-button ${className ?? ""}`}
+      icon={icon}
       danger={danger}
+      data-danger={danger || undefined}
       disabled={disabled}
       htmlType={type ?? "submit"}
       type={visualType}
@@ -203,7 +208,9 @@ export function DataTable({
     title: headings[index]?.content ?? null,
     className: headings[index]?.className,
     onCell: (row) => ({ className: row.cells[index]?.className }),
-    render: (_value, row) => row.cells[index]?.content ?? null,
+    render: (_value, row) => headings[index]?.content === "操作"
+      ? <div className="row-actions">{row.cells[index]?.content}</div>
+      : row.cells[index]?.content ?? null,
   }));
 
   return (

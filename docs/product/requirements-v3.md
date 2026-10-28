@@ -1,6 +1,6 @@
 # CSM V3 一期需求
 
-版本：V3 phase 1 / revision 5。来源：用户于 2026-10-06 提供的《CSM V3 一期需求说明》，对 Q01–Q10 建议的确认；2026-10-06 对剩余六项建议的明确确认：“按照推荐建议修改这6项”；2026-10-14 确认新增 §23.1 API Key 机器凭据；2026-10-15 确认新增 §17.1 搜索结果字段组合。确认范围与修订记录见 §35.1。
+版本：V3 phase 1 / revision 15。来源：用户于 2026-10-06 提供的《CSM V3 一期需求说明》，对 Q01–Q10 建议的确认；2026-10-06 对剩余六项建议的明确确认：“按照推荐建议修改这6项”；2026-10-14 确认新增 §23.1 API Key 机器凭据；2026-10-15 确认新增 §17.1 搜索结果字段组合；2026-10-15 确认新增 §13.4 接口侧选择绑定；2026-10-15 确认新增 §28 二次确认模态对话框；2026-10-15 确认新增 §24.1 资源+网卡+IP 批量导入；2026-10-20 确认新增 §24.2 离线主机信息采集脚本；2026-10-20 确认新增 §24.3 采集脚本增强；2026-10-21 确认新增 §23.2 集群范围授权并收窄 §3 / §23 / §23.1 的排除项表述；2026-10-26 确认新增 §24.5 前端 CSV 文本导入载体；2026-10-26 确认新增 §24.6 向既有 Resource 追加 Interface/IP（导入追加）；2026-10-26 追认 T114 的「等价性」判定口径（revision 15，不改业务规则）。确认范围与修订记录见 §35.1。
 
 本文件是一期范围、产品规则和验收要求的权威来源。原说明正文中的“CSM V1”统一解释为标题指定的“CSM V3 一期”；已确认的 REST 前缀 `/api/v1/` 是独立 API 版本，不随产品版本改成 v3。
 
@@ -18,9 +18,9 @@ CONFIRMED：统一多集群资源；裸金属与 VM 共用 Resource 模型；建
 
 ## 3. 一期范围
 
-CONFIRMED 包含：Cluster、Resource、Bare Metal、Virtual Machine、Interface、Network、IP Pool、IP Address、Service、Service Endpoint、Global Search、Audit Log、基础用户权限、CSV / Excel 批量导入。
+CONFIRMED 包含：Cluster、Resource、Bare Metal、Virtual Machine、Interface、Network、IP Pool、IP Address、Service、Service Endpoint、Global Search、Audit Log、基础用户权限（系统级角色 + 集群范围授权）、CSV / Excel 批量导入。
 
-CONFIRMED 排除：clusterctl、Ansible / ansible-runner、PXE / 操作系统安装、Slurm 自动部署 / 节点加入 / 状态同步、自动硬件发现、Resource Facts 自动采集、Desired State / Actual State、Provisioning、Job / Task 执行系统、n8n Workflow、审批流程、Prometheus / Grafana 监控、自动故障处理、复杂 RBAC、CMDB 采购、固定资产 / 折旧、机房 / 机柜 / U 位、电源和布线管理。这里的“审批流程”指产品功能，不取消工程计划批准和 Review。
+CONFIRMED 排除：clusterctl、Ansible / ansible-runner、PXE / 操作系统安装、Slurm 自动部署 / 节点加入 / 状态同步、自动硬件发现、Resource Facts 自动采集、Desired State / Actual State、Provisioning、Job / Task 执行系统、n8n Workflow、审批流程、Prometheus / Grafana 监控、自动故障处理、复杂 RBAC（自定义角色、资源实例级 ACL、层级权限继承、策略引擎、组织 / 租户）、CMDB 采购、固定资产 / 折旧、机房 / 机柜 / U 位、电源和布线管理。这里的“审批流程”指产品功能，不取消工程计划批准和 Review。
 
 ## 4. 核心模型
 
@@ -303,7 +303,7 @@ CONFIRMED：一期 Audit 持续保留，不设置到期自动清理；不提供�
 
 ## 23. 用户与权限
 
-CONFIRMED：一期仅基础角色，不实现 Cluster 级复杂 RBAC。
+CONFIRMED：一期使用基础角色 + 集群范围授权；不实现资源实例级及按操作类型的自定义 RBAC。有效权限 = 下表角色矩阵允许的操作 ∩ 对象所属 Cluster 在账号授权集合内（§23.2）。
 
 | 操作 | VIEWER | EDITOR | ADMIN |
 | --- | --- | --- | --- |
@@ -326,7 +326,7 @@ CONFIRMED：新增 **API Key** 作为非 Cookie 的机器凭据，供外部自�
 
 CONFIRMED：API Key 必须绑定一个已存在且状态为 ACTIVE 的用户账号；**不新增人类账号以外的账号或角色类型**，API Key 不构成独立主体。
 
-CONFIRMED：API Key 的有效权限等于绑定账号的角色权限，**完全遵循 §23 权限矩阵，不产生新的权限语义**；本期**不支持创建时限定更小范围（scope-down）**。API Key 仍受对象状态、不可变字段与关系约束限制。
+CONFIRMED：API Key 的有效权限等于绑定账号的角色权限，**完全遵循 §23 权限矩阵与 §23.2 集群范围，不产生新的权限语义**；本期**不支持创建时限定更小范围（scope-down）**。API Key 的集群范围逐请求继承绑定账号，不缓存，授权变更与角色变更即时生效。API Key 仍受对象状态、不可变字段与关系约束限制。
 
 CONFIRMED：使用 API Key 的写操作，Audit Log 的 operator 记录**绑定账号的 username**，并附该 API Key 的**标签**；账号停用后其全部 API Key 立即失效。
 
@@ -338,15 +338,43 @@ CONFIRMED 对象与生命周期：
 * 过期：创建时**必须设置有效期**，默认 90 天，上限 365 天，**不支持永不过期**；过期凭据按失效处理。
 * 吊销：吊销后**立即失效**，不可重新启用。
 
-CONFIRMED 明确排除：服务账号、机器账号、匿名账号或人类账号以外的新角色类型；OAuth / OIDC / SSO / 外部身份联合；Cluster 级或资源实例级复杂 RBAC；API Key 的浏览器交互登录；对 Cookie 认证既有行为的任何改变。
+CONFIRMED 明确排除：服务账号、机器账号、匿名账号或人类账号以外的新角色类型；OAuth / OIDC / SSO / 外部身份联合；资源实例级复杂 RBAC；API Key 的浏览器交互登录；对 Cookie 认证既有行为的任何改变。
 
 CONFIRMED：API Key 明文、哈希及任何等效凭据**不得**出现在日志、审计记录、错误响应或列表/详情接口中，仅创建响应一次返回。
 
+### 23.2 集群范围授权
+
+本节为 V3 一期交付后新增范围（revision 11），对既有 §3 / §23 / §23.1 的排除项作收窄解释；既有角色矩阵与操作权限不变。
+
+CONFIRMED：在基础角色之上增加**账号 → 可访问 Cluster 集合**的授权。授权粒度为 Cluster，不按资源类型、单个对象或操作类型分别授权；不新增角色类型、组织 / 租户、层级权限继承或策略引擎。
+
+CONFIRMED：**有效权限 = 角色矩阵允许的操作 ∩ 对象所属 Cluster 在授权集合内**。范围只收紧权限，不放宽任何既有完整性、唯一性、软删、状态或关系约束。
+
+CONFIRMED：**ADMIN 不受集群范围限制**，不为 ADMIN 建立授权行；集群范围只约束 VIEWER / EDITOR。授权管理仅 ADMIN 可用，复用 §23「用户、角色、系统设置」权限，不新增权限项。
+
+CONFIRMED：非 ADMIN 未获得任何授权时**默认拒绝**：列表与搜索返回空集合、Dashboard 计数为 0、详情与写操作被拒绝；不得回退为“全部可见”。未授权集群完全不可见，列表 `total`、Dashboard 计数、搜索结果与错误信息均不得泄露其存在或规模。
+
+CONFIRMED：集群范围**同时约束读与写**：查询、搜索、详情、Dashboard、资源 Activity、导入预校验与写入、新增、修改、删除、释放、恢复、IP 分配 / 绑定 / 解绑均适用。API Key 继承绑定账号的范围并逐请求解析，撤销授权后即时生效。
+
+CONFIRMED：非 ADMIN **永不可见已删除对象**（继续按 §21 的 `VIEW_DELETED` 仅 ADMIN 规则）；ADMIN 不受范围限制，仍可查看与恢复。
+
+CONFIRMED：授予与撤销授权均写入 Audit（目标账号、目标 Cluster、动作、操作者、时间），与业务写入同事务，不记录敏感凭据。撤销保留历史（撤销时间与撤销操作者），不物理删除授权记录；重新授予产生新的有效记录，不复用已撤销记录。
+
+CONFIRMED：Cluster INACTIVE 不改变授权，也不自动放开；Cluster 软删期间授权不生效，恢复后原授权自动恢复。新建 Cluster 不自动授予任何非 ADMIN，由 ADMIN 显式授予；ADMIN 降级为非 ADMIN 时立即按该账号既有授权解析（可能为空集），不做隐式补偿。
+
+CONFIRMED：迁移时为**既有非 ADMIN 账号 × 既有 Cluster（含已软删 Cluster）**建立授权，保证升级不造成非 ADMIN 全量失权；回填必须幂等。
+
+CONFIRMED：非 ADMIN 访问未授权对象按 `404 NOT_FOUND` 处理，不泄露存在性；提交体显式引用未授权或不可选 Cluster 复用既有 `422 VALIDATION_ERROR`。既有 `401 → 403（角色）→ 422 → 404 → 409` 错误顺序不变。
+
+CONFIRMED：导入、批量绑定与采集脚本 `--push` 与普通 API 同口径：预校验与写入均按行执行范围校验，返回行号、字段与原因；范围外行导致整批失败，不提供绕过范围的特例，整批原子回滚不变。
+
+CONFIRMED 明确排除：自定义角色、资源实例级 ACL、层级权限继承、策略引擎、组织 / 租户、审批流、API Key 级 scope-down。
+
 ## 24. 批量导入
 
-CONFIRMED：支持 CSV 和 Excel `.xlsx`，一期只做资源新增导入，不按 hostname 自动更新或覆盖现有资源。提供固定模板与逐列说明；示例列 `cluster, hostname, resource_type, role, status, manufacturer, model, cpu_model, cpu_cores, memory_mb, gpu_model, gpu_count`，VM 模板须含 Host 引用，完整模板由 §35 D03 承接。
+CONFIRMED：支持 CSV 和 Excel `.xlsx`，一期只做资源新增导入，不按 hostname 自动更新或覆盖现有资源。导入**不更新或覆盖既有 Resource 的字段，也不覆盖既有 Interface / IPAddress**；允许在同一批次内向已存在的 Resource 新增 Interface / IPAddress（见 §24.6）。提供固定模板与逐列说明；示例列 `cluster, hostname, resource_type, role, status, manufacturer, model, cpu_model, cpu_cores, memory_mb, gpu_model, gpu_count`，VM 模板须含 Host 引用，完整模板由 §35 D03 承接。
 
-Interface、IPAddress、Network 导入为后续扩展。导入必须走与普通 API 相同的 Service Layer 业务校验，禁止跳过服务层直接写数据库。
+Interface 与 IPAddress 的导入已在 revision 8 扩展（见 §24.1）；Network 导入仍为后续扩展。导入必须走与普通 API 相同的 Service Layer 业务校验，禁止跳过服务层直接写数据库。导入的输入载体（文件上传 / 前端粘贴 CSV 文本）见 §24.5。
 
 CONFIRMED 导入流程：
 
@@ -354,6 +382,90 @@ CONFIRMED 导入流程：
 2. 正式写入时再次校验，防止预校验后状态变化。整批成功或整批回滚，不产生部分成功；回滚不能留下未成功创建对象的业务变更记录。
 3. VM Host 必须已存在且满足 §9；首次迁移先导入裸金属，再导入 VM，不在同一批次隐式创建 Host。
 4. 一期同步处理，设置文件大小和行数上限；具体上限由部署资源和性能验证确定并记入契约。预校验与写入同样执行 §23 的权限检查。
+
+### 24.1 资源 + 网卡 + IP 批量导入（revision 8）
+
+CONFIRMED：在资源新增导入中支持同时登记网卡（Interface）与 IP 地址，示例行 `vm001,eth0,192.168.1.1/24`（资源 + 网卡 + IP）。以下规则确定后交专业设计冻结列集/列序/上限（D03 类）。
+
+* 模板结构：每行一个「资源 + 网卡 + IP」三元组；同一 `hostname` 的多行合并为**一个** Resource；同一资源内 Interface 按 `name` 去重；同一 Interface 多行 = 多 IP。
+* Network 处理：模板须能唯一确定 IP 所属 Network（通过 Network 名称/CIDR 列，或 IP 的 `/mask` 与同 Cluster 已存在 Network 匹配）；IP 必须落在该 Network 的 CIDR 内并满足 §11.1 地址边界；Network **必须已存在**；不存在时整批失败。导入**不创建** Network / IP Pool / Cluster / Host。
+* IP 分配：导入内**新建并绑定** IP（手动分配语义，按 §13.2 / §14 校验：属 CIDR、非 gateway、非 RESERVED、禁用段排除、同 Cluster 唯一、绑定同 Cluster）；导入内**不触发**自动分配（§13.1）。
+* Interface 创建：导入内创建 Interface（复用 §4.1/§10 名称归一化与同资源唯一、大小写区分）；`interface_type` 默认 `OTHER`，**不按名称推断**；列至少含 `name`（必填）与可选 `interface_type` / `mac_address` / `speed_mbps` / `mtu` / `enabled`；一期**不纳入** `parent_interface`。
+* 跨对象原子性：Resource + Interface + IPAddress 整批成功或整批回滚，不产生部分成功；回滚不留未成功对象的业务变更记录（无 Activity / Audit 残留）。
+* 其余沿用 §24：两步流程（预校验→确认→写入再校验）、错误含行号/字段/原因、VM Host 必须已存在且满足 §9（不在同批次隐式创建 Host）、同一 Service Layer、`IMPORT` 权限（§23）、同步与大小/行数上限。
+* 模板：新增**独立第三套**「资源 + 网卡 + IP」模板（以 `resource_type` 区分 BM/VM），**不改动** F014 已冻结的 BM 14 列 / VM 10 列模板与其历史行为。
+* 明确边界：本期仅「资源 + 网卡 + IP」；不含 Service / Endpoint / Cluster 导入；不导入或创建 Network / IP Pool。向已存在的 Resource 追加 Interface / IPAddress 的语义见 §24.6。
+
+### 24.2 离线主机信息采集脚本（revision 9）
+
+CONFIRMED：提供一个可在目标 Linux 主机**本地手工运行**的采集脚本（Python 或 Shell），读取本机已知信息并生成符合 §24.1 已冻结模板列集 / 列序的导入文件，减少人工逐列填写。
+
+* 定位：脚本是**导入模板的生产者**；默认**离线、只读、手动运行**：默认不连接 CSM、不调用平台 API、不上传、不写库；仅在显式启用 §24.3 的 `--push` 时经 API Key 将结果推送到 CSM。不创建或修改任何 CSM 对象。
+* 输出：默认 CSV（UTF-8，兼容 BOM），表头列名与列序与 §24.1 / D03 冻结的第三套模板逐字一致；默认文件名按 `--resource-type` 区分（见 §24.4）；`.xlsx` 不作为一期必需。
+* 自动采集：主机可观测事实（如 hostname、CPU 型号 / 插槽 / 整机物理核心数、内存容量、GPU 型号 / 数量、网卡名称 / 类型 / MAC / 速率 / MTU、本机 IPv4 地址 / 掩码）按 D01 归一化与单位口径（MiB / GiB / Mbps / bytes）输出。
+* 人工补全：脚本无法可靠获得的业务 / 归属字段（`cluster`、`role`、`status`、`host`、`network`）**默认留空**，可由人工补全或经 §24.3 的命令行参数提供；`resource_type` 由 §24.4 的必填参数提供，不写占位值或推断值。
+* 权限：无 root 时优先读取无需特权的信息（如 `/sys/class/dmi/id`）；其余特权字段留空，脚本给出说明但**不报错、不自动提权**。
+* 模板冻结：脚本**不修改、不扩展** F014 与 F023 已冻结模板、契约或既有导入行为；内嵌模板常量与冻结列集的一致性由测试守卫。
+* 边界：脚本不绕过 §24 两步流程与同一 Service Layer 校验；产出文件仍须经导入预校验与人工补全后才可导入。本脚本属**离线辅助工具**，不构成 §3 / §34 所排除的平台自动采集能力，也不改变该排除项。
+
+### 24.3 采集脚本增强：参数补全、打印与 API 推送（revision 10）
+
+CONFIRMED：在 §24.2 脚本基础上增强，使其无需手工编辑文件即可补全业务字段，并可选地推送。
+
+* 参数补全：新增命令行参数补全 §24.2 中默认留空的字段——`--cluster`、`--role`、`--status`、`--host`、`--network`；显式提供的值写入对应列。新增**必填**参数 `--resource-type`（`BARE_METAL` / `VIRTUAL_MACHINE`），同时写入 `resource_type` 列并决定类型专属列的填充；除 `--resource-type` 外的其余可补全字段未提供时仍留空。本项修订 §24.2 的「`resource_type` 一律留空」为「由参数提供」；§24.4 进一步将 `--resource-type` 定为必填。
+* 打印：支持将结果打印到标准输出（`--print`）；默认包含表头，`--no-header` 输出不带表头；默认仍写文件（默认文件名按类型区分，见 §24.4）。输出仍是 §24.1 冻结 26 列、同序。
+* API 推送：支持 `--push` 使用 API Key（`Authorization: Bearer`，复用 §23.1 / F017）将结果推送到 CSM 的 F023 导入端点。推送沿用 §24 两步流程：先调用预校验端点展示结果，经用户显式确认（如 `--yes`）后再调用写入端点；不新增平台 API，不绕过 Service Layer。API Key 仅从环境变量或参数读取，不落盘、不写入日志或错误输出。
+* 边界：默认行为保持 §24.2 的离线、只读、不连接 CSM；仅当显式 `--push` 时连接 CSM。§24.2 的「不连接 CSM、不调用平台 API、不上传」按此修订。脚本仍不创建 Network / IP Pool / Cluster / Host，不触发自动分配。
+* 验收：T79–T84；§24.4 追加 T100–T106。
+
+### 24.4 采集脚本类型必填、帮助信息与按类型生成（revision 12）
+
+CONFIRMED：`--resource-type` 为采集脚本的**必填**参数，取值仅 `BARE_METAL` 或 `VIRTUAL_MACHINE`。未提供或取值非法时，脚本在本地失败：非零退出，不采集、不写文件、不向标准输出输出 CSV、不发起任何网络请求，并在 stderr 说明缺失/非法参数、列出允许值与 `--help` 提示；不做大小写折叠、短名映射或静默回退。本项修订 §24.2 与 §24.3 中 `--resource-type` 可缺省的旧口径。
+
+CONFIRMED：`--help` 必须向用户说明以下内容，且与真实行为一致：
+
+* **模板必填**（与逐行导入校验一致）：`cluster`、`hostname`、`resource_type`、`name`、`ip`；`VIRTUAL_MACHINE` 行另需 `host`。脚本无法自动获得、须经参数或人工补全的模板必填项为 `cluster`（及 VM 的 `host`）。
+* **`--push` 必填**：`--api-url`、API Key（环境变量 `CSM_API_KEY` 或 `--api-key`）、`--cluster`；`--resource-type` 因全局必填自动满足。需明确「脚本必填 ≠ 模板必填」：未提供 `--cluster` 仍可生成离线 CSV，仅 `--push` 被拒绝。
+* **枚举参数可填值**：`--resource-type` = `BARE_METAL` / `VIRTUAL_MACHINE`；`--role` = `COMPUTE` / `LOGIN` / `MANAGEMENT` / `STORAGE` / `SERVICE` / `GPU` / `OTHER`；`--status` = `IDLE` / `ALLOC` / `DOWN` / `UNKNOWN`；取值与 §24.1 / F023 §6 一致。
+* **引用型参数语义**：`--cluster` 为 Cluster `code`（大小写不敏感）或 UUID，须存在且未软删；`--host` 为同 cluster 内已存在、未软删的 `BARE_METAL` Host 的 hostname 或 UUID；`--network` 为同 cluster Network `name` 或 CIDR，留空时由 `ip` 的 `/mask` 解析。
+
+CONFIRMED：针对不同类型生成不同的导入文件，但**不改变模板、列集、端点或导入行为**：
+
+* 两次运行分别使用 `--resource-type BARE_METAL` / `VIRTUAL_MACHINE`；仍使用 §24.1 / F023 §6 冻结的同一 26 列宽模板（同一表头、同一列序）与同一 F023 导入端点 `/api/v1/imports/resource-interfaces-ips`（预校验 `/validate`）。
+* 只填充该类型适用列：BM 填硬件列并保持 `host` / `vcpu` / `disk_gb` / `hypervisor` 为空；VM 填 `host` / `vcpu` / `disk_gb` / `hypervisor` 并保持硬件列为空（沿用 F023 §6.1 逐行适用性）。一次运行只产出一类行，不生成 BM/VM 混合文件。
+* 未指定 `-o/--output` 时，默认文件名按类型区分：`csm_host_info_bare_metal.csv` / `csm_host_info_virtual_machine.csv`；显式 `-o/--output` 优先。`--print` 只输出 stdout、不写文件，即使同时给出 `-o`；`--no-header` 语义不变。
+* 非法 `--role` / `--status` 等枚举参数同样在本地失败：非零退出、不写文件、不输出 CSV、不联网，错误信息列出允许值。
+
+保持不变（无回归边界）：`--cluster`、`--role`、`--status`、`--host`、`--network` 未提供时仍留空；`--push` 仍按 §24 两步流程先预校验、经 `--yes` 再写入，API Key 不落盘、不写日志或输出；默认离线只读，无 `--push` 时零网络请求；列名与列序与 F023 §6 26 列逐字一致；**不修改** F014（BM 14 / VM 10 列模板）与 F023（26 列模板、端点、校验、上限、错误口径）的需求、契约与实现行为。
+
+验收：T100–T106。
+
+### 24.5 前端 CSV 文本导入载体（revision 13）
+
+CONFIRMED：导入的输入载体有「文件上传」与「前端粘贴 CSV 文本」两种，二者**并列**，均在既有导入入口提供：资源导入（§24，BM 14 列 / VM 10 列模板）与「资源 + 网卡 + IP」导入（§24.1，26 列模板）。文本载体**不替换、不削弱**文件导入，文件导入（含 `.xlsx`）既有行为不变。
+
+* 载体边界：文本载体**仅 CSV**（UTF-8 编码，兼容 BOM）；不提供 `.xlsx` 的文本载体。文本与文件是同一导入数据集的两种载体，模板列集 / 列序（§24、§24.1 与 D03 冻结值）不变。
+* 口径一致（沿用既有 CONFIRMED 规则，不另立规则）：同一两步流程（预校验 → 用户确认 → 写入时再次校验，§24-1/§24-2）、同一 Service Layer 校验、同一错误口径（1-based 行号、表头为第 1 行、`field` 取模板列名、`related_row`）、同一 `IMPORT` 权限与 §23.2 集群范围行级校验、同一审计口径（§22，每对象 CREATE，回滚无残留）、同一整批原子性。
+* 表头与解析：文本必须包含与冻结模板**逐字逐序一致**的表头；缺表头 / 缺列 / 未定义列 / 列序不符按既有 `IMPORT_INVALID_FILE` 原因拒绝，**不静默忽略、不按列名重排、不自动补表头、不做分隔符嗅探**（不把制表符分隔的粘贴内容当作 CSV 受理），不做列名大小写折叠。
+* 上限：数据行数上限与文件导入一致；字节上限按文本 **UTF-8 编码后的字节数**适用同一上限值。具体数值维持已签核契约值，不在本节重设。
+* 等价性：逐字相同的 CSV 字节，经文件载体与文本载体提交的预校验与写入行为、错误与行号完全一致。前端本地只做非权威的前置提示（空内容、超出字节上限），服务端判定始终为权威。
+* 不持久化：粘贴的文本内容不落盘、不入库，不写入 Audit、日志或错误响应。
+* 明确不做：不用文本更新或覆盖现存对象的**字段**或既有子对象（§24 仅新增；按 §24.6 向既有 Resource 新增 Interface / IPAddress 不在此限）；不导入或创建 Network / IP Pool / Cluster / Host / Service / Endpoint；不新增权限项或角色；不改变任何已冻结模板、端点语义、`format` 取值与错误码；不新增平台 API。
+* 验收：T107–T116。
+
+### 24.6 向既有 Resource 追加 Interface / IPAddress（revision 14）
+
+CONFIRMED：在「资源 + 网卡 + IP」导入（§24.1，26 列宽模板、文件与文本两种载体）中，当某组的 `(cluster, hostname)` **已存在且未软删**时，不再按冲突拒绝，而是把该组作为**追加**处理：在该既有 Resource 下创建新的 Interface 与 IPAddress 并绑定，**不新建 Resource、不修改既有 Resource 的任何字段、不覆盖既有 Interface / IPAddress**。本项是「导入只新增」的延伸，不构成「按 hostname 自动更新或覆盖现有资源」。
+
+* 适用入口：仅「资源 + 网卡 + IP」导入（§24.1）。资源导入（§24，BM 14 / VM 10 列模板，不含 Interface / IP）**不提供追加**，对已存在 hostname 仍按冲突报错；该差异须在界面说明。
+* 组级语义不变：同一 `hostname` 多行仍合并为**一个**组；组内 Resource 类型/适用列一致；追加判定发生在**组级**（组键存在则整组走追加），不存在「同一组内部分行新建、部分行追加」。
+* Resource 级列一致性：追加行可为 Resource 级列（`resource_type`、`role`、`status`、`host`、`vcpu`、`memory_mb`、`disk_gb`、`hypervisor` 与硬件列）填值，但**必须与既有 Resource 的规范化值完全一致**；不一致或类型不匹配时报行错误（`field` 为对应模板列名），不覆盖既有值。留空的 Resource 级列视为**省略、不参与比较**（沿用 §24.1「空=省略」口径），亦不把既有值改为空。因此既有值为 null 的列**不能**经导入补填，只能经 Resource 编辑维护。
+* 既有子对象：既有 Resource 内已有未软删同名 Interface、或同 Cluster 已存在同一 IP 时仍报行错误（`name` / `ip`），**不做幂等跳过、不自动忽略重复行**。一期**不支持**向既有 Interface 追加更多 IP（同一张网卡多地址须在同一批首次导入中提供，或经 IP 侧绑定入口维护）。
+* 响应计数：`created` 仍表示**新建 Resource 数**（纯追加批次为 0）；`interfaces_created` / `ip_addresses_created` 表示新建子对象数；`total_rows == ip_addresses_created` 不变。不新增响应字段。
+* 保留口径（不另立规则）：同一两步流程（预校验 → 用户确认 → 写入再校验）、同一 Service Layer 校验、1-based 行号与 `field` / `related_row`、整批原子（新建组与追加组同事务，任一行失败整批回滚、无部分成功）、`IMPORT` 权限与 §23.2 集群范围行级校验、每新建子对象各写 CREATE Audit（既有 Resource / Interface / IP 不写 UPDATE Audit，版本与 `updated_at` 不变）、5 MiB / 5000 行上限、§11.1 地址边界与 §14 同 Cluster IP 唯一、Network 必须已存在（不创建 Network / IP Pool / Cluster / Host）。
+* 明确不做：更新或覆盖既有 Resource / Interface / IPAddress 字段；按 hostname 通用更新（upsert）；重复导入幂等忽略或部分成功；向既有 Interface 追加 IP；跨 Cluster 追加；软删 Resource 复活；创建 Network / IP Pool / Cluster / Host / Service / Endpoint；触发自动分配。
+* 可用路径约束：由于整批原子与「既有子对象仍报错」，含已导入行的批次会整批失败；补录既有机器时 CSV 应**只包含新增行**。该约束须在界面说明中写明。
+* 验收：T117–T126（并回归 T64–T72、T89、T115）。
 
 ## 25. API
 
@@ -426,7 +538,7 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 | T25 | 权限矩阵在服务端执行；EDITOR 可导入/解绑，不能删除/释放/恢复；VIEWER 可查看资源 Activity，不能查询完整 Audit |
 | T26 | 过期版本编辑被拒绝，无静默覆盖；审计保留历史操作者，不记录或展示密码/令牌 |
 | T27 | CSV / .xlsx 新增导入先校验后确认并再次校验；任一写入失败整批回滚，重复/非法行返回行号、字段、原因 |
-| T28 | VM 导入 Host 必须已存在；导入不更新/覆盖现存资源；文件/行数上限按签核契约验证 |
+| T28 | VM 导入 Host 必须已存在；导入不更新/覆盖现存资源；文件或文本载体的字节/行数上限按签核契约验证 |
 | T29 | Cluster INACTIVE 下仍按既有权限允许查询、新增、修改、导入、删除及恢复；默认查询包含停用集群且可过滤；切换状态不级联改变对象状态或释放 IP，Network 自身停用仍阻止分配 |
 | T30 | /0～/30 排除本 CIDR 网络/广播地址；/31 两地址按点对点语义可用；/32 唯一地址可用且禁止 gateway；自动、手动及恢复共用边界 |
 | T31 | §11.1 每个禁用范围的边界地址均禁止分配及用作 gateway；普通合法私网/公网允许；LOOPBACK 接口可登记但 127.x.x.x 不进入 IP 台账 |
@@ -462,6 +574,69 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 | T61 | 请求进行中确认按钮呈加载态且不可重复提交（含双击、遮罩、Esc）；非提交态按 Esc 或点击遮罩可关闭且不执行 |
 | T62 | 确认对话框包含对象标识、软删说明与引用检查提示；删除被引用或版本冲突等错误按既有方式在对话框内呈现且对象状态不变 |
 | T63 | 二次确认形态改变不改变需要二次确认的操作集合、权限门禁、引用检查、Audit 与请求载荷 / 端点；既有删除 / 释放 / 恢复行为无回归 |
+| T64 | 以「资源 + 网卡 + IP」模板一次提交多节点多行，每个节点正确生成 Resource、其 `eth0` Interface 与 `192.168.1.1/24` IP，且 IP 绑定到该 Interface |
+| T65 | 生成的 IP 属于模板引用的正确 Network 且与该 Resource 同 Cluster；IP 不在 Network CIDR 内、或跨 Cluster 时整批失败 |
+| T66 | 同一 hostname 多行 = 一个 Resource 多 Interface/多 IP；同一 Interface 多行 = 一个 Interface 多 IP，去重正确 |
+| T67 | 同资源 interface name、同 Cluster IP 的现存重复或非法行报错，错误含行号、字段、原因；`(cluster,hostname)` 已存在不再报错，按 §24.6 追加（仅「资源+网卡+IP」入口；资源导入入口仍报冲突） |
+| T68 | 任一行写入失败时整批回滚，无部分成功、无 Resource / Interface / IP / Audit 残留 |
+| T69 | 预校验通过 → 用户确认 → 写入前再次校验；预校验后状态变化导致冲突时写入失败（不静默覆盖） |
+| T70 | VM 行的 Host 必须已存在且同 Cluster；不存在时整批失败，不隐式创建 Host / Network / Pool / Cluster |
+| T71 | 导入复用与普通 API 相同的 Service Layer 校验：API 与导入对 interface name / IP 唯一性结果一致（不得绕过）；追加不新建 Resource，故不产生 hostname 唯一性判定 |
+| T72 | 无 `IMPORT` 权限被拒绝；未定义列 / 缺列 / 列序不符按契约 422；超限 413 |
+| T73 | 采集脚本在代表性 Linux 主机运行成功并产出文件；表头列名与列序与 §24.1 冻结模板逐字一致；无法采集的业务字段为空（`resource_type` 除外，由 §24.4 必填参数提供），不写占位值 |
+| T74 | 可采集字段值符合 D01 归一化与单位口径（MiB / GiB / Mbps / bytes）；未知值留空，不以 0 或推断值替代 |
+| T75 | 脚本全程只读、不发网络写、不写 CSM；同一主机重复运行产出稳定（除易变项外字段与顺序一致） |
+| T76 | 无 root 时特权字段留空且脚本不报错、不自动提权；可免 root 读取的字段优先从免特权来源获取 |
+| T77 | 产出文件经真实导入预校验仅报人工待补字段的行级错误，无表头 / 列 / 格式类错误；人工补全后可通过预校验 |
+| T78 | 脚本不修改 F014 / F023 模板与契约，既有导入行为无回归；内嵌模板与冻结列集的一致性由测试守护 |
+| T79 | `--cluster` / `--resource-type` / `--role` / `--status` / `--host` / `--network` 写入对应列；除 `--resource-type` 外的未提供字段仍留空；参数补全后无需手工编辑文件即可通过预校验（除仍无法获得字段） |
+| T80 | `--resource-type BARE_METAL` / `VIRTUAL_MACHINE` 同时写入该列并仅填充对应类型专属列，不违反 §24.1 逐行适用性 |
+| T81 | `--print` 输出到 stdout 且不写文件；默认仍写文件；`--print` 默认含表头，`--print --no-header` 首行即数据行；输出列名/列序仍与冻结 26 列一致 |
+| T82 | `--push` 使用有效 API Key：先调用预校验并展示结果，未确认前不写入；显式确认后调用写入端点；写入沿用整批原子回滚、无部分成功 |
+| T83 | API Key 缺失/格式非法/无效/过期返回 401 且脚本以非零状态退出；Key 不出现在 stdout、日志或错误信息；不持久化到磁盘 |
+| T84 | 默认（未启用 `--push`）仍完全离线、不发起任何网络请求；除 §24.4 明示的 `--resource-type` 必填与按类型默认文件名外，F024 既有文件输出、表头与 T73–T78 行为无回归 |
+| T100 | `--help` 输出：`--resource-type` 标注必填并列出 `BARE_METAL` / `VIRTUAL_MACHINE`；`--role` / `--status` 列出全部允许值；`--cluster` / `--host` / `--network` 说明引用对象与“须已存在”语义；按「模板必填」与「`--push` 必填」分区说明，且与真实行为一致 |
+| T101 | 缺少 `--resource-type` 的任一调用形式（无参、仅 `--print`、仅 `-o`、仅 `--push`）→ 非零退出；stderr 含缺失必填说明与允许值；不创建/不覆盖输出文件；stdout 无 CSV 行；零网络请求 |
+| T102 | `--resource-type BARE_METAL`：`resource_type` 列为 `BARE_METAL`；硬件列可填；`host` / `vcpu` / `disk_gb` / `hypervisor` 恒为空；表头为 F023 §6 冻结 26 列且同序 |
+| T103 | `--resource-type VIRTUAL_MACHINE`：`resource_type` 列为 `VIRTUAL_MACHINE`；硬件列恒为空；`--host` 未提供时 `host` 留空且不推断、提供时写入；`vcpu` / `disk_gb` / `hypervisor` 可填 |
+| T104 | 默认输出文件名按类型区分，BM 与 VM 两次运行产出文件不同且不互相覆盖；`-o/--output` 显式路径优先；`--print` 时仍不写文件（即使给了 `-o`） |
+| T105 | 非法 `--resource-type`（小写、短名、空串、未知值）及其他枚举参数非法值 → 本地 fail-fast：非零退出、不写文件、stdout 无 CSV、零网络请求、错误列出允许值；不回退为留空/默认值、不做大小写折叠或短名映射 |
+| T106 | 契约零 diff 与无回归：`docs/api/F023.md` §6 列集/端点/校验/上限/错误口径零改动，`docs/api/F014.md` 未改动；`--print` / `--no-header` / `-o` / `--push`（预校验→`--yes`→写入、Key 不落盘不漏出）语义不变；T75、T77、T82、T83 行为无回归；无 `--push` 时零网络请求 |
+| T107 | 两个导入入口（资源导入、资源+网卡+IP 导入）均提供「文件」与「粘贴 CSV 文本」两种并列载体；文件载体（含 `.xlsx`）既有行为、模板查看与下载、错误呈现不变，两种载体互不替换 |
+| T108 | 粘贴「表头 + 数据行」的合法 CSV 文本后预校验返回正确 `total_rows` / `importable_rows` / `error_count`；仅 0 错误时「确认导入」可用；写入时服务端重新校验同一内容；行号与文件载体一致（表头为第 1 行，数据自第 2 行） |
+| T109 | 文本载体的行错误与文件载体同形状同内容：非法枚举 / 整数 / 长度、文件内重复、现存冲突、集群范围外均返回 `row` / `field` / `reason` / `related_row`，不 fail-fast 只报首条 |
+| T110 | 空或纯空白文本不发请求并本地提示；仅表头无数据行返回 422 `IMPORT_INVALID_FILE`（`empty_file`）；两种情况均无写入、无 Audit 残留 |
+| T111 | 文本载体上限：UTF-8 编码字节数超过已签核上限返回 413 `IMPORT_FILE_TOO_LARGE`（或前端同口径前置拦截且不发请求）；数据行数超过已签核上限返回 413 `IMPORT_ROW_LIMIT_EXCEEDED`；超限无部分导入、无残留 |
+| T112 | 文本表头不合规：缺表头 / 缺列 / 多余未定义列 / 列序不符返回 422 `IMPORT_INVALID_FILE` 对应原因；不静默忽略、不按列名重排、不自动补表头 |
+| T113 | 以 BOM 开头的文本照常解析（表头首列不受污染）；CRLF、LF 及混用按同一逻辑记录切分；末尾空行 / 尾部换行被忽略且不移动真实数据行号 |
+| T114 | 含逗号、双引号、引号内换行的字段按标准 CSV 解析且不改写内容，前端载体不得转义、重排或裁剪（不静默修补）；引号未闭合等字段边界情况与文件载体同口径：逐字节相同的 CSV 经两种载体提交，行为、错误码与行号完全一致，既有 CSV 解析行为不变，本 Feature 不新增字段边界错误判定。**用户 2026-10-26 追认（revision 15）**：上述「等价性」口径即为本项 CONFIRMED 判定标准；严格拒绝畸形字段边界（如引号未闭合报错）不属本项范围，必须另立变更（见 `docs/features/F034/architecture.md` §12 TD-I-1） |
+| T115 | 文本载体权限、集群范围与审计与文件载体一致：VIEWER 被拒（403）、未认证 401；含未授权集群行整批失败并返回行号与权限原因；成功写入 Audit 与文件载体同口径；粘贴内容不落盘、不入库、不写入 Audit / 日志 / 错误响应 |
+| T116 | 陈旧结果防护：修改文本内容或在文件 / 文本载体间切换后，既有预校验与写入结果全部失效且不可确认导入，须重新预校验；同一内容重复预校验结果一致、无副作用 |
+| T117 | 向既有 Resource 追加：批次仅含新增三元组行且 `(cluster, hostname)` 已存在（未软删）时，预校验 0 错误、写入成功，新 Interface 与新 IP 归属该既有 Resource 且互相绑定；Resource 总数不变 |
+| T118 | 既有 Resource 零变化：追加后既有 Resource 的全部字段、`version`、`updated_at` 及其既有 Interface / IP 均不变；无 `resource` UPDATE Audit / Activity；新增 Interface 与 IP 各产生一条 CREATE Audit |
+| T119 | Resource 级列一致性：追加行 Resource 级列取值与既有规范化值不一致或 `resource_type` 不匹配时报行错误（`field` 为对应列名）并整批回滚；留空列视为省略、不与既有值比较、也不把既有值置空 |
+| T120 | 既有子对象仍报错：既有 Resource 内已存在未软删同名 Interface → 行错误 `name`；同 Cluster 已存在同一 IP → 行错误 `ip`；不幂等跳过、不部分成功 |
+| T121 | Interface 追加沿用既有口径：`interface_type` 空→`OTHER`（不按名称推断）、`enabled` 空→`true`、mac / speed / mtu 复用 F007 规则、同资源 name 唯一（区分大小写）、一期不含 `parent_interface` |
+| T122 | IP 追加沿用既有口径：属 Network CIDR 且满足 §11.1 边界、非 gateway / RESERVED / 禁用段、同 Cluster 唯一、绑定同 Cluster、手动分配语义、不触发自动分配；不合法整批回滚 |
+| T123 | 混合批次原子性：同批次既含新建组又含追加组时，任一行失败整批回滚——既有 Resource 不新增子对象、新建 Resource 不留存、无 Audit / Activity 残留；预校验后状态变化导致失败时返回 422 `IMPORT_VALIDATION_FAILED`，不静默覆盖 |
+| T124 | 响应计数与权限：纯追加批次 `created=0` 且 `interfaces_created` / `ip_addresses_created` / `total_rows` 按实际计数；`IMPORT` 权限不足 403、未认证 401、含未授权集群行整批失败并返回行号与原因 |
+| T125 | 边界对象：软删 Resource 视为不存在（不得追加、按新建处理并受 name 唯一约束）；不创建 Network / IP Pool / Cluster / Host / Service / Endpoint；不支持向既有 Interface 追加 IP |
+| T126 | 零回归：资源导入入口（BM 14 / VM 10 模板，已存在 hostname 仍报冲突）与「资源+网卡+IP」新建路径、T64–T72、§24.5 文本载体 T107–T116、采集脚本 T73–T84 / T100–T106 行为不变，模板 / 端点 / 错误码 / 上限零变更 |
+| T85 | 仅授权 A、B 的账号按 ID 读取 C 集群任一业务对象被拒绝（404，不泄露存在性或业务字段） |
+| T86 | 同一账号对 C 集群对象的新增、修改、删除、释放、恢复均被拒绝；A、B 集群按角色矩阵正常 |
+| T87 | 各域列表与 `total` 仅覆盖可见集群；分页不出现“空页但 total>0” |
+| T88 | 全局搜索（含 §17.1 关联行）与 Dashboard 计数仅覆盖可见集群；未授权对象不出现、不泄露规模 |
+| T89 | 导入（§24 / §24.1 / §24.3 推送）含未授权集群行时整批失败，返回行号 + 权限原因，无部分成功与残留 |
+| T90 | 仅 ADMIN 可查看 / 授予 / 撤销授权；非 ADMIN 被拒绝；不新增权限项 |
+| T91 | 撤销授权后即时生效，无需重新登录；API Key 同样即时收敛 |
+| T92 | 授予与撤销各写 Audit，可被 ADMIN 查询，含目标账号 / Cluster / 操作者，无敏感内容 |
+| T93 | 无任何授权的非 ADMIN：列表空集合、详情 / 写操作拒绝，不回退为全局可见 |
+| T94 | API Key 继承绑定账号范围；401 先于 403、失效 Key 不泄露存在性等既有行为不回归 |
+| T95 | Cluster INACTIVE 不改变授权；切换状态不改变可见集合；软删期间不生效、恢复后原授权恢复 |
+| T96 | 对不存在 / 已软删 Cluster 授权被拒绝，不产生悬空授权 |
+| T97 | 既有角色矩阵不回归（T25 / T43 等）；范围不放宽任何完整性约束（T01–T41 关键抽样） |
+| T98 | 非 ADMIN 在任何范围下不可见已删对象，`include` / `only` 仍 403；ADMIN 行为符合裁定 |
+| T99 | 迁移回填与裁定一致、幂等；升级后不出现全量失权或越权；真实 PostgreSQL `up/down/up` 通过 |
 
 还须覆盖查询关系、列表交互、本地登录和初始 ADMIN、时间契约及真实 Compose 部署。D01–D03 专业设计完成后细化对应测试步骤与数据，不把尚未执行的预期写成 PASS。本节定义必须执行的用例，不是已经执行的测试报告。
 
@@ -469,7 +644,7 @@ CONFIRMED：除 API 基础测试，至少验证以下业务用例。
 
 CONFIRMED：能创建 Cluster、BareMetal、VM 并关联 Host，维护 Interface / Network / Pool / Service，手动和自动分配 IP；按 hostname / IP / Cluster / Service 找到 Resource；详情显示 Cluster / 硬件 / Interface / IP / Network / VM 或 Host / Service。
 
-能阻止重复 hostname / IP、跨 Cluster Host / IP 绑定及非法 CIDR 地址；提供逻辑删除及 ADMIN 恢复、Audit Log、基础权限、本地登录、编辑版本冲突检查和 CSV / .xlsx 整批新增导入。API Key 机器凭据支持无浏览器认证、按绑定账号角色鉴权、吊销即时生效，且 Cookie 认证不回归。全局搜索支持自定义组合展示字段（含关联网卡 / IP / 网络）。Network / Pool、Endpoint 及恢复行为满足本 revision 的约束，包括地址边界与容量、保留范围/网关并发冲突、Cluster 停用维护、字段单位与名称规则；审计持续保留且纳入备份。一期范围内的全部必需能力不能因优先级低而从上线验收中删除。§31 与以上验收都需真实证据；上线条件不等于自动发布授权。
+能阻止重复 hostname / IP、跨 Cluster Host / IP 绑定及非法 CIDR 地址；提供逻辑删除及 ADMIN 恢复、Audit Log、基础权限、本地登录、编辑版本冲突检查和 CSV / .xlsx 整批新增导入（输入载体支持文件上传与前端粘贴 CSV 文本，§24.5）；「资源+网卡+IP」导入支持向已存在 Resource 追加新网卡/IP 且不修改既有资源字段（§24.6）。API Key 机器凭据支持无浏览器认证、按绑定账号角色与集群范围鉴权、吊销即时生效，且 Cookie 认证不回归。集群范围授权满足 §23.2：未授权集群读写被拒且完全不可见，列表 / 搜索 / Dashboard / 导入范围一致，ADMIN 可管理授权，授权变更写入 Audit，迁移回填无失权，既有角色矩阵与完整性规则无回归。全局搜索支持自定义组合展示字段（含关联网卡 / IP / 网络）。Network / Pool、Endpoint 及恢复行为满足本 revision 的约束，包括地址边界与容量、保留范围/网关并发冲突、Cluster 停用维护、字段单位与名称规则；审计持续保留且纳入备份。一期范围内的全部必需能力不能因优先级低而从上线验收中删除。§31 与以上验收都需真实证据；上线条件不等于自动发布授权。
 
 ## 33. 目标查询场景
 
@@ -493,6 +668,14 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 | revision 5 / 2026-10-15 | 用户确认新增“全局搜索可自定义组合展示字段”：仅作用于全局搜索结果；字段集含 hostname/resource_type/role/status/cluster 与 Interface name/interface_type、IP address、Network name（「网络类型」按 Network 名称解释）；resource 行返回固定超集，关联按每 IP 一行展开，顺序 interface.name→IP 数值→id，每 Resource 上限 10 并返回总数；偏好仅浏览器本地，无导出/命名视图；关联严格继承软删与权限口径；不改匹配/结果集/去重/排序/分页，仍只读。新增 §17.1 与 T50–T53，替代 §17 中无字段组合的描述 |
 | revision 6 / 2026-10-15 | 用户收到接口侧绑定需求「允许在创建接口后选择 IP 地址，减少跳转」及 BQ1–BQ5 选项后回复“按推荐执行”，确认为：在接口创建成功后于接口视图内选择并绑定 IP；候选仅同 Cluster、未绑定且未删除的 IP；仅绑定已存在未绑定 IP，不在该流程内手动输入或自动分配；逐条绑定、允许部分成功并逐条呈现，不静默重试；本期不提供接口侧解绑 / 转移；权限、同 Cluster、唯一性、Endpoint 引用与软删口径不因入口方向改变。新增 §13.4 与 T54–T58 |
 | revision 7 / 2026-10-15 | 用户反馈「删除的二次确认做弹出框，不在下面显示，容易看不到」，并就范围（是否含释放 IP、是否含恢复）回复“按推荐执行”，确认为：删除（软删）、释放 IP（软删）与恢复的二次确认统一改为模态对话框，以既有吊销 API Key 弹层为一致样式基准；不改删除 / 释放 / 恢复语义、权限、引用检查、Audit、错误呈现与需要二次确认的操作集合。新增 §28 条款与 T59–T63 |
+| revision 8 / 2026-10-15 | 用户提出「多节点使用模板提交时应支持网卡以及 IP 地址分配（如 vm001,eth0,192.168.1.1/24）」，并就 BQ1–BQ7 回复“按推荐执行”，确认为：每行一个「资源+网卡+IP」三元组、同 hostname 合并为一个 Resource；IP 属已存在 Network（显式引用或以 /mask 匹配）且不创建 Network；导入内新建并绑定 IP（手动分配语义）且不触发自动分配；导入内创建 Interface（默认 OTHER，一期不含 parent_interface）；Resource+Interface+IP 跨对象整批原子回滚；沿用 §24 两步流程/错误口径/VM Host 规则/同一 Service Layer/IMPORT 权限；新增独立第三套模板且不改动 F014 已冻结模板；一期仅「资源+网卡+IP」。新增 §24.1 与 T64–T72 |
+| revision 9 / 2026-10-20 | 用户提出「新增一个 linux 脚本（python 或者 shell），用于直接获取系统内的信息，生成模板输出，方便导入」，并就 BQ1–BQ5 回复“按推荐执行”并授权实施，确认为：脚本为离线、只读、手动运行的导入模板**生产者**（非平台自动采集，不改变 §3 / §34 排除项）；输出 §24.1 已冻结模板（默认 CSV）；无法获得的业务 / 归属字段留空由人工补全，不写占位 / 推断值；无 root 时特权字段留空且不报错、不自动提权；不修改 F014 / F023 模板与既有导入行为；作为仓库正式交付物纳入 Feature。新增 §24.2 与 T73–T78 |
+| revision 10 / 2026-10-20 | 用户就 F024 脚本提出「参数支持添加需要补全的信息（免手改 CSV）、支持打印、支持带/不带表头、支持通过 API + API Key 推送」，回复“按推荐执行并实施”，确认为：新增 CLI 参数补全默认留空字段且 `--resource-type` 写列并决定类型列；`--print` 输出 stdout、`--no-header` 控制表头、默认仍写文件；`--push` 经 API Key 按 §24 两步流程调用 F023 导入端点（先预校验后确认写入）、Key 不落盘不记录；默认仍离线只读，仅 `--push` 时连接 CSM。相应修订 §24.2 边界。新增 §24.3 与 T79–T84 |
+| revision 11 / 2026-10-21 | 用户提出「访问权限控制功能新增，可以控制用户访问的集群（如只能访问 a、b 集群，其他禁止访问）」，随后回复“批准并实施”，批准变更提案 `docs/project/proposals/CHG-010-cluster-access.md` 与候选计划 revision 14（F026–F028）及第 6 节推荐裁定组合（CHG010-BQ01–BQ17），授权实施。确认为：在基础角色之上新增 Cluster 级账号授权；有效权限 = 角色矩阵 ∩ 集群范围；ADMIN 不受限且不建授权行；非 ADMIN 默认拒绝；读写同时受限；未授权集群完全不可见；API Key 继承绑定账号范围；非 ADMIN 永不可见已删对象；仅 ADMIN 管理授权；授予/撤销写 Audit 并保留撤销历史；Cluster INACTIVE 不改变授权、软删期间不生效、恢复后恢复；新建 Cluster 不自动授予；ADMIN 降级立即按既有授权；越权非 ADMIN 统一 404；迁移回填既有非 ADMIN × 既有 Cluster（含软删 Cluster）；导入/批量绑定/`--push` 同口径；不引入资源实例级或复杂 RBAC。收窄 §3 / §23 / §23.1 排除项并新增 §23.2、T85–T99。替代此前 §23「不实现 Cluster 级复杂 RBAC」及 §23.1「Cluster 级或资源实例级复杂 RBAC」的绝对表述 |
+| revision 12 / 2026-10-23 | 用户提出「可执行脚本还需要更新，--help 针对于必填项，如果是枚举类型，应告知可以填写的类型，针对于不同的类型，应该生成不同的导入方式」，随后确认「`--resource-type` 是必填项」并确认推荐组合 D/3/A。确认为：`--resource-type` 全局必填（`BARE_METAL` / `VIRTUAL_MACHINE`），缺失或非法时本地失败且无文件/无 CSV/无网络副作用；`--help` 分区说明模板必填与 `--push` 必填，列出 `--role` / `--status` 枚举值和 `--cluster` / `--host` / `--network` 引用语义；仍使用 F023 同一 26 列模板与同一导入端点，按类型只填适用列并生成按类型区分的默认 CSV，`-o` 优先、`--print` 不写文件；非法枚举本地 fail-fast，不做大小写折叠或短名映射；不改 F014 / F023 模板、契约、端点、Schema、前端或权限。新增 §24.4 与 T100–T106，修订 §24.2 / §24.3 / T73 / T79 / T84 |
+| revision 13 / 2026-10-26 | 用户提出「前端除了支持使用文件导入数据，还应该支持直接使用 csv 格式的文本导入资源数据」，并回复「看推荐执行并实施」，确认 CHG-012 提案推荐项 CHG012-BQ01 = A、CHG012-BQ02 = A：①F014 资源导入与 F023 资源+网卡+IP 导入两个入口都新增「粘贴 CSV 文本」载体，文件上传保留并列、不替换；②文本必须自带与冻结模板逐字逐序一致的表头、仅逗号分隔、不做分隔符嗅探、不自动补表头、不做列名映射。确认文本载体仅 CSV（UTF-8，兼容 BOM），与文件载体共用同一模板列集 / 列序、两步流程、Service Layer 校验、错误与行号口径、`IMPORT` 权限与集群范围、审计口径、整批原子性与字节 / 行数上限（字节按 UTF-8 计数）；粘贴内容不落盘、不入库、不写 Audit / 日志 / 错误响应；不新增平台 API、错误码、权限或 Schema。新增 §24.5 与 T107–T116，修订 T28 与 §32 措辞；批准候选计划 revision 20（新增 F034）。F034 CONTRACT 阶段对 T114 作编辑性澄清：字段边界按 §24.5「等价性」口径判定，不改变既有 CSV 解析行为、不新增错误码（见 `docs/features/F034/architecture.md` §12 TD-I-1） |
+| revision 15 / 2026-10-26 | 用户 2026-10-26 就 T114 回复「追认」：确认 F034 CONTRACT 阶段对 T114 的**编辑性澄清**成立——T114 的「等价性」口径（逐字节相同的 CSV 经文件/文本两种载体提交，行为、错误码与行号完全一致；既有 `csv.reader` 解析行为不变；不新增字段边界错误判定）即为本项 CONFIRMED 判定标准，严格拒绝畸形字段边界须另立变更。本次**不新增、不收窄任何业务规则**，不改 §24.5 正文、T107–T116 其它条目、错误码/`reason` 集合/字段/上限/权限/端点的任何内容；关闭 F034 Review `F034-RV-02`（口径追认留痕），plan revision 23 仅同步需求基线 revision 15 |
+| revision 14 / 2026-10-26 | 用户提出「自己提交 csv 格式的数据可能遇见这类情况，同一个机器有多个 IP 的情况，这种情况也允许录入」，并回复「按推荐执行」，确认 CHG-013 推荐组合 CHG013-BQ01 = B、BQ02 = B、BQ03 = A、BQ04 = A、BQ05 = A、BQ06 = C1、BQ07 = A、BQ08 = A：①「资源+网卡+IP」导入允许向已存在且未软删的 Resource 追加 Interface/IP，不新建/不修改既有 Resource 字段、不覆盖既有子对象；②追加行 Resource 级列须与既有规范化值一致，留空视为省略不比较；③既有同名 Interface / 同 Cluster 既有 IP 仍报错，不做幂等跳过；④仅「资源+网卡+IP」入口支持追加，资源导入入口维持冲突即报错；⑤不支持向既有 Interface 追加 IP；⑥`created` 仍为新建 Resource 数（纯追加为 0），不新增响应字段；⑦接受「只提交新增行」为补录既有机器时的唯一可用路径，并在界面说明。新增 §24.6 与 T117–T126，修订 §24 / §24.1 / §24.5 / §31 T67、T71 / §32 措辞；批准候选计划 revision 21（新增 F035）；契约按 F023 正文升版 v2 由 Architect 签核 |
 
 | 原 ID | 已确认内容所在条款 | 尚需处理的部分 |
 | --- | --- | --- |
@@ -513,7 +696,13 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ### 35.2 六项业务决策（CONFIRMED）
 
-本次六项业务问题均已关闭，当前无登记中的 OPEN 业务问题。以下仅保存决策与正文、验收的映射，不复制完整规则。新发现的业务歧义按变更控制处理，不能静默改写本基线或将专业设计输入等同于新的业务待决项。
+本次六项业务问题均已关闭。revision 11 的 CHG010-BQ01–BQ17 已由用户随「批准并实施」按推荐组合确认，CHG010-BQ18–BQ19 为专业设计输入。以下仅保存决策与正文、验收的映射，不复制完整规则。新发现的业务歧义按变更控制处理，不能静默改写本基线或将专业设计输入等同于新的业务待决项。
+
+| ID | 状态 / 权威条款 | 验收映射 |
+| --- | --- | --- |
+| CHG010-BQ01–BQ17 | CONFIRMED；§23.2、§23.1、§21、§24、§31 | T85–T99 |
+| CHG010-BQ18 | DESIGN_INPUT；授权表 / 索引 / 迁移 / 查询实现，由 Architect / Database 在 F026–F027 签核 | T99 |
+| CHG010-BQ19 | DESIGN_INPUT；授权列表分页 / 排序与 System UI 口径，由 Architect / Backend 在 F026 签核 | T90 |
 
 | ID | 状态 / 权威条款 | 验收映射 |
 | --- | --- | --- |
@@ -536,8 +725,8 @@ CONFIRMED：能够快速可靠地回答：hostname 属于哪个集群；某 IP �
 
 ## 36. 文档建立状态
 
-> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 7。
+> 本节为**状态记录**（2026-10 更新），不改动本文件的业务规则（§1–§35）；需求基线为 revision 15。
 
-需求基线为 revision 7：revision 3 的六项业务问题已关闭、V3 一期 F001–F016 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53）、revision 6 新增 §13.4 接口侧选择绑定（T54–T58）、revision 7 新增 §28 二次确认模态对话框条款（T59–T63），均作为一期交付后的变更范围，其 Feature 计划与实施按 `docs/project/change-control.md` 单独批准，不改写 F001–F016 的已 DONE 范围与证据。
+需求基线为 revision 15（revision 15 为用户对 T114 等价性口径的追认留痕，无业务规则变化；此前基线为 revision 14）：revision 3 的六项业务问题已关闭、V3 一期 F001–F028 已交付；revision 4 新增 §23.1 API Key 机器凭据（T42–T49）、revision 5 新增 §17.1 搜索结果字段组合（T50–T53）、revision 6 新增 §13.4 接口侧选择绑定（T54–T58）、revision 7 新增 §28 二次确认模态对话框条款（T59–T63）、revision 8 新增 §24.1 资源+网卡+IP 批量导入（T64–T72）、revision 9 新增 §24.2 离线主机信息采集脚本（T73–T78）、revision 10 新增 §24.3 采集脚本增强（参数补全/打印/API 推送，T79–T84）并修订 §24.2 边界、revision 11 新增 §23.2 集群范围授权（T85–T99）并收窄 §3 / §23 / §23.1 排除项、revision 12 新增 §24.4 采集脚本类型必填/帮助信息/按类型生成（T100–T106）并修订 §24.2 / §24.3 / T73 / T79 / T84、revision 13 新增 §24.5 前端 CSV 文本导入载体（T107–T116）并修订 T28 与 §32 措辞、revision 14 新增 §24.6 向既有 Resource 追加 Interface/IP（T117–T126）并修订 §24 / §24.1 / §24.5 / T67 / T71 / §32。
 
-revision 3 的内容继续成立：六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F016 已全部交付并合入 `v3` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T41 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。
+revision 3 的内容继续成立：六项业务问题已关闭，§35.3 的 D01–D03 专业设计输入均已签核（CONFIRMED）：D01 见 `docs/architecture/d01-conventions.md` v11，D02 见各 Feature 设计签核，D03 见 `docs/api/F014.md` v1 §10。领域文档提供本文件的规则索引；架构决策、数据库 Schema、API Contract、部署实现与完整 Feature 计划均已建立。V3 一期 F001–F028 已全部交付并合入 `v3.2` / `main`；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，派生视图由脚本生成。§31 的 T01–T99 已随各 Feature 与整体验收执行（真实证据见各 `docs/features/Fxxx/test-report.md` 及 F016 集成验收）；已知环境限制（真实 `docker compose up` 因镜像源不可达而改用等价替代栈）已在 F016 如实记录。

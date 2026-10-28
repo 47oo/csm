@@ -1,0 +1,115 @@
+== carrier primitives (frontend/src/components/importCarrier.ts) ==
+PASS utf8ByteLength(ascii) === TextEncoder bytes — 3 vs 3 (String.length 3)
+PASS utf8ByteLength(chinese) === TextEncoder bytes — 6 vs 6 (String.length 2)
+PASS utf8ByteLength(emoji) === TextEncoder bytes — 4 vs 4 (String.length 2)
+PASS utf8ByteLength(mixed) === TextEncoder bytes — 8 vs 8 (String.length 4)
+PASS utf8ByteLength differs from String.length for multi-byte text
+PASS isBlankImportText("")
+PASS isBlankImportText("   ")
+PASS isBlankImportText("\n\n")
+PASS isBlankImportText(" \t\r\n ")
+PASS isBlankImportText(csv) === false
+PASS textImportTargetKey changes on 1 char
+PASS textImportTargetKey is carrier-tagged — text:csv:1fdpdb8-ykc6ji:4
+PASS pastedCsvFile(F-01) reproduces corpus bytes — 352 bytes
+PASS pastedCsvFile(F-02) reproduces corpus bytes — 148 bytes
+PASS pastedCsvFile(F-03) reproduces corpus bytes — 499 bytes
+PASS pastedCsvFile(F-03f) reproduces corpus bytes — 499 bytes
+PASS pastedCsvFile(F-04) reproduces corpus bytes — 0 bytes
+PASS pastedCsvFile(F-05) reproduces corpus bytes — 3 bytes
+PASS pastedCsvFile(F-05b) reproduces corpus bytes — 4 bytes
+PASS pastedCsvFile(F-06a) reproduces corpus bytes — 138 bytes
+PASS pastedCsvFile(F-06b) reproduces corpus bytes — 233 bytes
+PASS pastedCsvFile(F-07) reproduces corpus bytes — 355 bytes
+PASS pastedCsvFile(F-08) reproduces corpus bytes — 355 bytes
+PASS pastedCsvFile(F-09) reproduces corpus bytes — 354 bytes
+PASS pastedCsvFile(F-10) reproduces corpus bytes — 355 bytes
+PASS pastedCsvFile(F-10b) reproduces corpus bytes — 469 bytes
+PASS pastedCsvFile(F-11) reproduces corpus bytes — 312 bytes
+PASS pastedCsvFile(F-12) reproduces corpus bytes — 374 bytes
+PASS pastedCsvFile(F-13) reproduces corpus bytes — 288 bytes
+PASS pastedCsvFile(F-14) reproduces corpus bytes — 352 bytes
+PASS pastedCsvFile(F-15) reproduces corpus bytes — 214 bytes
+PASS pastedCsvFile(F-15a) reproduces corpus bytes — 108 bytes
+PASS pastedCsvFile(F-16) reproduces corpus bytes — 158 bytes
+PASS pastedCsvFile(F-17) reproduces corpus bytes — 204 bytes
+PASS pastedCsvFile(F-18a) reproduces corpus bytes — 245 bytes
+PASS pastedCsvFile(F-18b) reproduces corpus bytes — 150 bytes
+PASS pastedCsvFile(F-19) reproduces corpus bytes — 245 bytes
+PASS pastedCsvFile(F-20) reproduces corpus bytes — 747 bytes
+PASS pastedCsvFile(F-20w) reproduces corpus bytes — 598 bytes
+PASS pastedCsvFile(F-24) reproduces corpus bytes — 3 bytes
+PASS pastedCsvFile(F-25) reproduces corpus bytes — 289 bytes
+PASS pastedCsvFile(F-26) reproduces corpus bytes — 258 bytes
+
+== live stack http://localhost:18080 ==
+PASS login 200 — status=200
+PASS session cookie issued — cookie parts=1
+GET /api/v1/clusters -> 200, existing clusters = 0
+PASS live equivalence resources F-01 — status 200/200
+PASS live equivalence resources F-02 — status 200/200
+PASS live equivalence resources F-03 — status 422/422
+PASS live equivalence resources F-03f — status 422/422
+PASS live equivalence resources F-04 — status 422/422
+PASS live equivalence resources F-05 — status 422/422
+PASS live equivalence resources F-05b — status 422/422
+PASS live equivalence resources F-06a — status 422/422
+PASS live equivalence resources F-06b — status 422/422
+PASS live equivalence resources F-07 — status 200/200
+PASS live equivalence resources F-08 — status 200/200
+PASS live equivalence resources F-09 — status 200/200
+PASS live equivalence resources F-10 — status 200/200
+PASS live equivalence resources F-10b — status 200/200
+PASS live equivalence resources F-11 — status 200/200
+PASS live equivalence resources F-12 — status 200/200
+PASS live equivalence resources F-13 — status 200/200
+PASS live equivalence resources F-14 — status 422/422
+PASS live equivalence resources F-15 — status 422/422
+PASS live equivalence resources F-15a — status 422/422
+PASS live equivalence resources F-16 — status 422/422
+PASS live equivalence resources F-17 — status 422/422
+PASS live equivalence resources F-18a — status 422/422
+PASS live equivalence resources F-18b — status 422/422
+PASS live equivalence resources F-19 — status 422/422
+PASS live equivalence resources F-20 — status 200/200
+PASS live equivalence resources F-20w — status 422/422
+PASS live equivalence resources F-24 — status 422/422
+PASS live equivalence resources F-25 — status 200/200
+PASS live equivalence resources F-26 — status 200/200
+PASS live equivalence resource-interfaces-ips F-01 — status 422/422
+PASS live equivalence resource-interfaces-ips F-02 — status 422/422
+PASS live equivalence resource-interfaces-ips F-03 — status 200/200
+PASS live equivalence resource-interfaces-ips F-03f — status 200/200
+PASS live equivalence resource-interfaces-ips F-04 — status 422/422
+PASS live equivalence resource-interfaces-ips F-05 — status 422/422
+PASS live equivalence resource-interfaces-ips F-05b — status 422/422
+PASS live equivalence resource-interfaces-ips F-06a — status 422/422
+PASS live equivalence resource-interfaces-ips F-06b — status 422/422
+PASS live equivalence resource-interfaces-ips F-07 — status 422/422
+PASS live equivalence resource-interfaces-ips F-08 — status 422/422
+PASS live equivalence resource-interfaces-ips F-09 — status 422/422
+PASS live equivalence resource-interfaces-ips F-10 — status 422/422
+PASS live equivalence resource-interfaces-ips F-10b — status 422/422
+PASS live equivalence resource-interfaces-ips F-11 — status 422/422
+PASS live equivalence resource-interfaces-ips F-12 — status 422/422
+PASS live equivalence resource-interfaces-ips F-13 — status 422/422
+PASS live equivalence resource-interfaces-ips F-14 — status 422/422
+PASS live equivalence resource-interfaces-ips F-15 — status 422/422
+PASS live equivalence resource-interfaces-ips F-15a — status 422/422
+PASS live equivalence resource-interfaces-ips F-16 — status 422/422
+PASS live equivalence resource-interfaces-ips F-17 — status 422/422
+PASS live equivalence resource-interfaces-ips F-18a — status 422/422
+PASS live equivalence resource-interfaces-ips F-18b — status 422/422
+PASS live equivalence resource-interfaces-ips F-19 — status 422/422
+PASS live equivalence resource-interfaces-ips F-20 — status 422/422
+PASS live equivalence resource-interfaces-ips F-20w — status 200/200
+PASS live equivalence resource-interfaces-ips F-24 — status 422/422
+PASS live equivalence resource-interfaces-ips F-25 — status 422/422
+PASS live equivalence resource-interfaces-ips F-26 — status 422/422
+NOTE: deployment has no Cluster yet; only row-level-error equivalence exercised.
+PASS live 401 without session resources — status=401
+PASS live 401 without session resource-interfaces-ips — status=401
+PASS live response does not echo the pasted payload — status=200
+PASS live response does not echo the header line
+
+60 live equivalence cases, 0 failures

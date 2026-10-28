@@ -1,0 +1,20 @@
+{
+  "fixture": "F-13",
+  "carrier_equivalence": "identical status + body",
+  "status": 200,
+  "body": {
+    "format": "csv",
+    "total_rows": 1,
+    "importable_rows": 0,
+    "error_count": 1,
+    "errors": [
+      {
+        "row": 2,
+        "field": "manufacturer",
+        "reason": "hardware.manufacturer must not contain control characters",
+        "related_row": null
+      }
+    ],
+    "errors_truncated": false
+  }
+}

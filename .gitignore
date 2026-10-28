@@ -153,6 +153,11 @@ Thumbs.db
 .pi/*.local.*
 
 # ----------------------------
+# 代理技能脚手架（本地环境产物，非项目交付物）
+# ----------------------------
+.agents/
+
+# ----------------------------
 # CSM F001 后端 / 部署本地产物
 # ----------------------------
 backend/.venv/
@@ -164,3 +169,9 @@ backups/
 htmlcov/
 .coverage
 coverage.xml
+
+# F024/F025/F032 采集脚本默认输出（本地生成）
+# F032 revision 12：默认文件名按 --resource-type 区分（旧名保留以兼容 -o 手动指定）。
+csm_host_info.csv
+csm_host_info_bare_metal.csv
+csm_host_info_virtual_machine.csv

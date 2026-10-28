@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
+from app.core.access_scope import AccessScope, get_access_scope
 from app.core.auth import Operator
 from app.core.db import get_db
 from app.core.errors import Forbidden, NotFound, ValidationError
@@ -83,6 +84,7 @@ def list_ip_pools(
     sort: SortField = Query(default="created_at"),
     order: SortOrder = Query(default="desc"),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPPoolListResponse:
     """List ip pools with combined filters/sorting/pagination (§4)."""
@@ -98,6 +100,7 @@ def list_ip_pools(
         page_size=page_size,
         sort=sort,
         order=order,
+        scope=scope,
     )
     return IPPoolListResponse(
         items=_build_out(db, items), page=page, page_size=page_size, total=total
@@ -108,6 +111,7 @@ def list_ip_pools(
 def create_ip_pool(
     payload: IPPoolCreateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPPoolEnvelope:
     """Create an IPPool (201) and write a CREATE audit row."""
@@ -120,6 +124,7 @@ def create_ip_pool(
         end_address=payload.end_address,
         allocation_mode=payload.allocation_mode,
         description=payload.description,
+        scope=scope,
     )
     return IPPoolEnvelope(ip_pool=_build_out(db, [ip_pool])[0])
 
@@ -129,6 +134,7 @@ def get_ip_pool_detail(
     ip_pool_id: str,
     deleted: bool = Query(default=False),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPPoolEnvelope:
     """IPPool detail; a soft-deleted row needs ``deleted=true`` + VIEW_DELETED."""
@@ -136,7 +142,7 @@ def get_ip_pool_detail(
     if deleted:
         _require_view_deleted(operator)
     ip_pool = ip_pool_service.get_ip_pool(
-        db, ip_pool_uuid, include_deleted=deleted
+        db, ip_pool_uuid, include_deleted=deleted, scope=scope
     )
     if ip_pool is None:
         raise NotFound()
@@ -148,6 +154,7 @@ def update_ip_pool(
     ip_pool_id: str,
     payload: IPPoolUpdateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPPoolEnvelope:
     """Partial update with mandatory ``version``; immutable fields rejected (422)."""
@@ -160,7 +167,12 @@ def update_ip_pool(
                 field, f"{field} may not be null in a partial update"
             )
     ip_pool = ip_pool_service.update_ip_pool(
-        db, operator, ip_pool_uuid, expected_version=payload.version, changes=changes
+        db,
+        operator,
+        ip_pool_uuid,
+        expected_version=payload.version,
+        changes=changes,
+        scope=scope,
     )
     return IPPoolEnvelope(ip_pool=_build_out(db, [ip_pool])[0])
 
@@ -170,12 +182,13 @@ def delete_ip_pool(
     ip_pool_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.DELETE_OBJECT)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> Response:
     """Soft delete (no cascade, no IP-source reference check; DR-108)."""
     ip_pool_uuid = _parse_uuid(ip_pool_id)
     ip_pool_service.delete_ip_pool(
-        db, operator, ip_pool_uuid, expected_version=version
+        db, operator, ip_pool_uuid, expected_version=version, scope=scope
     )
     return Response(status_code=204)
 
@@ -185,12 +198,13 @@ def restore_ip_pool(
     ip_pool_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.RESTORE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> IPPoolEnvelope:
     """Restore a soft-deleted IPPool; writes a RESTORE audit row."""
     ip_pool_uuid = _parse_uuid(ip_pool_id)
     ip_pool = ip_pool_service.restore_ip_pool(
-        db, operator, ip_pool_uuid, expected_version=version
+        db, operator, ip_pool_uuid, expected_version=version, scope=scope
     )
     return IPPoolEnvelope(ip_pool=_build_out(db, [ip_pool])[0])
 
@@ -202,6 +216,7 @@ def ip_pool_activity(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     operator: Operator = Depends(require_permission(Permission.VIEW_ACTIVITY)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ActivityListResponse:
     """Object activity (all roles); soft-deleted needs ``deleted=true``."""
@@ -209,7 +224,7 @@ def ip_pool_activity(
     if deleted:
         _require_view_deleted(operator)
     ip_pool = ip_pool_service.get_ip_pool(
-        db, ip_pool_uuid, include_deleted=deleted
+        db, ip_pool_uuid, include_deleted=deleted, scope=scope
     )
     if ip_pool is None:
         raise NotFound()

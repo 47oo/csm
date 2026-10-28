@@ -184,7 +184,7 @@ def test_users_has_no_soft_delete_and_username_unique(committed_engine):
 
 def test_no_new_schema_or_operator_username_index(committed_engine, alembic_runner):
     engine = committed_engine
-    assert alembic_runner.head_revision() == "0014_api_keys"
+    assert alembic_runner.head_revision() == "0015_user_cluster_authorizations"
 
     with engine.connect() as conn:
         db_head = conn.execute(
@@ -218,7 +218,7 @@ def test_no_new_schema_or_operator_username_index(committed_engine, alembic_runn
             .scalars()
             .all()
         )
-    assert db_head == "0014_api_keys"
+    assert db_head == "0015_user_cluster_authorizations"
     assert forbidden is None
     assert {
         "ix_audit_logs_object_type_object_id",

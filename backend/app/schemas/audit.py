@@ -26,6 +26,7 @@ AuditObjectType = Literal[
     "service_endpoint",
     "user",
     "api_key",
+    "user_cluster_authorization",
 ]
 AuditAction = Literal["CREATE", "UPDATE", "DELETE", "RESTORE"]
 AuditSort = Literal["created_at"]

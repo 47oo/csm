@@ -1,0 +1,45 @@
+=== P9/A1 pytestmark real_scope in module ===
+9:from __future__ import annotations
+11:import threading
+12:import time
+13:import uuid
+15:import pytest
+16:from sqlalchemy import select
+17:from sqlalchemy.exc import DBAPIError
+19:from integration.f015_helpers import create_cluster, role_client_factory  # noqa: F401
+21:pytestmark = pytest.mark.real_scope
+
+=== P4/A3 assert lines: base function vs HEAD function (byte comparison, multiset) ===
+base assert-lines: 16 head assert-lines: 16
+removed (in base not head): []
+added   (in head not base): []
+MULTISET EQUAL: True
+
+--- base assert lines ---
+'        assert _list(admin_a, viewer.id).status_code == 200'
+'        assert _list(admin_b, viewer.id).status_code == 200'
+'        assert len(results) == 2, results'
+'        assert sorted(item["status"] for item in results) == [201, 409], results'
+'        assert winner_row["status"] == "ACTIVE"'
+'        assert winner_row["effective"] is True'
+'        assert winner_row["cluster"]["id"] == cluster["id"]'
+'        assert loser["body"]["error"]["code"] == "CONFLICT"'
+'        assert loser["body"]["error"]["details"]["reason"] == "already_granted"'
+'        assert len(rows) == 1, [row.id for row in rows]'
+'        assert len(active) == 1'
+'        assert active[0].id == uuid.UUID(winner_row["id"])'
+'        assert len(audits) == 1, [audit.action for audit in audits]'
+'        assert audits[0].action == "CREATE"'
+'        assert audits[0].object_id == active[0].id'
+'    assert overlap_observed, attempts'
+
+=== P4/A2 no skip/xfail anywhere in the module & overrides ===
+694 # unchanged (an attempt without interval intersection is a failure, never a skip
+751     skip, never a sequential call standing in for the race). Up to
+(no output above => none)
+
+=== P4/A1/A5 tokens ===
+'MAX_ATTEMPTS = 5': 1
+'range(1, MAX_ATTEMPTS + 1)': 1
+'attempts used: {len(attempts)}/{MAX_ATTEMPTS}': 1
+'assert overlap_observed': 2

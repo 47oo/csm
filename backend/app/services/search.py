@@ -52,7 +52,7 @@ from app.schemas.search import (
     SearchResourceRelated,
     SearchServiceObject,
 )
-from app.services import normalization
+from app.services import normalization, scope_filters
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -109,12 +109,15 @@ def _apply_deleted(statement, model, deleted: str):  # noqa: ANN001
     return statement
 
 
-def _resource_candidates(db: "Session", q_text: str, deleted: str) -> list[_Candidate]:
+def _resource_candidates(
+    db: "Session", q_text: str, deleted: str, scope=None
+) -> list[_Candidate]:
     q_norm = normalization.hostname_key(q_text)
     pattern = f"%{_escape_like(q_norm)}%"
     score = func.similarity(Resource.hostname, q_norm)
     statement = select(Resource, score).where(
-        Resource.hostname.ilike(pattern, escape="\\")
+        Resource.hostname.ilike(pattern, escape="\\"),
+        scope_filters.cluster_predicate(scope, Resource.cluster_id),
     )
     statement = _apply_deleted(statement, Resource, deleted)
     rows = db.execute(
@@ -126,7 +129,9 @@ def _resource_candidates(db: "Session", q_text: str, deleted: str) -> list[_Cand
     ]
 
 
-def _cluster_candidates(db: "Session", q_text: str, deleted: str) -> list[_Candidate]:
+def _cluster_candidates(
+    db: "Session", q_text: str, deleted: str, scope=None
+) -> list[_Candidate]:
     q_code = normalization.code_key(q_text)
     code_pattern = f"%{_escape_like(q_code)}%"
     name_pattern = f"%{_escape_like(q_text)}%"
@@ -137,7 +142,8 @@ def _cluster_candidates(db: "Session", q_text: str, deleted: str) -> list[_Candi
         else_=func.similarity(Cluster.name, q_text),
     )
     statement = select(Cluster, score, code_hit.label("code_hit")).where(
-        code_hit | name_hit
+        code_hit | name_hit,
+        scope_filters.cluster_predicate(scope, Cluster.id),
     )
     statement = _apply_deleted(statement, Cluster, deleted)
     rows = db.execute(
@@ -168,11 +174,16 @@ def _ip_candidate_address(q_text: str) -> str | None:
     return str(address)
 
 
-def _ip_candidates(db: "Session", q_text: str, deleted: str) -> list[_Candidate]:
+def _ip_candidates(
+    db: "Session", q_text: str, deleted: str, scope=None
+) -> list[_Candidate]:
     address = _ip_candidate_address(q_text)
     if address is None:
         return []
-    statement = select(IPAddress).where(IPAddress.address == cast(address, INET))
+    statement = select(IPAddress).where(
+        IPAddress.address == cast(address, INET),
+        scope_filters.cluster_predicate(scope, IPAddress.cluster_id),
+    )
     statement = _apply_deleted(statement, IPAddress, deleted)
     rows = db.execute(
         statement, execution_options=_query_options(deleted != "exclude")
@@ -183,11 +194,16 @@ def _ip_candidates(db: "Session", q_text: str, deleted: str) -> list[_Candidate]
     ]
 
 
-def _service_candidates(db: "Session", q_text: str, deleted: str) -> list[_Candidate]:
+def _service_candidates(
+    db: "Session", q_text: str, deleted: str, scope=None
+) -> list[_Candidate]:
     q_norm = normalization.service_name_key(q_text)
     pattern = f"%{_escape_like(q_norm)}%"
     score = func.similarity(Service.name_key, q_norm)
-    statement = select(Service, score).where(Service.name_key.ilike(pattern, escape="\\"))
+    statement = select(Service, score).where(
+        Service.name_key.ilike(pattern, escape="\\"),
+        scope_filters.service_parent_predicate(scope),
+    )
     statement = _apply_deleted(statement, Service, deleted)
     rows = db.execute(
         statement, execution_options=_query_options(deleted != "exclude")
@@ -199,7 +215,7 @@ def _service_candidates(db: "Session", q_text: str, deleted: str) -> list[_Candi
 
 
 def _load_related(
-    db: "Session", resource_ids: set[uuid.UUID], deleted: str
+    db: "Session", resource_ids: set[uuid.UUID], deleted: str, scope=None
 ) -> dict[uuid.UUID, tuple[list[SearchResourceRelated], int]]:
     """Load ``resource.related`` for the given result-row Resource IDs (F018).
 
@@ -230,7 +246,10 @@ def _load_related(
         .select_from(Interface)
         .join(IPAddress, IPAddress.interface_id == Interface.id)
         .join(Network, Network.id == IPAddress.network_id)
-        .where(Interface.resource_id.in_(resource_ids))
+        .where(
+            Interface.resource_id.in_(resource_ids),
+            scope_filters.cluster_predicate(scope, Network.cluster_id),
+        )
         .order_by(
             Interface.resource_id,
             Interface.name.collate("C"),
@@ -281,7 +300,10 @@ def _load_related(
 
 
 def _build_items(
-    db: "Session", candidates: list[_Candidate], deleted: str = "exclude"
+    db: "Session",
+    candidates: list[_Candidate],
+    deleted: str = "exclude",
+    scope=None,
 ) -> list[SearchItem]:
     resource_candidates = [c for c in candidates if c.object_type == "resource"]
     cluster_candidates = [c for c in candidates if c.object_type == "cluster"]
@@ -303,7 +325,7 @@ def _build_items(
     # F018: association data is only attached to ``object_type="resource"``
     # result rows; embedded resources keep ``related``/``related_total`` null.
     related_by_resource = _load_related(
-        db, {c.payload.id for c in resource_candidates}, deleted
+        db, {c.payload.id for c in resource_candidates}, deleted, scope
     )
 
     resource_ids: set[uuid.UUID] = {c.payload.id for c in resource_candidates}
@@ -452,6 +474,7 @@ def search(
     deleted: str = "exclude",
     page: int = 1,
     page_size: int = 20,
+    scope=None,
 ) -> tuple[list[SearchItem], int]:
     """Run the global search and return the visible page plus the exact total."""
     q_text = validate_q(q)
@@ -466,13 +489,13 @@ def search(
 
     candidates: list[_Candidate] = []
     if object_type in (None, "resource"):
-        candidates.extend(_resource_candidates(db, q_text, deleted))
+        candidates.extend(_resource_candidates(db, q_text, deleted, scope))
     if object_type in (None, "cluster"):
-        candidates.extend(_cluster_candidates(db, q_text, deleted))
+        candidates.extend(_cluster_candidates(db, q_text, deleted, scope))
     if object_type in (None, "ip_address"):
-        candidates.extend(_ip_candidates(db, q_text, deleted))
+        candidates.extend(_ip_candidates(db, q_text, deleted, scope))
     if object_type in (None, "service"):
-        candidates.extend(_service_candidates(db, q_text, deleted))
+        candidates.extend(_service_candidates(db, q_text, deleted, scope))
 
     # Dedup by (object_type, id): one typed row per matched object (DR-174).
     unique: dict[tuple[str, uuid.UUID], _Candidate] = {}
@@ -486,4 +509,4 @@ def search(
     total = len(ordered)
     offset = (page - 1) * page_size
     page_candidates = ordered[offset : offset + page_size]
-    return _build_items(db, page_candidates, deleted), total
+    return _build_items(db, page_candidates, deleted, scope), total

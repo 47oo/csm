@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
+from app.core.access_scope import AccessScope, get_access_scope
 from app.core.auth import Operator
 from app.core.db import get_db
 from app.core.errors import Forbidden, NotFound, ValidationError
@@ -89,6 +90,7 @@ def list_interfaces(
     sort: SortField = Query(default="created_at"),
     order: SortOrder = Query(default="desc"),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> InterfaceListResponse:
     """List interfaces with combined filters/sorting/pagination (§4)."""
@@ -106,6 +108,7 @@ def list_interfaces(
         page_size=page_size,
         sort=sort,
         order=order,
+        scope=scope,
     )
     return InterfaceListResponse(
         items=_build_out(db, items),
@@ -119,6 +122,7 @@ def list_interfaces(
 def create_interface(
     payload: InterfaceCreateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> InterfaceEnvelope:
     """Create an Interface (201) and write a CREATE audit row."""
@@ -135,6 +139,7 @@ def create_interface(
         enabled=payload.enabled,
         description=payload.description,
         metadata=payload.metadata,
+        scope=scope,
     )
     return InterfaceEnvelope(interface=_build_out(db, [interface])[0])
 
@@ -144,6 +149,7 @@ def get_interface_detail(
     interface_id: str,
     deleted: bool = Query(default=False),
     operator: Operator = Depends(require_permission(Permission.READ)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> InterfaceEnvelope:
     """Interface detail; a soft-deleted row needs ``deleted=true`` + VIEW_DELETED."""
@@ -151,7 +157,7 @@ def get_interface_detail(
     if deleted:
         _require_view_deleted(operator)
     interface = interface_service.get_interface(
-        db, interface_uuid, include_deleted=deleted
+        db, interface_uuid, include_deleted=deleted, scope=scope
     )
     if interface is None:
         raise NotFound()
@@ -163,6 +169,7 @@ def update_interface(
     interface_id: str,
     payload: InterfaceUpdateRequest,
     operator: Operator = Depends(require_permission(Permission.WRITE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> InterfaceEnvelope:
     """Partial update with mandatory ``version``; immutable fields rejected (422)."""
@@ -175,7 +182,12 @@ def update_interface(
                 field, f"{field} may not be null in a partial update"
             )
     interface = interface_service.update_interface(
-        db, operator, interface_uuid, expected_version=payload.version, changes=changes
+        db,
+        operator,
+        interface_uuid,
+        expected_version=payload.version,
+        changes=changes,
+        scope=scope,
     )
     return InterfaceEnvelope(interface=_build_out(db, [interface])[0])
 
@@ -185,12 +197,13 @@ def delete_interface(
     interface_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.DELETE_OBJECT)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> Response:
     """Soft delete (no cascade); writes a DELETE audit row."""
     interface_uuid = _parse_uuid(interface_id)
     interface_service.delete_interface(
-        db, operator, interface_uuid, expected_version=version
+        db, operator, interface_uuid, expected_version=version, scope=scope
     )
     return Response(status_code=204)
 
@@ -200,12 +213,13 @@ def restore_interface(
     interface_id: str,
     version: int = Query(ge=1),
     operator: Operator = Depends(require_permission(Permission.RESTORE)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> InterfaceEnvelope:
     """Restore a soft-deleted Interface; writes a RESTORE audit row."""
     interface_uuid = _parse_uuid(interface_id)
     interface = interface_service.restore_interface(
-        db, operator, interface_uuid, expected_version=version
+        db, operator, interface_uuid, expected_version=version, scope=scope
     )
     return InterfaceEnvelope(interface=_build_out(db, [interface])[0])
 
@@ -217,6 +231,7 @@ def interface_activity(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     operator: Operator = Depends(require_permission(Permission.VIEW_ACTIVITY)),
+    scope: AccessScope = Depends(get_access_scope),
     db: Session = Depends(get_db),
 ) -> ActivityListResponse:
     """Object activity (all roles); soft-deleted needs ``deleted=true``."""
@@ -224,7 +239,7 @@ def interface_activity(
     if deleted:
         _require_view_deleted(operator)
     interface = interface_service.get_interface(
-        db, interface_uuid, include_deleted=deleted
+        db, interface_uuid, include_deleted=deleted, scope=scope
     )
     if interface is None:
         raise NotFound()

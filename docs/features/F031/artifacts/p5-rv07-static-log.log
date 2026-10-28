@@ -1,0 +1,37 @@
+=== P5 appended errata block (HEAD lines 38-49) ===
+
+--- F031 errata（Tester，2026-10-23，F030-RV-07）---
+上述「backend/app/api/cluster_authorizations.py: 没有那个文件或目录」为命令输入路径笔误，
+实际文件为 backend/app/api/v1/cluster_authorizations.py。此处仅更正路径，不改变本日志的任何结论：
+排序主张（路径对象优先、q 在账号存在后校验）由集成用例 TD2-P3.4 与下列重跑输出共同证明。
+重跑（只读，路径已更正）：
+$ grep -n "_reject_unknown_query\|_parse_uuid(user_id)" backend/app/api/v1/cluster_authorizations.py
+51:def _reject_unknown_query(request: Request) -> None:
+95:    _reject_unknown_query(request)
+98:        user_id=_parse_uuid(user_id),
+129:        user_id=_parse_uuid(user_id),
+结论：未声明参数在 handler 第一步（第 95 行）被拒，先于路径解析（第 98/129 行）与服务层语义校验；原日志 7 / 1 两个 token 计数不受影响。
+
+=== P5/A3 wrong path occurrences (whole file) ===
+8:backend/app/api/cluster_authorizations.py: 没有那个文件或目录
+40:上述「backend/app/api/cluster_authorizations.py: 没有那个文件或目录」为命令输入路径笔误，
+count(no /v1/):
+2
+
+=== P5/A3 correct path occurrences ===
+41:实际文件为 backend/app/api/v1/cluster_authorizations.py。此处仅更正路径，不改变本日志的任何结论：
+44:$ grep -n "_reject_unknown_query\|_parse_uuid(user_id)" backend/app/api/v1/cluster_authorizations.py
+
+=== P5/A5 F030 test-report diff (expect empty) ===
+[empty above = no change]
+
+=== P5/A4 reproducible grep output pasted in log (re-execute, read-only) ===
+51:def _reject_unknown_query(request: Request) -> None:
+95:    _reject_unknown_query(request)
+
+=== original line 8 of log (historical typo location) ===
+backend/app/services/cluster_authorization.py:187:def _get_user_or_404(db: Session, user_id: uuid.UUID) -> User:
+backend/app/services/cluster_authorization.py:215:    user = _get_user_or_404(db, user_id)
+backend/app/api/cluster_authorizations.py: 没有那个文件或目录
+
+--- _validate_q body

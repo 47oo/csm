@@ -1,0 +1,61 @@
+### F030 scope / whitelist check (base 70db846 = v3.2 = merge-base) (2026-10-23T10:38:14+08:00)
+--- merge-base / commits
+merge-base(v3.2,HEAD)=70db846ca2ed4bad90281ad5f55c1e6a9b2c5300
+56cc6ac feat(F030): implement contract and interaction follow-ups
+7c19df8 docs(F030): complete contract gate and sign off design
+b1b6ba1 test(F030): complete test design
+4335860 docs(F030): complete architecture gate
+a8d653a docs(F030): complete product gate
+1fdaa5b chore(F030): start feature and enter product gate
+
+--- changed files (29 files)
+backend/app/services/cluster_authorization.py
+backend/pyproject.toml
+backend/tests/conftest.py
+backend/tests/integration/test_cluster_authorizations.py
+backend/tests/integration/test_f030_test_harness.py
+docs/api/F002.md
+docs/api/F003.md
+docs/api/F004.md
+docs/api/F007.md
+docs/api/F008.md
+docs/api/F009.md
+docs/api/F010.md
+docs/api/F011.md
+docs/api/F012.md
+docs/api/F013.md
+docs/api/F014.md
+docs/api/F023.md
+docs/api/F026.md
+docs/features/F030/architecture.md
+docs/features/F030/implementation.md
+docs/features/F030/product.md
+docs/features/F030/test-report.md
+docs/project/backlog.md
+docs/project/dependency-map.md
+docs/project/milestones.md
+docs/project/project-plan.yaml
+frontend/scripts/smoke-client.mjs
+frontend/src/components/ClusterAuthorizationPanel.tsx
+frontend/src/components/authorizationCandidates.ts
+
+--- directory-level empty-diff checks (expect no output under each)
+[backend/alembic] -> <empty>
+[backend/app/models] -> <empty>
+[backend/app/schemas] -> <empty>
+[backend/app/core] -> <empty>
+[backend/app/api] -> <empty>
+[frontend/src/api] -> <empty>
+[docs/product] -> <empty>
+[docs/database] -> <empty>
+[docs/api/F027.md] -> <empty>
+[docs/api/F015.md] -> <empty>
+[docs/api/F017.md] -> <empty>
+[backend/app/services/audit.py] -> <empty>
+
+--- Audit / permission / business-rule keyword scan on added lines outside docs/api and docs/features
+
+--- production Python diff outside tests (only cluster_authorization.py comment expected)
+backend/app/services/cluster_authorization.py
+--- non-comment added/removed lines in backend/app (expect only diff headers)
+(empty above = every changed line is a comment)

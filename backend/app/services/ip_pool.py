@@ -42,7 +42,7 @@ from app.core.errors import (
 )
 from app.models.ip_pool import VALID_ALLOCATION_MODES, IPPool
 from app.models.network import Network
-from app.services import audit, ip_occupancy, normalization
+from app.services import audit, ip_occupancy, normalization, scope_filters
 from app.services import cluster as cluster_service
 from app.services.network import _lock_network
 
@@ -128,7 +128,7 @@ def _load_network(db: "Session", network_id: uuid.UUID) -> Network | None:
     )
 
 
-def resolve_network(db: "Session", reference: Any) -> Network:
+def resolve_network(db: "Session", reference: Any, *, scope=None) -> Network:
     """Resolve a POST/PATCH ``network`` UUID to an undeleted Network (DR-107).
 
     The value must be a UUID; missing / non-UUID / nonexistent / soft-deleted all
@@ -144,7 +144,11 @@ def resolve_network(db: "Session", reference: Any) -> Network:
         raise _field_error("network", "network must be a valid UUID") from exc
 
     network = _load_network(db, network_id)
-    if network is None or network.deleted_at is not None:
+    if (
+        network is None
+        or network.deleted_at is not None
+        or not scope_filters.normalize(scope).allows(network.cluster_id)
+    ):
         raise _field_error("network", "network does not exist or is not selectable")
     return network
 
@@ -289,6 +293,7 @@ def list_ip_pools(
     page_size: int = 20,
     sort: str = "created_at",
     order: str = "desc",
+    scope=None,
 ) -> tuple[list[IPPool], int]:
     """Return the visible page of ip pools plus the filtered total."""
     if deleted not in DELETED_MODES:
@@ -300,7 +305,7 @@ def list_ip_pools(
     if allocation_mode is not None:
         _validate_allocation_mode(allocation_mode)
 
-    filters = []
+    filters = [scope_filters.pool_predicate(scope)]
     if network_id is not None:
         filters.append(IPPool.network_id == network_id)
     if allocation_mode is not None:
@@ -339,10 +344,16 @@ def list_ip_pools(
 
 
 def get_ip_pool(
-    db: "Session", ip_pool_id: uuid.UUID, *, include_deleted: bool = False
+    db: "Session",
+    ip_pool_id: uuid.UUID,
+    *,
+    include_deleted: bool = False,
+    scope=None,
 ) -> IPPool | None:
     """Return an ip pool, hidden by the soft-delete filter unless requested."""
-    statement = select(IPPool).where(IPPool.id == ip_pool_id)
+    statement = select(IPPool).where(
+        IPPool.id == ip_pool_id, scope_filters.pool_predicate(scope)
+    )
     return (
         db.execute(statement, execution_options=_query_options(include_deleted))
         .scalars()
@@ -404,6 +415,7 @@ def create_ip_pool(
     end_address: str,
     allocation_mode: str = "MANUAL",
     description: str | None = None,
+    scope=None,
 ) -> IPPool:
     """Create an IPPool; validated per Contract §6.2 order.
 
@@ -415,7 +427,7 @@ def create_ip_pool(
     normalized_name = normalization.normalize_ip_pool_name(name)
     validated_mode = _validate_allocation_mode(allocation_mode)
 
-    network_row = resolve_network(db, network)
+    network_row = resolve_network(db, network, scope=scope)
     _lock_network(db, network_row.id)
 
     norm_start, norm_end = normalization.normalize_ip_pool_addresses(
@@ -478,6 +490,7 @@ def update_ip_pool(
     *,
     expected_version: int,
     changes: dict[str, Any],
+    scope=None,
 ) -> IPPool:
     """Partial update with optimistic locking; ``network`` is immutable.
 
@@ -486,7 +499,7 @@ def update_ip_pool(
     order (422) -> name uniqueness (409) -> overlap (409) -> RESERVED occupancy
     (409) -> write + UPDATE Audit -> 200.
     """
-    ip_pool = get_ip_pool(db, ip_pool_id)
+    ip_pool = get_ip_pool(db, ip_pool_id, scope=scope)
     if ip_pool is None:
         raise NotFound()
     if ip_pool.version != expected_version:
@@ -627,12 +640,13 @@ def delete_ip_pool(
     ip_pool_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> None:
     """Soft delete (no cascade, no IP-source reference check; DR-108).
 
     Contract §6.5 order: object (404) -> version (409) -> soft delete.
     """
-    ip_pool = get_ip_pool(db, ip_pool_id)
+    ip_pool = get_ip_pool(db, ip_pool_id, scope=scope)
     if ip_pool is None:
         raise NotFound()
     if ip_pool.version != expected_version:
@@ -675,6 +689,7 @@ def restore_ip_pool(
     ip_pool_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> IPPool:
     """Restore a soft-deleted IPPool (Contract §6.6).
 
@@ -685,7 +700,7 @@ def restore_ip_pool(
     A failed restore never overwrites the newer object; name reuse precedes
     dependency/overlap failures.
     """
-    ip_pool = get_ip_pool(db, ip_pool_id, include_deleted=True)
+    ip_pool = get_ip_pool(db, ip_pool_id, include_deleted=True, scope=scope)
     if ip_pool is None:
         raise NotFound()
     if ip_pool.deleted_at is None:

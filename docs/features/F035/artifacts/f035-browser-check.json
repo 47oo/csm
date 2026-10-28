@@ -1,0 +1,75 @@
+{
+  "appendRules": [
+    "资源级列（resource_type / role / status / host / vcpu / memory_mb / disk_gb / hypervisor 及硬件列）可填，但必须与既有值完全一致（区分大小写）；不一致报行错误， 不覆盖既有值。",
+    "资源级列留空 = 省略：不参与比较，也不会把既有值置空；既有为空的列不能经导入补填， 只能到资源编辑页维护。",
+    "既有同名网卡（区分大小写）与同集群既有 IP 仍报行错误；不跳过、不忽略重复行，无部分成功。",
+    "不支持向既有网卡再绑定 IP：同一张网卡的多个 IP 须在同一批首次导入中提供， 或改用 IP 侧绑定入口维护。",
+    "补录已有机器时只提交新增行：文件含已导入过的行会整批失败（整批原子回滚）。",
+    "VM 追加行的 host 仍必填，且必须与该机器既有宿主机一致。"
+  ],
+  "storage": {
+    "localKeys": [],
+    "sessionKeys": [],
+    "cookie": ""
+  },
+  "apiCalls": [
+    {
+      "url": "http://localhost:18080/api/v1/auth/me",
+      "status": 401,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:18080/api/v1/auth/login",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:18080/api/v1/health",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:18080/api/v1/dashboard?page=1&page_size=20",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:18080/api/v1/resources?deleted=exclude&page=1&page_size=20&sort=created_at&order=desc",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "http://localhost:18080/api/v1/imports/resource-interfaces-ips/validate",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:18080/api/v1/imports/resource-interfaces-ips/validate",
+      "status": 200,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:18080/api/v1/imports/resource-interfaces-ips",
+      "status": 201,
+      "method": "POST"
+    },
+    {
+      "url": "http://localhost:18080/api/v1/resources?deleted=exclude&page=1&page_size=20&sort=created_at&order=desc",
+      "status": 200,
+      "method": "GET"
+    }
+  ],
+  "consoleErrors": [],
+  "cleanup": [
+    204,
+    204,
+    204,
+    204,
+    204,
+    204,
+    204
+  ],
+  "failures": 0,
+  "base": "http://localhost:18080",
+  "clusterCode": "F35B161718"
+}

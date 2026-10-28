@@ -1,0 +1,46 @@
+=== P3/A1 AST dump sha256 (base 2c827fb vs HEAD) ===
+base AST sha256: 61e10340c0ffd7146bc430b8c760383ef02326c46c8297808b0b75a4a840cb1e
+HEAD AST sha256: 61e10340c0ffd7146bc430b8c760383ef02326c46c8297808b0b75a4a840cb1e
+EQUAL: True
+
+=== P3/A5 diff: added/removed lines all comment lines? ===
+-    # sort/order) and undeclared params are rejected by the route before the
+-    # handler, hence 422 even for an unknown account. This is not an
+-    # information-leak hardening measure: the endpoint is USER_ADMIN only.
++    # sort/order) are rejected by the route before the handler; undeclared
++    # params are rejected by `_reject_unknown_query` as the handler's first
++    # step, before path and semantic validation — hence 422 even for an unknown
++    # account. This is not an information-leak hardening measure: the endpoint
++    # is USER_ADMIN only.
+--- non-comment added/removed lines count (should be 0):
+0
+
+=== P3/A2 new tokens present ===
+_reject_unknown_query                         1
+handler's first step                          0
+before path and semantic validation           1
+not an information-leak                       1
+USER_ADMIN only                               1
+
+=== P3/A3 old ambiguous phrases / existence oracle (whole concatenated comment paragraph, wrapping-insensitive) ===
+--- BASE block ---
+Contract §3/§5 P-1: path object first — an unknown or non-UUID account is 404 before any semantic query validation, so `q` is only validated after the account exists. Typed query params (status/cluster_id/page/page_size/ sort/order) and undeclared params are rejected by the route before the handler, hence 422 even for an unknown account. This is not an information-leak hardening measure: the endpoint is USER_ADMIN only.
+--- HEAD block (wrapping-normalised) ---
+Contract §3/§5 P-1: path object first — an unknown or non-UUID account is 404 before any semantic query validation, so `q` is only validated after the account exists. Typed query params (status/cluster_id/page/page_size/ sort/order) are rejected by the route before the handler; undeclared params are rejected by `_reject_unknown_query` as the handler's first step, before path and semantic validation — hence 422 even for an unknown account. This is not an information-leak hardening measure: the endpoint is USER_ADMIN only.
+
+BASE has 'and undeclared params are rejected by the route before the handler': True   HEAD has: False
+BASE has 'undeclared params are rejected by the route': True   HEAD has: False
+BASE has 'existence oracle': False   HEAD has: False
+BASE has '存在性预言机': False   HEAD has: False
+
+three conclusions retained '404 before any semantic query validation': base=True head=True
+three conclusions retained '`q` is only validated after the account exists': base=True head=True
+three conclusions retained 'hence 422 even for an unknown account': base=True head=True
+=== P3/A2 wrapping-normalised token check + design §3.3 byte comparison ===
+normalised contains '_reject_unknown_query': True
+normalised contains "handler's first step": True
+normalised contains 'before path and semantic validation': True
+normalised contains 'not an information-leak': True
+normalised contains 'USER_ADMIN only': True
+
+design §3.3 block == impl comment block (byte-identical): True

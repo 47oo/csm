@@ -1,0 +1,38 @@
+PASS IMPORT_MAX_FILE_BYTES === 5,242,880 — 5242880
+PASS T111.1 utf8ByteLength(ascii) — 3 == 3
+PASS T111.1 utf8ByteLength(chinese) — 6 == 6
+PASS T111.1 utf8ByteLength(emoji) — 4 == 4
+PASS T111.1 utf8ByteLength(mixed) — 8 == 8
+PASS T111.1 byte length differs from String.length (multi-byte)
+PASS T111.2 text carrier limit-1 (5242879 bytes) -> accepted
+PASS T111.2 F023 carrier limit-1 (5242879 bytes) -> accepted
+PASS T111.2 text carrier limit (5242880 bytes) -> accepted
+PASS T111.2 F023 carrier limit (5242880 bytes) -> accepted
+PASS T111.2 text carrier limit+1 (5242881 bytes) -> rejected locally — {"text":"粘贴内容超过同步导入大小上限（UTF-8 编码后 5242881 字节 > 5242880 字节 ≈ 5 MiB）；请拆分后重试（服务端同样在解析前拒绝 413 IMPORT_FILE_TOO_LARGE）"}
+PASS T111.2 F023 carrier limit+1 (5242881 bytes) -> rejected locally — {"text":"粘贴内容超过同步导入大小上限（UTF-8 编码后 5242881 字节 > 5242880 字节 ≈ 5 MiB）；请拆分后重试（服务端同样在解析前拒绝 413 IMPORT_FILE_TOO_LARGE）"}
+PASS T111.3 anti-hole fixture is constructed correctly — String.length=1747960 bytes=5243880 limit=5242880
+PASS T111.3 anti-hole: multi-byte payload over the byte cap is rejected locally — {"text":"粘贴内容超过同步导入大小上限（UTF-8 编码后 5243880 字节 > 5242880 字节 ≈ 5 MiB）；请拆分后重试（服务端同样在解析前拒绝 413 IMPORT_FILE_TOO_LARGE）"}
+PASS T110.1 blank "" rejected locally with a text error — {"text":"粘贴内容为空或只有空白字符（空输入不会发起请求）"}
+PASS T110.1 blank "   " rejected locally with a text error — {"text":"粘贴内容为空或只有空白字符（空输入不会发起请求）"}
+PASS T110.1 blank "\n\n" rejected locally with a text error — {"text":"粘贴内容为空或只有空白字符（空输入不会发起请求）"}
+PASS T110.1 blank " \t\r\n " rejected locally with a text error — {"text":"粘贴内容为空或只有空白字符（空输入不会发起请求）"}
+PASS T111.8 5001-row small-byte text is accepted locally (server is authoritative) — 144057 bytes
+PASS T116.5 text carrier with format=xlsx is rejected (defensive branch) — {"format":"粘贴 CSV 文本仅支持 csv 格式（format 固定为 csv，不提供 .xlsx 文本载体）"}
+PASS T116.5 unknown carrier value is rejected (defensive branch) — {"carrier":"输入载体必须为「上传文件」或「粘贴 CSV 文本」（不接受其它值）"}
+PASS T107.5 file carrier with no file still rejected locally
+PASS T107.5 file carrier over the byte cap still rejected locally
+PASS T107.5 file carrier format=xlsx with a non-.xlsx name still rejected locally — {"file":"format=xlsx 时仅接受 .xlsx 文件（.xls 等旧格式不支持；服务端同样拒绝 IMPORT_INVALID_FILE/unsupported_format）"}
+PASS T116.1 fingerprint changes on first char
+PASS T116.1 fingerprint changes on middle char
+PASS T116.1 fingerprint changes on last char
+PASS T116.1 fingerprint changes on extra trailing space
+PASS T116.1 fingerprint changes on removed space
+PASS T116.1 fingerprint changes on CJK replacement
+PASS T116.1 fingerprint changes on emoji replacement
+PASS T116.2 identical text gives a stable fingerprint
+PASS T116.2 text fingerprint is tagged
+PASS T116.2 file fingerprint is tagged
+PASS T116.2 same bytes under the two carriers produce different fingerprints — file:csv:x.csv:352:1792996986780 vs text:csv:2zicfq-1ftim6a:352
+PASS T116.3 payload is not trimmed (three near-identical payloads differ) — ["text:csv:1fdpdb8-ykc6ji:4","text:csv:2n456w-45d4u6:5","text:csv:do5fje-45d4a0:5"]
+
+0 failures

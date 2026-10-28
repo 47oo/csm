@@ -38,7 +38,9 @@ git switch -c feature/<feature-id>-<slug>
 
 记录实际值：
 
-* `git.base_branch: v3`
+* `git.base_branch`：当前交付分支。**2026-10-26 起为 `v3.4`**（F001–F036 全部交付后的交付线，指针 `936a425` 同源迁移自 `v3.3`）；为兼容旧记录仍接受 `v3` 形式写法，但新 Feature 一律基于 `v3.4`。
+  - `v3.3` **分支已废弃并于 2026-10-26 删除**（远端与本地）；`v3.3` **标签保留**（annotated，指向 `936a425`）作为历史基线，供 DONE Feature 的 Base SHA 追溯，不得据此开启新 Feature。
+  - `v3.4` 与已删除的 `v3.3` 分支在切换时指向同一提交，属**同内容改名**，不是内容变更；历史 Feature 报告中的 `refs/heads/v3.3` 记录保持原样，不改写。
 * `git.branch`：创建的 Feature 分支。
 * `git.start_commit`：创建时 v3 的完整 SHA，之后不变。
 * `git.head_commit`：最近已记录的交付或检查点提交；不是包含该字段的 YAML 提交自身哈希。其后仅状态元数据差异需核对，不递归追写 HEAD。

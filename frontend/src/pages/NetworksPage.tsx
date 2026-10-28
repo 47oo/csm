@@ -431,6 +431,7 @@ export default function NetworksPage({ user }: NetworksPageProps) {
         {canWrite && mode.kind === "list" && (
           <Button
             type="button"
+            variant="primary"
             onClick={() => {
               setFormError(null);
               setMode({ kind: "create" });

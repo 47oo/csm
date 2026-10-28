@@ -2,7 +2,8 @@ import { Button } from "../components/ui/controls";
 import { ErrorState } from "../components/ui/feedback";
 import { SurfaceCard } from "../components/ui/surfaces";
 import { Descriptions, Tag } from "antd";
-import { useState } from "react";
+import { AppstoreOutlined, ClusterOutlined, DatabaseOutlined, DeploymentUnitOutlined, HddOutlined, HistoryOutlined, LogoutOutlined, SafetyCertificateOutlined, SettingOutlined, UserOutlined, CloudServerOutlined } from "@ant-design/icons";
+import { useEffect, useRef, useState } from "react";
 import { logout, type User } from "../api/auth";
 import { displayError, isApiError } from "../api/client";
 import type { Cluster } from "../api/clusters";
@@ -64,6 +65,23 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
   const [section, setSection] = useState<Section>({ name: "overview" });
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const contentRef = useRef<HTMLElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const previousSection = useRef(section);
+
+  useEffect(() => {
+    if (previousSection.current !== section) {
+      contentRef.current?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: "instant" });
+      previousSection.current = section;
+    }
+    // 窄屏导航为单行横向滚动（F033 DR-F033-03）：切换后把当前激活项滚入
+    // 可视区（inline/block nearest，避免连带改变页面纵向滚动位置）。
+    // 共享 Button 不转发 ref，因此作用域查询使用 nav 原生 ref。
+    navRef.current
+      ?.querySelector(".app-nav .nav-link-active")
+      ?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [section]);
 
   async function handleLogout() {
     if (loggingOut) {
@@ -103,17 +121,6 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
   const inAudit = section.name === "audit";
   const inSystem = section.name === "system";
   const inOverview = section.name === "overview";
-  const wide =
-    inOverview ||
-    inClusters ||
-    inResources ||
-    inNetworks ||
-    inIpPools ||
-    inIpAddresses ||
-    inServices ||
-    inAudit ||
-    inSystem;
-
   // F015：Audit 仅 AUDIT_READ；System 需 USER_ADMIN（账号管理）或
   // VIEW_DELETED（已删对象管理）之一（DR-224）；按服务端返回的 permissions
   // 显示 / 隐藏导航入口，不替代服务端鉴权
@@ -121,93 +128,67 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
   const canSystem =
     user.permissions.includes("USER_ADMIN") || user.permissions.includes("VIEW_DELETED");
 
+  const navigation = [
+    { name: "overview", label: "概览", description: "资源概览", active: inOverview, icon: <AppstoreOutlined />, group: "工作空间" },
+    { name: "clusters", label: "Clusters", description: "集群管理", active: inClusters, icon: <ClusterOutlined />, group: "资源管理" },
+    { name: "resources", label: "Resources", description: "资源台账", active: inResources, icon: <HddOutlined /> },
+    { name: "networks", label: "Networks", description: "网络管理", active: inNetworks, icon: <DeploymentUnitOutlined /> },
+    { name: "ip-pools", label: "IP Pools", description: "地址池管理", active: inIpPools, icon: <DatabaseOutlined /> },
+    { name: "ip-addresses", label: "IP Addresses", description: "IP 地址管理", active: inIpAddresses, icon: <CloudServerOutlined /> },
+    { name: "services", label: "Services", description: "服务登记", active: inServices, icon: <AppstoreOutlined /> },
+    ...(canAudit ? [{ name: "audit", label: "Audit", description: "审计查询", active: inAudit, icon: <HistoryOutlined />, group: "平台管理" }] : []),
+    ...(canSystem ? [{ name: "system", label: "System", description: "系统管理", active: inSystem, icon: <SettingOutlined />, group: canAudit ? undefined : "平台管理" }] : []),
+  ];
+  const currentPage = navigation.find((item) => item.active)!;
+
   return (
-    <main className={wide ? "main-wide" : undefined}>
-      <header className="app-header">
-        <div>
-          <h1>CSM</h1>
-          <p className="subtitle">Cluster Source Manager · 资源事实数据源</p>
+    <div className="app-shell">
+      <a className="skip-link" href="#workspace-content">跳转到主要内容</a>
+      <aside className="app-sidebar" aria-label="工作空间导航">
+        <div className="app-brand">
+          <span className="brand-symbol" aria-hidden="true"><ClusterOutlined /></span>
+          <div><strong>CSM</strong><span>Cluster Source Manager</span></div>
         </div>
+        <div className="nav-scroller">
+          <nav className="app-nav" aria-label="主导航" ref={navRef}>
+            {navigation.map((item) => (
+              <div className="nav-entry" key={item.name}>
+                {item.group && <p className="nav-group-label">{item.group}</p>}
+                <Button
+                  type="button"
+                  variant="text"
+                  className={item.active ? "nav-link nav-link-active" : "nav-link"}
+                  aria-current={item.active ? "page" : undefined}
+                  icon={<span aria-hidden="true">{item.icon}</span>}
+                  onClick={() => setSection({ name: item.name } as Section)}
+                >
+                  {item.label}
+                </Button>
+              </div>
+            ))}
+          </nav>
+        </div>
+        <div className="sidebar-note"><SafetyCertificateOutlined aria-hidden="true" /><span>资源事实数据源</span></div>
+      </aside>
+
+      <div className="app-workspace">
+      <header className="app-header">
         <div className="user-box">
+          <span className="user-avatar" aria-hidden="true"><UserOutlined /></span>
           <span className="user-name">{user.username}</span>
           <span className="user-role">{user.role}</span>
-          <Button type="button" onClick={handleLogout} disabled={loggingOut}>
+          <Button type="button" variant="text" icon={<LogoutOutlined aria-hidden="true" />} onClick={handleLogout} disabled={loggingOut}>
             {loggingOut ? "正在登出…" : "登出"}
           </Button>
         </div>
       </header>
 
+      <main className="workspace-content" id="workspace-content" ref={contentRef} tabIndex={-1} aria-label={currentPage.description}>
+      <div className="page-heading">
+        <div><p className="page-eyebrow" aria-hidden="true">CLUSTER SOURCE MANAGER</p><h1>{currentPage.description}</h1></div>
+        <p className="subtitle">统一登记、查询与维护集群资源</p>
+      </div>
       {logoutError && <ErrorState message={`登出失败：${logoutError}`} />}
-
-      <nav className="app-nav" aria-label="主导航">
-        <Button
-          type="button"
-          className={section.name === "overview" ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "overview" })}
-        >
-          概览
-        </Button>
-        <Button
-          type="button"
-          className={inClusters ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "clusters" })}
-        >
-          Clusters
-        </Button>
-        <Button
-          type="button"
-          className={inResources ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "resources" })}
-        >
-          Resources
-        </Button>
-        <Button
-          type="button"
-          className={inNetworks ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "networks" })}
-        >
-          Networks
-        </Button>
-        <Button
-          type="button"
-          className={inIpPools ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "ip-pools" })}
-        >
-          IP Pools
-        </Button>
-        <Button
-          type="button"
-          className={inIpAddresses ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "ip-addresses" })}
-        >
-          IP Addresses
-        </Button>
-        <Button
-          type="button"
-          className={inServices ? "nav-link nav-link-active" : "nav-link"}
-          onClick={() => setSection({ name: "services" })}
-        >
-          Services
-        </Button>
-        {canAudit && (
-          <Button
-            type="button"
-            className={inAudit ? "nav-link nav-link-active" : "nav-link"}
-            onClick={() => setSection({ name: "audit" })}
-          >
-            Audit
-          </Button>
-        )}
-        {canSystem && (
-          <Button
-            type="button"
-            className={inSystem ? "nav-link nav-link-active" : "nav-link"}
-            onClick={() => setSection({ name: "system" })}
-          >
-            System
-          </Button>
-        )}
-      </nav>
 
       {section.name === "overview" && (
         <>
@@ -342,6 +323,8 @@ export default function HomePage({ user, onLoggedOut }: HomePageProps) {
       {section.name === "audit" && <AuditPage user={user} />}
 
       {section.name === "system" && <SystemPage user={user} />}
-    </main>
+      </main>
+      </div>
+    </div>
   );
 }

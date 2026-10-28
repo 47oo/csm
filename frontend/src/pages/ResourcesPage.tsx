@@ -1,4 +1,6 @@
 import { Button, Input, Select, DataTable } from "../components/ui/controls";
+import { Button as AntButton, Dropdown } from "antd";
+import { DownOutlined, ImportOutlined, PlusOutlined } from "@ant-design/icons";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, LoadingState, WarningState } from "../components/ui/feedback";
 import { ServerPagination as Pagination, StatusTag, SurfaceCard, statusTone } from "../components/ui/surfaces";
@@ -21,6 +23,7 @@ import {
 } from "../api/resources";
 import { conflictItemText, referenceItemText } from "../components/resourceActionMessages.ts";
 import ResourceImportPanel from "../components/ResourceImportPanel";
+import ResourceInterfaceIpImportPanel from "../components/ResourceInterfaceIpImportPanel";
 
 interface ResourcesPageProps {
   user: User;
@@ -80,6 +83,8 @@ const SORT_COLUMNS: { field: ResourceSortField; label: string }[] = [
  * - 403（如无 VIEW_DELETED 却请求 include/only）/ 422 / 500 明确呈现并允许重试；
  * - F014：工具栏提供 CSV / .xlsx 批量导入入口（仅 IMPORT 权限显示，服务端仍
  *   鉴权；面板内预校验 → 确认导入，成功后刷新列表）；
+ * - F023：另提供「资源+网卡+IP」三元组批量导入入口（统一宽模板 26 列，
+ *   独立第三套面板；同样仅 IMPORT 权限显示，不影响 F014 既有面板）；
  * - F021：行内单行删除入口（仅 DELETE_OBJECT 且未删行显示；复用详情页删除
  *   语义与 ConfirmDialog 二次确认；409 引用 / 版本冲突在对话框内呈现）。
  */
@@ -89,6 +94,7 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
   const canImport = user.permissions.includes("IMPORT");
   const canDelete = user.permissions.includes("DELETE_OBJECT");
   const [showImport, setShowImport] = useState(false);
+  const [showInterfaceIpImport, setShowInterfaceIpImport] = useState(false);
 
   const [query, setQuery] = useState<AppliedQuery>(DEFAULT_QUERY);
   // 筛选表单草稿：点击“筛选”才应用（避免每次击键发请求）；“重置”恢复默认过滤
@@ -231,12 +237,20 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
           <h2>Resources（资源）</h2>
           <div className="filter-actions">
             {canImport && (
-              <Button type="button" onClick={() => setShowImport((visible) => !visible)}>
-                {showImport ? "收起批量导入" : "批量导入…"}
-              </Button>
+              <Dropdown
+                trigger={["click"]}
+                menu={{ items: [
+                  { key: "resources", label: showImport ? "收起批量导入" : "批量导入…", onClick: () => setShowImport((visible) => !visible) },
+                  { key: "interfaces", label: showInterfaceIpImport ? "收起资源+网卡+IP 导入" : "资源+网卡+IP 批量导入…", onClick: () => setShowInterfaceIpImport((visible) => !visible) },
+                ] }}
+              >
+                <AntButton htmlType="button" className="csm-button" icon={<ImportOutlined aria-hidden="true" />}>
+                  批量导入 <DownOutlined aria-hidden="true" />
+                </AntButton>
+              </Dropdown>
             )}
             {canWrite && (
-              <Button type="button" onClick={onCreate}>
+              <Button type="button" variant="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={onCreate}>
                 新建资源
               </Button>
             )}
@@ -499,6 +513,12 @@ export default function ResourcesPage({ user, onOpenResource, onCreate }: Resour
 
       {showImport && (
         <ResourceImportPanel onImported={() => setReloadToken((token) => token + 1)} />
+      )}
+
+      {showInterfaceIpImport && (
+        <ResourceInterfaceIpImportPanel
+          onImported={() => setReloadToken((token) => token + 1)}
+        />
       )}
     </>
   );

@@ -21,6 +21,7 @@ filter hides ``deleted_at IS NOT NULL`` rows by default; callers opt in with
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func, select, update
@@ -35,7 +36,7 @@ from app.core.errors import (
 )
 from app.models.interface import VALID_INTERFACE_TYPES, Interface
 from app.models.resource import Resource
-from app.services import audit, normalization
+from app.services import audit, normalization, scope_filters
 from app.services import cluster as cluster_service
 
 if TYPE_CHECKING:
@@ -131,7 +132,7 @@ def _translate_integrity_error(exc: IntegrityError) -> AppError:
     return ValidationError(message="interface write rejected by a database constraint")
 
 
-def _lock_resource(db: "Session", resource_id: uuid.UUID) -> Resource:
+def _lock_resource(db: "Session", resource_id: uuid.UUID, *, scope=None) -> Resource:
     """Lock the owning Resource row and require it undeleted (DR-85/DR-71).
 
     The lock is taken *before* the parent ancestor check so concurrent parent
@@ -147,7 +148,11 @@ def _lock_resource(db: "Session", resource_id: uuid.UUID) -> Resource:
         .scalars()
         .first()
     )
-    if resource is None or resource.deleted_at is not None:
+    if (
+        resource is None
+        or resource.deleted_at is not None
+        or not scope_filters.normalize(scope).allows(resource.cluster_id)
+    ):
         raise _field_error(
             "resource", "resource does not exist or is not selectable"
         )
@@ -307,6 +312,7 @@ def list_interfaces(
     page_size: int = 20,
     sort: str = "created_at",
     order: str = "desc",
+    scope=None,
 ) -> tuple[list[Interface], int]:
     """Return the visible page of interfaces plus the filtered total."""
     if deleted not in DELETED_MODES:
@@ -318,7 +324,7 @@ def list_interfaces(
     if interface_type is not None:
         _validate_interface_type(interface_type)
 
-    filters = []
+    filters = [scope_filters.interface_parent_predicate(scope)]
     if resource_id is not None:
         filters.append(Interface.resource_id == resource_id)
     if interface_type is not None:
@@ -360,10 +366,16 @@ def list_interfaces(
 
 
 def get_interface(
-    db: "Session", interface_id: uuid.UUID, *, include_deleted: bool = False
+    db: "Session",
+    interface_id: uuid.UUID,
+    *,
+    include_deleted: bool = False,
+    scope=None,
 ) -> Interface | None:
     """Return an interface, hidden by the soft-delete filter unless requested."""
-    statement = select(Interface).where(Interface.id == interface_id)
+    statement = select(Interface).where(
+        Interface.id == interface_id, scope_filters.interface_parent_predicate(scope)
+    )
     return (
         db.execute(statement, execution_options=_query_options(include_deleted))
         .scalars()
@@ -429,9 +441,31 @@ def list_activity(
 # --- writes -----------------------------------------------------------------
 
 
-def create_interface(
+@dataclass
+class PreparedInterface:
+    """Fully validated Interface values ready to be staged (DR-417).
+
+    Produced by :func:`prepare_interface` (validation, owning-Resource lock,
+    parent check and same-Resource name uniqueness); persisted without
+    re-running validation by :func:`stage_interface`. F023 import builds the
+    same object after its aggregation-friendly per-row validation and stages it
+    inside a per-resource SAVEPOINT.
+    """
+
+    resource_id: uuid.UUID
+    name: str
+    interface_type: str
+    mac_address: str | None
+    speed_mbps: int | None
+    mtu: int | None
+    parent_interface_id: uuid.UUID | None
+    enabled: bool
+    description: str | None
+    meta: dict
+
+
+def prepare_interface(
     db: "Session",
-    operator: "Operator | None",
     *,
     resource: uuid.UUID,
     name: str,
@@ -443,12 +477,14 @@ def create_interface(
     enabled: bool = True,
     description: str | None = None,
     metadata: dict | None = None,
-) -> Interface:
-    """Create an Interface; validated per Contract §6.2 order.
+    scope=None,
+) -> PreparedInterface:
+    """Validate and normalise an Interface (no write, no commit; DR-417).
 
-    Body (422) -> owning Resource (422) -> parent (422) -> same-Resource
-    undeleted name uniqueness (409) -> write + CREATE Audit -> 201. The owning
-    Resource row is locked before the parent ancestor check (DR-85).
+    Preserves the create order exactly: body/normalisation (422) -> owning
+    Resource lock + selectability (422) -> parent (422) -> same-Resource
+    undeleted name uniqueness (409). The same non-committing core backs the
+    ordinary API and F023 import; ``create_interface`` is a thin wrapper.
     """
     normalized_name = normalization.normalize_interface_name(name)
     validated_type = _validate_interface_type(interface_type)
@@ -461,7 +497,7 @@ def create_interface(
     validated_mtu = _validate_positive_int("mtu", mtu)
     meta = _validate_metadata({} if metadata is None else metadata)
 
-    resource_row = _lock_resource(db, resource)
+    resource_row = _lock_resource(db, resource, scope=scope)
 
     if parent_interface is not None:
         _validate_parent(
@@ -478,7 +514,7 @@ def create_interface(
     if duplicate is not None:
         raise Conflict.unique_conflict("name")
 
-    interface = Interface(
+    return PreparedInterface(
         resource_id=resource_row.id,
         name=normalized_name,
         interface_type=validated_type,
@@ -490,12 +526,31 @@ def create_interface(
         description=description,
         meta=meta,
     )
+
+
+def stage_interface(
+    db: "Session", operator: "Operator | None", prepared: PreparedInterface
+) -> Interface:
+    """Persist a prepared Interface + CREATE audit (no commit; DR-417).
+
+    Flushes so the generated id/constraints are visible; an ``IntegrityError``
+    propagates to the caller, which owns rollback (API: whole-transaction in
+    :func:`create_interface`; import: the per-resource SAVEPOINT).
+    """
+    interface = Interface(
+        resource_id=prepared.resource_id,
+        name=prepared.name,
+        interface_type=prepared.interface_type,
+        mac_address=prepared.mac_address,
+        speed_mbps=prepared.speed_mbps,
+        mtu=prepared.mtu,
+        parent_interface_id=prepared.parent_interface_id,
+        enabled=prepared.enabled,
+        description=prepared.description,
+        meta=prepared.meta,
+    )
     db.add(interface)
-    try:
-        db.flush()
-    except IntegrityError as exc:  # concurrent create lost the race
-        db.rollback()
-        raise _translate_integrity_error(exc) from exc
+    db.flush()
 
     audit.record(
         db,
@@ -506,6 +561,54 @@ def create_interface(
         before=None,
         after=interface_snapshot(interface),
     )
+    return interface
+
+
+def create_interface(
+    db: "Session",
+    operator: "Operator | None",
+    *,
+    resource: uuid.UUID,
+    name: str,
+    interface_type: str = "OTHER",
+    mac_address: str | None = None,
+    speed_mbps: int | None = None,
+    mtu: int | None = None,
+    parent_interface: uuid.UUID | None = None,
+    enabled: bool = True,
+    description: str | None = None,
+    metadata: dict | None = None,
+    scope=None,
+) -> Interface:
+    """Create an Interface; validated per Contract §6.2 order.
+
+    Body (422) -> owning Resource (422) -> parent (422) -> same-Resource
+    undeleted name uniqueness (409) -> write + CREATE Audit -> 201. The owning
+    Resource row is locked before the parent ancestor check (DR-85). Thin
+    wrapper around :func:`prepare_interface` + :func:`stage_interface`
+    (DR-417): it commits on success and translates an unexpected
+    ``IntegrityError``.
+    """
+    prepared = prepare_interface(
+        db,
+        resource=resource,
+        name=name,
+        interface_type=interface_type,
+        mac_address=mac_address,
+        speed_mbps=speed_mbps,
+        mtu=mtu,
+        parent_interface=parent_interface,
+        enabled=enabled,
+        description=description,
+        metadata=metadata,
+        scope=scope,
+    )
+    try:
+        interface = stage_interface(db, operator, prepared)
+    except IntegrityError as exc:  # concurrent create lost the race
+        db.rollback()
+        raise _translate_integrity_error(exc) from exc
+
     db.commit()
     return interface
 
@@ -517,6 +620,7 @@ def update_interface(
     *,
     expected_version: int,
     changes: dict[str, Any],
+    scope=None,
 ) -> Interface:
     """Partial update with optimistic locking; ``resource``/``id`` immutable.
 
@@ -525,13 +629,13 @@ def update_interface(
     uses ``exclude_unset`` semantics (only the supplied keys are applied); an
     explicit ``null`` clears a nullable field.
     """
-    interface = get_interface(db, interface_id)
+    interface = get_interface(db, interface_id, scope=scope)
     if interface is None:
         raise NotFound()
 
     # Parent change is validated before the version check (DR-85 lock order).
     if PARENT_FIELD in changes:
-        _lock_resource(db, interface.resource_id)
+        _lock_resource(db, interface.resource_id, scope=scope)
         new_parent = changes[PARENT_FIELD]
         if new_parent is not None:
             _validate_parent(
@@ -622,6 +726,7 @@ def delete_interface(
     interface_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> None:
     """Soft delete (no cascade); blocked by undeleted references (DR-80/DR-82).
 
@@ -629,13 +734,13 @@ def delete_interface(
     soft delete. The owning Resource row is locked before the reference check so
     a concurrent child-Interface create serialises (DR-85).
     """
-    interface = get_interface(db, interface_id)
+    interface = get_interface(db, interface_id, scope=scope)
     if interface is None:
         raise NotFound()
     if interface.version != expected_version:
         raise VersionConflict(interface.version)
 
-    _lock_resource(db, interface.resource_id)
+    _lock_resource(db, interface.resource_id, scope=scope)
 
     references = cluster_service.check_references(db, OBJECT_TYPE, interface_id)
     if references:
@@ -678,6 +783,7 @@ def restore_interface(
     interface_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> Interface:
     """Restore a soft-deleted Interface; rechecks name -> Resource -> parent.
 
@@ -685,7 +791,7 @@ def restore_interface(
     precedence over an invalid owning Resource or parent (409
     ``dependency_deleted``); a failed restore never overwrites the newer object.
     """
-    interface = get_interface(db, interface_id, include_deleted=True)
+    interface = get_interface(db, interface_id, include_deleted=True, scope=scope)
     if interface is None:
         raise NotFound()
     if interface.deleted_at is None:

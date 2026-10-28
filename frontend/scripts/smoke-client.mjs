@@ -242,6 +242,70 @@
  *   conflictItemText（cluster / resource 已知文案、未知通用文案）。
  *   M1–M4 / M7 回归由既有 F004 / F006 / F020 用例覆盖。
  *
+ * F022 追加（Contract NOT_REQUIRED；docs/features/F022/architecture.md
+ * DR-382–DR-400，前端机制级 M1–M7；复用 F007 §4/§6.1 与 F010 §4/§6.1）：
+ * - src/components/resourceIpAddresses.ts（纯逻辑，无 JSX）：接口列表查询恰含
+ *   resource_id/deleted=exclude/sort=name/order=asc/page/page_size=100 及其
+ *   经 listInterfaces 的 §6.1 查询串序列化（M1）、逐接口 IP 查询与 F019
+ *   buildInterfaceBoundIpsQuery 深相等（M2）、合并行数=Σ各接口 IP 数且软删 /
+ *   加载失败接口不产生行（M3）、比较器全序 interface.name 码序（含大小写）
+ *   → IP 数值（跨网段）→ id 兕底（M4）、边界三态与聚合任一 truncated 即
+ *   truncated / 接口列表超安全上限（M5）、部分失败汇总不折叠（M6）、
+ *   ip_pool=null→「池外（手动）」、description=null→「—」标签（M7）。
+ *
+ * F023 追加（Contract：docs/api/F023.md v2，前端机制级）：
+ * - src/api/imports.ts 的 F023 三端点（§3/§4/§5：POST /imports/resource-
+ *   interfaces-ips/validate、POST /imports/resource-interfaces-ips（FormData：
+ *   file+format）、GET /imports/resource-interfaces-ips/templates（单一模板
+ *   key=resource_interfaces_ips，列描述含 applies_to、type 含 boolean））；
+ *   describeImportError(scope="resource-interfaces-ips") 的 401/403
+ *   （permission|csrf）/ 413（IMPORT_FILE_TOO_LARGE / IMPORT_ROW_LIMIT_EXCEEDED）/
+ *   422（IMPORT_INVALID_FILE reason+列清单 / IMPORT_VALIDATION_FAILED 行错误明细
+ *   与「未创建任何资源、网卡或 IP」整批回滚文案 / VALIDATION_ERROR field=format）
+ *   / 网络层兑底；默认 scope（F014）文案不变；details 形状不符不伪造；
+ * - src/components/resourceInterfaceIpImportForm.ts（纯逻辑，无 JSX）：本地快速
+ *   反馈（空输入 / 非法 format / .xlsx 扩展名 / 5 MiB 上限）、输入指纹（文件 /
+ *   格式变化即失效）、确认导入门控（预校验 0 错误 + 指纹一致 + 未成功导入）、
+ *   冻结 26 列表头文本与 CSV 生成、适用行 / 类型（含 boolean）标签。
+ *
+ * F035 追加（Contract：docs/api/F023.md v2 正文升版；requirements revision 14
+ * §24.6 / §31 T117–T126；architecture §7.3，前端机制级，**零 wire 变更**）：
+ * v2 的实质变化全部在服务端（§4 计数口径 `created`=新建 Resource 数、§8.1
+ * 组键→Resource 二态、§11 一处冲突口径改写、§12.3 锁集合、§13 业务边界），
+ * 端点 / 请求字段 / 响应字段 / 错误码 / `reason` 集合 / 26 列模板 / 行号 /
+ * 上限 / 权限矩阵均不变，因此本文件的 wire 断言不改动。前端只改面板文案
+ * （ResourceInterfaceIpImportPanel 说明追加语义与 `created===0` 定性提示；
+ * ResourceImportPanel 声明不支持追加）；`created===0`（纯追加批次，成功信号）
+ * 原样透传，前端不推导追加数 M、不新增响应字段（DR-F035-11）。
+ *
+ * F030 追加（Does not add endpoints/params；docs/features/F030/architecture.md
+ * §7.2 / DR-F030-06，前端机制级 P5）：
+ * - src/components/authorizationCandidates.ts（纯逻辑，无 JSX / React / antd）：
+ *   ActiveGrantLoad / GrantCandidates / computeGrantCandidates / canSubmitGrant /
+ *   clusterListTruncated 的不变量断言——active 非 success（idle/loading/error）
+ *   永不返回候选且不可提交（消除「加载中已授权 Cluster 可提交」的误导性中间
+ *   态，F029-RV-05）、clusters 非 success 不返回候选、仅两者 success 时过滤
+ *   已授权 Cluster、truncated 两路传播（active.truncated 或 clusters.total >
+ *   items.length，不静默截断）、旧选中集群已不在候选中时不可提交（规则见
+ *   canSubmitGrant；F030 architecture §17.1）；
+ *   服务端唯一约束与 409 `already_granted` 仍是最终事实。
+ *
+ * F034 追加（Contract：docs/api/F014.md / docs/api/F023.md §「CSV 文本载体
+ * （加法引用）」增补节 v1，READY 2026-10-26；architecture §3.2/§3.3/§3.4，
+ * DR-F034-02–09/17，前端机制级）：
+ * - src/components/importCarrier.ts（纯逻辑，无 JSX / React / antd）：文本 →
+ *   `File` 的固定文件名 / MIME 与 UTF-8 字节数相等（含中文、emoji 用例，
+ *   非 String.length）、不添加 BOM（自带 U+FEFF 原样计入）、空/纯空白判定；
+ *   载体感知指纹（file 载体与 F034 前等价、只加 carrier 前缀；text 载体
+ *   `text:csv:<digest>:<byteLength>`，改 1 字符含非 ASCII 必换指纹，T116）；
+ * - FormData / 既有端点不变：文本构造的 `File` 经 validate / 写入端点提交时
+ *   `file` part 带固定 filename（缺 filename 会退化为 422 VALIDATION_ERROR）、
+ *   `format=csv`、URL 与方法与文件载体一致（不新增端点 / 字段）；
+ * - 两表单模块的文本载体本地前置拦截：空 / 纯空白不发请求、UTF-8 字节严格
+ *   大于上限才拦截（限额−1 / 限额 / 限额+1）、文本载体 format 非 csv 防御、
+ *   非法载体值防御；不镜像行数上限、不做 CSV 解析 / 表头校验 / 分隔符嗅探；
+ * - 载体切换补丁：切 text 强制 format=csv，切回 file 不回填历史 xlsx。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -262,6 +326,12 @@ import {
   restoreCluster,
   updateCluster,
 } from "../src/api/clusters.ts";
+import {
+  describeClusterAuthorizationError,
+  grantClusterAuthorization,
+  listClusterAuthorizations,
+  revokeClusterAuthorization,
+} from "../src/api/clusterAuthorizations.ts";
 import {
   createResource,
   deleteResource,
@@ -432,19 +502,50 @@ import {
 import {
   describeImportError,
   getImportTemplates,
+  getResourceInterfaceIpImportTemplate,
   IMPORT_MAX_FILE_BYTES,
+  IMPORT_MAX_ROWS,
   importResources,
+  importResourceInterfacesIps,
   validateResourceImport,
+  validateResourceInterfaceIpImport,
 } from "../src/api/imports.ts";
 import {
   buildTemplateCsv,
   emptyImportFormValues,
+  importCarrierPatch,
   importFormFieldFromPath,
+  IMPORT_TEXT_PLACEHOLDER,
   importTargetKey,
   parseImportFormValues,
   templateColumnTypeLabel,
   templateColumnRequiredLabel,
 } from "../src/components/importForm.ts";
+import {
+  buildResourceInterfaceIpTemplateHeaderCsv,
+  canConfirmResourceInterfaceIpImport,
+  emptyResourceInterfaceIpImportFormValues,
+  parseResourceInterfaceIpImportFormValues,
+  RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS,
+  RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER,
+  resourceInterfaceIpColumnAppliesToLabel,
+  resourceInterfaceIpColumnTypeLabel,
+  resourceInterfaceIpColumnRequiredLabel,
+  resourceInterfaceIpImportCarrierPatch,
+  resourceInterfaceIpImportFormFieldFromPath,
+  resourceInterfaceIpImportTargetKey,
+  resourceInterfaceIpTemplateHeaderCsvFrom,
+} from "../src/components/resourceInterfaceIpImportForm.ts";
+import {
+  fileImportTargetKey,
+  importTextDigest,
+  isBlankImportText,
+  PASTED_CSV_FILE_NAME,
+  PASTED_CSV_MIME_TYPE,
+  pastedCsvFile,
+  textImportTargetKey,
+  utf8ByteLength,
+} from "../src/components/importCarrier.ts";
 import {
   describeAuditQueryError,
   listAudit,
@@ -503,6 +604,26 @@ import {
   conflictItemText,
   referenceItemText,
 } from "../src/components/resourceActionMessages.ts";
+import {
+  canSubmitGrant,
+  clusterListTruncated,
+  computeGrantCandidates,
+} from "../src/components/authorizationCandidates.ts";
+import {
+  buildResourceInterfaceIpsQuery,
+  buildResourceInterfacesQuery,
+  collectResourceIpTruncations,
+  compareResourceIpAddressesAscending,
+  compareResourceIpRows,
+  mergeResourceIpRows,
+  RESOURCE_INTERFACES_MAX_PAGES,
+  RESOURCE_INTERFACES_PAGE_SIZE,
+  RESOURCE_IP_DESCRIPTION_NULL_LABEL,
+  RESOURCE_IP_LOAD_CONCURRENCY,
+  RESOURCE_IP_POOL_NULL_LABEL,
+  resourceInterfacesListBoundary,
+  summarizeResourceIpInterfaceLoads,
+} from "../src/components/resourceIpAddresses.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -6277,28 +6398,36 @@ await test("F014 parseImportFormValues：空输入不发请求（file 未选 →
   assert.ok(empty.errors.file.includes("选择"), "未选文件应本地报错（不发起请求）");
 
   // format 下拉恒合法；防御自由输入的非法值（服务端同样 422 field="format"）
-  const badFormat = parseImportFormValues({ format: "xls", file: importCsvFile() });
+  const badFormat = parseImportFormValues({ carrier: "file", format: "xls", file: importCsvFile() });
   assert.equal(badFormat.ok, false);
   assert.ok(badFormat.errors.format);
 
   // 合法最小输入通过（csv 不限扩展名）
-  const ok = parseImportFormValues({ format: "csv", file: importCsvFile("resources") });
+  const ok = parseImportFormValues({ carrier: "file", format: "csv", file: importCsvFile("resources") });
   assert.equal(ok.ok, true);
 });
 
 await test("F014 parseImportFormValues：xlsx 仅接受 .xlsx（.xls 拒绝、大小写不敏感）", async () => {
-  const xls = parseImportFormValues({ format: "xlsx", file: new File(["x"], "resources.xls") });
+  const xls = parseImportFormValues({
+    carrier: "file",
+    format: "xlsx",
+    file: new File(["x"], "resources.xls"),
+  });
   assert.equal(xls.ok, false);
   assert.ok(xls.errors.file.includes(".xlsx"));
 
-  const upper = parseImportFormValues({ format: "xlsx", file: new File(["x"], "Resources.XLSX") });
+  const upper = parseImportFormValues({
+    carrier: "file",
+    format: "xlsx",
+    file: new File(["x"], "Resources.XLSX"),
+  });
   assert.equal(upper.ok, true);
 });
 
 await test("F014 parseImportFormValues：文件大小超上限本地拦截（§10 签核值 5,242,880 字节）", async () => {
   const big = new File(["x"], "big.csv");
   Object.defineProperty(big, "size", { value: IMPORT_MAX_FILE_BYTES + 1 });
-  const tooBig = parseImportFormValues({ format: "csv", file: big });
+  const tooBig = parseImportFormValues({ carrier: "file", format: "csv", file: big });
   assert.equal(tooBig.ok, false);
   assert.ok(tooBig.errors.file.includes("5242880"));
   assert.ok(tooBig.errors.file.includes("IMPORT_FILE_TOO_LARGE"));
@@ -6306,18 +6435,21 @@ await test("F014 parseImportFormValues：文件大小超上限本地拦截（§1
   // 恰好等于上限：本地通过（服务端拦 > 上限；> 为严格比较）
   const exact = new File(["x"], "exact.csv");
   Object.defineProperty(exact, "size", { value: IMPORT_MAX_FILE_BYTES });
-  assert.equal(parseImportFormValues({ format: "csv", file: exact }).ok, true);
+  assert.equal(
+    parseImportFormValues({ carrier: "file", format: "csv", file: exact }).ok,
+    true,
+  );
 });
 
 await test("F014 importTargetKey：format/文件名/大小/修改时间指纹，变化即失效", async () => {
   const fileA = new File(["a,b\n"], "a.csv");
   const fileB = new File(["a,b\n"], "a.csv", { lastModified: 12345 });
-  const keyA = importTargetKey({ format: "csv", file: fileA });
+  const keyA = importTargetKey({ carrier: "file", format: "csv", file: fileA });
   assert.ok(keyA !== null);
-  assert.equal(keyA, importTargetKey({ format: "csv", file: fileA }));
-  assert.notEqual(keyA, importTargetKey({ format: "xlsx", file: fileA }));
-  assert.notEqual(keyA, importTargetKey({ format: "csv", file: fileB }));
-  assert.equal(importTargetKey({ format: "csv", file: null }), null);
+  assert.equal(keyA, importTargetKey({ carrier: "file", format: "csv", file: fileA }));
+  assert.notEqual(keyA, importTargetKey({ carrier: "file", format: "xlsx", file: fileA }));
+  assert.notEqual(keyA, importTargetKey({ carrier: "file", format: "csv", file: fileB }));
+  assert.equal(importTargetKey({ carrier: "file", format: "csv", file: null }), null);
 });
 
 await test("F014 importFormFieldFromPath：422 点路径 → 表单键（format 直通；未知 → null）", async () => {
@@ -7625,6 +7757,1449 @@ await test("F021 M6：conflictItemText——cluster / resource 已知文案、�
     conflictItemText({ object_type: "widget", object_id: "w1" }),
     "依赖对象 widget（w1）仍处于已删除状态，需先恢复该依赖对象。",
   );
+});
+
+// ---------- F022 Resource 详情 IP Addresses 区域 机制级（DR-382–DR-400，Contract NOT_REQUIRED） ----------
+
+/** F022 IP 行样本（interface 嵌套形状不影响合并：归属以接口列表为准，DR-384）。 */
+function f022IpRow(id, address, overrides = {}) {
+  return {
+    id,
+    network: { id: "net-uuid-1", name: "ib", cidr: "10.10.0.0/16" },
+    cluster: { id: "c-uuid-1", code: "N96P", name: "N96P 集群" },
+    address,
+    interface: null,
+    ip_pool: null,
+    description: null,
+    version: 1,
+    created_at: "2026-10-15T08:00:00Z",
+    updated_at: "2026-10-15T08:00:00Z",
+    deleted_at: null,
+    ...overrides,
+  };
+}
+
+/** F022 接口样本（mergeResourceIpRows 为结构性子集：{id,name,deleted_at} 即可）。 */
+function f022Interface(id, name, deletedAt = null) {
+  return { id, name, deleted_at: deletedAt };
+}
+
+await test("F022 M1：接口列表查询恰含 resource_id/deleted=exclude/sort=name/order=asc/page/page_size=100；经 listInterfaces 序列化", async () => {
+  const query = buildResourceInterfacesQuery("r-uuid-1", 2);
+  assert.deepEqual(query, {
+    resource_id: "r-uuid-1",
+    deleted: "exclude",
+    sort: "name",
+    order: "asc",
+    page: 2,
+    page_size: 100,
+  });
+  // 恰 7 键：不夹带 q/interface_type/enabled/parent_interface_id 等其它过滤项（F007 §4）
+  assert.deepEqual(Object.keys(query).sort(), [
+    "deleted",
+    "order",
+    "page",
+    "page_size",
+    "resource_id",
+    "sort",
+  ]);
+  // 默认 page=1；单页大小 = 分页上限 100；安全上限 50 页（DR-383）；有界并发 ≤6（DR-398）
+  assert.equal(buildResourceInterfacesQuery("r-uuid-1").page, 1);
+  assert.equal(RESOURCE_INTERFACES_PAGE_SIZE, 100);
+  assert.ok(RESOURCE_INTERFACES_PAGE_SIZE <= 100);
+  assert.equal(RESOURCE_INTERFACES_MAX_PAGES, 50);
+  assert.ok(RESOURCE_IP_LOAD_CONCURRENCY <= 6);
+  // 序列化（F007 §6.1）：resource_id + deleted=exclude + 分页 + sort=name + order=asc
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 100, total: 0 });
+  await listInterfaces(query);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/interfaces?resource_id=r-uuid-1&deleted=exclude&page=2&page_size=100&sort=name&order=asc",
+  );
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F022 M2：逐接口 IP 查询与 F019 buildInterfaceBoundIpsQuery 深相等（interface_id/deleted=exclude/sort=address/order=asc/page=1/page_size=100）", async () => {
+  const query = buildResourceInterfaceIpsQuery("if-uuid-9");
+  // 复用 F019 导出、不另造口径（DR-382/DR-400）：与 buildInterfaceBoundIpsQuery 深相等
+  assert.deepEqual(query, buildInterfaceBoundIpsQuery("if-uuid-9"));
+  assert.deepEqual(query, {
+    interface_id: "if-uuid-9",
+    deleted: "exclude",
+    sort: "address",
+    order: "asc",
+    page: 1,
+    page_size: 100,
+  });
+  // 序列化（F010 §6.1）
+  respond = () => jsonResponse(200, { items: [], page: 1, page_size: 100, total: 0 });
+  await listIpAddresses(query);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/ip-addresses?interface_id=if-uuid-9&deleted=exclude&page=1&page_size=100" +
+      "&sort=address&order=asc",
+  );
+  assert.equal(calls[0].init.method, "GET");
+});
+
+await test("F022 M3：合并行数 = Σ 各未删接口 IP 数；归属正确；软删 / 加载失败接口不产生行", async () => {
+  const interfaces = [
+    f022Interface("if-1", "eth0"),
+    f022Interface("if-2", "ib0"),
+    f022Interface("if-3", "old0", "2026-10-15T08:00:00Z"), // 已软删（防御，DR-391）
+    f022Interface("if-miss", "bond0"), // 加载失败（无加载结果，DR-389 另行警告）
+  ];
+  const ipsByInterfaceId = new Map([
+    ["if-1", [f022IpRow("ip-a", "10.10.1.50"), f022IpRow("ip-b", "10.10.1.9")]],
+    ["if-2", [f022IpRow("ip-c", "192.168.10.1")]],
+    // 软删接口即便误传结果也不产生行
+    ["if-3", [f022IpRow("ip-d", "10.10.1.1")]],
+  ]);
+  const rows = mergeResourceIpRows(interfaces, ipsByInterfaceId);
+  // 行数 = 2（eth0） + 1（ib0）；软删 if-3 与失败 if-miss 不产生行
+  assert.equal(rows.length, 3);
+  // 归属正确 + 总排序：interface.name 码序（eth0 < ib0）→ IP 数值（9 < 50）
+  assert.deepEqual(
+    rows.map((row) => [row.interfaceName, row.ip.address, row.interfaceId]),
+    [
+      ["eth0", "10.10.1.9", "if-1"],
+      ["eth0", "10.10.1.50", "if-1"],
+      ["ib0", "192.168.10.1", "if-2"],
+    ],
+  );
+  // 空接口列表 → 空行集（空态由呈现层显式区分，不伪装成错误）
+  assert.deepEqual(mergeResourceIpRows([], ipsByInterfaceId), []);
+});
+
+await test("F022 M4：比较器全序——interface.name 码序（含大小写）→ IP 数值（跨网段）→ id 兕底", async () => {
+  const row = (interfaceName, address, id) => ({
+    interfaceId: `if-${id}`,
+    interfaceName,
+    ip: f022IpRow(id, address),
+  });
+  // interface.name 码序、区分大小写（同 F007 sort=name：大写码点在前，ETH0 < eth0）
+  assert.equal(compareResourceIpRows(row("ETH0", "10.0.0.1", "ip-1"), row("eth0", "10.0.0.1", "ip-2")), -1);
+  assert.equal(compareResourceIpRows(row("eth0", "10.0.0.1", "ip-2"), row("ETH0", "10.0.0.1", "ip-1")), 1);
+  // IP 数值序（跨网段）：10.0.0.9 < 10.0.0.50（字符串序会误判 "50" < "9"；镜像 F019 返回数值差，断言取符号）
+  assert.equal(Math.sign(compareResourceIpAddressesAscending("10.0.0.9", "10.0.0.50")), -1);
+  assert.equal(Math.sign(compareResourceIpAddressesAscending("10.0.0.50", "10.0.0.9")), 1);
+  assert.equal(compareResourceIpAddressesAscending("10.0.0.9", "10.0.0.9"), 0);
+  assert.equal(Math.sign(compareResourceIpAddressesAscending("10.0.0.9", "192.168.0.1")), -1);
+  // 同接口同地址 → id 兜底（确定性全序，DR-385）
+  assert.equal(compareResourceIpRows(row("eth0", "10.0.0.1", "ip-a"), row("eth0", "10.0.0.1", "ip-b")), -1);
+  assert.equal(compareResourceIpRows(row("eth0", "10.0.0.1", "ip-b"), row("eth0", "10.0.0.1", "ip-a")), 1);
+  assert.equal(compareResourceIpRows(row("eth0", "10.0.0.1", "ip-a"), row("eth0", "10.0.0.1", "ip-a")), 0);
+  // 乱序全集排序得到确定性全序：Eth1 < VLAN10 < eth0（码点 E < V < e）；eth0 内 9 < 10 < 50（数值）
+  const shuffled = [
+    row("eth0", "10.0.0.50", "ip-3"),
+    row("VLAN10", "172.16.0.2", "ip-4"),
+    row("eth0", "10.0.0.9", "ip-1"),
+    row("Eth1", "10.0.0.1", "ip-5"),
+    row("eth0", "10.0.0.10", "ip-2"),
+  ];
+  assert.deepEqual(
+    [...shuffled].sort(compareResourceIpRows).map((item) => `${item.interfaceName}/${item.ip.address}`),
+    ["Eth1/10.0.0.1", "VLAN10/172.16.0.2", "eth0/10.0.0.9", "eth0/10.0.0.10", "eth0/10.0.0.50"],
+  );
+  // 反对称性全对核对（total order 性质；SameValue 语义下 -0 归一为 0）
+  for (const left of shuffled) {
+    for (const right of shuffled) {
+      const forward = Math.sign(compareResourceIpRows(left, right));
+      const backward = Math.sign(compareResourceIpRows(right, left));
+      assert.equal(forward, backward === 0 ? 0 : -backward);
+    }
+  }
+});
+
+await test("F022 M5：边界三态（复用 interfaceIpTotalBoundary）——聚合任一 truncated 即产生提示条目；接口列表超安全上限即 truncated", async () => {
+  // 单接口三态：total>items 截断 / ==items 完整 / ==0 空态（不静默截断）
+  assert.equal(interfaceIpTotalBoundary(101, 100), "truncated");
+  assert.equal(interfaceIpTotalBoundary(21, 20), "truncated");
+  assert.equal(interfaceIpTotalBoundary(100, 100), "complete");
+  assert.equal(interfaceIpTotalBoundary(0, 0), "empty");
+  // 聚合：任一 truncated 即 truncated（产生条目，携带总数与已展示数）
+  assert.deepEqual(
+    collectResourceIpTruncations([
+      { interfaceName: "eth0", total: 101, itemCount: 100 },
+      { interfaceName: "ib0", total: 3, itemCount: 3 },
+    ]),
+    [{ interfaceName: "eth0", total: 101, shown: 100 }],
+  );
+  // 全 complete / empty → 不产生条目
+  assert.deepEqual(
+    collectResourceIpTruncations([
+      { interfaceName: "eth0", total: 3, itemCount: 3 },
+      { interfaceName: "ib0", total: 0, itemCount: 0 },
+    ]),
+    [],
+  );
+  assert.deepEqual(collectResourceIpTruncations([]), []);
+  // 多个截断接口逐条产生，不静默丢弃
+  assert.equal(
+    collectResourceIpTruncations([
+      { interfaceName: "eth0", total: 150, itemCount: 100 },
+      { interfaceName: "ib0", total: 120, itemCount: 100 },
+    ]).length,
+    2,
+  );
+  // 接口列表：达安全上限仍未覆盖 total → truncated（DR-383：显式提示总数，不静默截断）
+  assert.equal(
+    resourceInterfacesListBoundary(6000, RESOURCE_INTERFACES_MAX_PAGES * 100),
+    "truncated",
+  );
+  assert.equal(resourceInterfacesListBoundary(250, 250), "complete");
+  assert.equal(resourceInterfacesListBoundary(1, 1), "complete");
+  assert.equal(resourceInterfacesListBoundary(0, 0), "complete");
+});
+
+await test("F022 M6：部分失败汇总——全失败→allFailed（呈现层转 Error 可重试）；部分失败→anyFailed+失败清单；不折叠", async () => {
+  const failure = (id, name) => ({ interfaceId: id, interfaceName: name, message: "HTTP 500" });
+  // 部分失败：3 个接口 1 个失败 → 保留已加载行 + 警告（不折叠为整体成功 / 整体失败）
+  assert.deepEqual(summarizeResourceIpInterfaceLoads(3, [failure("if-1", "eth0")]), {
+    interfaceCount: 3,
+    succeeded: 2,
+    failed: 1,
+    allFailed: false,
+    anyFailed: true,
+  });
+  // 全失败 → allFailed（呈现层整体 Error，可重试重取全部）
+  assert.deepEqual(
+    summarizeResourceIpInterfaceLoads(2, [failure("if-1", "eth0"), failure("if-2", "ib0")]),
+    { interfaceCount: 2, succeeded: 0, failed: 2, allFailed: true, anyFailed: true },
+  );
+  // 全成功
+  assert.deepEqual(summarizeResourceIpInterfaceLoads(2, []), {
+    interfaceCount: 2,
+    succeeded: 2,
+    failed: 0,
+    allFailed: false,
+    anyFailed: false,
+  });
+  // 无接口（接口列表为空 → 无逐接口请求）：不误报全失败（空态另行呈现）
+  assert.deepEqual(summarizeResourceIpInterfaceLoads(0, []), {
+    interfaceCount: 0,
+    succeeded: 0,
+    failed: 0,
+    allFailed: false,
+    anyFailed: false,
+  });
+});
+
+await test("F022 M7：展示标签——ip_pool=null → 「池外（手动）」、description=null → 「—」（不以空串代替）", async () => {
+  assert.equal(RESOURCE_IP_POOL_NULL_LABEL, "池外（手动）");
+  assert.ok(RESOURCE_IP_POOL_NULL_LABEL.length > 0);
+  assert.equal(RESOURCE_IP_DESCRIPTION_NULL_LABEL, "—");
+  assert.ok(RESOURCE_IP_DESCRIPTION_NULL_LABEL.length > 0);
+});
+
+// ---------------------------------------------------------------------------
+// F023：「资源+网卡+IP」三元组导入（Contract：docs/api/F023.md v2）
+// ---------------------------------------------------------------------------
+
+/** 构造最小三元组 CSV 测试文件（multipart file 字段）。 */
+function tripleImportCsvFile(name = "resource-interfaces-ips.csv") {
+  return new File(
+    ["cluster,hostname,resource_type,name,ip\nN96P,vm001,VIRTUAL_MACHINE,eth0,192.168.1.1/24\n"],
+    name,
+    { type: "text/csv" },
+  );
+}
+
+await test("F023 getResourceInterfaceIpImportTemplate：GET /imports/resource-interfaces-ips/templates；单一模板 key=resource_interfaces_ips、列含 applies_to", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      template: {
+        key: "resource_interfaces_ips",
+        columns: [
+          { name: "cluster", required: true, applies_to: ["BARE_METAL", "VIRTUAL_MACHINE"], target: "resource.cluster", type: "string", unit: null, enum: null, description: "Cluster code (case-insensitive) or UUID; must exist and be undeleted", example: "N96P" },
+          { name: "host", required: true, applies_to: ["VIRTUAL_MACHINE"], target: "virtual_machine.host_resource_id", type: "string", unit: null, enum: null, description: "Existing BARE_METAL host in the same cluster; must be empty on BM rows", example: "cn001" },
+          { name: "memory_mb", required: false, applies_to: ["BARE_METAL", "VIRTUAL_MACHINE"], target: "hardware.memory_mb", type: "integer", unit: "MiB", enum: null, description: "Memory in MiB; BM→hardware, VM→virtual_machine", example: "262144" },
+          { name: "enabled", required: false, applies_to: ["BARE_METAL", "VIRTUAL_MACHINE"], target: "interface.enabled", type: "boolean", unit: null, enum: null, description: "true/false (case-insensitive) or 1/0; empty→true", example: "true" },
+        ],
+      },
+    });
+  const data = await getResourceInterfaceIpImportTemplate();
+  assert.equal(data.template.key, "resource_interfaces_ips");
+  assert.equal(data.template.columns.length, 4);
+  assert.deepEqual(data.template.columns[0].applies_to, ["BARE_METAL", "VIRTUAL_MACHINE"]);
+  assert.deepEqual(data.template.columns[1].applies_to, ["VIRTUAL_MACHINE"]);
+  assert.equal(data.template.columns[2].unit, "MiB");
+  assert.equal(data.template.columns[3].type, "boolean");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resource-interfaces-ips/templates");
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.credentials, "include");
+});
+
+await test("F023 validateResourceInterfaceIpImport：POST multipart（file+format）到 /imports/resource-interfaces-ips/validate；响应复用 F014 形状", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      format: "csv",
+      total_rows: 5,
+      importable_rows: 3,
+      error_count: 2,
+      errors: [
+        { row: 4, field: "ip", reason: "duplicate (cluster, ip) within file (also at row 2)", related_row: 2 },
+        { row: 5, field: "network", reason: "network cannot be determined: network column empty and ip has no /mask", related_row: null },
+      ],
+      errors_truncated: false,
+    });
+  const file = tripleImportCsvFile();
+  const data = await validateResourceInterfaceIpImport(file, "csv");
+  assert.equal(data.format, "csv");
+  assert.equal(data.total_rows, 5);
+  assert.equal(data.importable_rows, 3);
+  assert.equal(data.error_count, 2);
+  assert.equal(data.errors[0].field, "ip");
+  assert.equal(data.errors[0].related_row, 2);
+  assert.equal(data.errors[1].related_row, null);
+  assert.equal(data.errors_truncated, false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resource-interfaces-ips/validate");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  // multipart：body 为 FormData；不得手动设置 Content-Type（boundary 由 fetch 生成）
+  assert.ok(calls[0].init.body instanceof FormData, "body 应为 FormData（multipart）");
+  assert.ok(
+    !("Content-Type" in (calls[0].init.headers ?? {})),
+    "不得手动设置 Content-Type（boundary 由 fetch 生成）",
+  );
+  assert.equal(calls[0].init.headers["Accept"], "application/json");
+  assert.equal(calls[0].init.body.get("format"), "csv");
+  const uploaded = calls[0].init.body.get("file");
+  assert.ok(uploaded instanceof File, "file 字段应为文件对象");
+  assert.equal(uploaded.name, "resource-interfaces-ips.csv");
+  assert.equal(uploaded.size, file.size);
+});
+
+await test("F023 importResourceInterfacesIps：POST /imports/resource-interfaces-ips；201 解析 {created,total_rows,interfaces_created,ip_addresses_created}", async () => {
+  respond = () =>
+    jsonResponse(201, { created: 3, total_rows: 5, interfaces_created: 4, ip_addresses_created: 5 });
+  const file = new File(
+    [new Uint8Array([0x50, 0x4b, 0x03, 0x04])],
+    "resource-interfaces-ips.xlsx",
+    { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+  );
+  const data = await importResourceInterfacesIps(file, "xlsx");
+  assert.equal(data.created, 3);
+  assert.equal(data.total_rows, 5);
+  assert.equal(data.interfaces_created, 4);
+  assert.equal(data.ip_addresses_created, 5);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resource-interfaces-ips");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  assert.ok(calls[0].init.body instanceof FormData);
+  assert.equal(calls[0].init.body.get("format"), "xlsx");
+  assert.equal(calls[0].init.body.get("file").name, "resource-interfaces-ips.xlsx");
+});
+
+await test("F023 上传 401 / 403（permission | csrf）：describeImportError(scope=resource-interfaces-ips) 明确文案、不重试", async () => {
+  respond = () =>
+    jsonResponse(401, {
+      error: { code: "AUTH_REQUIRED", message: "未认证或会话已过期", details: {} },
+    });
+  const unauthorized = describeImportError(
+    await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.ok(unauthorized.message.includes("重新登录"));
+  assert.equal(handlerCalls, 1);
+  assert.equal(calls.length, 1);
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "Forbidden", details: { reason: "permission" } },
+    });
+  const permission = describeImportError(
+    await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.ok(permission.message.includes("导入权限"));
+  assert.equal(handlerCalls, 1); // 403 不触发 401 处理器
+
+  respond = () =>
+    jsonResponse(403, {
+      error: { code: "FORBIDDEN", message: "Forbidden", details: { reason: "csrf" } },
+    });
+  const csrf = describeImportError(
+    await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.ok(csrf.message.includes("csrf"));
+});
+
+await test("F023 413 IMPORT_FILE_TOO_LARGE / IMPORT_ROW_LIMIT_EXCEEDED：携带上限值、无部分导入语义（上限复用 F014 签核值）", async () => {
+  respond = () =>
+    jsonResponse(413, {
+      error: { code: "IMPORT_FILE_TOO_LARGE", message: "File too large", details: { limit_bytes: 5242880 } },
+    });
+  const fileErr = describeImportError(
+    await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.equal(fileErr.code, "IMPORT_FILE_TOO_LARGE");
+  assert.equal(fileErr.limitBytes, IMPORT_MAX_FILE_BYTES);
+  assert.ok(fileErr.message.includes("未导入任何数据"));
+
+  respond = () =>
+    jsonResponse(413, {
+      error: { code: "IMPORT_ROW_LIMIT_EXCEEDED", message: "Row limit exceeded", details: { limit_rows: 5000 } },
+    });
+  const rowErr = describeImportError(
+    await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.equal(rowErr.limitRows, IMPORT_MAX_ROWS);
+  assert.ok(rowErr.message.includes("未导入任何数据"));
+});
+
+await test("F023 422 IMPORT_INVALID_FILE：reason 映射与缺失 / 未定义列拼接（表头 26 列冻结，不按列名重排）", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_INVALID_FILE",
+        message: "Invalid file",
+        details: { reason: "missing_columns", missing_columns: ["resource_type", "name", "ip"] },
+      },
+    });
+  const missing = describeImportError(
+    await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.equal(missing.invalidFile.reason, "missing_columns");
+  assert.deepEqual(missing.invalidFile.missingColumns, ["resource_type", "name", "ip"]);
+  assert.ok(missing.message.includes("缺失列"));
+  assert.ok(missing.message.includes("IMPORT_INVALID_FILE"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_INVALID_FILE",
+        message: "Invalid file",
+        details: { reason: "unknown_columns", unknown_columns: ["rack"] },
+      },
+    });
+  const unknown = describeImportError(
+    await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.deepEqual(unknown.invalidFile.unknownColumns, ["rack"]);
+  assert.ok(unknown.message.includes("未定义列"));
+
+  respond = () =>
+    jsonResponse(422, {
+      error: { code: "IMPORT_INVALID_FILE", message: "Invalid file", details: { reason: "column_order" } },
+    });
+  const order = describeImportError(
+    await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.ok(order.message.includes("顺序"));
+});
+
+await test("F023 422 IMPORT_VALIDATION_FAILED：整批回滚 +「未创建任何资源、网卡或 IP」（无部分成功）；行错误明细与预校验同形状；默认 scope（F014）文案不变", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_VALIDATION_FAILED",
+        message: "Import validation failed",
+        details: {
+          total_rows: 5,
+          importable_rows: 3,
+          error_count: 2,
+          errors: [
+            { row: 3, field: "hostname", reason: "resource already exists in this cluster (no update/overwrite)", related_row: null },
+            { row: 4, field: "ip", reason: "duplicate (cluster, ip) within file (also at row 2)", related_row: 2 },
+          ],
+          errors_truncated: true,
+        },
+      },
+    });
+  const err = await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv"));
+  const described = describeImportError(err, "resource-interfaces-ips");
+  assert.equal(described.code, "IMPORT_VALIDATION_FAILED");
+  assert.ok(described.validationFailed !== null, "应解析出行错误明细");
+  assert.equal(described.validationFailed.total_rows, 5);
+  assert.equal(described.validationFailed.importable_rows, 3);
+  assert.equal(described.validationFailed.error_count, 2);
+  assert.equal(described.validationFailed.errors[1].related_row, 2);
+  assert.equal(described.validationFailed.errors_truncated, true);
+  // 无部分成功语义：整批回滚、未创建任何资源、网卡或 IP
+  assert.ok(described.message.includes("整批失败"));
+  assert.ok(described.message.includes("回滚"));
+  assert.ok(described.message.includes("未创建任何资源、网卡或 IP"));
+
+  // details 形状不符：不伪造行错误明细，回滚文案仍在
+  respond = () =>
+    jsonResponse(422, {
+      error: { code: "IMPORT_VALIDATION_FAILED", message: "Import validation failed", details: {} },
+    });
+  const shapeMismatch = describeImportError(
+    await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.equal(shapeMismatch.validationFailed, null);
+  assert.ok(shapeMismatch.message.includes("回滚"));
+  assert.ok(shapeMismatch.message.includes("未创建任何资源、网卡或 IP"));
+
+  // 默认 scope（F014）文案不受 F023 扩展影响（「未创建任何资源」，不提网卡 / IP）
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_VALIDATION_FAILED",
+        message: "Import validation failed",
+        details: { total_rows: 1, importable_rows: 0, error_count: 1, errors: [], errors_truncated: false },
+      },
+    });
+  const f014Scope = describeImportError(
+    await expectApiError(importResources(tripleImportCsvFile(), "csv")),
+  );
+  assert.ok(f014Scope.message.includes("未创建任何资源"));
+  assert.ok(!f014Scope.message.includes("网卡"), "默认 scope 不应出现网卡 / IP 字样");
+});
+
+await test("F023 422 VALIDATION_ERROR field=format：字段级错误（服务端大小写不敏感，客户端恒发小写规范值）；422 点路径 → 表单键", async () => {
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation error",
+        details: { fields: [{ field: "format", message: "format 必须为 csv 或 xlsx" }] },
+      },
+    });
+  const err = await expectApiError(validateResourceInterfaceIpImport(tripleImportCsvFile(), "csv"));
+  const described = describeImportError(err, "resource-interfaces-ips");
+  assert.equal(described.fields.format, "format 必须为 csv 或 xlsx");
+  assert.equal(described.validationFailed, null);
+  assert.equal(resourceInterfaceIpImportFormFieldFromPath("format"), "format");
+  assert.equal(resourceInterfaceIpImportFormFieldFromPath("file"), null);
+  assert.equal(resourceInterfaceIpImportFormFieldFromPath("format.x"), null);
+  assert.equal(resourceInterfaceIpImportFormFieldFromPath(""), null);
+});
+
+await test("F023 parseResourceInterfaceIpImportFormValues：空输入不发请求；非法 format 防御；.xlsx 扩展名；大小上限本地拦截", async () => {
+  const empty = parseResourceInterfaceIpImportFormValues(emptyResourceInterfaceIpImportFormValues());
+  assert.equal(empty.ok, false);
+  assert.ok(empty.errors.file.includes("选择"), "未选文件应本地报错（不发起请求）");
+
+  // format 下拉恒合法；防御自由输入的非法值（服务端同样 422 field="format"）
+  const badFormat = parseResourceInterfaceIpImportFormValues({
+    carrier: "file",
+    format: "xls",
+    file: tripleImportCsvFile(),
+  });
+  assert.equal(badFormat.ok, false);
+  assert.ok(badFormat.errors.format);
+
+  // format=xlsx 仅接受 .xlsx（.xls 拒绝、大小写不敏感）
+  const xls = parseResourceInterfaceIpImportFormValues({
+    carrier: "file",
+    format: "xlsx",
+    file: new File(["x"], "triple.xls"),
+  });
+  assert.equal(xls.ok, false);
+  assert.ok(xls.errors.file.includes(".xlsx"));
+  const upper = parseResourceInterfaceIpImportFormValues({
+    carrier: "file",
+    format: "xlsx",
+    file: new File(["x"], "triple.XLSX"),
+  });
+  assert.equal(upper.ok, true);
+
+  // 文件大小超上限本地拦截（§14 复用 F014 签核值 5,242,880 字节；恰好等于上限通过）
+  const big = new File(["x"], "big.csv");
+  Object.defineProperty(big, "size", { value: IMPORT_MAX_FILE_BYTES + 1 });
+  const tooBig = parseResourceInterfaceIpImportFormValues({
+    carrier: "file",
+    format: "csv",
+    file: big,
+  });
+  assert.equal(tooBig.ok, false);
+  assert.ok(tooBig.errors.file.includes("5242880"));
+  assert.ok(tooBig.errors.file.includes("IMPORT_FILE_TOO_LARGE"));
+  const exact = new File(["x"], "exact.csv");
+  Object.defineProperty(exact, "size", { value: IMPORT_MAX_FILE_BYTES });
+  assert.equal(
+    parseResourceInterfaceIpImportFormValues({ carrier: "file", format: "csv", file: exact }).ok,
+    true,
+  );
+
+  // 合法最小输入通过（csv 不限扩展名）
+  const ok = parseResourceInterfaceIpImportFormValues({
+    carrier: "file",
+    format: "csv",
+    file: tripleImportCsvFile("triple"),
+  });
+  assert.equal(ok.ok, true);
+});
+
+await test("F023 resourceInterfaceIpImportTargetKey：file+format 指纹（文件名 / 大小 / 修改时间 + 格式），变化即失效", async () => {
+  const fileA = new File(["a,b\n"], "a.csv");
+  const fileB = new File(["a,b\n"], "a.csv", { lastModified: 12345 });
+  const keyA = resourceInterfaceIpImportTargetKey({ carrier: "file", format: "csv", file: fileA });
+  assert.ok(keyA !== null);
+  assert.equal(keyA, resourceInterfaceIpImportTargetKey({ carrier: "file", format: "csv", file: fileA }));
+  assert.notEqual(keyA, resourceInterfaceIpImportTargetKey({ carrier: "file", format: "xlsx", file: fileA }));
+  assert.notEqual(keyA, resourceInterfaceIpImportTargetKey({ carrier: "file", format: "csv", file: fileB }));
+  assert.notEqual(
+    keyA,
+    resourceInterfaceIpImportTargetKey({
+      carrier: "file",
+      format: "csv",
+      file: new File(["a,b\n"], "b.csv"),
+    }),
+  );
+  assert.equal(resourceInterfaceIpImportTargetKey({ carrier: "file", format: "csv", file: null }), null);
+});
+
+await test("F023 canConfirmResourceInterfaceIpImport：确认门控（预校验 0 错误 + 指纹一致 + 未成功导入才可用）", async () => {
+  const key = "csv:a.csv:4:1700000000000";
+  // 预校验成功且 0 错误、指纹一致、未成功导入 → 可用
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey: key,
+      currentKey: key,
+      importSucceeded: false,
+    }),
+    true,
+  );
+  // 未完成预校验 → 不可用
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: null,
+      validatedKey: key,
+      currentKey: key,
+      importSucceeded: false,
+    }),
+    false,
+  );
+  // 预校验存在错误行 → 不可用（存在错误行时整批不可能成功，不进入写入）
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 2 },
+      validatedKey: key,
+      currentKey: key,
+      importSucceeded: false,
+    }),
+    false,
+  );
+  // 指纹失效（文件 / 格式已变化，旧预校验结果不适用于当前输入）→ 不可用
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey: key,
+      currentKey: "csv:b.csv:8:1700000000999",
+      importSucceeded: false,
+    }),
+    false,
+  );
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey: null,
+      currentKey: null,
+      importSucceeded: false,
+    }),
+    false,
+  );
+  // 本次导入已成功（同一文件再导入会因现存冲突被服务端整批拒绝，§11）→ 不可用
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey: key,
+      currentKey: key,
+      importSucceeded: true,
+    }),
+    false,
+  );
+});
+
+await test("F023 模板表头文本：冻结 26 列列名与顺序（§6/D03 签核）；表头行 CSV 生成", async () => {
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.length, 26);
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[0], "cluster");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[1], "hostname");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[2], "resource_type");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[5], "host");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[7], "memory_mb");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[17], "gpu_count");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[18], "name");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[19], "interface_type");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[23], "enabled");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[24], "network");
+  assert.equal(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS[25], "ip");
+  assert.equal(
+    buildResourceInterfaceIpTemplateHeaderCsv(),
+    "cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor," +
+      "manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,gpu_model,gpu_count," +
+      "name,interface_type,mac_address,speed_mbps,mtu,enabled,network,ip\n",
+  );
+  // 服务端响应列名 → 同一表头行 CSV（下载用，§6）
+  assert.equal(
+    resourceInterfaceIpTemplateHeaderCsvFrom(["cluster", "hostname"]),
+    "cluster,hostname\n",
+  );
+});
+
+await test("F023 模板列渲染辅助：适用行标签（BM / VM）、类型标签（含 boolean · 单位 / 枚举）、必填标签", async () => {
+  assert.equal(
+    resourceInterfaceIpColumnAppliesToLabel({ applies_to: ["BARE_METAL", "VIRTUAL_MACHINE"] }),
+    "BM / VM",
+  );
+  assert.equal(resourceInterfaceIpColumnAppliesToLabel({ applies_to: ["VIRTUAL_MACHINE"] }), "仅 VM");
+  assert.equal(resourceInterfaceIpColumnAppliesToLabel({ applies_to: ["BARE_METAL"] }), "仅 BM");
+  assert.equal(resourceInterfaceIpColumnAppliesToLabel({ applies_to: [] }), "—");
+
+  assert.equal(
+    resourceInterfaceIpColumnTypeLabel({ type: "boolean", unit: null, enum: null }),
+    "boolean",
+  );
+  assert.equal(
+    resourceInterfaceIpColumnTypeLabel({ type: "integer", unit: "MiB", enum: null }),
+    "integer · MiB",
+  );
+  assert.equal(
+    resourceInterfaceIpColumnTypeLabel({
+      type: "enum",
+      unit: null,
+      enum: ["BARE_METAL", "VIRTUAL_MACHINE"],
+    }),
+    "enum（BARE_METAL | VIRTUAL_MACHINE）",
+  );
+  assert.equal(resourceInterfaceIpColumnRequiredLabel({ required: true }), "必填");
+  assert.ok(resourceInterfaceIpColumnRequiredLabel({ required: false }).includes("省略"));
+});
+
+await test("F035 纯追加批次 created=0：201 响应原样透传（成功信号，非失败/空批次）；不派生追加数、不新增响应字段（v2 §4/§8.1，DR-F035-11）", async () => {
+  // v2 §4：纯追加批次 created=0；interfaces_created / ip_addresses_created 仍计新建子对象。
+  // 前端只透传（不推导「追加了 M 个资源」），wire 与字段集合同 v1 完全一致。
+  respond = () =>
+    jsonResponse(201, {
+      created: 0,
+      total_rows: 2,
+      interfaces_created: 1,
+      ip_addresses_created: 2,
+    });
+  const data = await importResourceInterfacesIps(tripleImportCsvFile(), "csv");
+  assert.equal(data.created, 0);
+  assert.equal(data.total_rows, 2);
+  assert.equal(data.interfaces_created, 1);
+  assert.equal(data.ip_addresses_created, 2);
+  // 响应字段集合与 v1 相同（无 appended_* / updated_* 等派生字段）
+  assert.deepEqual(Object.keys(data).sort(), [
+    "created",
+    "interfaces_created",
+    "ip_addresses_created",
+    "total_rows",
+  ]);
+  // wire 零变更：同一端点、同一 multipart（file + format）
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resource-interfaces-ips");
+  assert.equal(calls[0].init.method, "POST");
+  assert.ok(calls[0].init.body instanceof FormData);
+  assert.equal(calls[0].init.body.get("format"), "csv");
+  assert.ok(calls[0].init.body.get("file") instanceof File);
+});
+
+await test("F035 追加批次的既有子对象冲突仍整批失败：field=name / field=ip 行错误原样呈现（不跳过、无部分成功）", async () => {
+  // v2 §11：既有同名 Interface → field="name"；同 Cluster 既有 IP → field="ip"；
+  // 整批回滚（无幂等跳过 / 无部分成功），行号/字段/原因/related_row 形状不变。
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "IMPORT_VALIDATION_FAILED",
+        message: "import validation failed",
+        details: {
+          total_rows: 3,
+          importable_rows: 1,
+          error_count: 2,
+          errors: [
+            { row: 3, field: "name", reason: "interface name already exists on this resource", related_row: null },
+            { row: 4, field: "ip", reason: "ip address already exists in this cluster", related_row: null },
+          ],
+          errors_truncated: false,
+        },
+      },
+    });
+  const described = describeImportError(
+    await expectApiError(importResourceInterfacesIps(tripleImportCsvFile(), "csv")),
+    "resource-interfaces-ips",
+  );
+  assert.equal(described.code, "IMPORT_VALIDATION_FAILED");
+  assert.ok(described.validationFailed !== null);
+  assert.equal(described.validationFailed.total_rows, 3);
+  assert.equal(described.validationFailed.importable_rows, 1);
+  assert.equal(described.validationFailed.error_count, 2);
+  assert.equal(described.validationFailed.errors.length, 2);
+  assert.equal(described.validationFailed.errors[0].row, 3);
+  assert.equal(described.validationFailed.errors[0].field, "name");
+  assert.equal(described.validationFailed.errors[0].related_row, null);
+  assert.equal(described.validationFailed.errors[1].field, "ip");
+  assert.equal(described.validationFailed.errors_truncated, false);
+  // 整批回滚语义：不递归重试、不报成功
+  assert.ok(described.message.includes("整批失败"));
+  assert.ok(described.message.includes("未创建任何资源、网卡或 IP"));
+  assert.equal(calls.length, 1);
+});
+
+await test("F026 列表：URL 查询串（status/cluster_id/q/page/sort/order）与 GET 方法", async () => {
+  respond = () => jsonResponse(200, { items: [], page: 2, page_size: 20, total: 0 });
+  const data = await listClusterAuthorizations("user-1", {
+    status: "ACTIVE",
+    cluster_id: "cluster-1",
+    q: "prod",
+    page: 2,
+    page_size: 20,
+    sort: "granted_at",
+    order: "desc",
+  });
+  assert.equal(data.total, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "/api/v1/users/user-1/cluster-authorizations?status=ACTIVE&cluster_id=cluster-1&q=prod&page=2&page_size=20&sort=granted_at&order=desc",
+  );
+  assert.equal(calls[0].init.method, "GET");
+});
+
+await test("F026 授予 / 撤销：POST 路径与 cluster_id 请求体；撤销无请求体", async () => {
+  respond = () => jsonResponse(201, { cluster_authorization: { id: "a1" } });
+  const granted = await grantClusterAuthorization("user-1", "cluster-1");
+  assert.equal(granted.cluster_authorization.id, "a1");
+  assert.equal(calls[0].url, "/api/v1/users/user-1/cluster-authorizations");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.body, JSON.stringify({ cluster_id: "cluster-1" }));
+
+  respond = () => jsonResponse(200, { cluster_authorization: { id: "a1" } });
+  await revokeClusterAuthorization("a1");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].url, "/api/v1/cluster-authorizations/a1/revoke");
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[1].init.body, undefined);
+});
+
+await test("F026 describeClusterAuthorizationError：409 already_granted/already_revoked、422 fields、403 明确文案", async () => {
+  respond = () => jsonResponse(409, {
+    error: { code: "CONFLICT", message: "conflict", details: { reason: "already_granted" } },
+  });
+  const grantedError = await expectApiError(grantClusterAuthorization("u", "c"));
+  assert.equal(grantedError.status, 409);
+  assert.equal(describeClusterAuthorizationError(grantedError).alreadyGranted, true);
+
+  respond = () => jsonResponse(409, {
+    error: { code: "CONFLICT", message: "conflict", details: { reason: "already_revoked" } },
+  });
+  const revokedError = await expectApiError(revokeClusterAuthorization("a"));
+  assert.equal(describeClusterAuthorizationError(revokedError).alreadyRevoked, true);
+
+  respond = () => jsonResponse(422, {
+    error: { code: "VALIDATION_ERROR", message: "invalid", details: { fields: [{ field: "cluster_id", message: "bad" }] } },
+  });
+  const validationError = await expectApiError(grantClusterAuthorization("u", "c"));
+  assert.equal(describeClusterAuthorizationError(validationError).fields.cluster_id, "bad");
+
+  respond = () => jsonResponse(403, {
+    error: { code: "FORBIDDEN", message: "forbidden", details: { reason: "permission" } },
+  });
+  const forbidden = await expectApiError(listClusterAuthorizations("u"));
+  assert.ok(describeClusterAuthorizationError(forbidden).message.includes("USER_ADMIN"));
+});
+
+// ---------- F030 授权候选纯逻辑（docs/features/F030/architecture.md §7.2 / DR-F030-06） ----------
+// 不新增端点/参数；仅断言 P5「加载门控 / 失败重试 / 截断传播 / 旧选中集群不可提交」不变式。
+
+function f030Cluster(id, code) {
+  return {
+    id,
+    code,
+    name: `${code}-name`,
+    status: "ACTIVE",
+    description: null,
+    metadata: {},
+    version: 1,
+    created_at: "2026-10-23T00:00:00Z",
+    updated_at: "2026-10-23T00:00:00Z",
+    deleted_at: null,
+  };
+}
+
+const f030Clusters = {
+  kind: "success",
+  clusters: [f030Cluster("c1", "F30C1"), f030Cluster("c2", "F30C2"), f030Cluster("c3", "F30C3")],
+  total: 3,
+};
+
+const f030ActiveSuccess = {
+  kind: "success",
+  ids: new Set(["c2"]),
+  loaded: 1,
+  total: 1,
+  truncated: false,
+};
+
+await test("F030 computeGrantCandidates：active idle/loading 永不返回候选（无 clusters 字段）", async () => {
+  for (const active of [{ kind: "idle" }, { kind: "loading" }]) {
+    const result = computeGrantCandidates(active, f030Clusters);
+    assert.equal(result.kind, "loading");
+    assert.equal("clusters" in result, false, "非 success 不得携带新候选集合");
+  }
+  // clusters 非 success 时同样不返回候选（不把错误/加载伪装为空结果）
+  assert.equal(computeGrantCandidates(f030ActiveSuccess, { kind: "loading" }).kind, "loading");
+  const clustersError = computeGrantCandidates(f030ActiveSuccess, { kind: "error", message: "集群列表加载失败" });
+  assert.equal(clustersError.kind, "error");
+  assert.equal(clustersError.message, "集群列表加载失败");
+  assert.equal("clusters" in clustersError, false);
+});
+
+await test("F030 computeGrantCandidates：active error → error（保留文案，不降级为空授权）", async () => {
+  const result = computeGrantCandidates({ kind: "error", message: "无法加载已有授权" }, f030Clusters);
+  assert.equal(result.kind, "error");
+  assert.equal(result.message, "无法加载已有授权");
+  assert.equal("clusters" in result, false);
+});
+
+await test("F030 computeGrantCandidates：仅两者 success 时过滤已授权 cluster；truncated 两路独立传播", async () => {
+  const result = computeGrantCandidates(f030ActiveSuccess, f030Clusters);
+  assert.equal(result.kind, "success");
+  assert.deepEqual(result.clusters.map((cluster) => cluster.id), ["c1", "c3"]);
+  assert.equal(result.truncated, false);
+
+  // 第一路：该账号 ACTIVE 授权加载被安全上限截断
+  const truncatedByActive = computeGrantCandidates(
+    { kind: "success", ids: new Set(["c2"]), loaded: 2000, total: 2001, truncated: true },
+    f030Clusters,
+  );
+  assert.equal(truncatedByActive.truncated, true);
+
+  // 第二路：集群列表 total > items.length（与 active.truncated=false 无关）
+  const truncatedByClusters = computeGrantCandidates(
+    { kind: "success", ids: new Set(), loaded: 0, total: 0, truncated: false },
+    { kind: "success", clusters: [f030Cluster("c1", "F30C1")], total: 50 },
+  );
+  assert.equal(truncatedByClusters.truncated, true);
+
+  // 两路均 false 时才为 false（不静默截断）
+  assert.equal(
+    computeGrantCandidates(
+      { kind: "success", ids: new Set(), loaded: 0, total: 0, truncated: false },
+      { kind: "success", clusters: [f030Cluster("c1", "F30C1")], total: 1 },
+    ).truncated,
+    false,
+  );
+});
+
+await test("F030 clusterListTruncated：total > items.length 为截断（相等/少量/非 success 为 false）", async () => {
+  assert.equal(clusterListTruncated(f030Clusters), false);
+  assert.equal(
+    clusterListTruncated({ kind: "success", clusters: [f030Cluster("c1", "F30C1")], total: 2 }),
+    true,
+  );
+  assert.equal(
+    clusterListTruncated({ kind: "success", clusters: [f030Cluster("c1", "F30C1")], total: 1 }),
+    false,
+  );
+  assert.equal(clusterListTruncated({ kind: "loading" }), false);
+  assert.equal(clusterListTruncated({ kind: "error", message: "x" }), false);
+});
+
+await test("F030 canSubmitGrant：active 非 success 恒 false（idle/loading/error 三态）", async () => {
+  const candidates = computeGrantCandidates(f030ActiveSuccess, f030Clusters);
+  assert.equal(candidates.kind, "success");
+  for (const active of [{ kind: "idle" }, { kind: "loading" }, { kind: "error", message: "加载失败" }]) {
+    assert.equal(
+      canSubmitGrant(active, candidates, "c1", false),
+      false,
+      `active=${active.kind} 时必须禁止提交`,
+    );
+  }
+});
+
+await test("F030 canSubmitGrant：success + 已选 + 非 busy 才可提交；busy/空选/旧选中集群不可提交", async () => {
+  const active = f030ActiveSuccess;
+  const candidates = computeGrantCandidates(active, f030Clusters);
+  assert.equal(canSubmitGrant(active, candidates, "c1", false), true);
+  assert.equal(canSubmitGrant(active, candidates, "c1", true), false, "提交中不可重复提交");
+  assert.equal(canSubmitGrant(active, candidates, "", false), false, "未选择不可提交");
+  // 已授权集群不在候选中 → 即使被旧选中也不可提交（canSubmitGrant 候选成员校验）
+  assert.equal(canSubmitGrant(active, candidates, "c2", false), false);
+  // 搜索条件变化后旧选中集群已不在候选 → 不可提交
+  const narrowed = computeGrantCandidates(active, {
+    kind: "success",
+    clusters: [f030Cluster("c3", "F30C3")],
+    total: 1,
+  });
+  assert.equal(canSubmitGrant(active, narrowed, "c1", false), false);
+  assert.equal(canSubmitGrant(active, narrowed, "c3", false), true);
+  // 候选非 success（加载中/失败）恒不可提交
+  assert.equal(canSubmitGrant(active, { kind: "loading" }, "c1", false), false);
+  assert.equal(canSubmitGrant(active, { kind: "error", message: "x" }, "c1", false), false);
+});
+
+// ---------- F034 导入 CSV 文本载体（Contract：docs/api/F014.md / docs/api/F023.md
+// §「CSV 文本载体（加法引用）」增补节 v1；architecture §3.2/§3.3/§3.4） ----------
+
+await test("F034 pastedCsvFile / utf8ByteLength / isBlankImportText：固定名与 MIME、UTF-8 字节（非 String.length）、不加 BOM", async () => {
+  const text = "cluster,hostname,resource_type\nN96P,中文主机名,BARE_METAL\n";
+  const file = pastedCsvFile(text);
+  // DR-F034-03：固定常量文件名与 MIME，不掺时间戳 / 用户输入 / 摘要
+  assert.equal(file.name, PASTED_CSV_FILE_NAME);
+  assert.equal(PASTED_CSV_FILE_NAME, "csm-pasted-import.csv");
+  assert.equal(file.type, PASTED_CSV_MIME_TYPE);
+  assert.equal(PASTED_CSV_MIME_TYPE, "text/csv;charset=utf-8");
+  // DR-F034-04：字节计量按 UTF-8，File.size 与 utf8ByteLength 一致
+  assert.equal(utf8ByteLength("abc"), 3);
+  assert.equal(file.size, utf8ByteLength(text));
+  assert.notEqual(utf8ByteLength(text), text.length); // 含中文：字节 ≠ code unit
+  assert.equal(utf8ByteLength("中文"), 6);
+  assert.equal("中文".length, 2);
+  assert.equal(utf8ByteLength("🚀"), 4); // emoji 4 字节 vs length 2
+  assert.equal(utf8ByteLength(""), 0);
+  // 不加 BOM：文本自带 U+FEFF 时原样计入（服务端 utf-8-sig 解码，§24.5）
+  assert.equal(utf8ByteLength("\uFEFFa"), 4);
+  assert.equal(pastedCsvFile("\uFEFFa").size, 4);
+  assert.notEqual(importTextDigest("\uFEFFa").digest, importTextDigest("a").digest);
+  // 不做本地归一化：payload 原样进入字节序列（不 trim / 不改行尾 / 不补尾换行）
+  assert.equal(pastedCsvFile(" a,b\r\n").size, utf8ByteLength(" a,b\r\n"));
+  assert.equal(pastedCsvFile("a,b\n").size, 4);
+  assert.notEqual(pastedCsvFile("a,b\n").size, pastedCsvFile("a,b").size);
+  // 空 / 纯空白判定（判定用 trim，payload 不 trim；DR-F034-05）
+  assert.equal(isBlankImportText(""), true);
+  assert.equal(isBlankImportText("   \n\t\r\n"), true);
+  assert.equal(isBlankImportText(" a"), false);
+  // 注意：ECMAScript 空白集合包含 U+FEFF（ZWNBSP），故「仅 BOM」被判为纯空白而本地拦截
+  // （architecture §3.3「空/纯空白判定用 trim()」的直接结果；payload 本身不做任何改写）。
+  assert.equal(isBlankImportText("\uFEFF"), true);
+  assert.equal(isBlankImportText("\uFEFFcluster,hostname"), false); // BOM + 内容照常提交
+});
+
+await test("F034 文本载体 multipart：file part 带固定 filename、format=csv；缺 filename 会退化为 422（DR-F034-03）", async () => {
+  const text = "cluster,hostname,resource_type\nN96P,cn001,BARE_METAL\n";
+  const parsed = parseImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text,
+  });
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.file.name, PASTED_CSV_FILE_NAME);
+  assert.equal(parsed.file.size, utf8ByteLength(text));
+
+  respond = () =>
+    jsonResponse(200, {
+      format: "csv",
+      total_rows: 1,
+      importable_rows: 1,
+      error_count: 0,
+      errors: [],
+      errors_truncated: false,
+    });
+  const data = await validateResourceImport(parsed.file, "csv");
+  assert.equal(data.error_count, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resources/validate");
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.credentials, "include");
+  const body = calls[0].init.body;
+  assert.ok(body instanceof FormData, "body 应为 FormData（multipart，wire 形状不变）");
+  assert.ok(!("Content-Type" in (calls[0].init.headers ?? {})), "不得手动设置 Content-Type");
+  assert.equal(body.get("format"), "csv");
+  const part = body.get("file");
+  // 必须仍是 File（append 时带 filename）；退化为字符串即服务端 422 VALIDATION_ERROR
+  assert.ok(part instanceof File, "file part 必须是 File（带 filename）");
+  assert.equal(part.name, PASTED_CSV_FILE_NAME);
+  assert.equal(part.size, utf8ByteLength(text));
+  // multipart 序列化确实携带固定 filename
+  const wire = await new Response(body).text();
+  assert.ok(
+    wire.includes(`filename="${PASTED_CSV_FILE_NAME}"`),
+    "multipart 序列化应包含固定 filename",
+  );
+  assert.ok(wire.includes("N96P,cn001,BARE_METAL"), "文本字节原样提交，不改写内容");
+});
+
+await test("F034 指纹：file 载体与改动前等价（仅加 carrier 前缀）；carrier / format / 文件变化即失效", async () => {
+  const file = new File(["a,b\n"], "a.csv", { lastModified: 1700000000000 });
+  // 回归：文件载体指纹语义与 F034 前 `${format}:${name}:${size}:${lastModified}` 等价
+  assert.equal(
+    fileImportTargetKey("csv", file),
+    `file:${"csv"}:${file.name}:${file.size}:${file.lastModified}`,
+  );
+  assert.equal(fileImportTargetKey("csv", file).includes("a.csv"), true);
+  assert.equal(fileImportTargetKey("xlsx", file).startsWith("file:xlsx:"), true);
+  assert.notEqual(fileImportTargetKey("csv", file), fileImportTargetKey("xlsx", file));
+  const other = new File(["a,b\n"], "a.csv", { lastModified: 1700000000001 });
+  assert.notEqual(fileImportTargetKey("csv", file), fileImportTargetKey("csv", other));
+
+  // importTargetKey 载体感知：同一输入下 file / text 指纹互不串用
+  const fileKey = importTargetKey({ carrier: "file", format: "csv", file, text: "" });
+  const textKey = importTargetKey({
+    carrier: "text",
+    format: "csv",
+    file,
+    text: "a,b\n",
+  });
+  assert.equal(fileKey, fileImportTargetKey("csv", file));
+  assert.equal(textKey, textImportTargetKey("a,b\n"));
+  assert.notEqual(fileKey, textKey);
+  assert.equal(importTargetKey({ carrier: "file", format: "csv", file: null, text: "" }), null);
+  // 同一文本 → 同一指纹（可重复预校验、无副作用）
+  assert.equal(
+    importTargetKey({ carrier: "text", format: "csv", file: null, text: "a,b\n" }),
+    textImportTargetKey("a,b\n"),
+  );
+});
+
+await test("F034 文本指纹：改 1 字符（含非 ASCII）必换指纹；摘要格式与字节长度随内容变化（T116 / R-1 / R-2）", async () => {
+  const base = "cluster,hostname\nN96P,cn001\n";
+  const digest = importTextDigest(base);
+  assert.match(digest.digest, /^[0-9a-z]+-[0-9a-z]+$/);
+  assert.equal(digest.byteLength, utf8ByteLength(base));
+  assert.equal(textImportTargetKey(base), `text:csv:${digest.digest}:${digest.byteLength}`);
+  assert.equal(textImportTargetKey(base), textImportTargetKey(base));
+  // 改 1 个 ASCII 字符
+  assert.notEqual(textImportTargetKey(base), textImportTargetKey("cluster,hostname\nN96P,cn002\n"));
+  // 改 1 个非 ASCII 字符（中文）——字节长度可以不变也必须换指纹
+  const zhA = "cluster,hostname\nN96P,主机甲\n";
+  const zhB = "cluster,hostname\nN96P,主机乙\n";
+  assert.equal(utf8ByteLength(zhA), utf8ByteLength(zhB));
+  assert.notEqual(textImportTargetKey(zhA), textImportTargetKey(zhB));
+  // 改 1 个 4 字节 emoji（代理对）——字节长度不变也必须换指纹（F036 DR-F036-03 回归）
+  const emojiA = "cluster,hostname\nN96P,cn001\u{1F600}\n";
+  const emojiB = "cluster,hostname\nN96P,cn001\u{1F601}\n";
+  assert.equal(utf8ByteLength(emojiA), utf8ByteLength(emojiB));
+  assert.notEqual(textImportTargetKey(emojiA), textImportTargetKey(emojiB));
+  // 同文本 → 同指纹 / 同字节数（记忆化前提：纯函数，同输入同输出）
+  assert.equal(textImportTargetKey(emojiA), textImportTargetKey(emojiA));
+  assert.equal(utf8ByteLength(emojiA), utf8ByteLength(emojiA));
+  // 行尾变化（CRLF → LF）也换指纹：等价性按实际发送字节判定（ON-1）
+  assert.notEqual(textImportTargetKey("a,b\r\n"), textImportTargetKey("a,b\n"));
+  // 大小写不同的宿主名不共享指纹（不做大小写折叠）
+  assert.notEqual(textImportTargetKey("A,B\n"), textImportTargetKey("a,B\n"));
+});
+
+await test("F034/F036 importCarrierPatch / resourceInterfaceIpImportCarrierPatch：切 text 强制 csv，切回 file 不清空 text 但置空 file（DR-F034-07 / DR-F036-02）", async () => {
+  const fileValues = { carrier: "file", format: "xlsx", file: new File(["x"], "a.xlsx"), text: "" };
+  const toText = importCarrierPatch(fileValues, "text");
+  assert.deepEqual(toText, { carrier: "text", format: "csv" });
+  // 切回 file：保留当前 format（csv），不回填历史 xlsx；file 置空（F034-RV-01）
+  const textValues = { ...fileValues, ...toText };
+  assert.equal(textValues.format, "csv");
+  assert.deepEqual(importCarrierPatch(textValues, "file"), {
+    carrier: "file",
+    format: "csv",
+    file: null,
+  });
+  // 文件载体切 file → file 不改 format，但仍置空 file（界面与提交值一致）
+  assert.deepEqual(importCarrierPatch(fileValues, "file"), {
+    carrier: "file",
+    format: "xlsx",
+    file: null,
+  });
+  // 切 text 不清空 text；也不在 text 载体下清 file（不参与指纹与提交）
+  assert.equal("text" in toText, false);
+  assert.equal("file" in toText, false);
+
+  const tripleFileValues = {
+    carrier: "file",
+    format: "xlsx",
+    file: new File(["x"], "a.xlsx"),
+    text: "",
+  };
+  assert.deepEqual(resourceInterfaceIpImportCarrierPatch(tripleFileValues, "text"), {
+    carrier: "text",
+    format: "csv",
+  });
+  assert.deepEqual(
+    resourceInterfaceIpImportCarrierPatch({ ...tripleFileValues, carrier: "text", format: "csv" }, "file"),
+    { carrier: "file", format: "csv", file: null },
+  );
+
+  // DR-F036-02 门控后果：切回 file 后无文件 ⇒ 指纹 null ⇒ 不可确认导入
+  const pastedText = "cluster,hostname,resource_type\nN96P,cn001,BARE_METAL\n";
+  const textState = { carrier: "text", format: "csv", file: null, text: pastedText };
+  const validatedKey = resourceInterfaceIpImportTargetKey(textState);
+  assert.notEqual(validatedKey, null);
+  const backToFile = {
+    ...textState,
+    ...resourceInterfaceIpImportCarrierPatch(textState, "file"),
+  };
+  assert.equal(backToFile.text, pastedText, "切回 file 不清空已粘贴文本");
+  assert.equal(backToFile.file, null, "切回 file 后 values.file 必须为 null");
+  assert.equal(
+    resourceInterfaceIpImportTargetKey(backToFile),
+    null,
+    "切回 file 且未选文件 ⇒ importTargetKey === null",
+  );
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey,
+      currentKey: resourceInterfaceIpImportTargetKey(backToFile),
+      importSucceeded: false,
+    }),
+    false,
+    "切回 file 后 canConfirmResourceInterfaceIpImport === false",
+  );
+  // F014 侧同口径：切回 file 且未选文件 ⇒ importTargetKey === null
+  assert.equal(
+    importTargetKey({ ...textState, ...importCarrierPatch(textState, "file") }),
+    null,
+  );
+});
+
+await test("F036 文本占位符常量：含「片段」、非完整表头、示例数据行字段数 ≤4、无 `...` 模拟截断（DR-F036-04 / TD-I-7）", async () => {
+  const placeholderSampleRowCount = (placeholder) => {
+    const lines = placeholder.split("\n");
+    // 首行为说明行，其后为示例数据行（表头行 + 1 行数据）
+    assert.ok(lines[0].includes("片段"), "首行必须声明示例为「片段」");
+    assert.equal(lines[0].includes(","), false, "说明行不应用逗号模拟表头");
+    const dataLines = lines.slice(1).filter((line) => line.trim() !== "");
+    assert.equal(dataLines.length, 2, "示例应为一个表头行 + 一行数据");
+    for (const line of dataLines) {
+      assert.equal(line.includes("..."), false, "不得用 `...` 模拟截断列");
+      assert.equal(line.includes("…"), false, "不得用 `…` 模拟截断列");
+    }
+    return Math.max(...dataLines.map((line) => line.split(",").length));
+  };
+
+  assert.equal(typeof IMPORT_TEXT_PLACEHOLDER, "string");
+  assert.equal(typeof RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER, "string");
+  for (const placeholder of [IMPORT_TEXT_PLACEHOLDER, RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER]) {
+    assert.ok(placeholder.length > 0, "占位符不应为空");
+    const fieldCount = placeholderSampleRowCount(placeholder);
+    assert.ok(fieldCount <= 4, `示例数据行字段数应 ≤4（实际 ${fieldCount}）`);
+    // 不得内联 26 列完整表头（两种可读形式）
+    assert.equal(
+      placeholder.includes(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.join(",")),
+      false,
+      "placeholder 不得内联 26 列完整表头",
+    );
+    assert.equal(placeholder.includes("network,ip"), false, "placeholder 不得以末列片段冒充完整表头");
+    assert.ok(
+      placeholder.includes(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.slice(0, 3).join(",")),
+      "示例表头行应取冻结模板前 3 列（与契约列序一致）",
+    );
+  }
+  // 两面板同主体（口径一致，避免两入口漂移）
+  assert.equal(IMPORT_TEXT_PLACEHOLDER, RESOURCE_INTERFACE_IP_TEXT_PLACEHOLDER);
+});
+
+await test("F034 parseImportFormValues 文本载体：空 / 纯空白不发请求、上限−1/＝/+1 严格大于口径、format 与载体防御（T110/T111）", async () => {
+  const maxBytes = IMPORT_MAX_FILE_BYTES;
+  // 空 / 纯空白 → 本地错误落 errors.text（不发请求）；不误报到 errors.file
+  const blank = parseImportFormValues({ carrier: "text", format: "csv", file: null, text: "  \n\t\r\n " });
+  assert.equal(blank.ok, false);
+  assert.ok(blank.errors.text.includes("空白"));
+  assert.equal(blank.errors.file, undefined);
+  const emptyText = parseImportFormValues({ carrier: "text", format: "csv", file: null, text: "" });
+  assert.equal(emptyText.ok, false);
+  assert.ok(emptyText.errors.text.includes("空白"));
+
+  // 上限：严格大于才拦截（服务端 413 IMPORT_FILE_TOO_LARGE 同口径）
+  const under = parseImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "a".repeat(maxBytes - 1),
+  });
+  assert.equal(under.ok, true);
+  assert.equal(under.file.size, maxBytes - 1);
+  const exact = parseImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "a".repeat(maxBytes),
+  });
+  assert.equal(exact.ok, true, "恰好等于上限应放行（仅严格大于才拦截）");
+  assert.equal(exact.file.size, maxBytes);
+  const over = parseImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "a".repeat(maxBytes + 1),
+  });
+  assert.equal(over.ok, false);
+  assert.ok(over.errors.text.includes(String(maxBytes)));
+  assert.ok(over.errors.text.includes("IMPORT_FILE_TOO_LARGE"));
+
+  // 非 ASCII 计量：字符数远小于字节数（含中文不误放行）
+  const chinese = "主机名,集群\n".repeat(1000);
+  const chineseParsed = parseImportFormValues({ carrier: "text", format: "csv", file: null, text: chinese });
+  assert.equal(chineseParsed.ok, true);
+  assert.equal(chineseParsed.file.size, utf8ByteLength(chinese));
+  assert.ok(utf8ByteLength(chinese) > chinese.length);
+
+  // 文本载体下 format 非 csv（防御；UI 只读恒 csv）
+  const xlsxText = parseImportFormValues({ carrier: "text", format: "xlsx", file: null, text: "a,b\n" });
+  assert.equal(xlsxText.ok, false);
+  assert.ok(xlsxText.errors.format.includes("csv"));
+
+  // 非法载体值（防御；UI 下拉恒合法）
+  const badCarrier = parseImportFormValues({ carrier: "clipboard", format: "csv", file: null, text: "a,b\n" });
+  assert.equal(badCarrier.ok, false);
+  assert.ok(badCarrier.errors.carrier);
+
+  // 文件载体既有三条校验不受影响（回归）
+  const fileCarrierEmpty = parseImportFormValues(emptyImportFormValues());
+  assert.equal(fileCarrierEmpty.ok, false);
+  assert.ok(fileCarrierEmpty.errors.file.includes("选择"));
+});
+
+await test("F034 parseResourceInterfaceIpImportFormValues 文本载体：同一拦截口径（空/纯空白、上限、format 防御）", async () => {
+  const maxBytes = IMPORT_MAX_FILE_BYTES;
+  const blank = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "\n\n  \n",
+  });
+  assert.equal(blank.ok, false);
+  assert.ok(blank.errors.text.includes("空白"));
+
+  const ok26 = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.join(",") + "\n",
+  });
+  assert.equal(ok26.ok, true, "仅表头行不作为本地拦截条件（empty_file 由服务端权威判定）");
+  assert.equal(ok26.file.name, PASTED_CSV_FILE_NAME);
+  assert.equal(ok26.file.size, utf8ByteLength(RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.join(",") + "\n"));
+
+  const exact = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "a".repeat(maxBytes),
+  });
+  assert.equal(exact.ok, true);
+  const over = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text: "a".repeat(maxBytes + 1),
+  });
+  assert.equal(over.ok, false);
+  assert.ok(over.errors.text.includes(String(maxBytes)));
+
+  const xlsxText = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "xlsx",
+    file: null,
+    text: "a,b\n",
+  });
+  assert.equal(xlsxText.ok, false);
+  assert.ok(xlsxText.errors.format.includes("csv"));
+
+  const badCarrier = parseResourceInterfaceIpImportFormValues({
+    carrier: "text2",
+    format: "csv",
+    file: null,
+    text: "a,b\n",
+  });
+  assert.equal(badCarrier.ok, false);
+  assert.ok(badCarrier.errors.carrier);
+
+  // 文件载体既有校验回归（未选文件 / .xlsx 扩展名）
+  assert.ok(emptyResourceInterfaceIpImportFormValues().carrier === "file");
+  assert.ok(emptyResourceInterfaceIpImportFormValues().text === "");
+});
+
+await test("F034 两入口文本载体提交：F023 validate 的 URL / method / format / 固定文件名与文件载体一致（等价性前提）", async () => {
+  respond = () =>
+    jsonResponse(200, {
+      format: "csv",
+      total_rows: 2,
+      importable_rows: 2,
+      error_count: 0,
+      errors: [],
+      errors_truncated: false,
+    });
+  const text = RESOURCE_INTERFACE_IP_TEMPLATE_COLUMNS.join(",") + "\nN96P,cn001,BARE_METAL\n";
+  const parsed = parseResourceInterfaceIpImportFormValues({
+    carrier: "text",
+    format: "csv",
+    file: null,
+    text,
+  });
+  assert.equal(parsed.ok, true);
+  const data = await validateResourceInterfaceIpImport(parsed.file, "csv");
+  assert.equal(data.format, "csv");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "/api/v1/imports/resource-interfaces-ips/validate");
+  assert.equal(calls[0].init.method, "POST");
+  const body = calls[0].init.body;
+  assert.ok(body instanceof FormData);
+  assert.equal(body.get("format"), "csv");
+  assert.ok(body.get("file") instanceof File);
+  assert.equal(body.get("file").name, PASTED_CSV_FILE_NAME);
+  assert.equal(body.get("file").size, utf8ByteLength(text));
+
+  // 写入端点同样复用（同一 multipart 形状，不新增端点）
+  respond = () =>
+    jsonResponse(201, {
+      created: 1,
+      total_rows: 2,
+      interfaces_created: 1,
+      ip_addresses_created: 2,
+    });
+  const created = await importResourceInterfacesIps(parsed.file, "csv");
+  assert.equal(created.total_rows, 2);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].url, "/api/v1/imports/resource-interfaces-ips");
+  assert.equal(calls[1].init.method, "POST");
+  assert.equal(calls[1].init.body.get("format"), "csv");
+  assert.equal(calls[1].init.body.get("file").name, PASTED_CSV_FILE_NAME);
+});
+
+await test("F034 陈旧结果防护（T116）：文本改 1 字符 / 切换载体后 validatedKey !== currentKey，确认导入不可用", async () => {
+  const text = "cluster,hostname\nN96P,cn001\n";
+  const validatedValues = { carrier: "text", format: "csv", file: null, text };
+  const validatedKey = importTargetKey(validatedValues);
+  // 同一内容 → 指纹不变，门控仍可用
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey,
+      currentKey: importTargetKey(validatedValues),
+      importSucceeded: false,
+    }),
+    true,
+  );
+  // 改 1 个非 ASCII 字符 → 指纹失效，不可确认
+  const editedKey = importTargetKey({
+    ...validatedValues,
+    text: "cluster,hostname\nN96P,主机甲\n",
+  });
+  assert.notEqual(editedKey, validatedKey);
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey,
+      currentKey: editedKey,
+      importSucceeded: false,
+    }),
+    false,
+  );
+  // 切换载体（text → file，且未选文件）→ 指纹失效，不可确认
+  const switchedKey = importTargetKey({ carrier: "file", format: "csv", file: null, text });
+  assert.notEqual(switchedKey, validatedKey);
+  assert.equal(
+    canConfirmResourceInterfaceIpImport({
+      validated: { errorCount: 0 },
+      validatedKey,
+      currentKey: switchedKey,
+      importSucceeded: false,
+    }),
+    false,
+  );
+  // 切换载体（text → file，同一字节的 .csv 文件）→ 指纹也不同（载体前缀区分）
+  const fileWithSameBytes = new File([text], "same.csv");
+  assert.notEqual(fileImportTargetKey("csv", fileWithSameBytes), validatedKey);
 });
 
 // 还原全局状态

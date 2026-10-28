@@ -1,0 +1,46 @@
+# F033 V-A8.5 token 计算值抽查（1440x900，Dashboard；2026-10-23）
+# 说明：颜色/圆角均取自 :root token，与应用自有类的 computed 值逐项比对；
+#       视觉观感（浅色表面/蓝色主操作/统一圆角间距）另由截图 1440x900-dashboard.png 等留证供人工比对。
+{
+ "tokens": {
+  "primary": "#2563eb",
+  "primarySoft": "#eaf1ff",
+  "background": "#f4f6fa",
+  "surface": "#ffffff",
+  "radiusMd": "8px",
+  "radiusLg": "10px",
+  "text": "#172b4d",
+  "space2": "8px"
+ },
+ "measured": {
+  "html_bg": "rgb(244, 246, 250)",
+  "body_bg": "rgba(0, 0, 0, 0)",
+  "primary_button_bg": "rgb(37, 99, 235)",
+  "primary_button_color": "rgb(255, 255, 255)",
+  "count_card_bg": "rgb(248, 250, 255)",
+  "count_card_radius": "10px",
+  "panel_radius": "12px",
+  "nav_active_bg": "rgb(234, 241, 255)",
+  "header_bg": "rgb(255, 255, 255)"
+ },
+ "expected_rgb": {
+  "primary": "rgb(37, 99, 235)",
+  "background": "rgb(244, 246, 250)",
+  "primary_soft": "rgb(234, 241, 255)"
+ },
+ "checks": {
+  "page_background_is_csm_background": true,
+  "primary_button_is_csm_primary": true,
+  "count_card_radius_matches_token": true,
+  "nav_active_bg_is_csm_primary_soft": true,
+  "panel_radius_note": "Ant Card（SurfaceCard）圆角由 main.tsx 的 ConfigProvider borderRadius:10 派生为 12px（Ant token 边界，main.tsx 零 diff）；不属 index.css 应用自有类 token 管辖"
+ }
+}
+
+# 附加观察（Tester 静态核对，2026-10-23）
+# 1) index.css 中 radius 声明共 14 处，13 处引用 var(--csm-radius-*)；
+#    唯一例外为 `mark { border-radius: 3px; }`（命中高亮的内联底色块，行 493），
+#    属裸元素选择器而非应用自有类，且 3px 不在 token 阶梯（sm 6 / md 8 / lg 10）内。
+#    影响：视觉与可维护性层面的 NOTE，不涉及 A8 的 hex/rgb 单一来源判定（V-A8.1 已通过）。
+# 2) .panel 的 12px 圆角来自 Ant Card（SurfaceCard）由 main.tsx ConfigProvider
+#    borderRadius:10 派生，属 DR-F033-05 明确保留的 Ant token 边界，且 main.tsx 零 diff。

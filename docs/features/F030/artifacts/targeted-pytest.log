@@ -1,0 +1,40 @@
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_baseline, baseline: enable required extensions (no business tables).
+INFO  [alembic.runtime.migration] Running upgrade 0001_baseline -> 0002_users_sessions, users and user_sessions for F002 auth.
+INFO  [alembic.runtime.migration] Running upgrade 0002_users_sessions -> 0003_clusters_audit, clusters and audit_logs for F003.
+INFO  [alembic.runtime.migration] Running upgrade 0003_clusters_audit -> 0004_resources, resources for F004.
+INFO  [alembic.runtime.migration] Running upgrade 0004_resources -> 0005_bare_metal_details, bare_metal_details for F005.
+INFO  [alembic.runtime.migration] Running upgrade 0005_bare_metal_details -> 0006_virtual_machine_details, virtual_machine_details for F006.
+INFO  [alembic.runtime.migration] Running upgrade 0006_virtual_machine_details -> 0007_interfaces, interfaces for F007.
+INFO  [alembic.runtime.migration] Running upgrade 0007_interfaces -> 0008_networks, networks for F008.
+INFO  [alembic.runtime.migration] Running upgrade 0008_networks -> 0009_ip_pools, ip_pools for F009.
+INFO  [alembic.runtime.migration] Running upgrade 0009_ip_pools -> 0010_ip_addresses, ip_addresses for F010.
+INFO  [alembic.runtime.migration] Running upgrade 0010_ip_addresses -> 0011_services, services for F011.
+INFO  [alembic.runtime.migration] Running upgrade 0011_services -> 0012_service_endpoints, service_endpoints for F012.
+INFO  [alembic.runtime.migration] Running upgrade 0012_service_endpoints -> 0013_search_indexes, GIN trigram search indexes for F013.
+INFO  [alembic.runtime.migration] Running upgrade 0013_search_indexes -> 0014_api_keys, api_keys table and audit_logs.api_key_label for F017.
+INFO  [alembic.runtime.migration] Running upgrade 0014_api_keys -> 0015_user_cluster_authorizations, user_cluster_authorizations table and backfill for F026.
+........INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0015_user_cluster_authorizations -> 0014_api_keys, user_cluster_authorizations table and backfill for F026.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0014_api_keys -> 0015_user_cluster_authorizations, user_cluster_authorizations table and backfill for F026.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0015_user_cluster_authorizations -> 0014_api_keys, user_cluster_authorizations table and backfill for F026.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0014_api_keys -> 0015_user_cluster_authorizations, user_cluster_authorizations table and backfill for F026.
+.INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0015_user_cluster_authorizations -> 0014_api_keys, user_cluster_authorizations table and backfill for F026.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0014_api_keys -> 0015_user_cluster_authorizations, user_cluster_authorizations table and backfill for F026.
+..concurrent grant evidence:
+  attempt 1: statuses=[409, 201] overlap=True spans=[(702801.1568, 702801.1987), (702801.1561, 702801.2131)]
+.................
+28 passed in 42.12s
+EXIT=0

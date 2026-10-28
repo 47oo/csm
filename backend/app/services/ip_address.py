@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import ipaddress
 import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import cast, func, select, update
@@ -51,7 +52,13 @@ from app.models.ip_address import IPAddress
 from app.models.ip_pool import IPPool
 from app.models.network import Network
 from app.models.resource import Resource
-from app.services import audit, ip_address_reference, ip_capacity, normalization
+from app.services import (
+    audit,
+    ip_address_reference,
+    ip_capacity,
+    normalization,
+    scope_filters,
+)
 from app.services.network import _lock_network
 
 if TYPE_CHECKING:
@@ -101,7 +108,7 @@ def _load_network(db: "Session", network_id: uuid.UUID) -> Network | None:
     )
 
 
-def resolve_network(db: "Session", reference: Any) -> Network:
+def resolve_network(db: "Session", reference: Any, *, scope=None) -> Network:
     """Resolve a POST/PATCH ``network`` UUID to an undeleted Network (DR-107).
 
     Missing / non-UUID / nonexistent / soft-deleted all yield 422 with
@@ -116,13 +123,17 @@ def resolve_network(db: "Session", reference: Any) -> Network:
     except (ValueError, AttributeError, TypeError) as exc:
         raise _field_error("network", "network must be a valid UUID") from exc
     network = _load_network(db, network_id)
-    if network is None or network.deleted_at is not None:
+    if (
+        network is None
+        or network.deleted_at is not None
+        or not scope_filters.normalize(scope).allows(network.cluster_id)
+    ):
         raise _field_error("network", "network does not exist or is not selectable")
     return network
 
 
 def resolve_ip_pool(
-    db: "Session", reference: Any, *, network_id: uuid.UUID
+    db: "Session", reference: Any, *, network_id: uuid.UUID, scope=None
 ) -> IPPool:
     """Resolve a POST ``ip_pool`` UUID to an undeleted Pool of ``network_id``.
 
@@ -148,6 +159,10 @@ def resolve_ip_pool(
         pool is None
         or pool.deleted_at is not None
         or pool.network_id != network_id
+        or not scope_filters.normalize(scope).allows(
+            (db.execute(select(Network.cluster_id).where(Network.id == network_id))
+             .scalar_one_or_none())
+        )
     ):
         raise _field_error(
             "ip_pool",
@@ -158,7 +173,7 @@ def resolve_ip_pool(
 
 
 def _validate_interface(
-    db: "Session", interface_id: uuid.UUID, *, cluster_id: uuid.UUID
+    db: "Session", interface_id: uuid.UUID, *, cluster_id: uuid.UUID, scope=None
 ) -> Interface:
     """Validate a bound Interface: exists, undeleted, same Cluster (DR-121)."""
     interface = (
@@ -184,6 +199,12 @@ def _validate_interface(
     if resource is None or resource.deleted_at is not None:
         raise _field_error(
             "interface", "interface resource does not exist or is not selectable"
+        )
+    # F027 A18: scope is checked before the same-Cluster rule so a hidden
+    # Interface is indistinguishable from a nonexistent one (no existence leak).
+    if not scope_filters.normalize(scope).allows(resource.cluster_id):
+        raise _field_error(
+            "interface", "interface does not exist or is not selectable"
         )
     if resource.cluster_id != cluster_id:
         raise _field_error(
@@ -338,6 +359,7 @@ def list_ip_addresses(
     page_size: int = 20,
     sort: str = "created_at",
     order: str = "desc",
+    scope=None,
 ) -> tuple[list[IPAddress], int]:
     """Return the visible page of ip addresses plus the filtered total."""
     if deleted not in DELETED_MODES:
@@ -347,7 +369,7 @@ def list_ip_addresses(
     if order not in ORDERS:
         raise _field_error("order", "order must be asc or desc")
 
-    filters = []
+    filters = [scope_filters.cluster_predicate(scope, IPAddress.cluster_id)]
     if network_id is not None:
         filters.append(IPAddress.network_id == network_id)
     if cluster_id is not None:
@@ -396,10 +418,17 @@ def list_ip_addresses(
 
 
 def get_ip_address(
-    db: "Session", ip_address_id: uuid.UUID, *, include_deleted: bool = False
+    db: "Session",
+    ip_address_id: uuid.UUID,
+    *,
+    include_deleted: bool = False,
+    scope=None,
 ) -> IPAddress | None:
     """Return an ip address, hidden by the soft-delete filter unless requested."""
-    statement = select(IPAddress).where(IPAddress.id == ip_address_id)
+    statement = select(IPAddress).where(
+        IPAddress.id == ip_address_id,
+        scope_filters.cluster_predicate(scope, IPAddress.cluster_id),
+    )
     return (
         db.execute(statement, execution_options=_query_options(include_deleted))
         .scalars()
@@ -514,19 +543,81 @@ def create_ip_address(
     network: Any,
     address: str,
     description: str | None = None,
+    scope=None,
 ) -> IPAddress:
     """Manual allocation (Contract §6.2 order, DR-124).
 
     body (422) -> network (422) -> lock networks row -> Network ACTIVE (409
     ``allocation_not_allowed``) -> address format/boundary (422) -> same-Cluster
     uniqueness (409 ``unique_conflict``) -> derive ``ip_pool`` -> write + CREATE
-    Audit -> 201.
+    Audit -> 201. Thin wrapper around :func:`prepare_ip_address` +
+    :func:`stage_ip_address` (DR-418).
     """
-    network_row = resolve_network(db, network)
+    prepared = prepare_ip_address(
+        db, network=network, address=address, description=description, scope=scope
+    )
+    try:
+        ip_address = stage_ip_address(db, operator, prepared)
+    except IntegrityError as exc:  # concurrent create lost the race
+        db.rollback()
+        raise _translate_integrity_error(exc) from exc
+
+    db.commit()
+    return ip_address
+
+
+@dataclass
+class PreparedIPAddress:
+    """Fully validated IPAddress values ready to be staged (DR-418).
+
+    Produced by :func:`prepare_ip_address` (network resolve/lock, ACTIVE check,
+    §11.1 allocatable boundary, optional bound-Interface same-Cluster check,
+    same-Cluster uniqueness and Pool derivation); persisted without re-running
+    validation by :func:`stage_ip_address`. F023 import builds the same object
+    and stages it inside a per-resource SAVEPOINT with ``interface_id`` set.
+    """
+
+    network_id: uuid.UUID
+    cluster_id: uuid.UUID
+    address: str
+    ip_pool_id: uuid.UUID | None
+    interface_id: uuid.UUID | None
+    description: str | None
+
+
+def prepare_ip_address(
+    db: "Session",
+    *,
+    network: Any,
+    address: str,
+    description: str | None = None,
+    interface_id: uuid.UUID | None = None,
+    scope=None,
+) -> PreparedIPAddress:
+    """Validate an IPAddress (no write, no commit; DR-418).
+
+    ``network`` is a POST reference (UUID) that is resolved, or an already
+    resolved :class:`~app.models.network.Network` row (F023 import, which has
+    resolved the Network by name/CIDR). The ``networks`` row is always locked
+    ``FOR UPDATE`` before the ACTIVE/boundary/uniqueness checks. When
+    ``interface_id`` is given (import binding) the Interface is validated with
+    :func:`_validate_interface` (exists, undeleted, same Cluster).
+    """
+    if isinstance(network, Network):
+        network_row = network
+    else:
+        network_row = resolve_network(db, network, scope=scope)
+    if not scope_filters.normalize(scope).allows(network_row.cluster_id):
+        raise _field_error("network", "network does not exist or is not selectable")
     _lock_network(db, network_row.id)
 
     if network_row.status != "ACTIVE":
         raise Conflict.allocation_not_allowed("network_inactive")
+
+    if interface_id is not None:
+        _validate_interface(
+            db, interface_id, cluster_id=network_row.cluster_id, scope=scope
+        )
 
     normalized = normalization.normalize_ip_address(address)
     intervals = ip_capacity.network_allocatable_intervals(db, network_row)
@@ -537,21 +628,30 @@ def create_ip_address(
         raise Conflict.unique_conflict("address")
 
     ip_pool_id = _derive_ip_pool_id(db, network_row.id, normalized)
-
-    ip_address = IPAddress(
+    return PreparedIPAddress(
         network_id=network_row.id,
         cluster_id=network_row.cluster_id,
         address=normalized,
-        interface_id=None,
         ip_pool_id=ip_pool_id,
+        interface_id=interface_id,
         description=description,
     )
+
+
+def stage_ip_address(
+    db: "Session", operator: "Operator | None", prepared: PreparedIPAddress
+) -> IPAddress:
+    """Persist a prepared IPAddress + CREATE audit (no commit; DR-418)."""
+    ip_address = IPAddress(
+        network_id=prepared.network_id,
+        cluster_id=prepared.cluster_id,
+        address=prepared.address,
+        interface_id=prepared.interface_id,
+        ip_pool_id=prepared.ip_pool_id,
+        description=prepared.description,
+    )
     db.add(ip_address)
-    try:
-        db.flush()
-    except IntegrityError as exc:  # concurrent create lost the race
-        db.rollback()
-        raise _translate_integrity_error(exc) from exc
+    db.flush()
 
     audit.record(
         db,
@@ -562,7 +662,6 @@ def create_ip_address(
         before=None,
         after=ip_address_snapshot(ip_address),
     )
-    db.commit()
     return ip_address
 
 
@@ -573,6 +672,7 @@ def auto_allocate_ip_address(
     network: Any,
     ip_pool: Any,
     description: str | None = None,
+    scope=None,
 ) -> IPAddress:
     """Automatic allocation (Contract §6.3 order, DR-125).
 
@@ -581,13 +681,15 @@ def auto_allocate_ip_address(
     ascending first free address -> exhaustion 409 ``no_available_address`` ->
     write + CREATE Audit -> 201.
     """
-    network_row = resolve_network(db, network)
+    network_row = resolve_network(db, network, scope=scope)
     _lock_network(db, network_row.id)
 
     if network_row.status != "ACTIVE":
         raise Conflict.allocation_not_allowed("network_inactive")
 
-    pool = resolve_ip_pool(db, ip_pool, network_id=network_row.id)
+    pool = resolve_ip_pool(
+        db, ip_pool, network_id=network_row.id, scope=scope
+    )
 
     if not network_row.auto_allocate:
         raise Conflict.allocation_not_allowed("auto_allocate_disabled")
@@ -651,6 +753,7 @@ def update_ip_address(
     *,
     expected_version: int,
     changes: dict[str, Any],
+    scope=None,
 ) -> IPAddress:
     """Bind / unbind / transfer an Interface or edit ``description`` (§6.5).
 
@@ -659,7 +762,7 @@ def update_ip_address(
     UPDATE Audit -> 200. Relationship edits are not restricted by Network
     INACTIVE (DR-136).
     """
-    ip_address = get_ip_address(db, ip_address_id)
+    ip_address = get_ip_address(db, ip_address_id, scope=scope)
     if ip_address is None:
         raise NotFound()
     if ip_address.version != expected_version:
@@ -678,7 +781,7 @@ def update_ip_address(
                         "interface", "interface must be a valid UUID"
                     ) from exc
             _validate_interface(
-                db, new_interface, cluster_id=ip_address.cluster_id
+                db, new_interface, cluster_id=ip_address.cluster_id, scope=scope
             )
         if new_interface != ip_address.interface_id:
             references = ip_address_reference.check_ip_address_references(
@@ -733,13 +836,14 @@ def delete_ip_address(
     ip_address_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> None:
     """Release = soft delete (Contract §6.6 order, DR-128).
 
     object (404) -> version (409) -> Endpoint reference check (409
     ``reference_exists``) -> soft delete. No cascade and no auto-unbind.
     """
-    ip_address = get_ip_address(db, ip_address_id)
+    ip_address = get_ip_address(db, ip_address_id, scope=scope)
     if ip_address is None:
         raise NotFound()
     if ip_address.version != expected_version:
@@ -788,6 +892,7 @@ def restore_ip_address(
     ip_address_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> IPAddress:
     """Restore a soft-deleted IPAddress (Contract §6.7 order, DR-128).
 
@@ -798,7 +903,9 @@ def restore_ip_address(
     §11.1 set as manual allocation) -> restore. A failed restore never
     overwrites the newer object; Network ACTIVE is not required (DR-136).
     """
-    ip_address = get_ip_address(db, ip_address_id, include_deleted=True)
+    ip_address = get_ip_address(
+        db, ip_address_id, include_deleted=True, scope=scope
+    )
     if ip_address is None:
         raise NotFound()
     if ip_address.deleted_at is None:

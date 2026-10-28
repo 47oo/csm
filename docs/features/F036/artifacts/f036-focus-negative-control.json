@@ -1,0 +1,51 @@
+{
+  "focused_text": "概览",
+  "as_shipped": {
+    "outlineOffset": "-3px",
+    "ring": {
+      "left": 19,
+      "top": 57,
+      "right": 69,
+      "bottom": 95
+    },
+    "insideNav": true,
+    "nav": {
+      "left": 16,
+      "top": 50,
+      "right": 359,
+      "bottom": 102
+    }
+  },
+  "negative_control_offset_+3px": {
+    "outlineOffset": "3px",
+    "ring": {
+      "left": 13,
+      "top": 51,
+      "right": 75,
+      "bottom": 101
+    },
+    "insideNav": false,
+    "nav": {
+      "left": 16,
+      "top": 50,
+      "right": 359,
+      "bottom": 102
+    }
+  },
+  "info_shadow_only": {
+    "outlineOffset": "-3px",
+    "ring": {
+      "left": 19,
+      "top": 57,
+      "right": 69,
+      "bottom": 95
+    },
+    "insideNav": true,
+    "nav": {
+      "left": 16,
+      "top": 50,
+      "right": 359,
+      "bottom": 102
+    }
+  }
+}

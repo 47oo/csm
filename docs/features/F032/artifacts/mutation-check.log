@@ -1,0 +1,39 @@
+=== F032 test-suite strength check (mutation sanity; run against COPIES in /tmp/f032-mut.dO9ZLP, repo untouched) ===
+date: 2026-10-23T06:07:58Z
+
+### baseline copy (unmutated) should pass
+Ran 83 tests in 0.269s
+
+OK
+
+### M1: --resource-type required=True -> False
+1
+----------------------------------------------------------------------
+Ran 83 tests in 0.478s
+
+FAILED (failures=4, errors=2)
+
+### M2: type-specific default names -> single legacy csm_host_info.csv
+----------------------------------------------------------------------
+Ran 83 tests in 0.314s
+
+FAILED (failures=3, errors=1)
+
+### M3: --role/--status choices removed (free text accepted again)
+1
+----------------------------------------------------------------------
+Ran 83 tests in 0.346s
+
+FAILED (failures=6, errors=1)
+
+### M4: drop DR-1015 BM+--host guard (_validate_args no-op)
+----------------------------------------------------------------------
+Ran 83 tests in 0.393s
+
+FAILED (failures=3)
+
+### M5: help/epilog drops --host applicability sentence
+----------------------------------------------------------------------
+Ran 83 tests in 0.259s
+
+FAILED (failures=1)

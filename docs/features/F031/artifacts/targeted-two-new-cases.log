@@ -1,0 +1,143 @@
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_baseline, baseline: enable required extensions (no business tables).
+INFO  [alembic.runtime.migration] Running upgrade 0001_baseline -> 0002_users_sessions, users and user_sessions for F002 auth.
+INFO  [alembic.runtime.migration] Running upgrade 0002_users_sessions -> 0003_clusters_audit, clusters and audit_logs for F003.
+INFO  [alembic.runtime.migration] Running upgrade 0003_clusters_audit -> 0004_resources, resources for F004.
+INFO  [alembic.runtime.migration] Running upgrade 0004_resources -> 0005_bare_metal_details, bare_metal_details for F005.
+INFO  [alembic.runtime.migration] Running upgrade 0005_bare_metal_details -> 0006_virtual_machine_details, virtual_machine_details for F006.
+INFO  [alembic.runtime.migration] Running upgrade 0006_virtual_machine_details -> 0007_interfaces, interfaces for F007.
+INFO  [alembic.runtime.migration] Running upgrade 0007_interfaces -> 0008_networks, networks for F008.
+INFO  [alembic.runtime.migration] Running upgrade 0008_networks -> 0009_ip_pools, ip_pools for F009.
+INFO  [alembic.runtime.migration] Running upgrade 0009_ip_pools -> 0010_ip_addresses, ip_addresses for F010.
+INFO  [alembic.runtime.migration] Running upgrade 0010_ip_addresses -> 0011_services, services for F011.
+INFO  [alembic.runtime.migration] Running upgrade 0011_services -> 0012_service_endpoints, service_endpoints for F012.
+INFO  [alembic.runtime.migration] Running upgrade 0012_service_endpoints -> 0013_search_indexes, GIN trigram search indexes for F013.
+INFO  [alembic.runtime.migration] Running upgrade 0013_search_indexes -> 0014_api_keys, api_keys table and audit_logs.api_key_label for F017.
+INFO  [alembic.runtime.migration] Running upgrade 0014_api_keys -> 0015_user_cluster_authorizations, user_cluster_authorizations table and backfill for F026.
+concurrent grant evidence:
+  attempt 1: statuses=[409, 201] overlap=True spans=[(706501.4979, 706501.5471), (706501.4987, 706501.5737)]
+attempts used: 1/5
+.ERROR [csm.errors] unhandled error: IntegrityError
+Traceback (most recent call last):
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/psycopg/cursor.py", line 97, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.ForeignKeyViolation: insert or update on table "user_cluster_authorizations" violates foreign key constraint "fk_user_cluster_authorizations_granted_by_users"
+DETAIL:  Key (granted_by)=(3c28c9c5-7555-4550-b406-663368c370c7) is not present in table "users".
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/middleware/base.py", line 185, in __call__
+    with collapse_excgroups():
+         ^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/anaconda3/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/_utils.py", line 82, in collapse_excgroups
+    raise exc
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/middleware/base.py", line 187, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/github/47oo/csm/backend/app/core/csrf.py", line 67, in dispatch
+    return await call_next(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/middleware/base.py", line 163, in call_next
+    raise app_exc
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/middleware/base.py", line 149, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/home/hanhao/.local/lib/python3.12/site-packages/fastapi/routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/.local/lib/python3.12/site-packages/fastapi/routing.py", line 214, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/.local/lib/python3.12/site-packages/starlette/concurrency.py", line 39, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/anyio/to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 2134, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 851, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/github/47oo/csm/backend/app/api/v1/cluster_authorizations.py", line 126, in grant_cluster_authorization
+    row = authorization_service.grant_authorization(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/github/47oo/csm/backend/app/services/cluster_authorization.py", line 229, in grant_authorization
+    db.flush()
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4352, in flush
+    self._flush(objects)
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4487, in _flush
+    with util.safe_reraise():
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4448, in _flush
+    flush_context.execute()
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 1233, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "/home/hanhao/anaconda3/lib/python3.12/site-packages/psycopg/cursor.py", line 97, in execute
+    raise ex.with_traceback(None)
+sqlalchemy.exc.IntegrityError: (psycopg.errors.ForeignKeyViolation) insert or update on table "user_cluster_authorizations" violates foreign key constraint "fk_user_cluster_authorizations_granted_by_users"
+DETAIL:  Key (granted_by)=(3c28c9c5-7555-4550-b406-663368c370c7) is not present in table "users".
+[SQL: INSERT INTO user_cluster_authorizations (user_id, cluster_id, granted_by, revoked_at, revoked_by) VALUES (%(user_id)s::UUID, %(cluster_id)s::UUID, %(granted_by)s::UUID, %(revoked_at)s::TIMESTAMP WITH TIME ZONE, %(revoked_by)s::UUID) RETURNING user_cluster_authorizations.id, user_cluster_authorizations.granted_at]
+[parameters: {'user_id': UUID('8a606a2e-ac75-4b7e-b085-6764677a8420'), 'cluster_id': UUID('3db0a938-61ff-4aaf-81ef-5b33fef64a0a'), 'granted_by': UUID('3c28c9c5-7555-4550-b406-663368c370c7'), 'revoked_at': None, 'revoked_by': None}]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+.
+2 passed, 13 deselected in 4.79s

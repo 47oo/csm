@@ -1,0 +1,13 @@
+### Environment (2026-10-23T10:38:17+08:00)
+Python 3.12.7
+pytest 7.4.4
+SQLAlchemy 2.0.34
+psycopg 3.2.13
+PyYAML 6.0.1
+v22.23.3
+10.9.9
+node ok
+--- PG container
+csm-f026-pg postgres:16 0.0.0.0:55432->5432/tcp, :::55432->5432/tcp Up 19 hours
+--- test DB url host:port/db (credentials redacted)
+postgresql+psycopg://<redacted>@localhost:55432/csm_test

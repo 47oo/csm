@@ -1,0 +1,44 @@
+### F030 P1 Contract sign-off structure check (2026-10-23T10:21:18+08:00)
+[P1.1] F026 head token '- **覆盖范围 / 对象**': True
+[P1.1] F026 head token '- **确认来源**': True
+[P1.1] F026 head token '- **版本**：v3': True
+[P1.1] F026 签核 line contains 'Architect': True
+[P1.1] F026 签核 line contains 'v3': True
+[P1.1] F026 签核 line contains '2026-10-23': True
+[P1.2] F002: tokens_missing=[] f026_v3_ref=True section=173 signoff=177 tail_ok=True
+[P1.5] F002: header_cols=3 f030_rows=1 row_cols=3 source_token=True
+[P1.2] F003: tokens_missing=[] f026_v3_ref=True section=138 signoff=142 tail_ok=True
+[P1.5] F003: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.2] F004: tokens_missing=[] f026_v3_ref=True section=197 signoff=201 tail_ok=True
+[P1.5] F004: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.2] F007: tokens_missing=[] f026_v3_ref=True section=150 signoff=154 tail_ok=True
+[P1.5] F007: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.2] F008: tokens_missing=[] f026_v3_ref=True section=147 signoff=151 tail_ok=True
+[P1.5] F008: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.2] F009: tokens_missing=[] f026_v3_ref=True section=170 signoff=174 tail_ok=True
+[P1.5] F009: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.2] F010: tokens_missing=[] f026_v3_ref=True section=203 signoff=207 tail_ok=True
+[P1.5] F010: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.2] F011: tokens_missing=[] f026_v3_ref=True section=152 signoff=156 tail_ok=True
+[P1.5] F011: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.2] F012: tokens_missing=[] f026_v3_ref=True section=165 signoff=169 tail_ok=True
+[P1.5] F012: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.2] F013: tokens_missing=[] f026_v3_ref=True section=359 signoff=363 tail_ok=True
+[P1.5] F013: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.2] F014: tokens_missing=[] f026_v3_ref=True section=266 signoff=270 tail_ok=True
+[P1.5] F014: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.2] F023: tokens_missing=[] f026_v3_ref=True section=253 signoff=257 tail_ok=True
+[P1.5] F023: header_cols=4 f030_rows=1 row_cols=4 source_token=True
+[P1.6] F026 head 签核 line contains 不变 statement: True
+[P1.6] all 12 sign-off lines contain 保持不变: True
+[P1.3] F026 §12 v3 line present: True
+[P1.3] F026 §13 v3 row: ['| v3 | 2026-10-23 | F030 跟进：§5 记录「非唯一完整性错误 → 原始异常上抛 → 500 `INTERNAL_ERROR`」的现状语义；补齐签核者/日期/版本/覆盖范围/确认来源；不改变端点/字段/错误码/权限与既有 409/422 映射（F029-RV-01/RV-08）。 |']
+[P1.3] §12/§13 dates equal: True
+[P1.7] http_method_path: 0 hits
+[P1.7] new_reason: 1 hits
+         `uq_user_cluster_authorizations_user_id_cluster_id` 时返回 409 `CONFLICT{reason:"already_granted"}`。
+[P1.7] new_error_code: 1 hits
+         | v3 | 2026-10-23 | F030 跟进：§5 记录「非唯一完整性错误 → 原始异常上抛 → 500 `INTERNAL_ERROR`」的现状语义；补齐签核者/日期/版本/覆盖范围/确认来源；不改变端点/字段/错误码/权限与既有 409/422 映射（F029-RV-01/RV-08）。 |
+[P1.7] permission: 0 hits
+[P1.7] added line count in docs/api diff: 43
+EXIT=0

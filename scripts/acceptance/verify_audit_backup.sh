@@ -26,7 +26,7 @@ DB_CONTAINER="${F016_DB_CONTAINER:-f016-db}"
 NET="${F016_NET:-f016-acceptance-net}"
 BACKUP_DIR="${BACKUP_DIR:-${REPO_ROOT}/scripts/acceptance/artifacts/backup}"
 PG_IMAGE="postgres:16"
-APP_IMAGE="csm-f007-test"
+APP_IMAGE="${APP_IMAGE:-csm-f007-test}"
 
 mkdir -p "${BACKUP_DIR}"
 log()  { printf '[T36] %s\n' "$*"; }

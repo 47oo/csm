@@ -1,0 +1,479 @@
+{
+  "/api/v1/imports/resources/validate|F-01": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 2,
+    "importable_rows": 2,
+    "error_count": 0,
+    "errors_truncated": false,
+    "errors": []
+  },
+  "/api/v1/imports/resources/validate|F-02": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 1,
+    "importable_rows": 1,
+    "error_count": 0,
+    "errors_truncated": false,
+    "errors": []
+  },
+  "/api/v1/imports/resources/validate|F-03": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "unknown_columns",
+        "unknown_columns": [
+          "host",
+          "vcpu",
+          "disk_gb",
+          "hypervisor",
+          "name",
+          "interface_type",
+          "mac_address",
+          "speed_mbps",
+          "mtu",
+          "enabled",
+          "network",
+          "ip"
+        ]
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-03f": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "unknown_columns",
+        "unknown_columns": [
+          "host",
+          "vcpu",
+          "disk_gb",
+          "hypervisor",
+          "name",
+          "interface_type",
+          "mac_address",
+          "speed_mbps",
+          "mtu",
+          "enabled",
+          "network",
+          "ip"
+        ]
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-04": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "empty_file"
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-05": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "unknown_columns",
+        "missing_columns": [
+          "cluster",
+          "hostname",
+          "resource_type",
+          "role",
+          "status",
+          "host",
+          "vcpu",
+          "memory_mb",
+          "disk_gb",
+          "hypervisor"
+        ],
+        "unknown_columns": [
+          "   "
+        ]
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-05b": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "header_missing"
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-06a": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "empty_file"
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-06b": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "unknown_columns",
+        "unknown_columns": [
+          "host",
+          "vcpu",
+          "disk_gb",
+          "hypervisor",
+          "name",
+          "interface_type",
+          "mac_address",
+          "speed_mbps",
+          "mtu",
+          "enabled",
+          "network",
+          "ip"
+        ]
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-07": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 2,
+    "importable_rows": 2,
+    "error_count": 0,
+    "errors_truncated": false,
+    "errors": []
+  },
+  "/api/v1/imports/resources/validate|F-08": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 2,
+    "importable_rows": 2,
+    "error_count": 0,
+    "errors_truncated": false,
+    "errors": []
+  },
+  "/api/v1/imports/resources/validate|F-09": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 2,
+    "importable_rows": 2,
+    "error_count": 0,
+    "errors_truncated": false,
+    "errors": []
+  },
+  "/api/v1/imports/resources/validate|F-10": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 2,
+    "importable_rows": 2,
+    "error_count": 0,
+    "errors_truncated": false,
+    "errors": []
+  },
+  "/api/v1/imports/resources/validate|F-10b": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 3,
+    "importable_rows": 2,
+    "error_count": 1,
+    "errors_truncated": false,
+    "errors": [
+      {
+        "row": 4,
+        "field": "hostname",
+        "reason": "hostname must not contain whitespace",
+        "related_row": null
+      }
+    ]
+  },
+  "/api/v1/imports/resources/validate|F-11": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 2,
+    "importable_rows": 0,
+    "error_count": 2,
+    "errors_truncated": false,
+    "errors": [
+      {
+        "row": 2,
+        "field": "manufacturer",
+        "reason": "hardware.manufacturer must not contain control characters",
+        "related_row": null
+      },
+      {
+        "row": 3,
+        "field": "hostname",
+        "reason": "hostname must not contain whitespace",
+        "related_row": null
+      }
+    ]
+  },
+  "/api/v1/imports/resources/validate|F-12": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 2,
+    "importable_rows": 2,
+    "error_count": 0,
+    "errors_truncated": false,
+    "errors": []
+  },
+  "/api/v1/imports/resources/validate|F-13": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 1,
+    "importable_rows": 0,
+    "error_count": 1,
+    "errors_truncated": false,
+    "errors": [
+      {
+        "row": 2,
+        "field": "manufacturer",
+        "reason": "hardware.manufacturer must not contain control characters",
+        "related_row": null
+      }
+    ]
+  },
+  "/api/v1/imports/resources/validate|F-14": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "unknown_columns",
+        "missing_columns": [
+          "cluster",
+          "hostname",
+          "resource_type",
+          "role",
+          "status",
+          "host",
+          "vcpu",
+          "memory_mb",
+          "disk_gb",
+          "hypervisor"
+        ],
+        "unknown_columns": [
+          "cluster\thostname\tresource_type\trole\tstatus\tmanufacturer\tmodel\tserial_number\tcpu_model\tcpu_sockets\tcpu_cores\tmemory_mb\tgpu_model\tgpu_count"
+        ]
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-15": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "unknown_columns",
+        "missing_columns": [
+          "cluster",
+          "hostname",
+          "resource_type",
+          "role",
+          "status",
+          "host",
+          "vcpu",
+          "memory_mb",
+          "disk_gb",
+          "hypervisor"
+        ],
+        "unknown_columns": [
+          "F34A",
+          "f34-h1",
+          "BARE_METAL",
+          "COMPUTE",
+          "IDLE",
+          "Dell",
+          "PowerEdge R750",
+          "F34-SN-1",
+          "Intel Xeon 6338",
+          "2",
+          "32",
+          "262144",
+          "NVIDIA A100",
+          "4"
+        ]
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-15a": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "header_missing"
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-16": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "missing_columns",
+        "missing_columns": [
+          "hostname"
+        ]
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-17": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "unknown_columns",
+        "unknown_columns": [
+          "interface_name"
+        ]
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-18a": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "column_order"
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-18b": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "column_order"
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-19": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "unknown_columns",
+        "missing_columns": [
+          "hostname"
+        ],
+        "unknown_columns": [
+          "HOSTNAME"
+        ]
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-20": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 7,
+    "importable_rows": 1,
+    "error_count": 6,
+    "errors_truncated": false,
+    "errors": [
+      {
+        "row": 2,
+        "field": "role",
+        "reason": "role must be one of COMPUTE, LOGIN, MANAGEMENT, STORAGE, SERVICE, GPU, OTHER",
+        "related_row": null
+      },
+      {
+        "row": 3,
+        "field": "memory_mb",
+        "reason": "memory_mb must be an integer",
+        "related_row": null
+      },
+      {
+        "row": 4,
+        "field": "manufacturer",
+        "reason": "hardware.manufacturer must be at most 255 characters",
+        "related_row": null
+      },
+      {
+        "row": 6,
+        "field": "hostname",
+        "reason": "duplicate hostname within file (also at row 5)",
+        "related_row": 5
+      },
+      {
+        "row": 7,
+        "field": "hostname",
+        "reason": "hostname already exists in this cluster",
+        "related_row": null
+      },
+      {
+        "row": 8,
+        "field": "cluster",
+        "reason": "cluster does not exist or is not selectable",
+        "related_row": null
+      }
+    ]
+  },
+  "/api/v1/imports/resources/validate|F-20w": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "unknown_columns",
+        "unknown_columns": [
+          "host",
+          "vcpu",
+          "disk_gb",
+          "hypervisor",
+          "name",
+          "interface_type",
+          "mac_address",
+          "speed_mbps",
+          "mtu",
+          "enabled",
+          "network",
+          "ip"
+        ]
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-24": {
+    "status": 422,
+    "error": {
+      "code": "IMPORT_INVALID_FILE",
+      "message": "Invalid import file",
+      "details": {
+        "reason": "empty_file"
+      }
+    }
+  },
+  "/api/v1/imports/resources/validate|F-25": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 1,
+    "importable_rows": 1,
+    "error_count": 0,
+    "errors_truncated": false,
+    "errors": []
+  },
+  "/api/v1/imports/resources/validate|F-26": {
+    "status": 200,
+    "format": "csv",
+    "total_rows": 1,
+    "importable_rows": 1,
+    "error_count": 0,
+    "errors_truncated": false,
+    "errors": []
+  }
+}

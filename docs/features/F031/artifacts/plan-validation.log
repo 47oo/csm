@@ -1,0 +1,7 @@
+=== PLAN/A validate_project_state.py ===
+PROJECT STATE VALID (structure/gates/files; verify approval truth and Git/test evidence separately)
+exit=0
+
+=== PLAN/B render_project_views.py (no --write) ===
+PROJECT VIEWS VALID
+exit=0

@@ -39,7 +39,7 @@ from app.core.errors import (
 )
 from app.models.cluster import Cluster
 from app.models.network import VALID_NETWORK_STATUSES, Network
-from app.services import audit, ip_occupancy, normalization
+from app.services import audit, ip_occupancy, normalization, scope_filters
 from app.services import cluster as cluster_service
 
 if TYPE_CHECKING:
@@ -209,6 +209,7 @@ def list_networks(
     page_size: int = 20,
     sort: str = "created_at",
     order: str = "desc",
+    scope=None,
 ) -> tuple[list[Network], int]:
     """Return the visible page of networks plus the filtered total."""
     if deleted not in DELETED_MODES:
@@ -220,7 +221,7 @@ def list_networks(
     if status is not None:
         _validate_status(status)
 
-    filters = []
+    filters = [scope_filters.cluster_predicate(scope, Network.cluster_id)]
     if cluster_id is not None:
         filters.append(Network.cluster_id == cluster_id)
     if status is not None:
@@ -261,10 +262,17 @@ def list_networks(
 
 
 def get_network(
-    db: "Session", network_id: uuid.UUID, *, include_deleted: bool = False
+    db: "Session",
+    network_id: uuid.UUID,
+    *,
+    include_deleted: bool = False,
+    scope=None,
 ) -> Network | None:
     """Return a network, hidden by the soft-delete filter unless requested."""
-    statement = select(Network).where(Network.id == network_id)
+    statement = select(Network).where(
+        Network.id == network_id,
+        scope_filters.cluster_predicate(scope, Network.cluster_id),
+    )
     return (
         db.execute(statement, execution_options=_query_options(include_deleted))
         .scalars()
@@ -320,6 +328,7 @@ def create_network(
     db: "Session",
     operator: "Operator | None",
     *,
+    scope=None,
     cluster: Any,
     name: str,
     cidr: str,
@@ -340,7 +349,7 @@ def create_network(
     validated_auto = _validate_auto_allocate(auto_allocate)
     meta = _validate_metadata({} if metadata is None else metadata)
 
-    cluster_row = cluster_service.resolve_cluster(db, cluster)
+    cluster_row = cluster_service.resolve_cluster(db, cluster, scope=scope)
 
     name_key = normalization.network_name_key(normalized_name)
     duplicate = db.execute(
@@ -398,6 +407,7 @@ def update_network(
     *,
     expected_version: int,
     changes: dict[str, Any],
+    scope=None,
 ) -> Network:
     """Partial update with optimistic locking.
 
@@ -406,7 +416,7 @@ def update_network(
     cidr overlap (409) -> write + UPDATE Audit -> 200. A cidr/cluster change
     locks the network row ``FOR UPDATE`` before the reference check (DR-96).
     """
-    network = get_network(db, network_id)
+    network = get_network(db, network_id, scope=scope)
     if network is None:
         raise NotFound()
 
@@ -422,7 +432,7 @@ def update_network(
     target_cluster_id = network.cluster_id
     if "cluster" in changes:
         target_cluster_id = cluster_service.resolve_cluster(
-            db, changes["cluster"]
+            db, changes["cluster"], scope=scope
         ).id
 
     values: dict[str, Any] = {}
@@ -545,6 +555,7 @@ def delete_network(
     network_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> None:
     """Soft delete (no cascade); blocked by undeleted references (DR-96).
 
@@ -552,7 +563,7 @@ def delete_network(
     soft delete. The network row is locked ``FOR UPDATE`` before the reference
     check so a concurrent F009/F010 child create serialises.
     """
-    network = get_network(db, network_id)
+    network = get_network(db, network_id, scope=scope)
     if network is None:
         raise NotFound()
     if network.version != expected_version:
@@ -601,6 +612,7 @@ def restore_network(
     network_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> Network:
     """Restore a soft-deleted Network.
 
@@ -610,7 +622,7 @@ def restore_network(
     A failed restore never overwrites the newer object; name reuse takes
     precedence over dependency/overlap failures.
     """
-    network = get_network(db, network_id, include_deleted=True)
+    network = get_network(db, network_id, include_deleted=True, scope=scope)
     if network is None:
         raise NotFound()
     if network.deleted_at is None:

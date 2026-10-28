@@ -159,7 +159,7 @@ export default function ClustersPage({ user, onOpenCluster, onCreate }: Clusters
       <div className="table-toolbar">
         <h2>Clusters（集群）</h2>
         {canWrite && (
-          <Button type="button" onClick={onCreate}>
+          <Button type="button" variant="primary" onClick={onCreate}>
             新建集群
           </Button>
         )}

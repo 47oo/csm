@@ -1,0 +1,111 @@
+### date: 2026-10-23T14:40:25+08:00
+### HEAD: 3a3f7bd  base: b741240
+
+=== S-V1 hex literals in index.css (expect all inside :root) ===
+15:  --csm-primary: #2563eb;
+16:  --csm-primary-strong: #1d4ed8;
+17:  --csm-primary-soft: #eaf1ff;
+18:  --csm-primary-soft-border: #b5cafa;
+19:  --csm-primary-wash: #f8faff;
+20:  --csm-on-primary: #ffffff;
+23:  --csm-text: #172b4d;
+24:  --csm-text-muted: #52637a;
+27:  --csm-text-subtle: #6b7280;
+28:  --csm-text-label: #374151;
+31:  --csm-surface: #ffffff;
+32:  --csm-surface-subtle: #f9fafb;
+33:  --csm-surface-raised: #f7f9fc;
+34:  --csm-surface-inset: #fafbfd;
+35:  --csm-background: #f4f6fa;
+36:  --csm-hover-bg: #f1f5fb;
+37:  --csm-selected-bg: #eff6ff;
+40:  --csm-border: #e5eaf1;
+41:  --csm-border-subtle: #e5e7eb;
+42:  --csm-border-dashed: #d1d5db;
+43:  --csm-divider: #f3f4f6;
+46:  --csm-danger-text: #b91c1c;
+47:  --csm-warning-text: #92400e;
+48:  --csm-highlight-bg: #fef08a;
+
+=== :root block range ===
+13::root {
+94:}
+98:}
+106:}
+111:}
+116:}
+121:}
+131:}
+142:}
+146:}
+152:}
+156:}
+163:}
+167:}
+172:}
+178:}
+182:}
+188:}
+197:}
+203:}
+
+=== S-V1 rgb/rgba (expect only shadow/focus-ring tokens) ===
+51:  --csm-shadow-panel: 0 2px 6px rgb(23 43 77 / 3%);
+52:  --csm-focus-ring: 0 0 0 3px rgb(37 99 235 / 35%);
+
+=== S-V2 workspace-location in frontend/src (expect 0) ===
+hits=0
+
+=== S-V3 inline style in ClusterAuthorizationPanel.tsx (expect 0) ===
+hits=0
+
+=== S-V8 ant- selectors in index.css (expect 0) ===
+hits=0
+
+=== S-V8 overflow-x in index.css ===
+338:  overflow-x: auto;
+896:    overflow-x: auto;
+
+=== html/body overflow declarations ===
+96:body {
+97-  margin: 0;
+98-}
+99-
+100-/* F033 DR-F033-06：不再用 `main` 元素选择器统一裁宽 / 定距，
+
+=== S-V2 var(--csm-*) defined vs referenced (expect empty diff) ===
+defined: 45
+used: 45
+used-but-undefined: []
+defined-but-unused: []
+
+=== S-V4/S-V5 zero-diff: main.tsx package.json package-lock.json backend docs/api components/ui ===
+diff-lines=0
+
+=== S-V6 changed files under frontend/src ===
+ frontend/src/App.tsx                               |   4 +-
+ .../src/components/ClusterAuthorizationPanel.tsx   |   6 +-
+ frontend/src/components/GlobalSearch.tsx           |  13 +-
+ frontend/src/index.css                             | 465 ++++++++++++++++-----
+ frontend/src/pages/HomePage.tsx                    |  46 +-
+ 5 files changed, 408 insertions(+), 126 deletions(-)
+
+=== full diff --stat b741240..HEAD ===
+ docs/architecture/frontend-ui-stack.md             |  26 +-
+ docs/features/F033/architecture.md                 | 185 ++++++++
+ docs/features/F033/implementation.md               | 147 +++++++
+ docs/features/F033/product.md                      |  61 +++
+ docs/features/F033/test-report.md                  | 268 ++++++++++++
+ docs/project/backlog.md                            |   6 +-
+ docs/project/dependency-map.md                     |   2 +-
+ docs/project/milestones.md                         |   4 +-
+ docs/project/project-plan.yaml                     |  51 ++-
+ frontend/src/App.tsx                               |   4 +-
+ .../src/components/ClusterAuthorizationPanel.tsx   |   6 +-
+ frontend/src/components/GlobalSearch.tsx           |  13 +-
+ frontend/src/index.css                             | 465 ++++++++++++++++-----
+ frontend/src/pages/HomePage.tsx                    |  46 +-
+ 14 files changed, 1132 insertions(+), 152 deletions(-)
+
+=== vite.config.ts / scripts 零 diff ===
+hits=0

@@ -97,11 +97,17 @@ export default function DashboardPanel() {
       {state.kind === "success" && (
         <>
           <div className="dashboard-counts">
-            <SurfaceCard className="count-card"><Statistic title="Clusters（集群）" value={state.data.counts.clusters} /></SurfaceCard>
-            <SurfaceCard className="count-card"><Statistic title="Resources（资源总数）" value={state.data.counts.resources} /></SurfaceCard>
-            <SurfaceCard className="count-card"><Statistic title="BareMetal（物理机）" value={state.data.counts.bare_metal} /></SurfaceCard>
-            <SurfaceCard className="count-card"><Statistic title="VM（虚拟机）" value={state.data.counts.virtual_machines} /></SurfaceCard>
-            <SurfaceCard className="count-card"><Statistic title="Networks（网络）" value={state.data.counts.networks} /></SurfaceCard>
+            {[
+              { title: "Clusters（集群）", value: state.data.counts.clusters },
+              { title: "Resources（资源总数）", value: state.data.counts.resources },
+              { title: "BareMetal（物理机）", value: state.data.counts.bare_metal },
+              { title: "VM（虚拟机）", value: state.data.counts.virtual_machines },
+              { title: "Networks（网络）", value: state.data.counts.networks },
+            ].map(({ title, value }) => (
+              <SurfaceCard className="count-card" key={title}>
+                <Statistic title={<span className="count-title">{title}</span>} value={value} />
+              </SurfaceCard>
+            ))}
           </div>
 
           <h3 className="detail-section-title">Network 容量（按网络）</h3>

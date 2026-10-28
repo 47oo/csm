@@ -1,0 +1,352 @@
+=== F032 CLI smoke (Tester independent execution) ===
+date: 2026-10-23T06:06:30Z
+HEAD: 5cbe00970b6eb01241bf8233dc23d5ee46aee6ef
+host python: Python 3.12.7
+workdir: /tmp/f032-smoke.WJV0JX
+
+### S1 no args (missing --resource-type)
+rc=2
+--stdout--
+--stderr--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+                            [--include-down] [--push] [--api-url API_URL]
+                            [--api-key API_KEY] [--yes] [--timeout TIMEOUT]
+collect_host_info.py: error: the following arguments are required: --resource-type
+允许值：
+  --resource-type: BARE_METAL, VIRTUAL_MACHINE
+  --role: COMPUTE, LOGIN, MANAGEMENT, STORAGE, SERVICE, GPU, OTHER
+  --status: IDLE, ALLOC, DOWN, UNKNOWN
+使用 --help 查看必填项、枚举值与引用语义。
+--files--
+err.txt
+out.txt
+
+### S2 --print only
+rc=2
+--stdout bytes: 0--
+--stderr--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+                            [--include-down] [--push] [--api-url API_URL]
+                            [--api-key API_KEY] [--yes] [--timeout TIMEOUT]
+collect_host_info.py: error: the following arguments are required: --resource-type
+允许值：
+  --resource-type: BARE_METAL, VIRTUAL_MACHINE
+  --role: COMPUTE, LOGIN, MANAGEMENT, STORAGE, SERVICE, GPU, OTHER
+  --status: IDLE, ALLOC, DOWN, UNKNOWN
+使用 --help 查看必填项、枚举值与引用语义。
+--files--
+err.txt
+out.txt
+
+### S3 invalid enum lower-case: --resource-type bare_metal --print
+rc=2
+--stdout bytes: 0--
+--stderr--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+                            [--include-down] [--push] [--api-url API_URL]
+                            [--api-key API_KEY] [--yes] [--timeout TIMEOUT]
+collect_host_info.py: error: argument --resource-type: invalid choice: 'bare_metal' (choose from 'BARE_METAL', 'VIRTUAL_MACHINE')
+允许值：
+  --resource-type: BARE_METAL, VIRTUAL_MACHINE
+  --role: COMPUTE, LOGIN, MANAGEMENT, STORAGE, SERVICE, GPU, OTHER
+  --status: IDLE, ALLOC, DOWN, UNKNOWN
+使用 --help 查看必填项、枚举值与引用语义。
+--files--
+err.txt
+out.txt
+
+### S4 invalid enum short name: bm
+rc=2
+--stderr--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+                            [--include-down] [--push] [--api-url API_URL]
+                            [--api-key API_KEY] [--yes] [--timeout TIMEOUT]
+collect_host_info.py: error: argument --resource-type: invalid choice: 'bm' (choose from 'BARE_METAL', 'VIRTUAL_MACHINE')
+允许值：
+  --resource-type: BARE_METAL, VIRTUAL_MACHINE
+  --role: COMPUTE, LOGIN, MANAGEMENT, STORAGE, SERVICE, GPU, OTHER
+  --status: IDLE, ALLOC, DOWN, UNKNOWN
+使用 --help 查看必填项、枚举值与引用语义。
+
+### S5 invalid enum empty string
+rc=2
+--stderr (head 6)--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+
+### S6 BM + --host f032host
+rc=2
+--stdout bytes: 0--
+--stderr--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+                            [--include-down] [--push] [--api-url API_URL]
+                            [--api-key API_KEY] [--yes] [--timeout TIMEOUT]
+collect_host_info.py: error: argument --host: BARE_METAL 行的 host 恒空，--host 仅适用于 VIRTUAL_MACHINE
+允许值：
+  --resource-type: BARE_METAL, VIRTUAL_MACHINE
+  --role: COMPUTE, LOGIN, MANAGEMENT, STORAGE, SERVICE, GPU, OTHER
+  --status: IDLE, ALLOC, DOWN, UNKNOWN
+使用 --help 查看必填项、枚举值与引用语义。
+--files--
+err.txt
+out.txt
+
+### S7 --role empty string
+rc=2
+--stderr (head 6)--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+--files--
+err.txt
+out.txt
+
+### S8 --status empty string
+rc=2
+--stderr (head 6)--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+
+### S9 --role compute (lowercase) / --status running
+role rc=2
+--stderr (head 6)--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+status rc=2
+--stderr (head 6)--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+                            [--network NETWORK] [-o OUTPUT] [--print]
+                            [--no-header] [--include-loopback]
+
+### S10 missing type + -o sentinel (must not overwrite)
+rc=2
+sentinel sha256: b0e57ec247c686ef0392b09987e72a7456dd6989727a6a107511a27bfefda75d  /tmp/f032-smoke.WJV0JX/sentinel.csv
+sentinel content: sentinel-bytes
+stdout bytes: 0
+--files--
+err.txt
+out.txt
+sentinel.csv
+
+### S11 missing type + --push (--yes) must not reach network
+rc=2
+--stderr (head 4)--
+usage: collect_host_info.py [-h] --resource-type {BARE_METAL,VIRTUAL_MACHINE}
+                            [--cluster CLUSTER]
+                            [--role {COMPUTE,LOGIN,MANAGEMENT,STORAGE,SERVICE,GPU,OTHER}]
+                            [--status {IDLE,ALLOC,DOWN,UNKNOWN}] [--host HOST]
+stdout bytes: 0
+--files--
+err.txt
+out.txt
+sentinel.csv
+
+### S12 --print with -o must not write file
+rc=0
+first stdout line: cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hyperviso
+p.csv exists: NO
+default bm file exists: NO
+--stderr--
+模板列：26 列（F023 §6 冻结）
+
+### S13 default filenames BM then VM (temp dir), non-overwrite
+bm rc=0
+已写出 3 行到 csm_host_info_bare_metal.csv
+模板列：26 列（F023 §6 冻结）
+可补全以下字段后再导入：cluster, role, status, host（仅 VM）, network
+fe0361e8758b7cd76f0eeb2429727b5a90df2fc61a55dd36ab706999168fc5e7  csm_host_info_bare_metal.csv
+vm rc=0
+已写出 3 行到 csm_host_info_virtual_machine.csv
+模板列：26 列（F023 §6 冻结）
+可补全以下字段后再导入：cluster, role, status, host（仅 VM）, network
+049b0ec0b6e0f9c8d01a5383abc3846283b064e3a5b4095175439fe4c40b493c  csm_host_info_virtual_machine.csv
+files:
+csm_host_info_bare_metal.csv
+csm_host_info_virtual_machine.csv
+legacy csm_host_info.csv exists: NO
+bm header/data check:
+csm_host_info_bare_metal.csv rows= 3 resource_type set= ['BARE_METAL']
+  header= ['cluster', 'hostname', 'resource_type', 'role', 'status'] ... ncols= 26
+  nonempty business/ownership cols= {}
+csm_host_info_virtual_machine.csv rows= 3 resource_type set= ['VIRTUAL_MACHINE']
+  header= ['cluster', 'hostname', 'resource_type', 'role', 'status'] ... ncols= 26
+  nonempty business/ownership cols= {}
+
+### S14 stdout/stderr of BM --print (raw, first 2 lines)
+模板列：26 列（F023 §6 冻结）
+cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,gpu_model,gpu_count,name,interface_type,mac_address,speed_mbps,mtu,enabled,network,ip
+,luck,BARE_METAL,,,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth0,OTHER,08:00:xx:xx:xx:xx,10000,1300,true,,10.10.10.23/24
+
+### S15 zero-network verification via strace (trace=connect, socket) — failure paths and offline run
+-- A) no args --
+rc=2
+inet socket/connect calls:
+count=0
+-- B) --print --resource-type bare_metal --
+rc=2
+inet count=0
+-- C) --print --resource-type BARE_METAL --host f032host --
+rc=2
+inet count=0
+-- D) --print --resource-type BARE_METAL --role '' --
+rc=2
+inet count=0
+-- E) offline run (--print --resource-type BARE_METAL, no --push) --
+rc=0
+inet count=0
+-- F) --help --
+rc=0
+inet count=0
+
+### S16 contract zero-diff vs start_commit 89a5d4f
+rc=0 (no output above = zero diff)
+--- full diff (should be empty) ---
+
+### S17 .gitignore coverage (DR-1013)
+.gitignore:175:csm_host_info.csv	csm_host_info.csv
+.gitignore:176:csm_host_info_bare_metal.csv	csm_host_info_bare_metal.csv
+.gitignore:177:csm_host_info_virtual_machine.csv	csm_host_info_virtual_machine.csv
+
+### S18 repository worktree residue check
+csm_host_info*.csv in repo: 1
+
+### S19 T79: all manual params written to columns (--cluster/--role/--status/--network; BM => no --host)
+rc=0
+模板列：26 列（F023 §6 冻结）
+row1: {'cluster': 'F032CHK', 'resource_type': 'BARE_METAL', 'role': 'COMPUTE', 'status': 'IDLE', 'host': '', 'network': 'F032-N1', 'hostname': 'luck', 'name': 'eth0', 'ip': '10.10.10.23/24'}
+row2: {'cluster': 'F032CHK', 'resource_type': 'BARE_METAL', 'role': 'COMPUTE', 'status': 'IDLE', 'host': '', 'network': 'F032-N1', 'hostname': 'luck', 'name': 'eth6', 'ip': '192.168.10.221/24'}
+row3: {'cluster': 'F032CHK', 'resource_type': 'BARE_METAL', 'role': 'COMPUTE', 'status': 'IDLE', 'host': '', 'network': 'F032-N1', 'hostname': 'luck', 'name': 'eth4', 'ip': '10.100.24.211/32'}
+
+### S20 T106/T81: --print --no-header => first line is a data row (26 cols, frozen order)
+rc=0
+first line == header? False
+ncols first line: 26 | first cell:  | resource_type cell(index2): VIRTUAL_MACHINE
+
+### S21 T103: VM --host f032host written / without --host stays empty (CLI, --print)
+rc=0
+with --host, host column values: ['f032host']
+rc=0
+without --host, host column values: ['']
+
+### S22 T102/T103/T106 independent verification against docs/api/F023.md §6 (generated real files)
+F023 §6 column count: 26
+
+[docs/features/F032/artifacts/real-validate/f032-bm-real.csv]
+  header identical+ordered vs F023 §6: True | cols: 26 | data rows: 3
+  resource_type values (single type per file): ['BARE_METAL']
+  cluster: ['F032CHK']
+  role: ['COMPUTE']
+  status: ['IDLE']
+  host: ['']
+  network: ['']
+  BM: host/vcpu/disk_gb/hypervisor all empty: True
+  BM: hardware columns may be filled: {'manufacturer': [''], 'model': [''], 'serial_number': [''], 'cpu_model': ['AMD Ryzen 9 8945HS w/ Radeon 780M Graphics'], 'cpu_sockets': ['1'], 'cpu_cores': ['8'], 'gpu_model': ['NVIDIA GeForce RTX 4060 Laptop GPU'], 'gpu_count': ['1']}
+  placeholder scan (N/A, unknown, -, TBD): []
+
+[docs/features/F032/artifacts/real-validate/f032-vm-real.csv]
+  header identical+ordered vs F023 §6: True | cols: 26 | data rows: 3
+  resource_type values (single type per file): ['VIRTUAL_MACHINE']
+  cluster: ['F032CHK']
+  role: ['COMPUTE']
+  status: ['IDLE']
+  host: ['f032host']
+  network: ['']
+  VM: hardware cols all empty: True
+  VM: vcpu/disk_gb/hypervisor: {'vcpu': ['16'], 'disk_gb': ['2054'], 'hypervisor': ['wsl']}
+  placeholder scan (N/A, unknown, -, TBD): []
+
+[docs/features/F032/artifacts/real-validate/f032-vm-nohost.csv]
+  header identical+ordered vs F023 §6: True | cols: 26 | data rows: 3
+  resource_type values (single type per file): ['VIRTUAL_MACHINE']
+  cluster: ['F032CHK']
+  role: ['']
+  status: ['']
+  host: ['']
+  network: ['']
+  VM: hardware cols all empty: True
+  VM: vcpu/disk_gb/hypervisor: {'vcpu': ['16'], 'disk_gb': ['2054'], 'hypervisor': ['wsl']}
+  placeholder scan (N/A, unknown, -, TBD): []
+
+### S23 workstation residue: stale ignored file scripts/csm_host_info.csv (pre-existing, NOT created by this TEST run)
+2026-10-23 13:43:03.352381427 +0800 scripts/csm_host_info.csv
+﻿cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor,manufacturer,mo
+N96P,luck,,,ALLOC,,,15634,,,,,,,,,,,eth0,OTHER,08:00:xx:xx:xx:xx,10000,1300,true,,10.10.10.23/24
+!! scripts/csm_host_info.csv
+
+### S24 additional DR-1016 / DR-1015 edge observations (free-text empty = unset; enum empty = invalid)
+VM --host "" rc=0
+  host values: ['']
+BM --cluster "" --network "" --role "" rc=2
+invalid choice: '' (choose from 'COMPUTE', 'LOGIN', 'MANAGEMENT', 'STORAGE', 'SERVICE', 'GPU', 'OTHER')
+BM --cluster '  ' (blank) rc=0
+  cluster values: ['']
+BM -o "" rc=0
+  files:
+a.csv a.err b.csv b.err c.csv c.err d.csv d.err 
+BM --role COMPUTE --status ALLOC rc=0
+  role/status: [('COMPUTE', 'ALLOC')]
+
+### S26 -o "" (empty string) falls back to type default filename (DR-1005 note in implementation.md §7)
+rc=0
+已写出 3 行到 csm_host_info_bare_metal.csv
+模板列：26 列（F023 §6 冻结）
+可补全以下字段后再导入：cluster, role, status, host（仅 VM）, network
+files:
+csm_host_info_bare_metal.csv e.txt o.txt 
+
+### S27 T75: repeated runs are stable (only volatile fields may differ) and read-only
+diff r1 vs r2:
+IDENTICAL
+file write targets in module (grep):
+476:    with open(output_path, "w", encoding="utf-8-sig", newline="") as handle:
+
+### S28 T105 remaining enum variants + BM --host "" (independent CLI evidence)
+-- resource-type 'Bare_Metal' rc=2 | stdout bytes=0 | files=0 | choice-msg=1
+-- resource-type 'BAREMETAL' rc=2 | stdout bytes=0 | files=0 | choice-msg=1
+-- resource-type 'PHYSICAL' rc=2 | stdout bytes=0 | files=0 | choice-msg=1
+-- resource-type 'bare metal' rc=2 | stdout bytes=0 | files=0 | choice-msg=1
+-- BM --host "" rc=0
+   host column: ['']

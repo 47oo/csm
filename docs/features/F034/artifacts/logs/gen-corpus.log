@@ -1,0 +1,34 @@
+OK   F-01         356 bytes
+OK   F-02         150 bytes
+OK   F-03         505 bytes
+OK   F-04           0 bytes
+OK   F-05           3 bytes
+OK   F-05b          4 bytes
+OK   F-06a        138 bytes
+OK   F-06b        233 bytes
+OK   F-07         359 bytes
+OK   F-08         359 bytes
+OK   F-09         358 bytes
+OK   F-10         359 bytes
+OK   F-10b        475 bytes
+OK   F-11         316 bytes
+OK   F-12         380 bytes
+OK   F-13         292 bytes
+OK   F-14         356 bytes
+OK   F-15         218 bytes
+OK   F-15a        110 bytes
+OK   F-16         160 bytes
+OK   F-17         206 bytes
+OK   F-18a        247 bytes
+OK   F-18b        150 bytes
+OK   F-19         247 bytes
+OK   F-20         761 bytes
+OK   F-24           3 bytes
+OK   F-25         291 bytes
+OK   F-26         260 bytes
+OK   F-03f        505 bytes
+OK   F-20w        606 bytes
+
+30 fixtures, 0 byte-identity failures
+boundary: ascii 5242879/5242880/5242881 bytes (limit 5242880)
+anti-hole: length=2621441 (< limit) bytes=7864323 (> limit) -> OK

@@ -1,0 +1,8 @@
+host python: 3.12.7 | platform: Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.35
+node: v22.23.3
+server_version: 16.15 (Debian 16.15-1.pgdg13+2)
+current_user: csm
+dbname: csm_test
+role is_superuser: True
+public tables (post-session fixture): 0
+csm-f026-pg postgres:16 0.0.0.0:55432->5432/tcp, :::55432->5432/tcp

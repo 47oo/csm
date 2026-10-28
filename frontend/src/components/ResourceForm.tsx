@@ -274,7 +274,7 @@ export default function ResourceForm({
   const serverFields = serverError?.fields ?? {};
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form className="resource-form" onSubmit={handleSubmit} noValidate>
       {isCreate ? (
         <div className="form-field">
           <label htmlFor="resource-cluster">cluster（所属集群，必填，创建后不可修改）</label>
@@ -403,7 +403,7 @@ export default function ResourceForm({
         )}
       </div>
 
-      <div className="form-field">
+      <div className="form-field form-field-wide">
         <label htmlFor="resource-description">description（描述，可选）</label>
         <TextArea
           id="resource-description"
@@ -421,7 +421,7 @@ export default function ResourceForm({
         )}
       </div>
 
-      <div className="form-field">
+      <div className="form-field form-field-wide">
         <label htmlFor="resource-metadata">metadata（JSON 对象，可选）</label>
         <TextArea
           id="resource-metadata"
@@ -469,7 +469,7 @@ export default function ResourceForm({
               )}
             </div>
           ))}
-          <div className="form-field">
+          <div className="form-field form-field-wide">
             <label htmlFor="resource-hardware-metadata">
               hardware.metadata（厂商特有 / 低频扩展，JSON 对象，可选）
             </label>

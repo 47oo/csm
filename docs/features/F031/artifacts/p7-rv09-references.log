@@ -1,0 +1,35 @@
+=== P7/A1 '架构评审 I-2' / '架构 I-2' in frontend/ (expect 0) ===
+count: 0
+
+=== P7/A1b whole repo (docs history allowed) ===
+./docs/features/F030/architecture.md:496:### 17.3 追溯引用口径（取代三处「架构评审 I-2」）
+./docs/features/F030/architecture.md:498:`ClusterAuthorizationPanel.tsx` 与 `frontend/scripts/smoke-client.mjs` 中关于「旧选中集群」的注释统一指向 `authorizationCandidates.ts::canSubmitGrant` 与本文件 §17.1，不再引用不存在的「架构评审 I-2」。F030 test-report 中 F030-T02 的历史措辞不改写，由 F031 test-report 记录正确指向。
+./docs/features/F030/test-report.md:396:| F030-T02 | NOTE | Frontend（接口细节） | `frontend/src/components/authorizationCandidates.ts::canSubmitGrant(active, candidates, selectedClusterId, busy)` | 架构 §7.2 签名草案为 `canSubmitGrant(active, selectedClusterId, busy)` | 期望：按签核设计签名。实际：多一个 `candidates` 参数，追加「选中集群仍须在候选中」校验（更严格，对应架构评审 I-2） | 无 Contract/行为放宽；smoke 逐条覆盖两种签名共同语义 + 新增严格性 | Frontend | 否 |
+./docs/features/F030/review-report.md:64:| **F030-RV-09** | NOTE | 追溯引用 | `ClusterAuthorizationPanel.tsx:193`、`smoke-client.mjs`（F030 断言注释）、`test-report.md` F030-T02 | 三处引用「架构评审 I-2」；architecture §16.4 的 I-2 实为「F026.md §12 首条 bullet 修正」，无对应「候选成员校验」条目 | 期望：引用指向真实条目。实际：悬空引用 | 追溯瑕疵 | Architect → Frontend | 否 |
+./docs/features/F031/implementation.md:27:| RV-09 | `frontend/scripts/smoke-client.mjs` | 两处「架构评审 I-2」注释改为真实规则位置；断言不增删。 |
+./docs/features/F031/artifacts/p2-rv04-copy.log:19:-  // 旧选中集群在新候选集合中已不存在时，选择框不呈现该脏值（架构评审 I-2）。
+./docs/features/F031/artifacts/p7-rv09-references.log:1:=== P7/A1 '架构评审 I-2' / '架构 I-2' in frontend/ (expect 0) ===
+./docs/features/F031/architecture.md:24:| ⑦ | RV-09 悬空「架构评审 I-2」引用 | Panel/smoke 注释 | 追溯引用 |
+./docs/features/F031/architecture.md:55:- 17.3 追溯引用口径（取代三处「架构评审 I-2」）；
+./docs/features/F031/architecture.md:122:### 3.7 RV-09：悬空「架构评审 I-2」引用
+./docs/features/F031/architecture.md:130:F030 test-report 为已 Review 历史证据，不改写；在 F031 test-report 登记正确指向。验证：`frontend/` 中「架构评审 I-2 / 架构 I-2」命中 0；smoke 328；tsc exit 0。
+./docs/features/F031/test-report.md:82:- A1 `frontend/` 中「架构评审 I-2 / 架构 I-2」命中 0。
+./docs/features/F031/product.md:22:| F030-RV-09 | 三处「架构评审 I-2」悬空引用 | 追溯引用修正；不改变设计 |
+./docs/project/project-plan.yaml:2132:    头部注明 plan_revision 14 为历史依据、16 为本次确认来源；⑦消除三处悬空「架构评审 I-2」引用；⑧评估并扩展 real_scope 守卫范围或记录接受边界；⑨补
+
+=== P7/A2 three new references contain §17.1 + real function name ===
+frontend/src/components/ClusterAuthorizationPanel.tsx:193:  // 旧选中集群不在新候选中时，选择框不呈现该脏值且不可提交（规则见 authorizationCandidates.ts::canSubmitGrant；F030 architecture §17.1）。
+frontend/scripts/smoke-client.mjs:280: *   canSubmitGrant；F030 architecture §17.1）；
+frontend/scripts/smoke-client.mjs:5814:await test("F018 F1：字段白名单恰九字段；未知字段被过滤（§17.1/A11）", async () => {
+274: *   ActiveGrantLoad / GrantCandidates / computeGrantCandidates / canSubmitGrant /
+280: *   canSubmitGrant；F030 architecture §17.1）；
+568:  canSubmitGrant,
+8571:await test("F030 canSubmitGrant：active 非 success 恒 false（idle/loading/error 三态）", async () => {
+8576:      canSubmitGrant(active, candidates, "c1", false),
+8583:await test("F030 canSubmitGrant：success + 已选 + 非 busy 才可提交；busy/空选/旧选中集群不可提交", async () => {
+8586:  assert.equal(canSubmitGrant(active, candidates, "c1", false), true);
+8587:  assert.equal(canSubmitGrant(active, candidates, "c1", true), false, "提交中不可重复提交");
+
+=== P7/A3 smoke 'await test(' counts: base vs HEAD ===
+328
+328

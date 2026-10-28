@@ -132,8 +132,8 @@ def _seed(engine, tag: str) -> tuple[uuid.UUID, uuid.UUID]:
 
 def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
     # F011 appended 0011_services to the single head chain (0010 -> 0011).
-    assert alembic_runner.head_revision() == "0014_api_keys"
-    assert _alembic_versions(pg_engine) == ["0014_api_keys"]
+    assert alembic_runner.head_revision() == "0015_user_cluster_authorizations"
+    assert _alembic_versions(pg_engine) == ["0015_user_cluster_authorizations"]
     assert "services" in _tables(pg_engine)
     extensions_before = _extensions(pg_engine)
 
@@ -148,7 +148,7 @@ def test_migration_up_down_up_and_single_head(pg_engine, alembic_runner):
 
     alembic_runner.upgrade("head")
     assert "services" in _tables(pg_engine)
-    assert _alembic_versions(pg_engine) == ["0014_api_keys"]
+    assert _alembic_versions(pg_engine) == ["0015_user_cluster_authorizations"]
 
 
 def test_migration_0011_has_no_create_extension():

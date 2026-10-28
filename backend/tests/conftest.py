@@ -184,12 +184,33 @@ def auth_session_factory(committed_engine):
 
 
 @pytest.fixture
-def auth_app(auth_session_factory):
-    """Production app with ``get_db`` overridden to the test database."""
+def auth_app(auth_session_factory, request):
+    """Production app with ``get_db`` overridden to the test database.
+
+    Integration scope convention (F030 §9.1):
+
+    * **default** — modules under ``tests/integration/`` WITHOUT
+      ``pytest.mark.real_scope`` run with a test-only unrestricted
+      ``AccessScope`` override (legacy pre-F027 coverage). This shim never
+      changes production behaviour and is **not** evidence for §23.2 scope
+      enforcement.
+    * **real scope** — any module that imports ``app.core.access_scope``
+      symbols, calls ``resolve_access_scope``, or overrides/asserts
+      ``get_access_scope`` MUST declare ``pytestmark = pytest.mark.real_scope``.
+    * **guard** — ``tests/integration/test_f030_test_harness.py`` enforces this
+      rule (legacy canary + AST scan): a module that touches the scope symbols
+      without the marker fails there instead of silently passing as legacy.
+    """
+    from app.core.access_scope import AccessScope, get_access_scope
     from app.core.db import get_db
     from app.main import create_app
 
     app = create_app()
+    path = str(getattr(request.node, "fspath", "")).replace("\\", "/")
+    legacy_scope = (
+        "tests/integration" in path
+        and request.node.get_closest_marker("real_scope") is None
+    )
 
     def _override():
         session = auth_session_factory()
@@ -199,6 +220,10 @@ def auth_app(auth_session_factory):
             session.close()
 
     app.dependency_overrides[get_db] = _override
+    if legacy_scope:
+        app.dependency_overrides[get_access_scope] = lambda: AccessScope(
+            unrestricted=True, cluster_ids=frozenset()
+        )
     try:
         yield app
     finally:

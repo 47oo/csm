@@ -449,6 +449,7 @@ export default function ServicesPage({ user }: ServicesPageProps) {
         {canWrite && mode.kind === "list" && (
           <Button
             type="button"
+            variant="primary"
             onClick={() => {
               setFormError(null);
               setMode({ kind: "create" });

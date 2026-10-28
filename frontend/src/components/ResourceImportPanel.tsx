@@ -1,8 +1,8 @@
-import { Button, Input, Select, DataTable } from "./ui/controls";
+import { Button, Input, Select, TextArea, DataTable } from "./ui/controls";
 import { Alert } from "antd";
 import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
 import { SurfaceCard } from "./ui/surfaces";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { displayError, isApiError } from "../api/client";
 import {
   describeImportError,
@@ -17,12 +17,14 @@ import {
   type ImportTemplate,
   type ImportTemplatesResponse,
   type ImportValidateResponse,
-  type ImportValidationResult,
 } from "../api/imports";
+import { ImportErrorsTable } from "./ImportErrorsTable";
 import {
   buildTemplateCsv,
   emptyImportFormValues,
+  importCarrierPatch,
   importFormFieldFromPath,
+  IMPORT_TEXT_PLACEHOLDER,
   importTargetKey,
   parseImportFormValues,
   templateColumnTypeLabel,
@@ -30,6 +32,11 @@ import {
   type ImportFormErrors,
   type ImportFormValues,
 } from "./importForm";
+import {
+  PASTED_CSV_FILE_NAME,
+  utf8ByteLength,
+  type ImportCarrier,
+} from "./importCarrier";
 
 /** 预校验结果状态（四态：idle 空态 / loading / success 含结果 / error；§3）。 */
 type ValidateState =
@@ -73,6 +80,16 @@ interface ResourceImportPanelProps {
  *   逐列说明含必填、类型、单位（MiB/GiB）、枚举与示例；可下载表头行 CSV。
  * - 面板入口由 ResourcesPage 按 IMPORT 权限显示；隐藏不替代服务端校验
  *   （VIEWER 调用仍 403，§1.1/I-11）。
+ * - 与「资源+网卡+IP」导入的差异（F035，Contract v2 §13 / requirements §24.6）：
+ *   本入口**不支持**向已存在 hostname 追加网卡/IP，已存在 hostname 仍按冲突报错；
+ *   面板须明示该差异并指向「资源+网卡+IP」导入。
+ * - F034 输入载体（Contract §「CSV 文本载体（加法引用）」增补节 v1）：
+ *   「上传文件（CSV / .xlsx）」与「粘贴 CSV 文本（仅 CSV）」两种载体**并列**
+ *   （默认文件载体，既有行为零改动）。文本载体把粘贴内容按 UTF-8 编码构造为
+ *   带固定文件名的 `File`，走同一 multipart 端点；`format` 固定 csv 且只读；
+ *   本地只做非权威前置拦截（空 / 纯空白、UTF-8 字节超上限），表头与分隔符
+ *   口径全由服务端权威判定（前端不解析 CSV、不补表头、不嗅探）。切换载体 /
+ *   修改内容 / 修改格式一律重置预校验与写入结果（防陈旧结果，T116）。
  */
 export default function ResourceImportPanel({ onImported }: ResourceImportPanelProps) {
   const [values, setValues] = useState<ImportFormValues>(emptyImportFormValues);
@@ -137,10 +154,8 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
       setValidatedKey(null);
       return;
     }
-    const file = values.file;
-    if (file === null) {
-      return;
-    }
+    // 按当前载体取实际提交的 File（文本载体为新建的 csm-pasted-import.csv）
+    const file = parsed.file;
     setLocalErrors({});
     setValidateState({ kind: "loading" });
     try {
@@ -158,13 +173,16 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
     if (busy || !canConfirm) {
       return;
     }
-    const file = values.file;
-    if (file === null) {
+    // 写入时按当前载体重新构造 / 重取 File（不缓存字节，DR-F034-11）
+    const parsed = parseImportFormValues(values);
+    if (!parsed.ok) {
+      setLocalErrors(parsed.errors);
+      setValidatedKey(null);
       return;
     }
     setImportState({ kind: "loading" });
     try {
-      const data = await importResources(file, values.format);
+      const data = await importResources(parsed.file, values.format);
       setImportState({ kind: "success", data });
       onImported?.();
     } catch (error: unknown) {
@@ -178,7 +196,18 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
    * 本次导入已成功后禁用（同一文件再导入会因 hostname 冲突被服务端整批
    * 拒绝，A23；换文件需重新预校验）。
    */
-  const currentKey = importTargetKey(values);
+  // 仅省算力（DR-F036-03）：两函数都是纯函数，输入恰为这四项，故依赖即
+  // 全量输入；语义不依赖缓存（输入变化失效仍由 changeInput 重置保证）。
+  const currentKey = useMemo(
+    () => importTargetKey(values),
+    [values.carrier, values.format, values.file, values.text],
+  );
+  /** 文本载体下非权威 UTF-8 字节计数（纯展示，不参与门控；上限以服务端为准）。 */
+  const pastedByteLength = useMemo(
+    () => (values.carrier === "text" ? utf8ByteLength(values.text) : 0),
+    [values.carrier, values.text],
+  );
+  const carrierIsText = values.carrier === "text";
   const validatePassed =
     validateState.kind === "success" &&
     validateState.data.error_count === 0 &&
@@ -221,6 +250,30 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
         任一行失败整批回滚，不产生部分成功。同步导入上限：单文件 ≤{" "}
         {IMPORT_MAX_FILE_BYTES} 字节（5 MiB）、数据行数 ≤ {IMPORT_MAX_ROWS}（超限在解析前拒绝）。
       </p>
+      <p className="permissions-note">
+        资源导入不支持向已存在 hostname 追加网卡/IP（已存在 hostname 仍报冲突）；
+        需追加请用「资源+网卡+IP」导入。
+      </p>
+
+      <div className="form-field">
+        <label htmlFor="resource-import-carrier">导入载体（必选）</label>
+        <Select
+          id="resource-import-carrier"
+          value={values.carrier}
+          onChange={(event) =>
+            changeInput(importCarrierPatch(values, event.target.value as ImportCarrier))
+          }
+          disabled={busy}
+        >
+          <option value="file">上传文件（CSV / .xlsx）</option>
+          <option value="text">粘贴 CSV 文本（仅 CSV）</option>
+        </Select>
+        {localErrors.carrier && (
+          <p className="field-error" role="alert">
+            {localErrors.carrier}
+          </p>
+        )}
+      </div>
 
       <div className="form-field">
         <label htmlFor="resource-import-format">文件格式（必选）</label>
@@ -228,11 +281,17 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
           id="resource-import-format"
           value={values.format}
           onChange={(event) => changeInput({ format: event.target.value as ImportFormat })}
-          disabled={busy}
+          disabled={busy || carrierIsText}
+          aria-describedby={carrierIsText ? "resource-import-format-locked" : undefined}
         >
           <option value="csv">CSV（UTF-8，逗号分隔，兼容 BOM）</option>
           <option value="xlsx">Excel（.xlsx，取首个工作表，不执行公式 / 宏）</option>
         </Select>
+        {carrierIsText && (
+          <p className="permissions-note" id="resource-import-format-locked">
+            粘贴 CSV 文本时格式固定为 CSV（不提供 .xlsx 文本载体）。
+          </p>
+        )}
         {(localErrors.format ?? serverFormatError) && (
           <p className="field-error" role="alert">
             {localErrors.format ?? serverFormatError}
@@ -240,21 +299,54 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
         )}
       </div>
 
-      <div className="form-field">
-        <label htmlFor="resource-import-file">导入文件（必选）</label>
-        <Input
-          id="resource-import-file"
-          type="file"
-          accept={values.format === "csv" ? ".csv" : ".xlsx"}
-          onChange={(event) => changeInput({ file: event.target.files?.[0] ?? null })}
-          disabled={busy}
-        />
-        {localErrors.file && (
-          <p className="field-error" role="alert">
-            {localErrors.file}
+      {carrierIsText ? (
+        <div className="form-field">
+          <label htmlFor="resource-import-text">粘贴 CSV 文本（必填，仅 CSV）</label>
+          <TextArea
+            id="resource-import-text"
+            className="import-carrier-textarea"
+            value={values.text}
+            rows={10}
+            spellCheck={false}
+            placeholder={IMPORT_TEXT_PLACEHOLDER}
+            onChange={(event) => changeInput({ text: event.target.value })}
+            disabled={busy}
+            aria-describedby="resource-import-text-hint resource-import-text-counter"
+            aria-invalid={localErrors.text ? true : undefined}
+          />
+          <p className="import-carrier-hint" id="resource-import-text-hint">
+            仅逗号分隔（不做分隔符嗅探，制表符分隔不会被受理）；必须包含与模板逐字逐序
+            一致的表头（可先展开「查看模板与逐列说明」查看表头列名并下载 CSV 模板表头行），
+            不自动补表头、不按列名重排；内容按 UTF-8 提交，前端不做 trim / 行尾 / 转义改写。
           </p>
-        )}
-      </div>
+          <p className="import-carrier-counter" id="resource-import-text-counter">
+            UTF-8 字节数（非权威提示）：{pastedByteLength} /{" "}
+            {IMPORT_MAX_FILE_BYTES.toLocaleString("en-US")}；以固定文件名（
+            {PASTED_CSV_FILE_NAME}）与 text/csv 类型提交，服务端按同一上限值权威判定。
+          </p>
+          {localErrors.text && (
+            <p className="field-error" role="alert">
+              {localErrors.text}
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="form-field">
+          <label htmlFor="resource-import-file">导入文件（必选）</label>
+          <Input
+            id="resource-import-file"
+            type="file"
+            accept={values.format === "csv" ? ".csv" : ".xlsx"}
+            onChange={(event) => changeInput({ file: event.target.files?.[0] ?? null })}
+            disabled={busy}
+          />
+          {localErrors.file && (
+            <p className="field-error" role="alert">
+              {localErrors.file}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="form-actions">
         <Button type="button" onClick={handleValidate} disabled={busy}>
@@ -349,7 +441,7 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
       <h3 className="detail-section-title">预校验结果</h3>
 
       {validateState.kind === "idle" && (
-        <EmptyState description="尚未预校验。选择文件后点击「预校验」查看全部错误行（只读，不写入任何数据）。" />
+        <EmptyState description="尚未预校验。选择文件或粘贴 CSV 文本后点击「预校验」查看全部错误行（只读，不写入任何数据）。" />
       )}
 
       {validateState.kind === "loading" && (
@@ -393,7 +485,7 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
 
       {importState.kind === "success" && (
         <Alert
-          description={`导入成功：已创建 ${importState.data.created} 条资源（共 ${importState.data.total_rows} 行，整批成功）。如需导入另一批资源，请重新选择文件并预校验。`}
+          description={`导入成功：已创建 ${importState.data.created} 条资源（共 ${importState.data.total_rows} 行，整批成功）。如需导入另一批资源，请重新选择文件或粘贴文本并预校验。`}
           showIcon
           type="success"
         />
@@ -408,36 +500,5 @@ export default function ResourceImportPanel({ onImported }: ResourceImportPanelP
         </>
       )}
     </SurfaceCard>
-  );
-}
-
-/**
- * 行错误表（预校验结果与写入整批失败共用）：行号 / 字段 / 原因 / 关联行，
- * 区域内滚动（errors 可能被服务端截断至预览上限）。
- */
-function ImportErrorsTable({ result }: { result: ImportValidationResult }) {
-  return (
-    <div className="import-errors-wrap">
-      <DataTable className="data-table">
-        <thead>
-          <tr>
-            <th>行号</th>
-            <th>字段</th>
-            <th>原因</th>
-            <th>关联行</th>
-          </tr>
-        </thead>
-        <tbody>
-          {result.errors.map((rowError, index) => (
-            <tr key={`${rowError.row}-${rowError.field}-${index}`}>
-              <td className="mono">{rowError.row}</td>
-              <td className="mono">{rowError.field}</td>
-              <td className="import-error-reason">{rowError.reason}</td>
-              <td className="mono">{rowError.related_row === null ? "—" : rowError.related_row}</td>
-            </tr>
-          ))}
-        </tbody>
-      </DataTable>
-    </div>
   );
 }

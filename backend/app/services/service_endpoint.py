@@ -41,7 +41,7 @@ from app.models.network import Network
 from app.models.resource import Resource
 from app.models.service import Service
 from app.models.service_endpoint import VALID_PROTOCOLS, ServiceEndpoint
-from app.services import audit
+from app.services import audit, scope_filters
 # Importing the reference providers here guarantees registration on the startup
 # import chain (DR-161): routes import this service module, which registers the
 # IP-side and Service-side Endpoint checkers before any request is served.
@@ -134,7 +134,7 @@ def _resolve_uuid(reference: Any, field: str) -> uuid.UUID:
         raise _field_error(field, f"{field} must be a valid UUID") from exc
 
 
-def resolve_service(db: "Session", reference: Any) -> Service:
+def resolve_service(db: "Session", reference: Any, *, scope=None) -> Service:
     """Resolve a POST ``service`` UUID to an undeleted Service (Contract §2.1).
 
     Missing / non-UUID / nonexistent / soft-deleted all yield 422 with
@@ -143,12 +143,19 @@ def resolve_service(db: "Session", reference: Any) -> Service:
     """
     service_id = _resolve_uuid(reference, "service")
     service = _load_service(db, service_id)
-    if service is None or service.deleted_at is not None:
+    resource = _load_resource(db, service.resource_id) if service is not None else None
+    if (
+        service is None
+        or service.deleted_at is not None
+        or resource is None
+        or resource.deleted_at is not None
+        or not scope_filters.normalize(scope).allows(resource.cluster_id)
+    ):
         raise _field_error("service", "service does not exist or is not selectable")
     return service
 
 
-def resolve_ip_address(db: "Session", reference: Any) -> IPAddress:
+def resolve_ip_address(db: "Session", reference: Any, *, scope=None) -> IPAddress:
     """Resolve a POST ``ip_address`` UUID to an undeleted IPAddress (Contract §2.1).
 
     Missing / non-UUID / nonexistent / soft-deleted all yield 422 with
@@ -156,7 +163,11 @@ def resolve_ip_address(db: "Session", reference: Any) -> IPAddress:
     """
     ip_address_id = _resolve_uuid(reference, "ip_address")
     ip_address = _load_ip_address(db, ip_address_id)
-    if ip_address is None or ip_address.deleted_at is not None:
+    if (
+        ip_address is None
+        or ip_address.deleted_at is not None
+        or not scope_filters.normalize(scope).allows(ip_address.cluster_id)
+    ):
         raise _field_error(
             "ip_address", "ip_address does not exist or is not selectable"
         )
@@ -288,6 +299,7 @@ def list_service_endpoints(
     page_size: int = 20,
     sort: str = "created_at",
     order: str = "desc",
+    scope=None,
 ) -> tuple[list[ServiceEndpoint], int]:
     """Return the visible page of service endpoints plus the filtered total."""
     if deleted not in DELETED_MODES:
@@ -299,7 +311,7 @@ def list_service_endpoints(
     if protocol is not None:
         _validate_protocol(protocol)
 
-    filters = []
+    filters = [scope_filters.service_predicate(scope)]
     if service_id is not None:
         filters.append(ServiceEndpoint.service_id == service_id)
     if ip_address_id is not None:
@@ -337,10 +349,17 @@ def list_service_endpoints(
 
 
 def get_service_endpoint(
-    db: "Session", endpoint_id: uuid.UUID, *, include_deleted: bool = False
+    db: "Session",
+    endpoint_id: uuid.UUID,
+    *,
+    include_deleted: bool = False,
+    scope=None,
 ) -> ServiceEndpoint | None:
     """Return an endpoint, hidden by the soft-delete filter unless requested."""
-    statement = select(ServiceEndpoint).where(ServiceEndpoint.id == endpoint_id)
+    statement = select(ServiceEndpoint).where(
+        ServiceEndpoint.id == endpoint_id,
+        scope_filters.service_predicate(scope),
+    )
     return (
         db.execute(statement, execution_options=_query_options(include_deleted))
         .scalars()
@@ -457,6 +476,7 @@ def create_service_endpoint(
     protocol: str,
     port: int,
     description: str | None = None,
+    scope=None,
 ) -> ServiceEndpoint:
     """Create a ServiceEndpoint (Contract §6.2 order, DR-157/158/159/160).
 
@@ -465,8 +485,8 @@ def create_service_endpoint(
     + CREATE Audit -> 201. The partial unique index arbitrates a concurrent
     listener race atomically.
     """
-    service_row = resolve_service(db, service)
-    ip_row = resolve_ip_address(db, ip_address)
+    service_row = resolve_service(db, service, scope=scope)
+    ip_row = resolve_ip_address(db, ip_address, scope=scope)
     _validate_attribution(db, service_row, ip_row)
     validated_protocol = _validate_protocol(protocol)
     validated_port = _validate_port(port)
@@ -508,6 +528,7 @@ def update_service_endpoint(
     *,
     expected_version: int,
     changes: dict[str, Any],
+    scope=None,
 ) -> ServiceEndpoint:
     """Partial update (``description``/``protocol``/``port``) with optimistic lock.
 
@@ -515,7 +536,7 @@ def update_service_endpoint(
     -> listener uniqueness on a protocol/port change (409, excluding self) ->
     write + UPDATE Audit -> 200. ``service``/``ip_address`` are immutable.
     """
-    endpoint = get_service_endpoint(db, endpoint_id)
+    endpoint = get_service_endpoint(db, endpoint_id, scope=scope)
     if endpoint is None:
         raise NotFound()
     if endpoint.version != expected_version:
@@ -584,12 +605,13 @@ def delete_service_endpoint(
     endpoint_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> None:
     """Soft delete (no cascade); no child object references an Endpoint.
 
     Contract §6.5 order: object (404) -> version (409) -> soft delete.
     """
-    endpoint = get_service_endpoint(db, endpoint_id)
+    endpoint = get_service_endpoint(db, endpoint_id, scope=scope)
     if endpoint is None:
         raise NotFound()
     if endpoint.version != expected_version:
@@ -632,6 +654,7 @@ def restore_service_endpoint(
     endpoint_id: uuid.UUID,
     *,
     expected_version: int,
+    scope=None,
 ) -> ServiceEndpoint:
     """Restore a soft-deleted ServiceEndpoint (Contract §6.6, DR-166).
 
@@ -642,7 +665,9 @@ def restore_service_endpoint(
     (409 ``dependency_deleted``) -> attribution (422 field="ip_address") ->
     restore. A failed restore never overwrites the newer object; no cascade.
     """
-    endpoint = get_service_endpoint(db, endpoint_id, include_deleted=True)
+    endpoint = get_service_endpoint(
+        db, endpoint_id, include_deleted=True, scope=scope
+    )
     if endpoint is None:
         raise NotFound()
     if endpoint.deleted_at is None:

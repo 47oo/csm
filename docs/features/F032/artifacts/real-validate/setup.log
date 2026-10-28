@@ -1,0 +1,159 @@
+=== F032 real F023 /validate — fixture setup (TEST stack http://localhost:18080) ===
+date: 2026-10-23T06:06:50Z
+stack:
+csmtest-backend-1 csm-csm-backend:test Up 35 minutes (healthy)
+csmtest-db-1 postgres:16 Up 35 minutes (healthy)
+csmtest-frontend-1 csm-csm-frontend:test Up 35 minutes
+csmtest-nginx-1 nginx:1.27-alpine Up 35 minutes
+health ready: 200
+
+### 1) login admin (session cookie, no Origin header => non-browser client, CSRF exempt)
+{"user":{"id":"aaaef0da-f877-4202-9d3f-b034379c3bb7","username":"admin","role":"ADMIN","status":"ACTIVE","permissions":["AUDIT_READ","DELETE_OBJECT","IMPORT","READ","RELEASE_IP","RESTORE","USER_ADMIN","VIEW_ACTIVITY","VIEW_DELETED","WRITE"]},"expires_at":"2026-10-23T18:06:50.805864+00:00"}
+[http 200]
+
+### 2) GET /auth/me
+{"user":{"id":"aaaef0da-f877-4202-9d3f-b034379c3bb7","username":"admin","role":"ADMIN","status":"ACTIVE","permissions":["AUDIT_READ","DELETE_OBJECT","IMPORT","READ","RELEASE_IP","RESTORE","USER_ADMIN","VIEW_ACTIVITY","VIEW_DELETED","WRITE"]}}
+[http 200]
+
+### 3) create fixture Cluster code=F032CHK
+{"cluster":{"id":"f42c56ad-2d24-4f64-b964-c8181d8a5f9d","code":"F032CHK","name":"F032 Validate Fixture Cluster","status":"ACTIVE","description":"F032 TEST fixture","metadata":{},"version":1,"created_at":"2026-10-23T06:06:54.296812+00:00","updated_at":"2026-10-23T06:06:54.296812+00:00","deleted_at":null}}
+[http 201]
+
+### 4) create fixture Networks (CIDRs cover the IPs collected on this host: 10.10.10.23/24, 192.168.10.221/24, 10.100.24.211/32)
+-- F032-N1 10.10.10.0/24
+{"network":{"id":"a24d5687-7ef4-404d-ae55-0a36176bd5b2","cluster":{"id":"f42c56ad-2d24-4f64-b964-c8181d8a5f9d","code":"F032CHK","name":"F032 Validate Fixture Cluster"},"name":"F032-N1","cidr":"10.10.10.0/24","gateway":null,"status":"ACTIVE","auto_allocate":false,"description":null,"metadata":{},"version":1,"created_at":"2026-10-23T06:06:54.340568+00:00","updated_at":"2026-10-23T06:06:54.340568+00:00","deleted_at":null}}
+[http 201]
+-- F032-N2 192.168.10.0/24
+{"network":{"id":"401c8a50-bdb5-4e6a-a34f-f310120b9178","cluster":{"id":"f42c56ad-2d24-4f64-b964-c8181d8a5f9d","code":"F032CHK","name":"F032 Validate Fixture Cluster"},"name":"F032-N2","cidr":"192.168.10.0/24","gateway":null,"status":"ACTIVE","auto_allocate":false,"description":null,"metadata":{},"version":1,"created_at":"2026-10-23T06:06:54.386408+00:00","updated_at":"2026-10-23T06:06:54.386408+00:00","deleted_at":null}}
+[http 201]
+-- F032-N3 10.100.24.211/32
+{"network":{"id":"100ab879-35a3-45ab-b107-1c6d0a312b05","cluster":{"id":"f42c56ad-2d24-4f64-b964-c8181d8a5f9d","code":"F032CHK","name":"F032 Validate Fixture Cluster"},"name":"F032-N3","cidr":"10.100.24.211/32","gateway":null,"status":"ACTIVE","auto_allocate":false,"description":null,"metadata":{},"version":1,"created_at":"2026-10-23T06:06:54.413778+00:00","updated_at":"2026-10-23T06:06:54.413778+00:00","deleted_at":null}}
+[http 201]
+
+### 5) create fixture BARE_METAL Host f032host in F032CHK (batch-external existing Host required by F023 §6 #6)
+{"resource":{"id":"4eb5bbe9-dea5-43cf-bc23-f4e9eed1fb28","cluster":{"id":"f42c56ad-2d24-4f64-b964-c8181d8a5f9d","code":"F032CHK","name":"F032 Validate Fixture Cluster"},"hostname":"f032host","resource_type":"BARE_METAL","role":"COMPUTE","status":"IDLE","description":null,"metadata":{},"hardware":{"manufacturer":null,"model":null,"serial_number":null,"cpu_model":null,"gpu_model":null,"cpu_sockets":null,"cpu_cores":null,"memory_mb":null,"gpu_count":null,"metadata":{}},"virtual_machine":null,"version":1,"created_at":"2026-10-23T06:06:54.441660+00:00","updated_at":"2026-10-23T06:06:54.441660+00:00","deleted_at":null}}
+[http 201]
+
+### 6) generate BM / VM import files with explicit -o (no --network: one --network value cannot cover the 3 collected subnets; network is resolved by ip/mask per F023 §6 #25)
+-- BM --
+已写出 3 行到 /tmp/f032-real/f032-bm-real.csv
+模板列：26 列（F023 §6 冻结）
+可补全以下字段后再导入：cluster, role, status, host（仅 VM）, network
+rc=0
+-- VM (with --host f032host) --
+已写出 3 行到 /tmp/f032-real/f032-vm-real.csv
+模板列：26 列（F023 §6 冻结）
+可补全以下字段后再导入：cluster, role, status, host（仅 VM）, network
+rc=0
+-- VM (without --host, to observe the remaining required-field row error) --
+已写出 3 行到 /tmp/f032-real/f032-vm-nohost.csv
+模板列：26 列（F023 §6 冻结）
+可补全以下字段后再导入：cluster, role, status, host（仅 VM）, network
+rc=0
+
+-- sha256 --
+f7db2bdcfe757d0058cb36775d47516ffe9e5d311036bfa3bd854459e3eb28e6  /tmp/f032-real/f032-bm-real.csv
+ce54d0bc4fe88d01f43b754bceb004b17ff61fdad03a15dff9a7ed01099ed891  /tmp/f032-real/f032-vm-nohost.csv
+e5ff782408f98a8d91a6a0dadf3c0eb3ebd6d00f5aca8b8d9069b66f9eb94c02  /tmp/f032-real/f032-vm-real.csv
+-- generated content --
+[/tmp/f032-real/f032-bm-real.csv]
+﻿cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,gpu_model,gpu_count,name,interface_type,mac_address,speed_mbps,mtu,enabled,network,ip
+F032CHK,luck,BARE_METAL,COMPUTE,IDLE,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth0,OTHER,08:00:xx:xx:xx:xx,10000,1300,true,,10.10.10.23/24
+F032CHK,luck,BARE_METAL,COMPUTE,IDLE,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth6,OTHER,d8:b3:xx:xx:xx:xx,10000,1500,true,,192.168.10.221/24
+F032CHK,luck,BARE_METAL,COMPUTE,IDLE,,,15634,,,,,,AMD Ryzen 9 8945HS w/ Radeon 780M Graphics,1,8,NVIDIA GeForce RTX 4060 Laptop GPU,1,eth4,OTHER,00:ff:xx:xx:xx:xx,10000,1500,true,,10.100.24.211/32
+
+[/tmp/f032-real/f032-vm-nohost.csv]
+﻿cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,gpu_model,gpu_count,name,interface_type,mac_address,speed_mbps,mtu,enabled,network,ip
+F032CHK,luck,VIRTUAL_MACHINE,,,,16,15634,2054,wsl,,,,,,,,,eth0,OTHER,08:00:xx:xx:xx:xx,10000,1300,true,,10.10.10.23/24
+F032CHK,luck,VIRTUAL_MACHINE,,,,16,15634,2054,wsl,,,,,,,,,eth6,OTHER,d8:b3:xx:xx:xx:xx,10000,1500,true,,192.168.10.221/24
+F032CHK,luck,VIRTUAL_MACHINE,,,,16,15634,2054,wsl,,,,,,,,,eth4,OTHER,00:ff:xx:xx:xx:xx,10000,1500,true,,10.100.24.211/32
+
+[/tmp/f032-real/f032-vm-real.csv]
+﻿cluster,hostname,resource_type,role,status,host,vcpu,memory_mb,disk_gb,hypervisor,manufacturer,model,serial_number,cpu_model,cpu_sockets,cpu_cores,gpu_model,gpu_count,name,interface_type,mac_address,speed_mbps,mtu,enabled,network,ip
+F032CHK,luck,VIRTUAL_MACHINE,COMPUTE,IDLE,f032host,16,15634,2054,wsl,,,,,,,,,eth0,OTHER,08:00:xx:xx:xx:xx,10000,1300,true,,10.10.10.23/24
+F032CHK,luck,VIRTUAL_MACHINE,COMPUTE,IDLE,f032host,16,15634,2054,wsl,,,,,,,,,eth6,OTHER,d8:b3:xx:xx:xx:xx,10000,1500,true,,192.168.10.221/24
+F032CHK,luck,VIRTUAL_MACHINE,COMPUTE,IDLE,f032host,16,15634,2054,wsl,,,,,,,,,eth4,OTHER,00:ff:xx:xx:xx:xx,10000,1500,true,,10.100.24.211/32
+
+
+### 7) POST /api/v1/imports/resource-interfaces-ips/validate (PRE-VALIDATE ONLY, no write endpoint called)
+-- f032-bm-real.csv --
+{"format":"csv","total_rows":3,"importable_rows":3,"error_count":0,"errors":[],"errors_truncated":false}
+[http 200]
+
+-- f032-vm-real.csv --
+{"format":"csv","total_rows":3,"importable_rows":3,"error_count":0,"errors":[],"errors_truncated":false}
+[http 200]
+
+-- f032-vm-nohost.csv --
+{"format":"csv","total_rows":3,"importable_rows":0,"error_count":3,"errors":[{"row":2,"field":"host","reason":"host is required","related_row":null},{"row":3,"field":"host","reason":"host is required","related_row":null},{"row":4,"field":"host","reason":"host is required","related_row":null}],"errors_truncated":false}
+[http 200]
+
+
+### 8) create API Key fixture label=f032-validate (ADMIN) — plaintext used only for the script --push validate step, never committed
+api_key id= d281820b-1f51-4040-b70c-c32af03bac5f label= f032-validate status= ACTIVE expires_at= 2027-01-21T06:07:07.918242+00:00
+plaintext length= 50 prefix= csm_ak_z
+
+### 9) script --push two-step flow, STEP 1 ONLY (validate; NO --yes => no write). Key read from file, not echoed.
+-- BM --
+rc=0
+[stdout]
+{"format":"csv","total_rows":3,"importable_rows":3,"error_count":0,"errors":[],"errors_truncated":false}
+[stderr]
+已写出 3 行到 csm_host_info_bare_metal.csv
+模板列：26 列（F023 §6 冻结）
+预校验通过。加 --yes 以写入。
+[files]
+bm.err
+bm.out
+csm_host_info_bare_metal.csv
+-- VM (--host f032host) --
+rc=0
+[stdout]
+{"format":"csv","total_rows":3,"importable_rows":3,"error_count":0,"errors":[],"errors_truncated":false}
+[stderr]
+已写出 3 行到 csm_host_info_virtual_machine.csv
+模板列：26 列（F023 §6 冻结）
+预校验通过。加 --yes 以写入。
+[files]
+bm.err
+bm.out
+csm_host_info_bare_metal.csv
+csm_host_info_virtual_machine.csv
+vm.err
+vm.out
+-- key leakage scan of stdout/stderr --
+bm.out:0
+bm.err:0
+vm.out:0
+vm.err:0
+0 occurrences in all four streams
+
+### 10) no business write side effect from /validate (read-only check after step 7 + step 9)
+-- resources in F032CHK --
+total= 1
+  f032host BARE_METAL
+-- expected: total=1, only fixture host f032host (CSV hostname 'luck' must NOT exist) --
+-- resources hostname=luck --
+total= 2
+-- ip-addresses in F032CHK --
+{"items":[],"page":1,"page_size":100,"total":0}
+[http 200]
+-- networks in F032CHK --
+total= 3 [('F032-N3', '10.100.24.211/32'), ('F032-N2', '192.168.10.0/24'), ('F032-N1', '10.10.10.0/24')]
+
+### 11) T83 real-stack evidence: invalid API Key => 401, script exits non-zero, key not leaked (validate leg only, no --yes)
+rc=1
+[stdout]
+{"error":{"code":"AUTH_REQUIRED","message":"Authentication required","details":{}}}
+[stderr]
+已写出 3 行到 csm_host_info_bare_metal.csv
+模板列：26 列（F023 §6 冻结）
+预校验失败（HTTP 401）。
+key occurrences in stdout+stderr: 0
+-- missing key entirely (no CSM_API_KEY, no --api-key) --
+rc=2
+[stdout]
+[stderr]
+已写出 3 行到 csm_host_info_bare_metal.csv
+模板列：26 列（F023 §6 冻结）
+错误：--push 需要 API Key；请设置环境变量 CSM_API_KEY 或使用 --api-key。
