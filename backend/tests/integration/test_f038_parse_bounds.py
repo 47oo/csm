@@ -5,6 +5,9 @@ M1–M6 / S1–S6，并按 `docs/features/F038/architecture.md` §13 的全部�
 
 * §13.1 毒值探针 P-1..P-4（含双负向对照与错误路径）；
 * §13.2 阈值口径 T-1 / T-1b / T-2 / T-3 / T-4 / T-5 / T-6（公式原样，**不放宽**）；
+  **repair round 1 后 CSV 族按 §14.2 执行**：T-1b′ / T-1c / T-2′ 改用实测地板
+  探针 `F(x)` 剥离后的工作集 `work(x) = max(peak − F(x), 0)`，乘数/余量零变更；
+  T-1（xlsx）/ T-3 / T-4 / T-5 / T-6 不受影响；
 * §13.3 ON-1：尾部**解析器异常** → 422 `unreadable`；尾部**行级错误/超宽行** → 413；
 * §13.4 S-W2 期望 = **422 `unknown_columns`**（不是 413）；
 * §13.5 E-1/E-2/E-3：`parse_records` 两参数兼容 + 全模块调用点必须带两关键字。
@@ -708,9 +711,59 @@ def _measure(key: str, side: str, fmt: str, *, reps: int = 2) -> dict:
     return result
 
 
-def excess(result: dict) -> int:
-    """§13.2 T-2 口径：剥离输入字节地板后的「超额峰值」。"""
-    return max(result["peak"] - result["bytes"], 0)
+_FLOOR_CACHE: dict[int, list[int]] = {}
+#: 固定 `id(data)`，保证缓存键在进程内有效（样例字节由 `_DATA_CACHE` 持有）。
+_FLOOR_PINNED: dict[int, bytes] = {}
+
+
+def _floor_probe_once(data: bytes) -> None:
+    """§14.2 `F(x)` 探针本体：`decode` → `io.StringIO` → 遍历丢弃（唯一允许的三步）。"""
+    text = data.decode("utf-8-sig")
+    for _record in csv.reader(io.StringIO(text, newline="")):
+        pass
+
+
+def _floor_probe_repeats(data: bytes) -> list[int]:
+    """§14.2 地板探针两次重复峰值（M6 协议：`gc.collect()` → `start()` → 取峰值）。"""
+    key = id(data)
+    if key not in _FLOOR_CACHE:
+        _FLOOR_PINNED[key] = data
+        peaks: list[int] = []
+        for _ in range(2):
+            _probe_verdict, peak, _seconds = _measure_once(
+                lambda: _floor_probe_once(data), trace=True
+            )
+            peaks.append(peak)
+        _FLOOR_CACHE[key] = peaks
+        print(
+            f"[floor-probe] bytes={len(data)} peaks={[round(p / MIB, 3) for p in peaks]}MiB "
+            f"F/B={max(peaks) / len(data):.3f}"
+        )
+    return _FLOOR_CACHE[key]
+
+
+def _floor_probe_peak(data: bytes) -> int:
+    """§14.2 `F(x)`：两次取**较大值**（保守）。"""
+    return max(_floor_probe_repeats(data))
+
+
+def floor_bytes(data: bytes, fmt: str) -> int:
+    """§14.2 / §14.3 `F(x)`：CSV 用实测探针；xlsx 退回 1×len 的保守常量。"""
+    if fmt != "csv":
+        return len(data)
+    return _floor_probe_peak(data)
+
+
+def excess(result: dict, *, floor: int | None = None) -> int:
+    """§14 口径 `work = max(peak − F, 0)`；省略 `floor` 时退回旧 1×len 口径。"""
+    if floor is None:
+        floor = result["bytes"]
+    return max(result["peak"] - floor, 0)
+
+
+def _work(key: str, result: dict) -> int:
+    """按样例取地板后计算工作集：CSV = 实测 `F(x)`；xlsx = `floor=None`（1×B）。"""
+    return excess(result, floor=floor_bytes(_data(key), result["fmt"]))
 
 
 # =============================================================================
@@ -1692,6 +1745,8 @@ _SAMPLES = {
     "S-W2-N2501": ("xlsx", lambda: blank_range_xlsx(2501, 16_384)),
     "S-W2-4N10001": ("xlsx", lambda: blank_range_xlsx(10001, 16_384)),
     "S-W6a-1000": ("csv", lambda: wide_csv(1000, 651)),
+    "S-W6b": ("csv", lambda: wide_csv(CAP_ROWS + 1, 651, nonblank=True)),
+    "S-W6c": ("csv", lambda: wide_csv(CAP_ROWS + 1, 14, nonblank=True)),
     "legal-1000": ("csv", lambda: csv_bytes(BM_HEADERS, bm_records(1000))),
     "legal-4000": ("csv", lambda: csv_bytes(BM_HEADERS, bm_records(4000))),
 }
@@ -1711,22 +1766,32 @@ def _pair(key: str) -> tuple[dict, dict]:
     return _measure(key, "baseline", fmt), _measure(key, "fixed", fmt)
 
 
-@pytest.mark.parametrize("key", ["S-W1-1001", "S-W2-1001", "S-W6a-4000"])
+@pytest.mark.parametrize("key", ["S-W1-1001", "S-W2-1001", "S-W6a-4000", "S-W6b"])
 def test_td_f038_m3a_t2_relative_to_baseline(key):
-    """TD-F038-M3（T-2，§13.2）：`excess(fixed) ≤ excess(baseline) / 8`（等规模）。"""
+    """TD-F038-M3（T-2′，§14.2）：`work(fixed) ≤ work(baseline) / 8`（等规模）。
+
+    CSV 族地板取**实测探针** `floor_bytes(...)`（`F(x)`）；xlsx 族保持 `floor=None`
+    （1×len 保守常量）⇒ xlsx 的数值与判定与 §13.2 逐位一致（须复现 11.44× / 155.73×）。
+    G-B（§14.3）：`work(baseline) ≥ 1 MiB`，防比值退化为 `0 ≤ 0`。
+    """
     baseline, fixed = _pair(key)
-    fixed_excess = excess(fixed)
-    baseline_excess = excess(baseline)
-    ratio = fixed_excess / baseline_excess
+    floor = floor_bytes(_data(key), fixed["fmt"])
+    fixed_work = excess(fixed, floor=floor)
+    baseline_work = excess(baseline, floor=floor)
     print(
-        f"[T-2] {key}: bytes={fixed['bytes']} "
+        f"[T-2'] {key}: bytes={fixed['bytes']} F={floor / MIB:.3f}MiB "
         f"peak_fixed={fixed['peak'] / MIB:.3f}MiB peak_baseline={baseline['peak'] / MIB:.3f}MiB "
-        f"excess_fixed={fixed_excess / MIB:.3f}MiB excess_baseline={baseline_excess / MIB:.3f}MiB "
-        f"ratio={ratio:.4f} bound=0.125 sources={ratio and 1 / ratio:.4f}x"
+        f"work_fixed={fixed_work / MIB:.3f}MiB work_baseline={baseline_work / MIB:.3f}MiB "
+        f"bound={baseline_work / 8 / MIB:.3f}MiB "
+        f"sources={(baseline_work / fixed_work) if fixed_work else float('inf'):.4f}x"
     )
-    assert fixed_excess * 8 <= baseline_excess, (
-        f"T-2 {key}: excess(fixed)={fixed_excess / MIB:.3f}MiB > "
-        f"excess(baseline)/8={baseline_excess / 8 / MIB:.3f}MiB (实测倍数 {1 / ratio:.3f}x)"
+    assert baseline_work >= MIB, (
+        f"G-B {key}: work(baseline)={baseline_work / MIB:.3f}MiB < 1MiB（比值判据退化）"
+    )
+    assert fixed_work * 8 <= baseline_work, (
+        f"T-2' {key}: work(fixed)={fixed_work / MIB:.3f}MiB > "
+        f"work(baseline)/8={baseline_work / 8 / MIB:.3f}MiB "
+        f"(实测倍数 {(baseline_work / fixed_work) if fixed_work else float('inf'):.3f}x)"
     )
 
 
@@ -1770,40 +1835,58 @@ def test_td_f038_m4a_t1_scale_insensitivity_xlsx(family):
     assert large["peak"] <= bound
 
 
-@pytest.mark.parametrize(
-    "family, small_key, large_key",
-    [
-        ("S-W6a", "S-W6a-1000", "S-W6a-4000"),
-        ("legal", "legal-1000", "legal-4000"),
-    ],
-)
-def test_td_f038_m4b_t1b_csv_delta(family, small_key, large_key):
-    """TD-F038-M4（T-1b，§13.2）：CSV 族 `Δpeak ≤ 1.5 × Δbytes + 2 MiB`。"""
-    small = _sample(small_key)
-    large = _sample(large_key)
-    delta_peak = large["peak"] - small["peak"]
-    delta_bytes = large["bytes"] - small["bytes"]
-    bound = 1.5 * delta_bytes + 2 * MIB
+def test_td_f038_m4b_t1b_csv_delta():
+    """TD-F038-M4（T-1b′，§14.2）：CSV 族 `work(4N) ≤ 1.5 × work(N) + 2 MiB`。
+
+    `work(x) = max(peak − F(x), 0)`，`F(x)` 为本进程同字节实测地板。旧 T-1b 的
+    `Δbytes` 配额已删除（收紧）；合法 ≤5000 行族不再参战（改由 T-3 + U5 承担）。
+    """
+    small = _sample("S-W6a-1000")
+    large = _sample("S-W6a-4000")
+    work_small = _work("S-W6a-1000", small)
+    work_large = _work("S-W6a-4000", large)
+    bound = 1.5 * work_small + 2 * MIB
     print(
-        f"[T-1b] {family}: d_peak={delta_peak / MIB:.3f}MiB d_bytes={delta_bytes / MIB:.3f}MiB "
-        f"bound={bound / MIB:.3f}MiB ratio={(delta_peak / delta_bytes if delta_bytes else 0):.3f}"
+        f"[T-1b'] S-W6a: peak_1000={small['peak'] / MIB:.3f}MiB "
+        f"peak_4000={large['peak'] / MIB:.3f}MiB "
+        f"work_1000={work_small / MIB:.3f}MiB work_4000={work_large / MIB:.3f}MiB "
+        f"bound={bound / MIB:.3f}MiB margin={(bound / work_large) if work_large else float('inf'):.1f}x"
     )
-    assert delta_peak <= bound, (
-        f"T-1b {family}: Δpeak={delta_peak / MIB:.3f}MiB > "
-        f"1.5×Δbytes+2MiB={bound / MIB:.3f}MiB"
+    assert work_large <= bound, (
+        f"T-1b' S-W6a: work(4000)={work_large / MIB:.3f}MiB > "
+        f"1.5×work(1000)+2MiB={bound / MIB:.3f}MiB"
     )
 
 
 def test_td_f038_m4d_csv_peak_floor_coefficient_report():
-    """TD-F038-M4（报告项）：CSV 峰值地板的实测系数（解释 T-1b / T-2 的构造性上限）。
+    """TD-F038-M4（§14.2 地板来源 + §14.3 G-A1/G-A2）：产出 `F(x)` 并公布 `F/B`。
 
-    CSV 路径两侧都必然经过 `data.decode("utf-8-sig")`（1×len）+ `io.StringIO(text)`
-    （CPython 内部 UCS-4 缓冲，4×len）⇒ 地板 ≈ 5×len(data)。该地板**由基线代码
-    继承**（`_parse_csv` 未改动这两行），故任何 CSV 族阈值的「峰值增长系数」下界
-    都是 5，而不是 1。本用例只记录数值，不作判据。
+    `F(x)` 由 `_floor_probe_peak` 实测（`decode("utf-8-sig")` → `io.StringIO(text,
+    newline="")` → 遍历丢弃；M6 协议、两次取较大值），**同进程同字节标定** ⇒ 公式内
+    不含解释器相关常量。期望 `F/B ≈ 5.0–5.02`：CSV 路径必然经过
+    `data.decode("utf-8-sig")`（1×len）+ `io.StringIO(text)`（CPython 内部 UCS-4
+    缓冲 4×len），两行均为 start_commit 基线原样代码，AQ-2=A 下不可消除。
+
+    守卫（缺一即口径不成立）：G-A1 `F ≥ B`（防探针空跑）；
+    G-A2 `F ≤ 8B + 4 MiB`（防探针自身保留导致判据稀释）。
     """
-    data = _sample("S-W6a-4000")
-    del data
+    for key in ("S-W6a-1000", "S-W6a-4000", "S-W6b", "S-W6c"):
+        fixed = _sample(key)
+        payload = _data(key)
+        floor = floor_bytes(payload, fixed["fmt"])
+        repeats = _floor_probe_repeats(payload)
+        work = excess(fixed, floor=floor)
+        print(
+            f"[floor-F] {key:12s} B={len(payload):9d} F={floor / MIB:9.3f}MiB "
+            f"F/B={floor / len(payload):.3f} repeats={[round(p / MIB, 3) for p in repeats]} "
+            f"peak={fixed['peak'] / MIB:.3f}MiB work={work / MIB:.3f}MiB "
+            f"verdict={fixed['verdict'][0]}/{fixed['verdict'][1] if fixed['verdict'][0] == 'exc' else '-'}"
+        )
+        assert floor >= len(payload), f"G-A1 {key}: F={floor} < B={len(payload)}"
+        assert floor <= 8 * len(payload) + 4 * MIB, f"G-A2 {key}: F={floor} 超过 8B+4MiB"
+        assert fixed["peak"] == max(fixed["peaks"]), key
+
+    # 历史分解说明（**非** `F(x)` 来源）：地板由 decode（1×）+ StringIO（4×）构成。
     payload = _DATA_CACHE["S-W6a-4000"]
 
     def decode_only():
@@ -1823,6 +1906,38 @@ def test_td_f038_m4d_csv_peak_floor_coefficient_report():
         f"({peak_buffer / len(payload):.2f}x) reader_loop_peak={peak_loop / MIB:.3f}MiB "
         f"({peak_loop / len(payload):.2f}x) verdicts="
         f"{verdict_decode[0]}/{verdict_buffer[0]}/{verdict_loop[0]}"
+    )
+
+
+def test_td_f038_m4e_t1c_width_insensitivity():
+    """TD-F038-M4（T-1c，§14.2，新增收紧）：列维度不敏感。
+
+    `work(S-W6b) ≤ 1.5 × work(S-W6c) + 2 MiB`。S-W6b = `wide_csv(5001, 651,
+    nonblank=True)`、S-W6c = `wide_csv(5001, 14, nonblank=True)`——两者行数相同（均
+    超过 5000），仅宽度差 637 列；保留量不随宽度增长 ⇒ 两侧均必须为
+    **413 `IMPORT_ROW_LIMIT_EXCEEDED{limit_rows:5000}`**（超额路径不保留内容）。
+    """
+    assert ImportRowLimitExceeded.status_code == 413
+    assert ImportRowLimitExceeded.code == "IMPORT_ROW_LIMIT_EXCEEDED"
+    expected_verdict = ("exc", "ImportRowLimitExceeded", {"limit_rows": CAP_ROWS})
+
+    wide = _sample("S-W6b")
+    narrow = _sample("S-W6c")
+    assert wide["verdict"] == expected_verdict, f"S-W6b verdict={wide['verdict']}"
+    assert narrow["verdict"] == expected_verdict, f"S-W6c verdict={narrow['verdict']}"
+
+    work_wide = _work("S-W6b", wide)
+    work_narrow = _work("S-W6c", narrow)
+    bound = 1.5 * work_narrow + 2 * MIB
+    print(
+        f"[T-1c] S-W6b(651宽) B={wide['bytes']} peak={wide['peak'] / MIB:.3f}MiB "
+        f"work={work_wide / MIB:.3f}MiB | S-W6c(14宽) B={narrow['bytes']} "
+        f"peak={narrow['peak'] / MIB:.3f}MiB work={work_narrow / MIB:.3f}MiB "
+        f"bound={bound / MIB:.3f}MiB verdicts={wide['verdict'][1]}/{narrow['verdict'][1]}"
+    )
+    assert work_wide <= bound, (
+        f"T-1c: work(S-W6b)={work_wide / MIB:.3f}MiB > "
+        f"1.5×work(S-W6c)+2MiB={bound / MIB:.3f}MiB"
     )
 
 
@@ -1850,7 +1965,10 @@ def test_td_f038_m5_time_not_degraded(key):
 
 
 def test_td_f038_m6_repeatability_and_ru_maxrss():
-    """TD-F038-M6（A12 / R-11）：两次重复值公开 + `ru_maxrss` 交叉参照（仅报告）。"""
+    """TD-F038-M6（A12 / R-11 / §14.3 G-A3）：两次重复值 + `B/F/F/B/peak/work` 双侧。
+
+    断言仍用两次的**较大值**（保守）；`ru_maxrss` 仅报告（含 lxml C 层分配）。
+    """
     import resource as resource_module
 
     results = {
@@ -1858,10 +1976,19 @@ def test_td_f038_m6_repeatability_and_ru_maxrss():
         for key in ("S-W1-1001", "S-W2-1001", "S-W6a-4000", "legal-5000")
     }
     for key, sides in results.items():
+        payload = _data(key)
+        floor = floor_bytes(payload, _SAMPLES[key][0])
         for side, result in sides.items():
             assert len(result["peaks"]) == 2, key
             assert result["peak"] == max(result["peaks"])
             assert len(result["time_traced_runs"]) == 2
+            work = excess(result, floor=floor)
+            print(
+                f"[M6] {key:12s} {side:8s} B={result['bytes']:9d} F={floor / MIB:9.3f}MiB "
+                f"F/B={floor / result['bytes']:.3f} "
+                f"peaks={[round(p / MIB, 3) for p in result['peaks']]} "
+                f"peak={result['peak'] / MIB:9.3f}MiB work={work / MIB:9.3f}MiB"
+            )
     peak_rss = resource_module.getrusage(resource_module.RUSAGE_SELF).ru_maxrss
     print(f"[M6] ru_maxrss={peak_rss}KiB (report only; includes lxml C allocations)")
 
