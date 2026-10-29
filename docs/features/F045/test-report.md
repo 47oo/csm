@@ -73,20 +73,37 @@
 
 ## 3. TEST 第二轮（DEF-1 修复后，2026-10-29）
 
-**结论：`READY FOR REVIEW`**（A1–A11 全部 PASS；A8/A12 属协调器，见 §4）
+**结论：`READY FOR REVIEW`**（A1–A7、A9 PASS；A8/A10/A12 属协调器职责尚未执行；A11 遵循）。本报告不发散「整体验收通过」结论。
 
 | A | 第二轮结论 | 证据 |
 | --- | --- | --- |
 | A1 | **PASS** | 全新库 `csm_f045_test`（先 DROP/CREATE）+ 唯一 pytest 进程：`969 passed, 6 skipped in 1174.76s`，`artifacts/full-pytest.log`（含 header 与完整 skip 清单）。6 条 skip = F016 验收模块未启用（1）+ F028 验收依赖 F016（4）+ `test_migrations.py:105` 非超级用户 V3b（1），均在 `a09-f016-acceptance.log` 与 A9 归类中覆盖 |
-| A2–A7、A9 | PASS（沿用第一轮实测，未受 DEF-1 影响） | `a02-import-parse.log` 147 passed；`a03-capacity.log` 27 passed；`a04-scope.log` 48 passed；`frontend-*.log` 352 / 14；`scripts-pytest.log` 113 passed；`compose-up.log`/`http-acceptance.log` 61 步 0 FAIL |
+| A2–A7、A9 | PASS（沿用第一轮实测，未受 DEF-1 影响） | `a02-import-parse.log` 147 passed；`a03-capacity.log` 27 passed；`a04-scope.log` 48 passed；`frontend-*.log` 352 / 14；`scripts-pytest.log` 113 passed；A7 见下 |
+| A8/A10/A12 | **NOT TESTED（协调器）** | A8 三项命令、`plan evidence` 引用与 `project.acceptance` 恢复均未由 Tester 执行 |
 
 ### 3.1 DEF-1 修复
 
 `backend/tests/integration/test_f038_parse_bounds.py` 的两处 S 层守卫原以 `START_COMMIT="8e609ca"` 为 diff 基线，合并后区间随 F039/F040/F041/F043 的合法改动增长 ⇒ 必然失败。修复为**钉住 F038 自身区间** `8e609ca..adef87a`（新增常量 `F038_MERGE_COMMIT`），零 diff 与 `sorted(changed)` 断言**未放宽**；实测 `git diff 8e609ca adef87a --name-only -- backend/app` 仍恰为两个 service 文件。
 
-### 3.2 第一轮失败的环境原因（如实记录）
+### 3.2 A7 分轮次实测（口径更正）
 
-第一轮 2 个 FAIL（`test_import_performance.py::test_import_near_max_rows_baseline`、`test_f023_...::test_perf03_near_max_rows_baseline`，写入 228s / 701s vs 阈值 180s）由两点环境因素造成：① 一次超时未清理的并发 pytest 进程与主进程竞争 CPU/IO；② 复用已膨胀的测试库。两者均为**验收环境缺陷，不是产品回归**；换全新库并清除并发进程后全量通过。结论以第二轮为准。
+`http-acceptance.log` 共三轮，**不得合并表述为「61 步 0 FAIL」**：
+
+| 轮次 | 步数 | FAIL | 说明 |
+| --- | --- | --- | --- |
+| round-1 | 42 | 5 | A7-32/33/34/36/37 为**驱动脚本签名错误**（DELETE/restore 需 `?version=N`、DELETE 成功码 204，见 `docs/api/F011.md` §6.5/§6.6），非产品缺陷 |
+| round-2 | 15 | 0 | 按正确契约重跑逻辑删除与 ADMIN 恢复段，15/15 PASS |
+| round-3 | 4 | 0 | 空卷重建栈（`0001→0015` 全链 + `created initial admin`）后的同源 HTTP 冒烟 |
+
+覆盖的 §32 关键路径合计 = round-1 的 42 步（含 5 步驱动错误）+ round-2 的 15 步 + round-3 的 4 步；产品行为结论仅取自 PASS 步与 round-2 的重跑。
+
+### 3.2b 性能用例失败的环境归因（协调器重跑，非 Tester 第一轮）
+
+Tester 第一轮 2 个 FAIL 是 **F038 两个 S 层守卫**（DEF-1），不含任何性能用例。性能用例（`test_import_performance.py::test_import_near_max_rows_baseline`、`test_f023_...::test_perf03_near_max_rows_baseline`，写入 228s / 701s vs 阈值 180s）失败发生在**协调器自己的重跑**中，原因为：① 一次超时未清理的并发 pytest 进程与主进程竞争 CPU/IO；② 复用已膨胀的 `csm_f045_test` 库。该轮日志保留为 `artifacts/full-pytest-run2-concurrent.log`（`exit_code: 2`），**不作为 A1 结论**；换全新库、清除并发进程后 A1 全量通过。
+
+### 3.2c `compose-ps.log` 中的 SQL 报错披露
+
+`compose-ps.log` 内 `ERROR: relation "audit_log" does not exist` 出自**人工排查用的临时 psql 查询**（表名写错，实际为 `audit_logs`），不影响任何 A7 断言，也未改产品代码。
 
 ### 3.3 未验证项（不计 PASS）
 
