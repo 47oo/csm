@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 16
   plan_revision: 25
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 25
     feature_ids:
@@ -2684,14 +2684,11 @@ features:
   - F034
   - F035
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 待批准 CHG-015（含确认 AQ-3 由既有契约推导）后置 READY；从 PRODUCT 阶段开始；CONTRACT 阶段由 Architect
-    签核 F014 §1.2 与 F023 v2 §1.2 的不升版编辑性澄清附注（api_required=true），并确认仅扩大既有异常转换范围、端点 /
-    字段 / 错误码零变更。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R02（8/8 请求复现 500）。Architect 评估：api_required
-    由 false 改为 true（须在 F014 §1.2 与 F023 v2 §1.2 各加一条不升版的编辑性澄清附注，先例 F035-RV-05）；AQ-3
-    已按既有契约推导为 CONFIRMED，不再阻塞。未启动，无任何阶段结果与证据。
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: 由 product-manager 产出 docs/features/F037/product.md 并要求 READY FOR ARCHITECT。
+  last_result: Preflight 通过；分支 feature/F037-import-parse-error-contract 自交付线 v3.4（start_commit
+    1c0eeaf）创建；进入 PRODUCT 阶段。
   layers:
     database: false
     backend: true
@@ -3773,26 +3770,25 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
+  current_feature: F037
+  current_stage: PRODUCT
   last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
     / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
     / AQ-6 已裁定，AQ-7 保持 OPEN。
   next_action: 启动 F037（P0，导入解析异常收敛为 422 IMPORT_INVALID_FILE）。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 2
     DONE: 36
     DRAFT: 2
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 5
+    READY: 4
   ready_features:
-  - F037
   - F039
   - F040
   - F041
