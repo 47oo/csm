@@ -3244,10 +3244,9 @@ features:
   - F043
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT：产出变更集整体验收计划（跨功能回归矩阵 + 部署等价栈口径 + 证据链）。
-  last_result: 依赖 F037/F038/F039/F040/F041/F043 全部 DONE；AQ-1/AQ-4/AQ-5/AQ-6 均 CONFIRMED，depends_on
-    与实际合并集一致（F042/F044 CANCELLED 未列入）；置 READY 并启动。
+  current_stage: ARCHITECTURE
+  next_action: 'TEST_DESIGN + ARCHITECTURE：tester 出 TD（A1–A12 可执行判定与证据清单）；architect 定稿等价栈口径/裁剪规则/证据结构/acceptance 措辞。'
+  last_result: 'PRODUCT COMPLETE（READY FOR ARCHITECT）：验收型 Feature；合并集 F037/F038/F039/F040/F041/F043；A1–A12 验收矩阵（真实 PG 全量 pytest、四端点+8 解析异常、§20/T32、§23.2/T88、前端 352+14、scripts 单测、真实 Compose §32 关键路径、计划一致性、NOT TESTED 归类、证据入库、条件恢复 COMPLETE）；N1–N8 禁止清单成立。'
   layers:
     database: false
     backend: false
@@ -3260,7 +3259,7 @@ features:
     contract: 无新增/变更 API；被验收端点来自既有已签核契约（docs/api/F014.md、docs/api/F023.md、docs/api/F013.md
       等），api_required=false。
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -3275,7 +3274,9 @@ features:
     start_commit: fa8a568b912d7aea9806a58616e98867a5786808
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F045/product.md
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -3879,7 +3880,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F045
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   last_result: F037/F038/F039/F040/F041/F043 DONE；F045 变更集整体验收启动（分支 feature/F045-change-set-acceptance）。
   next_action: F045 PRODUCT Gate（整体回归矩阵 + 部署等价栈口径）。
   repair_rounds: 0
