@@ -1,7 +1,13 @@
+cmd: TEST_DATABASE_URL=*** python -m pytest -p no:cacheprovider -ra -q (cwd=backend)
+start_commit: fa8a568
+head: ba400009c1e871b7d9e259f98f7dc87110c25f4a
+env: TEST_DATABASE_URL/DATABASE_URL=***@127.0.0.1:55432
+tool_versions: Python 3.12.7 / pytest 7.4.4 / Node v22.23.3 / npm 10.9.9 / Docker 29.8.2 / Compose v5.6.0 / PostgreSQL 16.15 on x86_64-pc-linux-musl
 cmd: TEST_DATABASE_URL=*** python -m pytest -p no:cacheprovider -ra -q (cwd=backend, DB recreated fresh)
 start_commit: fa8a568
 head: d6a4f4d9a1a25aa838df2f528e99900d911e8e07
 env: TEST_DATABASE_URL=***@127.0.0.1:55432/csm_f045_test
+started_at: 2026-10-29T17:49:00Z (approx, 1174.76s duration)
 finished_at: 2026-10-29T18:08:53Z
 exit_code: 0
 note: 上一轮的两处 FAIL 由并发 pytest 进程 + 复用膨胀测试库导致；本轮为唯一进程 + 全新库

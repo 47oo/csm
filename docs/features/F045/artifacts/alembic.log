@@ -1,3 +1,8 @@
+cmd: alembic heads / alembic current (cwd=backend)
+start_commit: fa8a568
+head: ba400009c1e871b7d9e259f98f7dc87110c25f4a
+env: TEST_DATABASE_URL/DATABASE_URL=***@127.0.0.1:55432
+tool_versions: Python 3.12.7 / pytest 7.4.4 / Node v22.23.3 / npm 10.9.9 / Docker 29.8.2 / Compose v5.6.0 / PostgreSQL 16.15 on x86_64-pc-linux-musl
 cmd: (cwd=backend) alembic heads; alembic current [DATABASE_URL=***@127.0.0.1:55432/csm_f045_test]
 head: a31f3018f83caf1321e2fbdebccc57393c1d7930
 note: alembic 读取 DATABASE_URL（非 TEST_DATABASE_URL）；未覆盖时默认 host='db' 无法解析。本地测试库由测试按 metadata 管理、未 stamp，故 current 无输出属预期；容器内真实版本见 compose-ps.log 的 0015_user_cluster_authorizations

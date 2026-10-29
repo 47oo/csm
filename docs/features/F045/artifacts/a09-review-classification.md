@@ -25,7 +25,7 @@
 | 3 | **F-1**：§13.9 两例（无 `<dimension>` / `dimension` 不一致）未实现且未登记 | 如实重记 | 仍未实现；本轮 A1 只运行既有用例，未补产品测试；**记录缺口仍在**，Owner 仍为 Tester/协调器 |
 | 4 | **F-2**（LOW）：测试模块 3× ruff F811 | 本轮复核（**仍存在**） | 本轮实测 `ruff check backend/tests/integration/test_f038_parse_bounds.py` → `Found 3 errors`（`role_client_factory` 重名）；非产品代码缺陷，未修复（写入范围外） |
 | 5 | 未跑 Compose / 前端（`layers.frontend=false`，归 F045） | 本轮复核 | A5 + A7（Compose 真实栈 + nginx 真实 HTTP）已执行 |
-| 6 | S 层静态守卫（F038 自身） | 本轮复核（**FAIL**） | A1 中 `test_td_f038_s1_zero_diff_and_frozen_contract` / `test_td_f038_s6_change_surface_is_two_services` 失败，见本报告 DEF-1 |
+| 6 | S 层静态守卫（F038 自身） | 本轮复核 → **DEF-1 已修复并复测通过** | A1 中 `test_td_f038_s1_zero_diff_and_frozen_contract` / `test_td_f038_s6_change_surface_is_two_services` 失败，见本报告 DEF-1 |
 
 ## 3. F039（§2 旧缺陷复核 2 / §4 未审查项 / FOLLOW-UP）
 
@@ -50,7 +50,7 @@
 | --- | --- | --- | --- |
 | 1 | 真实浏览器视觉、人眼复核、屏幕阅读器播报、antd 虚拟滚动与完整键盘矩阵、300ms debounce 真实时序 | 如实重记 | AQ-4=B 不引入浏览器/E2E；本轮只有逻辑层入口（A5 的 14 例）与真实 API（A7） |
 | 2 | 真实前后端端到端点击流（F016 栈 `:18080` = `000`） | 本轮复核（PASS，替代口径） | 本轮 `:18080` 栈可用：A7 42 步 + round-2 15 步经 nginx 真实 HTTP；F016 验收 40 passed。**真实浏览器点击仍 NOT TESTED**（同上） |
-| 3 | 其余回归组（F023/F034/F037/imports 等）本次仅重跑部分 | 本轮复核（PASS） | A1 全量 `tests/`（收集 975 例：967 passed + 6 skipped + 2 FAIL 见 DEF-1）覆盖全部既有回归组；A2 单独 147 passed |
+| 3 | 其余回归组（F023/F034/F037/imports 等）本次仅重跑部分 | 本轮复核（PASS） | A1 全量 `tests/`（第二轮终态：969 passed + 6 skipped；第一轮 967 passed + 6 skipped + 2 FAIL 即 DEF-1）覆盖全部既有回归组；A2 单独 147 passed |
 | 4 | 需求 §31–§33 一期整体验收（归 F045） | 本轮复核 | §32 关键路径见本报告 A7；§33 场景由 A7-23…A7-27（hostname/IP/Cluster/Service 查询）覆盖；整体结论见本报告状态 |
 | 5 | FU-1（DR-F041-09 Product 追认留痕）、FU-2/FU-3 文档勘误、FU-5 记账 | 不适用 | 属 Product/Architect/协调器的文档追认与勘误，非可执行验证项；本轮不改其文档 |
 
@@ -65,4 +65,4 @@
 
 ## 7. 本轮得出的新问题（不属于旧 Review 项）
 
-- **DEF-1（HIGH）**：`backend/tests/integration/test_f038_parse_bounds.py` 两个 S 层静态守卫以 `START_COMMIT=8e609ca`（F038 自身起点）为基线断言「零 diff / 仅两 service 有实现 diff」，在合并后基线上必然失败。详见本报告 §2 Defects。
+- **DEF-1（HIGH）**：`backend/tests/integration/test_f038_parse_bounds.py` 两个 S 层静态守卫以 `START_COMMIT=8e609ca`（F038 自身起点）为基线断言「零 diff / 仅两 service 有实现 diff」，在合并后基线上必然失败。**终态：已修复**（新增 `F038_MERGE_COMMIT=adef87a` 钉住 F038 区间，断言未放宽），`pytest tests/integration/test_f038_parse_bounds.py` 复跑全绿（76 passed），Reviewer 独立重跑两例 2 passed。

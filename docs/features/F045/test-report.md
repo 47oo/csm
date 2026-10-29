@@ -36,10 +36,10 @@
 | A4 | PASS | `a04-scope.log`：`48 passed`（§23.2 部分授权非 ADMIN：全局搜索含 §17.1 关联行、Dashboard 计数、F041 候选分页/超限提示仅可见集群） |
 | A5 | PASS | `frontend-typecheck.log`(0) / `frontend-build.log`(0) / `frontend-smoke.log`：`352 passed, 0 failed` / `frontend-interactions.log`：`14 passed, 0 failed`（run#1 与 run#2 一致）；断言未放宽 |
 | A6 | PASS | `scripts-pytest.log`：`113 passed`（3 个 `scripts/test_*.py`） |
-| A7 | PASS（Compose 真实栈） | `compose-up.log`/`compose-ps.log`/`http-acceptance.log`：`up -d --no-build` 拓扑+串序成立（db healthy → migrate exit 0 → bootstrap exit 0 → backend healthy → nginx）；因复用镜像构建于 2026-10-27 早于基线（4 个 `services/*.py` md5 不同，`a07-image-staleness.txt`），按 §2「镜像不可用」执行**一次** `up -d --build`，重建后 `backend/app/**.py` 与基线逐文件 md5 一致、前端 `dist/assets/index-*.js` 与本地 `npm run build` 产物 md5 一致；空卷重建复跑证明容器内 `alembic upgrade head` 全链 `0001→0015`（15 条）与 `bootstrap: created initial admin 'admin'`。经 nginx `:18080` 真实 HTTP 共 **61 步 0 FAIL**：§32 关键路径 42 步（登录/Cluster/BareMetal/VM+Host/Interface/Network/Pool MANUAL+AUTO/Service/Endpoint/手动+自动 IP 绑定/按 hostname·IP·Cluster·Service 查询/全局搜索/Dashboard/整批导入 created=2/Audit）+ 逻辑删除与 ADMIN 恢复 15 步（`?version=` 契约修正后）+ 空卷冒烟 4 步；重复 hostname/IP/Cluster code 409、非法 CIDR 422、跨 Cluster Host 绑定 422 均实测阻断。收尾 `down -v`（容器与卷已删） |
+| A7 | PASS（Compose 真实栈） | `compose-up.log`/`compose-ps.log`/`http-acceptance.log`：`up -d --no-build` 拓扑+串序成立（db healthy → migrate exit 0 → bootstrap exit 0 → backend healthy → nginx）；因复用镜像构建于 2026-10-27 早于基线（4 个 `services/*.py` md5 不同，`a07-image-staleness.txt`），按 §2「镜像不可用」执行**一次** `up -d --build`，重建后 `backend/app/**.py` 与基线逐文件 md5 一致、前端 `dist/assets/index-*.js` 与本地 `npm run build` 产物 md5 一致；空卷重建复跑证明容器内 `alembic upgrade head` 全链 `0001→0015`（15 条）与 `bootstrap: created initial admin 'admin'`。经 nginx `:18080` 真实 HTTP 分三轮执行（round-1 42 步含 5 步为驱动签名错误、round-2 15 步 0 FAIL、round-3 空卷冒烟 4 步，详见 §3.2；**不得合并表述为「61 步 0 FAIL」**）：§32 关键路径 42 步（登录/Cluster/BareMetal/VM+Host/Interface/Network/Pool MANUAL+AUTO/Service/Endpoint/手动+自动 IP 绑定/按 hostname·IP·Cluster·Service 查询/全局搜索/Dashboard/整批导入 created=2/Audit）+ 逻辑删除与 ADMIN 恢复 15 步（`?version=` 契约修正后）+ 空卷冒烟 4 步；重复 hostname/IP/Cluster code 409、非法 CIDR 422、跨 Cluster Host 绑定 422 均实测阻断。收尾 `down -v`（容器与卷已删） |
 | A8 | **NOT TESTED（协调器执行）** | Tester 未执行；命令见 `env.md` §3。仅附只读旁证：栈内 `alembic_version=0015_user_cluster_authorizations`（`compose-ps.log`），判定权归协调器 |
 | A9 | PASS | `a09-review-classification.md`：六份 review 的 NOT TESTED/BLOCKED 逐条归类；F039 唯一 BLOCKED（`F016_ACCEPTANCE=1`）本轮转实测 PASS；F040 F-02（`.log` 未入库）本轮核查已闭环；F038 F-2（3× ruff F811）本轮复核**仍存在**；余项如实重记 |
-| A10 | 部分 | 证据齐全且 header 含 cmd/start_commit/head/env/timestamps/tool_versions/exit_code；`.log` 被 `.gitignore` 命中，入库需协调器 `git add -f`（见下清单）；plan `evidence` 未写（协调器） |
+| A10 | **PARTIAL → 已由协调器补齐（§4 末）** | 初轮部分日志缺少 `started_at`/`tool_versions` 等 header 字段（已如实登记，非法为齐全）；协调器已补齐 header 并将 17 个 `.log` 以 `git add -f` 入库、plan `evidence` 已写入 |
 | A11 | 遵循 | A8 标 NOT TESTED；未执行/不可测项均标 NOT TESTED 并给原因；无估算值充当 PASS |
 | A12 | **NOT TESTED** | 协调器职责，未执行 |
 
@@ -99,7 +99,7 @@
 
 ### 3.2b 性能用例失败的环境归因（协调器重跑，非 Tester 第一轮）
 
-Tester 第一轮 2 个 FAIL 是 **F038 两个 S 层守卫**（DEF-1），不含任何性能用例。性能用例（`test_import_performance.py::test_import_near_max_rows_baseline`、`test_f023_...::test_perf03_near_max_rows_baseline`，写入 228s / 701s vs 阈值 180s）失败发生在**协调器自己的重跑**中，原因为：① 一次超时未清理的并发 pytest 进程与主进程竞争 CPU/IO；② 复用已膨胀的 `csm_f045_test` 库。该轮日志保留为 `artifacts/full-pytest-run2-concurrent.log`（`exit_code: 2`），**不作为 A1 结论**；换全新库、清除并发进程后 A1 全量通过。
+Tester 第一轮 2 个 FAIL 是 **F038 两个 S 层守卫**（DEF-1），不含任何性能用例。性能用例（`test_import_performance.py::test_import_near_max_rows_baseline`、`test_f023_...::test_perf03_near_max_rows_baseline`，写入 228s / 701s vs 阈值 180s）失败发生在**协调器自己的重跑**中，原因为：① 一次超时未清理的并发 pytest 进程与主进程竞争 CPU/IO；② 复用已膨胀的 `csm_f045_test` 库。该轮日志保留为 `artifacts/full-pytest-run2-concurrent.log`（`exit_code: 2`），**不作为 A1 结论**；换全新库后 A1 全量通过。
 
 ### 3.2c `compose-ps.log` 中的 SQL 报错披露
 
@@ -117,4 +117,4 @@ Tester 第一轮 2 个 FAIL 是 **F038 两个 S 层守卫**（DEF-1），不含�
 | 派生视图漂移 | `python3 scripts/render_project_views.py`（无 `--write`） | `PROJECT VIEWS VALID`（无漂移） | `artifacts/plan-render.log` |
 | 迁移链 | `alembic heads` = `0015_user_cluster_authorizations`；本地测试库 `alembic current` 无输出（该库由测试按 metadata 管理、未 stamp，属预期） | 与计划一致；容器内真实栈版本 `0015_user_cluster_authorizations`（`compose-ps.log`），空卷重建证明 `0001→0015` 全链 | `artifacts/alembic.log`、`compose-up.log` |
 
-A10 证据入库已完成（15 个 `.log` + 3 个文档经 `git ls-files` 证明；`.log` 通过 `git add -f` 入库，`.gitignore` 零 diff）。A12 待 Review 批准后由协调器执行。
+A10 证据入库已完成（17 个 `.log` + 3 个文档经 `git ls-files` 证明；`.log` 通过 `git add -f` 入库，`.gitignore` 零 diff）。A12 待 Review 批准后由协调器执行。

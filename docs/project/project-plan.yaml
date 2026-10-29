@@ -3247,7 +3247,7 @@ features:
   current_stage: REVIEW
   next_action: REVIEW：reviewer 复核 A1–A12 证据、DEF-1 修复正当性、Compose 口径与 NOT TESTED 诚实性。
   last_result: TEST 第二轮 READY FOR REVIEW：全新库 + 唯一进程下 A1 全量 pytest 969 passed / 6 skipped（1174s）；A2
-    147、A3 27、A4 48、A5 352+14、A6 113、A7 真实 Compose 61 步 0 FAIL、A9 归类完成；DEF-1（F038
+    147、A3 27、A4 48、A5 352+14、A6 113、A7 真实 Compose（round-1 42 步含 5 步驱动签名错误、round-2 15/15、round-3 空卷 4 步）、A9 归类完成；DEF-1（F038
     守卫基线）已钉区间修复且未放宽断言；第一轮 2 个性能失败归因为并发进程 + 膨胀测试库（如实记录）。
   layers:
     database: false
