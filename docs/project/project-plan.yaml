@@ -2840,10 +2840,14 @@ features:
   - F013
   - F027
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 待用户裁定 AQ-5（推荐 A：纳入 R07+R10）并批准 CHG-015 后置 READY。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R10（静态估算，未执行真实数据库性能测试）。未启动。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 复核候选 HEAD（A1–A8、K=11、EXPLAIN 判据、基线对照独立性、F016 BLOCKED
+    处置）并给出结论。
+  last_result: IMPLEMENTATION + TEST READY FOR REVIEW（TE-F039-1）：q_svc(1)==(10)==(50)==11
+    ≤ 20（K 实测钉死），HTTP 差值常数 C=1，P 轴恒 11；基线独立复测 14/68/308 且同一 A1 用例在基线上 FAIL（判据非平凡）；A2
+    逐项与 F010 端点相等、A4 负 remaining、A5 响应零 diff；EXPLAIN 无 Seq Scan；回归 15+12+11+33 全绿；F010
+    语句数 6/7/8 与基线相同。
   layers:
     database: false
     backend: true
@@ -2854,22 +2858,37 @@ features:
     frontend: 响应形状不变，前端零改动。
     contract: 无 Endpoint、字段、错误码或权限变化；容量与范围口径仍以 docs/api/F013.md 与 §20 为权威。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: COMPLETE
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
+    branch: feature/F039-dashboard-queries
+    start_commit: f66d1f33eb95fd54504e6c600ad32e7bc89ad9bd
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    backend:
+    - docs/features/F039/implementation.md
+    - backend/app/services/ip_capacity.py
+    - backend/app/services/dashboard.py
+    test:
+    - docs/features/F039/test-report.md#2-test-executionte-f039-12026-10-29
+    - backend/tests/integration/test_f039_query_count.py
+    architecture:
+    - docs/features/F039/architecture.md
+    test_design:
+    - docs/features/F039/test-report.md#1-test-designtd-f039-1v12026-10-29
+    contract:
+    - docs/features/F039/architecture.md#6-契约结论not_required零-diff
+    product:
+    - docs/features/F039/product.md
 - id: F040
   title: 前端依赖版本范围与架构升级策略对齐（R07）
   kind: ENABLER
@@ -3846,11 +3865,10 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
-  last_result: F037 / F038 / F040 / F041 DONE（均合入 v3.4）。F041：VM Host 与 Resource 创建页
-    Cluster 改为服务端检索+分页（§28.1 / T127–T129）。
-  next_action: 继续：F039（R10 Dashboard）→ F043（R08 测试入口）→ F045（整体回归，恢复 acceptance=COMPLETE）。
+  current_feature: F039
+  current_stage: REVIEW
+  last_result: F037–F041 DONE（F039 启动 PRODUCT）。
+  next_action: F039 PRODUCT Gate。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -3861,10 +3879,9 @@ planning_status:
     DONE: 40
     DRAFT: 1
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 2
+    IN_REVIEW: 1
+    READY: 1
   ready_features:
-  - F039
   - F043
   blocked_draft_features:
     BLOCKED: []

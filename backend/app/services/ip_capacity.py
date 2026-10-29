@@ -17,9 +17,11 @@ from __future__ import annotations
 
 import ipaddress
 import uuid
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import cast, func, select
+from sqlalchemy import and_, cast, func, select
 from sqlalchemy.dialects.postgresql import INET
 
 from app.models.ip_address import IPAddress
@@ -40,6 +42,39 @@ _DISABLED_INTERVALS: list[Interval] = [
 
 def _int(address: str) -> int:
     return int(ipaddress.IPv4Address(address))
+
+
+def _address_bound(value: Any) -> Any:
+    """Render one range endpoint for the shared occupancy predicate.
+
+    Literal host integers become ``inet`` literals (per-object counts); column
+    references (``ip_pools.start_address`` / ``end_address``) are passed through
+    unchanged so the batch statement compares ``inet`` columns directly (F039 §3).
+    """
+    if isinstance(value, int):
+        return cast(str(ipaddress.IPv4Address(value)), INET)
+    return value
+
+
+def _undeleted_ips_in_range(
+    network_id: Any = None, lo: Any = None, hi: Any = None
+) -> list[Any]:
+    """Predicates selecting undeleted IP records (optionally inside ``[lo, hi]``).
+
+    Single definition of the §20 occupancy predicate, shared by the per-object
+    counts used by the F010 endpoint and by the F039 batch statements, so both
+    paths count the same rows (F039 §3 / AP-F039-4): undeleted only, no
+    ``interface_id`` predicate (unbound IPs occupy), no ``status`` predicate
+    (``INACTIVE`` rows are not zeroed), and by *current address* rather than by
+    allocation source.
+    """
+    clauses: list[Any] = [IPAddress.deleted_at.is_(None)]
+    if network_id is not None:
+        clauses.append(IPAddress.network_id == network_id)
+    if lo is not None and hi is not None:
+        clauses.append(IPAddress.address >= _address_bound(lo))
+        clauses.append(IPAddress.address <= _address_bound(hi))
+    return clauses
 
 
 def base_usable_intervals(cidr: str) -> list[Interval]:
@@ -98,17 +133,32 @@ def _reserved_pool_intervals(db: "Session", network_id: uuid.UUID) -> list[Inter
     return [(_int(str(row[0])), _int(str(row[1]))) for row in rows]
 
 
-def network_allocatable_intervals(
-    db: "Session", network: Network
+def allocatable_intervals_for(
+    network: Network, reserved: dict[uuid.UUID, list[Interval]]
 ) -> list[Interval]:
-    """Return the Network's allocatable integer intervals (§11.1/§12/§20)."""
+    """Pure §11.1/§12/§20 allocatable intervals for ``network`` (F039 §2).
+
+    ``reserved`` maps ``network_id`` to that Network's undeleted RESERVED pool
+    ranges; a missing key means "no RESERVED pools". The gateway exclusion is a
+    single point, so a gateway inside a RESERVED range is de-duplicated by
+    ``subtract_intervals`` (F039 A2).
+    """
     base = base_usable_intervals(str(network.cidr))
     exclusions: list[Interval] = list(_DISABLED_INTERVALS)
     if network.gateway is not None:
         gateway_int = _int(str(network.gateway))
         exclusions.append((gateway_int, gateway_int))
-    exclusions.extend(_reserved_pool_intervals(db, network.id))
+    exclusions.extend(reserved.get(network.id, []))
     return subtract_intervals(base, exclusions)
+
+
+def network_allocatable_intervals(
+    db: "Session", network: Network
+) -> list[Interval]:
+    """Return the Network's allocatable integer intervals (§11.1/§12/§20)."""
+    return allocatable_intervals_for(
+        network, {network.id: _reserved_pool_intervals(db, network.id)}
+    )
 
 
 def interval_contains(intervals: list[Interval], address: str) -> bool:
@@ -121,26 +171,17 @@ def interval_length(intervals: list[Interval]) -> int:
     return sum(hi - lo + 1 for lo, hi in intervals)
 
 
-def _count_ips(db: "Session", network_id: uuid.UUID, lo: int | None = None, hi: int | None = None) -> int:
-    filters = [
-        IPAddress.network_id == network_id,
-        IPAddress.deleted_at.is_(None),
-    ]
-    if lo is not None and hi is not None:
-        start = str(ipaddress.IPv4Address(lo))
-        end = str(ipaddress.IPv4Address(hi))
-        filters.append(IPAddress.address >= cast(start, INET))
-        filters.append(IPAddress.address <= cast(end, INET))
+def _count_ips(
+    db: "Session", network_id: uuid.UUID, lo: int | None = None, hi: int | None = None
+) -> int:
+    filters = _undeleted_ips_in_range(network_id, lo, hi)
     return int(
         db.execute(select(func.count()).select_from(IPAddress).where(*filters)).scalar_one()
     )
 
 
-def network_capacity(db: "Session", network: Network) -> dict[str, Any]:
-    """Compute the §20 Network capacity block for ``network``."""
-    intervals = network_allocatable_intervals(db, network)
-    total = interval_length(intervals)
-    occupied = _count_ips(db, network.id)
+def _capacity_block(total: int, occupied: int) -> dict[str, Any]:
+    """Single place computing §20 ``remaining`` (never clamped, Contract §6.9)."""
     return {
         "allocatable_total": total,
         "occupied": occupied,
@@ -148,13 +189,129 @@ def network_capacity(db: "Session", network: Network) -> dict[str, Any]:
     }
 
 
-def auto_pools_capacity(db: "Session", network: Network) -> list[dict[str, Any]]:
-    """Compute the §20 AUTO-pool capacity blocks for ``network``.
+@dataclass(frozen=True)
+class CapacityContext:
+    """Pre-fetched capacity inputs for a page of Networks (F039 §2).
 
-    ``allocatable_total`` is ``|pool range ∩ allocatable set|`` and
-    ``occupied`` counts undeleted IPs whose current address is in that
-    intersection (by address, not by allocation source).
+    Loaded by :func:`load_capacity_context` with three fixed batch statements and
+    read-only afterwards. It only carries *data*: ``reserved`` holds each
+    Network's undeleted RESERVED ranges, ``auto_pools`` holds ``(pool,
+    occupied)`` in ``(start_address, id)`` order, ``occupied`` holds the
+    Network-wide undeleted IP count (missing key = 0). All §20 arithmetic stays
+    in :func:`network_capacity` / :func:`auto_pools_capacity`.
     """
+
+    reserved: dict[uuid.UUID, list[Interval]]
+    auto_pools: dict[uuid.UUID, list[tuple[IPPool, int]]]
+    occupied: dict[uuid.UUID, int]
+
+
+def load_capacity_context(
+    db: "Session", networks: Sequence[Network]
+) -> CapacityContext:
+    """Pre-fetch the capacity inputs of ``networks`` (3 statements, F039 §3).
+
+    An empty page short-circuits with zero statements. The three batch
+    statements reuse ``_undeleted_ips_in_range`` so they count exactly the rows
+    the per-object path counts (A2). ``excl_ip_pools_network_id_address_range``
+    keeps same-Network pool ranges disjoint, so each IP matches at most one AUTO
+    pool and is never double counted.
+    """
+    reserved: dict[uuid.UUID, list[Interval]] = {}
+    auto_pools: dict[uuid.UUID, list[tuple[IPPool, int]]] = {}
+    occupied: dict[uuid.UUID, int] = {}
+    network_ids = [network.id for network in networks]
+    if not network_ids:
+        return CapacityContext(
+            reserved=reserved, auto_pools=auto_pools, occupied=occupied
+        )
+
+    # B1: RESERVED pool intervals per Network.
+    reserved_rows = db.execute(
+        select(IPPool.network_id, IPPool.start_address, IPPool.end_address).where(
+            IPPool.network_id.in_(network_ids),
+            IPPool.allocation_mode == "RESERVED",
+            IPPool.deleted_at.is_(None),
+        )
+    ).all()
+    for network_id, start_address, end_address in reserved_rows:
+        reserved.setdefault(network_id, []).append(
+            (_int(str(start_address)), _int(str(end_address)))
+        )
+
+    # B2: AUTO pools with their occupied count in one statement (LEFT JOIN keeps
+    # zero-occupancy pools; row order follows the per-Network F010 order).
+    pool_rows = db.execute(
+        select(IPPool, func.count(IPAddress.id))
+        .outerjoin(
+            IPAddress,
+            and_(
+                *_undeleted_ips_in_range(
+                    IPPool.network_id,
+                    IPPool.start_address,
+                    IPPool.end_address,
+                )
+            ),
+        )
+        .where(
+            IPPool.network_id.in_(network_ids),
+            IPPool.allocation_mode == "AUTO",
+            IPPool.deleted_at.is_(None),
+        )
+        .group_by(IPPool.id)
+        .order_by(
+            IPPool.network_id.asc(),
+            IPPool.start_address.asc(),
+            IPPool.id.asc(),
+        )
+    ).all()
+    for pool, pool_occupied in pool_rows:
+        auto_pools.setdefault(pool.network_id, []).append((pool, int(pool_occupied)))
+
+    # B3: Network-wide occupied count (missing Network = 0).
+    occupied_rows = db.execute(
+        select(IPAddress.network_id, func.count())
+        .select_from(IPAddress)
+        .where(
+            IPAddress.network_id.in_(network_ids),
+            *_undeleted_ips_in_range(),
+        )
+        .group_by(IPAddress.network_id)
+    ).all()
+    for network_id, network_occupied in occupied_rows:
+        occupied[network_id] = int(network_occupied)
+
+    return CapacityContext(
+        reserved=reserved, auto_pools=auto_pools, occupied=occupied
+    )
+
+
+def _network_inputs(
+    db: "Session", network: Network, context: CapacityContext | None
+) -> tuple[list[Interval], int]:
+    """Return ``(allocatable intervals, occupied)`` for ``network``.
+
+    With a ``context`` this is statement-free; without one it loads the same
+    data for a single Network, so the F010 endpoint keeps its signature and
+    statement count (F039 §2).
+    """
+    if context is not None:
+        return (
+            allocatable_intervals_for(network, context.reserved),
+            context.occupied.get(network.id, 0),
+        )
+    return network_allocatable_intervals(db, network), _count_ips(db, network.id)
+
+
+def _auto_pool_inputs(
+    db: "Session", network: Network, context: CapacityContext | None
+) -> tuple[list[Interval], list[tuple[IPPool, int]]]:
+    """Return ``(allocatable intervals, [(AUTO pool, occupied), ...])``."""
+    if context is not None:
+        return (
+            allocatable_intervals_for(network, context.reserved),
+            context.auto_pools.get(network.id, []),
+        )
     intervals = network_allocatable_intervals(db, network)
     pools = (
         db.execute(
@@ -169,22 +326,53 @@ def auto_pools_capacity(db: "Session", network: Network) -> list[dict[str, Any]]
         .scalars()
         .all()
     )
+    entries = [
+        (
+            pool,
+            _count_ips(
+                db,
+                network.id,
+                _int(str(pool.start_address)),
+                _int(str(pool.end_address)),
+            ),
+        )
+        for pool in pools
+    ]
+    return intervals, entries
+
+
+def network_capacity(
+    db: "Session", network: Network, *, context: CapacityContext | None = None
+) -> dict[str, Any]:
+    """Compute the §20 Network capacity block for ``network``.
+
+    ``context`` (F039) supplies pre-fetched inputs and costs zero statements;
+    ``None`` keeps the single-Network behaviour used by the F010 endpoint.
+    """
+    intervals, occupied = _network_inputs(db, network, context)
+    return _capacity_block(interval_length(intervals), occupied)
+
+
+def auto_pools_capacity(
+    db: "Session", network: Network, *, context: CapacityContext | None = None
+) -> list[dict[str, Any]]:
+    """Compute the §20 AUTO-pool capacity blocks for ``network``.
+
+    ``allocatable_total`` is ``|pool range ∩ allocatable set|`` and
+    ``occupied`` counts undeleted IPs whose current address is in that
+    intersection (by address, not by allocation source).
+    """
+    intervals, entries = _auto_pool_inputs(db, network, context)
     result: list[dict[str, Any]] = []
-    for pool in pools:
-        pool_lo = _int(str(pool.start_address))
-        pool_hi = _int(str(pool.end_address))
+    for pool, occupied in entries:
         total = interval_length(
-            intersect_with_range(intervals, pool_lo, pool_hi)
+            intersect_with_range(
+                intervals,
+                _int(str(pool.start_address)),
+                _int(str(pool.end_address)),
+            )
         )
-        occupied = _count_ips(db, network.id, pool_lo, pool_hi)
-        result.append(
-            {
-                "ip_pool": pool,
-                "allocatable_total": total,
-                "occupied": occupied,
-                "remaining": total - occupied,
-            }
-        )
+        result.append({"ip_pool": pool, **_capacity_block(total, occupied)})
     return result
 
 
