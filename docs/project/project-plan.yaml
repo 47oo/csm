@@ -2685,10 +2685,9 @@ features:
   - F035
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: 由 product-manager 产出 docs/features/F037/product.md 并要求 READY FOR ARCHITECT。
-  last_result: Preflight 通过；分支 feature/F037-import-parse-error-contract 自交付线 v3.4（start_commit
-    1c0eeaf）创建；进入 PRODUCT 阶段。
+  current_stage: IMPLEMENTATION
+  next_action: 'IMPLEMENTATION：backend 修改 resource_import.py（白名单 context manager + close 守卫 + lxml 条件条目）并自检，返回 BACKEND COMPLETE。'
+  last_result: 'ARCHITECTURE / TEST_DESIGN / CONTRACT 通过：architecture.md（含 §15 TD-I-1 lxml 裁定）READY FOR DESIGN→签核 READY FOR IMPLEMENTATION；TD-F037-1 TEST DESIGN READY（A1–A22→34 用例 + R1–R6）；F014 §1.2/§13 与 F023 v2 §1.2/§17 澄清附注落稿（版本不变）；Database NOT_REQUIRED。'
   layers:
     database: false
     backend: true
@@ -2699,10 +2698,10 @@ features:
     frontend: 无前端改动；两种输入载体（文件 / 文本）行为与服务端响应一致，无需界面调整。
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: COMPLETE
     backend: PENDING
     frontend: NOT_REQUIRED
     test: PENDING
@@ -2716,6 +2715,14 @@ features:
   evidence:
     product:
     - docs/features/F037/product.md
+    architecture:
+    - docs/features/F037/architecture.md
+    test_design:
+    - docs/features/F037/test-report.md#1-test-designtd-f037-1v12026-10-29
+    contract:
+    - docs/features/F037/architecture.md#159-最终设计签核contract-gate2026-10-29
+    - docs/api/F014.md
+    - docs/api/F023.md
 
 - id: F038
   title: 导入解压 / 解析内存边界加固（R05）
@@ -3774,7 +3781,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F037
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
     / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
     / AQ-6 已裁定，AQ-7 保持 OPEN。
