@@ -1,0 +1,7 @@
+=== L1 门禁独立复验：用 start_commit 的 smoke-client.mjs 输出与当前实现输出比对 ===
+baseline exit=0
+baseline lines=354
+current  lines=354
+baseline tail: 352 passed, 0 failed
+current  tail: 352 passed, 0 failed
+diff: EMPTY（逐字节等价）

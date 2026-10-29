@@ -1,0 +1,17 @@
+=== git diff --stat 8eec63b -- frontend/src frontend/package-lock.json backend docs/api docs/product docs/database ===
+(空 = 零 diff)
+
+=== git diff -U0 8eec63b -- frontend/package.json ===
+diff --git a/frontend/package.json b/frontend/package.json
+index dab49d1..4cb5ae1 100644
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -10,0 +11 @@
++    "test:interactions": "node scripts/test-interactions.mjs",
+=== git diff --numstat 8eec63b -- frontend/package.json frontend/package-lock.json ===
+1	0	frontend/package.json
+
+=== git diff --name-only 8eec63b -- docs/features ===
+docs/features/F043/architecture.md
+docs/features/F043/product.md
+docs/features/F043/test-report.md

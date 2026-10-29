@@ -327,6 +327,8 @@
  * 仅替换 globalThis.fetch 为受控响应）。
  */
 import assert from "node:assert/strict";
+import { createHarness } from "./lib/harness.mjs";
+import { report } from "./lib/report.mjs";
 import {
   getHealth,
   isApiError,
@@ -656,48 +658,18 @@ import {
   resourceCandidateItems,
 } from "../src/components/candidateSelectModel.ts";
 
+// F043：登记器 / fetch 桩 / 计数 / 报告抽到 scripts/lib/（architecture §3）；
+// 用例体与顺序均不变，输出与拆分前逐字节等价（F043-S03）。
 let respond = null;
 let handlerCalls = 0;
-let passed = 0;
-let failed = 0;
-const calls = [];
-
-const originalFetch = globalThis.fetch;
-globalThis.fetch = async (input, init) => {
-  calls.push({ url: String(input), init });
-  return respond(input, init);
-};
-
-function jsonResponse(status, body) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-async function expectApiError(promise) {
-  try {
-    await promise;
-  } catch (err) {
-    assert.ok(isApiError(err), `应为 ApiError，实际 ${err?.constructor?.name}`);
-    return err;
-  }
-  throw new assert.AssertionError({ message: "应抛出 ApiError，实际 resolve" });
-}
-
-async function test(name, fn) {
-  calls.length = 0;
-  handlerCalls = 0;
-  try {
-    await fn();
-    passed += 1;
-    console.log(`PASS: ${name}`);
-  } catch (err) {
-    failed += 1;
-    console.error(`FAIL: ${name}`);
-    console.error(`  ${err?.stack ?? String(err)}`);
-  }
-}
+const harness = createHarness({
+  label: "",
+  resolveRespond: () => respond,
+  onTestStart: () => {
+    handlerCalls = 0;
+  },
+});
+const { calls, jsonResponse, expectApiError, test, restore } = harness;
 
 // 统计全局 401 处理器触发次数（应用壳用它清登录态回登录页）
 setUnauthorizedHandler(() => {
@@ -9711,7 +9683,6 @@ await test("F041 F-12 提交拒绝语义不变（A10）：候选态不被错误�
 
 // 还原全局状态
 setUnauthorizedHandler(null);
-globalThis.fetch = originalFetch;
+restore();
 
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed > 0 ? 1 : 0);
+process.exit(report({ passed: harness.passed, failed: harness.failed }));

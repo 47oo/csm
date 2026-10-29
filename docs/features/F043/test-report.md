@@ -1,6 +1,6 @@
 # F043 前端交互回归可重复入口与 smoke 拆分（R08）— TEST REPORT
 
-- **状态**：§1 **TEST DESIGN READY（TD-F043-1）**。该词仅表示「方案可验证」，**不是测试通过**，不批准实现或合并；执行结果待实现完成后另立 §2（本文件当前无 §2、无任何执行 PASS）。
+- **状态**：§1 **TEST DESIGN READY（TD-F043-1）**（该词仅表示「方案可验证」，不是测试通过）；§2 **READY FOR REVIEW**（2026-10-29 独立执行：A1–A9 PASS、A10 结构部分 PASS；X4 与整体验收 = NOT TESTED）。
 - **版本**：TD-F043-1 v1（2026-10-29）；角色 tester；Feature F043（ENABLER / P2 / M30，`layers` 全 false、`api_required=false`、`depends_on: []`）。
 - **分支 / 基线**：`feature/F043-test-entry`；`start_commit=8eec63b`；核对时 `HEAD=e7eec88`（PRODUCT READY FOR ARCHITECT）；工作树 clean（`git status --porcelain` 空）；plan revision 25 / requirements revision 16。
 - **Basis**：`docs/features/F043/product.md` v1（A1–A10、§3 五类交互、N1–N8、ON-1..ON-7）；requirements rev16 §31；AQ-4=B；`docs/project/handoff.md`；`docs/project/implementation-rules.md`；先例 `docs/features/F041/test-report.md` §1。写权限：仅写本文件 §1，未改代码/计划/契约/Schema，探测临时文件在 `/tmp/f043probe/`，无 Git 写操作。
@@ -112,4 +112,60 @@
 
 **结论**：`TEST DESIGN READY`（仅代表 A1–A10 已可映射为可重复、可观察的验证项；未执行任何用例，不代表测试通过，不批准实现或合并）。
 
-GIT: NONE
+## 2. TEST（独立执行 2026-10-29）
+
+- **结论**：`READY FOR REVIEW`——A1–A9 PASS、A10 结构部分 PASS；X4 与整体/部署等价验收 `NOT TESTED`（§2.5）。执行基线 `HEAD=7b67289`、`start_commit=8eec63b`，工作区含 F043 未提交改动；本次只读执行，未改生产/测试代码、`package.json` 或 Schema，无 Git 写操作。
+- **Environment**：Linux 5.15.167.4-microsoft-standard-WSL2；Node **v22.23.3**（`process.versions.node`=22.23.3）/ npm **10.9.9**；`frontend/node_modules` 存在，另做无依赖隔离复验（§2.3）；无浏览器二进制、无第三方 import 参与。
+- **Basis**：`product.md` v1 A1–A10 / N1–N8；`architecture.md` ARCH-F043-1 v1（§4、§5 X1–X4、§6 C01–C14、I-1…I-4）；`implementation.md` IMPL-F043-1 v1；本文件 §1 TD-F043-1。
+- **产物**：`docs/features/F043/artifacts/`（环境、typecheck/build、两次入口日志、diff、审计、隔离/离线、突变证明、探针共 18 文件）；`/tmp` 探针与突变副本不入库、已清理。
+
+### 2.1 A1–A10 逐条判定（独立复跑，未复制实现者结果）
+
+| A | 判定 | 独立证据（本轮实测） |
+| --- | --- | --- |
+| A1 | **PASS** | `node scripts/smoke-client.mjs` exit 0、`352 passed, 0 failed`、354 行；`node scripts/test-interactions.mjs` exit 0、`14 passed, 0 failed`；两次运行 `diff -q` **空**（`artifacts/smoke-diff.txt`、`interactions-diff.txt`） |
+| A2 | **PASS** | 打印 14 条、C-ID 集合 = {C01..C14}（无缺/无多/无重）：①=C01/C02/C03、②=C04/C05、③=C06/C07/+C08[S-STATIC]、④=C09/C10/+C11[S-STATIC]、⑤=C12/C13/+C14[S-STATIC]（`probe-interactions.log`） |
+| A3 | **PASS** | 五类各 ≥1 非静态正例 + ≥1 非静态负例（同上探针逐类 OK）；可观察量=请求次数/URL/payload/状态机输出，无「正常/正确」类禁词（新脚本命中 0；smoke 内 2 处为 start_commit 既有 F022 文案，零 diff） |
+| A4 | **PASS** | 用例名集合与顺序与 `8eec63b` 版本**完全相同**（352/352，missing=0、added=0）；`caseAudit` exit 0、`total=352`、`skip_hits=0`；用 `git show 8eec63b:.../smoke-client.mjs` 独立运行，输出与当前实现 **逐字节相同**（354 行、`352 passed, 0 failed`） |
+| A5 | **PASS** | `git diff --stat 8eec63b -- frontend/src frontend/package-lock.json backend docs/api docs/product docs/database` **空**；`smoke-client.mjs` 差异仅 3 hunk / +14 −39，`await test(` 增删 **0**，被删 `assert` 2 行经比对为移入 `lib/harness.mjs` 的 `expectApiError`（函数体逐行相同）；`docs/features` 仅 F043 三文件 |
+| A6 | **PASS** | `npm run typecheck` exit 0（无输出）；`npm run build` exit 0（`✓ built in 24.54s`，仅既有 >500kB 警告）；`npm run smoke:client` → `352 passed, 0 failed` |
+| A7 | **PASS** | `scripts/**` 中 `playwright\|puppeteer\|chromium\|webdriver\|jsdom` 命中 **0**；`from "(react\|react-dom\|antd\|esbuild)` 命中 **0**；`unshare -n`（无 DNS）下两入口分别 14/0 与 352/0 仍 exit 0，请求全走被替换的 `globalThis.fetch`（`isolation-offline.log`）。注：本沙箱常态出口亦不可达，故「离线」由无 DNS 命名空间复验支撑 |
+| A8 | **PASS** | 证据入库：`docs/features/F043/artifacts/**`（18 文件，含入口日志、baseline 对比、diff 清单、审计、突变证明）+ `implementation.md` §2 映射表；未执行项（X4、真实落库/浏览器 E2E、整体验收）逐条标注 NOT TESTED / NOT_REQUIRED |
+| A9 | **PASS** | `frontend/package-lock.json` 零 diff；`git diff --numstat 8eec63b -- frontend/package.json` = `1 0`，`-U0` 唯一新增行 `+    "test:interactions": "node scripts/test-interactions.mjs",`（符合 I-1）；`dependencies`/`devDependencies` 零变更 |
+| A10 | **PASS（结构部分）** | `git diff --name-only 8eec63b -- docs/features` 仅 F043；未改任何已 DONE Feature 证据；报告与入口均未声明整体验收通过。整体回归 / 部署等价 **NOT TESTED**（F045 承接，见 TD §1.3） |
+
+### 2.2 判据非平凡性（证明审计有效，非空判据）
+
+在 `/tmp` 副本上突变（不改仓库，事后已删除）：`M1` 改名 1 条 smoke 用例 → `caseAudit` **MISMATCH / exit 1**（digest 与 sorted 均变，计数仍 352 ⇒ 改名可抓）；`M2` 删除 1 条 smoke 用例 → exit 1（`登记点 351，台账 352`）；`M6` 一条改 `test.skip` → exit 1（`skip / 注释停用命中 1 处`）；`M3` 删除 C05 → 打印 13 ≠ 14，探针判 **FAIL**；`M4` C13→C13X 改名 → C-ID 集合缺 C13，探针判 **FAIL**；`M5` 把 `src` 的 `CANDIDATE_PAGE_SIZE` 由 100 改 50 → C01/C02 **FAIL**、exit 1（断言非真空）。反证：`M2` 下 smoke 自身仍 352→351 且 **exit 0**，即删除检测完全依赖 `caseAudit`（见 F043-TN-4）。证据 `artifacts/non-triviality.log`。
+
+### 2.3 无 node_modules 隔离复验
+
+仅拷 `scripts/` + `src/` + `package.json` 到 `/tmp/f043mut`（确认无 `node_modules`）：`node scripts/test-interactions.mjs` → `14 passed, 0 failed` exit 0；`node scripts/smoke-client.mjs` → `352 passed, 0 failed`；`node scripts/lib/caseAudit.mjs` → OK exit 0。与实现者 §3 R4 结论一致且为独立复现（`artifacts/isolation-offline.log`）。
+
+### 2.4 Defects（均不阻塞，无需修复项）
+
+| ID | Severity | Layer | Location | 期望 / 实际 | Owner |
+| --- | --- | --- | --- | --- | --- |
+| F043-TN-1 | NOTE | 测试代码 | `scripts/interaction/importCarrier.mjs` C10 | 期望面板门控由真实源码/谓词给出；实际 `validatePassed`/`canConfirm` 为测试内镜像（已注释披露）。④ 的 A3 可观察量仍由 C09 真实导出与 C10 `calls.length===0`/`importTargetKey` 不等性支撑，C11 静态兜底真实结构 | Frontend（后续可抽谓词，需 A5 放行） |
+| F043-TN-2 | NOTE | 设计文本 | `architecture.md` §5 X1 / §4 digest 前缀 | 文本记「`reset()` 各恰 1 次」「digest 前缀 `b3f230b7`」；实际源码 2 处、实测 digest `4d43366f…`。实现按真实值断言（更严格、已披露），但架构文本未同步 | Architect（文档订正，不影响本判决） |
+| F043-TN-3 | NOTE | 测试基础设施 | TD §1.4 C03 vs 实现 C03 | TD 曾拟「`page:2`/`page_size:101` 入参不进入请求构造路径」子场景；实现按已签核 §6 只断言 URL 参数上下界。以签核 §6 为判据，非放宽 | Tester（后续 TD 升版时对齐） |
+| F043-TN-4 | LOW | 测试基础设施 | `frontend/scripts/lib/caseAudit.mjs` | 防删除审计无 `npm run` 入口（仅 `node scripts/lib/caseAudit.mjs`），易漏跑；I-1 限定 `package.json` 仅一行，本轮不扩权 | 协调器 / Architect |
+
+### 2.5 未验证项（NOT TESTED，不记 PASS）
+
+1. **X4 `src/App.tsx` 全局 401 处理器注册点**：`NOT TESTED`——② 的「登录态只清一次」仅由 client 层 `handlerCalls===1` 覆盖（架构 §5 I-4）。本轮已核报告未将其写成 PASS（`implementation.md` §2/§5、`architecture.md` §5 均标 NOT TESTED）。
+2. 真实 ≥101 对象落库、服务端 409 真路径、浏览器 E2E/DOM 行为、部署等价与整体验收（T127/T128、§31–§33）：`NOT TESTED` / `NOT_REQUIRED`，属 F041 I 层与 F045；局部 PASS 不拼整体 PASS。
+3. 重复性只做 2 次连续运行；更长周期漂移未验。
+
+GIT: git status --porcelain
+GIT: git rev-parse --short HEAD
+GIT: git rev-parse --short 8eec63b
+GIT: git log --oneline -3
+GIT: git diff --stat 8eec63b
+GIT: git diff --stat 8eec63b -- frontend/src frontend/package-lock.json backend docs/api docs/product docs/database
+GIT: git diff --stat 8eec63b -- frontend/scripts/smoke-client.mjs
+GIT: git diff 8eec63b -- frontend/scripts/smoke-client.mjs
+GIT: git diff -U0 8eec63b -- frontend/package.json
+GIT: git diff --numstat 8eec63b -- frontend/package.json frontend/package-lock.json
+GIT: git diff --name-only 8eec63b -- docs/features
+GIT: git show 8eec63b:frontend/scripts/smoke-client.mjs
