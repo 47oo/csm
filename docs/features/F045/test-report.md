@@ -108,3 +108,13 @@ Tester 第一轮 2 个 FAIL 是 **F038 两个 S 层守卫**（DEF-1），不含�
 ### 3.3 未验证项（不计 PASS）
 
 真实 OOM、无 `lxml` 镜像、`LargeZipFile`/`InvalidFileException`/`EOFError` 可达性、5000 行写入的 S-W2 原规模、性能阈值长期稳定性、非 linux-x64 与 registry 长期可用性、浏览器视觉/DOM/屏幕阅读器与真实点击流（AQ-4=B）、A8/A12（协调器）。
+
+## 4. A8（协调器执行，2026-10-29）
+
+| 项 | 命令 | 结果 | 证据 |
+| --- | --- | --- | --- |
+| 计划状态校验 | `python3 scripts/validate_project_state.py --feature F045` | `PROJECT STATE VALID` | `artifacts/plan-validate.log` |
+| 派生视图漂移 | `python3 scripts/render_project_views.py`（无 `--write`） | `PROJECT VIEWS VALID`（无漂移） | `artifacts/plan-render.log` |
+| 迁移链 | `alembic heads` = `0015_user_cluster_authorizations`；本地测试库 `alembic current` 无输出（该库由测试按 metadata 管理、未 stamp，属预期） | 与计划一致；容器内真实栈版本 `0015_user_cluster_authorizations`（`compose-ps.log`），空卷重建证明 `0001→0015` 全链 | `artifacts/alembic.log`、`compose-up.log` |
+
+A10 证据入库已完成（15 个 `.log` + 3 个文档经 `git ls-files` 证明；`.log` 通过 `git add -f` 入库，`.gitignore` 零 diff）。A12 待 Review 批准后由协调器执行。
