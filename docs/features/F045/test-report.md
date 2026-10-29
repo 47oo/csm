@@ -5,6 +5,10 @@
 
 ## §1 TEST DESIGN — TD-F045-1（v1，2026-10-29）｜结论：`TEST DESIGN READY`
 
+> 报告 head 说明：本报告证据取自 `fa8a568`（Base）之后的验收分支；`backend/app` 全程零 diff，故 A1 绿色运行（`03dc01f` 之后仅文档提交）对当前候选仍成立。当前候选 head 见 `docs/project/project-plan.yaml` 的 `git.head_commit`。
+
+**变更授权记录（M-3）**：本轮唯一代码类改动是 `backend/tests/integration/test_f038_parse_bounds.py`（DEF-1，测试资产），超出 architecture §10「放行写入仅 `docs/features/F045/**`」。授权方：协调器（测试资产修正），理由与范围：仅把两处 S 层 diff 守卫的上界从「无上界」钉为 F038 自身 merge `adef87a`，断言未放宽、未改 `backend/app/**`；Review 已独立复核该区间恰含两个 service 文件、`adef87a` 为 `v3.4` 祖先。按 `docs/project/change-control.md`，测试资产修正不属于需求/架构变更，无需用户批准，但须留痕（本段即留痕）。
+
 **可验证性前提**：真实 PG 测试库 `csm_f045_test`（`127.0.0.1:55432`，postgres:16-alpine 容器 `csm-f037-pg`）；Compose 栈经 nginx `:18080`；现有测试/脚本/前端入口零改动即可覆盖 A1–A9（无需新增脚本，§6）。TD 仅判定「方案可验证」，不构成测试通过。
 
 | A | 判定式（全部满足才 PASS，否则 FAIL/BLOCKED） | 证据 |
@@ -39,7 +43,7 @@
 | A7 | PASS（Compose 真实栈） | `compose-up.log`/`compose-ps.log`/`http-acceptance.log`：`up -d --no-build` 拓扑+串序成立（db healthy → migrate exit 0 → bootstrap exit 0 → backend healthy → nginx）；因复用镜像构建于 2026-10-27 早于基线（4 个 `services/*.py` md5 不同，`a07-image-staleness.txt`），按 §2「镜像不可用」执行**一次** `up -d --build`，重建后 `backend/app/**.py` 与基线逐文件 md5 一致、前端 `dist/assets/index-*.js` 与本地 `npm run build` 产物 md5 一致；空卷重建复跑证明容器内 `alembic upgrade head` 全链 `0001→0015`（15 条）与 `bootstrap: created initial admin 'admin'`。经 nginx `:18080` 真实 HTTP 分三轮执行（round-1 42 步含 5 步为驱动签名错误、round-2 15 步 0 FAIL、round-3 空卷冒烟 4 步，详见 §3.2；**不得合并表述为「61 步 0 FAIL」**）：§32 关键路径 42 步（登录/Cluster/BareMetal/VM+Host/Interface/Network/Pool MANUAL+AUTO/Service/Endpoint/手动+自动 IP 绑定/按 hostname·IP·Cluster·Service 查询/全局搜索/Dashboard/整批导入 created=2/Audit）+ 逻辑删除与 ADMIN 恢复 15 步（`?version=` 契约修正后）+ 空卷冒烟 4 步；重复 hostname/IP/Cluster code 409、非法 CIDR 422、跨 Cluster Host 绑定 422 均实测阻断。收尾 `down -v`（容器与卷已删） |
 | A8 | **NOT TESTED（协调器执行）** | Tester 未执行；命令见 `env.md` §3。仅附只读旁证：栈内 `alembic_version=0015_user_cluster_authorizations`（`compose-ps.log`），判定权归协调器 |
 | A9 | PASS | `a09-review-classification.md`：六份 review 的 NOT TESTED/BLOCKED 逐条归类；F039 唯一 BLOCKED（`F016_ACCEPTANCE=1`）本轮转实测 PASS；F040 F-02（`.log` 未入库）本轮核查已闭环；F038 F-2（3× ruff F811）本轮复核**仍存在**；余项如实重记 |
-| A10 | **PASS（协调器补齐）** | 26 个 `.log`/证据文件均 `git ls-files` 跟踪（`git add -f`，`.gitignore` 零 diff）；`full-pytest.log` 统一为单一终态 header（cmd/start_commit/head/env/started_at/finished_at/tool_versions/exit_code），`alembic.log`、`compose-ps.log` 已补 header；个别早期日志（`a02`..`http-acceptance`）由 Tester 生成，header 字段以 `observed_at` 等变体出现，差异如实登记 |
+| A10 | **PASS（协调器补齐，含如实差异披露）** | 19 个 `.log` 全部 `git ls-files` 跟踪（`git add -f`；`.gitignore` 零 diff）。header 合规情况：`full-pytest.log`、`full-pytest-run2-concurrent.log`、`full-pytest-run5-slowhost.log`、`perf-idle-check.log`、`alembic.log`、`compose-ps.log` 含 cmd/start_commit/head/env/时间戳/`tool_versions`/`exit_code`（个别为 `NOT RECORDED`/近似，已标注）；**未达标并如实披露**：`plan-validate.log`、`plan-render.log`（缺 start_commit/env/时间戳/tool_versions）、`compose-up.log`（仅 `build_exit_code`）；`a02`..`http-acceptance` 由 Tester 生成，header 以 `#` 注释与 `observed_at` 变体呈现 |
 | A11 | 遵循 | A8 标 NOT TESTED；未执行/不可测项均标 NOT TESTED 并给原因；无估算值充当 PASS |
 | A12 | **NOT TESTED** | 协调器职责，未执行 |
 
@@ -138,3 +142,28 @@ A10 证据入库已完成（17 个 `.log` + 3 个文档经 `git ls-files` 证明
 | `tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline` | 同上（530s–702s） | run2、run5 | 同上；与 F023/F028 功能正确性无关（同模块功能用例全绿） |
 
 **如实声明**：本机无法稳定满足该 180s 阈值（此主机明显慢于原始基线主机），故「任意一次全量运行都通过」不可承诺；A1 以 run3（无排除项全绿）+ 上述 flaky 登记与双次复现证据为准，**未把 2 个失败改写为 PASS**。run3 与 run2 存在约 19 分钟并发重叠（见 §3.2b），重叠只会使通过更难，不推翻 run3 的绿色结论。
+
+## 6. 性能阈值用例的最终归因与升级（协调器，2026-10-29）
+
+### 6.1 同代码多次运行证据（`backend/app` 全程零 diff）
+
+| 运行 | 库状态 | 两节点结果 | 备注 |
+| --- | --- | --- | --- |
+| Tester 第一轮（`d6a4f4d`） | 复用 `csm_f045_test` | **PASS**（该轮 2 FAIL 均为 F038 守卫） | 最早一次全量 |
+| run3（A1 依据） | `csm_f045_test` 重建后 | **PASS** | 969 passed / 1174s |
+| run2 | 复用且膨胀 + 并发 | FAIL（228.6s） | 3174s |
+| run5 | `csm_f045_test2` 全新 | FAIL（230.7s） | 3149s |
+| 隔离复跑（`perf-idle-check.log`） | `csm_f045_test2` 全新、16 核、load≈1.6–3.1 | FAIL（`write=705.6s`、`validate=113.7s`） | 仅跑 2 个节点，总 1072s |
+
+### 6.2 观察与假设
+
+- 通过的两轮都是**复用/已预热**的库；失败的三轮都是**刚 DROP/CREATE** 的全新库。隔离复跑中 `validate` 也从 27s 升到 113.7s，说明**与写入路径无关的整体变慢**（更符合冷缓存/缺统计信息，而非某段代码退化）。
+- 但假设**未被证实**：本轮未做 `ANALYZE`/缓存预热对照实验，也未采集 iostat/steal（仅有 `/proc/loadavg` 与 CPU jiffies 起止）。
+- 无法据此断言「无性能回归」，也无法断言「有回归」。
+
+### 6.3 结论与升级（不自行裁定）
+
+- 两个节点 `tests/integration/test_import_performance.py::test_import_near_max_rows_baseline`、`tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline` 在本机**既非稳定通过也非稳定失败**，且方差与「库是否新建」强相关。
+- 已按 architecture §3 第四类登记为 **环境敏感 / 已复现 flaky**，**不计 PASS、不改写为 PASS、不改阈值、不改产品代码**。
+- **升级**：阈值（180s / 600s，源自更快的原始基线主机）与本机实际能力不匹配，属**测试资产适配问题**，需要用户在 F045 收口时裁定其一：(a) 记为环境限制下 NOT TESTED/flaky 并保留 A1 其余证据收口；(b) 另立 Feature 调查导入写入性能并按需重定阈值（须走变更控制，不在本轮私自改）。
+- 因此本报告**不声明 A1「在任何环境下通过」**，A1 的 PASS 仅指 run3 那次全量无排除项全绿。

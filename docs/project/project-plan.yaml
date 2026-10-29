@@ -3894,8 +3894,8 @@ execution:
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F045
   current_stage: REVIEW
-  last_result: 'F045：A1 全量 969 passed/6 skipped（全新库、唯一进程）；A2 147 / A3 27 / A4 48 / A5 352+14 / A6 113；A7 真实 Compose（round-1 42 步 5 步驱动错误、round-2 15/15、round-3 空卷 4 步）；A8 已由协调器执行（validate VALID、render 无漂移、alembic head 0015）。'
-  next_action: 'F045 Review 第二轮复核（口径修正后）；通过后 Merge 并恢复 project.acceptance=COMPLETE。'
+  last_result: 'A1 以 run3 全量 969 passed/6 skipped 为依据（无排除项）；同代码另 3 次运行命中同一对性能阈值用例（run2 并发脏库 228.6s、run5 全新库 230.7s、隔离复跑 705.6s），已登记为环境敏感 flaky 并在 test-report §6 升级待用户裁定（不改阈值/不改产品代码）；A2–A9 证据齐全；DEF-1 已修复（测试资产，留痕见报告 §1）。'
+  next_action: 'F045 收口待用户裁定：性能阈值用例经环境敏感 flaky 登记后是否可作为环境限制收口（选项 a），或另立 Feature 调查导入写入性能并重定阈值（选项 b）。裁定前 acceptance 保持 PENDING。'
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS

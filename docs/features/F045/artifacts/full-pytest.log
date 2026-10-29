@@ -6,7 +6,7 @@ started_at: 2026-10-29T17:49:19Z
 finished_at: 2026-10-29T18:08:53Z
 tool_versions: Python 3.12.7 / pytest 7.4.4 / Node v22.23.3 / npm 10.9.9 / Docker server 29.8.2 (client 26.1.2) / Compose v5.6.0 / PostgreSQL 16.15
 exit_code: 0
-note: 本文件为 A1 的绿色终态运行（969 passed / 6 skipped）。另两次全量运行（run2 并发、run3'≤本目录 full-pytest-run5-slowhost.log）在同一代码上命中同一对性能阈值用例，归因见 test-report §3.4。
+note: 本文件为 A1 的绿色终态运行（969 passed / 6 skipped）。另两次全量运行（full-pytest-run2-concurrent.log 并发脏环境、full-pytest-run5-slowhost.log 全新库慢宿主）在同一代码上命中同一对性能阈值用例，归因见 test-report §5 与 §6。
 ----........................................................................ [  7%]
 ........................................................................ [ 14%]
 ........................................................................ [ 22%]
