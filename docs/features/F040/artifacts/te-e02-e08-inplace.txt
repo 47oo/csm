@@ -1,0 +1,27 @@
+### F040 TE — E-02 in-place npm ci x2 (reproducibility) (2026-10-29T20:23:07+08:00)
+backup=/tmp/f040-te-node_modules-backup-20261029202230 (top-level=64, outside repo)
+--- run 1 ---
+
+added 150 packages in 19s
+elapsed=19.61s
+run1-exit=0
+--- run 2 (re-run to prove reproducibility) ---
+
+added 150 packages in 15s
+elapsed=15.04s
+run2-exit=0
+--- hidden lockfile entries ---
+entries=150
+--- ERESOLVE/EUSAGE in either log ---
+/tmp/f040-te-ci-inplace-1.log:0
+/tmp/f040-te-ci-inplace-2.log:0
+--- E-08: post sha256 vs pre ---
+de893314ee9472576ed8a68b5a2e1590fbea06029dac6b54cf733084d53bf687  frontend/package.json
+471d775c7c242c3dcb5896b60dc8fd0d06efdf592037546373b3a4c03aa5606a  frontend/package-lock.json
+LOCK-UNCHANGED
+--- git status for the two files ---
+ M frontend/package-lock.json
+ M frontend/package.json
+status-lines=2
+--- top-level node_modules count ---
+64

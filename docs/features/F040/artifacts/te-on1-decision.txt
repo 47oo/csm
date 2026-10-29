@@ -1,0 +1,2 @@
+acceptance: `frontend/package.json` 中 antd / tailwindcss / @tailwindcss/vite 三个依赖的范围已收敛为 `~` 且与 `docs/architecture/frontend-ui-stack.md` §4 升级策略一致，lockfile 同步提交；`npm ci` / typecheck / build / smoke 通过，`npm ls` 显示实际安装版本仍为 antd 6.6.x 与 Tailwind 4.3.x；react / react-dom / vite / typescript / @ant-design/icons 的范围零变更；`docs/architecture/frontend-ui-stack.md` 零 diff；Architect 一行式符合性核对记录与 `npm ls` 输出已入 F040 architecture 文档；无跨次版本升级、无新增依赖、无页面行为变更。
+plan_revision: None

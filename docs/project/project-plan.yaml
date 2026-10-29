@@ -2894,10 +2894,14 @@ features:
   - docs/project/proposals/CHG-015-post-delivery-review-closeout.md
   depends_on: []
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: 'IMPLEMENTATION：frontend 手工改 package.json 与 package-lock.json（6 处字符串）+ 干净 npm ci + npm ls/typecheck/build/smoke 自检，补 architecture §7 锚点。'
-  last_result: 'ARCHITECTURE READY FOR DESIGN + CONTRACT 签核 READY FOR IMPLEMENTATION：彻底收敛三项范围为 ~（DR-F040-01/05），lockfile 根条目同步（DR-F040-03），禁 npm install 系命令（DR-F040-04）；契约 NOT_REQUIRED；TD-F040-1 覆盖 A1–A10（28 用例），D-F040-TD-05（S-03 判定式）必须在 TEST 前修正。'
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 复核候选 HEAD（范围、A1–A10、R-1..R-8、D-F040-TD-05 修正与 OBS/D-F040-TE-01
+    处置）并给出结论。
+  last_result: IMPLEMENTATION COMPLETE + TEST READY FOR REVIEW（TE-F040-1）：28 条用例 27
+    PASS / 1 NOT_APPLICABLE（S-12）/ 0 FAIL；A1–A10 全 PASS；clean npm ci ×3 exit 0（150
+    packages）、npm ls 实装 6.6.6/4.3.3/4.3.3、typecheck/build 0、smoke 340 passed 0 failed；lockfile
+    非根 221 条逐字节等价、222/215/215、numstat 3 3、两文件 sha256 全程未变。
   layers:
     database: false
     backend: false
@@ -2914,8 +2918,8 @@ features:
     test_design: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
-    frontend: PENDING
-    test: PENDING
+    frontend: COMPLETE
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
@@ -2924,6 +2928,12 @@ features:
     head_commit: null
     merge_commit: null
   evidence:
+    frontend:
+    - docs/features/F040/implementation.md
+    - frontend/package.json
+    - frontend/package-lock.json
+    test:
+    - docs/features/F040/test-report.md#2-test-executionte-f040-12026-10-29
     architecture:
     - docs/features/F040/architecture.md
     test_design:
@@ -3819,9 +3829,10 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F040
-  current_stage: IMPLEMENTATION
-  last_result: F037、F038 DONE。F040 启动（PRODUCT Gate）。
-  next_action: F040 PRODUCT Gate。
+  current_stage: REVIEW
+  last_result: F040 依赖范围收敛为 ~6.6.6 / ~4.3.3 / ~4.3.3（lockfile 根条目同步）；TE-F040-1 READY
+    FOR REVIEW（27 PASS/1 NA/0 FAIL，A1-A10 全 PASS），进入 REVIEW。
+  next_action: F040 REVIEW Gate。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -3831,8 +3842,8 @@ planning_status:
     CANCELLED: 2
     DONE: 38
     DRAFT: 1
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 3
   ready_features:
   - F039

@@ -1,0 +1,26 @@
+### diff vs start_commit adef87a for two files
+3	3	frontend/package-lock.json
+3	3	frontend/package.json
+### full diff stat vs adef87a
+ docs/features/F038/review-report.md |  98 ++++++
+ docs/features/F040/architecture.md  | 138 +++++++++
+ docs/features/F040/product.md       |  75 +++++
+ docs/features/F040/test-report.md   | 601 ++++++++++++++++++++++++++++++++++++
+ docs/project/backlog.md             |   6 +-
+ docs/project/milestones.md          |   4 +-
+ docs/project/project-plan.yaml      |  72 +++--
+ frontend/package-lock.json          |   6 +-
+ frontend/package.json               |   6 +-
+ 9 files changed, 961 insertions(+), 45 deletions(-)
+### untracked/modified now
+ M docs/features/F040/architecture.md
+ M frontend/package-lock.json
+ M frontend/package.json
+?? docs/features/F040/artifacts/
+### npm ping
+npm notice PONG   "pong": true,
+npm notice PONG   "use": 0.312392994761467
+npm notice PONG }
+### dist gitignored?
+frontend/.gitignore:2:dist/	frontend/dist
+frontend/.gitignore:1:node_modules/	frontend/node_modules

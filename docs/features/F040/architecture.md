@@ -117,8 +117,22 @@ Database `NOT_REQUIRED`（无 DDL / Migration / 索引 / 数据行为；`docs/da
 
 > 填写规则：E-02 完成后执行 `cd frontend && npm ls antd tailwindcss @tailwindcss/vite 2>&1 | tee ../docs/features/F040/artifacts/npm-ls.txt; echo "exit=${PIPESTATUS[0]}"`，把**完整原始输出逐字粘贴**到下方锚点之间（含首行路径、树形符号与 `exit=`），不得改写或节选；同时记录 `npm --version` 与执行时间。
 
+- **执行环境**：`npm --version` = `10.9.9`；`node --version` = `v22.23.3`；registry = `https://registry.npmmirror.com/`
+- **执行时间**：2026-10-29 20:20:14 +0800（工作区原地 `npm ci` 完成后 2s；`npm ci` 于 20:20:12 结束，`exit=0`，`added 150 packages in 9s`）
+- **对应证据**：`docs/features/F040/artifacts/npm-ls.txt`（本锚点内容与之逐字一致）
+
 <!-- F040-NPMLS-BEGIN -->
-（待 Frontend 粘贴；未填前 S-09 判 BLOCKED）
+```text
+csm-frontend@0.1.0 /home/hanhao/github/47oo/csm/frontend
+├─┬ @tailwindcss/vite@4.3.3
+│ ├─┬ @tailwindcss/node@4.3.3
+│ │ └── tailwindcss@4.3.3 deduped
+│ └── tailwindcss@4.3.3 deduped
+├── antd@6.6.6
+└── tailwindcss@4.3.3
+
+exit=0
+```
 <!-- F040-NPMLS-END -->
 
 **A2 复核（填后生效）**：粘贴内容须含 `antd@6.6.6`、`tailwindcss@4.3.3`、`@tailwindcss/vite@4.3.3` 三行，且与 `artifacts/npm-ls.txt` 逐字一致。

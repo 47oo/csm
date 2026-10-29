@@ -1,0 +1,31 @@
+--- (a) 6.6.x / 4.3.x / npm ls / version lines ---
+7:- **文件基线（只读核对）**：`frontend/package.json` = `dependencies` **4** 项 + `devDependencies` **7** 项（`tailwindcss`/`@tailwindcss/vite` 属 devDependencies）；`package-lock.json` `lockfileVersion=3`、`packages` 222 条（215 带 `resolved`+`integrity`）、`packages[""]` 与 `package.json` 逐字相同、三项安装版本 6.6.6 / 4.3.3 / 4.3.3；`@tailwindcss/vite@4.3.3` 以**精确版本**依赖 `tailwindcss: 4.3.3`；`vite.config.ts` 默认导入插件（无版本耦合代码）；`frontend/.gitignore` 含 `node_modules/`、`dist/`；全仓仅一个 `package.json`。
+19:§1/§4 只约束同一区间 4.3.x，未要求两包同版本；按 AGENTS §2.2 不新增规则。上游包自身以精确版本依赖 `tailwindcss: 4.3.3`，联动由上游保证。若需更强联动须先扩写 §4（架构变更，不在 F040 范围）。
+54:| 1 | `antd` | `~6.6.6`（dependencies） | §1「Ant Design 6.6.x」+ §4「仅 6.6.x 内升级」 | 一致：允集 `>=6.6.6 <6.7.0` ⊆ 6.6.x，拒绝 6.7.x；无 `^` |
+55:| 2 | `tailwindcss` | `~4.3.3`（devDependencies） | §1「Tailwind CSS 4.3.x」+ §4「仅 4.3.x 内升级」 | 一致：允集 `>=4.3.3 <4.4.0` ⊆ 4.3.x；无 `^` |
+56:| 3 | `@tailwindcss/vite` | `~4.3.3`（devDependencies） | §1「官方 @tailwindcss/vite 插件」+ 4.3.x | 一致：同一已批准区间；不作等号绑定；`vite.config.ts` 零 diff |
+67:6. 证据落 `docs/features/F040/artifacts/**`（先 `mkdir -p`）；`npm ls` 原文写入本文 §7 锚点。
+86:TD 的「**不得用 `npm ls` 冒充 `npm ci`**」降级规则**有效且保留**（`npm ls` 只读磁盘树，无法证明 lockfile 自洽）。
+90:Database `NOT_REQUIRED`（无 DDL / Migration / 索引 / 数据行为；`docs/database/**` 零 diff；data-integrity 启用条件不成立）。Frontend 仅两文件 + 本文 §7 锚点补入 `npm ls` 原文。
+97:| R-2 | `~` 仍允许补丁升级：若用 `npm install` 解析可能与 `@tailwindcss/vite@4.3.3` 的**精确** `tailwindcss: 4.3.3` 产生嵌套副本，并改动三项 `resolved`/`integrity` | MEDIUM | 禁 `npm install` 系命令；E-08（`npm ci` 后两文件 sha256 不变 + `git status` 0 行）；D-04；`npm ls tailwindcss --all` 单一 4.3.3 且无嵌套目录 |
+102:| R-7 | 证据链缺口（§7 未补 `npm ls` 或拿旧树输出顶替） | MEDIUM | S-09 填后校验三行与 `artifacts/npm-ls.txt` 逐字一致；未填前判 `BLOCKED` 而非 PASS |
+116:## 7. `npm ls` 原始输出（锚点，待 Frontend 在干净 `npm ci` 后补入）
+118:> 填写规则：E-02 完成后执行 `cd frontend && npm ls antd tailwindcss @tailwindcss/vite 2>&1 | tee ../docs/features/F040/artifacts/npm-ls.txt; echo "exit=${PIPESTATUS[0]}"`，把**完整原始输出逐字粘贴**到下方锚点之间（含首行路径、树形符号与 `exit=`），不得改写或节选；同时记录 `npm --version` 与执行时间。
+127:├─┬ @tailwindcss/vite@4.3.3
+129:│ │ └── tailwindcss@4.3.3 deduped
+130:│ └── tailwindcss@4.3.3 deduped
+131:├── antd@6.6.6
+132:└── tailwindcss@4.3.3
+138:**A2 复核（填后生效）**：粘贴内容须含 `antd@6.6.6`、`tailwindcss@4.3.3`、`@tailwindcss/vite@4.3.3` 三行，且与 `artifacts/npm-ls.txt` 逐字一致。
+--- (b) §1/§4/逐项 consistency headers ---
+1:# F040 前端依赖版本范围与架构升级策略对齐（R07）— ARCHITECTURE 设计记录 + CONTRACT 最终签核
+50:### 1.6 与 `frontend-ui-stack.md` §1/§4 的一行式符合性核对（A2 骨架）
+--- (c) anchor block presence ---
+124:<!-- F040-NPMLS-BEGIN -->
+136:<!-- F040-NPMLS-END -->
+--- (d) three required npm ls lines inside anchor ---
+├─┬ @tailwindcss/vite@4.3.3
+│ │ └── tailwindcss@4.3.3 deduped
+│ └── tailwindcss@4.3.3 deduped
+├── antd@6.6.6
+└── tailwindcss@4.3.3

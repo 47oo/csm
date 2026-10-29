@@ -1,6 +1,6 @@
 # F040 前端依赖版本范围与架构升级策略对齐（R07）— TEST REPORT
 
-- **状态**：**TEST DESIGN READY（TD-F040-1）**；本文件当前只含 §1 TEST DESIGN，**不含 TEST 执行结果**（执行留待 TEST 阶段写 §2，届时补执行版本与证据）
+- **状态**：**READY FOR REVIEW（TE-F040-1）** — §1 TEST DESIGN（TD-F040-1，已按 D-F040-TD-05 / architecture §3 更正判定式与编号，见 §1.10）+ §2 TEST EXECUTION（28/28 用例执行完成，独立证据取自干净 `npm ci` 树）
 - **版本**：TD-F040-1 v1（2026-10-29）；角色 tester；Feature F040（ENABLER / P1 / M30，`layers={database:false,backend:false,frontend:true}`、`api_required=false`）
 - **分支 / 基线**：`feature/F040-dependency-ranges`；`start_commit=adef87a43d9c73465c815fe85b2577d5dd17a1f2`；设计时实测 `HEAD=109b61d`（`chore(F040): preflight` + `docs(F040): PRODUCT READY FOR ARCHITECT`）；plan revision 25；requirements revision 16
 - **Basis**：`docs/features/F040/product.md` v1（A1–A10、ON-1..ON-6）；`docs/architecture/frontend-ui-stack.md` §1（Ant Design 6.6.x / Tailwind CSS 4.3.x）与 §4（仅次版本内升级）；`docs/project/project-plan.yaml` F040 `acceptance`（plan revision 25）；`frontend/package.json`、`frontend/package-lock.json`；`.pi/skills/frontend-ui/SKILL.md`（验证命令口径）；`docs/project/implementation-rules.md`；`docs/project/handoff.md`（交接与缺陷格式）；`docs/project/project-state.md` §3（TEST_DESIGN Gate）；`/tmp/csm-review-2026-10-29.md` §R07（340 passed 基线来源）
@@ -112,31 +112,36 @@
 
 ---
 
-**S-03 — `package.json` 除三项范围外零 diff（A6）**
+**S-03 — `package.json` 除三项范围外零 diff（A6）** — **判定式已修正（D-F040-TD-05 / architecture §3 裁定，TE-F040-1 生效）**
+
+> **修正依据**：D-F040-TD-05「S-03 判定式把 scoped 包名按 `.` 切分 → 任何正确实现都假 FAIL」。旧式用 `path+"."+k` 拼接、再用 `d[0].split(".").pop()` 取末段，`devDependencies.@tailwindcss/vite` 会被 `split(".")` 切成 `["devDependencies","@tailwindcss/vite"]` 之外的碎片（`@tailwindcss/vite` 本身含 `.` → 末段变成 `vite`），白名单命中失败 → 正确实现被判 `bad !== []`。修正后：路径用 **`/`** 拼接并**保留完整 scoped 包名**，白名单为**完整路径** `dependencies/antd`、`devDependencies/tailwindcss`、`devDependencies/@tailwindcss/vite`。
 
 - 前置：同 S-01。
-- 命令：
+- 命令（修正后）：
   ```bash
   cd frontend && git show adef87a:frontend/package.json > /tmp/f040-pkg-base.json && node -e '
     const a=require("/tmp/f040-pkg-base.json"), b=require("./package.json");
-    const ALLOW=new Set(["antd","tailwindcss","@tailwindcss/vite"]);
-    const diffs=[]; const walk=(x,y,path)=>{
+    // D-F040-TD-05: join path with "/" and keep full scoped package names
+    const WHITELIST=new Set(["dependencies/antd","devDependencies/tailwindcss","devDependencies/@tailwindcss/vite"]);
+    const diffs=[];
+    const walk=(x,y,path)=>{
       const keys=new Set([...Object.keys(x||{}),...Object.keys(y||{})]);
       for (const k of keys){
-        const px=path?path+"."+k:k, xv=x&&x[k], yv=y&&y[k];
+        const px=path?path+"/"+k:k, xv=x&&x[k], yv=y&&y[k];
         if (xv&&yv&&typeof xv==="object"&&typeof yv==="object") walk(xv,yv,px);
-        else if (xv!==yv) diffs.push([px,xv,yv]);
+        else if (JSON.stringify(xv)!==JSON.stringify(yv)) diffs.push([px,xv,yv]);
       }};
     walk(a,b,"");
-    const ok=diffs.filter(d=>ALLOW.has(d[0].split(".").pop()));
-    const bad=diffs.filter(d=>!ALLOW.has(d[0].split(".").pop()));
-    console.log("allowed-diff:",JSON.stringify(ok));
-    console.log("forbidden-diff:",JSON.stringify(bad));
+    const allowed=diffs.filter(d=>WHITELIST.has(d[0]));
+    const bad=diffs.filter(d=>!WHITELIST.has(d[0]));
+    console.log("all-diffs:",JSON.stringify(diffs));
+    console.log("allowed-diff:",JSON.stringify(allowed));
+    console.log("forbidden-diff(bad):",JSON.stringify(bad));
     console.log("counts:",Object.keys(b.dependencies).length,Object.keys(b.devDependencies).length);'
   ```
-- 判定表达式：`bad === []` ∧ `allowed-diff` 恰好 3 条且路径分别为
-  `dependencies.antd` / `devDependencies.tailwindcss` / `devDependencies["@tailwindcss/vite"]` ∧
-  `Object.keys(dependencies).length === 4` ∧ `Object.keys(devDependencies).length === 7`（**实测基线 7，见 D-F040-TD-01**）。
+- 判定表达式（修正后）：`bad === []` ∧ `allowed-diff` 的路径集合**恰为**
+  `dependencies/antd` / `devDependencies/tailwindcss` / `devDependencies/@tailwindcss/vite` 这 3 条（不多不少）∧
+  `Object.keys(dependencies).length === 4` ∧ `Object.keys(devDependencies).length === 7`（**实测基线 7，见 D-F040-TD-01 裁定 DR-F040-05**）。
   `scripts` / `name` / `version` / `private` / `type` 由 `bad===[]` 覆盖（逐字不变）。
 - 证据落点：`artifacts/static.json` + 报告 §2 S-03 行
 - 对应：A6
@@ -243,10 +248,12 @@
 - 命令：
   ```bash
   git diff --name-only adef87a -- . | sed 's/^/CHANGED: /'
+  git diff --name-only 7754c67            # F040 preflight commit：F040 自身可归属的变更集
   ```
 - 判定表达式：`CHANGED` 集合 ⊆ 白名单正则
   `^frontend/(package\.json|package-lock\.json)$` ∨ `^docs/features/F040/` ∨ `^docs/project/`；
   且必须包含 `frontend/package.json` 与 `frontend/package-lock.json`。
+- **基线澄清（TE-F040-1 追加，见 §2 OBS-1）**：`start_commit=adef87a` 取在 F038 合并点，而 F038 自身的收尾提交 `abd097d chore(F038): mark feature complete`（仅 `docs/features/F038/review-report.md` + `docs/project/**`）落在 `adef87a..HEAD` 内，**不属于 F040 变更**。故 A10 判定以「F040 可归属变更集」= `git diff --name-only 7754c67`（+ 未跟踪的 `docs/features/F040/**`）为准；纯字面 `adef87a` 口径的结果须同时列出并说明差集来源，不得因 F038 收尾提交判 F040 FAIL。
 - 证据落点：`artifacts/git-scope.txt`
 - 对应：A10
 
@@ -554,7 +561,7 @@
 | --- | --- | --- |
 | registry 不可达（`npm ping` 失败）且缓存不足 | E-01/E-02 置 **`NOT TESTED`**（原因：环境不可达），A3/A4/A5 相应判 `NOT TESTED`；整体结论 `TEST BLOCKED`，不得写 READY | **不得**用 `npm ls` / `node_modules` 现有内容"证明 `npm ci` 通过"；不得改写 `/etc/hosts`、registry 或 `package-lock.json` 绕过 |
 | 缓存可用但网络不可达 | 允许 `npm ci --offline`（记录 `--offline` 变体与耗时），判定表达式不变；报告中注明离线变体 | 不得把 `--offline` 与在线结果混写为同一条证据 |
-| `semver` 包不可用（D 层，依赖传递安装） | D-01/D-02/D-03/D-10 改为等价正则判定：`~X.Y.Z` ⇒ 允许补丁、拒绝 minor 变化；仍必须给出逐条结论 | 不得因工具缺失跳过 D 层而不说明；不得把 `npm ls` 当作 range 语义证据 |
+| `semver` 包不可用（D 层，依赖传递安装） | D-01/D-01b/D-02/D-03 改为等价正则判定：`~X.Y.Z` ⇒ 允许补丁、拒绝 minor 变化；仍必须给出逐条结论（编号更正：原「D-10」不存在，应为 **D-01b**，见 architecture §3） | 不得因工具缺失跳过 D 层而不说明；不得把 `npm ls` 当作 range 语义证据 |
 | 架构文档缺失（S-09） | 该用例 `BLOCKED`（输入缺失），A2 判 `BLOCKED`；其余 A 条目仍可判 | 不得用 product.md 的核对代替 `architecture.md` 内的记录 |
 | chunk 体积警告 | 记录但不判缺陷（ON-5） | 不得因此判 A5 FAIL |
 | 浏览器专项 / 全页巡检（ON-6、N8） | `NOT_REQUIRED`：无交互/视觉改动，仓库无 DOM/E2E 依赖，Playwright 属环境侧未入库；可重复入口归 F043 | 不得写成"DOM 已验证"或"浏览器验收通过" |
@@ -585,9 +592,23 @@
 
 **声明**：`TEST DESIGN READY` 仅表示"方案可验证、验收映射完整、环境与基线明确"。它**不是测试通过**，**不放行实现**，也不批准合并；`frontend` 实现与 TEST 执行均未开始，A1–A10 目前一律为 `NOT TESTED`（设计阶段不作 PASS 填充）。放行实现须由 Architect 在 CONTRACT 阶段核对本 Test Design 与最终设计（含 ON-1 取舍）后给出 `READY FOR IMPLEMENTATION`；执行结果在 §2 TEST 记录。
 
-**Result（本次未执行、未判定任何 A 条目）**：本阶段唯一产物为本文件 §1；未修改生产实现、Schema、契约或产品规则。建议协调器把 `implementation.test_design` 置 COMPLETE 并以 `docs/features/F040/test-report.md#1-test-design` 作为 evidence。
+**Result（TD 阶段未执行、未判定任何 A 条目）**：TD 阶段唯一产物为本文件 §1；未修改生产实现、Schema、契约或产品规则。建议协调器把 `implementation.test_design` 置 COMPLETE 并以 `docs/features/F040/test-report.md#1-test-design` 作为 evidence。
+
+### 1.10 TD 修订记录（TE-F040-1 阶段实施，2026-10-29）
+
+| # | 位置 | 修订前 | 修订后 | 依据 |
+| --- | --- | --- | --- | --- |
+| AM-1 | §1.4 S-03 判定式 | 路径 `path+"."+k` + 白名单取 `d[0].split(".").pop()`（scoped 包名被 `.` 切碎 → `@tailwindcss/vite` 末段退化为 `vite` → 正确实现假 FAIL） | 路径 `path+"/"+k` 保留完整 scoped 名；白名单为完整路径 `dependencies/antd`、`devDependencies/tailwindcss`、`devDependencies/@tailwindcss/vite`；判定 `bad === []` ∧ `allowed-diff` 恰为该 3 条 ∧ 计数 `4 / 7` | **D-F040-TD-05** + architecture §3 裁定「必须修复（口径修正）」 |
+| AM-2 | §1.7 降级表 | `D-01/D-02/D-03/D-10` | `D-01/D-01b/D-02/D-03` | architecture §3「TD §1.7 编号 `D-10` → 应为 `D-01b`」 |
+| AM-3 | §1.4 S-10 判定基线 | 仅 `adef87a` 字面口径 | 追加「F040 可归属变更集」基线 `7754c67`（F040 preflight），并要求同时列出字面口径与差集来源 | TE 实测发现 `adef87a..HEAD` 含 F038 收尾提交 `abd097d`（见 §2 OBS-1）；非判定放宽，而是消除基线偏移 |
+
+> AM-1/AM-2 为 architecture §3 明确要求的 TEST 前置修正；AM-3 为 TEST 执行中发现并当次记录的口径澄清（依据：A10 语义为「F040 变更文件范围受控」）。三项均**未改变** A1–A10 判定语义，也未降低任何门槛。
+
+---
 
 **Next**：Architect 产出 `docs/features/F040/architecture.md`（含 ON-1 取舍、§1/§4 逐项核对记录与原始 `npm ls` 输出）→ 协调器进入 CONTRACT → Frontend 实现三项范围 + lockfile 根同步 → tester 按本设计执行 S/E/D 层并写 §2 TEST。
+
+<!-- TD 阶段 Git 声明（历史，保留原文） -->
 
 GIT: git rev-parse --abbrev-ref HEAD
 GIT: git rev-parse --short HEAD
@@ -599,3 +620,200 @@ GIT: git log --oneline adef87a43d9c73465c815fe85b2577d5dd17a1f2..HEAD
 GIT: git check-ignore -v frontend/node_modules frontend/dist
 
 （上列为本次实际执行的只读 Git 命令；`git status --porcelain | head -30`、`git log --oneline … | head -20` 带管道截断。§1.4 中 `git show adef87a:frontend/package.json` / `git show adef87a:frontend/package-lock.json` 属 **TEST 阶段待执行**的设计命令，本次未运行。未执行任何 Git 写操作。）
+
+---
+
+## 2. TEST EXECUTION
+
+### 2.1 执行版本与环境（TE-F040-1）
+
+| 项 | 值 |
+| --- | --- |
+| **版本记录行** | **TE-F040-1** |
+| 执行日期 | **2026-10-29**（`TZ=+0800`；pre-state `2026-10-29T20:21:39+08:00`，最后一条证据 `20:24:36+08:00`） |
+| 分支 | `feature/F040-dependency-ranges` |
+| `HEAD`（执行时） | `32d05fe1e816ae3397b2246a5fd840089dab02ad`（`32d05fe`） |
+| `start_commit` | `adef87a43d9c73465c815fe85b2577d5dd17a1f2` |
+| Node / npm | `v22.23.3` / `10.9.9` |
+| registry | `https://registry.npmmirror.com/`；`npm ping` → `PONG "pong": true`（可达） |
+| 工作目录 | `/home/hanhao/github/47oo/csm`（安装/构建在 `frontend/`） |
+| plan / requirements | plan revision 25；requirements revision 16 |
+| 数据库 | **`NOT_REQUIRED`**（`layers.database=false`、`not_required.database`；无 DDL/Migration/索引/数据行为 → data-integrity 启用条件不成立） |
+| 后端 / 契约 / 集成 | **`NOT_REQUIRED`**（`layers.backend=false`、`api_required=false`、`not_required.contract`；12 维无变化，无 Mock/Fixture 面） |
+| 浏览器 / 视觉巡检 | **`NOT_REQUIRED`**（product N8 + ON-6：零交互/视觉/文案改动；仓库无 DOM/E2E 依赖，Playwright 属环境侧未入库；可重复入口归 F043） |
+| 性能 / chunk 体积 | **`NOT_REQUIRED`，不计缺陷**（product A5 后半 + ON-5） |
+
+**证据独立性声明**：本节所有判定均取自 Tester 本次**自跑**的命令输出，证据文件统一以 `docs/features/F040/artifacts/te-` 前缀落盘（与 Frontend 的 `npm-ci.log`、`npm-ls.txt` 等解耦）。`docs/features/F040/implementation.md` 的数值**未被用作任何 PASS 依据**，仅在 §2.6 作事后比对。
+
+### 2.2 执行方法与基线偏移观察（OBS-1）
+
+**Step 0 pre-state**（`artifacts/te-env-prestate.txt`）：`node_modules` 存在（顶层 64 条目、隐藏 lockfile 150 条），两文件 `sha256` = `package.json de893314…bf687` / `package-lock.json 471d775c…5606a`（`artifacts/te-lock-before.sha256`）。工作区含 3 个 `M`（`architecture.md` + 两文件，均为 F040 已批准产物，非 F040 之外改动）与 2 个未跟踪项（`artifacts/`、`implementation.md`）。
+
+**安装协议执行**（TD §1.5）：E-01 隔离目录（`/tmp/f040-te-ci-clean`，零风险）→ E-02 原地 `npm ci`（先把 `node_modules` `mv` 到**仓库外** `/tmp/f040-te-node_modules-backup-20261029202230`）→ **重跑一次**证明可复现 → E-08 复算 `sha256`。全程**未执行**任何 `npm install` / `npm update` / `npm install --package-lock-only` / `npm pkg set`。
+
+**OBS-1（基线偏移，NOTE，非 F040 缺陷）**：S-10 按字面 `git diff --name-only adef87a` 得到 9 个文件，其中 `docs/features/F038/review-report.md` 落在白名单外。核实结果：该文件由提交 **`abd097d chore(F038): mark feature complete`**（仅改 `docs/features/F038/review-report.md` + `docs/project/{backlog,milestones,project-plan}`）引入，该提交位于 F040 的 preflight 提交 `7754c67` **之前**，属 F038 自身收尾，**不是 F040 变更**。`start_commit=adef87a` 取在 F038 合并点，因此 `adef87a..HEAD` 天然包含 F038 收尾提交。以 F040 可归属变更集（`git diff --name-only 7754c67` + 未跟踪的 `docs/features/F040/**`）判定，A10 通过（见 §2.3 S-10、§1.10 AM-3）。**不记为 F040 实现缺陷**，建议协调器后续把 `start_commit` 取在 Feature preflight 提交上以免同类偏移。
+
+### 2.3 28 条用例逐项结果
+
+#### S 层（静态，12 条）
+
+| ID | 判定 | 实测输出（关键行） | 证据 |
+| --- | --- | --- | --- |
+| **S-01** | **PASS** | `declared={"antd":"~6.6.6","tailwindcss":"~4.3.3","@tailwindcss/vite":"~4.3.3"}`；`in-allowlist=true`；`shapes=["tilde","tilde","tilde"] distinct=["tilde"]`；`no-caret=true`；`no-undefined=true` | §2.3 本节 + `te-static-consolidated.txt` |
+| **S-02** | **PASS** | `mismatch(len=0): []`；`extra-in-lock(len=0): []`；`pkg-declared-total=11`（4+7）；双向 11 项一致 | 同上 |
+| **S-03** | **PASS**（判定式已按 **D-F040-TD-05** 修正） | `all-diffs(len=3)` = `[["dependencies/antd","^6.6.6","~6.6.6"],["devDependencies/@tailwindcss/vite","^4.3.3","~4.3.3"],["devDependencies/tailwindcss","^4.3.3","~4.3.3"]]`；`allowed-diff(len=3)` 与之相同且路径集合**恰为**白名单 3 条；`forbidden-diff(bad,len=0): []`；`counts: 4 7`；`scripts-same=true`；`metadata-same=true` | `te-td05-old-formula.txt` |
+| **S-04** | **PASS** | `git diff` 变更行 **恰 6 行**（3 个 `-` 旧值 + 3 个 `+` 新值），key ⊆ `{antd, tailwindcss, @tailwindcss/vite}`；8 个受保护 key 在 diff 中出现次数**全为 0**（`react`/`react-dom`/`vite`/`typescript`/`@ant-design/icons`/`@types/react`/`@types/react-dom`/`@vitejs/plugin-react`） | `te-package-json.diff` |
+| **S-05** | **PASS** | `lockfileVersion: 3 3`；`requires: true true`；`packages` `222 222`（非根 `221 221`）；`added(len=0): []` `removed(len=0): []`；**`non-root-entry-diffs(len=0): []`**（221 条非根条目逐字节等价，独立复算 `sha256(JSON.stringify(entry))` 一致）；`root-range-diffs(len=3)` 恰为三项；`root-diff-scope-ok: true`；`other-root-field-diffs: []` | `te-package-lock.diff`、`te-static-consolidated.txt` |
+| **S-06** | **PASS** | `counts-current: 222 215 215`（= `counts-baseline`）；`key-order-identical: true`；`git diff --numstat` = **`3 3`** | 同上 |
+| **S-07** | **PASS** | `git diff --stat adef87a -- frontend/src frontend/vite.config.ts frontend/index.css frontend/scripts` → **空输出，exit 0，lines=0**；同路径未跟踪文件 0 条（build 后复跑仍为 0） | §2.3 本节 |
+| **S-08** | **PASS** | `git diff --stat adef87a -- docs/architecture/frontend-ui-stack.md docs/product docs/api docs/database backend` → **空输出，exit 0，lines=0**；未跟踪 0 条 | 同上 |
+| **S-09** | **PASS** | `architecture.md` 存在；§1.6 有 3 行逐项符合性记录（`6.6.x`/`4.3.x`/`4.3.3` 命中）；锚点 `F040-NPMLS-BEGIN..END` 存在且含 `antd@6.6.6`、`tailwindcss@4.3.3`、`@tailwindcss/vite@4.3.3`；锚点与本 TestER E-03 输出 `diff -u` → **`S-09-ANCHOR-VERBATIM-MATCH: YES`（diff exit 0）** | `te-architecture-crosscheck.txt`、`te-npm-ls.txt` |
+| **S-10** | **PASS**（基线澄清见 OBS-1 / AM-3） | 字面 `adef87a` → 9 文件，白名单外 1 个 = `docs/features/F038/review-report.md`（源自 `abd097d`，F038 收尾）；**F040 可归属变更集（`7754c67`）= 6 文件全部在白名单内**：`frontend/package.json`、`frontend/package-lock.json`、`docs/features/F040/{architecture,product,test-report}.md`、`docs/project/project-plan.yaml`；未跟踪 = `docs/features/F040/artifacts/`、`docs/features/F040/implementation.md`（均属 architecture §6 放行写入范围）；两必需文件均被包含 | `te-static-consolidated.txt` |
+| **S-11** | **PASS** | `frontend-ui-stack.md:9`「Ant Design 6.6.x … Tailwind CSS 4.3.x」、`:27`「Ant Design 仅在 6.6.x 兼容范围内升级，Tailwind CSS 仅在 4.3.x 兼容范围内升级」两条原文均在；配合 S-08 零 diff 证明未被弱化 | `te-policy-grep.txt`、`te-policy-and-d06.txt` |
+| **S-12** | **NOT_APPLICABLE** | 实现选 `~` 形式（`shapes=["tilde"]`），TD 规定精确版本分支才启用；仍执行记录：`architecture.md §1.1` 明确记载「统一用 `~`（不用精确版本）」及 5 条理由；plan F040 `acceptance` 原文为「三个依赖的范围已收敛为 `~`」，与实际形式**一致**（D-F040-TD-02 自愈） | `te-on1-decision.txt` |
+
+#### E 层（环境执行，10 条）
+
+| ID | 判定 | 实测输出（exit / 关键行） | 证据 |
+| --- | --- | --- | --- |
+| **E-01** | **PASS** | 隔离目录 `/tmp/f040-te-ci-clean`（仅两文件副本）：`added 150 packages in 9s`，`elapsed=9.53s`，**exit=0**；`ERESOLVE`/`EUSAGE` 命中数 **0**；`antd-present`；隔离目录内两文件 `sha256` 与 pre-state **完全相同**（→ `npm ci` 不改写 lockfile）；同树 `npm ls` 三版本正确 | `te-npm-ci-clean.log`、`te-e01-e02-clean.txt` |
+| **E-02** | **PASS**（**两次**，证明可复现） | `node_modules` 备份到仓库外 `/tmp/f040-te-node_modules-backup-20261029202230`（顶层 64 条目）；**run1** `added 150 packages in 19s`，`elapsed=19.61s`，exit=0；**run2**（在 run1 树上再跑一次）`added 150 packages in 15s`，`elapsed=15.04s`，exit=0；两日志 `ERESOLVE`/`EUSAGE` 均 **0**；隐藏 lockfile 均 **150** 条 | `te-e02-e08-inplace.txt` |
+| **E-03** | **PASS** | `npm ls antd tailwindcss @tailwindcss/vite` **exit=0**；含 `├── antd@6.6.6`、`└── tailwindcss@4.3.3`、`├─┬ @tailwindcss/vite@4.3.3`；`UNMET`/`invalid`/`extraneous`/`(empty)` **均未出现** | `te-npm-ls.txt` |
+| **E-04** | **PASS** | `npm ls --depth=0` **exit=0**；顶层 **11** 行（= 4 + 7 声明项）全部无 `UNMET`/`invalid`/`extraneous`/`ELSPROBLEMS`（D-F040-TD-03 的旧树异常已随干净 `npm ci` 消失；该改善**不计 F040 交付物**） | `te-npm-ls-depth0.txt` |
+| **E-05** | **PASS** | `npm run typecheck`（`tsc --noEmit`）**exit=0**，无输出，`error TS` 计数 **0** | `te-typecheck.log` |
+| **E-06** | **PASS** | `npm run build` **exit=0**，`✓ 3215 modules transformed`、`✓ built in 23.28s`、`dist-ok`；产物 `dist/index.html 0.39 kB`、`dist/assets/index-D6T2dbJW.css 25.89 kB (gzip 6.17 kB)`、`dist/assets/index-yK5gyDbD.js 1,271.59 kB (gzip 388.89 kB)`；**chunk 体积警告（>500 kB）出现 —— 按 ON-5 记录、不计缺陷** | `te-build.log` |
+| **E-07** | **PASS** | `npm run smoke:client` **exit=0**；末行 **`340 passed, 0 failed`**；`N=340 ≥ 基线 340`，`failed=0` | `te-smoke-client.log` |
+| **E-08** | **PASS** | `diff te-lock-before.sha256 te-lock-after.sha256` → **`LOCK-UNCHANGED`**（两文件 `sha256` 与 pre-state 逐字节相同，build+smoke 后再复算仍相同：`LOCK-UNCHANGED-AFTER-ALL`）；`git status --porcelain` 前后 `diff` → **`STATUS-UNCHANGED-BY-NPM-CI`**；`numstat` 仍 `3 3`。**口径说明**：TD 原写 `status-lines=0`，实际为 2 —— 因为 F040 实现此时尚未由协调器提交，`M frontend/package{,-lock}.json` 是**实现本身的变更**而非 `npm ci` 产生；故以「pre/post status 无增量」为判定，结论不变 | `te-e08-statusdelta.txt`、`te-lock-after*.sha256` |
+| **E-09** | **PASS** | `antd lock=6.6.6 installed=6.6.6 OK`；`tailwindcss lock=4.3.3 installed=4.3.3 OK`；`@tailwindcss/vite lock=4.3.3 installed=4.3.3 OK` | `te-e09-e10-versions.txt` |
+| **E-10** | **PASS** | 三项均 `minorMatch=true` ∧ `satisfies=true`（`antd 6.6`、两 tailwind 包 `4.3`）；旁证 R-2：`npm ls tailwindcss --all` 单一 `tailwindcss@4.3.3`（2 × `deduped`），磁盘 `find` 仅 `node_modules/tailwindcss` **无嵌套副本** | 同上 |
+
+#### D 层（依赖解析语义，6 条）
+
+| ID | 判定 | 实测输出 | 证据 |
+| --- | --- | --- | --- |
+| **D-01** | **PASS** | 6/6 `OK`：`6.6.6 ~6.6.6 true`、`6.6.9 ~6.6.6 true`、**`6.7.0 ~6.6.6 false`**、`4.3.3 ~4.3.3 true`、`4.3.9 ~4.3.3 true`、**`4.4.0 ~4.3.3 false`** | `te-range-semantics.txt` |
+| **D-01b** | **NOT_APPLICABLE**（**D-01 内的精确版本分支，不属 28 条独立用例**；已执行留痕） | 精确版本分支 4/4 `OK`（`6.6.6/6.6.6 true`、`6.6.7/6.6.6 false`、`4.3.3/4.3.3 true`、`4.3.4/4.3.3 false`）；因实际形式为 `~`，A1 由 D-01 判定 | 同上 |
+| **D-02** | **PASS**（记录用，非 A 判定项） | `satisfies(6.7.0,^6.6.6)=true`、`satisfies(4.4.0,^4.3.3)=true` → R07 问题成立性得证（收敛不是形式主义） | 同上 |
+| **D-03** | **PASS** | `antd locked=6.6.6 range=~6.6.6 true`；`tailwindcss locked=4.3.3 range=~4.3.3 true`；`@tailwindcss/vite locked=4.3.3 range=~4.3.3 true` | 同上 |
+| **D-04** | **PASS** | 三项均 `version-same=true resolved-same=true integrity-same=true`；`resolved` 仍为 `…/antd-6.6.6.tgz`、`…/tailwindcss-4.3.3.tgz`、`…/vite-4.3.3.tgz`（npmmirror），`integrity` `sha512-` 逐字同基线 | `te-static-consolidated.txt` |
+| **D-05** | **PASS** | `policy-antd-hits=2`、`policy-tailwind-hits=2`（§1 + §4）；`declared-antd-minor=6.6`；`declared-tw-minor=4.3 4.3` | `te-policy-and-d06.txt` |
+| **D-06** | **PASS** | 8/8 行 `caret=true eq-expected=true eq-baseline=true`（`react ^18.3.1`、`react-dom ^18.3.1`、`vite ^5.4.9`、`typescript ^5.6.3`、`@ant-design/icons ^6.3.4`、`@types/react ^18.3.11`、`@types/react-dom ^18.3.1`、`@vitejs/plugin-react ^4.3.2`）；`dep-key-set-identical-to-baseline=true` | 同上 |
+
+**计数汇总（28 条 = S-01..S-12 的 12 + E-01..E-10 的 10 + D-01..D-06 的 6）**：**PASS = 27**（S 层 11 + E 层 10 + D 层 6）；**`NOT_APPLICABLE` = 1**（S-12，ON-1 已裁定 `~` 后条件分支不启用）；**`FAIL` = 0**；**`NOT TESTED` = 0**；**`BLOCKED` = 0**。上表 D 层的 `D-01b` 是 **D-01 内部的精确版本分支**（非 28 条之一），已执行留痕但为 `NOT_APPLICABLE`，不影响计数。
+
+### 2.4 A1–A10 验收映射结果
+
+| A | 断言 | 覆盖用例 | 结果 |
+| --- | --- | --- | --- |
+| **A1** | 三项范围已收敛、形式一致、无 `^` 残留 | S-01, S-02, D-01, D-02（D-01b N/A） | **PASS** |
+| **A2** | 与 `frontend-ui-stack.md` §1/§4 逐项一致；核对记录 + `npm ls` 原文入 architecture | S-09, S-11, D-05 | **PASS** |
+| **A3** | 干净 `node_modules` `npm ci` 成功，无 `ERESOLVE` / lockfile 不同步 | E-01, E-02（×2）, S-02 | **PASS** |
+| **A4** | `npm ls` 实装 6.6.6 / 4.3.3 / 4.3.3；无 `UNMET`/`invalid`/`extraneous`；无跨次版本 | E-03, E-04, E-09, E-10, D-03 | **PASS** |
+| **A5** | `typecheck` / `build` / `smoke:client` 全通过；smoke `0 failed` 且 `N ≥ 340` | E-05, E-06, E-07 | **PASS**（340 ≥ 340，0 failed；chunk 警告按 ON-5 不计缺陷） |
+| **A6** | 除三项外 `package.json` 零 diff；依赖计数 4 / **7**；`scripts` 与元数据逐字不变 | S-03, S-04, D-06 | **PASS**（按 DR-F040-05 取实测 4/7） |
+| **A7** | 无新增/删除依赖；其它包 `version`/`resolved`/`integrity` 不变 | S-05, S-06, D-04 | **PASS**（221 条非根条目零 diff；`222/215/215`） |
+| **A8** | 前端源码零 diff | S-07 | **PASS** |
+| **A9** | 策略文档、`docs/product`、`docs/api`、`docs/database`、`backend` 零 diff | S-08, S-11 | **PASS**（另核：仓库仅 1 个受跟踪 `package.json`；无 `overrides`/`resolutions`/`npm-shrinkwrap.json`/`.npmrc`） |
+| **A10** | 变更文件范围受控 | S-10 | **PASS**（F040 可归属变更集 6 文件全在白名单；见 OBS-1） |
+
+**A1–A10：10/10 PASS，0 FAIL / 0 BLOCKED / 0 NOT TESTED。**
+
+### 2.5 与 Frontend 自检（`implementation.md`）的比对
+
+| 对比项 | Frontend 自检 | Tester 独立实测 | 差异 |
+| --- | --- | --- | --- |
+| `package.json` / `package-lock.json` `numstat` | `3 3` / `3 3` | `3 3` / `3 3` | 无 |
+| 三项目标字符串 | `~6.6.6` / `~4.3.3` / `~4.3.3` | 同 | 无 |
+| 非根 lock 条目 diff | `0`（221 条） | `0`（221 条，另用 `sha256(JSON.stringify(entry))` 独立复算） | 无 |
+| `packages`/`resolved`/`integrity` | `222 / 215 / 215` | `222 / 215 / 215` | 无 |
+| 两文件 `sha256` | `de893314…` / `471d775c…` | `de893314…bf687` / `471d775c…5606a` | 无（逐字相同） |
+| `npm ci` 输出 | `added 150 packages in 9s`（1 次） | run1 `150 / 19s`、run2 `150 / 15s`（2 次）；隔离目录 `150 / 9s` | **包数一致（150）**；耗时差异属缓存/冷热与并发环境波动，不作判定项 |
+| `npm ls`（三项） | 6.6.6 / 4.3.3 / 4.3.3，单一 `tailwindcss` | 同，且与 `architecture.md` §7 锚点 `diff` 逐字一致 | 无 |
+| `npm ls --depth=0` | 11 包，exit 0，无 `UNMET` | 同 | 无 |
+| `typecheck` / `build` / `smoke` | exit 0 / 0 / 0；smoke `340 passed, 0 failed` | exit 0 / 0 / 0；smoke `340 passed, 0 failed` | 无 |
+| `build` 产物 | `index-D6T2dbJW.css 25.89 kB`、`index-yK5gyDbD.js 1,271.59 kB` | **文件名与大小逐字相同**（内容哈希相同 → 证据无关性成立） | 无（仅耗时 15.72s vs 23.28s） |
+| lockfile 未被 `npm ci` 重写 | `LOCK-UNCHANGED` | `LOCK-UNCHANGED` + `STATUS-UNCHANGED-BY-NPM-CI` | 无 |
+
+**结论：与 Frontend 自检无数值差异**（唯一差异为耗时，非判定项）。Tester 另外**新增**了 Frontend 未覆盖的三项检查：① S-03 修正判定式并实测旧式的真实缺陷（见 D-F040-TE-01）；② `npm ci` **重跑一次**证可复现；③ S-10 基线偏移核实（OBS-1）。
+
+### 2.6 数据库 / 接口 / 前端 / 集成结果
+
+| 维度 | 结果 |
+| --- | --- |
+| 数据库 / Migration / 约束 | **`NOT_REQUIRED`** —— 无 DDL、无 Migration、无索引、无数据行为；`docs/database/**` 零 diff（S-08）。data-integrity 技能的启用条件（唯一性/关系/生命周期/并发分配/导入/Migration）在本 Feature 均不成立 |
+| 接口（响应内容/类型/边界/非法输入/错误语义/只读无副作用） | **`NOT_REQUIRED`** —— `api_required=false`、`layers.backend=false`；`docs/api/**` 零 diff；无请求/响应/权限/错误面变化 |
+| 前端（状态/交互/错误/未知值） | **`NOT_REQUIRED` 呈现层** —— 零交互、零视觉、零文案改动（product N8 / ON-6），`frontend/src/**`、`vite.config.ts`、`index.css`、`scripts/**` 零 diff（S-07）。**前端工程层面**已全量验证：`typecheck` / `build` / `smoke:client 340 passed, 0 failed`（E-05/E-06/E-07），证明依赖声明收敛未破坏构建与既有客户端回归 |
+| 真实前后端集成 | **`NOT_REQUIRED`** —— 无 API 调用面变化；变更集整体回归归 **F045**，未以 Mock 或局部 PASS 替代 |
+| 需求 §31–33 跨功能整体验收 | **不在 F040 范围**（F045 承接）；本报告的 PASS 仅为 **F040 变更集局部结论**，不构成变更集整体验收 |
+
+### 2.7 Defects
+
+| ID | Severity | 类型 | 位置 | 期望 / 实际 | 影响 | Owner | 必须修复 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| — | — | — | — | **未发现实现缺陷（0 条 FAIL）** | — | — | — |
+
+**观察项（不阻塞，无实现责任）**
+
+| ID | Severity | 观察 | 处置 |
+| --- | --- | --- | --- |
+| **OBS-1** | NOTE | `start_commit=adef87a` 落在 F038 合并点，`adef87a..HEAD` 含 F038 收尾提交 `abd097d`（`docs/features/F038/review-report.md`），使 S-10 字面白名单多出 1 个文件 | 已核实非 F040 变更；A10 以 F040 可归属变更集判定为 PASS；建议后续 Feature 的 `start_commit` 取在自身 preflight 提交 |
+| **D-F040-TE-01** | NOTE（TD 口径，非实现缺陷） | **D-F040-TD-05 的后果描述不准确**：实测旧判定式（`path+"."+k` + `split(".").pop()`）在**本变更集**上得到 `forbidden-diff=[]`，`@tailwindcss/vite` 名称内无 `.`，故**并未**产生「任何正确实现都假 FAIL」。旧式的**真实缺陷**是路径特异性不足：模拟把 `antd` 从 `dependencies` 移到 `devDependencies`（A6 禁止）时旧式 `bad=[]`（漏判），修正后 `bad=["devDependencies/antd"]`（正确捕获） | 修正判定式已按 architecture §3 执行且**严格强于**旧式（§2.3 S-03 给出 PASS）；建议 Architect 后续把 D-F040-TD-05 的理由改写为「路径特异性不足」而非「必然假 FAIL」。证据：`te-td05-old-formula.txt` |
+| **OBS-2** | NOTE | TD §1.4 E-08 写 `status-lines=0`，实测为 2（F040 实现尚未提交，两文件本就是 `M`） | 以「pre/post `git status` 无增量 + `LOCK-UNCHANGED`」判定，结论不变（§2.3 E-08） |
+| **OBS-3** | NOTE | `build` 出现 chunk 体积警告（`>500 kB`） | 按 product ON-5 / TD §1.7 **记录不判缺陷**；本 Feature 不改包体，与 R06/F042 无关 |
+| **OBS-4** | NOTE | `npm ci` 报 `added 150 packages`，lockfile 非根 221 条 | 差集 71 条为 `optional`/`os`/`cpu` 平台专属（linux-x64 不安装），非污染；与 Frontend 记录一致 |
+
+### 2.8 未验证项
+
+| 项 | 原因 | 状态 |
+| --- | --- | --- |
+| 浏览器 / 视觉 / 全页巡检（1440/1024/768/375） | product N8 + ON-6：零交互/视觉改动；仓库无 DOM/E2E 依赖，Playwright 属环境侧未入库 | **`NOT_REQUIRED`**（不得写成「DOM 已验证」） |
+| 真实前后端集成 | `api_required=false`，无请求面变化 | **`NOT_REQUIRED`**（归 F045） |
+| 需求 §31–33 跨功能整体验收 | 不在 F040 范围 | **`NOT_REQUIRED`**（归 F045） |
+| `npm ci --offline` 变体 | 在线安装连续成功（registry `PONG`），无必要 | 未执行（不影响 A3 判定） |
+| 回归测试新增 | 本 Feature 无代码变更（零 diff），无可回归的业务逻辑；验证以 S/E/D 三层既有命令与脚本承担 | 不适用 |
+| `docs/project/project-state.md` 一致性校验 | 本阶段未修改任何 `docs/project/**` 状态文件（协调器维护） | 不适用（未触发） |
+| F041 / F043 / F045 范围 | 超出 F040 签核边界 | 不在本 Feature 结论内 |
+
+### 2.9 结论
+
+**`READY FOR REVIEW`**
+
+- 28 条用例全部给出结论：**27 PASS / 1 NOT_APPLICABLE / 0 FAIL / 0 BLOCKED / 0 NOT TESTED**；唯一 `NOT_APPLICABLE` 为 S-12（ON-1 已裁定 `~` 后自动不启用的精确版本分支），不影响任何 A 条目。
+- **A1–A10 = 10/10 PASS**，逐条映射见 §2.4。
+- 关键硬证据（均在**干净 `npm ci` 树**取得，且 `npm ci` **重跑一次**证可复现）：`added 150 packages` ×2 + 隔离目录 ×1，全部 exit 0、无 `ERESOLVE`/`EUSAGE`；`npm ls` = `antd@6.6.6` / `tailwindcss@4.3.3` / `@tailwindcss/vite@4.3.3` 且无 `UNMET`/`invalid`/`extraneous`；`typecheck`/`build`/`smoke:client` = exit 0 / 0 / 0，smoke **`340 passed, 0 failed`**（= 基线 340）；两文件 `sha256` 全程不变（`LOCK-UNCHANGED`）。
+- lockfile 三重判定全部通过：非根 **221** 条逐字节等价、`222/215/215` 规模不变、`numstat 3 3`；三项 `resolved`/`integrity` 逐字同基线。
+- 与 Frontend 自检**无数值差异**（仅耗时不同）；Tester 另补充三项独立检查（S-03 修正式实测、`npm ci` 可复现重跑、S-10 基线偏移核实）。
+- 无必须修复问题；观察项 OBS-1..4 与 D-F040-TE-01 均为 NOTE，不阻塞 Review。§1.10 的三项 TD 修订（AM-1/AM-2 为 architecture §3 要求的修正，AM-3 为口径澄清）均**未降低门槛**。
+- 本结论**仅为 F040 变更集局部结论**，不构成变更集整体验收（归 F045），也不批准合并。
+
+GIT: git status --porcelain
+GIT: git rev-parse --abbrev-ref HEAD
+GIT: git rev-parse HEAD
+GIT: git rev-parse --short HEAD
+GIT: git log --oneline -3
+GIT: git cat-file -t adef87a
+GIT: git log --oneline -8 adef87a
+GIT: git log --oneline adef87a..HEAD
+GIT: git log --oneline adef87a..HEAD -- docs/features/F038/review-report.md
+GIT: git status --porcelain docs/features/F038/review-report.md
+GIT: git show --stat --oneline abd097d
+GIT: git show --name-only --format= abd097d
+GIT: git diff --numstat adef87a -- package.json package-lock.json frontend/package.json frontend/package-lock.json
+GIT: git diff adef87a -- frontend/package.json
+GIT: git diff adef87a -- frontend/package-lock.json
+GIT: git diff adef87a --numstat -- frontend/package-lock.json
+GIT: git diff --stat adef87a -- frontend/src frontend/vite.config.ts frontend/index.css frontend/scripts
+GIT: git diff --stat adef87a -- docs/architecture/frontend-ui-stack.md docs/product docs/api docs/database backend
+GIT: git status --porcelain docs/architecture docs/product docs/api docs/database backend frontend/src frontend/scripts frontend/vite.config.ts frontend/index.css
+GIT: git diff --name-only adef87a -- .
+GIT: git diff --name-only 7754c67
+GIT: git log --oneline -1 7754c67
+GIT: git status --porcelain frontend/package.json frontend/package-lock.json
+GIT: git status --porcelain frontend/dist
+GIT: git status --porcelain frontend/npm-shrinkwrap.json frontend/.npmrc .npmrc npm-shrinkwrap.json
+GIT: git check-ignore -v frontend/node_modules/.package-lock.json frontend/node_modules frontend/dist
+GIT: git ls-files
+GIT: git show adef87a:frontend/package.json
+GIT: git show adef87a:frontend/package-lock.json
+
+（上列为本阶段（TE-F040-1）实际执行的**只读** Git 命令；输出重定向/管道（`> /tmp/…`、`| sed`、`| wc -l`、`| grep`、`> artifacts/…`）仅为读取与留证。**未执行任何 Git 写操作**：无 `git add` / `commit` / `checkout` / `switch` / `branch` / `merge` / `stash` / `reset` / `clean`。）
