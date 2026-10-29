@@ -2763,9 +2763,9 @@ features:
   - F023
   - F037
   blocking_decisions: []
-  status: DRAFT
+  status: READY
   current_stage: null
-  next_action: 待用户裁定 AQ-2（推荐 A）并批准 CHG-015 后置 READY；PRODUCT 阶段需先确认不新增可观察业务规则。
+  next_action: 依赖 F037 已 DONE；可调度。启动后由 product-manager 产出 product.md（PRODUCT Gate）。
   last_result: 候选计划（revision 25）新增；来源为外部检查报告 R05（静态路径分析，未执行内存耗尽实验）。未启动。
   layers:
     database: false
@@ -3807,11 +3807,12 @@ planning_status:
     BLOCKED: 0
     CANCELLED: 2
     DONE: 37
-    DRAFT: 2
+    DRAFT: 1
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 4
+    READY: 5
   ready_features:
+  - F038
   - F039
   - F040
   - F041
@@ -3819,5 +3820,4 @@ planning_status:
   blocked_draft_features:
     BLOCKED: []
     DRAFT:
-    - F038
     - F045
