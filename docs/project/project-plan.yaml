@@ -2974,12 +2974,11 @@ features:
   - F004
   - F006
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 待用户裁定 AQ-1（推荐 A）并批准 CHG-015 后置 READY；A/B 还需需求 revision 16 落稿（A 的条款草案见
-    docs/project/proposals/CHG-015-r04-requirements-revision-16-draft.md），落稿前不得作为实施依据。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R04（前端候选加载上限，已显示截断提示）。Architect 评估：补零契约与零权限硬约束、不得改共享
-    Select 全局语义、保留 T56 与 §23.2 口径。未启动。
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: PRODUCT：product-manager 产出 product.md（§28.1 / T127–T129 的候选完整性两控件范围）。
+  last_result: Preflight 通过；分支 feature/F041-candidate-completeness 自 v3.4 创建；进入 PRODUCT
+    阶段。
   layers:
     database: false
     backend: false
@@ -3002,8 +3001,8 @@ features:
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
+    branch: feature/F041-candidate-completeness
+    start_commit: d5c0a4c9aa5bd1036dd9acf087d210a22f43571d
     head_commit: null
     merge_commit: null
   evidence: {}
@@ -3828,10 +3827,10 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
-  last_result: F037 / F038 / F040 DONE（均已合入 v3.4）。F040：三项依赖范围收敛为 ~ 并同步 lockfile，契约零变更。
-  next_action: 继续已批准范围：F041（R04 候选完整性）→ F039（R10 Dashboard）→ F043（R08 测试入口）→ F045（整体回归）。
+  current_feature: F041
+  current_stage: PRODUCT
+  last_result: F037/F038/F040 DONE。F041 启动（PRODUCT Gate）。
+  next_action: F041 PRODUCT Gate。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -3841,12 +3840,11 @@ planning_status:
     CANCELLED: 2
     DONE: 39
     DRAFT: 1
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 3
+    READY: 2
   ready_features:
   - F039
-  - F041
   - F043
   blocked_draft_features:
     BLOCKED: []
