@@ -2895,10 +2895,9 @@ features:
   depends_on: []
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT：product-manager 产出 product.md（无产品规则变更，仅依赖声明与已批准架构策略对齐）。
-  last_result: Preflight 通过；分支 feature/F040-dependency-ranges 自 v3.4（adef87a）创建；进入
-    PRODUCT 阶段。
+  current_stage: ARCHITECTURE
+  next_action: 'TEST_DESIGN 与 ARCHITECTURE：tester 产出 A1–A10 的可执行断言与证据路径；architect 记录三项范围（ON-1 取舍）与 §1/§4 符合性核对。'
+  last_result: 'PRODUCT COMPLETE（READY FOR ARCHITECT）：无产品规则变更（ENABLER）；范围封闭为 antd/tailwindcss/@tailwindcss+vite 三项范围收敛 + lockfile 同步；A1–A10 验收标准成立。'
   layers:
     database: false
     backend: false
@@ -2909,7 +2908,7 @@ features:
     backend: 不涉服务端。
     contract: 不涉 API 契约；仅前端依赖声明与已批准架构策略对齐。
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -2924,7 +2923,9 @@ features:
     start_commit: adef87a43d9c73465c815fe85b2577d5dd17a1f2
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F040/product.md
 - id: F041
   title: 对象选择控件候选完整性（R04）
   kind: FEATURE
@@ -3812,7 +3813,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F040
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   last_result: F037、F038 DONE。F040 启动（PRODUCT Gate）。
   next_action: F040 PRODUCT Gate。
   repair_rounds: 0
