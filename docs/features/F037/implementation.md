@@ -252,3 +252,103 @@ data-integrity 对照（引用 `docs/project/implementation-rules.md` 与 `.pi/s
 实现与 `docs/features/F037/architecture.md` §2.2 / §15.4 定稿**逐句一致**，未新增设计外行为：无 `except Exception` 泛捕（清理边界除外）、无 `except SyntaxError`、无 `str(exc)`、无 `exc_info`、无 `logger.exception|error`、无 `filename`、未改校验顺序 / 上限 / `core/errors.py` / F023 service / 路由 / 前端 / 依赖。发现的唯一实测缺口（§7.2 `OSError`）**按角色边界返回 Architect 裁定**，未在本 Feature 内擅自扩展白名单。
 
 GIT: NONE
+
+## 9. Repair round 1（BE-01，2026-10-29）
+
+- **上游依据**：`docs/features/F037/architecture.md` §15.10（BE-01 裁定 / DR-F037-08）+ §15.10.3（`_parse_xlsx` `failures` 定稿修订）+ §15.10.4（L7′）；本轮放行写面仅 `backend/app/services/resource_import.py` 与本文件。
+- **基线**：`dec9445`（本轮未做任何 Git 写操作）。
+
+### 9.1 改动（唯一一处，`resource_import.py:501-514`）
+
+`_parse_xlsx` 内 `failures` 构造由 `_PARSE_FAILURES + (InvalidFileException,)` 改为 `_PARSE_FAILURES + (InvalidFileException, OSError)`（多行元组写法），并按 §15.10.3 加入 OSError 语义注释（openpyxl「包不是 workbook」信号 / 非 I/O 故障 / 全程 `io.BytesIO` 故真实 I/O 故障不可达 / 不得在块内新增真实 I/O（L7′）/ 不得放宽为 `except Exception`）。注释以 §15.10.3 定稿的中文原文落码（该段为本轮新增注释；模块其余既有注释保持原英文字样不动，零 diff）。
+
+**零 diff 核对**：`_PARSE_FAILURES`（8 项）、`_invalid_file_on_parse_failure`、`_close_workbook`、`_parse_csv`、`parse_records`、`with _invalid_file_on_parse_failure("xlsx", …)` 块体、`lxml` 条件追加逻辑（位置仍在元组之后）全部未改；未新增 `try:`/`except`，无独立 `except OSError` 分支，`OSError` 未进入 `_PARSE_FAILURES`。`git diff --stat` = `1 file changed, 10 insertions(+), 1 deletion(-)`。
+
+### 9.2 白名单类别数
+
+| 路径 | 改前 | 改后 |
+| --- | --- | --- |
+| `.xlsx` 有效白名单 | 10 类（`_PARSE_FAILURES` 8 + 局部 `InvalidFileException` + 条件 `lxml.etree.LxmlError`） | **11 类**（+ `OSError`） |
+| CSV | 8 类 | 8 类（不变） |
+
+本机 `openpyxl.LXML=True` / `lxml 5.2.1`，故 11 类全量在位；无 lxml 环境为 10 类（`LxmlError` 缺席），`OSError` 条目与环境后端无关。
+
+### 9.3 事实披露更新（撤回 §5 第 2 条）
+
+- **撤回**：§5 第 2 条「`[Content_Types].xml` 可读但未声明 workbook 部件 → **500**（改前 422）」不再成立。改后该输入为 **422 `IMPORT_INVALID_FILE{reason:"unreadable"}`**，`type(__cause__) is OSError`（`File contains no valid workbook part`）。即改前/改后均为 422，**不再存在「拒绝由 422 退化为 500」的收窄**（architecture §15.10.6 R-6 同步登记）。
+- **仍然成立**：§5 第 1 条（`MemoryError`/`RecursionError`/`SyntaxError`/`AttributeError`/`TypeError`/`IndexError` 等未入白名单类型在 `.xlsx` 路径 500，改前曾 422）不变——`OSError` 是本路径唯一实测可达缺口，未连带放宽其它类型。
+- **§7.2 F037-BE-01**：状态由「MEDIUM，待裁定」改为**已裁定并闭环**（DR-F037-08：仅在 `_parse_xlsx` 局部入表，未整体加入 `_PARSE_FAILURES`）。
+- **§2.6 样本矩阵**：行「`[Content_Types].xml` 可读但未声明 workbook 部件」的结果由「500 逃逸」更正为「422 `unreadable` / `__cause__=OSError`」（见 §9.4 实测）。§2.6 标题所述「10 例 422」随之变为 11 例 422（矩阵行数不变，仅该行结论更新）。
+
+### 9.4 自检（真实输出）
+
+```text
+$ cd backend && python3 -m compileall -q app/services/resource_import.py && echo compile-ok
+compile-ok
+
+$ grep -n "OSError" app/services/resource_import.py
+505:    # OSError 是 openpyxl 的「包不是 workbook」信号（DR-F037-08）：zip 可读但
+512:        OSError,
+（仅 `_parse_xlsx` 局部构造 + 其注释，无其它命中）
+
+$ grep -nE 'except SyntaxError|except Exception' app/services/resource_import.py
+476:    except Exception as exc:  # noqa: BLE001 - cleanup boundary, not a 4xx/5xx signal   （既有 _close_workbook 清理边界，零 diff）
+509:    # 不会被掩盖；不得在此块内新增真实 I/O（L7'），不得放宽为 except Exception。      （本轮注释文本命中）
+1019:    except Exception:                                                                （既有 write_import 回滚边界，零 diff）
+（无 `except SyntaxError`；两处 `except Exception` 均为改前既有且不在解析分类作用域）
+
+$ grep -nE 'open\(|Path\(|NamedTemporaryFile|requests\.|session\.' app/services/resource_import.py || echo 'no real-io in module'
+no real-io in module     （L7′ 成立：with 块内无真实 I/O，且块体零 diff）
+
+$ git diff -U0 -- backend/app/services/resource_import.py | grep -nE 'field_size_limit|strict=True' || echo 'no cap/strict change'
+no cap/strict change     （CSV 字段上限 / 严格引号零改动）
+```
+
+BE-01 行为自检（缺 workbook 部件的 zip，真实 payload，非注入）：
+
+```text
+precondition ok: OSError File contains no valid workbook part
+manifest-no-workbook -> IMPORT_INVALID_FILE {'reason': 'unreadable'} cause: OSError
+```
+
+环境：Python 3.12.7 / openpyxl 3.1.5 / `openpyxl.LXML=True` / lxml 5.2.1；`_PARSE_FAILURES` 实测 8 项（`csv.Error`、`BadZipFile`、`LargeZipFile`、`zlib.error`、`ElementTree.ParseError`、`NotImplementedError`、`KeyError`、`ValueError`）——零 diff。
+
+### 9.5 回归（本轮实际执行，真实 PostgreSQL 可用）
+
+`TEST_DATABASE_URL='postgresql+psycopg://csm:csmtest@127.0.0.1:55432/csm_f037_test'`（容器 `csm-f037-pg`，postgres:16-alpine，库名含 `test`）：
+
+```text
+$ python3 -m pytest tests/integration/test_imports.py -q
+29 passed in 56.26s
+（含四端点解析期 422 用例；本轮之前该模块在无 PG 环境下为 1 passed / 28 skipped）
+
+$ python3 -m pytest tests/integration/test_f023_resource_interface_ip_import.py tests/integration/test_import_tester_acceptance.py -q
+1 failed, 36 passed in 838.22s
+FAILED tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline
+  AssertionError: 685.4837610899995
+  assert 685.4837610899995 < 600
+  [PERF-03] file=320476B rows=5000 validate=119.61s validate_peak=7.9MB write=685.48s write_peak=12.8MB
+```
+
+**该失败不归因于本轮改动**：`test_perf03` 是 5000 行批量写入的**耗时上限**断言（`write_seconds < 600`），本轮改动仅在解析异常白名单元组上追加一个类型，仅在抛异常时被解释器查找，不影响任何成功路径的解析/写入耗时；同批 36 项（含四端点 422 与 F023 复用路径）全部通过。该阈值属 TEST 阶段环境/性能事项（宿主机负载相关），本轮未改测试文件（不在写面内），如实登记不修绿。
+
+### 9.6 本轮未验证项（明示）
+
+1. **TD-F037-U13 / U4（11 类参数化）/ U14 / I22 / S7**：属 Tester 范围（测试文件不在本轮写面），本轮仅以真实 payload 证明 `parse_records` 层 422 + `__cause__=OSError`；4 端点 × 该字节的 HTTP 断言由 TEST 执行（`test_imports.py` 29 项通过只覆盖其现有用例集，未含 BE-01 样本）。
+2. **无 lxml 环境（生产镜像形态，`openpyxl.LXML=False`）**：未执行，结论不外推（R-11 / OPEN-T5）。`OSError` 条目与环境无关，故该环境同样应得 422，但未实测。
+3. **`EOFError`（截断成员读取路径）**：按 §15.10.6 仅登记为待探测项，未主张可达或不可达。
+
+**本轮结论**：BE-01 按 §15.10.3 落码完成，§15.10 授权行为（缺 workbook 部件 → 422）已实测；未新增设计外行为，契约（F014 v1 / F023 v2 附注）零 diff。
+
+**GIT（repair round 1，逐条列出实际执行的只读命令）**：
+
+```text
+GIT: git rev-parse --short HEAD
+GIT: git status --short
+GIT: git -C .. diff --stat
+GIT: git diff --stat
+GIT: git diff -U0 -- backend/app/services/resource_import.py | grep -nE 'field_size_limit|strict=True'
+GIT: git diff -- backend/app/services/resource_import.py
+```
+
+（以上均为只读；未执行 `git add` / commit / branch / merge / stash / reset / clean。其中两条 `git diff` 首次在 `backend/` 下以仓库根相对 pathspec 执行未匹配到文件、输出为空，随后在仓库根重跑取得真实 diff，故两次命令均如实列出。）

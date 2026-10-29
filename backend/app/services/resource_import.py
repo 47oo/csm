@@ -501,7 +501,16 @@ def _parse_xlsx(data: bytes) -> list[list[str]]:
     # importable while ``iterparse`` is always ElementTree. lxml.etree's
     # XMLSyntaxError only subclasses SyntaxError, so both backends' parse
     # error classes have to be in the whitelist.
-    failures: tuple[type[BaseException], ...] = _PARSE_FAILURES + (InvalidFileException,)
+    #
+    # OSError 是 openpyxl 的「包不是 workbook」信号（DR-F037-08）：zip 可读但
+    # [Content_Types].xml 未声明 workbook 部件时，_find_workbook_part 抛
+    # IOError("File contains no valid workbook part")——属损坏容器拒绝，不是 I/O 故障。
+    # 该块全程在 io.BytesIO 上运行（无文件/fd/socket/DB），故真实 I/O 故障不可达、
+    # 不会被掩盖；不得在此块内新增真实 I/O（L7'），不得放宽为 except Exception。
+    failures: tuple[type[BaseException], ...] = _PARSE_FAILURES + (
+        InvalidFileException,
+        OSError,
+    )
     try:
         from lxml.etree import LxmlError  # optional dependency of openpyxl
     except ImportError:  # pragma: no cover - falls back to ElementTree

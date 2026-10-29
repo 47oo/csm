@@ -1,15 +1,15 @@
 # F037 导入解析异常统一收敛为 422 IMPORT_INVALID_FILE — Test Report
 
 > 同一份报告承载 TEST_DESIGN 与 TEST 两阶段，分开记录版本与证据。
-> **当前状态**：§1 TEST DESIGN = **TD-F037-1（v1，2026-10-29，`TEST DESIGN READY`）**；§2 TEST EXECUTION 尚未开始（实现未启动）。
-> `TEST DESIGN READY` 仅表示方案可验证，**不是测试通过**，不批准实现、Contract 定稿或合并。下文所有「期望」均为**待执行断言**，本阶段未运行任何测试或构建。
+> **当前状态**：§1 TEST DESIGN = **TD-F037-1（v1，2026-10-29，`TEST DESIGN READY`）**；§2 TEST EXECUTION = **TE-F037-1（v1，2026-10-29，`READY FOR REVIEW`）** —— 52/52 新增用例与全部必要回归**实际执行通过**。
+> `TEST DESIGN READY` 仅表示方案可验证；§2 才是执行结论。§1 中「期望」为设计期断言，TEST 阶段对两处口径做了修订（`TD-F037-U9` 的空 zip 期望按 `TD-I-8` 更正；`TD-F037-U2` 的 `parse_records` 期望按修复后语义更正），逐条差异见 §2 TE-7。
 
 **版本记录**
 
 | 阶段 | 版本 | 日期 | 结论 | 依据 HEAD |
 | --- | --- | --- | --- | --- |
 | TEST DESIGN | TD-F037-1 | 2026-10-29 | `TEST DESIGN READY`（**不是测试通过**；实现未开始，全部用例待执行） | `a6932c5`（工作区仅新增未跟踪 `docs/features/F037/architecture.md`；`backend/**`、`frontend/**`、`docs/api/**` 零 diff） |
-| TEST | — | — | 尚未开始（待 CONTRACT Gate 签核 §6.2 附注 + Backend `implementation.md`） | — |
+| TEST | TE-F037-1 | 2026-10-29 | **`READY FOR REVIEW`**：新增模块 52/52 PASS（U 23 / I 23 / S 6，含 BE-01 与输入 ③）；回归 R1–R6 全部实跑通过（42 / 28 / 31 / 48 / 4 / 3）；真实 PostgreSQL 16.15，`openpyxl 3.1.5 / LXML=True / lxml 5.2.1` | `dec9445` + 工作区 BE-01 修复（`backend/app/services/resource_import.py` 未提交 10+/1−；新增未跟踪测试模块 `backend/tests/integration/test_f037_import_parse_errors.py`） |
 
 ---
 
@@ -86,7 +86,7 @@
 | `TD-F037-U6` | U | **`MemoryError` / `RecursionError` 不吞**（U-d；R-6） | 注入 `MemoryError()`、`RecursionError()` 于 `csv.reader` 迭代与 `load_workbook` 两处 | 原样传播（`pytest.raises(MemoryError)` / `pytest.raises(RecursionError)`），**不得**为 `ImportInvalidFile` | A19；B7（事实披露：改前会转 `unreadable`，改后回 500） |
 | `TD-F037-U7` | U | **`KeyboardInterrupt` / `SystemExit` 语义不变** | 注入 `KeyboardInterrupt()`、`SystemExit(3)` | 原样传播（`BaseException` 子类天然不被捕获），`SystemExit.code == 3` | A19；B7 |
 | `TD-F037-U8` | U | **未白名单异常不转换**（U-f；B8） | 注入 `AttributeError`/`TypeError`/`IndexError`/`AssertionError`/`OverflowError` | 原样传播，**不得**为 `ImportInvalidFile`（`OverflowError` 现状即未白名单，R-1 登记） | A19；B8 |
-| `TD-F037-U9` | U | **判定顺序与生命周期不变**（L4/L5） | `parse_records(b"", "csv")` / `b"" xlsx`；非 PK 的 `.xls` 魔数；`PK\x03\x04` 非 zip；空 zip（无 worksheet）；正常 xlsx | `empty_file`（空字节，先于 dispatch）→ `unsupported_format`（PK 闸门先于任何解析器调用）→ `unreadable`（坏 zip）→ `empty_file`（`workbook.worksheets` 空，先于 `iter_rows`）→ 正常解析返回 `list[list[str]]` 且 `parse_records` 返回类型仍为物化列表 | A19；B1、B2、L4、L5 |
+| `TD-F037-U9` | U | **判定顺序与生命周期不变**（L4/L5） | `parse_records(b"", "csv")` / `b"" xlsx`；非 PK 的 `.xls` 魔数；`PK\x03\x04` 非 zip；**零成员 zip**（magic `PK\x05\x06`）；**合法容器缺 worksheet 部件**；正常 xlsx | `empty_file`（空字节，先于 dispatch）→ `unsupported_format`（PK 闸门先于任何解析器调用）→ `unreadable`（坏 zip）→ **`unsupported_format`（零成员 zip 被 PK 闸门拒绝，见 `TD-I-8` 修订）**→ `empty_file`（合法容器但 `workbook.worksheets` 空，先于 `iter_rows`）→ 正常解析返回 `list[list[str]]` 且 `parse_records` 返回类型仍为物化列表 | A19；B1、B2、L4、L5；`TD-I-8` |
 | `TD-F037-U10` | U | **`close` 生命周期与「close 覆盖 422」**（R-2） | (a) 正常 xlsx：spy `resource_import._close_workbook` 计数；(b) 假 workbook：`iter_rows` 抛 `ElementTree.ParseError` 且 `close()` 抛 `RuntimeError`；(c) `load_workbook` 自身抛 `BadZipFile` | (a) 恰 1 次；(b) 最终仍为 `ImportInvalidFile{unreadable}`（`RuntimeError` 不得覆盖已判定 422），`close` 恰 1 次且 `finally` 内无 `raise`/`return`；(c) `close` **0** 次（`workbook is None` 守卫） | A19；L2、L3；R-2 |
 | `TD-F037-U11` | U | **转换作用域最小性**（R-9） | `monkeypatch.setattr(resource_import, "_cell_text", raising TypeError)` 后解析正常 CSV；再 monkeypatch `parse_and_validate` 之前的 `_resolve_template` 抛 `ValueError` 类别的表头错误 | `_cell_text` 的 `TypeError` **原样传播**（证明归一位不在 `with` 内）；表头/列校验仍由 `_resolve_template` 产生既有 `reason`（不落入 `unreadable`）。S 层配 `S3` 复核两处 `with` 内只有第三方调用 | A19；R-9 |
 | `TD-F037-I19` | I | **分类边界到 HTTP 的落点**（A19 补充；可选） | `monkeypatch.setattr(resource_import, "parse_records", raising MemoryError)`；`TestClient(auth_app, raise_server_exceptions=False)`（沿用 `test_auth.py:344` 先例）→ 4 端点 | `500`、`code=="INTERNAL_ERROR"`、`message=="Internal server error"`、`details=={}`；**不得**为 422 `IMPORT_INVALID_FILE`（B7/B8 的可观察面） | A19；B7、B8 |
@@ -228,12 +228,13 @@ python3 -m pytest tests/integration/test_f030_test_harness.py -q                
 
 | ID | 内容 | Owner | 是否必须修复 |
 | --- | --- | --- | --- |
-| `TD-I-1` | **白名单覆盖缺口（本机实测）**：`openpyxl 3.1.5` + `lxml 5.2.1` 下，`[Content_Types].xml` 等部件由 **lxml** 解析，XML 结构损坏抛 `lxml.etree.XMLSyntaxError`（MRO 仅到 `SyntaxError`，**不是** `ElementTree.ParseError`，也不是 `ValueError`）⇒ architecture §3.1 白名单**不覆盖**，该类输入修复后仍为 500。属于 R-1「白名单过窄」的具体实例。请 Architect 裁定：① 扩展白名单（如 `lxml.etree.LxmlError` 或 `SyntaxError`，需评估后者的可观察副作用）；② 或在 §3.1 明确将「lxml 解析路径的 XML 损坏」排除并登记为既有残余（则 R-1 矩阵中该行用例标 `NOT TESTED` 并写明理由）。**A1–A8 不受影响**（输入 ①② 实测分别落在 `csv.Error` 与 `ElementTree.ParseError`） | Architect | 需裁定（MEDIUM；不阻塞本 TD 结论，但决定 R-1 矩阵用例是否判 FAIL） |
+| `TD-I-1` | **白名单覆盖缺口（本机实测）**：`openpyxl 3.1.5` + `lxml 5.2.1` 下，`[Content_Types].xml` 等部件由 **lxml** 解析，XML 结构损坏抛 `lxml.etree.XMLSyntaxError`（MRO 仅到 `SyntaxError`，**不是** `ElementTree.ParseError`，也不是 `ValueError`）⇒ architecture §3.1 白名单**不覆盖**，该类输入修复后仍为 500。属于 R-1「白名单过窄」的具体实例。请 Architect 裁定：① 扩展白名单（如 `lxml.etree.LxmlError` 或 `SyntaxError`，需评估后者的可观察副作用）；② 或在 §3.1 明确将「lxml 解析路径的 XML 损坏」排除并登记为既有残余（则 R-1 矩阵中该行用例标 `NOT TESTED` 并写明理由）。**A1–A8 不受影响**（输入 ①② 实测分别落在 `csv.Error` 与 `ElementTree.ParseError`）。**状态（2026-10-29 更新）**：Architect 已在 CONTRACT Gate 裁定 `lxml.etree.LxmlError` 条件入表（architecture §15.1/§15.2、DR-F037-07）⇒ 本项**关闭**；TEST 以新增 `TD-F037-U15`（输入 ③ 裸类型随 `openpyxl.LXML`、收敛结果不变）+ `I23`（4 端点 × 输入 ③）+ `U4` 第 10 类实测 | Architect | 已裁定并关闭（本轮实测 PASS） |
 | `TD-I-2` | 输入 ① 字节数口径：product/plan 写「131,082 B」，本机按 architecture §10.2 构造得 131,229 B（BM 14 列）/ 131,336 B（26 列）。本 TD 只用不变量（`>131_072` 且 `≤5_242_880`）+ 实测值，**不**硬编码 131,082 | Product（确认即可） | 否（登记口径） |
 | `TD-I-3` | `csm.imports` 两条 content-free INFO 日志是否保留（architecture OPEN-T2）。本 TD 的 `U12` 判据与日志存在性解耦：存在则校验字段受限，不存在则断言无记录 | 协调器 / 运维 | 否 |
 | `TD-I-4` | `ValueError` / `KeyError` 入白名单偏宽（所有 `ValueError` 在 `with` 内都被转为 `unreadable`）：以 `U11`（作用域最小性）+ `S3`（`except` 子句形态）共同约束，不放宽到 `except Exception` | Backend（实现登记） | 否 |
 | `TD-I-5` | `InvalidFileException` 在 `load_workbook(fileobj)` 路径本机未命中（`PK` 非 zip → `BadZipFile`，与 architecture OPEN-T1 一致）。删除或保留该 `failures=` 项**不改变**任何已设计断言；TEST 只做注入等价验证 | Backend | 否 |
 | `TD-I-6` | **A18 判据纪律**：`core/errors.py` 的 500 handler 使用 `logger.exception`（含 traceback），`TD-F037-I19` 注入的自定义异常消息会进入日志。故 A18 的 `caplog` 守卫**只**覆盖 422 拒绝路径（`U12`），不把 500 注入用例的 traceback 计入判据；`I19` 亦不使用含上传内容的 marker | Tester（本 TD 已固定） | 否（判据已固定） |
+| `TD-I-8` | **测试设计更正（architecture §15.7 登记，本轮已按修订执行）**：原「空 zip（无 worksheet）→ `empty_file`」期望不成立——零成员 zip 的 magic 是 `PK\x05\x06`，先被 PK 闸门拒绝 ⇒ `unsupported_format`；`empty_file` 须用**合法 xlsx 容器但 `workbook.worksheets` 为空**（删除 `xl/worksheets/sheet1.xml` 成员）构造。`TD-F037-U9` 的期望已按此修订并在 TEST 中实测（零成员 zip 22 B → `unsupported_format`；缺 sheet 部件 → `empty_file`） | Tester（本轮闭环） | 否（已修订并实测） |
 | `TD-I-7` | TEST 环境需一个**独立、库名含 `test`** 的 PostgreSQL（`compose.yaml` 的 `db` 无宿主端口且库名 `csm`，会被 DB-D10 守卫拒绝）。当前无运行实例（TD-6）。建议协调器在 TEST 前提供，例如 `docker run --rm -d --name csm-f037-pg -e POSTGRES_PASSWORD=... -e POSTGRES_DB=csm_test -p 127.0.0.1:55433:5432 postgres:16`（仅为环境建议，不属设计裁定） | 协调器 | 是（否则 I 层与 R1–R6 全部 `NOT TESTED`） |
 
 ### TD-8 数据完整性映射（data-integrity 口径）
@@ -260,4 +261,292 @@ python3 -m pytest tests/integration/test_f030_test_harness.py -q                
 - 探测发现 **1 项架构白名单缺口**（`TD-I-1`：`lxml.etree.XMLSyntaxError` 未覆盖，本机实测可达）与 6 条口径/环境登记项，均**不构成不可验证项**，故不返回 `TEST DESIGN BLOCKED`；请 Architect 在 CONTRACT Gate 一并裁定 `TD-I-1`。
 - 本阶段**未执行**任何测试、构建或 Git 变更命令；`TEST DESIGN READY` 不批准实现、Contract 定稿或合并，也不代表任何验收项已通过。
 
-GIT: NONE
+GIT（TEST DESIGN 阶段，2026-10-29，均为只读）：`git rev-parse --short HEAD`、`git status --porcelain`、`git diff --stat`、`git diff -U0`、`grep`/`ls`/`docker ps`/`python3 -c` 探测；无 Git 写操作。
+
+---
+
+## 2. Test Execution（TE-F037-1，v1，2026-10-29）
+
+### TE-1 Task / Status / Basis
+
+- **Task**：F037「导入解析异常统一收敛为 422 `IMPORT_INVALID_FILE`」TEST 阶段（独立执行）。写面仅 `backend/tests/integration/test_f037_import_parse_errors.py`（新建）与本文件；零生产代码 / 契约 / 计划改动，零 Git 写操作。
+- **Status**：**`READY FOR REVIEW`** —— 新增模块 **52/52 PASS**（U 23 / I 23 / S 6，含 BE-01 与输入 ③ 补充）；回归 **R1–R6 全部实跑通过**（42 / 28 / 31 / 48 / 4 / 3），无必须修复缺陷。
+- **Basis**：`docs/features/F037/product.md` v1（A1–A22、B1–B12）；`docs/features/F037/architecture.md` v1 §10（测试输入）+ §15.1–§15.9（CONTRACT：`TD-I-1` 裁定、输入 ③、11 类）+ **§15.10（BE-01 / DR-F037-08 / L7′）**；§1 TEST DESIGN `TD-F037-1`；`docs/features/F037/implementation.md` v1 + §9（Repair round 1）；`docs/api/F014.md` v1 §1.2、`docs/api/F023.md` v2 §1.2；`requirements-v3.md` revision 16 §24 / §24.1 / §24.5 / §24.6 / §22 / §31（T27、T28、T72、T107–T116、T124、T126）；`docs/project/implementation-rules.md`；`.pi/skills/data-integrity/SKILL.md`。
+- **测试基线**：HEAD `dec9445`（`feat(F037): converge parse-stage errors to 422 IMPORT_INVALID_FILE`）+ 工作区未提交的 BE-01 修复（`resource_import.py` `failures` 元组新增 `OSError`，10 insertions / 1 deletion）+ 本模块（未跟踪新文件）。真实验证对象为**工作区当前代码**，即 Backend 声明的 BE-01 完成态。
+
+### TE-2 Environment（实测，逐项抄录）
+
+| 项 | 实际值 | 取得方式 |
+| --- | --- | --- |
+| Python | `3.12.7` | `pytest` 会话头 / `sys.version` |
+| pytest | `7.4.4`（pluggy 1.0.0） | 会话头 |
+| `openpyxl.__version__` | **`3.1.5`** | `python3 -c "import openpyxl; print(openpyxl.__version__)"` |
+| `openpyxl.LXML` | **`True`**（`fromstring` 走 lxml，`iterparse` 恒为 ET） | 同上（报告结论仅适用于本后端形态，不外推到无 lxml 镜像） |
+| `lxml.__version__` | **`5.2.1`** | `python3 -c "import lxml; print(lxml.__version__)"` |
+| `csv.field_size_limit()` | `131072` | `python3 -c "import csv; print(csv.field_size_limit())"` |
+| `TEST_DATABASE_URL` | `postgresql+psycopg://csm:csmtest@127.0.0.1:55432/csm_f037_test`（driver `postgresql+psycopg`，host `127.0.0.1`，port **55432**，db `csm_f037_test`） | `echo $TEST_DATABASE_URL` + `make_url(...)` 解析打印 |
+| 数据库 | 容器 `csm-f037-pg`，镜像 **`postgres:16-alpine`**，`Up 30 minutes`，`0.0.0.0:55432->5432/tcp`；`show server_version` = **`16.15`** | `docker ps --filter name=csm-f037-pg`；`show server_version` |
+| DB-D10 守卫 | 库名含 `test` = `True`；`DATABASE_URL` 未设（`False`）⇒ 双守卫均满足；**未接触生产/未知库** | conftest 断言 + 显式打印 |
+| Schema 状态 | 会话级 fixture 每轮 `DROP SCHEMA public CASCADE` → `alembic upgrade head`（15 个修订：`0001_baseline` … `0015_user_cluster_authorizations`），结束后重建空 schema | 会话日志（`alembic.runtime.migration ... 0015`），跑后 `pg_tables` 计数 0 |
+| `/proc/self/fd` | 可用（`TD-F037-I21` 实跑，未 skip） | 用例内 `Path('/proc/self/fd').is_dir()` |
+
+### TE-3 执行命令与结果计数（全部为本轮真实输出）
+
+| 编号 | 命令（cwd `backend/`，均带 `TEST_DATABASE_URL`，除 E3） | 实际结果 |
+| --- | --- | --- |
+| **E1** | `python3 -m pytest tests/integration/test_f037_import_parse_errors.py -q` | **`52 passed in 20.32s`** |
+| **E2** | 同 E1 再跑一次（`-v --tb=short`，验证可独立重复执行与无残留） | **`52 passed in 14.68s`**，无 skip、无 xfail |
+| E3 | `env -u TEST_DATABASE_URL python3 -m pytest tests/integration/test_f037_import_parse_errors.py -q` | `29 passed, 23 skipped in 1.08s`（U+S 无库可跑；23 项 I 层按 DB-D10 守卫 `skip`，证明用例未以 SQLite/Mock 伪证） |
+| R1a | `python3 -m pytest tests/integration/test_imports.py -q` | `29 passed in 25.24s` |
+| R1b | `python3 -m pytest tests/integration/test_import_tester_acceptance.py tests/integration/test_import_constraints.py -q` | `13 passed in 10.92s` |
+| R2a | `python3 -m pytest tests/integration/test_f023_resource_interface_ip_import.py -q --deselect tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline` | `27 passed, 1 deselected in 30.55s` |
+| R2b | `python3 -m pytest tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline -q -s`（单独重跑，见 TE-6.6） | **`1 passed in 342.25s`**；`[PERF-03] file=320476B rows=5000 validate=42.15s validate_peak=8.1MB write=308.70s write_peak=13.9MB` |
+| R3 | `python3 -m pytest tests/integration/test_f034_csv_text_carrier.py tests/integration/test_f034_csv_text_carrier_scope.py -q` | `31 passed in 53.62s`（含 `test_td3_t114_field_boundaries` 等重点项） |
+| R4a | `python3 -m pytest tests/integration/test_f035_append_interface_ip_import.py tests/integration/test_f035_append_scope.py tests/integration/test_f035_tester_acceptance.py -q` | `38 passed in 46.96s` |
+| R4b | `python3 -m pytest tests/integration/test_f036_attribution.py tests/integration/test_f036_tester_independent.py -q` | `10 passed in 11.71s` |
+| R5+R6 | `python3 -m pytest tests/integration/test_f030_test_harness.py tests/integration/test_import_performance.py -q` | `7 passed in 76.72s`（F030 门禁 3 + 性能 4） |
+
+> 计数与 §1 基线一致：R1 = 29+13 = **42**；R2 = 27+1 = **28**；R3 = **31**；R4 = 38+10 = **48**；R5 = **4**；R6 = **3**。**无一项低于 §1 采集的基线**。
+
+### TE-4 逐用例结果（52 项，全部 PASS）
+
+模块：`backend/tests/integration/test_f037_import_parse_errors.py`（U + I + S 同模块，沿用 `test_f023_*` 先例；不导入 `app.core.access_scope` 符号 ⇒ 按 F030 §9.1 不需 `pytest.mark.real_scope`，`test_f030_test_harness.py` AST 门禁实跑通过）。
+
+| 用例（测试函数 / 参数） | 层 | 对应 TD / 依据 | 结果 |
+| --- | --- | --- | --- |
+| `u1_oversized_csv_really_fails_during_parse[bm14]` / `[w26]` | U | `TD-F037-U1`、architecture §10.2 | **PASS** ×2 |
+| `u2_corrupt_sheet_tail_really_fails_during_parse` | U | `TD-F037-U2`（口径见 TE-7） | **PASS** |
+| `u15_manifest_corruption_converges_on_both_backends` | U | §15.8.1（输入 ③，`TD-I-1`） | **PASS** |
+| `u3_whitelisted_real_payloads_keep_reason_and_cause` | U | `TD-F037-U3`（8 类真实 payload） | **PASS** |
+| `u4_whitelist_covers_eleven_classes` | U | `TD-F037-U4` + §15.10.7-2（11 类） | **PASS** |
+| `u5_app_error_reason_fidelity` | U | `TD-F037-U5`（B6） | **PASS** |
+| `u6_memory_and_recursion_errors_propagate[MemoryError]` / `[RecursionError]` | U | `TD-F037-U6`（B7） | **PASS** ×2 |
+| `u7_interrupt_semantics_unchanged[KeyboardInterrupt]` / `[SystemExit]` | U | `TD-F037-U7`（`SystemExit.code == 3` 已断言） | **PASS** ×2 |
+| `u8_u16_non_whitelisted_errors_propagate[AttributeError/TypeError/IndexError/AssertionError/OverflowError/SyntaxError]` | U | `TD-F037-U8` + §15.8.4 负向守卫 | **PASS** ×6 |
+| `u9_decision_order_and_materialised_result` | U | `TD-F037-U9`（含 `TD-I-8` 修订） | **PASS** |
+| `u10_close_lifecycle_and_no_override` | U | `TD-F037-U10`（R-2；close 1/1/0 次） | **PASS** |
+| `u11_cell_text_errors_stay_outside_the_conversion_scope` | U | `TD-F037-U11`（R-9） | **PASS** |
+| `u12_parse_logging_is_content_free` | U | `TD-F037-U12`（A18 前半） | **PASS**（非空跑：实测捕获 3 条 `csm.imports` 记录） |
+| `u13_missing_workbook_part_converges` | U | `TD-F037-U13`（§15.10.7-1 / BE-01） | **PASS** |
+| `u14_oserror_scope_is_minimal` | U | `TD-F037-U14`（§15.10.7-3 / R-12） | **PASS** |
+| `i1_i8_parse_failure_is_422_at_every_endpoint[I1…I8]` | I | `TD-F037-I1…I8`（A1–A8 + A20 前置，同字节重发同体） | **PASS** ×8 |
+| `i9_rejected_write_leaves_no_residue` | I | `TD-F037-I9`（A9；7 表计数逐表不变） | **PASS** |
+| `i10_auth_and_permission_precede_parsing` | I | `TD-F037-I10`（A10 / B10；8×401 + 8×403） | **PASS** |
+| `i11_byte_limit_still_wins` | I | `TD-F037-I11`（A11 / B4） | **PASS** |
+| `i12_empty_file_reason_not_converged` | I | `TD-F037-I12`（A12 / B1；8 请求） | **PASS** |
+| `i13_unsupported_format_not_converged` | I | `TD-F037-I13`（A13 / B2） | **PASS** |
+| `i14_header_and_column_reasons_unchanged` | I | `TD-F037-I14`（A14 / B3；含「行数 413 先于表头 422」） | **PASS** |
+| `i15_row_limit_413_without_partial_import` | I | `TD-F037-I15`（A15；5001 行 → 413 + 零写入） | **PASS** |
+| `i16_row_errors_shape_and_one_based_rows` | I | `TD-F037-I16`（A16 / B5；`RowError` 4 键、`row=3`、批量零残留） | **PASS** |
+| `i17_dual_carrier_equivalence` | I | `TD-F037-I17`（A17 / B9 / T114） | **PASS** |
+| `i18_response_body_is_content_free` | I | `TD-F037-I18`（A18 后半；4 端点 × 2 输入） | **PASS** |
+| `i19_internal_errors_stay_500` | I | `TD-F037-I19`（B7/B8；`MemoryError` 注入 → 500 信封） | **PASS** |
+| `i20_repeated_validate_is_idempotent_and_read_only` | I | `TD-F037-I20`（A20 / T116） | **PASS** |
+| `i21_no_file_descriptor_leak` | I | `TD-F037-I21`（R-5；未 skip） | **PASS** |
+| `i22_missing_workbook_part_is_422_at_every_endpoint` | I | `TD-F037-I22`（§15.10.7-4 / BE-01） | **PASS** |
+| `i23_corrupt_manifest_is_422_at_every_endpoint` | I | §15.8.2（输入 ③ × 4 端点，TD 新增） | **PASS** |
+| `s2_caps_and_csv_strictness_unchanged` | S | `TD-F037-S2` | **PASS** |
+| `s3_logging_shape_and_classification_boundary` | S | `TD-F037-S3` | **PASS** |
+| `s5_only_signed_reasons_and_frozen_templates` | S | `TD-F037-S5` | **PASS** |
+| `s6_validate_path_has_no_locks_or_commits` | S | `TD-F037-S6` | **PASS** |
+| `s7_oserror_is_local_to_parse_xlsx` | S | `TD-F037-S7`（§15.10.7-5 / L7′） | **PASS** |
+| `s8_lxml_stays_an_optional_dependency` | S | §15.8.5（lxml 不落依赖、仅 `resource_import.py` 条件导入） | **PASS** |
+
+合计：**52 passed / 0 failed / 0 skipped / 0 xfail**（E1、E2 两次独立运行一致）。
+
+### TE-5 验收映射（A1–A22，逐项裁决）
+
+| 验收 | 判定 | 证据（用例 / 命令） |
+| --- | --- | --- |
+| A1 / A2（资源导入 `validate` × 输入 ①②） | **PASS** | `I1`、`I2` |
+| A3 / A4（资源导入写入 × 输入 ①②） | **PASS** | `I3`、`I4` |
+| A5 / A6（F023 `validate` × 输入 ①②） | **PASS** | `I5`、`I6` |
+| A7 / A8（F023 写入 × 输入 ①②） | **PASS** | `I7`、`I8` |
+| A9（写入路径零残留，含 Audit / Activity） | **PASS** | `I9`（`clusters/resources/bare_metal_details/virtual_machine_details/interfaces/ip_addresses/audit_logs` 7 表计数逐表不变；Activity 无独立表、由 `audit_logs` 派生 ⇒ `audit_logs` 不变即同时覆盖 Activity，**未**检查任何「activity 表」） |
+| A10（401 / 403 先行） | **PASS** | `I10`（未登录 4 端点全 401 `AUTH_REQUIRED`；VIEWER 全 403 `FORBIDDEN{reason:"permission"}`；无 422/500） |
+| A11（413 不被 422 取代；输入 ① 必须越过 413） | **PASS** | `I11`（`import_max_file_bytes=10` → 4×413 `{limit_bytes:10}`；默认 → 4×422） |
+| A12（`empty_file` 不被收敛） | **PASS** | `I12`（空字节与仅表头 × 4 端点，`details` 恰 `{"reason":"empty_file"}`） |
+| A13（`.xls`/非 OOXML → `unsupported_format`；PK 非 zip → `unreadable`） | **PASS** | `I13` |
+| A14（表头/列类 reason 与顺序不变） | **PASS** | `I14`（`header_missing`/`missing_columns`/`unknown_columns`/`column_order` + 行数 413 先于表头 422）；R1a 的 `test_header_errors`、`test_validation_order_row_limit_before_header` 同时通过 |
+| A15（5001 行 → 413，无部分导入） | **PASS** | `I15`（4 端点 + 计数不变） |
+| A16（行级 `RowError` 形状与 1-based 行号） | **PASS** | `I16`（`{"row","field","reason","related_row"}` 且 `row==3`；写入 422 `IMPORT_VALIDATION_FAILED` 5 键 details；批量零残留） |
+| A17（双载体等价） | **PASS** | `I17`（4 端点 × 文件/文本载体，状态码相同 + `json()` 深等）；R3 的 F034 31 项全绿（含 `test_td3_t114_field_boundaries`） |
+| A18（响应体 / 日志不含上传内容） | **PASS** | `I18`（marker、`<worksheet`、`mismatched tag`、`field larger than field limit`、`Traceback`、`.py` 0 命中）+ `U12`（实捕获 3 条记录，`args` 仅 `format`/`bytes`/异常类名，`exc_info is None`） |
+| A19（不吞异常守卫） | **PASS** | `U3`/`U4`/`U5`/`U6`/`U7`/`U8`/`U13`/`U14`/`U15`/`U16` + `I19`（注入 `MemoryError` → 4 端点 500 `INTERNAL_ERROR`，非 422） |
+| A20（重复 `validate` 一致、无副作用、不加锁） | **PASS** | `I20`（两次响应逐字段相同、7 表计数不变）+ `S6`（解析/预校验区间无 `for_update`/`begin_nested`/`commit`）；锁语义仍不以 `pg_locks` 断言（`TD-I-6` 口径） |
+| A21（契约与常量守卫） | **PASS** | `S2`（无 `field_size_limit`/`strict=True`/`csv.QUOTE`；5 242 880 / 5000 / 1000 不变）+ `S3`（无 `logger.exception|error`、无 `filename`/`exc_info`；分类边界恰 `AppError` + `failures`）+ `S5`（`ImportInvalidFile` 字面 `reason` ⊂ 已签核集合；BM 14 / VM 10 列序冻结）+ `S7`/`S8`；命令侧见 TE-6.5（`git diff` 收口、F014 仍 v1 / F023 仍 v2） |
+| A22（回归 T27/T28/T72、T107–T116 含 T114、T124/T126） | **PASS** | R1–R6（TE-3），全部实跑通过 |
+
+**无 FAIL / BLOCKED。** 未执行项见 TE-9。
+
+### TE-6 关键证据（真实输出）
+
+**6.1 输入构造的有效性与不变量（`TD-F037-U1`/`U2`/§15.8.1）**
+
+```text
+input1 bm14 bytes 131229     input1 w26 bytes 131336     (131_072 < len <= 5_242_880)
+  raw csv.reader  -> _csv.Error: field larger than field limit (131072)
+input2 bytes 5029 / 5030(含 marker)   startswith PK\x03\x04
+  load_workbook(read_only=True,data_only=True) OK, sheetnames ['Sheet']
+  iter_rows -> xml.etree.ElementTree.ParseError: mismatched tag: line 1, column 1683
+input3(manifest corrupt '</Types>'->'</Typse>') bytes 5029
+  load_workbook -> lxml.etree.XMLSyntaxError   (openpyxl.LXML=True ⇒ 走 lxml)
+BE-01 缺 workbook 部件 zip bytes 535;  bare load_workbook -> OSError('File contains no valid workbook part')
+零成员 zip bytes 22, magic PK\x05\x06 (⇒ PK 闸门 unsupported_format)
+```
+
+`__cause__` 逐类实测（`U3`/`U4`/`U9`/`U13`/`U15`）：
+
+| 输入形态 | 收敛结果 | `type(__cause__)` | 真实 payload? |
+| --- | --- | --- | --- |
+| CSV 单字段超限 | 422 `unreadable` | `_csv.Error` | 是 |
+| `PK\x03\x04` 非 zip / zip 截断 | 422 `unreadable` | `zipfile.BadZipFile` | 是 |
+| sheet 部件 deflate 首字节损坏 | 422 `unreadable` | `zlib.error` | 是 |
+| sheet XML 结束标签损坏 | 422 `unreadable` | `ElementTree.ParseError` | 是 |
+| 缺 `[Content_Types].xml` | 422 `unreadable` | `KeyError` | 是 |
+| 非法单元格坐标 `r="??"` | 422 `unreadable` | `ValueError` | 是 |
+| `[Content_Types].xml` 结构损坏 | 422 `unreadable` | `lxml.etree.XMLSyntaxError` | 是（输入 ③） |
+| 缺 workbook 部件（BE-01） | 422 `unreadable` | `OSError` | 是 |
+| `InvalidFileException` / `LargeZipFile` / `NotImplementedError` | 422 `unreadable` | 同名类 | **否（注入等价验证）** |
+
+`_PARSE_FAILURES` 实测 8 项（`Error`/`BadZipFile`/`LargeZipFile`/`error`(zlib)/`ParseError`/`NotImplementedError`/`KeyError`/`ValueError`），`OSError` **不在**其中（仅 `_parse_xlsx` 局部）；`.xlsx` 有效白名单 11 类（8 + `InvalidFileException` + 条件 `LxmlError` + `OSError`）。
+
+**6.2 日志 content-free 实测（`U12` 非空跑）**
+
+```text
+csm.imports | import parse rejected: format=csv  bytes=131229 error=Error
+csm.imports | import parse rejected: format=xlsx bytes=5055   error=ParseError
+csm.imports | import parse rejected: format=xlsx bytes=5029   error=XMLSyntaxError
+args=('csv', 131229, 'Error') / ('xlsx', 5055, 'ParseError') / ('xlsx', 5029, 'XMLSyntaxError') | exc_info=None
+```
+marker（`F037-MARKER-…`）、`<worksheet`、`mismatched tag`、`field larger than field limit`、`Traceback`、客户端文件名均 0 命中。
+
+**6.3 fd 泄漏（`I21`）**：同一进程连续 20 次提交损坏 xlsx，`len(os.listdir('/proc/self/fd'))` 前后不增长（断言 `after <= before`，用例 PASS，未 skip）。
+
+**6.4 缺陷可检测性（负向对照，不改生产文件）**：把 `_invalid_file_on_parse_failure` 临时替换为「不转换」的 passthrough 后，四个样本全部以原始解析器异常逃逸（即修复前的 500 路径）：
+
+```text
+input1-csv     -> escapes as _csv.Error
+input2-xlsx    -> escapes as xml.etree.ElementTree.ParseError
+input3-manifest-> escapes as lxml.etree.XMLSyntaxError
+be01-no-workbook-> escapes as builtins.OSError
+```
+⇒ 新增用例对「回归到 500」的缺陷是敏感的（不是空跑断言）。
+
+**6.5 静态 / 契约守卫（命令侧，cwd 仓库根）**
+
+```text
+$ git diff --stat -- backend/app/services/resource_import.py
+ backend/app/services/resource_import.py | 11 ++++++++++-      (1 file changed, 10 insertions(+), 1 deletion(-) 工作区 BE-01)
+$ git diff --stat -- backend/app/services/resource_interface_ip_import.py backend/app/api backend/app/core backend/app/models backend/alembic frontend
+(空)                                        # core/errors.py、F023 service、路由、models、alembic、frontend 零 diff
+$ git status --porcelain --untracked-files=all   (非 M 行)
+?? backend/tests/integration/test_f037_import_parse_errors.py   # 唯一新增文件
+$ git diff -U0 1c0eeaf -- backend/app/services/resource_import.py | grep -nE 'field_size_limit|strict=True|import_max_'
+no cap/strict change
+$ grep -rn "field_size_limit\|csv.QUOTE" backend/app
+(无命中)
+$ grep -nE 'logger\.(exception|error)\(' backend/app/services/resource_import.py
+no exception logging
+$ grep -n 'filename\|exc_info' backend/app/services/resource_import.py
+no filename/exc_info
+$ grep -nE 'except SyntaxError|except Exception' backend/app/services/resource_import.py
+476:  except Exception as exc:   # _close_workbook 清理边界（既有）
+509:  # 注释文本命中（OSError 说明，非代码）
+1019: except Exception:          # write_import 回滚边界（既有）
+$ git diff 1c0eeaf -- docs/api/F014.md docs/api/F023.md
+共 4 行落稿：F014 §1.2 一条 bullet + 修订表一行；F023 v2 §1.2 一条 bullet + 修订表一行
+$ head -4 docs/api/F014.md   -> - **版本**：v1          (未升版)
+$ head -4 docs/api/F023.md   -> - **版本**：v2（2026-10-26…）(未升版)
+$ git diff --stat 1c0eeaf -- docs/api/F002.md
+(空)                          # 无新 reason / 错误码 / details 键 / 上限
+```
+注：`S1`/`S4` 依赖 Git 状态，不在 pytest 内断言（以本表命令为证据）；`S2`/`S3`/`S5`/`S6`/`S7`/`S8` 另有 pytest 守卫（`TE-4`），两者结论一致。
+
+**6.6 `test_perf03_near_max_rows_baseline` 的独立归因（本 Tester 自己的结论）**
+
+- **事实**：Backend §9.5 记录该用例失败（`write=685.48s > 600`）；我在同一容器、同一 commit + 同一工作区代码上**单独重跑，结果为 `1 passed in 342.25s`**（`write=308.70s < 600`，`validate=42.15s`）。两次相差 **2.22×**（write）/ **2.83×**（validate），代码完全相同 ⇒ 测点读数随宿主负载/容器 I/O 大幅波动。
+- **代码侧证据**：`git diff 1c0eeaf -- backend/app/services/resource_import.py` 的功能改动只在 `_parse_xlsx` 的 `failures` 元组（新增 `OSError`）与注释；`write_import`、`parse_and_validate`、逐行校验、DB 访问与锁序**零 diff**（`S6` 与上表 diff 双证）。该用例 685 s 的耗时发生在 `unified.write_import`（5000 行 × resource/interface/ip + 3 条 Audit 的单事务），与解析异常白名单无调用关系。
+- **量化**：同一 320,476 B / 5000 行 payload 上，`parse_records`（含转换上下文与新增元组）耗时 `17.3 / 17.8 / 14.5 ms`（三次），裸 `csv.reader` 遍历 `18.6 ms`；新增的 `_PARSE_FAILURES + (InvalidFileException, OSError)` 元组构造 **0.27 µs/次**。即改动对整条路径的贡献约 **10⁻⁷ 量级**，不可能解释 600 s 级阈值跨越。
+- **结论（我的独立判断）**：该失败**与本改动无因果关系**，是**宿主/容器负载导致的测点波动**（Backend 归因方向成立，但「本机性能」应更准确地表述为「随负载波动、非稳定复现」——本轮已实测通过）。
+- **后续处置**：登记为**已知限制**（该阈值对宿主负载敏感；600 s 为「宽松 sanity ceiling」）；**不修改**测试阈值或测试语义，不改生产代码；若后续在 CI 稳定复现再评估是否另立提案（Owner：协调器；非 F037 缺陷）。
+
+### TE-7 与 §1 TEST DESIGN 的差异（本轮口径修订，均已在代码与结果中体现）
+
+| 条目 | §1 设计期表述 | TEST 实施口径 | 依据 / 影响 |
+| --- | --- | --- | --- |
+| `TD-F037-U9`（空 zip） | 「空 zip（无 worksheet）→ `empty_file`」 | **零成员 zip**（magic `PK\x05\x06`）→ `unsupported_format`；`empty_file` 用**合法容器缺 worksheet 部件**构造 | architecture §15.7 `TD-I-8` 更正；不改变设计或契约（`§1` 该行已同步修订） |
+| `TD-F037-U2`（`parse_records` 期望） | 「`parse_records` 抛同一类型（`ElementTree.ParseError`）」（修复前基线） | 有效性仍由**裸 `load_workbook` / `iter_rows`** 三步证明；收敛后 `parse_records` 断言 `ImportInvalidFile{unreadable}` + `__cause__ is ElementTree.ParseError` | 修复已落地，§1 原文为「改前缺陷基线」；按修复后语义断言，前置证明未削弱 |
+| `TD-F037-U4`（白名单参数化） | 9 类 | **11 类**（+ 条件 `LxmlError`、+ `OSError`），真实 payload 优先、注入兜底 | architecture §15.8.3 / §15.10.7-2 / §15.10.2 |
+| 新增 `TD-F037-U15` / `I23` / `S8` | 无 | 输入 ③（`[Content_Types].xml` 损坏）的有效性 + 4 端点 + lxml 可选依赖守卫 | architecture §15.8.1 / §15.8.2 / §15.8.5 |
+| 新增 `TD-F037-U16` | `U8` 未含 `SyntaxError` | 参数化并入 `U8`（`SyntaxError` 行），验证「未用 `except SyntaxError`」 | architecture §15.8.4 |
+| 新增 `TD-F037-U13` / `U14` / `I22` / `S7` | 无 | BE-01 真实 payload 收敛、`OSError` 作用域最小性、4 端点、静态守卫（L7′） | architecture §15.10.7 |
+| 载体常量 | 「复用 F034 常量」 | 本模块内以同值常量定义（`csm-pasted-import.csv` / `text/csv;charset=utf-8` / `f037-file-carrier.csv` / `text/csv`），不跨测试模块导入 | 保持模块独立、避免耦合；值来源 F034 `importCarrier.ts` |
+
+### TE-8 回归结果（TE-3 明细的裁决）
+
+| 项 | 套件 | 结果 | 重点项 |
+| --- | --- | --- | --- |
+| R1 | `test_imports.py`(29) + `test_import_tester_acceptance.py`(9) + `test_import_constraints.py`(4) | **42 PASS** | `test_header_errors`、`test_format_and_file_level_errors`、`test_file_size_and_row_limits`、`test_validation_order_row_limit_before_header`、`test_permission_matrix`、`test_templates_spec_and_read_permission` |
+| R2 | `test_f023_resource_interface_ip_import.py`(28) | **28 PASS**（27 + perf03 单独重跑通过） | `test_reg02_route_inventory` 通过 ⇒ 路由清单不变 |
+| R3 | `test_f034_csv_text_carrier.py`(29) + `_scope.py`(2) | **31 PASS** | `test_td3_t114_field_boundaries`（T114 字段边界等价）通过；未改写 F034 corpus |
+| R4 | `test_f035_append_interface_ip_import.py`(20) + `test_f035_append_scope.py`(2) + `test_f035_tester_acceptance.py`(16) + `test_f036_attribution.py`(5) + `test_f036_tester_independent.py`(5) | **48 PASS** | 追加路径、归因口径不变（T124） |
+| R5 | `test_import_performance.py`(4) | **4 PASS** | 上限拒绝与预览截断口径不变（未新增阈值） |
+| R6 | `test_f030_test_harness.py`(3) | **3 PASS** | 新模块未触碰 `access_scope` 符号，AST 门禁通过 |
+
+### TE-9 未执行 / 不可验证项（明示，不计入 PASS）
+
+| 项 | 标注 | 原因 |
+| --- | --- | --- |
+| 无 lxml 环境（`openpyxl.LXML=False`，生产镜像形态） | **NOT TESTED** | 本机 `LXML=True`；`U15` 已按分支断言实现（`expected_manifest_error_type()`），但仅 True 分支实测。结论**不外推**（R-11 / OPEN-T5） |
+| 真实内存耗尽触发 `MemoryError` / 真实 `RecursionError`（由上传字节触发） | **NOT TESTED** | 无法在宿主上稳定制造；仅注入证明分类边界（OPEN-T4） |
+| `zipfile.LargeZipFile` / `NotImplementedError` / `InvalidFileException` 的**真实 payload 可达性** | **NOT TESTED** | 本机未构造成功（`TD-I-5`）；仅注入等价验证 |
+| `EOFError`（截断成员读取路径） | **NOT TESTED**（仅登记） | architecture §15.10.6 只要求登记，不主张可达与否 |
+| `validate` 路径「不加锁」的直接观测（`pg_locks`） | **NOT TESTED**（以 `S6` 静态替代） | 采样不稳定（`TD-I-6`）；`I20` 计数 + `S6` 静态核查已覆盖 |
+| 前端 / 界面 | **NOT_REQUIRED** | `layers.frontend=false`；`git diff` 证明 `frontend` 零改动；载体行为由 R3 覆盖 |
+| 数据库约束 / Migration | **NOT_REQUIRED** | `layers.database=false`；零 DDL、零事务边界变化；解析失败发生在任何 `begin_nested()` 之前（`I9`/`I15`/`I16` 计数实测支撑「拒绝零残留」） |
+| 整体验收（需求 §31–33 跨功能） | **NOT_REQUIRED（本 Feature）** | 归 plan `acceptance` 整体回归（F045 变更集）；不得用本 Feature 局部 PASS 拼成整体 PASS |
+| `S1` / `S4` 的 pytest 化 | **NOT_REQUIRED** | 依赖 Git 状态，以 TE-6.5 只读命令为证据（其余 S 项均有 pytest 守卫） |
+
+### TE-10 Defects
+
+**无 BLOCKER / HIGH / MEDIUM 缺陷；无必须修复项（`READY FOR REVIEW`）。**
+
+观察项（NOTE，不阻塞）：
+
+| ID | Severity | Layer | 内容 | Owner |
+| --- | --- | --- | --- | --- |
+| TE-N1 | NOTE | 测试环境 | `test_perf03_near_max_rows_baseline` 的 600 s 阈值对宿主负载敏感（同一代码两次读数 685.48 s 失败 / 308.70 s 通过）。归因为环境波动，**不改阈值**、不改测试语义；登记为已知限制 | 协调器（环境 / CI） |
+| TE-N2 | NOTE | Backend | `_parse_csv` 仍保留一份独立的 `UnicodeDecodeError → unreadable` 分支（共享转换器之外）；既有代码、零 diff、结论不变，仅记录形态差异供 Review 核对（不构成缺陷） | Backend（信息登记） |
+| TE-N3 | NOTE | Backend | 拒绝路径保留一条 INFO 级 content-free 日志（`import parse rejected: format/bytes/error`），实测不含内容；与 `OPEN-T2` 默认保留一致（删除不影响任何断言） | 协调器 / 运维 |
+| TE-N4 | NOTE | Architect | 无 lxml 环境（生产镜像）未实测，结论不外推（R-11 / OPEN-T5）；如需覆盖须另行提供该形态环境 | Architect / 协调器 |
+
+### TE-11 结论
+
+**`READY FOR REVIEW`**
+
+- 新增测试模块 **52/52 PASS**（U 23 / I 23 / S 6），两次独立运行结果一致；含 architecture §10.2 两类输入的**有效性硬前置**、§15.8 输入 ③（含两种 XML 后端分支）、§15.10.7 的 `U13`/`U4` 11 类/`U14`/`I22`/`S7`，以及 `SyntaxError` 负向守卫。
+- 验收 A1–A22 **全部 PASS**，无 FAIL / BLOCKED；回归 R1–R6 全部实跑通过（42 / 28 / 31 / 48 / 4 / 3），重点项 `test_td3_t114_field_boundaries`、`test_reg02_route_inventory`、`test_permission_matrix`、`test_validation_order_row_limit_before_header` 均通过。
+- 契约与常量收口：仅 `resource_import.py` 的解析区有 diff；`core/errors.py`、F023 service、路由、models、alembic、frontend **零 diff**；F014 仍 **v1**、F023 仍 **v2**（各仅一条 §1.2 bullet + 一行修订记录）。
+- 唯一环境相关失败项（`test_perf03`）经独立重跑**通过**，归因为宿主负载波动而非本改动（TE-6.6），登记为已知限制且未改任何阈值。
+- 未执行项已在 TE-9 明示（无 lxml 环境、真实内存耗尽、三类异常真实可达性、`EOFError`、锁的直接观测、前端 / DB / 整体验收）。
+- 本阶段只写 `backend/tests/integration/test_f037_import_parse_errors.py` 与本文件；未改生产代码、契约、其它测试或计划。
+
+**GIT（本轮实际执行的只读命令，逐条列出）**：
+
+```text
+GIT: git status --porcelain
+GIT: git log --oneline -5
+GIT: git rev-parse --short HEAD
+GIT: git diff -- backend/app/services/resource_import.py
+GIT: git diff --stat
+GIT: git diff --stat 1c0eeaf -- backend/ docs/api docs/database frontend
+GIT: git diff --stat -- backend/app/services/resource_import.py
+GIT: git diff --stat -- backend/app/services/resource_interface_ip_import.py backend/app/api backend/app/core backend/app/models backend/alembic frontend
+GIT: git status --porcelain --untracked-files=all
+GIT: git diff -U0 1c0eeaf -- backend/app/services/resource_import.py | grep -nE 'field_size_limit|strict=True|import_max_'
+GIT: git diff 1c0eeaf -- docs/api/F014.md docs/api/F023.md
+GIT: git diff --stat 1c0eeaf -- docs/api/F002.md
+```
+
+未执行任何 `git add` / commit / branch / merge / stash / reset / clean。

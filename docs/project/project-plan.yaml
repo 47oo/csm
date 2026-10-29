@@ -2684,10 +2684,13 @@ features:
   - F034
   - F035
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: 'IMPLEMENTATION：backend 修改 resource_import.py（白名单 context manager + close 守卫 + lxml 条件条目）并自检，返回 BACKEND COMPLETE。'
-  last_result: 'ARCHITECTURE / TEST_DESIGN / CONTRACT 通过：architecture.md（含 §15 TD-I-1 lxml 裁定）READY FOR DESIGN→签核 READY FOR IMPLEMENTATION；TD-F037-1 TEST DESIGN READY（A1–A22→34 用例 + R1–R6）；F014 §1.2/§13 与 F023 v2 §1.2/§17 澄清附注落稿（版本不变）；Database NOT_REQUIRED。'
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 以候选 HEAD 复核实现、契约附注与测试证据，给出 APPROVED / APPROVED WITH
+    FOLLOW-UP。
+  last_result: IMPLEMENTATION / TEST 完成：backend 单点改动（白名单 context manager + close 守卫
+    + lxml/OSError 条件条目）+ repair round 1（BE-01 OSError 裁定）；TE-F037-1 READY FOR REVIEW：52
+    passed（U23/I23/S6，真实 PostgreSQL 16.15），回归 R1–R6 全绿（42/28/31/48/4/3）；perf03 阈值对负载敏感，独立重跑通过并登记为已知限制。
   layers:
     database: false
     backend: true
@@ -2702,9 +2705,9 @@ features:
     database: NOT_REQUIRED
     test_design: COMPLETE
     contract: COMPLETE
-    backend: PENDING
+    backend: COMPLETE
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
@@ -2717,13 +2720,22 @@ features:
     - docs/features/F037/product.md
     architecture:
     - docs/features/F037/architecture.md
+    database:
+    - docs/database/f014-import.md
+    - docs/database/f023-import.md
     test_design:
     - docs/features/F037/test-report.md#1-test-designtd-f037-1v12026-10-29
     contract:
     - docs/features/F037/architecture.md#159-最终设计签核contract-gate2026-10-29
+    - docs/features/F037/architecture.md#1510-be-01-裁定repair-round-12026-10-29
     - docs/api/F014.md
     - docs/api/F023.md
-
+    backend:
+    - docs/features/F037/implementation.md
+    - backend/app/services/resource_import.py
+    test:
+    - docs/features/F037/test-report.md#2-test-executionte-f037-12026-10-29
+    - backend/tests/integration/test_f037_import_parse_errors.py
 - id: F038
   title: 导入解压 / 解析内存边界加固（R05）
   kind: FEATURE
@@ -3781,7 +3793,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F037
-  current_stage: IMPLEMENTATION
+  current_stage: REVIEW
   last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
     / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
     / AQ-6 已裁定，AQ-7 保持 OPEN。
@@ -3795,8 +3807,8 @@ planning_status:
     CANCELLED: 2
     DONE: 36
     DRAFT: 2
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 4
   ready_features:
   - F039
