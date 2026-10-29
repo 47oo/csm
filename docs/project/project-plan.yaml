@@ -3894,7 +3894,7 @@ execution:
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F045
   current_stage: REVIEW
-  last_result: 'A1 以 run3 全量 969 passed/6 skipped 为依据（无排除项）；同代码另 3 次运行命中同一对性能阈值用例（run2 并发脏库 228.6s、run5 全新库 230.7s、隔离复跑 705.6s），已登记为环境敏感 flaky 并在 test-report §6 升级待用户裁定（不改阈值/不改产品代码）；A2–A9 证据齐全；DEF-1 已修复（测试资产，留痕见报告 §1）。'
+  last_result: 'A1 以 run3 全量 969 passed/6 skipped（无排除项）为依据；2 个性能阈值用例在同代码下 3 组对照实验（全新库/预热库/全新 PG 集群）稳定 FAIL（~700s vs 阈值 180s），同时整套耗时 1174s→3149s、validate 27s→114s，差异在宿主吞吐而非数据或代码；已登记环境敏感 flaky 并在 test-report §6 升级待用户裁定（不改阈值/不改产品代码/不写 PASS）。A2–A9 证据齐全；DEF-1 已修复（测试资产，留痕见 §1）。'
   next_action: 'F045 收口待用户裁定：性能阈值用例经环境敏感 flaky 登记后是否可作为环境限制收口（选项 a），或另立 Feature 调查导入写入性能并重定阈值（选项 b）。裁定前 acceptance 保持 PENDING。'
   repair_rounds: 0
 planning_status:
