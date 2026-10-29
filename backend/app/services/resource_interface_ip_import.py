@@ -51,7 +51,6 @@ from app.core.errors import (
     AppError,
     ImportFileTooLarge,
     ImportInvalidFile,
-    ImportRowLimitExceeded,
     ImportValidationFailed,
     InternalError,
     ValidationError,
@@ -1197,15 +1196,15 @@ def parse_and_validate(
     if len(data) > max_file_bytes:
         raise ImportFileTooLarge(max_file_bytes)
 
-    records = resource_import.parse_records(data, fmt)
+    records = resource_import.parse_records(
+        data, fmt, max_rows=max_rows, keep_cells=len(COLUMN_NAMES)
+    )
     if not records:
         raise ImportInvalidFile("empty_file")
 
-    data_records = list(records[1:])
-    while data_records and all(cell == "" for cell in data_records[-1]):
-        data_records.pop()
-    if len(data_records) > max_rows:
-        raise ImportRowLimitExceeded(max_rows)
+    # 尾部空行裁剪与行数判定已归 parse_records（F038，单一来源）；
+    # 顺序不变（Contract §2）：解析 422 → 行数 413 → 表头/列 422 → 逐行。
+    data_records: list[list[str]] = records[1:]
 
     _resolve_header(records[0])
     if not data_records:

@@ -2763,10 +2763,14 @@ features:
   - F023
   - F037
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 依赖 F037 已 DONE；可调度。启动后由 product-manager 产出 product.md（PRODUCT Gate）。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R05（静态路径分析，未执行内存耗尽实验）。未启动。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 复核候选 HEAD（含 §14 口径一致性、R-13 未放宽、G-A 守卫、报告措辞）并给出 APPROVED
+    / APPROVED WITH FOLLOW-UP。
+  last_result: repair round 1 复测通过（TE-F038-2）：整模块 76 passed / 0 failed（含 m4d 地板来源+守卫、m3a
+    T-2′、m4b T-1b′、m4e T-1c、m6 增列）；F/B = 5.045/5.011/5.009/5.216（G-A1/A2 PASS）；T-1b′
+    0.006 ≤ 2.009 MiB、T-1c 1.057 ≤ 3.579 MiB（两侧 413）、T-2′ 11.441×/155.744×/5312.409×/37.483×；F037
+    52 项零修改全绿；R2–R6 70/31/48/4/3 全绿；两 service 与 test_f037 零 diff。TD-I-9/TD-I-10 关闭。
   layers:
     database: false
     backend: true
@@ -2778,22 +2782,37 @@ features:
     contract: 推荐口径（AQ-2=A）为实现侧有界解析、不新增可观察拒绝，无需变更契约；若用户裁定 AQ-2=B（新增可观察上限），本 Feature
       必须重新评估 `api_required=true`、升版契约并随需求 revision 16 重签后再实施。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: COMPLETE
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
+    branch: feature/F038-import-parse-bounds
+    start_commit: 8e609ca2e5b88c30804b6f6ad54a8a57d7906556
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F038/product.md
+    architecture:
+    - docs/features/F038/architecture.md
+    test_design:
+    - docs/features/F038/test-report.md#1-test-designtd-f038-1v12026-10-29
+    contract:
+    - docs/features/F038/architecture.md#1310-定稿签核
+    backend:
+    - docs/features/F038/implementation.md
+    - backend/app/services/resource_import.py
+    - backend/app/services/resource_interface_ip_import.py
+    test:
+    - docs/features/F038/test-report.md#2-test-executionte-f038-22026-10-29修复复测
+    - backend/tests/integration/test_f038_parse_bounds.py
 - id: F039
   title: Dashboard 容量查询批量化与查询计数基准（R10）
   kind: FEATURE
@@ -3793,13 +3812,12 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
-  last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
-    / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
-    / AQ-6 已裁定，AQ-7 保持 OPEN。
-  next_action: 启动 F037（P0，导入解析异常收敛为 422 IMPORT_INVALID_FILE）。
-  repair_rounds: 1
+  current_feature: F038
+  current_stage: REVIEW
+  last_result: F038 repair round 1 完成：§14 阈值重裁 + 复测 76 passed / 0 failed；TD-I-9/TD-I-10
+    关闭；实现与 F037 零变更。
+  next_action: F038 REVIEW Gate。
+  repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
@@ -3809,10 +3827,9 @@ planning_status:
     DONE: 37
     DRAFT: 1
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 5
+    IN_REVIEW: 1
+    READY: 4
   ready_features:
-  - F038
   - F039
   - F040
   - F041
