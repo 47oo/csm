@@ -2764,9 +2764,9 @@ features:
   - F037
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: 'ARCHITECTURE：architect 定稿有界解析方案（parse_records 兼容、context manager 复用、L7′ 重评、测量方法）并给出 READY FOR DESIGN。'
-  last_result: 'PRODUCT COMPLETE（READY FOR ARCHITECT）：AQ-2=A 边界固化——仅实现侧有界解析、零可观察差异；B1–B13 不变量与 A1–A14 验收草案成立。'
+  current_stage: TEST_DESIGN
+  next_action: 'TEST DESIGN：tester 产出 test-report（TD-F038，含 U1–U5/I1–I10/M1/S1–S5 与基线测量方法）并返回 TEST DESIGN READY。'
+  last_result: 'ARCHITECTURE READY FOR DESIGN：流式来源 + 有界保留（整段排空、表头整行、数据行裁剪到模板宽度、尾部空行计数式）；parse_records 保持返回形态并新增可选 max_rows/keep_cells（DR-F038-02），裁剪与行数上限上移至单一来源；契约零 diff；Database NOT_REQUIRED；ON-1 按基线口径（尾部解析异常 → 422）。'
   layers:
     database: false
     backend: true
@@ -2779,7 +2779,7 @@ features:
       必须重新评估 `api_required=true`、升版契约并随需求 revision 16 重签后再实施。
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: PENDING
     contract: PENDING
@@ -2794,6 +2794,8 @@ features:
     head_commit: null
     merge_commit: null
   evidence:
+    architecture:
+    - docs/features/F038/architecture.md
     product:
     - docs/features/F038/product.md
 - id: F039
@@ -3796,7 +3798,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F038
-  current_stage: ARCHITECTURE
+  current_stage: TEST_DESIGN
   last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
     / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
     / AQ-6 已裁定，AQ-7 保持 OPEN。
