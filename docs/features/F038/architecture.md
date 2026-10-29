@@ -407,3 +407,146 @@ python3 -m pytest tests/integration/test_f038_parse_bounds.py -q                
 在既有契约与 AQ-2=A 边界内，通过「整段排空 + 有界保留」使解析阶段内存相对输入规模有界、且不随展开工作量增长；四端点可观察结果预期逐字段不变，`docs/api/` 零 diff，无 Schema / 配置 / 依赖 / 前端改动。时间仍线性于展开工作量（§4.5），残余无界面三条登记为已知项。
 
 **READY FOR DESIGN** —— 可交 Database（复核 NOT_REQUIRED）与 Tester 编写 TEST DESIGN；本阶段不放行编码。定稿须在取得 Database NOT_REQUIRED 复核与 Test Design 后，由本角色核对 §4.5/§9 一致性并签核，特别复核 DR-F038-02 与 ON-1 口径。
+
+## 13. CONTRACT 阶段定稿签核（v1 + §13 增补，2026-10-29）
+
+- **状态**：**READY FOR IMPLEMENTATION**
+- 本节对 §8（阈值）、§9.3（TD 输入）、§9.4（DR-F038-02）、§11（ON-1/ON-2）作口径确认与收紧；冲突以本节为准，v1 正文 §1–§12 不修订。
+- 核对输入：`docs/features/F038/{product,test-report}.md`（TD-F038-1）、`docs/api/F014.md` v1 §2/§7/§10/§13、`docs/api/F023.md` v2 §2/§7/§14/§17、`backend/app/services/{resource_import,resource_interface_ip_import}.py`、`backend/tests/integration/test_f037_import_parse_errors.py`。
+
+### 13.1 TD-I-1 裁剪安全性取证（裁定：毒值探针 + 负向对照 + AST 三件套成立）
+
+代码事实：`_validate_record` :675–676 与 `_cells_for` :389–393 均先 `list(cells)` / `list(record)`，`list.__iter__` 不回调子类 `__getitem__` ⇒ 原「下标探针」不可执行。裁定采纳毒值探针方案，附 4 条硬约束（缺一即证据不成立）：
+
+| ID | 约束 |
+| --- | --- |
+| P-1 | 毒值必须覆盖 `__getattr__` / `__eq__` / `__ne__` / `__hash__` / `__bool__` / `__str__` / `__repr__` / `strip`；**不得**在 `__len__` 上抛（`len()` 合法） |
+| P-2 | 双负向对照：① 同一记录第 **W-1** 列放毒值 → **必须触发**；② 毒值记录与「第 ≥W 列置空」的 `result_payload()` 完全相等 |
+| P-3 | 毒值只加数据行；表头整行保留另由 `U2-⑩`（header 宽度 == 原始宽度）与 `I6a`（`unknown_columns` 逐元素等于基线）证明，三项须同时绿 |
+| P-4 | 毒值探针须覆盖错误路径（未知 cluster / 非法整数 / 文件内重复 hostname / F023 组内一致性冲突），错误集与基线逐元素相等 |
+
+OPTIONAL（不作判据）：表头第 ≥W 列放毒值须触发；宽表差分 fuzz。
+
+### 13.2 阈值口径（定稿，唯一有效）
+
+| # | 断言 | 适用 |
+| --- | --- | --- |
+| T-1 | `fixed_peak(4N) ≤ 1.5 × fixed_peak(N) + 2 MiB` | **仅 xlsx 族** S-W1 / S-W2；N=2501 / 4N=10001（统一取值，取代 20004） |
+| **T-1b** | `Δpeak ≤ 1.5 × Δbytes + 2 MiB`（`Δpeak = fixed(4N) − fixed(N)`，`Δbytes` 同构造） | CSV 族 |
+| T-2 | `excess(fixed) ≤ excess(baseline) / 8`，`excess(x) = max(peak − len(data), 0)` | S-W1 / S-W2（等规模 1001 行）、S-W6a |
+| T-3 | `fixed_peak ≤ 1.2 × baseline_peak` | 合法 5000 行 CSV |
+| T-4 | `fixed_peak ≤ 64 × len(data) + 64 MiB` | 全部样例 |
+| T-5 | `fixed_time ≤ baseline_time`（记录秒数，无绝对上限） | S-W1 / S-W2 / S-W6a |
+| T-6 | 报告项 `fixed_peak(S-W2, 4N) ≤ 8 MiB`（不判 FAIL） | S-W2 |
+
+理由：CSV 峰值地板是不可避免的 `data.decode("utf-8-sig")` 整串（≤5 MiB），故 T-1 只对 xlsx 族成立；T-2 剥离输入地板后 `S-W6a` 余量 ≥ 2×（关闭 TD-I-3）。列数维度不新增判据（T-2 已含相对证据 + T-4 哨兵），允许作报告项。
+
+**防放宽条款（R-13）**：本节为阈值唯一有效口径；TEST 阶段不得改倍数/加减项；实测 FAIL 须修实现。任何第三次口径修订须回本节重签核，且报告须同时公布公式与两侧实测数值。
+
+### 13.3 ON-1 口径（413 / 422）与 product S3 errata
+
+实证（start_commit 基线）：S-W4（5001 行 + 尾部**行级错误/超宽行**）→ **413** `IMPORT_ROW_LIMIT_EXCEEDED{limit_rows:5000}`；S-W5（5001 行 + 尾部**解析器异常**，如单字段 >131072）→ **422** `IMPORT_INVALID_FILE{reason:"unreadable"}`。
+
+定稿口径：
+
+1. 尾部**解析器异常**（`csv.Error`、zip/XML 结构错误、`LxmlError`、`_parse_xlsx` 局部 `OSError`）→ **422 `unreadable`**，与行数无关（B6「解析 422 先于行数 413」）。
+2. 尾部**行级错误**或**超宽行**（不触发解析器异常）→ **413**。
+3. product §2.1 S3 的「5001 行 + 尾部解析损坏仍 413」只能读作「尾部行级错误或超宽行 → 413」；B6/B8/S6 与 F014 §2 优先。
+4. 构造必须配对：「末行 200 列」= 413 的正确构造；「末行单字段 131,073 字符」= 422 的正确构造。把 S-W5 写成 413 或用例判 **FAIL**。
+
+product 侧 errata：**需要**，归属 Product Manager，在 `docs/features/F038/product.md` §2.1 S3 行下增补解释（引用本 §13.3 与 TD 实测），不改 S1–S8 / B1–B13 实质；需求正文零变更；分类为澄清（`change-control.md` §2 编辑维护），不需用户裁定。
+
+### 13.4 S-W2 规模降级与期望值勘误（TD-I-8）
+
+1. **降级可接受**：原规模基线不是有界性证据，只是对照量；有界性由 T-1（N=2501/4N=10001）+ T-2（等规模 1001 行）+ T-4 承担。**2.7 GB 必须标 `ESTIMATE（外推，未实测）`**，不得表述为已实测（product N8）。
+2. **期望值勘误**：`dimension A1:XFD{N+1}` 使 openpyxl 把**每一行（含表头行）**补齐到 16,384 格；数据行全为 `<row/>` ⇒ 全属尾部空行被裁掉 ⇒ `total_rows=0`，**不触发 413**；表头含 14 个真实列名 + 16,350 个 `None` ⇒ `unknown_columns` 为 16,350 个空串 ⇒ 基线为 **422 `unknown_columns`**（硬编码 413 会产生假 FAIL）。
+3. 如需覆盖「超大宽度 + 413」，另立 S-W2b（XFD 宽 + 10001 行**非空**）→ 完成态 413，基线侧 `NOT TESTED（ESTIMATE）`，无差分兜底（R-14）。
+4. **I 层判据顺序固定**：① `(status, json())` 两侧深等优先；② 其次声明期望值；冲突时以①为准并立即登记，不得静默改期望。
+
+### 13.5 DR-F038-02 / ON-2 定稿（接受默认 `None`）
+
+硬事实：`test_f037_import_parse_errors.py` 共 **35 处**两参数 `parse_records(...)` 调用；其 :661–666 断言 `records[0] == BM_HEADERS`、`isinstance(records, list)`；A11/B8/S7 要求该文件零修改。
+
+裁定：**接受** `max_rows: int | None = None` / `keep_cells: int | None = None`。若改必填须机械适配 35 处并修改该文件 → 违反 B8/S7/A11 并使 F037 证据失效。补偿控制：
+
+| ID | 要求 |
+| --- | --- |
+| E-1 | `S2` 扩展为**全模块 AST 扫描**：`backend/app/**` 中 `parse_records(` 调用**恰好 2 处**，每处 `keywords` 均含 `max_rows` 与 `keep_cells`；第 3 处或缺参 → FAIL |
+| E-2 | `parse_records` docstring 保留「生产调用点必须同时传入；省略即回到无界物化，仅供单独验证解析层的用例使用」 |
+| E-3 | `max_rows=None` 分支由 `U6` 覆盖（两参数调用与显式 `None` 结果逐字节相等） |
+
+**须告知的语义变化**：F038 后两参数调用的语义变为「已剔除尾部空行 + 无行数上限」（v1 为「含尾部空行」）。已核对 F037 全文件无相应断言 ⇒ 零修改仍成立。
+
+被否决替代：必填参数 + 适配 35 处（违反 B8/S7/A11）；双入口（`parse_records` / `parse_records_bounded`，新增公共面且更易误用）；哨兵默认值（等价必填）。
+
+### 13.6 契约：`NOT_REQUIRED`，`docs/api/` 零 diff
+
+F038 对 `docs/api/F014.md`（v1）与 `docs/api/F023.md`（v2）**零修改**：Endpoint（4）、`format`、请求字段、响应 schema、错误码集合、`reason` 集合、`details` 键、上限常量（5,242,880 / 5000 / 1000）、校验顺序、行号语义、`IMPORT` 权限与 §23.2 范围均无变更。本 Feature 仅改变解析阶段内存工作集与可能的时间特征。
+
+| 面 | 状态 |
+| --- | --- |
+| Endpoint / `format` / 请求字段 | 零变更 |
+| 响应字段与 JSON 形状 | 零变更（`result_payload` 未动） |
+| 错误码 / `reason` / `details` 键 | 零变更（只复用既有异常） |
+| 校验顺序 | 零变更（行数判定位置移入 `parse_records`，仍在表头前） |
+| 上限数值 / 模板 / 权限 / 范围 / Audit / 原子性 | 零变更 |
+| `docs/api/`、`docs/database/`、`frontend/`、`backend/alembic/`、`pyproject.toml`、`Dockerfile` | 零 diff（`git diff --stat 8e609ca -- …` 必须为空） |
+
+四项 TD 发现（TD-I-1 / TD-I-2 / ON-1 / S-W2）均不触及契约 ⇒ 不存在与 AQ-2=A 的冲突。**若实现中出现「必须新增可观察拒绝/上限才能达成有界」的判断，立即停止实现，本签核与 §12 设计同时失效，回退 AQ-2=B 变更流程。**
+
+### 13.7 Backend 实现要点增补（叠加 §9.2）
+
+| ID | 要点 |
+| --- | --- |
+| IMP-1 | `_is_blank_record` **不加优化、不得收窄到前 keep_cells 列**（否则前 W 列全空、第 W+1 列有值的尾部行会被误判，破坏 B3/A4）。`all()` 的自然短路即为 §9.1 R-5 的处置，**不得实现为截断判定** |
+| IMP-2 | `_collect_records` 内**禁止** `list(record)`；只能 `record[:keep_cells]`（整行 `list()` 会复制 16,384 指针，抵消收益） |
+| IMP-3 | 新增 `from collections.abc import Sequence`；不新增第三方 import |
+| IMP-4 | `_finalise` 调用位置：CSV 在 `with` 块之后；xlsx 在 `finally: _close_workbook` 之后 ⇒ `ImportRowLimitExceeded` 恒在白名单作用域外 |
+| IMP-5 | consumer 用 `data_records = records[1:]`，**不得**再包 `list(...)`；返回类型仍 `list[list[str]]` |
+| IMP-6 | 中间空行占位 `()` → `_finalise` 归一化为 `[]` → `_validate_record` 补 14 / `_cells_for` 补 26，与基线读取下标集相同 |
+| IMP-7 | `_collect_records` 的 `for` 体内**不得**出现 `break` / `return`（超额后必须 `continue` 排空）；由 AST 断言 |
+| IMP-8 | `_is_blank_record` / `_Collected` / `_collect_records` / `_finalise` 内不得出现 `logger.` / `open(` / `Path(` / `try` / `except`（L7″） |
+| IMP-9 | `_MAX_TEMPLATE_COLUMNS` 由 `TEMPLATES` 推导（实测 14），不得硬编码；F023 侧用 `len(COLUMN_NAMES)`（26） |
+| IMP-10 | 自检：`git diff --stat 8e609ca -- backend/tests/integration/test_f037_import_parse_errors.py` 必须为空，且该套件 52 项全绿 |
+
+F037 守卫兼容性已逐条只读核对（`:1293–1320` 的 `OSError` 行区间、无独立 `except OSError`、`with` 块禁 I/O、`except Exception` 恰 2 处、`_invalid_file_on_parse_failure` 子句仍 `["AppError","failures"]`、`len(_PARSE_FAILURES)==8`）⇒ 无需改动。
+
+### 13.8 Database / Frontend 复核
+
+Database `NOT_REQUIRED` 继续成立（解析早于任何 DB 访问；`write_import` :950 之后才 `begin_nested()`）。**事实如实记录**：仓库内无 `docs/database/F038*` 产物，按 `layers.database=false` 不需要；本签核依据为 plan revision 25 的 `layers.database=false` + 代码事实 + test-report TD-10 复核；不宣称 Database 角色已出具独立报告（若需书面复核在 L0 补齐，不阻塞放行）。Frontend 零改动（`frontend/` 空 diff）。
+
+### 13.9 风险变化
+
+| ID | v1 | §13 | 依据 |
+| --- | --- | --- | --- |
+| R-1 行号位移 | HIGH | HIGH | 证据链成型但未实测 |
+| R-2 `_is_blank_record` 不等价 | HIGH | **MEDIUM** | 逐类型复核 `_cell_text`：`str`/`None`/`bool`/`int`/`float`/`datetime`/`date`/`time`/`timedelta`/`Decimal("0")`/`b""`/`nan` 全等价；残由 U1 + S-W3/S-W7 兜底 |
+| R-3 残余无界面 | MEDIUM | MEDIUM | §4.5 措辞不变 |
+| R-4 预览/计数语义 | HIGH | HIGH | 由 I7/I12 承担，未实测 |
+| R-5 时间退化 | MEDIUM | **LOW** | `all()` 短路 + 无文本构造（严快于基线） |
+| R-6 openpyxl dimension 差异 | MEDIUM | MEDIUM | 另需「无 dimension」「dimension 不一致」两例 |
+| R-7 413/422 顺序 | HIGH | HIGH | §13.3 配对构造 + IMP-4/7 |
+| R-8 L7′ 失守 | MEDIUM | MEDIUM | F037 守卫兼容性已核对 |
+| R-9 漏传参数 | MEDIUM | MEDIUM | 升级为 E-1 全模块 AST |
+| R-10 MemoryError 语义 | MEDIUM | MEDIUM | `except Exception == 2` 守卫已核对 |
+| R-11 测量噪声 | MEDIUM | MEDIUM | M6 协议不变 |
+| **R-12（新）** | — | MEDIUM | TD 期望值与基线不一致（S-W2 写成 413）→ 假 FAIL；由 TD-I-8 勘误 + 差分优先判据处置 |
+| **R-13（新）** | — | MEDIUM | 阈值口径被二次放宽 → §13.2 防放宽条款 |
+| **R-14（新）** | — | LOW | 单侧断言无差分兜底（S-W2b、5000 行写入端点 `NOT TESTED`）；不得表述为等价性证据 |
+
+关闭：**TD-I-3**（T-2 的 `excess` 口径使 S-W6a 余量 ≥ 2×）。
+
+### 13.10 定稿签核
+
+```text
+签核：Architect；日期 2026-10-29。
+设计版本：docs/features/F038/architecture.md v1 + §13 增补（自本行起为实施依据；冲突以 §13 为准）。
+上游依据：用户 2026-10-29 AQ-2 = A；product.md v1（S1–S8/B1–B13/N1–N10/A1–A14）；requirements revision 16；plan revision 25（layers={database:false,backend:true,frontend:false}、api_required=false、blocking_decisions: []）；F014 v1 / F023 v2（零 diff）。
+定稿核对：TD-F038-1 覆盖 A1–A14 与 B1–B13（U1–U6 / I1–I15 / M1–M6 / S1–S6 + R1–R6，逐条给出层级/夹具/构造/断言/T 条目，映射无缺口）；§13 裁定四项 TD 实测发现与 DR-F038-02/ON-2，并新增 TD-I-8 勘误；契约 NOT_REQUIRED 且零 diff；Database NOT_REQUIRED 复核；无残留冲突与失效设计。
+覆盖：仅 F038。不含 AQ-2=B、不含 F045 整体验收、不回填 F001–F037 历史证据。
+结论：READY FOR IMPLEMENTATION
+放行写入：① backend/app/services/resource_import.py；② backend/app/services/resource_interface_ip_import.py；③ 新增 backend/tests/integration/test_f038_parse_bounds.py；④ docs/features/F038/architecture.md §13、test-report §2 与 TD-I-8 勘误。
+零 diff 禁止写入：docs/api/、docs/database/、backend/alembic/、frontend/、pyproject.toml、Dockerfile、模板/上限/错误码、backend/tests/integration/test_f037_import_parse_errors.py。
+前置义务（不阻塞放行，但 TEST 结论须满足）：① 按 §13.4 修正 S-W2 期望；② 阈值按 §13.2 并公布公式与数值；③ 2.7 GB 标 ESTIMATE；④ product errata 由 Product 落稿并由协调器核验一致。
+失效条件：① 需新增可观察拒绝/上限；② 需改 F037 52 项或任何契约文件；③ S-W5 实现为 413 或 S-W4 实现为 422；④ 两 service 之外出现 diff；⑤ 需求/契约/product 修订触及 §1.2 与 B1–B13。
+```
