@@ -1,8 +1,7 @@
-cmd: TEST_DATABASE_URL=*** alembic heads; alembic current (cwd=backend, DB=csm_f045_test)
-head: b96599a8a9748e16aba4d10d751f8b0894c1fdbd
-note: 首次尝试未导出 TEST_DATABASE_URL，alembic 默认 URL 连接失败（sqlalche.me/e/20/e3q8），本文件为重跑结果
+cmd: DATABASE_URL=*** alembic heads; DATABASE_URL=*** alembic current (cwd=backend, DB=csm_f045_test)
+head: 598f38c0598316028ae65d909839e3b7323637e1
+note: alembic 读取 DATABASE_URL（非 TEST_DATABASE_URL）；前次尝试未覆盖，默认值 host='db' 无法解析（sqlalche.me/e/20/e3q8），本文件为覆盖后的结果
 ----
 0015_user_cluster_authorizations (head)
-sqlalchemy.exc.OperationalError: (psycopg.OperationalError) failed to resolve host 'db': [Errno -2] Name or service not known
-(Background on this error at: https://sqlalche.me/e/20/e3q8)
-exit_code: 0
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
