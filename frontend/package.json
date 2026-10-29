@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test:interactions": "node scripts/test-interactions.mjs",
     "smoke:client": "node scripts/smoke-client.mjs"
   },
   "dependencies": {

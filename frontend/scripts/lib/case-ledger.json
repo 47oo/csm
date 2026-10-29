@@ -1,0 +1,16 @@
+{
+  "feature": "F043",
+  "generated_by": "node scripts/lib/caseAudit.mjs --emit",
+  "scope": [
+    "scripts/smoke-client.mjs"
+  ],
+  "counts": {
+    "scripts/smoke-client.mjs": 352
+  },
+  "total": 352,
+  "digest_algo": "sha256(names.join(\"\\n\"))",
+  "digest": "4d43366f8aa5245033bbef3477eb8457f4cc02ac8fe0f7d6e2cdd56d046024df",
+  "digest_sorted": "bdc264119e665d6fdc2fc3cb81799083f2c90968623fec02b0cfa1cdfee16a67",
+  "skip_hits": 0,
+  "node": "v22.23.3"
+}

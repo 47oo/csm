@@ -48,8 +48,8 @@
 | F040 | 前端依赖版本范围与架构升级策略对齐（R07） | ENABLER | P1 | DONE | — | — | docs/architecture/frontend-ui-stack.md, docs/product/requirements-v3.md#29-技术栈, docs/project/proposals/CHG-015-post-delivery-review-closeout.md |
 | F041 | 对象选择控件候选完整性（R04） | FEATURE | P1 | DONE | F003, F004, F006 | — | docs/product/requirements-v3.md#28-前端, docs/product/requirements-v3.md#232-集群范围授权, docs/product/requirements-v3.md#9-virtual-machine, docs/api/F003.md, docs/api/F004.md, docs/features/F006/implementation.md, docs/product/requirements-v3.md#281-对象选择控件的候选完整性revision-16, docs/project/proposals/CHG-015-post-delivery-review-closeout.md |
 | F042 | 前端按页面边界懒加载（R06） | FEATURE | P2 | CANCELLED | F033 | — | docs/product/requirements-v3.md#28-前端, docs/architecture/frontend-ui-stack.md, docs/project/proposals/CHG-015-post-delivery-review-closeout.md |
-| F043 | 前端交互回归可重复入口与验证命令去重（R08） | ENABLER | P2 | READY | — | — | docs/product/requirements-v3.md#31-测试, docs/features/F033/test-report.md, docs/project/proposals/CHG-015-post-delivery-review-closeout.md |
+| F043 | 前端交互回归可重复入口与验证命令去重（R08） | ENABLER | P2 | IN_REVIEW | — | — | docs/product/requirements-v3.md#31-测试, docs/features/F033/test-report.md, docs/project/proposals/CHG-015-post-delivery-review-closeout.md |
 | F044 | Agent 模型配置与角色职责解耦（R09） | ENABLER | P2 | CANCELLED | — | — | .pi/extensions/subagent/index.ts, docs/project/handoff.md, docs/project/proposals/CHG-015-post-delivery-review-closeout.md |
 | F045 | CHG-015 变更集整体回归与部署等价验收 | FEATURE | P0 | DRAFT | F037, F038, F039, F040, F041, F043 | AQ-1, AQ-4, AQ-5, AQ-6 | docs/product/requirements-v3.md#31-测试, docs/product/requirements-v3.md#32-上线验收, docs/product/requirements-v3.md#30-部署, docs/product/requirements-v3.md#20-dashboard, docs/project/proposals/CHG-015-post-delivery-review-closeout.md |
 
-统计：BLOCKED=0；CANCELLED=2；DONE=41；DRAFT=1；IN_PROGRESS=0；IN_REVIEW=0；READY=1。
+统计：BLOCKED=0；CANCELLED=2；DONE=41；DRAFT=1；IN_PROGRESS=0；IN_REVIEW=1；READY=0。

@@ -3112,10 +3112,12 @@ features:
   - docs/project/proposals/CHG-015-post-delivery-review-closeout.md
   depends_on: []
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 待用户裁定 AQ-4（推荐 B）并批准 CHG-015 后置 READY。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R08（smoke 340 项通过；无仓库内 DOM/E2E 入口）。未启动。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 复核候选 HEAD（A1–A10、审计非平凡性、S 静态断言边界、I-1 放行清单）并给出结论。
+  last_result: TEST READY FOR REVIEW（TE-F043-1）：A1–A10 全 PASS；smoke 352/0 输出与基线逐字节相同、test:interactions
+    14/0 两次一致；caseAudit 非平凡性已证（改名/删除/skip/常量改动均 FAIL）；无 node_modules 与无网络下两入口均通过；src/lock/backend/docs
+    零 diff；package.json 仅 1 行；X4 记 NOT TESTED。
   layers:
     database: false
     backend: false
@@ -3128,22 +3130,35 @@ features:
       拆分（`frontend/scripts` 与测试入口），无产品页面 / 组件 / 交互语义变更，不产生可验收的前端功能交付。
     contract: 不改 API 契约；仅测试基础设施与验证入口。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
+    branch: feature/F043-test-entry
+    start_commit: 8eec63b9af897167fc448dce222a175b6852188f
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    frontend:
+    - docs/features/F043/implementation.md
+    - frontend/scripts/test-interactions.mjs
+    test:
+    - docs/features/F043/test-report.md#2-test-executionte-f043-12026-10-29
+    architecture:
+    - docs/features/F043/architecture.md
+    test_design:
+    - docs/features/F043/test-report.md#1-test-designtd-f043-1v12026-10-29
+    contract:
+    - docs/features/F043/architecture.md#9-签核
+    product:
+    - docs/features/F043/product.md
 - id: F044
   title: Agent 模型配置与角色职责解耦（R09）
   kind: ENABLER
@@ -3865,11 +3880,10 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
-  last_result: F037 / F038 / F039 / F040 / F041 DONE（均合入 v3.4）。F039：Dashboard 容量查询由
-    8+4N+P 批量化到常数 11 次 SELECT，公式单点与响应面零变更。
-  next_action: 继续：F043（R08 可重复测试入口）→ F045（变更集整体回归，恢复 acceptance=COMPLETE）。
+  current_feature: F043
+  current_stage: REVIEW
+  last_result: F039 DONE；F043 启动 PRODUCT（R08 可重复测试入口，AQ-4=B）。
+  next_action: F043 PRODUCT Gate。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -3880,10 +3894,9 @@ planning_status:
     DONE: 41
     DRAFT: 1
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F043
+    IN_REVIEW: 1
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT:
