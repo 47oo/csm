@@ -48,3 +48,11 @@
 
 - `/tmp/f045_acceptance.py`（§32 42 步驱动）、`/tmp/f045_acceptance_delete.py`（逻辑删除/恢复 15 步，修正 `?version=` 签名后重跑）；仅为本次执行，`/tmp` 下不入库，用后已删除（§6 不新增 `scripts/acceptance/`）。
 - 收尾：`docker compose ... down -v`（容器与 `pgdata` 卷已删除）；`csm_f045_test` 保留供协调器复核/复测，临时角色 `csm_f045n` 与库 `csm_f045_test_nonsuper` 已 DROP。
+
+## §4 追加对照实验环境（perf 阈值，2026-10-29 20:00–20:45Z）
+
+- 宿主：16 逻辑核，`/proc/loadavg` 1.6–3.2，可用磁盘 905G。
+- 实验 1 `perf-idle-check.log`：`csm_f045_test2`（DROP/CREATE 全新）+ 既有容器 `csm-f037-pg`（:55432）。
+- 实验 2 `perf-warm-db-check.log`：`csm_f045_test`（复用/预热，未重建）+ `csm-f037-pg`（:55432）。
+- 实验 3 `perf-fresh-cluster-check.log`：**新建容器** `csm-f045-pg`（`postgres:16-alpine`，空卷，映射 :55433，库 `csm_f045_fresh_test`），实验后已 `docker rm -f` 清理。
+- 三份日志均缺 `exit_code`/`start_commit` 标签，起止时间为裸 ISO8601 行——已按事实登记（未事后补写）。

@@ -1,7 +1,7 @@
 cmd: alembic heads; alembic current (cwd=backend, DATABASE_URL=***@127.0.0.1:55432/csm_f045_test)
 start_commit: fa8a568
 head: 5ec0958b4931419cc740afeb1358ad45342b7d12
-env: compose 栈 (nginx :18080)；凭据 ***
+env: DATABASE_URL=***@127.0.0.1:55432/csm_f045_test (host alembic, not compose); 凭据 ***
 started_at: NOT RECORDED
 finished_at: NOT RECORDED
 tool_versions: Docker server 29.8.2 (client 26.1.2) / Compose v5.6.0 / PostgreSQL 16.15
