@@ -117,7 +117,7 @@
 - **结论**：`READY FOR REVIEW`——A1–A9 PASS、A10 结构部分 PASS；X4 与整体/部署等价验收 `NOT TESTED`（§2.5）。执行基线 `HEAD=7b67289`、`start_commit=8eec63b`，工作区含 F043 未提交改动；本次只读执行，未改生产/测试代码、`package.json` 或 Schema，无 Git 写操作。
 - **Environment**：Linux 5.15.167.4-microsoft-standard-WSL2；Node **v22.23.3**（`process.versions.node`=22.23.3）/ npm **10.9.9**；`frontend/node_modules` 存在，另做无依赖隔离复验（§2.3）；无浏览器二进制、无第三方 import 参与。
 - **Basis**：`product.md` v1 A1–A10 / N1–N8；`architecture.md` ARCH-F043-1 v1（§4、§5 X1–X4、§6 C01–C14、I-1…I-4）；`implementation.md` IMPL-F043-1 v1；本文件 §1 TD-F043-1。
-- **产物**：`docs/features/F043/artifacts/`（环境、typecheck/build、两次入口日志、diff、审计、隔离/离线、突变证明、探针共 18 文件）；`/tmp` 探针与突变副本不入库、已清理。
+- **产物**：`docs/features/F043/artifacts/`（环境、typecheck/build、两次入口日志、diff、审计、隔离/离线、突变证明、探针共 19 文件）；`/tmp` 探针与突变副本不入库、已清理。
 
 ### 2.1 A1–A10 逐条判定（独立复跑，未复制实现者结果）
 
@@ -130,7 +130,7 @@
 | A5 | **PASS** | `git diff --stat 8eec63b -- frontend/src frontend/package-lock.json backend docs/api docs/product docs/database` **空**；`smoke-client.mjs` 差异仅 3 hunk / +14 −39，`await test(` 增删 **0**，被删 `assert` 2 行经比对为移入 `lib/harness.mjs` 的 `expectApiError`（函数体逐行相同）；`docs/features` 仅 F043 三文件 |
 | A6 | **PASS** | `npm run typecheck` exit 0（无输出）；`npm run build` exit 0（`✓ built in 24.54s`，仅既有 >500kB 警告）；`npm run smoke:client` → `352 passed, 0 failed` |
 | A7 | **PASS** | `scripts/**` 中 `playwright\|puppeteer\|chromium\|webdriver\|jsdom` 命中 **0**；`from "(react\|react-dom\|antd\|esbuild)` 命中 **0**；`unshare -n`（无 DNS）下两入口分别 14/0 与 352/0 仍 exit 0，请求全走被替换的 `globalThis.fetch`（`isolation-offline.log`）。注：本沙箱常态出口亦不可达，故「离线」由无 DNS 命名空间复验支撑 |
-| A8 | **PASS** | 证据入库：`docs/features/F043/artifacts/**`（18 文件，含入口日志、baseline 对比、diff 清单、审计、突变证明）+ `implementation.md` §2 映射表；未执行项（X4、真实落库/浏览器 E2E、整体验收）逐条标注 NOT TESTED / NOT_REQUIRED |
+| A8 | **PASS** | 证据入库：`docs/features/F043/artifacts/**`（19 文件，含入口日志、baseline 对比、diff 清单、审计、突变证明）+ `implementation.md` §2 映射表；未执行项（X4、真实落库/浏览器 E2E、整体验收）逐条标注 NOT TESTED / NOT_REQUIRED |
 | A9 | **PASS** | `frontend/package-lock.json` 零 diff；`git diff --numstat 8eec63b -- frontend/package.json` = `1 0`，`-U0` 唯一新增行 `+    "test:interactions": "node scripts/test-interactions.mjs",`（符合 I-1）；`dependencies`/`devDependencies` 零变更 |
 | A10 | **PASS（结构部分）** | `git diff --name-only 8eec63b -- docs/features` 仅 F043；未改任何已 DONE Feature 证据；报告与入口均未声明整体验收通过。整体回归 / 部署等价 **NOT TESTED**（F045 承接，见 TD §1.3） |
 

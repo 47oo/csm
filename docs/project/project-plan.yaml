@@ -3112,12 +3112,12 @@ features:
   - docs/project/proposals/CHG-015-post-delivery-review-closeout.md
   depends_on: []
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: REVIEW：reviewer 复核候选 HEAD（A1–A10、审计非平凡性、S 静态断言边界、I-1 放行清单）并给出结论。
-  last_result: TEST READY FOR REVIEW（TE-F043-1）：A1–A10 全 PASS；smoke 352/0 输出与基线逐字节相同、test:interactions
-    14/0 两次一致；caseAudit 非平凡性已证（改名/删除/skip/常量改动均 FAIL）；无 node_modules 与无网络下两入口均通过；src/lock/backend/docs
-    零 diff；package.json 仅 1 行；X4 记 NOT TESTED。
+  status: DONE
+  current_stage: null
+  next_action: null
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD 0e34190 / Base 8eec63b）：smoke
+    输出与基线逐字节相同（352/0）、test:interactions 14/0、caseAudit 非平凡（Reviewer 独立突变 4 类均 FAIL）、S
+    静态边界合规、X4 NOT TESTED 如实；Merge 至 v3.4（5c5b926）。
   layers:
     database: false
     backend: false
@@ -3138,14 +3138,16 @@ features:
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   git:
     base_branch: v3.4
     branch: feature/F043-test-entry
     start_commit: 8eec63b9af897167fc448dce222a175b6852188f
-    head_commit: null
-    merge_commit: null
+    head_commit: 0e34190
+    merge_commit: 5c5b9262765e99362ea6518bce10978bb787412b
   evidence:
+    review:
+    - docs/features/F043/review-report.md
     frontend:
     - docs/features/F043/implementation.md
     - frontend/scripts/test-interactions.mjs
@@ -3880,10 +3882,10 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: F043
-  current_stage: REVIEW
-  last_result: F039 DONE；F043 启动 PRODUCT（R08 可重复测试入口，AQ-4=B）。
-  next_action: F043 PRODUCT Gate。
+  current_feature: null
+  current_stage: null
+  last_result: F037/F038/F039/F040/F041/F043 全部 DONE 并合入 v3.4；仅余 F045 变更集整体回归与验收（P0）。
+  next_action: F045：变更集整体回归与部署等价验收，通过后恢复 project.acceptance=COMPLETE。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -3891,10 +3893,10 @@ planning_status:
   counts:
     BLOCKED: 0
     CANCELLED: 2
-    DONE: 41
+    DONE: 42
     DRAFT: 1
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 0
   ready_features: []
   blocked_draft_features:
