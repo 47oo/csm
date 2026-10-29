@@ -3113,10 +3113,9 @@ features:
   depends_on: []
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT：product-manager 产出 product.md（组件/逻辑级可重复交互入口，五项交互覆盖，smoke 拆分不减用例）。
-  last_result: Preflight 通过（AQ-4=B：不引入浏览器依赖）；分支 feature/F043-test-entry 自 v3.4 创建；进入
-    PRODUCT。
+  current_stage: ARCHITECTURE
+  next_action: 'TEST_DESIGN + ARCHITECTURE：tester 出 TD（五类交互判定式、352+N 复算）；architect 定稿入口形态/拆分粒度/防回归计数。'
+  last_result: 'PRODUCT COMPLETE（READY FOR ARCHITECT）：测试基础设施（AQ-4=B 零新依赖）；5 类交互（第 101 条候选/401/409 刷新/CSV 载体切换/危险操作取消）各须正负例；smoke 总数 352 不减且可复算；frontend/src 零 diff；A1–A10 成立。'
   layers:
     database: false
     backend: false
@@ -3129,7 +3128,7 @@ features:
       拆分（`frontend/scripts` 与测试入口），无产品页面 / 组件 / 交互语义变更，不产生可验收的前端功能交付。
     contract: 不改 API 契约；仅测试基础设施与验证入口。
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -3144,7 +3143,9 @@ features:
     start_commit: 8eec63b9af897167fc448dce222a175b6852188f
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F043/product.md
 - id: F044
   title: Agent 模型配置与角色职责解耦（R09）
   kind: ENABLER
@@ -3867,7 +3868,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F043
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   last_result: F039 DONE；F043 启动 PRODUCT（R08 可重复测试入口，AQ-4=B）。
   next_action: F043 PRODUCT Gate。
   repair_rounds: 0
