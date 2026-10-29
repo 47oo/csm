@@ -540,3 +540,82 @@ def _parse_xlsx(data: bytes) -> list[list[str]]:
 ```
 
 **放行范围**：只放行 F037 实现（`backend/app/services/resource_import.py` + 新增测试模块）；**不包含 F038 的流式解析改造**。F038 若流式化，须复用 `_invalid_file_on_parse_failure` 与 `_PARSE_FAILURES`（含本轮 lxml 条件条目）并另走自身 Gate。
+
+### 15.10 BE-01 裁定（repair round 1，2026-10-29）
+
+> 本节由 Architect 在实现阶段缺陷裁定中出具，与 §1–§15.9 具有同等效力；冲突时以本节为准。
+
+**缺陷事实**（Backend 实测，Python 3.12.7 / openpyxl 3.1.5 / lxml 5.2.1）：`[Content_Types].xml` 可读但未声明 workbook 部件的 zip，`load_workbook` 抛 `OSError('File contains no valid workbook part')`（openpyxl `_find_workbook_part`，`reader/excel.py:112`，`IOError is OSError`）；不在 §15.2 白名单 → 现状 500，而改前（`except Exception`）为 422，即修复引入「拒绝由 422 退化为 500」的可观察回归。
+
+**裁定**：接受。将 `OSError` 以 **`_parse_xlsx` 局部 `failures` 元组**形式纳入 `.xlsx` 白名单；`_PARSE_FAILURES`、`_parse_csv`、`_close_workbook`、`parse_records` 零 diff；不新增第二个 `try/except`；不收紧为「仅 `load_workbook` 期间」（前提由 L7′ 封住）。附注不改。
+
+理由：① 该输入是「包结构不成立的损坏容器」，F014 §1.2「不可解码 / 损坏」本已覆盖，改前即 422；F037 的授权是**缩小** 500 适用范围（product B7），不允许把已有拒绝升级为 500；② 语义可枚举——openpyxl 3.1.5 全包仅 `reader/excel.py:112` 一处 `raise IOError/OSError`，`ExcelReader.read()` 的 `except ValueError` 不改写它；③ 宽基类掩盖风险在本作用域内不成立：解析对象恒为 `io.BytesIO`，`with` 块内无文件/fd/socket/DB/临时落盘（L7），`_cell_text` 归一化在作用域之外，`MemoryError`/`RecursionError` 与 `OSError` 无继承关系；④ 仍**严格窄于改前**，属「部分回到改前可观察结果」，不是新增 4xx 面；⑤ openpyxl 无专用异常类，依赖锁 `openpyxl>=3.1,<3.2`，次要版本内稳定。
+
+#### 15.10.1 决策记录增补
+
+| ID | 决策 | 状态 |
+| --- | --- | --- |
+| **DR-F037-08** | BE-01 裁定：`OSError` 加入 `.xlsx` 有效白名单，**仅在 `_parse_xlsx` 局部 `failures`**（`_PARSE_FAILURES + (InvalidFileException, OSError)`，条件 `LxmlError` 追加不变）；理由为该异常在此路径唯一来源是 openpyxl「包无 workbook 部件」信号，解析在 `io.BytesIO` 上进行、作用域内无真实 I/O；禁 `except OSError` 单独分支、禁 `except Exception`、禁加宽到 `_PARSE_FAILURES`；不改契约附注、不新增 reason/码/字段/上限/依赖；`with` 块内不得引入真实 I/O（L7′），F038 流式化时须重新评估 | 已定（2026-10-29） |
+
+#### 15.10.2 白名单增补
+
+| 异常类型 | 触发位置 | 输入形态 | 依据 |
+| --- | --- | --- | --- |
+| `OSError`（`IOError` 同义） | `load_workbook` → `ExcelReader.read_workbook` → `_find_workbook_part` | zip 与 `[Content_Types].xml` 均可读，但包内未声明 workbook 部件 | 「损坏」（包结构不成立）；DR-F037-08 实测；**仅 `_parse_xlsx` 局部入表** |
+
+有效 `.xlsx` 白名单类别数由 10 → **11 类**（`_PARSE_FAILURES` 8 项零 diff + 局部 `InvalidFileException` + 条件 `LxmlError` + `OSError`）；CSV 路径仍 8 类。§3.2 排除项不变；分类边界仍只有 `except AppError: raise` + `except failures`。`OSError` 与环境后端无关。
+
+#### 15.10.3 `_parse_xlsx` 定稿修订（替换 §15.4 的 `failures` 构造）
+
+```python
+    # openpyxl 的 XML 后端二选一：fromstring 走 lxml（可导入时）；iterparse 恒为 ET。
+    # lxml.etree.XMLSyntaxError 只继承 SyntaxError，故两种后端的解析错误类都须入白名单。
+    #
+    # OSError 是 openpyxl 的「包不是 workbook」信号（DR-F037-08）：zip 可读但
+    # [Content_Types].xml 未声明 workbook 部件时，_find_workbook_part 抛
+    # IOError("File contains no valid workbook part")——属损坏容器拒绝，不是 I/O 故障。
+    # 该块全程在 io.BytesIO 上运行（无文件/fd/socket/DB），故真实 I/O 故障不可达、
+    # 不会被掩盖；不得在此块内新增真实 I/O（L7'），不得放宽为 except Exception。
+    failures: tuple[type[BaseException], ...] = _PARSE_FAILURES + (
+        InvalidFileException,
+        OSError,
+    )
+```
+
+#### 15.10.4 生命周期不变量增补（L7′）
+
+7. **L7′（作用域内无真实 I/O）**：`_parse_xlsx` 的 `with _invalid_file_on_parse_failure("xlsx", …)` 块内只允许「对内存字节的第三方调用」（`load_workbook`、`workbook.worksheets` 属性读、索引、`iter_rows`）。一旦块内出现 `open(` / `Path(` / `NamedTemporaryFile` / `requests` / `session` / 流式请求体读取，或改为 `load_workbook(<路径>)`，`OSError` 条目必须重新裁定（收窄为仅 openpyxl 调用期间或引入专用异常）。F038 若改流式解析须另走自身 Gate。
+
+#### 15.10.5 契约附注状态
+
+**不改。** `docs/api/F014.md` v1 §1.2 + §13、`docs/api/F023.md` v2 §1.2 + §17 零 diff。附注覆盖口径为输入形态「zip 容器与 XML 结构错误」，本样本属「zip 容器 / 包结构错误」；附注不列举异常类；该输入改前即 422，不扩大可拒绝输入集合。
+
+#### 15.10.6 风险变化
+
+| ID | 变化 | 结论 |
+| --- | --- | --- |
+| R-1 | 唯一已实测可达缺口（BE-01）已入表；检测矩阵 10 → 11 行、参数化 10 → 11 类 | **LOW 保持**；本裁定禁止把该样本再次降级为 500。残余：未来 openpyxl 新异常类、`OverflowError`（B8 刻意不捕）、`EOFError`（截断成员读取路径，未裁定、命中后另裁） |
+| **R-12（新增）** | `OSError` 宽基类外溢：若 `with` 块内将来引入真实 I/O，真实 I/O 故障会被误报 422 并掩盖基础设施故障（当前不可达） | **LOW（当前）→ 违反 L7′ 即 MEDIUM**；检测 TD-F037-S7 / U14 + Review 核对 L7′ |
+| R-6 | 行为收窄清单中「无 workbook 部件 → 500」一条撤回（改后 422） | 级别不变（MEDIUM），须在 implementation / test 报告登记 |
+
+#### 15.10.7 Test 阶段补充
+
+1. `TD-F037-U13`：缺 workbook 部件的 zip（真实 payload）→ `ImportInvalidFile{unreadable}` 且 `type(__cause__) is OSError`；前置断言裸 `load_workbook` 抛 `OSError` 且含 `no valid workbook part`，不成立即 `BLOCKED`。
+2. `TD-F037-U4` 扩展为 11 类参数化（新增 `OSError` 行，真实可达，无需注入）。
+3. `TD-F037-U14`：`OSError` 注入于 `_cell_text`（作用域外）与 CSV 路径 → 均原样传播（证明作用域最小性与 `_PARSE_FAILURES` 未放宽）。
+4. `TD-F037-I22`：4 端点 × 该字节 → 422 `IMPORT_INVALID_FILE{reason:"unreadable"}`，排除 500 / 413 / 2xx。
+5. `TD-F037-S7`：`grep -n "OSError"` 仅命中 `_parse_xlsx` 局部构造；`_parse_xlsx` 无新增 `try:`/`except`；`with` 块内无真实 I/O。
+6. 边界约束：不得以磁盘文件 / 临时文件 / 请求流喂入 `load_workbook` 来「验证 OSError 覆盖」（会破坏 L7′ 前提）；报告须记录 `openpyxl.__version__` / `openpyxl.LXML` / `lxml.__version__`。
+7. `EOFError` 只登记为待探测项，不预先宣称可达与否。
+
+#### 15.10.8 签核
+
+```text
+签核：Architect；日期 2026-10-29（实现阶段 repair round 1，F037-BE-01）。
+对象：`backend/app/services/resource_import.py::_parse_xlsx` 的 `failures` 构造（DR-F037-08）+ §15.10；契约零 diff。
+设计版本：architecture.md v1 + §15 CONTRACT 增补 + §15.10 本轮裁定。
+上游依据：requirements revision 16 §24 / §24.5 / §31（T27、T28、T72、T107–T116、T124、T126）；product.md v1 B7 / B8 / A19。
+定稿核对：同一归一点；`_PARSE_FAILURES` 零 diff；无新增 try/except/日志；`details` 仍仅 {"reason":"unreadable"}；不改校验顺序、上限、原子性、Audit 口径。
+覆盖 Feature：F037 仅此一项。
+结论：READY FOR IMPLEMENTATION（BE-01 已裁定；Backend 按 §15.10.3 落码，Tester 按 §15.10.7 补用例）。
+```

@@ -21,10 +21,16 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import re
 import uuid
+import zipfile
+import zlib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
+from xml.etree import ElementTree
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -52,6 +58,22 @@ BARE_METAL = "BARE_METAL"
 VIRTUAL_MACHINE = "VIRTUAL_MACHINE"
 
 _INT_RE = re.compile(r"[+-]?[0-9]+")
+
+logger = logging.getLogger("csm.imports")
+
+#: Whitelist of parser exceptions converged to IMPORT_INVALID_FILE{unreadable}.
+#: Everything else (AppError, MemoryError, RecursionError, KeyboardInterrupt,
+#: SystemExit and unrecognised exceptions) keeps propagating untouched.
+_PARSE_FAILURES: tuple[type[BaseException], ...] = (
+    csv.Error,  # CSV iteration, e.g. one field beyond the csv module field limit
+    zipfile.BadZipFile,  # not a zip / corrupt central directory / CRC mismatch
+    zipfile.LargeZipFile,  # ZIP64 declaration above the interpreter limit
+    zlib.error,  # corrupt or truncated deflate stream
+    ElementTree.ParseError,  # malformed workbook / sheet XML (incl. read_only)
+    NotImplementedError,  # container declares an unsupported compression method
+    KeyError,  # zip misses a required part ([Content_Types].xml, xl/workbook.xml)
+    ValueError,  # openpyxl coordinate / value / date parsing failure
+)
 
 
 @dataclass(frozen=True)
@@ -416,13 +438,53 @@ def _cell_text(value: Any) -> str:
     return str(value)
 
 
+@contextmanager
+def _invalid_file_on_parse_failure(
+    fmt: str,
+    size: int,
+    failures: tuple[type[BaseException], ...] = _PARSE_FAILURES,
+) -> Iterator[None]:
+    """Converge whitelisted parser exceptions to 422 IMPORT_INVALID_FILE{unreadable}."""
+    try:
+        yield
+    except AppError:
+        # Reason fidelity: a business rejection with an explicit reason is never
+        # rewritten as ``unreadable``.
+        raise
+    except failures as exc:
+        # Whitelisted fields only: no upload content, exception message text,
+        # client-supplied file name or stack trace.
+        logger.info(
+            "import parse rejected: format=%s bytes=%d error=%s",
+            fmt,
+            size,
+            type(exc).__name__,
+        )
+        raise ImportInvalidFile("unreadable") from exc
+
+
+def _close_workbook(workbook: Any) -> None:
+    """Best-effort release of the read_only workbook archive handle.
+
+    A failing ``close()`` is neither attributable to the user input nor allowed
+    to override an already-decided parse result (a 422 must not be rewritten to
+    500 by a second exception); hence the cleanup exception is swallowed here
+    and only logged content-free by class name.
+    """
+    try:
+        workbook.close()
+    except Exception as exc:  # noqa: BLE001 - cleanup boundary, not a 4xx/5xx signal
+        logger.info("import workbook close failed: error=%s", type(exc).__name__)
+
+
 def _parse_csv(data: bytes) -> list[list[str]]:
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise ImportInvalidFile("unreadable") from exc
-    reader = csv.reader(io.StringIO(text, newline=""))
-    return [[_cell_text(cell) for cell in row] for row in reader]
+    with _invalid_file_on_parse_failure("csv", len(data)):
+        raw_rows = list(csv.reader(io.StringIO(text, newline="")))
+    return [[_cell_text(cell) for cell in row] for row in raw_rows]
 
 
 def _parse_xlsx(data: bytes) -> list[list[str]]:
@@ -431,25 +493,34 @@ def _parse_xlsx(data: bytes) -> list[list[str]]:
         raise ImportInvalidFile("unsupported_format")
     try:
         from openpyxl import load_workbook
+        from openpyxl.utils.exceptions import InvalidFileException
     except ImportError as exc:  # pragma: no cover - dependency guaranteed
         raise ImportInvalidFile("unsupported_format") from exc
 
+    # openpyxl's XML backend is either-or: ``fromstring`` uses lxml when
+    # importable while ``iterparse`` is always ElementTree. lxml.etree's
+    # XMLSyntaxError only subclasses SyntaxError, so both backends' parse
+    # error classes have to be in the whitelist.
+    failures: tuple[type[BaseException], ...] = _PARSE_FAILURES + (InvalidFileException,)
     try:
-        workbook = load_workbook(
-            io.BytesIO(data), read_only=True, data_only=True
-        )
-    except Exception as exc:  # noqa: BLE001 - any xlsx corruption is user input
-        raise ImportInvalidFile("unreadable") from exc
+        from lxml.etree import LxmlError  # optional dependency of openpyxl
+    except ImportError:  # pragma: no cover - falls back to ElementTree
+        pass
+    else:
+        failures += (LxmlError,)
+
+    workbook = None
     try:
-        if not workbook.worksheets:
-            raise ImportInvalidFile("empty_file")
-        worksheet = workbook.worksheets[0]
-        return [
-            [_cell_text(cell) for cell in row]
-            for row in worksheet.iter_rows(values_only=True)
-        ]
+        with _invalid_file_on_parse_failure("xlsx", len(data), failures):
+            workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+            if not workbook.worksheets:
+                raise ImportInvalidFile("empty_file")
+            worksheet = workbook.worksheets[0]
+            raw_rows = list(worksheet.iter_rows(values_only=True))
     finally:
-        workbook.close()
+        if workbook is not None:
+            _close_workbook(workbook)
+    return [[_cell_text(cell) for cell in row] for row in raw_rows]
 
 
 def parse_records(data: bytes, fmt: str) -> list[list[str]]:
