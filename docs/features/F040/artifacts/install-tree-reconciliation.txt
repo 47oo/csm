@@ -1,0 +1,4 @@
+### hidden lockfile vs lockfile reconciliation
+lock-entries(non-root): 221
+installed(hidden .package-lock.json entries): 150
+not-installed: 71 | all marked optional/os/cpu: true

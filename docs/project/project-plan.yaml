@@ -2894,12 +2894,14 @@ features:
   - docs/project/proposals/CHG-015-post-delivery-review-closeout.md
   depends_on: []
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 待用户裁定 AQ-6（推荐 (i)：收敛前端依赖声明范围）并批准 CHG-015 后置 READY。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R07（静态比对，当前 lockfile 固定安装版本，非运行故障）。Architect
-    评估：范围限定为 antd / tailwindcss / @tailwindcss/vite 三个依赖并收敛为 `~`，不改架构策略文档；机制选项登记为
-    AQ-6。未启动。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 复核候选 HEAD（范围、A1–A10、R-1..R-8、D-F040-TD-05 修正与 OBS/D-F040-TE-01
+    处置）并给出结论。
+  last_result: IMPLEMENTATION COMPLETE + TEST READY FOR REVIEW（TE-F040-1）：28 条用例 27
+    PASS / 1 NOT_APPLICABLE（S-12）/ 0 FAIL；A1–A10 全 PASS；clean npm ci ×3 exit 0（150
+    packages）、npm ls 实装 6.6.6/4.3.3/4.3.3、typecheck/build 0、smoke 340 passed 0 failed；lockfile
+    非根 221 条逐字节等价、222/215/215、numstat 3 3、两文件 sha256 全程未变。
   layers:
     database: false
     backend: false
@@ -2910,22 +2912,36 @@ features:
     backend: 不涉服务端。
     contract: 不涉 API 契约；仅前端依赖声明与已批准架构策略对齐。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
     backend: NOT_REQUIRED
-    frontend: PENDING
-    test: PENDING
+    frontend: COMPLETE
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
+    branch: feature/F040-dependency-ranges
+    start_commit: adef87a43d9c73465c815fe85b2577d5dd17a1f2
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    frontend:
+    - docs/features/F040/implementation.md
+    - frontend/package.json
+    - frontend/package-lock.json
+    test:
+    - docs/features/F040/test-report.md#2-test-executionte-f040-12026-10-29
+    architecture:
+    - docs/features/F040/architecture.md
+    test_design:
+    - docs/features/F040/test-report.md#1-test-designtd-f040-1v12026-10-29
+    contract:
+    - docs/features/F040/architecture.md#6-最终设计签核contract-gate
+    product:
+    - docs/features/F040/product.md
 - id: F041
   title: 对象选择控件候选完整性（R04）
   kind: FEATURE
@@ -3812,13 +3828,12 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
-  last_result: F037、F038 DONE（均已合入 v3.4）。F038：解析阶段内存有界（整段排空 + 有界保留），AQ-2=A 零可观察差异；Review
-    APPROVED WITH FOLLOW-UP。
-  next_action: 继续已批准范围：F040（R07 依赖范围）→ F041（R04 候选完整性）→ F039（R10 Dashboard）→ F043（R08
-    测试入口）→ F045（整体回归）。
-  repair_rounds: 1
+  current_feature: F040
+  current_stage: REVIEW
+  last_result: F040 依赖范围收敛为 ~6.6.6 / ~4.3.3 / ~4.3.3（lockfile 根条目同步）；TE-F040-1 READY
+    FOR REVIEW（27 PASS/1 NA/0 FAIL，A1-A10 全 PASS），进入 REVIEW。
+  next_action: F040 REVIEW Gate。
+  repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
@@ -3828,11 +3843,10 @@ planning_status:
     DONE: 38
     DRAFT: 1
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 4
+    IN_REVIEW: 1
+    READY: 3
   ready_features:
   - F039
-  - F040
   - F041
   - F043
   blocked_draft_features:

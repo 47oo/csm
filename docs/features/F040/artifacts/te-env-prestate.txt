@@ -1,0 +1,21 @@
+### F040 TEST stage pre-state  (date=2026-10-29T20:21:39+08:00  TZ=+0800)
+## node/npm
+node=v22.23.3  npm=10.9.9
+registry=https://registry.npmmirror.com/
+## sha256 (before any TEST-stage install)
+de893314ee9472576ed8a68b5a2e1590fbea06029dac6b54cf733084d53bf687  frontend/package.json
+471d775c7c242c3dcb5896b60dc8fd0d06efdf592037546373b3a4c03aa5606a  frontend/package-lock.json
+## git status --porcelain
+ M docs/features/F040/architecture.md
+ M frontend/package-lock.json
+ M frontend/package.json
+?? docs/features/F040/artifacts/
+?? docs/features/F040/implementation.md
+## git HEAD
+32d05fe1e816ae3397b2246a5fd840089dab02ad
+## node_modules top-level count
+64
+## node_modules present?
+yes
+## node_modules/.package-lock.json entry count
+150

@@ -1,0 +1,14 @@
+### F040 TE — D-F040-TD-05 复核：旧判定式的实际行为 vs 修正后判定式 (2026-10-29T20:24:36+08:00)
+
+## (1) 旧式在【本变更集】上的实际输出（path+"."+k / split(".").pop()）
+allowed-diff: [["dependencies.antd","^6.6.6","~6.6.6"],["devDependencies.@tailwindcss/vite","^4.3.3","~4.3.3"],["devDependencies.tailwindcss","^4.3.3","~4.3.3"]]
+forbidden-diff: []
+old-formula bad===[] => true
+NOTE: '@tailwindcss/vite' 名称内不含 '.'，故 split(".").pop() 仍返回完整 scoped 名 → 旧式在本变更集上【不】产生假 FAIL。
+NOTE: D-F040-TD-05 所述后果（"任何正确实现都假 FAIL"）在实测中未复现；旧式的真实缺陷是路径特异性不足（只比叶子名，不比所在段）。
+
+## (2) 旧式的真实缺陷：路径特异性（模拟把 antd 从 dependencies 移到 devDependencies）
+simulated-move diffs: [["dependencies/antd","^6.6.6",null],["devDependencies/@tailwindcss/vite","^4.3.3","~4.3.3"],["devDependencies/tailwindcss","^4.3.3","~4.3.3"],["devDependencies/antd",null,"~6.6.6"]]
+old-formula bad: []  => detects violation? false
+new-formula bad: [["devDependencies/antd",null,"~6.6.6"]]  => detects violation? true
+CONCLUSION: 修正后判定式路径特异性更强（可识别段位移动），且保留 bad===[] ∧ 恰 3 条 ∧ 计数 4/7。

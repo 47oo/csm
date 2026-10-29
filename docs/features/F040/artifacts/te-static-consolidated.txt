@@ -1,0 +1,52 @@
+### F040 TE — consolidated static evidence (2026-10-29T20:24:07+08:00)
+
+## task-book command: git diff --numstat adef87a -- package.json package-lock.json (repo-root paths)
+(empty above = repo root has no such files; actual files are frontend/*)
+
+## git diff --numstat adef87a -- frontend/package.json frontend/package-lock.json
+3	3	frontend/package-lock.json
+3	3	frontend/package.json
+
+## npm pkg get dependencies devDependencies (read-only)
+{
+  "dependencies": {
+    "@ant-design/icons": "^6.3.4",
+    "antd": "~6.6.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "~4.3.3",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "tailwindcss": "~4.3.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.9"
+  }
+}
+
+## overrides/resolutions/shrinkwrap/.npmrc added?
+(empty = none)
+has-overrides=false has-resolutions=false
+
+## repo-wide package.json count (A9-adjacent)
+tracked: frontend/package.json
+
+## S-10 alternative baseline: F040 preflight commit 7754c67 (F040-attributable change set)
+7754c67 chore(F040): preflight checkpoint - start PRODUCT
+CHANGED-since-preflight: docs/features/F040/architecture.md
+CHANGED-since-preflight: docs/features/F040/product.md
+CHANGED-since-preflight: docs/features/F040/test-report.md
+CHANGED-since-preflight: docs/project/project-plan.yaml
+CHANGED-since-preflight: frontend/package-lock.json
+CHANGED-since-preflight: frontend/package.json
+
+## non-root lockfile entries: baseline vs current byte-for-byte (independent re-run)
+non-root-entries-compared=221
+non-root-entry-diffs=0
+node_modules/antd {"v":"6.6.6","resolved":"https://registry.npmmirror.com/antd/-/antd-6.6.6.tgz","integrity":"sha512-+x4M755a6kyZyxkN2vpfm3HbYkyytPBPSncXHKPHU2ZPs3Z1ctrWwWApe/4ek4O0eUGKNFCpb461yficetktYQ=="}
+node_modules/tailwindcss {"v":"4.3.3","resolved":"https://registry.npmmirror.com/tailwindcss/-/tailwindcss-4.3.3.tgz","integrity":"sha512-gOhV3P7ufE62QDGg1zVaTgCR+EtPv92k2nIhVcVKcLmxT1sUBsQGhnZj175j+MqRt4zLF7ic+sCYjfhxMxj7YQ=="}
+node_modules/@tailwindcss/vite {"v":"4.3.3","resolved":"https://registry.npmmirror.com/@tailwindcss/vite/-/vite-4.3.3.tgz","integrity":"sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw=="}
+lockfileVersion=3 requires=true
+all-non-root-identical=true

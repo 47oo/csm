@@ -1,0 +1,9 @@
+csm-frontend@0.1.0 /home/hanhao/github/47oo/csm/frontend
+├─┬ @tailwindcss/vite@4.3.3
+│ ├─┬ @tailwindcss/node@4.3.3
+│ │ └── tailwindcss@4.3.3 deduped
+│ └── tailwindcss@4.3.3 deduped
+├── antd@6.6.6
+└── tailwindcss@4.3.3
+
+exit=0
