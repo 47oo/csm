@@ -550,3 +550,135 @@ Database `NOT_REQUIRED` 继续成立（解析早于任何 DB 访问；`write_imp
 前置义务（不阻塞放行，但 TEST 结论须满足）：① 按 §13.4 修正 S-W2 期望；② 阈值按 §13.2 并公布公式与数值；③ 2.7 GB 标 ESTIMATE；④ product errata 由 Product 落稿并由协调器核验一致。
 失效条件：① 需新增可观察拒绝/上限；② 需改 F037 52 项或任何契约文件；③ S-W5 实现为 413 或 S-W4 实现为 422；④ 两 service 之外出现 diff；⑤ 需求/契约/product 修订触及 §1.2 与 B1–B13。
 ```
+
+## 14. repair round 1 · 阈值口径重裁（TD-I-9 / TD-I-10）
+
+- **对象**：§13.2（阈值唯一有效口径）、§13.9（TD-I-3 关闭依据）、§8.3、§9.3。§1–§12、§13.1/§13.3–§13.8/§13.10 不修订；**§14 与 §13.2/§13.9 冲突时以 §14 为准**。
+- **性质**：**有签核的口径修订**（Architect 专业签核），不是放宽实现要求、不是需求/契约变更；**生产代码零变更**。
+- **上游依据**：AQ-2 = A；`product.md` v1（S1/S3、A2、A3、B1–B13、N8）；§13.2 防放宽条款（R-13）；`test-report.md` §2.7.1/§2.7.3/§2.10（TD-I-9、TD-I-10）；`implementation.md`（BACKEND COMPLETE）；`backend/app/services/resource_import.py`。
+
+### 14.1 根因确认（独立复核）
+
+**结论：CSV 峰值地板 = 5 × len(data) 成立；§13.2 的 CSV 族判据（T-1b、T-2@S-W6a）构造性不可满足；实现侧无缺陷。**
+
+| 项 | 代码事实 | 内存增量（`N = len(data)`） | 归属 |
+| --- | --- | --- | --- |
+| F-a | `data.decode("utf-8-sig")` | 1 × N（compact ASCII str） | **基线原样**，AQ-2=A 下不可消除 |
+| F-b | `io.StringIO(text, newline="")` | 4 × N（UCS-4 缓冲） | **基线原样**，不可消除 |
+| F-c | `csv.reader` 单行 scratch | O(宽度)，瞬时 | 基线原样 |
+| R-a | `list(csv.reader(...))` → `_collect_records(...)` | 基线全部 rows；现仅保留 | **本 Feature 负责** |
+| R-b | 全量归一化副本 → 仅保留行归一化 | 保留 ≤ max_rows+1 | 本 Feature 负责 |
+| R-c | 尾部空行作为列表 → `pending_blanks` 计数 | O(1) | 本 Feature 负责 |
+| R-d | 保留行整行 → `record[:keep_cells]` | ≤ keep_cells/行 | 本 Feature 负责 |
+
+算术对账（Tester 实测 S-W6a-4000，`B = 2,604,775`）：`decode 2.485 MiB (1.00×)`、`StringIO 9.937 MiB (4.00×)`、`reader_loop 9.965 MiB (4.01×)`、完成态峰值 `12.455 MiB = 5.014 N` ⇒ **99.7% 峰值是地板**，保留量 ≈ 35 KB。二者同时存活（`text` 是 `_parse_csv` 局部变量）⇒ 地板 = **1N + 4N = 5N**。`io.StringIO` 是 `csv.reader` 的标准输入载体，替换它会改变 `newline=""` 语义、BOM 边界与 422 路径（见 ON-6），不属本 Feature。在 `decode` 已完成的前提下，**任何**实现的峰值下界都是 5N ⇒ 旧 T-1b（`Δpeak ≤ 1.5·Δbytes + 2 MiB`）恒假、旧 T-2（`excess = peak − 1×B`，要求 ÷8）理论倍率上限 4.164× 不可达。
+
+归属：DEF-01 / DEF-02 = **阈值口径缺陷（Architect）**；实现侧（两 service 文件）无缺陷，本轮**不接受任何修改**。
+
+### 14.2 重裁后 CSV 族阈值（唯一有效，取代 §13.2 的 T-1b 与 T-2 的 `excess` 定义）
+
+**符号**：`B(x) = len(数据字节)`；`peak` 按 M6 协议（`gc.collect()` → `start()` → 调用 → 峰值 → `stop()`，2 次取较大值）；**`F(x)` = 地板探针实测峰值**——对同一份字节执行
+`text = data.decode("utf-8-sig")` → `for _ in csv.reader(io.StringIO(text, newline="")): pass`，按 sample key 缓存；**`work(x) = max(peak − F(x), 0)`**（工作集）；`work_xlsx(x) = max(peak − B(x), 0)`（xlsx 保持旧 `excess` 定义，数值与判定逐字节不变）；余量常量 `2 MiB`（跨解释器鲁棒性定额，**不得放大**）。
+
+| # | 断言 | 适用 |
+| --- | --- | --- |
+| **T-1b′**（行维度不敏感，取代 T-1b） | `work(S-W6a-4000) ≤ 1.5 × work(S-W6a-1000) + 2 MiB` | S-W6a（651 列 × 1000/4000 全空行） |
+| **T-1c**（列维度不敏感，新增强化） | `work(S-W6b) ≤ 1.5 × work(S-W6c) + 2 MiB`；两侧须断言 **413 `IMPORT_ROW_LIMIT_EXCEEDED`** | S-W6b = `wide_csv(5001, 651, nonblank=True)`；S-W6c = `wide_csv(5001, 14, nonblank=True)` |
+| **T-2′** | `work(fixed) ≤ work(baseline) / 8`（除数 8 不变，仅把 `excess` 换成 `work`） | S-W1-1001、S-W2-1001（`floor=None`，须复现 11.44× / 155.73×）、S-W6a-4000、S-W6b |
+
+T-1（xlsx）/ T-3 / T-4 / T-5 / T-6 **零变更**。旧 T-1b 的 `Δbytes` 项**删除**（收紧：S-W6a 允许上界 4.794 → 2.053 MiB；被否决的保形替换 `Δwork ≤ 1.5·Δbytes + 2 MiB` 因更松不采纳）。T-2 **不得**扩展到合法 ≤5000 行族（该族 `work` 本应等于基线，实测 0.977；由 T-3 + U5 承担）。
+
+**实测/推算数值**（实测取 `test-report.md` §2.7.1；`F`/`work` 为推算，Tester 复测须公布探针实测值）：S-W6a-1000 `work = 0.034 MiB`；S-W6a-4000 `work = 0.034`（基线 31.58）；S-W1-1001 `1.032 / 11.809`；S-W2-1001 `1.647 / 256.464`；legal-5000 `3.201 / 3.277`；S-W6b `≈1.0–1.2`（待测）。判定推演：T-1b′ `0.034 ≤ 2.05`（60× 余量）；T-1c `≈1.1 ≤ 3.65`（3.3×）；T-2′@S-W6a `0.034 ≤ 3.95`（≈929×）。
+
+**该公式不能证明什么（须原样写入报告）**：① 不含地板的绝对峰值有界（CSV 峰值 ≥ `F ≈ 5N`，结合 B1 绝对上界 ≈ **25.0 MiB + 工作集**，属继承地板）；② 保留量低于灵敏度地板（≈2 MiB；宽度维可见下限 ≈70 列）的回归不可见 → 由 U5 / U4 / S4+IMP-2 兜底；③ 时间有界（仍线性，T-5 只要求不退化）；④ 地板本身不可再优化（仅本解析路径的下界，见 ON-6）；⑤ 合法 ≤5000 行族的「性能收益」（实测仅无退化）；⑥ 残余无界面（R-3）与无 lxml 环境。
+
+### 14.3 slack / 容差与 `excess` 参数化
+
+2 MiB 在 CSV 族**保留**（实测噪声 < 1 KB，非噪声余量；用于跨解释器鲁棒性与「合法实现可多持一份副本」；判别对象为 25–31 MiB，远大于 15× 余量；数值不得放大）。
+
+```python
+def floor_bytes(data: bytes, fmt: str) -> int:
+    """§14.2 F(x)：CSV 用实测探针；xlsx 退回 1×len 的保守常量。"""
+    if fmt != "csv":
+        return len(data)
+    return _floor_probe_peak(data)   # 同 M6 协议、2 次取较大值、按 key 缓存
+
+
+def excess(result: dict, *, floor: int | None = None) -> int:
+    """§14 口径：剥离地板后的工作集峰值。省略 floor 时退回旧 1×len 口径。"""
+    if floor is None:
+        floor = result["bytes"]
+    return max(result["peak"] - floor, 0)
+```
+
+| 旧 | 新 | 等价性 |
+| --- | --- | --- |
+| `excess = max(peak − 1×B, 0)` | `excess(...)`（`floor=None`） | 同一代码路径 ⇒ xlsx 三样本判定与数值逐位不变 |
+| 无 | `excess(..., floor=floor_bytes(data, "csv"))` | CSV 族唯一允许的调用形态 |
+
+**守卫（缺一即口径不成立，写在 M4d 内）**：G-A1 `F(x) ≥ B(x)`（防探针空跑）；G-A2 `F(x) ≤ 8B + 4 MiB`（防探针保留导致判据稀释）；G-A3 每个 M 行同时公布 `B / F / F/B / peak / work`（双侧）；G-B `work(baseline) ≥ 1 MiB`（防比值退化为 0 ≤ 0）。
+
+### 14.4 回归到产品验收（A2 / S1 的完整链条，不得简化）
+
+① **输入上界**（B1 未变）`len(data) ≤ 5,242,880`。② **地板**（继承代码，实测）CSV `F ≈ 5.01×B` ⇒ `F ≤ 25.0 MiB` 为**常量上界**，与展开工作量无关；xlsx 无此地板。③ **工作集**（本 Feature 成果）`work = 表头整行 + ≤ (max_rows+1) × keep_cells + 归一化副本`，实测合法 5000 行 3.20 MiB、S-W6a 0.034 MiB、S-W6b ≈1.1 MiB，**不随超过 max_rows 的行数与超过 keep_cells 的列数增长**，由 T-1b′ / T-1c / T-2′ / U5 / S4+IMP-2 共同证明。④ **xlsx 侧**由 T-1（1.868 ≤ 3.711、1.970 ≤ 4.715）、T-2（11.44× / 155.73×）、T-6（1.970 MiB）承担。⑤ 故 A2/S1 成立，上界表达式 `peak_CSV ≤ 25.0 MiB + 工作集(实测 ≤ ~4 MiB) + 常量`、`peak_xlsx ≤ 工作集 + 常量`。⑥ **不主张**：CSV 可降到基线以下很多倍（宽表实测 44.002 → 12.455 MiB，3.53×，其余为地板）；合法 5000 行族收益（5.590 → 5.514，仅无退化）；`≤ baseline/3` 类绝对倍数可作判据；时间有界。
+
+**被否决备选（记录理由）**：「保留量口径 + `peak ≤ baseline/3`」非规模不变（倍数 `(5B+S)/5B`，输入变小会假 FAIL；结构性部分已由 U5 覆盖）；硬编码 `floor = 5×len`（依赖 CPython StringIO 表示）；放宽 T-2 除数 8→3（实质放宽，且除数本来不是错的）。
+
+### 14.5 Tester 最小复测集与改动白名单
+
+| 用例 | 变更 | 内容 |
+| --- | --- | --- |
+| `test_td_f038_m4d_csv_peak_floor_coefficient_report` | **升级**为地板来源 + 守卫 | 对 S-W6a-1000 / S-W6a-4000 / S-W6b / S-W6c 产出 `F(x)`；加 G-A1 / G-A2；公布 `F/B`（期望 ≈5.0–5.02） |
+| `test_td_f038_m3a_t2_relative_to_baseline` | **改期望**（CSV 参数改用 `floor`） | `work(fixed) ≤ work(baseline)/8`；参数集 `S-W1-1001`、`S-W2-1001`（`floor=None`，须复现 11.44× / 155.73×）、`S-W6a-4000`、**新增 S-W6b**；加 G-B |
+| `test_td_f038_m4b_t1b_csv_delta` | **重写公式 + 删参数** | `work(4N) ≤ 1.5 × work(N) + 2 MiB`；只保留 S-W6a；删除 `legal` 参数（改由 T-3 + U5） |
+| `test_td_f038_m4e_t1c_width_insensitivity`（新增） | **新增（收紧）** | T-1c + 两侧断言 413 |
+| `test_td_f038_m6_repeatability_and_ru_maxrss` | **改发布列** | 新增 `B / F / F/B / peak / work` 双侧；断言仍用两次较大值 |
+| `_SAMPLES` | 新增 key | `S-W6b: ("csv", lambda: wide_csv(CAP_ROWS + 1, 651, nonblank=True))`、`S-W6c: (..., 14, nonblank=True)`（已核：`wide_csv(n, 14, ...)` 表头即 `BM_HEADERS`，无需新构造器；字节 3,271,429 / 85,155 均 < 5 MiB） |
+| helper | 新增 | `floor_bytes`、`_floor_probe_peak`、`excess(..., floor=)`；探针只允许 `decode("utf-8-sig")` + `io.StringIO(` + 遍历丢弃 |
+
+**不得改动**：两 service 文件（冻结）、`test_f037_import_parse_errors.py`、`docs/api/`、`docs/database/`、`backend/alembic/`、`frontend/`、`pyproject.toml`、`Dockerfile`、U/I/S/R 任何用例与断言、`_measure` 协议、`CAP_*`、既有构造器语义；**不得**把 CSV 的 `floor` 改回 `None`，**不得**修改 `1.5` / `8` / `2 MiB` / `64 MiB` 任何数值，**不得**修改期望状态码或 reason。
+
+复测命令（`cwd backend/`）：`python3 -m pytest tests/integration/test_f038_parse_bounds.py -q -k "m3a or m4b or m4d or m4e or m6"`，随后整模块全量重跑取最终报告。白名单之外出现任何 FAIL ⇒ 判 `RETURN TO IMPLEMENTATION` / 回 Architect，**不得静默调整**。
+
+### 14.6 风险与登记项
+
+| ID | 状态 | 关闭条件 |
+| --- | --- | --- |
+| TD-I-9 | 口径已裁定，**待复测关闭** | ① 本节落稿并签核（本轮完成）；② Tester 按 §14.5 复测，T-1b′ / T-1c / T-2′（含 S-W6b）全 PASS 且公布 `F`、`work` 双侧数值；③ test-report §2.7.2 按新公式重写、§2.10 标注「口径缺陷已修、实现未变」、§2.12 转 READY FOR REVIEW |
+| TD-I-10 | 口径已裁定，**待复测关闭** | 地板已显式覆盖 `io.StringIO` UCS-4 放大（探针式 F，无硬编码系数）+ G-A3 强制公布 F/B |
+| TD-I-3 | **维持关闭，依据改写** | 新依据：`work` 口径下 S-W6a 实测倍数 ≈929× ⇒ 「≥8×」与「≥2×」同时成立（更正 §13.9 测算，非新判据） |
+| R-13 | 维持 MEDIUM，判定本次为**重裁非放宽** | ① 除地板项外零参数变更（`1.5`/`8`/`2 MiB`/`1.2`/`64 MiB` 全不动）；② 地板由探针实测并受 G-A1/G-A2 双向夹逼，无法抬高稀释；③ 整体收紧（删 Δbytes 配额、新增 T-1c、T-2 加 S-W6b）；④ 零实现让步（生产代码冻结）；⑤ 可追溯（第 2 次口径修订，按 §13.2 重签核） |
+
+| 新 ID | 风险 | 级别 | 检测 | 处置 |
+| --- | --- | --- | --- | --- |
+| R-15 | 地板探针实现不当（探针自身保留 ⇒ F 偏大 ⇒ 判据稀释甚至恒真） | MEDIUM | G-A1 / G-A2 + 探针源码审查 | 失败 ⇒ M4d FAIL，回 Architect；不得改守卫数值 |
+| R-16 | 判据与解释器耦合（未来 StringIO 表示变化） | LOW | 探针式定义自带适配；G-A3 公布 F/B（CPython 3.12 ≈5.01） | 比例突变即登记，结论不外推 |
+| R-17 | S-W6b/S-W6c 的 `work` 预测（≈1.0–1.2 MiB）偏乐观，T-1c 余量不足 | LOW | M4e 实测并与预测比对 | 实测 > 3.65 MiB ⇒ 先判「保留量超界」（实现问题）而非调余量 |
+
+**ON-6（PROPOSED，范围外）**：CSV 地板 5N 技术上可消解（增量解码 `codecs.getincrementaldecoder("utf-8-sig")` + 逐行供给 `csv.reader`），但属 `_parse_csv` 行为面改造（BOM 跨块、`newline=""` 行切分、`csv.field_size_limit` 触发时机、`UnicodeDecodeError ⊂ ValueError` 的 422 路径、需重跑 F034 文本载体族）⇒ 建议另立 Feature，按 `change-control.md` §4 评估；**不得**作为 F038 变通实现。
+
+### 14.7 决策与放行
+
+| ID | 决策 | 状态 |
+| --- | --- | --- |
+| DR-F038-07 | CSV 族判据改用「实测地板探针剥离后的工作集」口径；`F(x)` 同进程同字节标定，公式内无解释器相关常量；xlsx 保留 `1×B` 保守地板（数值与判定不变） | 已定 |
+| DR-F038-08 | T-1b 重写为 `work(4N) ≤ 1.5·work(N) + 2 MiB` 并删除 Δbytes（收紧）；`legal` 参数退役（改由 T-3 + U5）；T-2 除数 8 与余量 2 MiB 不变 | 已定 |
+| DR-F038-09 | 新增 T-1c（宽度不敏感，超额路径）；T-1/T-3/T-4/T-5/T-6 与全部 U/I/S/R 用例零变更 | 已定 |
+| DR-F038-10 | **生产代码零变更**（本轮不放行任何 service 修改） | 已定 |
+| DR-F038-11 | 地板 5N 的消解（增量解码）不在 F038 范围，登记 ON-6 | 已定（范围外） |
+
+**旧结论作废范围（精确）**：§13.2 的 T-1b 全文、T-2 中 `excess` 定义与「S-W6a 余量 ≥2×」测算、§13.9「关闭 TD-I-3」的依据措辞、test-report §2.7.2 的 CSV 行与 DEF-01/DEF-02 判定。**不作废**：§13.1、§13.3–§13.8、§13.10 其余内容；test-report 的 U/I/S/R 结论、§2.7.1 实测数值、xlsx 族全部判定。
+
+### 14.8 签核
+
+```text
+签核：Architect；日期 2026-10-29（repair round 1 落稿日）。
+对象：architecture.md v1 + §13 增补 + §14（§14 与 §13.2/§13.9 冲突处以 §14 为准）。
+上游依据：AQ-2 = A；product.md v1（S1/S3、A2、A3、B1–B13、N8）；requirements revision 16；plan revision 25；F014 v1 / F023 v2（零 diff）；test-report §2.7.1/§2.7.3/§2.10（TD-I-9、TD-I-10）；implementation.md（BACKEND COMPLETE）。
+定稿核对：① 独立复核 CSV 地板 = 5N（与实测 5.014N 对账一致），区分继承项与应归责项；② 新口径符号定义、标定依据、灵敏度地板与「不能证明什么」六条齐备；③ slack 处理与 excess 参数化及四项守卫；④ A2/S1 组合证据链与不主张项；⑤ Tester 最小复测集、改动白名单与禁止项；⑥ TD-I-9/TD-I-10 关闭条件、TD-I-3 依据更正、R-13 一致性、R-15–R-17、ON-6 已登记；⑦ 契约 NOT_REQUIRED 不变；Database/Frontend 无影响。
+覆盖：仅 F038（repair round 1 · 阈值口径重裁）。不含 AQ-2=B、不含 ON-6 改造、不含 F045 验收、不回填 F001–F037 历史证据。
+放行写入：① backend/tests/integration/test_f038_parse_bounds.py（仅 §14.5 白名单项）；② docs/features/F038/test-report.md（§2 与 TD-M3/M4/M6）；③ architecture.md §14（协调器持久化）。
+零 diff 禁止：backend/app/services/（冻结）、test_f037_import_parse_errors.py、docs/api/、docs/database/、backend/alembic/、frontend/、pyproject.toml、Dockerfile。
+失效条件：① 复测后 T-1b′/T-1c/T-2′ 任一 FAIL 且实证为实现或构造缺陷；② G-A1/G-A2 失败；③ 白名单外测试改动；④ 两 service 文件出现 diff；⑤ 以「降低地板」为名改写 _parse_csv 行为面；⑥ 需求/契约/product 修订触及 §1.2 与 B1–B13。
+结论：READY FOR REVIEW (thresholds re-ruled) —— 口径缺陷已裁定签核，实现侧零变更；放行 Tester 按 §14.5 复测，M 层全绿后转 REVIEW。
+```

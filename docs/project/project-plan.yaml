@@ -2765,13 +2765,8 @@ features:
   blocking_decisions: []
   status: BLOCKED
   current_stage: TEST
-  next_action: repair round 1：architect 按 TD-I-9/TD-I-10 重裁 CSV 族阈值口径（剥离/放宽为可达且保判别力的公式），再由
-    tester 定点复测 M 层受影响用例并重出 READY FOR REVIEW / BLOCKED。阈值不得由 Tester 自行放宽（R-13）。
-  last_result: TEST BLOCKED（TE-F038-1）：新增模块 72 passed / 3 failed，回归 R1–R6 全绿（52/70/31/48/4/3）；xlsx
-    族阈值 T-1/T-2(S-W1 11.44×、S-W2 155.73×) 与 T-3(0.9865)/T-4/T-5/T-6 全 PASS，行为面全部等价。3
-    项 FAIL 均为 §13.2 的 CSV 族阈值公式不可达：实测 CSV 峰值地板 = 5×len(data)（decode 1.00× + io.StringIO
-    UCS-4 4.00×，均为基线原样代码）⇒ Δpeak≈5×Δbytes、excess 最大可达倍数≈4.16× < 8×。登记 DEF-01/T-1b
-    与 DEF-02/T-2(S-W6a)，Owner Architect。
+  next_action: 'Tester 按 §14.5 定点复测 M 层（m3a/m4b/m4d/m4e/m6）+ 整模块全量重跑；全绿后转 READY FOR REVIEW。'
+  last_result: 'repair round 1 完成：architecture §14 重裁 CSV 族阈值（探针式地板 F(x) + 工作集口径 T-1b′/T-1c/T-2′，除数 8 与 2 MiB 不变，新增 G-A1/G-A2/G-A3/G-B 守卫；生产代码零变更、两 service 冻结）；TD-I-9/TD-I-10 口径已裁定，待复测关闭。'
   layers:
     database: false
     backend: true
