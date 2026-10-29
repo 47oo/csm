@@ -2684,13 +2684,12 @@ features:
   - F034
   - F035
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: REVIEW：reviewer 以候选 HEAD 复核实现、契约附注与测试证据，给出 APPROVED / APPROVED WITH
-    FOLLOW-UP。
-  last_result: IMPLEMENTATION / TEST 完成：backend 单点改动（白名单 context manager + close 守卫
-    + lxml/OSError 条件条目）+ repair round 1（BE-01 OSError 裁定）；TE-F037-1 READY FOR REVIEW：52
-    passed（U23/I23/S6，真实 PostgreSQL 16.15），回归 R1–R6 全绿（42/28/31/48/4/3）；perf03 阈值对负载敏感，独立重跑通过并登记为已知限制。
+  status: DONE
+  current_stage: null
+  next_action: null
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD 36405bd / Base 1c0eeaf，208 项独立复跑全绿，真实
+    PostgreSQL）；Merge 至交付线 v3.4 成功（merge commit b1cbb88，父提交 = Base + 批准 HEAD），最终状态提交后
+    DONE。
   layers:
     database: false
     backend: true
@@ -2708,13 +2707,13 @@ features:
     backend: COMPLETE
     frontend: NOT_REQUIRED
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   git:
     base_branch: v3.4
     branch: feature/F037-import-parse-error-contract
     start_commit: 1c0eeafcd36fc6c4c791f89197243a074c6d5f01
-    head_commit: null
-    merge_commit: null
+    head_commit: 36405bdcdeb53c5c37780742e9e00fdc4d115ebd
+    merge_commit: b1cbb88a54bea4b49b45fb734df7c935a66d8a68
   evidence:
     product:
     - docs/features/F037/product.md
@@ -2736,6 +2735,8 @@ features:
     test:
     - docs/features/F037/test-report.md#2-test-executionte-f037-12026-10-29
     - backend/tests/integration/test_f037_import_parse_errors.py
+    review:
+    - docs/features/F037/review-report.md
 - id: F038
   title: 导入解压 / 解析内存边界加固（R05）
   kind: FEATURE
@@ -3792,23 +3793,23 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: F037
-  current_stage: REVIEW
+  current_feature: null
+  current_stage: null
   last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
     / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
     / AQ-6 已裁定，AQ-7 保持 OPEN。
   next_action: 启动 F037（P0，导入解析异常收敛为 422 IMPORT_INVALID_FILE）。
-  repair_rounds: 0
+  repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 2
-    DONE: 36
+    DONE: 37
     DRAFT: 2
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 4
   ready_features:
   - F039
