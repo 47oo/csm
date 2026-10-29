@@ -1,0 +1,45 @@
+# cmd: cd backend && python -m pytest -v -p no:cacheprovider tests/integration/test_f039_query_count.py tests/integration/test_f039_scope.py tests/integration/test_dashboard.py
+# start_commit: fa8a568 fa8a568b912d7aea9806a58616e98867a5786808
+# head: 9941f92 9941f923d153dfa97e2766fce47811aaf8064082
+# env: TEST_DATABASE_URL=postgresql+psycopg://csm:***@127.0.0.1:55432/csm_f045_test; cwd=backend
+# started_at: 2026-10-29T15:03:07Z
+# tool_versions: python=3.12.7 pytest=pytest 7.4.4 node=v22.23.3 npm=10.9.9 docker=26.1.2 compose=5.6.0 pg=PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+# ---
+============================= test session starts ==============================
+platform linux -- Python 3.12.7, pytest-7.4.4, pluggy-1.0.0 -- /home/hanhao/anaconda3/bin/python
+rootdir: /home/hanhao/github/47oo/csm/backend
+configfile: pyproject.toml
+plugins: langsmith-0.7.33, anyio-4.2.0
+collecting ... collected 27 items
+
+tests/integration/test_f039_query_count.py::test_a1_query_count_constant_across_network_count PASSED [  3%]
+tests/integration/test_f039_query_count.py::test_a1_query_count_constant_across_auto_pool_count PASSED [  7%]
+tests/integration/test_f039_query_count.py::test_a1_http_overhead_is_constant PASSED [ 11%]
+tests/integration/test_f039_query_count.py::test_a1_capacity_endpoint_statement_count_unchanged PASSED [ 14%]
+tests/integration/test_f039_query_count.py::test_a2_capacity_matches_endpoint_and_literals PASSED [ 18%]
+tests/integration/test_f039_query_count.py::test_a2_pool_occupancy_follows_current_address PASSED [ 22%]
+tests/integration/test_f039_query_count.py::test_a4_negative_remaining_is_returned_verbatim PASSED [ 25%]
+tests/integration/test_f039_query_count.py::test_a5_response_surface_matches_golden_body PASSED [ 29%]
+tests/integration/test_f039_query_count.py::test_a5_pagination_and_counts_ordering PASSED [ 33%]
+tests/integration/test_f039_query_count.py::test_a5_error_semantics PASSED [ 37%]
+tests/integration/test_f039_query_count.py::test_a8_batch_statements_have_index_paths PASSED [ 40%]
+tests/integration/test_f039_query_count.py::test_a8_dashboard_has_no_address_arithmetic PASSED [ 44%]
+tests/integration/test_f039_scope.py::test_a3_viewer_sees_only_authorized_clusters PASSED [ 48%]
+tests/integration/test_f039_scope.py::test_a3_zero_authorization_returns_empty PASSED [ 51%]
+tests/integration/test_f039_scope.py::test_a3_admin_is_unrestricted PASSED [ 55%]
+tests/integration/test_dashboard.py::test_counts_scope_and_inactive PASSED [ 59%]
+tests/integration/test_dashboard.py::test_counts_match_domain_list_totals PASSED [ 62%]
+tests/integration/test_dashboard.py::test_network_capacity_matches_f010_capacity_endpoint PASSED [ 66%]
+tests/integration/test_dashboard.py::test_negative_remaining_not_clamped PASSED [ 70%]
+tests/integration/test_dashboard.py::test_soft_deleted_excluded_from_counts_and_networks PASSED [ 74%]
+tests/integration/test_dashboard.py::test_networks_pagination_does_not_affect_counts PASSED [ 77%]
+tests/integration/test_dashboard.py::test_all_roles_can_read_dashboard[VIEWER] PASSED [ 81%]
+tests/integration/test_dashboard.py::test_all_roles_can_read_dashboard[EDITOR] PASSED [ 85%]
+tests/integration/test_dashboard.py::test_all_roles_can_read_dashboard[ADMIN] PASSED [ 88%]
+tests/integration/test_dashboard.py::test_unauthenticated_dashboard_is_401 PASSED [ 92%]
+tests/integration/test_dashboard.py::test_dashboard_writes_no_audit PASSED [ 96%]
+tests/integration/test_dashboard.py::test_invalid_pagination_is_422 PASSED [100%]
+
+======================== 27 passed in 66.85s (0:01:06) =========================
+# finished_at: 2026-10-29T15:04:17Z
+# exit_code: 0

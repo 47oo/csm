@@ -3244,9 +3244,9 @@ features:
   - F043
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: TEST_DESIGN
-  next_action: 'TEST_DESIGN：tester 出 TD-F045-1（A1–A12 判定与证据清单），随后执行全量回归与部署验收。'
-  last_result: 'ARCHITECTURE + CONTRACT 签核 READY FOR TEST DESIGN：Compose 主路径（nginx :18080 / 容器内迁移 / bootstrap / 真实 HTTP）；降级等价栈须登记未覆盖项；全量 pytest 规则（-p no:cacheprovider、-ra、四类允许排除、1+1 重跑）；证据结构与日志 header；acceptance 恢复 5 类最小证据 + 追加不删；Contract/DB/Backend/Frontend NOT_REQUIRED。'
+  current_stage: IMPLEMENTATION
+  next_action: '重跑 A1 全量 pytest（修复后），通过后更新 test-report §3 并进入 REVIEW。'
+  last_result: 'TD + TEST 第一轮：A2–A7、A9 PASS（A7 真实 Compose 61 步 0 FAIL，含空卷 0001→0015 全链）；A1 FAIL（2 failed / 967 passed / 6 skipped），根因为 F038 守卫以自身起点为 diff 基线（DEF-1，测试资产脆性）；DEF-1 已按 F038 区间（8e609ca..adef87a）钉死修复，待重跑 A1。'
   layers:
     database: false
     backend: false
@@ -3262,7 +3262,7 @@ features:
     product: COMPLETE
     architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
+    test_design: COMPLETE
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
@@ -3275,6 +3275,8 @@ features:
     head_commit: null
     merge_commit: null
   evidence:
+    test_design:
+    - docs/features/F045/test-report.md#1-test-designtd-f045-12026-10-29
     architecture:
     - docs/features/F045/architecture.md
     contract:
@@ -3884,7 +3886,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F045
-  current_stage: TEST_DESIGN
+  current_stage: IMPLEMENTATION
   last_result: F037/F038/F039/F040/F041/F043 DONE；F045 变更集整体验收启动（分支 feature/F045-change-set-acceptance）。
   next_action: F045 PRODUCT Gate（整体回归矩阵 + 部署等价栈口径）。
   repair_rounds: 0

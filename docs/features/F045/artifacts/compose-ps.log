@@ -1,0 +1,37 @@
+# cmd: docker compose --env-file .env.test -f compose.yaml -f compose.test.yaml -p csmtest ps -a ; docker inspect (image/health) ; docker logs csmtest-migrate-1 ; docker logs csmtest-bootstrap-1
+# start_commit: fa8a568 ; head: 9941f92 9941f923d153dfa97e2766fce47811aaf8064082
+# env: --env-file .env.test (NGINX_HTTP_PORT=18080, POSTGRES_PASSWORD=***, INITIAL_ADMIN_PASSWORD=***, DATABASE_URL=postgresql+psycopg://csm:***@db:5432/csm)
+# observed_at: 2026-10-29T15:17:25Z
+# tool_versions: docker=26.1.2 compose=5.6.0 ; pg=PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+# ---
+## docker compose ps -a
+NAME                  IMAGE                   COMMAND                   SERVICE     CREATED          STATUS                     PORTS
+csmtest-backend-1     csm-csm-backend:test    "uvicorn app.main:ap…"   backend     2 minutes ago    Up 2 minutes (healthy)     8000/tcp
+csmtest-bootstrap-1   csm-csm-backend:test    "python -m app.cli.b…"   bootstrap   2 minutes ago    Exited (0) 2 minutes ago   
+csmtest-db-1          postgres:16             "docker-entrypoint.s…"   db          10 minutes ago   Up 10 minutes (healthy)    5432/tcp
+csmtest-frontend-1    csm-csm-frontend:test   "/docker-entrypoint.…"   frontend    2 minutes ago    Up 2 minutes               80/tcp
+csmtest-migrate-1     csm-csm-backend:test    "alembic upgrade head"    migrate     2 minutes ago    Exited (0) 2 minutes ago   
+csmtest-nginx-1       nginx:1.27-alpine       "/docker-entrypoint.…"   nginx       10 minutes ago   Up 10 minutes              0.0.0.0:18080->80/tcp, [::]:18080->80/tcp
+
+## running containers: image / health / host port
+/csmtest-backend-1 | image=csm-csm-backend:test | image_id=sha256:f438bd676ccfc16ae672e4e8ab8cbf6d3e436ee07674d3b5979bf73050cf8361 | health=healthy | started=2026-10-29T15:15:25.195471497Z
+/csmtest-backend-1 | portbindings={}
+/csmtest-db-1 | image=postgres:16 | image_id=sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94 | health=healthy | started=2026-10-29T15:06:39.92327514Z
+/csmtest-db-1 | portbindings={}
+/csmtest-frontend-1 | image=csm-csm-frontend:test | image_id=sha256:f9cdb79a60f773d1efdf5f749c7240f49cfc0ae7479d4e1db2c3259c8f29e55b | health=none | started=2026-10-29T15:15:15.447795276Z
+/csmtest-frontend-1 | portbindings={}
+/csmtest-nginx-1 | image=nginx:1.27-alpine | image_id=sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 | health=none | started=2026-10-29T15:06:57.018951944Z
+/csmtest-nginx-1 | portbindings={"80/tcp":[{"HostIp":"","HostPort":"18080"}]}
+
+## migrate 一次性服务日志（容器内 alembic upgrade head）
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+
+## bootstrap 一次性服务日志（首个 ADMIN 初始化，幂等）
+bootstrap: users already exist; nothing to do
+
+## db 只读观测（Tester 补充；A8 判定权归协调器）: alembic_version + 迁移历史条数 + 首个 ADMIN 行
+alembic_version=0015_user_cluster_authorizations
+ERROR:  relation "audit_log" does not exist
+LINE 1: ...it_actions='||string_agg(distinct action,',') from audit_log
+                                                              ^

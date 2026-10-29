@@ -1,0 +1,89 @@
+# cmd: CSM_BASE=http://127.0.0.1:18080 CSM_ADMIN_PW=*** python /tmp/f045_acceptance.py  (driver: requests ; 全走 nginx 同源真实 HTTP)
+# start_commit: fa8a568 ; head: 9941f92 9941f923d153dfa97e2766fce47811aaf8064082
+# env: CSM_BASE=http://127.0.0.1:18080 ; stack=docker compose -p csmtest (compose.yaml+compose.test.yaml, --env-file .env.test) ; images csm-csm-backend:test@f438bd676ccf (built 2026-10-29T15:15:00.798905308Z) csm-csm-frontend:test@f9cdb79a60f7 ; nginx=nginx:1.27-alpine
+# started_at: 2026-10-29T15:16:55Z
+# tool_versions: python=3.12.7 requests=2.32.3 node=v22.23.3 npm=10.9.9 docker=26.1.2 compose=5.6.0 pytest=pytest 7.4.4 pg=PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+# ---
+A7-01 health ready                                 GET    /api/v1/health/ready                                 -> 200 expect=200 asserts=- PASS
+A7-02 login ADMIN (local)                          POST   /api/v1/auth/login                                   -> 200 expect=200 asserts=role=ADMIN,perm IMPORT,perm RESTORE,cookie set PASS
+A7-03 create Cluster                               POST   /api/v1/clusters                                     -> 201 expect=201 asserts=code PASS
+A7-04 duplicate Cluster code rejected              POST   /api/v1/clusters                                     -> 409 expect=409 asserts=- PASS
+A7-05 create Cluster #2                            POST   /api/v1/clusters                                     -> 201 expect=201 asserts=- PASS
+A7-06 create BareMetal cn045                       POST   /api/v1/resources                                    -> 201 expect=201 asserts=hostname PASS
+A7-07 duplicate hostname rejected                  POST   /api/v1/resources                                    -> 409 expect=409 asserts=- PASS
+A7-08 create VM vm045 + Host                       POST   /api/v1/resources                                    -> 201 expect=201 asserts=vm.host PASS
+A7-09 cross-cluster Host binding rejected          POST   /api/v1/resources                                    -> 422 expect=422 asserts=- PASS
+A7-10 resource detail shows Cluster/HW/VM-Host     GET    /api/v1/resources/260509af-5185-4763-8144-5be566140335 -> 200 expect=200 asserts=cluster,host PASS
+A7-11 create Interface eth0                        POST   /api/v1/interfaces                                   -> 201 expect=201 asserts=name PASS
+A7-12 create Network mgmt045                       POST   /api/v1/networks                                     -> 201 expect=201 asserts=cidr PASS
+A7-13 illegal CIDR rejected                        POST   /api/v1/networks                                     -> 422 expect=422 asserts=- PASS
+A7-14 create Pool MANUAL                           POST   /api/v1/ip-pools                                     -> 201 expect=201 asserts=mode PASS
+A7-15 create Pool AUTO                             POST   /api/v1/ip-pools                                     -> 201 expect=201 asserts=mode PASS
+A7-16 create Service sshd045                       POST   /api/v1/services                                     -> 201 expect=201 asserts=name PASS
+A7-17 manual IP 10.45.0.10 in MANUAL pool          POST   /api/v1/ip-addresses                                 -> 201 expect=201 asserts=addr PASS
+A7-18 duplicate IP rejected                        POST   /api/v1/ip-addresses                                 -> 409 expect=409 asserts=- PASS
+A7-19 bind manual IP to Interface                  PATCH  /api/v1/ip-addresses/5a930977-5450-4801-b63a-96e1575eb8a5 -> 200 expect=200 asserts=bound iface PASS
+A7-20 auto-allocate IP from AUTO pool              POST   /api/v1/ip-addresses/auto-allocate                   -> 201 expect=201 asserts=in pool range PASS
+A7-21 bind auto IP to Interface                    PATCH  /api/v1/ip-addresses/1ea833d1-c3f2-44d5-828b-e0fc4062ce2a -> 200 expect=200 asserts=bound iface PASS
+A7-22 Service Endpoint (IP:TCP/22)                 POST   /api/v1/service-endpoints                            -> 201 expect=201 asserts=- PASS
+A7-23 find by hostname                             GET    /api/v1/resources?q=cn045                            -> 200 expect=200 asserts=cn045 hit PASS
+A7-24 find IP owner                                GET    /api/v1/ip-addresses?address=10.45.0.10              -> 200 expect=200 asserts=bound PASS
+A7-25 find by Cluster                              GET    /api/v1/resources?cluster=F045C1                     -> 200 expect=200 asserts=>=2 rows PASS
+A7-26 find Service sshd045                         GET    /api/v1/services?q=sshd045                           -> 200 expect=200 asserts=hit PASS
+A7-27 Service -> Resource                          GET    /api/v1/resources/{service.resource}                 -> 200 expect=200 asserts=vm045 PASS
+A7-28 global search vm045                          GET    /api/v1/search?q=vm045                               -> 200 expect=200 asserts=vm045 in body PASS
+A7-29 Dashboard counts + capacity                  GET    /api/v1/dashboard                                    -> 200 expect=200 asserts=counts.resources>=1,networks page PASS
+A7-30 Network capacity                             GET    /api/v1/networks/e548cf57-f9db-46a4-a2f4-228bb3d1def5/capacity -> 200 expect=200 asserts=- PASS
+A7-31 create spare IP (delete/restore)             POST   /api/v1/ip-addresses                                 -> 201 expect=201 asserts=- PASS
+A7-32 logical delete Service                       DELETE /api/v1/services/3e60bdf5-d8b0-489d-987c-328a80b6ce2c -> 422 expect=200 asserts=- FAIL
+A7-33 deleted list shows Service                   GET    /api/v1/deleted?object_type=service                  -> 200 expect=200 asserts=svc listed FAIL [FAIL:svc listed]
+A7-34 restore Service (ADMIN)                      POST   /api/v1/services/3e60bdf5-d8b0-489d-987c-328a80b6ce2c/restore -> 422 expect=200 asserts=- FAIL
+A7-35 Service active again                         GET    /api/v1/services/3e60bdf5-d8b0-489d-987c-328a80b6ce2c -> 200 expect=200 asserts=not deleted PASS
+A7-36 logical delete spare IP                      DELETE /api/v1/ip-addresses/04860534-1a86-4a01-8732-22eb4c996d42 -> 422 expect=200 asserts=- FAIL
+A7-37 restore spare IP                             POST   /api/v1/ip-addresses/04860534-1a86-4a01-8732-22eb4c996d42/restore -> 422 expect=200 asserts=- FAIL
+A7-38 import template                              GET    /api/v1/imports/resource-interfaces-ips/templates    -> 200 expect=200 asserts=26 cols PASS
+A7-39 import pre-validate                          POST   /api/v1/imports/resource-interfaces-ips/validate     -> 200 expect=200 asserts=0 errors,2 importable PASS
+A7-40 import write (atomic batch)                  POST   /api/v1/imports/resource-interfaces-ips              -> 201 expect=201 asserts=created=2,total_rows=2 PASS
+A7-41 imported resource visible                    GET    /api/v1/resources?q=f045i01                          -> 200 expect=200 asserts=f045i01 PASS
+A7-42 audit log recorded                           GET    /api/v1/audit?page_size=5                            -> 200 expect=200 asserts=items PASS
+
+A7 TOTAL STEPS=42 FAILED=5
+  FAIL A7-32 logical delete Service: status=422 expected=200 body={'error': {'code': 'VALIDATION_ERROR', 'message': 'Validation error', 'details': {'fields': [{'field': 'version', 'message': 'Field required'}]}}}
+  FAIL A7-33 deleted list shows Service: status=200 expected=200 [FAIL:svc listed] body={'items': [], 'page': 1, 'page_size': 20, 'total': 0}
+  FAIL A7-34 restore Service (ADMIN): status=422 expected=200 body={'error': {'code': 'VALIDATION_ERROR', 'message': 'Validation error', 'details': {'fields': [{'field': 'version', 'message': 'Field required'}]}}}
+  FAIL A7-36 logical delete spare IP: status=422 expected=200 body={'error': {'code': 'VALIDATION_ERROR', 'message': 'Validation error', 'details': {'fields': [{'field': 'version', 'message': 'Field required'}]}}}
+  FAIL A7-37 restore spare IP: status=422 expected=200 body={'error': {'code': 'VALIDATION_ERROR', 'message': 'Validation error', 'details': {'fields': [{'field': 'version', 'message': 'Field required'}]}}}
+# finished_at: 2026-10-29T15:16:58Z
+# exit_code: 1
+
+# --- 追加 round-2：A7-32/33/34/36/37 为驱动脚本签名错误（DELETE/restore 需 ?version=N，DELETE 成功码 204，见 docs/api/F011.md §6.5/§6.6），非产品缺陷；按正确契约重跑逻辑删除与 ADMIN 恢复段 ---
+# cmd: CSM_BASE=http://127.0.0.1:18080 CSM_ADMIN_PW=*** python /tmp/f045_acceptance_delete.py
+# started_at: 2026-10-29T15:17:12Z
+A7R2-01 login ADMIN                                  POST   /api/v1/auth/login                                   -> 200 expect=200 asserts=role PASS
+A7R2-02 reuse Cluster F045C1                         GET    /api/v1/clusters?q=F045C1                            -> 200 expect=200 asserts=found PASS
+A7R2-03 create BareMetal del045                      POST   /api/v1/resources                                    -> 201 expect=201 asserts=- PASS
+A7R2-04 create Service del-svc045 (no endpoint)      POST   /api/v1/services                                     -> 201 expect=201 asserts=- PASS
+A7R2-05 logical delete Service (DELETE ?version=1)   DELETE /api/v1/services/03d877cc-5257-44f8-be13-45545128430a?version=1 -> 204 expect=204 asserts=- PASS
+A7R2-06 deleted list shows Service                   GET    /api/v1/deleted?object_type=service                  -> 200 expect=200 asserts=svc listed PASS
+A7R2-07 deleted Service hidden from list             GET    /api/v1/services?q=del-svc045                        -> 200 expect=200 asserts=absent PASS
+A7R2-08 restore Service (ADMIN ?version=2)           POST   /api/v1/services/03d877cc-5257-44f8-be13-45545128430a/restore?version=2 -> 200 expect=200 asserts=active PASS
+A7R2-09 Service visible again                        GET    /api/v1/services?q=del-svc045                        -> 200 expect=200 asserts=present PASS
+A7R2-10 reuse Network mgmt045                        GET    /api/v1/networks?q=mgmt045                           -> 200 expect=200 asserts=found PASS
+A7R2-11 create spare IP 10.45.0.12                   POST   /api/v1/ip-addresses                                 -> 201 expect=201 asserts=- PASS
+A7R2-12 logical delete spare IP (?version=1)         DELETE /api/v1/ip-addresses/e3290818-a45b-478b-83a8-dcea2f752519?version=1 -> 204 expect=204 asserts=- PASS
+A7R2-13 deleted list shows IP                        GET    /api/v1/deleted?object_type=ip_address               -> 200 expect=200 asserts=ip listed PASS
+A7R2-14 restore IP (ADMIN ?version=2)                POST   /api/v1/ip-addresses/e3290818-a45b-478b-83a8-dcea2f752519/restore?version=2 -> 200 expect=200 asserts=active PASS
+A7R2-15 Audit has DELETE/RESTORE rows                GET    /api/v1/audit?page_size=5                            -> 200 expect=200 asserts=actions PASS
+
+A7 round-2 TOTAL STEPS=15 FAILED=0
+# finished_at: 2026-10-29T15:17:13Z
+# exit_code: 0
+
+# --- round-3：空卷重建栈后的同源 HTTP 冒烟（nginx :18080） ---
+# started_at: 2026-10-29T15:18:41Z
+A7R3-01 login (fresh DB bootstrap ADMIN) POST /api/v1/auth/login -> 200 expect=200 assert=role:ADMIN PASS
+A7R3-02 list resources on empty DB GET /api/v1/resources?page_size=1 -> 200 expect=200 assert=total:0 PASS
+A7R3-03 dashboard GET /api/v1/dashboard -> 200 expect=200 assert=has_counts:yes PASS
+A7R3-04 frontend index via nginx GET / -> 200 expect=200 assert=has_app_root:1 PASS
+# finished_at: 2026-10-29T15:18:42Z
+# exit_code: 0

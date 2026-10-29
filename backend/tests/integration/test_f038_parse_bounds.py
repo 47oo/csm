@@ -151,6 +151,10 @@ NETWORK_CIDR = "10.38.0.0/24"
 
 # start_commit（F038 起点的语义基线）；`/tmp` 基线模块由 git show 生成、不入库。
 START_COMMIT = "8e609ca"
+# F038 合入 v3.4 的 merge commit：S 层 diff 守卫必须钉住这个上界，区间只能覆盖
+# 「F038 期间」；若上界开放（如仅用 START_COMMIT），合入后 F039+ 的合法改动会让
+# 区间持续增长，从而击穿零 diff / 两文件守卫。
+F038_MERGE_COMMIT = "adef87a"
 BASELINE_PATH = os.environ.get(
     "F038_BASELINE_MODULE", "/tmp/f038_baseline/resource_import_8e609ca.py"
 )
@@ -2017,7 +2021,9 @@ def test_td_f038_s1_zero_diff_and_frozen_contract():
         "backend/Dockerfile",
         "backend/tests/integration/test_f037_import_parse_errors.py",
     )
-    diff = _git("diff", "--stat", START_COMMIT, "--", *zero_diff_paths)
+    diff = _git(
+        "diff", "--stat", START_COMMIT, F038_MERGE_COMMIT, "--", *zero_diff_paths
+    )
     assert diff.strip() == "", f"禁止写入的路径出现 diff:\n{diff}"
 
     templates = {item["resource_type"]: item for item in resource_import.templates_payload()}
@@ -2203,7 +2209,14 @@ def test_td_f038_s6_change_surface_is_two_services():
     """TD-F038-S6（§13.6 / §13.10 放行写入）：仅两个 service 有实现 diff。"""
     changed = [
         line.strip()
-        for line in _git("diff", "--name-only", START_COMMIT, "--", "backend/app")
+        for line in _git(
+            "diff",
+            "--name-only",
+            START_COMMIT,
+            F038_MERGE_COMMIT,
+            "--",
+            "backend/app",
+        )
         .strip()
         .splitlines()
         if line.strip()

@@ -1,0 +1,19 @@
+# cmd: cd backend && F016_ACCEPTANCE=1 F016_BASE_URL=http://localhost:18080 F016_ADMIN_USERNAME=admin F016_ADMIN_PASSWORD=*** python -m pytest -p no:cacheprovider -q tests/integration/test_f016_acceptance.py
+# 用途：A9 复核 F039 review-report §4「F016_ACCEPTANCE=1 BLOCKED（环境不可用）」——本轮 Compose 栈可用，直接重跑该模块
+# start_commit: fa8a568 ; head: 9941f92 9941f923d153dfa97e2766fce47811aaf8064082
+# env: F016_ACCEPTANCE=1 F016_BASE_URL=http://localhost:18080 (nginx :18080 同源真实 HTTP) F016_ADMIN_PASSWORD=***
+# started_at: 2026-10-29T15:20:05Z
+# tool_versions: python=3.12.7 pytest=pytest 7.4.4 docker=26.1.2 compose=5.6.0 node=v22.23.3 npm=10.9.9 pg=PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+# ---
+........................................                                 [100%]
+40 passed in 11.63s
+# finished_at: 2026-10-29T15:20:23Z
+# exit_code: 0
+
+# --- 追加：A1 中被 skip 的 test_f028_acceptance.py 4 例（skip 原因「requires F016_ACCEPTANCE=1」），栈可用时补齐重跑 ---
+# cmd: cd backend && F016_ACCEPTANCE=1 F016_BASE_URL=http://localhost:18080 F016_ADMIN_PASSWORD=*** python -m pytest -p no:cacheprovider -q tests/integration/test_f028_acceptance.py
+# started_at: 2026-10-29T15:20:26Z
+....                                                                     [100%]
+4 passed in 7.99s
+# finished_at: 2026-10-29T15:20:36Z
+# f028_exit_code: 0
