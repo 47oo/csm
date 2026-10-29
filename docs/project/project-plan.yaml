@@ -2974,14 +2974,13 @@ features:
   - F004
   - F006
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: REVIEW：reviewer 复核候选 HEAD（A1–A16、FR-1..FR-8、TD 更正 T1–T11、58/22 与 352
-    基线口径、浏览器证据边界）并给出结论。
-  last_result: IMPLEMENTATION + TEST READY FOR REVIEW（TE-F041-1）：I 层 18 passed（真实
-    PG，150 Cluster + 150 Host，名次 110 检索并提交 201 + DB 行核对 + T19 审计 before/after）；F 层
-    smoke 352 passed 0 failed（新增 12 条）；S 层双重基线零 diff、<Select 58/22 逐文件对照仅两载体、CandidateSelect
-    引用白名单合规；回归 81/72/59/38 全绿；收集数 948。
+  status: DONE
+  current_stage: null
+  next_action: null
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD ad56072 / Base d5c0a4c）：A1–A16
+    全 PASS（I 18 passed 真实 PG、F 352 passed、S 零 diff、回归 38+3）、Reviewer 自建 36 项纯函数探针全
+    PASS；Merge 至 v3.4（f8422e3）；F041-R-01..R-06 与 FU-1..FU-5 已登记（FU-1：DR-F041-09 的
+    Product 追认待留痕）。
   layers:
     database: false
     backend: false
@@ -3001,14 +3000,16 @@ features:
     backend: NOT_REQUIRED
     frontend: COMPLETE
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   git:
     base_branch: v3.4
     branch: feature/F041-candidate-completeness
     start_commit: d5c0a4c9aa5bd1036dd9acf087d210a22f43571d
-    head_commit: null
-    merge_commit: null
+    head_commit: ad56072424f886d182301d39832619a93b1f1e65
+    merge_commit: f8422e354e57b36de72edd87505c6aa652b6fd8d
   evidence:
+    review:
+    - docs/features/F041/review-report.md
     frontend:
     - docs/features/F041/implementation.md
     - frontend/src/components/candidateSelectModel.ts
@@ -3845,11 +3846,11 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: F041
-  current_stage: REVIEW
-  last_result: F041 实现与测试完成：候选完整性（服务端检索+分页）两处控件落地，TE-F041-1 READY FOR REVIEW（I 18
-    + F 352 + S 合规）。
-  next_action: F041 REVIEW Gate。
+  current_feature: null
+  current_stage: null
+  last_result: F037 / F038 / F040 / F041 DONE（均合入 v3.4）。F041：VM Host 与 Resource 创建页
+    Cluster 改为服务端检索+分页（§28.1 / T127–T129）。
+  next_action: 继续：F039（R10 Dashboard）→ F043（R08 测试入口）→ F045（整体回归，恢复 acceptance=COMPLETE）。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -3857,10 +3858,10 @@ planning_status:
   counts:
     BLOCKED: 0
     CANCELLED: 2
-    DONE: 39
+    DONE: 40
     DRAFT: 1
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 2
   ready_features:
   - F039
