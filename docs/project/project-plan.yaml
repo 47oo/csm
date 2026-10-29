@@ -2763,10 +2763,15 @@ features:
   - F023
   - F037
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: 'IMPLEMENTATION：backend 落稿 resource_import.py 有界保留 + F023 consumer 改造（IMP-1..IMP-10），返回 BACKEND COMPLETE。'
-  last_result: 'ARCHITECTURE / TEST_DESIGN / CONTRACT 通过：architecture §13 签核 READY FOR IMPLEMENTATION（TD-I-1 毒值探针、TD-I-2 阈值 T-1/T-1b/T-2、ON-1 413/422 口径、TD-I-8 S-W2 期望勘误、DR-F038-02 默认 None + E-1 全模块 AST）；TD-F038-1 TEST DESIGN READY（U1–U6/I1–I15/M1–M6/S1–S6 + R1–R6）；product S3 errata 已落稿；契约 NOT_REQUIRED 零 diff。'
+  status: BLOCKED
+  current_stage: TEST
+  next_action: repair round 1：architect 按 TD-I-9/TD-I-10 重裁 CSV 族阈值口径（剥离/放宽为可达且保判别力的公式），再由
+    tester 定点复测 M 层受影响用例并重出 READY FOR REVIEW / BLOCKED。阈值不得由 Tester 自行放宽（R-13）。
+  last_result: TEST BLOCKED（TE-F038-1）：新增模块 72 passed / 3 failed，回归 R1–R6 全绿（52/70/31/48/4/3）；xlsx
+    族阈值 T-1/T-2(S-W1 11.44×、S-W2 155.73×) 与 T-3(0.9865)/T-4/T-5/T-6 全 PASS，行为面全部等价。3
+    项 FAIL 均为 §13.2 的 CSV 族阈值公式不可达：实测 CSV 峰值地板 = 5×len(data)（decode 1.00× + io.StringIO
+    UCS-4 4.00×，均为基线原样代码）⇒ Δpeak≈5×Δbytes、excess 最大可达倍数≈4.16× < 8×。登记 DEF-01/T-1b
+    与 DEF-02/T-2(S-W6a)，Owner Architect。
   layers:
     database: false
     backend: true
@@ -2785,7 +2790,7 @@ features:
     contract: NOT_REQUIRED
     backend: PENDING
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: BLOCKED
     review: PENDING
   git:
     base_branch: v3.4
@@ -3802,21 +3807,19 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F038
-  current_stage: IMPLEMENTATION
-  last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
-    / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
-    / AQ-6 已裁定，AQ-7 保持 OPEN。
-  next_action: 启动 F037（P0，导入解析异常收敛为 422 IMPORT_INVALID_FILE）。
+  current_stage: TEST
+  last_result: 'F037 DONE（合入 v3.4 b1cbb88）。F038 实现完成（2 service 文件；F037 52 项与导入回归全绿；7 例等价性 EQUAL；宽表峰值 68.1→1.8 MiB），TEST BLOCKED：3 项 FAIL 均为 CSV 族阈值公式不可达（DEF-01 T-1b / DEF-02 T-2 S-W6a，Owner Architect），实现与被测行为无缺陷。'
+  next_action: 'F038 repair round 1：architect 按 TD-I-9/TD-I-10 重裁 CSV 族阈值 → tester 定点复测 M 层 → Review → Merge；随后 F040/F041 → F039 → F043 → F045。'
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
   counts:
-    BLOCKED: 0
+    BLOCKED: 1
     CANCELLED: 2
     DONE: 37
     DRAFT: 1
-    IN_PROGRESS: 1
+    IN_PROGRESS: 0
     IN_REVIEW: 0
     READY: 4
   ready_features:
@@ -3825,6 +3828,7 @@ planning_status:
   - F041
   - F043
   blocked_draft_features:
-    BLOCKED: []
+    BLOCKED:
+    - F038
     DRAFT:
     - F045

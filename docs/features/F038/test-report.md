@@ -1,7 +1,8 @@
 # F038 导入解压 / 解析内存边界加固（R05）— Test Report
 
 > 同一份报告承载 TEST_DESIGN 与 TEST 两阶段，分开记录版本、结论与证据。
-> **当前状态**：§1 TEST DESIGN = **TD-F038-1（v1，2026-10-29，`TEST DESIGN READY`）**。§2 TEST EXECUTION **尚未开始**（实现未落地，工作区 `backend/**` 零 diff）。
+> **当前状态**：§1 TEST DESIGN = **TD-F038-1（v1，2026-10-29，`TEST DESIGN READY`）**；§2 TEST EXECUTION = **TE-F038-1（v1，2026-10-29，`BLOCKED`）** —— 72/75 用例 PASS，**3 项 §13.2 CSV 族阈值断言 FAIL**（Owner = Architect 的阈值口径，非实现缺陷，证据见 §2.7 / §2.10）。
+> §1 中关于 **S-W2 期望 413** 的表述已按 architecture §13.4 勘误为 **422 `unknown_columns`**，勘误落稿见 §2.3。
 > `TEST DESIGN READY` 仅表示「方案可执行、可验证」，**不是测试通过**，**不批准实现**，也不放行合并。
 
 **版本记录**
@@ -478,3 +479,289 @@ assert (resp_fixed.status_code, resp_fixed.json()) == (resp_baseline.status_code
 - **本阶段未执行任何测试、构建或 Git 写操作**；本 TD 只写 `docs/features/F038/test-report.md`。`TEST DESIGN READY` **不是测试通过**、**不批准实现**、**不放行合并**；实现完成后须按本 TD 实际执行并给出 §2 TEST EXECUTION 结论（`READY FOR REVIEW` / `RETURN TO IMPLEMENTATION` / `TEST BLOCKED` / `PARTIAL TEST ONLY`）。
 
 **GIT: NONE**
+
+---
+
+## 2. TEST EXECUTION（TE-F038-1，v1，2026-10-29）
+
+### 2.1 Task / Status / Basis
+
+- **Task**：F038「导入解压 / 解析内存边界加固（R05）」——FEATURE / P1 / M29；阶段 **TEST（独立执行）**；实现基线 `e954537`，语义基线 `8e609ca`；分支 `feature/F038-import-parse-bounds`。
+- **Status**：**`BLOCKED`**（判定见 §2.12）。摘要：新增 `backend/tests/integration/test_f038_parse_bounds.py`（75 项）→ **72 passed / 3 failed**；3 项 FAIL 全部是 **§13.2 CSV 族阈值（T-1b 两个构造族 + T-2 对 S-W6a）**，其**构造性不可满足**已用同进程实测系数证明（§2.7.3），属 **Architect 阈值口径缺陷**，不属于实现缺陷、也不是环境/输入缺失。所有 A/B 行为类验收项（A1、A3–A14、B1–B13）**全绿**。
+- **写入范围（仅本角色）**：① 新增 `backend/tests/integration/test_f038_parse_bounds.py`；② 本文件（追加 §2 + TD-I-8 勘误 + 状态行）。**未**改生产代码、`test_f037_import_parse_errors.py`、契约、计划；**未**执行任何 Git 写操作（只读命令见 §2.11）。
+- **Basis**：`docs/features/F038/product.md` v1（A1–A14 / B1–B13 / N1–N10）、`architecture.md` v1 + **§13 全部裁定**（§13.1 P-1..P-4、§13.2 T-1/T-1b/T-2..T-6、§13.3 ON-1、§13.4 TD-I-8、§13.5 E-1..E-3、§13.7 IMP-1..IMP-10）、`implementation.md`（BACKEND COMPLETE）、本文件 §1 TD-F038-1、`docs/api/F014.md` v1 / `F023.md` v2（零 diff）。
+
+### 2.2 Environment（M1 实测，`test_td_f038_m1_environment_record`）
+
+| 项 | 实测值 | 命令 / 来源 |
+| --- | --- | --- |
+| Python | `3.12.7` | `python3 -V` |
+| platform | `linux` | `sys.platform` |
+| `openpyxl.__version__` | `3.1.5` | 模块属性 |
+| **`openpyxl.LXML`** | **`True`** | 模块属性（⇒ 结论**不外推**到无 lxml 镜像，ON-4 / `TD-I-6`） |
+| `lxml.__version__` | `5.2.1` | 模块属性 |
+| `csv.field_size_limit()` | `131072` | 模块函数 |
+| pytest | `7.4.4` | `pytest.__version__` |
+| HEAD / start_commit | `e954537` / `8e609ca` | `git rev-parse --short HEAD` / `git show 8e609ca:…` |
+| 基线模块 | `/tmp/f038_baseline/resource_import_8e609ca.py`（1061 行，**不入库**） | `git show 8e609ca:backend/app/services/resource_import.py > …` |
+| `TEST_DATABASE_URL` | `postgresql+psycopg://csm@127.0.0.1:55432/csm_f037_test`（库名含 `test` ✓、`DATABASE_URL` 未设 ✓ ⇒ DB-D10 双守卫通过） | conftest `_require_test_database_url` |
+| PG 版本 / 容器 | `16.15` / `csm-f037-pg`（`postgres:16-alpine`，`0.0.0.0:55432->5432`） | `docker exec … psql -tAc "show server_version"` |
+| 物理内存 / CPU / `ulimit -v` | `total 15634 MB / available ≈ 9242 MB`；`nproc=16`；`unlimited` | `free -m` / `nproc` / `ulimit -v` |
+| `ru_maxrss`（仅报告，含 lxml C 层） | `925908 KiB` | `resource.getrusage(RUSAGE_SELF)`（M6） |
+
+### 2.3 TD-I-8 勘误落稿（S-W2 期望 = 422 `unknown_columns`）
+
+**依据**：`docs/features/F038/architecture.md` §13.4（CONTRACT 签核）。**作废**本文件 §1 中把 S-W2 写成 413 的表述：
+
+| 作废位置 | 旧表述 | 现行有效表述（本 §2 起） |
+| --- | --- | --- |
+| §1 TD-4「A3 行」与 §1 TD-5.2 `TD-F038-I2` | 「4 端点差分相等 + **413**」 | **422 `IMPORT_INVALID_FILE{reason:"unknown_columns"}`**（差分相等仍成立） |
+| §1 TD-7 `S-W2` 期望列 | 「413」 | 同上；**不得判 413** |
+| §1 TD-6.5 / TD-9「S-W2 原规模 ≈2.7 GB」 | 说明不变 | 仍为 **`ESTIMATE`（外推，未实测）** |
+
+**机理**（实测确认）：`dimension A1:XFD{N+1}` 使 openpyxl 把**每一行（含表头行）**补齐到 16,384 格；S-W2 的数据行全为 `<row/>` ⇒ 全属尾部空行被裁掉 ⇒ `total_rows = 0`，**不触发行数 413**；表头 = 14 个真实列名 + 16,370 个空串 ⇒ `unknown_columns` 命中 ⇒ 422。
+
+**数值勘误（文档级）**：§13.4 写的「16,350 个 `None`」与算术不一致，实测 **16,370 = 16,384 − 14**。用例以**构造值**断言（`len(unknown) == 16_384 - len(BM_HEADERS)`，且 `set(unknown) == {""}`），不硬编码任何数字；26 列端点同族（`unknown_columns` 16,370 + `missing_columns` 12，见 `test_td_f038_i2`）。**期望类（422 `unknown_columns`）不变**，仅修正 §13.4 的计数笔误。
+
+### 2.4 验收映射（A1–A14 / B1–B13 → 实测用例 → 结论）
+
+| 验收 | 用例 | 结果 |
+| --- | --- | --- |
+| A1 同字节逐字一致 | `I1`–`I8`、`I13`、`I15`、`I15b`、`M2`（参考实现 vs `/tmp` 基线黄金对照，7 样例 × `max_rows∈{5000,None}`） | **PASS** |
+| A2 峰值有界（相对倍数） | `T-1` PASS（S-W1 1.141→1.868 ≤ 3.711 MiB；S-W2 1.810→1.970 ≤ 4.715 MiB）、`T-2` S-W1 **PASS**（11.44×）、S-W2 **PASS**（155.73×）、**S-W6a FAIL（4.164× < 8×）**、`T-1b` **FAIL**、`T-3` PASS、`T-4` PASS、`T-6` 报告项 1.970 MiB | **FAIL（部分）** —— 见 §2.7 / §2.10 `DEF-01`/`DEF-02`；失败归因于**阈值口径**，不是实现 |
+| A3 超行数不累积 | `I1`（413）、`I4`（413×2）、`I6b`（413）、`U3`（排空性）、`U5`（保留上界 + 排空 10 万条） | **PASS** |
+| A4 尾部空行 / BOM / CRLF | `U1`（21 类型）、`U2`、`I3`（10 万尾部空行 → `total_rows=3`）、`I7`（1000 中间空行 → 行号不位移） | **PASS** |
+| A5 上限与 1000 预览 | `I8`（5000 行 200）、`I11`（413 字节 / 413 行数）、`I12`（1100 错误 → `errors` 恰 1000、`errors_truncated=true`、`importable_rows=0`） | **PASS** |
+| A6 校验顺序对角 | `I11`（a 413 字节 → b 413 行数 → c 行数先于表头 → d `import_max_rows=1` 仍 413）、`I4`/`I5` 配对（行级错误 413 / 解析异常 422）、`U3` | **PASS** |
+| A7 六类 reason 不变；宽表走列类 | `I6a`（651 列宽表 CSV → `unknown_columns`，637 项全空串）、`I15`（四类表头 + `empty_file` + `unsupported_format`） | **PASS** |
+| A8 双载体等价 / 粘贴不留痕 | `I13`（S-W3 只读两载体 ×2 端点；S-W6a ×4 端点；重复提交一致）、`I9`（响应体内容保护） | **PASS** |
+| A9 零写入 / 零 Audit | `I9`（S-W1/S-W2/S-W4/S-W5/S-W6a × 4 端点后 7 表计数逐表不变）、`I7`/`I12`（写入 422 后计数不变） | **PASS** |
+| A10 401 / 403 先行 | `I10`（S-W1/S-W2 字节 × 未登录 = 401 `AUTH_REQUIRED`）、`I10b`（VIEWER = 403 `FORBIDDEN{reason:"permission"}`） | **PASS** |
+| A11 F037 52 项 + F034–F036 无回归 | `R1`–`R6`（52 / 70 / 31 / 48 / 4 / 3 全绿） | **PASS** |
+| A12 基准证据入库 | `M1`–`M6`（环境、两份重复值、公式与两侧数值、`/tmp` 基线来源、可重复命令） | **PASS** |
+| A13 零变更守卫 | `S1`（`docs/api`、`docs/database`、`backend/alembic`、`frontend`、`pyproject.toml`、`Dockerfile`、F037 测试 = 零 diff；模板 BM 14 / VM 10 / 26 列；三常量 5,242,880 / 5000 / 1000）、`S3`（`_PARSE_FAILURES` 8、`except Exception` 仍 2、无 `field_size_limit`/`strict=True`/`csv.QUOTE`、`lxml` 未进 `pyproject.toml`） | **PASS** |
+| A14 内容保护 | `S5`（L7″ AST：新增 4 函数无 `try`/`except`/`open(`/`Path(`/`logger.`；`_cell_text` 只在 `_finalise`）、`I9`（响应体 0 命中 marker / `Traceback` / `<worksheet` / `.py` / 首列簇码） | **PASS** |
+| B1 5 MiB / 413 | `I11a`（`IMPORT_FILE_TOO_LARGE{limit_bytes:5242880}`，4 端点） | **PASS** |
+| B2 5000 行 / 413 | `I1`、`I4`、`I6b`、`I11b/c/d`、`I8`（5000 不触发） | **PASS** |
+| B3 尾部空行 / 行号 | `I3`（`total_rows=3`）、`I7`（3 空行 → 末行行号仍 6；1000 空行 → 首错行号 3）、`U1`/`U2` | **PASS** |
+| B4 `errors_truncated` / 预览 / `importable_rows` | `I7`（3001 错误 → 1000 条 + `true` + `importable=1`）、`I12`（1100 → 1000 条 + `true` + 0）、`I8`（`false` + `[]`） | **PASS** |
+| B5 1-based 行号 / `field` / `related_row` | `I12`（`set(error) == {row,field,reason,related_row}`、`field=="cluster"`、行号 2..1001）、`I7` | **PASS** |
+| B6 校验顺序 | `I11`（4 个对角）、`I4`/`I5`（ON-1 配对）、`U3`（`_finalise` spy 计数 0） | **PASS** |
+| B7 六类 reason 优先 | `I6a`、`I15`、`I15b`（`details == {"reason":"unreadable"}` 逐字节） | **PASS** |
+| B8 F037 收敛仍生效 | `I5`（csv/xlsx 尾部解析异常 → 422）、`I15`/`I15b`（输入①②③ + 缺 workbook 部件 + OLE2 + `b""` + 仅表头）、`R1` 52 项零修改全绿 | **PASS** |
+| B9 双载体等价 | `I13` | **PASS** |
+| B10 零写入 / 零 Audit | `I9`、`I7`、`I12`（7 表：`clusters/resources/bare_metal_details/virtual_machine_details/interfaces/ip_addresses/audit_logs`） | **PASS** |
+| B11 `IMPORT` 权限 / 401 先于 403 | `I10`、`I10b`（有界解析未提前消费请求体：大样例同样 401/403，无 413/422/500） | **PASS** |
+| B12 模板 / 端点 / 码 / reason 零变更 | `S1`、`S2`、`U6`（两参数兼容、表头整行保留） | **PASS** |
+| B13 内容保护 | `I9`、`S5` | **PASS** |
+| S1 解析阶段工作量有界 | 同 A2 | **FAIL（部分，同 A2）** |
+| S2/S4/S5/S6/S8 | 同 A1 / A8 / A5+A6 / B10 | **PASS** |
+| S3（product §2.1）超行数仍 413 | `I4`（行级错误/超宽行 → 413）+ `I5`（解析器异常 → 422，§13.3 errata 口径） | **PASS** |
+| S7 F037 52 项 | `R1` | **PASS** |
+
+### 2.5 U 层（`pytest tests/integration/test_f038_parse_bounds.py -q`，真实输出 72 passed / 3 failed）
+
+| 用例 | 断言要点（实测） | 结果 |
+| --- | --- | --- |
+| `U1` ×21（含 `parametrize` 20 + 真实解析产物 1） | `_is_blank_record(row) is all(_cell_text(c)=="" …)`：`()`/`[]`/`("",)`/`(None,)`/`(None,)*16384` → True；`(" ",)`/`(0,)`/`(0.0,)`/`(-0.0,)`/`(True,)`/`(False,)`/`Decimal("0")`/`datetime`/`date`/`time`/`timedelta(0)`/`nan`/`("0",)`/`(b"",)` → False 且两侧一致；CSV 空记录 `[]`、xlsx `(None,)*16384` 实测为真 | **PASS** |
+| `U2` | `<cap`/`=cap`（`overflow False`，`_finalise` 413）/`>cap`（`overflow True`、`rows==[]`）/中间空行补 `()`→`[]`（位置保持）/尾部 3 空行丢弃（长度不位移）/仅表头/表头 `None`→`[]`/`max_rows=None`/`keep_cells=None`/100 列宽行 → 数据行 14 格 + 表头 100 格 | **PASS** |
+| `U3` | 生成器第 3 条抛 `csv.Error`（`consumed==3`，非 `ImportRowLimitExceeded`）；真实 S-W5 路径 `_finalise` **spy 计数 0**、异常 `ImportInvalidFile{unreadable}` 且 `__cause__` 为 `csv.Error`；5003 条（1 表头 + 5002 数据）= 全量消费 `5003` 且 `overflow True` | **PASS** |
+| `U4`（静态） | `_validate_record` / `_cells_for` 对 `padded`/`cells` 的下标**只有** `index`，来源为 `enumerate(template.columns)` / `enumerate(COLUMNS)`，无 `[-1]`/`max(`/负索引；`_is_blank_record` 仅在 `_collect_records` 循环内且早于 `record[:keep_cells]` | **PASS** |
+| `U4`（毒值 P-1..P-4） | `_Poison` 覆盖 `__getattr__/__eq__/__ne__/__hash__/__bool__/__str__/__repr__/strip`，`__len__` 不抛；BM(W=14) 与 26 列(W=26)：毒值置于第 ≥W 列 → 全程未触发，且 `result_payload()` 与「≥W 列置空」**完全相等**（含错误路径：未知 cluster / `cpu_cores` 非法整数 / 文件内重复 hostname / 网络外地址 / 组内重复）→ P-2②/P-4；同一记录第 **W-1** 列放毒值 → **`_PoisonTouched` 触发**（P-2① 负向对照）；成功路径 3 行 → `importable_rows=3`、`error_count=0` 且与置空一致（P-3 由 `U2-⑩` + `I6a` 补足表头整行） | **PASS** |
+| `U5` | 10 万条 `["x"]*200`：`consumed==100000`（排空）、`overflow True`、`rows==[]`、调用峰值 **≤ 8 MiB**（实测值见 `[M]` 同级哨兵，远低于上限）、`_finalise` 抛 `ImportRowLimitExceeded{limit_rows:5000}` | **PASS** |
+| `U6` | 签名含 `max_rows` / `keep_cells`（`KEYWORD_ONLY`、默认 `None`）；5 样例两参数 vs 显式 `None` **逐元素相等**、返回 `list`、`records[0]` 为完整表头（含 100 列宽表头）、全单元格为 `str` | **PASS** |
+
+### 2.6 I 层（真实 PostgreSQL + 真实 `create_app`；差分 = 基线语义路径 vs 生产路径）
+
+差分模板（TD-8.2）：先以 `monkeypatch.setattr(resource_import, "parse_records", reference_records)` 跑**基线语义路径**，再跑真实路径，断言 `(status_code, json())` 深等。
+
+| 用例 | 输入 / 规模 | 实测结果 | 结果 |
+| --- | --- | --- | --- |
+| `I1` | S-W1 xlsx 702 列 × 5001 行（80,013 B）| 4 端点差分相等 + **413** `IMPORT_ROW_LIMIT_EXCEEDED{limit_rows:5000}` | **PASS** |
+| `I2` | S-W2 xlsx 16,384 列 × **101 行空 `<row/>`**（5,214 B；规模缩小，理由见下） | 4 端点差分相等 + **422 `unknown_columns`**，`unknown` = **16,370** 个空串；**非** 413 | **PASS** |
+| `I3` | S-W3 CSV：表头 + 3 行 + 100,000 个 `\n`（BM14 与 26 列两版） | 两 validate 端点 **200**：`total_rows=3`、`error_count=0`、`importable_rows=3`、`errors=[]`、`errors_truncated=false`；两 write 端点 **201**、`created=3`、`total_rows=3` | **PASS** |
+| `I4` ×2 | S-W4 CSV 5001 行 + 末行 `role="NOT_A_ROLE"`；变体末行 200 列 | 4 端点差分相等 + **413**（**不是** 422） | **PASS** |
+| `I5` ×2 | S-W5：CSV 末行单字段 131,073 字符；xlsx 5001 行 + sheet 尾损坏 | 4 端点差分相等 + **422**，`details == {"reason":"unreadable"}`，`code != IMPORT_ROW_LIMIT_EXCEEDED` | **PASS** |
+| `I6` | S-W6a CSV 651 列 × 4000 空行（2.6 MB）；S-W6b 651 列 × 5001 **非空**行 | a：4 端点差分相等 + **422 `unknown_columns`**（637 项全空串，无新增工作量类拒绝）；b：4 端点差分相等 + **413** | **PASS** |
+| `I7` | S-W7 CSV 表头 + 1 合法行 + 1000 空行 + 1 行非法 role | `total_rows=1002`、`error_count=3001`、`errors_truncated=true`、`len(errors)=1000`、`importable_rows=1`、首错行号 **3**；小规模配对（3 空行）行号集 **{3,4,5,6}**（末行不位移）；写入 **422 `IMPORT_VALIDATION_FAILED`** + 7 表不变 | **PASS** |
+| `I8` | 合法 5000 行 CSV（485,138 B） | validate 200：`total_rows=5000`、`error_count=0`、`importable_rows=5000`、`errors=[]`、`errors_truncated=false`；差分相等；**5000 行 write 等价性 → `NOT TESTED`**（TD-9 / R-14） | **PASS** |
+| `I9` | S-W1 / S-W2 / S-W4 / S-W5 / S-W6a × 4 端点（写入+校验） | 全部 413/422（无 2xx）；7 表计数**逐表不变**；响应体 0 命中 `F038-MARKER-…` / `Traceback` / `<worksheet` / `.py` / `field larger than field limit` / 首个数据簇码 | **PASS** |
+| `I10` / `I10b` | S-W1、S-W2 字节 × 未登录 / VIEWER × 4 端点 | 401 `AUTH_REQUIRED`；403 `FORBIDDEN{details:{reason:"permission"}}`；**无** 413/422/500 | **PASS** |
+| `I11` | (a) `5,242,880+1` B；(b) 5001 合法行；(c) 5001 行 + 错误表头；(d) `import_max_rows=1` + 2 行 + 错误表头 | (a) 4 端点 **413** `IMPORT_FILE_TOO_LARGE{limit_bytes:5242880}`；(b)(c) 差分相等 + **413 行数**（行数先于表头）；(d) **413** `{limit_rows:1}` | **PASS** |
+| `I12` | 1100 行 `cluster="MISSING"`（每行 1 错误） | `total_rows=1100`、`error_count=1100`、`len(errors)=1000`、`truncated=true`、`importable_rows=0`、错误四键集 + `field=="cluster"` + 行号 `2..1001`；写入 422 且 7 表不变 | **PASS** |
+| `I13` | S-W3（只读两载体 × 2 端点）、S-W6a（× 4 端点） | 状态码与 `json()` 深等；重复提交一致 | **PASS** |
+| `I15` ×2 | F037 输入①②③ + 缺 workbook 部件 + `b""` + 仅表头 + OLE2 + 四类表头错误（csv/xlsx 两版）× 4 端点 | 逐例差分相等；全部 422；无 500 | **PASS** |
+| `I15b` ×4 | 输入①②③ + 缺 workbook 部件 | `details == {"reason":"unreadable"}` 逐字节；差分相等 | **PASS** |
+
+**I2 规模说明（不得外推）**：`I2` 用 **101 行**而非 10,001 行——该用例的可观察结果（422 + 16,370 个空串）**与行数无关**（已在用例内断言 `max_column==16384`、表头 `[:14]==BM_HEADERS`、`first[14:]` 全为 `None`）；**10,001 行**的固定侧规模证据在 `T-1`/`T-6`（§2.7）单独实测，基线侧按 §13.4 降级到 1,001 行。**不主张已在原规模（10,001 行 × 16,384 列）执行基线对照**（≈2.7 GB 为 `ESTIMATE`）。
+
+### 2.7 M 层（真实数值，公式与两侧数值同时公布）
+
+协议（TD-6.2 / §13.2）：输入字节在 `tracemalloc.start()` **之前**构造；`gc.collect()` 在 start 之前与取峰值之后各一次；同进程固定顺序；**每样例 2 次重复**，断言取**较大值**。基线 = `/tmp/f038_baseline/resource_import_8e609ca.py`（`git show 8e609ca:`，`importlib` 载入 + `sys.modules` 注册，**不入库**）的 `parse_records(data, fmt)`；完成态 = `parse_records(data, fmt, max_rows=5000, keep_cells=14)`（生产调用形态）。
+
+#### 2.7.1 两次重复值（M6，`peaks` 为两次 `tracemalloc` 峰值，MiB）
+
+| 样例 | 侧 | bytes | run1 | run2 | 取用（max） | `t_traced`(max) | `t_raw`(max) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S-W1-1001（702 列 × 1001 行） | baseline | 12,739 | 11.821 | 11.821 | **11.821** | 0.372 s | 0.106 s |
+| S-W1-1001 | fixed | 12,739 | 1.044 | 1.044 | **1.044** | 0.278 s | 0.065 s |
+| S-W2-1001（16,384 列 × 1001 空行） | baseline | 7,289 | 256.471 | 256.471 | **256.471** | 1.948 s | 2.144 s |
+| S-W2-1001 | fixed | 7,289 | 1.654 | 1.654 | **1.654** | 1.054 s | 0.825 s |
+| S-W6a-4000（651 列 × 4000 空行 CSV） | baseline | 2,604,775 | 44.002 | 44.002 | **44.002** | 0.707 s | 0.512 s |
+| S-W6a-4000 | fixed | 2,604,775 | 12.455 | 12.455 | **12.455** | 0.262 s | 0.225 s |
+| legal-5000（合法 5000 行 CSV） | baseline | 485,138 | 5.590 | 5.590 | **5.590** | 0.221 s | 0.037 s |
+| legal-5000 | fixed | 485,138 | 5.514 | 5.514 | **5.514** | 0.237 s | 0.024 s |
+| S-W1-4N10001（702 列 × 10001 行） | fixed | 80,012 | 1.868 | 1.868 | **1.868** | 2.350 s | 0.529 s |
+| S-W2-4N10001（16,384 列 × 10001 空行） | fixed | 28,912 | 1.970 | 1.970 | **1.970** | 9.526 s | 8.565 s |
+| legal-4000 | fixed | 388,138 | 4.415 | 4.415 | **4.415** | 0.168 s | 0.040 s |
+
+> 说明：`S-W1-4N10001` 的 verdict 为 `ImportRowLimitExceeded`（413，期望），峰值仍然有效（超额后 `rows.clear()`）；`legal-5000` 固定侧峰值 ≈ 基线（`ratio 0.9865`）符合预期——合法文件必须把 5000 × 14 单元格保留下来（`T-3` 只要求「无退化」）。
+
+#### 2.7.2 阈值断言（§13.2 公式原样，未放宽）
+
+| # | 公式 | 适用 | 实测数值 | 结果 |
+| --- | --- | --- | --- | --- |
+| T-1（M4a） | `fixed(4N) ≤ 1.5 × fixed(N) + 2 MiB`，N=2501 / 4N=10001 | S-W1 | 1.868 ≤ 1.5×1.141 + 2 = **3.711** | **PASS** |
+| T-1 | 同上 | S-W2 | 1.970 ≤ 1.5×1.810 + 2 = **4.715** | **PASS** |
+| **T-1b（M4b）** | `Δpeak ≤ 1.5 × Δbytes + 2 MiB` | S-W6a（1000→4000 行） | Δpeak = 12.455 − 3.142 = **9.313** ≤? **4.794**（Δbytes = 1.863 MiB）| **FAIL** |
+| **T-1b** | 同上 | legal（1000→4000 行） | Δpeak = 4.415 − 1.119 = **3.296** ≤? **2.416**（Δbytes = 0.278 MiB）| **FAIL** |
+| T-2（M3a） | `excess(fixed) ≤ excess(baseline) / 8`，`excess(x)=max(peak−len(data),0)` | S-W1-1001 | 1.032 ≤ 11.809/8 = **1.476**（比值 0.0874 ⇒ 11.44×） | **PASS** |
+| T-2 | 同上 | S-W2-1001 | 1.647 ≤ 256.464/8 = **32.058**（0.0064 ⇒ 155.73×） | **PASS** |
+| **T-2** | 同上 | S-W6a-4000 | 9.970 ≤ 41.517/8 = **5.190**（0.2402 ⇒ **4.164×**） | **FAIL** |
+| T-3（M3b） | `fixed_peak ≤ 1.2 × baseline_peak` | legal-5000 | 5.514 ≤ 1.2×5.590 = **6.708**（0.9865） | **PASS** |
+| T-4（M3c） | `fixed_peak ≤ 64 × len(data) + 64 MiB` | S-W1 1.044 ≤ 64.778；S-W2 1.654 ≤ 64.445；S-W6a 12.455 ≤ 222.983；legal 5.514 ≤ 93.610 | — | **PASS** |
+| T-5（M5） | `fixed_time ≤ baseline_time`（无绝对上限） | S-W1 0.278 ≤ 0.372（raw 0.065 ≤ 0.106）；S-W2 1.054 ≤ 1.948（0.825 ≤ 2.144）；S-W6a 0.262 ≤ 0.707（0.225 ≤ 0.512） | — | **PASS** |
+| T-6（M4c，报告项不判 FAIL） | `fixed_peak(S-W2, 4N) ≤ 8 MiB` | 1.970 MiB（`within=True`） | — | **报告项** |
+
+#### 2.7.3 FAIL 根因实证：CSV 峰值地板系数 = 5，故 T-1b / T-2(CSV) 构造性不可满足
+
+`test_td_f038_m4d_csv_peak_floor_coefficient_report` 实测（S-W6a-4000，`bytes=2,604,775`）：
+
+```text
+[floor] S-W6a-4000 bytes=2604775 decode_peak=2.485MiB (1.00x)
+        StringIO_peak=9.937MiB (4.00x) reader_loop_peak=9.965MiB (4.01x)
+```
+
+两条解析路径都必然经过 `data.decode("utf-8-sig")`（1×len）与 `io.StringIO(text)`（CPython 内部 UCS-4 缓冲，**4×len**）——这两行是 **start_commit 基线原样代码**（`_parse_csv` 未被 F038 改动，`S1`/`S6` 已证零 diff 之外也无此改动）。因此：
+
+- **CSV 侧固定峰值地板 ≈ 5 × len(data)**（S-W6a-4000：5 × 2.60 MB ≈ 12.4 MiB，实测 12.455 MiB，**几乎全部是地板**，保留量可忽略）；
+- ⇒ `Δpeak ≈ 5 × Δbytes`，而 **T-1b 要求 ≤ 1.5 × Δbytes + 2 MiB** ⇒ 实测比值 **5.000**（S-W6a）/ **11.877**（legal 族，因合法行必须保留 14 单元格的归一化副本）；任何实现（含基线本身、含「不保留任何行」的极端实现）都无法把系数降到 1.5；
+- ⇒ `excess` 公式只剥离 **1×len**，未剥离 StringIO 的 4×，故 CSV 宽表的最大可达改倍数 = `excess(baseline)/excess(fixed)` ≈ **4.16×**（= 实测），**永远达不到 ÷8**；
+- 结论：`T-1b`（两个 CSV 构造族）与 `T-2` 对 `S-W6a` 的失败**不是实现退化**，而是 §13.2 的口径与 CSV 峰值地板不一致（与 TD-6.3 所述 C-2 同类）。§13.9 关闭 TD-I-3 时给出的依据是「excess 口径使 S-W6a 余量 **≥2×**」——实测 **4.164× ≥ 2× 成立**，但与 §13.2 T-2 的 **÷8** 数值不一致 ⇒ 口径内部矛盾，须 Architect 重签核。
+
+### 2.8 S 层（静态守卫，全部 pytest 化 + 命令证据）
+
+| 用例 | 断言 / 证据 | 结果 |
+| --- | --- | --- |
+| `S1` | 只读 `git diff --stat 8e609ca -- docs/api docs/database backend/alembic frontend backend/pyproject.toml backend/Dockerfile backend/tests/integration/test_f037_import_parse_errors.py` → **空**；模板 `[c["name"] …] == BM_HEADERS`、VM 10 列、`COLUMN_NAMES` == 26 且列序一致；`Settings(_env_file=None)` → `(5242880, 5000, 1000)` | **PASS** |
+| `S2`（E-1） | `backend/app/**` AST：`parse_records(` 调用**恰 2 处**（`resource_import.py:980`、`resource_interface_ip_import.py:1199`），`keywords` 均为 `["keep_cells","max_rows"]`，文本含 `_MAX_TEMPLATE_COLUMNS` 与 `len(COLUMN_NAMES)`；`_MAX_TEMPLATE_COLUMNS == max(len(t.columns)) == 14` | **PASS** |
+| `S3` | `len(_PARSE_FAILURES) == 8`；`ExceptHandler` 总数 == 基线文件（**21**）、`except Exception` 仍 2 处（`:480` `_close_workbook`、`:1113` `write_import`）；`field_size_limit`/`strict=True`/`csv.QUOTE` 零命中；`lxml` 不在 `pyproject.toml`、`app/**` 仅 `resource_import.py` 命中（可选导入）；`OSError` 只出现在 `_parse_xlsx` 行区间（`:584` 注释、`:591` 白名单） | **PASS** |
+| `S4` | `grep -nE 'list\(csv\.reader\|list\(worksheet\.iter_rows'` 两 service **no match**；`_collect_records` 的 `for` 体内无 `break`/`return`（`continue` 存在）；无 `list(record)` | **PASS** |
+| `S5`（L7″） | `_is_blank_record` / `_collect_records` / `_finalise` / `parse_records`：无 `try:`/`except`/`open(`/`Path(`/`NamedTemporaryFile`/`logger.`；`_cell_text` 调用只在 `_finalise` | **PASS** |
+| `S6` | `git diff --name-only 8e609ca -- backend/app` → 恰 2 文件；`git status --porcelain --untracked-files=all` → 仅 2 个 service 修改 + 新增测试文件 + `docs/features/F038/` | **PASS** |
+
+**命令证据（只读）**
+
+```console
+$ git rev-parse --short HEAD
+e954537
+$ git rev-parse --abbrev-ref HEAD
+feature/F038-import-parse-bounds
+$ git status --porcelain --untracked-files=all
+ M backend/app/services/resource_import.py
+ M backend/app/services/resource_interface_ip_import.py
+?? backend/tests/integration/test_f038_parse_bounds.py
+?? docs/features/F038/implementation.md
+$ git diff --stat 8e609ca -- backend/app
+ backend/app/services/resource_import.py            | 134 ++++++++++++++++++---
+ .../app/services/resource_interface_ip_import.py   |  13 +-
+ 2 files changed, 120 insertions(+), 27 deletions(-)
+$ git diff --stat 8e609ca -- docs/api docs/database backend/alembic frontend backend/pyproject.toml backend/Dockerfile backend/tests/integration/test_f037_import_parse_errors.py
+(无输出)
+$ git diff --stat -- backend/tests/
+(无输出)
+$ grep -nE 'list\(csv\.reader|list\(worksheet\.iter_rows' app/services/resource_import.py app/services/resource_interface_ip_import.py
+no match
+$ grep -rn "parse_records(" app/
+app/services/resource_import.py:619:def parse_records(
+app/services/resource_import.py:980:    records = parse_records(
+app/services/resource_interface_ip_import.py:1199:    records = resource_import.parse_records(
+$ grep -cE '^\s+except ' app/services/resource_import.py
+21
+$ docker exec csm-f037-pg psql -U csm -d csm_f037_test -tAc "show server_version"
+16.15
+```
+
+### 2.9 R 层回归（逐条真实输出，未复用开发者结果）
+
+| ID | 套件 | 命令（`cwd backend/`，`TEST_DATABASE_URL` 同上） | 实测 | 结果 |
+| --- | --- | --- | --- | --- |
+| R1 | `test_f037_import_parse_errors.py` | `python3 -m pytest tests/integration/test_f037_import_parse_errors.py -q` | **`52 passed in 32.10s`**（文件零 diff） | **PASS** |
+| R2 | `test_imports.py` + `test_import_tester_acceptance.py` + `test_import_constraints.py` + `test_f023_resource_interface_ip_import.py` | `python3 -m pytest … -q` | **`70 passed in 678.44s`** | **PASS** |
+| R3 | `test_f034_csv_text_carrier.py` + `test_f034_csv_text_carrier_scope.py` | 同上 | **`31 passed in 29.52s`** | **PASS** |
+| R4 | `test_f035_append_interface_ip_import.py` + `test_f035_append_scope.py` + `test_f035_tester_acceptance.py` + `test_f036_attribution.py` + `test_f036_tester_independent.py` | 同上 | **`48 passed in 38.55s`** | **PASS** |
+| R5 | `test_import_performance.py` | 同上 | **`4 passed in 81.63s`** | **PASS** |
+| R6 | `test_f030_test_harness.py` | 同上（新模块不触 `access_scope` 符号 ⇒ 无需 `real_scope`） | **`3 passed in 8.14s`** | **PASS** |
+| — | 新增模块 | `python3 -m pytest tests/integration/test_f038_parse_bounds.py -q -s` | **`3 failed, 72 passed in 208.65s`** | 见 §2.10 |
+
+### 2.10 Defects
+
+| ID | 级别 | Owner | 复现 | 期望 | 实测 | 处置要求 |
+| --- | --- | --- | --- | --- | --- | --- |
+| **DEF-01** | **HIGH（阻塞 `READY FOR REVIEW`）** | **Architect**（阈值口径；**非** Backend） | `python3 -m pytest tests/integration/test_f038_parse_bounds.py -q -k m4b` | §13.2 `T-1b`：`Δpeak ≤ 1.5 × Δbytes + 2 MiB` | S-W6a：**9.313 > 4.794 MiB**（比值 5.000×）；legal：**3.296 > 2.416 MiB**（11.877×） | §13.2 防放宽条款：Tester **未**改倍数。根因（§2.7.3）：CSV 地板 = 5×len（`decode` 1× + `io.StringIO` UCS-4 4×，两行均为基线原样代码）⇒ 任何实现都只能做到 `Δpeak ≈ 5×Δbytes`。请 Architect 在 §13.2 重签核（例如：CSV 族改用「剥离 5×len 地板后的 excess」或把乘数改为实测下界，或将 CSV 族规模不敏感判据限定为相对倍数），**并同时解释为何 §13.9 关闭 TD-I-3 时只要求「≥2×」而 T-2 写 ÷8** |
+| **DEF-02** | **HIGH（阻塞 `READY FOR REVIEW`）** | **Architect**（同上，同一根因） | `python3 -m pytest tests/integration/test_f038_parse_bounds.py -q -k "m3a"` | §13.2 `T-2`：`excess(fixed) ≤ excess(baseline) / 8`（S-W6a 等规模 4000 行） | **excess 9.970 MiB > 5.190 MiB**（**4.164×**，上限口径要求 8×） | 同上：`excess()` 仅剥离 1×len，未剥离 StringIO 的 4×，CSV 宽表可达上限 ≈ 4.16×。**不得**通过放宽倍数或预期「自愈」；须由 Architect 裁定口径后重测（旧结论作废，§2.7 数值保留为证据） |
+| — | — | — | 实现侧 | — | 无实现缺陷：A1/A3–A14 与 B1–B13 全绿；`xlsx` 族（T-1）与 `legal-5000`（T-3）、`T-4`、`T-5` 全绿 | — |
+
+**登记项**
+
+| ID | 内容 | Owner | 必须修复 |
+| --- | --- | --- | --- |
+| `TD-I-9`（新） | §13.2 CSV 族阈值（`T-1b`、`T-2` 对 S-W6a）与 CSV 峰值地板（5×len）矛盾，构造性不可满足；实测倍数 4.164×（T-2）/ 5.000×、11.877×（T-1b）。建议同时复核 `T-2` 与 §13.9 TD-I-3 关闭依据的一致性 | Architect | **是**（阻塞放行） |
+| `TD-I-8`（勘误，已落稿） | S-W2 期望 = **422 `unknown_columns`**；§13.4 的「16,350」为计数笔误，实测 **16,370 = 16,384 − 14**（见 §2.3） | 已在 §2.3 落稿 | 否（文档级） |
+| `TD-I-10`（新） | `T-2`/`T-1b` 的 `excess`/`Δ` 口径未覆盖 `io.StringIO` 的 UCS-4 放大（4×）；建议阈值改用「相对基线的剥离地板倍数」并在 §13.2 写明地板构成 | Architect | 否（与 TD-I-9 同批处理） |
+| `TD-I-11`（新） | `S-W2`/`I13` 的写入成功路径双载体/双路径等价性**不做**重复提交（第二次必因唯一性冲突改变响应）⇒ 单侧证据（R-14） | Tester / Reviewer | 否 |
+| `TD-I-6`（沿用） | 无 lxml 镜像未实测（本机 `openpyxl.LXML=True`）；结论不外推 | 协调器 / Architect | 否 |
+
+### 2.11 未验证项（`NOT TESTED` / `NOT_REQUIRED`）与降级说明
+
+| 项 | 状态 | 理由 / 已尝试命令 |
+| --- | --- | --- |
+| 真实内存耗尽（OS 级 OOM / 进程被杀） | **NOT TESTED** | 不在宿主制造 OOM（product N8）；以 `T-1`/`T-3`/`T-4`/`T-2` 的相对证据替代 |
+| S-W2 **原规模基线**（10,001 行 × 16,384 列，估算 ≈2.7 GB） | **NOT TESTED（`ESTIMATE`，外推）** | 基线侧按 §13.4 降级到 1,001 行（实测 256.471 MiB）；**不得**表述为已实测 |
+| 无 lxml 环境（`openpyxl.LXML=False`，生产镜像形态） | **NOT TESTED** | 本机 `LXML=True`；峰值与异常类可能不同（ON-4）⇒ 结论不外推（`TD-I-6`） |
+| `tracemalloc` 统计 lxml C 层分配 | **NOT TESTED（只报告）** | 以 `ru_maxrss=925908 KiB` 交叉参照，不作断言 |
+| 5000 行**写入**端点的等价性/耗时 | **NOT TESTED** | F037 实测该路径 300 s+；解析侧等价由 `I8`（validate）与 `R5` 覆盖；错误方向（拒绝路径）已 4 端点覆盖（R-14） |
+| S-W2b（XFD 宽 + 10,001 行**非空** → 413） | **NOT TESTED** | §13.4.3 明示「如需覆盖另立」；单侧断言无差分兜底（R-14），本 Feature 不主张 |
+| 写入成功批次的「基线 vs 完成态」双路径差分 | **NOT TESTED** | 重复提交会因唯一性冲突改变第二次响应（`TD-I-11`/R-14）；以 validate 差分 + `I3` 单侧写入 + `R2` 既有用例覆盖 |
+| 时间上界 | **NOT_REQUIRED** | ON-5：只承诺空间有界；`T-5` 仅要求不退化 |
+| 前端 / 界面 | **NOT_REQUIRED** | `layers.frontend=false`；`S1` 守 `frontend/` 零 diff；T116 归 F034 R3 |
+| 数据库约束 / Migration | **NOT_REQUIRED** | `layers.database=false`；解析早于任何 `begin_nested()`；`I9` 以 7 表计数复核零副作用 |
+| 整体验收（§31–33 跨功能） | **NOT_REQUIRED（本 Feature）** | 归 plan `acceptance`（F045）；**不得**用本 Feature 局部 PASS 拼成整体 PASS |
+
+### 2.12 结论
+
+**`BLOCKED`** —— 72/75 用例 PASS，3 项 §13.2 CSV 族阈值断言 FAIL，缺陷 `DEF-01` / `DEF-02` 的 **Owner 为 Architect（阈值口径）**，不是实现缺陷、不是环境/输入缺失：
+
+- **行为面零差异已被独立证据支持**：A1/A3–A14 与 B1–B13 全绿——4 端点 × 输入矩阵（S-W1..S-W7 + F037 输入①②③ + 缺 workbook 部件 + 413 字节/413 行数/`empty_file`/`unsupported_format`/四类表头/1100 错误行/合法 5000 行）**基线语义路径 vs 生产路径** `(status, json())` 深等；7 表零写入/零 Audit；401/403 先行；双载体等价；`openpyxl` consumer 宽度用**毒值探针**（含双负向对照与错误路径）证明不读第 ≥W 列；F037 52 项**零修改**全绿，F034/F035/F036/F023 与性能套件无回归。
+- **有界性主证据成立**：`T-1`（xlsx 族规模不敏感）PASS、`T-3`/`T-4`/`T-5`/`T-6` PASS、`T-2` 对 S-W1（11.44×）/S-W2（155.73×）PASS。**仅 CSV 宽表族的两个 §13.2 阈值不可满足**，根因为 CSV 峰值地板 = 5×len（`decode` 1× + `io.StringIO` UCS-4 4×，基线原样代码），已如实公布公式与两侧数值（§2.7）。
+- **Tester 未放宽任何阈值、未修改任何预期以消除失败**（§13.2 防放宽条款 / R-13）。作废范围：本 §2 的 M 层 CSV 族结论（`T-1b`、`T-2`@S-W6a）在 Architect 重签核 §13.2 后**须重测**，其余 PASS 项证据不受影响。
+- 放行前置：① Architect 对 `DEF-01`/`DEF-02`（`TD-I-9`/`TD-I-10`）出具重签核口径；② Tester 按新口径重跑 M 层并更新 §2；③ 重跑后若无其他失败即可转 `READY FOR REVIEW`。
+
+**本次实际执行的 Git 命令（全部只读；无 `add` / `commit` / 分支切换 / `stash` / `reset` / `clean` / `reflog` 改写）**
+
+```text
+GIT: git log --oneline -5
+GIT: git status --short
+GIT: git show 8e609ca:backend/app/services/resource_import.py | wc -l
+GIT: git show 8e609ca:backend/app/services/resource_import.py > /tmp/f038_baseline/resource_import_8e609ca.py
+GIT: git rev-parse --short HEAD
+GIT: git rev-parse --abbrev-ref HEAD
+GIT: git status --porcelain --untracked-files=all
+GIT: git diff --stat 8e609ca -- backend/app
+GIT: git diff --stat 8e609ca -- docs/api docs/database backend/alembic frontend backend/pyproject.toml backend/Dockerfile backend/tests/integration/test_f037_import_parse_errors.py
+GIT: git log --oneline -3
+GIT: git diff --stat -- backend/tests/
+GIT: git diff --name-only 8e609ca -- backend/app
+```
+
+测试模块内部同样只读：`_git()` 封装 `git -C <repo> rev-parse --short HEAD`（M1）、`git -C <repo> diff --stat 8e609ca -- <zero-diff paths>`（S1）、`git -C <repo> diff --name-only 8e609ca -- backend/app` 与 `git -C <repo> status --porcelain --untracked-files=all`（S6）。
