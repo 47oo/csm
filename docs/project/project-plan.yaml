@@ -2975,10 +2975,9 @@ features:
   - F006
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT：product-manager 产出 product.md（§28.1 / T127–T129 的候选完整性两控件范围）。
-  last_result: Preflight 通过；分支 feature/F041-candidate-completeness 自 v3.4 创建；进入 PRODUCT
-    阶段。
+  current_stage: ARCHITECTURE
+  next_action: 'TEST_DESIGN + ARCHITECTURE：tester 产出 TD（含 ≥101 夹具构造与组件/逻辑级请求断言）；architect 定稿组件形态与状态机。'
+  last_result: 'PRODUCT COMPLETE（READY FOR ARCHITECT）：实现已确认条款 §28.1（两处控件），A1–A16 可观察验收标准与 N1–N11 禁止清单成立；需求/契约/Schema 零变更。'
   layers:
     database: false
     backend: false
@@ -2990,7 +2989,7 @@ features:
     contract: 不新增 Endpoint 或查询参数；若 AQ-1=A/B，候选完整性的验收口径作为需求条款落稿（revision 16），不在本 Feature
       静默新增业务规则。
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -3005,7 +3004,9 @@ features:
     start_commit: d5c0a4c9aa5bd1036dd9acf087d210a22f43571d
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F041/product.md
 - id: F042
   title: 前端按页面边界懒加载（R06）
   kind: FEATURE
@@ -3828,7 +3829,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F041
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   last_result: F037/F038/F040 DONE。F041 启动（PRODUCT Gate）。
   next_action: F041 PRODUCT Gate。
   repair_rounds: 0
