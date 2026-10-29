@@ -2974,12 +2974,14 @@ features:
   - F004
   - F006
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 待用户裁定 AQ-1（推荐 A）并批准 CHG-015 后置 READY；A/B 还需需求 revision 16 落稿（A 的条款草案见
-    docs/project/proposals/CHG-015-r04-requirements-revision-16-draft.md），落稿前不得作为实施依据。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R04（前端候选加载上限，已显示截断提示）。Architect 评估：补零契约与零权限硬约束、不得改共享
-    Select 全局语义、保留 T56 与 §23.2 口径。未启动。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 复核候选 HEAD（A1–A16、FR-1..FR-8、TD 更正 T1–T11、58/22 与 352
+    基线口径、浏览器证据边界）并给出结论。
+  last_result: IMPLEMENTATION + TEST READY FOR REVIEW（TE-F041-1）：I 层 18 passed（真实
+    PG，150 Cluster + 150 Host，名次 110 检索并提交 201 + DB 行核对 + T19 审计 before/after）；F 层
+    smoke 352 passed 0 failed（新增 12 条）；S 层双重基线零 diff、<Select 58/22 逐文件对照仅两载体、CandidateSelect
+    引用白名单合规；回归 81/72/59/38 全绿；收集数 948。
   layers:
     database: false
     backend: false
@@ -2991,22 +2993,37 @@ features:
     contract: 不新增 Endpoint 或查询参数；若 AQ-1=A/B，候选完整性的验收口径作为需求条款落稿（revision 16），不在本 Feature
       静默新增业务规则。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
     backend: NOT_REQUIRED
-    frontend: PENDING
-    test: PENDING
+    frontend: COMPLETE
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
+    branch: feature/F041-candidate-completeness
+    start_commit: d5c0a4c9aa5bd1036dd9acf087d210a22f43571d
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    frontend:
+    - docs/features/F041/implementation.md
+    - frontend/src/components/candidateSelectModel.ts
+    - frontend/src/components/CandidateSelect.tsx
+    test:
+    - docs/features/F041/test-report.md#2-test-executionte-f041-12026-10-29
+    - backend/tests/integration/test_f041_candidate_completeness.py
+    architecture:
+    - docs/features/F041/architecture.md
+    test_design:
+    - docs/features/F041/test-report.md#1-test-designtd-f041-1v12026-10-29
+    contract:
+    - docs/features/F041/architecture.md#6-最终设计签核
+    product:
+    - docs/features/F041/product.md
 - id: F042
   title: 前端按页面边界懒加载（R06）
   kind: FEATURE
@@ -3828,10 +3845,11 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
-  last_result: F037 / F038 / F040 DONE（均已合入 v3.4）。F040：三项依赖范围收敛为 ~ 并同步 lockfile，契约零变更。
-  next_action: 继续已批准范围：F041（R04 候选完整性）→ F039（R10 Dashboard）→ F043（R08 测试入口）→ F045（整体回归）。
+  current_feature: F041
+  current_stage: REVIEW
+  last_result: F041 实现与测试完成：候选完整性（服务端检索+分页）两处控件落地，TE-F041-1 READY FOR REVIEW（I 18
+    + F 352 + S 合规）。
+  next_action: F041 REVIEW Gate。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -3842,11 +3860,10 @@ planning_status:
     DONE: 39
     DRAFT: 1
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 3
+    IN_REVIEW: 1
+    READY: 2
   ready_features:
   - F039
-  - F041
   - F043
   blocked_draft_features:
     BLOCKED: []

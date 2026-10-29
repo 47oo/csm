@@ -1,10 +1,8 @@
 import { Button } from "../components/ui/controls";
-import { EmptyState, ErrorState, InfoState, LoadingState } from "../components/ui/feedback";
+import { ErrorState } from "../components/ui/feedback";
 import { SurfaceCard } from "../components/ui/surfaces";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { User } from "../api/auth";
-import { displayError, isApiError } from "../api/client";
-import { listClusters, type Cluster } from "../api/clusters";
 import {
   createResource,
   describeResourceActionError,
@@ -28,16 +26,14 @@ interface ResourceCreatePageProps {
   onCreated: (resource: Resource) => void;
 }
 
-/** 集群下拉数据加载状态（仅未删除集群；分页上限 100，Contract §4）。 */
-type ClusterOptionsState =
-  | { kind: "loading" }
-  | { kind: "success"; clusters: Cluster[]; total: number }
-  | { kind: "error"; message: string };
-
 /**
  * F004 资源创建页（Contract §6.2）+ F005 hardware（Contract v2 §2.4）：
  * - cluster / hostname / resource_type 必填；role 默认 OTHER、status 默认 UNKNOWN（可选）；
- * - cluster 下拉来自 GET /clusters（READ，全角色；仅未删除集群——已删集群创建必 422）；
+ * - cluster 候选取自 GET /clusters（READ，全角色；仅未删除集群——已删集群创建
+ *   必 422）。F041 起由 `<CandidateSelect domain="cluster">` 在字段内完成服务端
+ *   检索与分页（q / page / page_size / sort / order），加载中 / 失败 / 空结果的
+ *   四态与可重试、超限提示均下沉到字段级（DR-F041-04），本页不再预加载集群列表、
+ *   也不再整页门控（表单常渲染）；权限门控与提交语义不变；
  * - hardware（仅 BARE_METAL）：仅携带已登记子字段（省略 → null，无默认 0）；
  *   全部留空 → 整体省略 hardware 键；VM 不提交 hardware（出现即 422，DR-51）；
  * - virtual_machine（仅 VIRTUAL_MACHINE，F006 Contract v3 §2.5）：必须携带且
@@ -51,39 +47,8 @@ type ClusterOptionsState =
  */
 export default function ResourceCreatePage({ user, onCancel, onCreated }: ResourceCreatePageProps) {
   const canWrite = user.permissions.includes("WRITE");
-  const [clusterOptions, setClusterOptions] = useState<ClusterOptionsState>({ kind: "loading" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ResourceActionError | null>(null);
-  const [reloadToken, setReloadToken] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setClusterOptions({ kind: "loading" });
-    // page_size 上限 100（Contract §4）；集群超过 100 时下拉截断，下方提示
-    listClusters({ page: 1, page_size: 100, sort: "code", order: "asc" })
-      .then((data) => {
-        if (!cancelled) {
-          setClusterOptions({
-            kind: "success",
-            clusters: data.items,
-            total: data.total,
-          });
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setClusterOptions({
-            kind: "error",
-            message: isApiError(err)
-              ? `${err.message}（${err.code ?? `HTTP ${err.status}`}）`
-              : displayError(err),
-          });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadToken]);
 
   function handleSubmit(values: ResourceFormValues) {
     if (!canWrite) {
@@ -153,47 +118,6 @@ export default function ResourceCreatePage({ user, onCancel, onCreated }: Resour
       });
   }
 
-  const content = () => {
-    if (!canWrite) {
-      return <ErrorState message="当前账号没有创建资源的权限（WRITE，服务端鉴权为准）。" />;
-    }
-    if (clusterOptions.kind === "loading") {
-      return <LoadingState label="正在加载可选集群…" />;
-    }
-    if (clusterOptions.kind === "error") {
-      return (
-        <ErrorState
-          message={`加载集群列表失败（创建资源需选择所属集群）：${clusterOptions.message}`}
-          action={
-            <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-              重试
-            </Button>
-          }
-        />
-      );
-    }
-    return (
-      <>
-        {clusterOptions.clusters.length === 0 && (
-          <EmptyState description="当前没有可选集群：请先在 Clusters 中创建集群，再登记资源。" />
-        )}
-        {clusterOptions.total > clusterOptions.clusters.length && (
-          <InfoState
-            message={`集群总数 ${clusterOptions.total} 个，下拉仅显示前 ${clusterOptions.clusters.length} 个（按 code 排序；列表分页上限 100）。`}
-          />
-        )}
-        <ResourceForm
-          mode="create"
-          clusters={clusterOptions.clusters}
-          submitting={submitting}
-          serverError={error}
-          onSubmit={handleSubmit}
-          onCancel={onCancel}
-        />
-      </>
-    );
-  };
-
   return (
     <SurfaceCard className="panel">
       <div className="table-toolbar">
@@ -202,7 +126,17 @@ export default function ResourceCreatePage({ user, onCancel, onCreated }: Resour
           返回列表
         </Button>
       </div>
-      {content()}
+      {canWrite ? (
+        <ResourceForm
+          mode="create"
+          submitting={submitting}
+          serverError={error}
+          onSubmit={handleSubmit}
+          onCancel={onCancel}
+        />
+      ) : (
+        <ErrorState message="当前账号没有创建资源的权限（WRITE，服务端鉴权为准）。" />
+      )}
     </SurfaceCard>
   );
 }

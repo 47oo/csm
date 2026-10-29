@@ -306,6 +306,22 @@
  *   非法载体值防御；不镜像行数上限、不做 CSV 解析 / 表头校验 / 分隔符嗅探；
  * - 载体切换补丁：切 text 强制 format=csv，切回 file 不回填历史 xlsx。
  *
+ * F041 追加（docs/features/F041/architecture.md §1.2/§1.3/§1.9，前端机制级
+ * F-01..F-12；契约零变更，仅复用既有列表端点与既有参数）：
+ * - src/components/candidateSelectModel.ts（纯逻辑，无 JSX / React / antd，
+ *   仅 `import type`）：候选查询构造（host 域 q·cluster_id·type=BARE_METAL·
+ *   page=1·page_size=100·sort=hostname·order=asc；cluster 域 q·page·page_size·
+ *   sort=code·order=asc；`q` 仅首尾 trim 非空才携带；不设 deleted / include /
+ *   only；不改 `page_size` 上限、`page` 恒 1）、状态机与视图投影（四态 kind
+ *   互异 / 文案两两不等 / error 可重试且不伪装为空 / idle 仅 host 未选集群
+ *   可达）、epoch 门控（陈旧响应原样返回、整体替换不 merge）、超限提示
+ *   （total > items.length，文案含响应 total 与 pageSize，不用全库规模）、
+ *   选项合成（pinned 在 loading/error/empty 也保留且恰出现一次）；
+ * - 载荷侧：选中的候选 id 原样进入 POST /resources（cluster / 
+ *   virtual_machine.host_resource_id），不退化为 code / 序号 / 首页项；
+ *   提交失败的 422/409 仍由既有 describeResourceActionError 呈现且候选态不被
+ *   吞并；全程不自动重试（每次交互 fetch 次数不变或恰 +1）。
+ *
  * 运行：npm run smoke:client（Node ≥ 22.18 内置 TypeScript type stripping，
  * 直接加载 src/api/client.ts 与 src/api/clusters.ts，无需新增测试框架；
  * 仅替换 globalThis.fetch 为受控响应）。
@@ -624,6 +640,21 @@ import {
   resourceInterfacesListBoundary,
   summarizeResourceIpInterfaceLoads,
 } from "../src/components/resourceIpAddresses.ts";
+import {
+  applyCandidateResponse,
+  buildCandidateQuery,
+  CANDIDATE_PAGE_SIZE,
+  CANDIDATE_SEARCH_DEBOUNCE_MS,
+  candidateOptions,
+  candidateTruncation,
+  candidateView,
+  clusterCandidateItems,
+  idleCandidateState,
+  initialCandidateState,
+  isStaleCandidateResponse,
+  loadingCandidateState,
+  resourceCandidateItems,
+} from "../src/components/candidateSelectModel.ts";
 
 let respond = null;
 let handlerCalls = 0;
@@ -9200,6 +9231,482 @@ await test("F034 陈旧结果防护（T116）：文本改 1 字符 / 切换载�
   // 切换载体（text → file，同一字节的 .csv 文件）→ 指纹也不同（载体前缀区分）
   const fileWithSameBytes = new File([text], "same.csv");
   assert.notEqual(fileImportTargetKey("csv", fileWithSameBytes), validatedKey);
+});
+
+// ─── F041：对象选择控件候选完整性（R04，docs/features/F041/architecture.md）───
+// 本层只断言纯逻辑模块（src/components/candidateSelectModel.ts）与既有 api 模块
+// 的请求形状 / 响应处理 / 文案值；不渲染 React、不读 DOM、不引入新依赖（AQ-4=B）。
+
+/** 构造资源列表响应行（字段与 GET /resources items 一致的最小子集）。 */
+function f041ResourceRows(count, prefix) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `${prefix}-${index + 1}`,
+    hostname: `${prefix}-${String(index + 1).padStart(4, "0")}`,
+  }));
+}
+
+/** 构造集群列表响应行（字段与 GET /clusters items 一致的最小子集）。 */
+function f041ClusterRows(count, prefix) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `${prefix}-${index + 1}`,
+    code: `${prefix.toUpperCase()}-${String(index + 1).padStart(4, "0")}`,
+    name: `候选集群 ${index + 1}`,
+  }));
+}
+
+/** 构造候选项（CandidateItem）。 */
+function f041CandidateItems(count, prefix) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `${prefix}-${index + 1}`,
+    label: `${prefix}-${String(index + 1).padStart(4, "0")}`,
+  }));
+}
+
+/** 应用实际使用的唯一请求入口：host → GET /resources，cluster → GET /clusters。 */
+function f041CandidateRequest(domain, input) {
+  const built = buildCandidateQuery(domain, input);
+  return built.domain === "host" ? listResources(built.query) : listClusters(built.query);
+}
+
+/** 列表响应 → 成功 outcome（items 映射与应用一致，逻辑全在纯模块内）。 */
+function f041Outcome(domain, data) {
+  return {
+    kind: "success",
+    items:
+      domain === "host" ? resourceCandidateItems(data.items) : clusterCandidateItems(data.items),
+    total: data.total,
+    pageSize: data.page_size,
+  };
+}
+
+/** URL → 查询参数名集合（排序后便于精确比对）。 */
+function f041ParamNames(url) {
+  return [...new URL(url, "http://localhost").searchParams.keys()].sort();
+}
+
+await test("F041 F-01 Host 域候选查询：服务端检索 + 分页上限，参数集合精确、无 deleted/include/only", async () => {
+  respond = () => jsonResponse(200, { items: f041ResourceRows(100, "f41n"), page: 1, page_size: 100, total: 154 });
+  const data = await f041CandidateRequest("host", { clusterId: "c-1", search: " f41n-0110 " });
+  assert.equal(calls.length, 1);
+  const url = calls[0].url;
+  assert.ok(url.startsWith("/api/v1/resources?"), `应为既有资源列表端点，实际 ${url}`);
+  const params = new URL(url, "http://localhost").searchParams;
+  assert.equal(params.get("q"), "f41n-0110"); // 仅首尾 trim，不改大小写 / 折叠（A12）
+  assert.equal(params.get("cluster_id"), "c-1");
+  assert.equal(params.get("type"), "BARE_METAL");
+  assert.equal(params.get("page"), "1");
+  assert.equal(params.get("page_size"), String(CANDIDATE_PAGE_SIZE));
+  assert.equal(params.get("sort"), "hostname");
+  assert.equal(params.get("order"), "asc");
+  assert.deepEqual(f041ParamNames(url), [
+    "cluster_id",
+    "order",
+    "page",
+    "page_size",
+    "q",
+    "sort",
+    "type",
+  ]);
+  assert.equal(params.has("deleted"), false);
+  assert.ok(!/[?&](include|only)(=|&|$)/.test(url), "不得携带 include/only");
+  assert.ok(!url.includes("deleted=include") && !url.includes("deleted=only"));
+  assert.equal(data.total, 154);
+  assert.equal(data.items.length, CANDIDATE_PAGE_SIZE); // 响应单页上限
+});
+
+await test("F041 F-02 Cluster 域候选查询：page/page_size/sort=code/order=asc + q，无 deleted", async () => {
+  const rows = f041ClusterRows(100, "f41c");
+  respond = () => jsonResponse(200, { items: rows, page: 1, page_size: 100, total: 150 });
+  const data = await f041CandidateRequest("cluster", { clusterId: "", search: "F41C-0110" });
+  assert.equal(calls.length, 1);
+  const url = calls[0].url;
+  assert.ok(url.startsWith("/api/v1/clusters?"), `应为既有集群列表端点，实际 ${url}`);
+  const params = new URL(url, "http://localhost").searchParams;
+  assert.equal(params.get("q"), "F41C-0110");
+  assert.equal(params.get("page"), "1");
+  assert.equal(params.get("page_size"), String(CANDIDATE_PAGE_SIZE));
+  assert.equal(params.get("sort"), "code");
+  assert.equal(params.get("order"), "asc");
+  assert.deepEqual(f041ParamNames(url), ["order", "page", "page_size", "q", "sort"]);
+  assert.equal(params.has("deleted"), false);
+  assert.equal(params.has("cluster_id"), false); // 集群候选不带集群过滤
+  assert.equal(params.has("type"), false);
+  assert.ok(!/[?&](include|only)(=|&|$)/.test(url));
+  assert.equal(data.total, 150);
+  // label 与创建表单原展示一致（code — name）
+  assert.equal(
+    clusterCandidateItems(rows)[0].label,
+    `${rows[0].code} — ${rows[0].name}`,
+  );
+});
+
+await test("F041 F-03 单次交互只发 1 次请求：次数与候选总量无关（154 与 1540 同次数）", async () => {
+  const counts = [];
+  for (const total of [154, 1540]) {
+    calls.length = 0;
+    respond = () =>
+      jsonResponse(200, {
+        items: f041ResourceRows(100, "f41t"),
+        page: 1,
+        page_size: 100,
+        total,
+      });
+    const data = await f041CandidateRequest("host", { clusterId: "c-1", search: "f41t" });
+    counts.push(calls.length);
+    assert.equal(calls.length, 1); // 输入即检索，无「加载更多」循环
+    assert.equal(data.items.length, CANDIDATE_PAGE_SIZE);
+    const params = new URL(calls[0].url, "http://localhost").searchParams;
+    assert.equal(params.get("page"), "1");
+    assert.ok(Number(params.get("page_size")) <= CANDIDATE_PAGE_SIZE);
+  }
+  assert.equal(counts[0], counts[1]);
+  assert.ok(!calls.some((call) => /[?&]page=2(&|$)/.test(call.url)), "不得循环翻页抓全量");
+});
+
+await test("F041 F-04 候选只来自最近一次响应（A4）：条数随响应减少、无历史条目残留", async () => {
+  let state = loadingCandidateState();
+  respond = () =>
+    jsonResponse(200, {
+      items: f041ResourceRows(3, "f41a"),
+      page: 1,
+      page_size: 100,
+      total: 154,
+    });
+  const first = await f041CandidateRequest("host", { clusterId: "c-1", search: "f41a" });
+  state = applyCandidateResponse(state, 1, 1, f041Outcome("host", first));
+  assert.equal(state.kind, "success");
+  assert.equal(candidateView(state, "host").kind, "ready");
+  assert.equal(candidateOptions(state, null).length, 3); // 不出现第 4 条历史条目
+
+  respond = () =>
+    jsonResponse(200, {
+      items: f041ResourceRows(2, "f41b"),
+      page: 1,
+      page_size: 100,
+      total: 154,
+    });
+  state = loadingCandidateState(); // 输入变化 → 重新 loading（不保留上一轮）
+  const second = await f041CandidateRequest("host", { clusterId: "c-1", search: "f41b" });
+  const applied = applyCandidateResponse(state, 2, 2, f041Outcome("host", second));
+  const options = candidateOptions(applied, null);
+  assert.equal(options.length, 2);
+  assert.deepEqual(
+    options.map((option) => option.value),
+    second.items.map((item) => item.id),
+  ); // 恰等于最近一次响应（无并集、无追加）
+  assert.ok(!options.some((option) => option.value.startsWith("f41a-")), "旧候选不得残留");
+});
+
+await test("F041 F-05 epoch 门控（A4/ON-7）：先发后到的陈旧响应被丢弃，候选=最新响应", async () => {
+  const pending = [];
+  respond = () =>
+    new Promise((resolve) => {
+      pending.push(resolve);
+    });
+  const request1 = f041CandidateRequest("host", { clusterId: "c-1", search: "f41old" });
+  const request2 = f041CandidateRequest("host", { clusterId: "c-1", search: "f41new" });
+  assert.equal(calls.length, 2);
+  assert.equal(pending.length, 2);
+
+  // 新请求（epoch 2）先返回，旧请求（epoch 1）后返回
+  pending[1](
+    jsonResponse(200, {
+      items: f041ResourceRows(1, "f41new"),
+      page: 1,
+      page_size: 100,
+      total: 1,
+    }),
+  );
+  const latest = await request2;
+  const state = applyCandidateResponse(loadingCandidateState(), 2, 2, f041Outcome("host", latest));
+
+  pending[0](
+    jsonResponse(200, {
+      items: f041ResourceRows(1, "f41old"),
+      page: 1,
+      page_size: 100,
+      total: 1,
+    }),
+  );
+  const staleData = await request1;
+  const afterStale = applyCandidateResponse(state, 1, 2, f041Outcome("host", staleData));
+  assert.equal(afterStale, state); // 陈旧响应 → 原样返回当前状态
+  assert.equal(isStaleCandidateResponse(1, 2), true);
+  assert.equal(isStaleCandidateResponse(2, 2), false);
+  assert.deepEqual(
+    candidateOptions(afterStale, null).map((option) => option.value),
+    ["f41new-1"],
+  );
+  assert.equal(afterStale.total, 1);
+});
+
+await test("F041 F-06 四态互异（A7）：kind/文案/role 两两不同，error 可重试且不伪装为空", async () => {
+  const idleView = candidateView(idleCandidateState(), "host");
+  const loadingView = candidateView(loadingCandidateState(), "host");
+  const errorView = candidateView({ kind: "error", message: "INTERNAL_ERROR（HTTP 500）" }, "host");
+  const emptyView = candidateView({ kind: "success", items: [], total: 0, pageSize: 100 }, "host");
+  const readyView = candidateView(
+    { kind: "success", items: f041CandidateItems(2, "f41r"), total: 2, pageSize: 100 },
+    "host",
+  );
+  assert.deepEqual(
+    [idleView.kind, loadingView.kind, errorView.kind, emptyView.kind],
+    ["idle", "loading", "error", "empty"],
+  );
+  const texts = [idleView.text, loadingView.text, errorView.text, emptyView.text];
+  assert.equal(new Set(texts).size, 4); // 文案两两不等
+  texts.forEach((text) => assert.ok(text.trim() !== "", "四态文案均不得为空"));
+  assert.deepEqual(
+    [idleView.role, loadingView.role, errorView.role, emptyView.role],
+    ["note", "status", "alert", "log"],
+  );
+  assert.equal(errorView.canRetry, true);
+  assert.ok(errorView.text.includes("可重试"));
+  assert.ok(!errorView.text.includes("无匹配") && !errorView.text.includes("暂无数据"));
+  assert.equal(idleView.canRetry || loadingView.canRetry || emptyView.canRetry, false);
+  assert.equal(readyView.kind, "ready");
+  assert.equal(readyView.role, "none");
+  assert.equal(readyView.text, "");
+  // idle 仅在 host 域未选集群时可达（cluster 域 / 已选集群的最小态是 loading）
+  assert.equal(initialCandidateState("host", "").kind, "idle");
+  assert.equal(initialCandidateState("host", "c-1").kind, "loading");
+  assert.equal(initialCandidateState("cluster", "").kind, "loading");
+});
+
+await test("F041 F-07 失败可重试（A8）：不自动重试，显式重试恰 +1 次请求并恢复候选", async () => {
+  const observed = [];
+  let state = loadingCandidateState();
+  respond = () => jsonResponse(500, { error: { code: "INTERNAL_ERROR", message: "候选检索失败" } });
+  let failure = null;
+  try {
+    await f041CandidateRequest("host", { clusterId: "c-1", search: "f41n" });
+  } catch (err) {
+    assert.ok(isApiError(err), "500 应为 ApiError");
+    failure = err;
+  }
+  assert.ok(failure, "500 应抛错（不伪装为空结果）");
+  state = applyCandidateResponse(state, 1, 1, { kind: "error", message: failure.message });
+  observed.push(candidateView(state, "host").kind);
+  const failureView = candidateView(state, "host");
+  assert.equal(failureView.kind, "error");
+  assert.equal(failureView.canRetry, true);
+  assert.ok(failureView.text.trim() !== "");
+  assert.equal(calls.length, 1); // 失败不自动重试
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(calls.length, 1);
+
+  // 显式重试（retryToken +1 → 恰 1 次新请求，epoch 递增）
+  respond = () =>
+    jsonResponse(200, {
+      items: f041ResourceRows(2, "f41rt"),
+      page: 1,
+      page_size: 100,
+      total: 2,
+    });
+  state = loadingCandidateState();
+  observed.push(candidateView(state, "host").kind);
+  const retried = await f041CandidateRequest("host", { clusterId: "c-1", search: "f41n" });
+  state = applyCandidateResponse(state, 2, 2, f041Outcome("host", retried));
+  observed.push(candidateView(state, "host").kind);
+  assert.equal(calls.length, 2); // 恰 +1
+  assert.equal(state.kind, "success");
+  assert.equal(candidateOptions(state, null).length, 2);
+  assert.ok(!observed.includes("empty"), "失败与重试全程不得投影为空态");
+});
+
+await test("F041 F-08 超限提示（A9/ON-11）：total>items.length 时含总数与分页边界，否则无提示", async () => {
+  const truncated = candidateTruncation(
+    { kind: "success", items: f041CandidateItems(100, "f41n"), total: 154, pageSize: 100 },
+    "host",
+  );
+  assert.equal(truncated.truncated, true);
+  assert.ok(truncated.text.includes("154"), "应含响应 total");
+  assert.ok(truncated.text.includes("100"), "应含分页边界 100");
+  assert.ok(/(分页|上限|前)/.test(truncated.text));
+  assert.ok(truncated.text.includes("hostname"));
+
+  const exact = candidateTruncation(
+    { kind: "success", items: f041CandidateItems(3, "f41n"), total: 3, pageSize: 100 },
+    "cluster",
+  );
+  assert.equal(exact.truncated, false);
+  assert.equal(exact.text, null);
+  const zero = candidateTruncation({ kind: "success", items: [], total: 0, pageSize: 100 }, "cluster");
+  assert.equal(zero.truncated, false);
+  assert.equal(zero.text, null);
+  // loading / error 态不产生超限提示（不改写状态）
+  assert.equal(candidateTruncation(loadingCandidateState(), "host").truncated, false);
+  assert.equal(candidateTruncation({ kind: "error", message: "x" }, "host").truncated, false);
+});
+
+await test("F041 F-09 超限提示只取响应 total（§23.2）：授权 3 个时含 3、不含全库 120", async () => {
+  const visible = candidateTruncation(
+    { kind: "success", items: f041CandidateItems(3, "f41c"), total: 3, pageSize: 100 },
+    "cluster",
+  );
+  assert.equal(visible.truncated, false); // total == items.length → 不提示
+  const boundary = candidateTruncation(
+    { kind: "success", items: f041CandidateItems(1, "f41c"), total: 3, pageSize: 100 },
+    "cluster",
+  );
+  assert.equal(boundary.truncated, true);
+  assert.ok(boundary.text.includes("3"));
+  assert.ok(!boundary.text.includes("120"), "不得使用全库规模");
+  assert.ok(!boundary.text.includes("全部"));
+  assert.ok(boundary.text.includes("code"), "cluster 域排序字段为 code");
+});
+
+await test("F041 F-10 编辑态 pinned（A16）：候选缺该 id 仍恰一次；loading/error/empty 保留；载荷 id 不变", async () => {
+  const pinned = { id: "pinned-1", label: "f41n-0110（当前宿主）" };
+  // 候选不含该 id → 补一条（恰一次），label 含 hostname
+  const absent = candidateOptions(
+    { kind: "success", items: f041CandidateItems(3, "f41n"), total: 154, pageSize: 100 },
+    pinned,
+  );
+  assert.equal(absent.filter((option) => option.value === "pinned-1").length, 1);
+  assert.ok(absent[0].label.includes("f41n-0110"));
+  assert.equal(absent.length, 4);
+  // 候选含该 id → 不重复（用 pinned 标注替换 label）
+  const present = candidateOptions(
+    {
+      kind: "success",
+      items: [{ id: "pinned-1", label: "f41n-0110" }, ...f041CandidateItems(2, "f41n")],
+      total: 3,
+      pageSize: 100,
+    },
+    pinned,
+  );
+  assert.equal(present.filter((option) => option.value === "pinned-1").length, 1);
+  assert.equal(present.length, 3);
+  assert.equal(present[0].label, pinned.label);
+  // 非 success 态同样保留（失败也能原值提交）
+  for (const state of [
+    loadingCandidateState(),
+    { kind: "error", message: "候选检索失败" },
+    { kind: "success", items: [], total: 0, pageSize: 100 },
+    idleCandidateState(),
+  ]) {
+    assert.deepEqual(
+      candidateOptions(state, pinned).map((option) => option.value),
+      ["pinned-1"],
+    );
+  }
+  assert.deepEqual(candidateOptions(loadingCandidateState(), null), []);
+  // 载荷：原值提交 / 改选后为新 id
+  const unchanged = parseVirtualMachineFormValues({
+    host_resource_id: "pinned-1",
+    vcpu: "",
+    memory_mb: "",
+    disk_gb: "",
+    hypervisor: "",
+  });
+  assert.equal(unchanged.ok, true);
+  assert.equal(buildVirtualMachineCreateInput(unchanged.fields).host_resource_id, "pinned-1");
+  const rehosted = buildVirtualMachinePatch(
+    {
+      host_resource_id: "pinned-1",
+      host: { id: "pinned-1", hostname: "f41n-0110" },
+      vcpu: null,
+      memory_mb: null,
+      disk_gb: null,
+      hypervisor: null,
+    },
+    {
+      host_resource_id: "f41n-0120",
+      vcpu: null,
+      memory_mb: null,
+      disk_gb: null,
+      hypervisor: null,
+    },
+  );
+  assert.equal(rehosted.host_resource_id, "f41n-0120");
+});
+
+await test("F041 F-11 载荷侧（A1）：选中候选 id 原样提交，不退化为 code/序号；不重试", async () => {
+  respond = () =>
+    jsonResponse(201, {
+      resource: { id: "vm-1", virtual_machine: { host_resource_id: "f41n-110" } },
+    });
+  const hostField = parseVirtualMachineFormValues({
+    host_resource_id: "f41n-110",
+    vcpu: "",
+    memory_mb: "",
+    disk_gb: "",
+    hypervisor: "",
+  });
+  assert.equal(hostField.ok, true);
+  await createResource({
+    cluster: "f41c-110",
+    hostname: "f41-vm-late",
+    resource_type: "VIRTUAL_MACHINE",
+    virtual_machine: buildVirtualMachineCreateInput(hostField.fields),
+  });
+  assert.equal(calls.length, 1); // 不重试
+  const vmBody = JSON.parse(calls[0].init.body);
+  assert.equal(vmBody.virtual_machine.host_resource_id, "f41n-110");
+  assert.equal(vmBody.cluster, "f41c-110");
+
+  // Cluster 候选中名次靠后的一项 → 提交 cluster 为该候选 id（非 code / 序号）
+  respond = () => jsonResponse(201, { resource: { id: "r-2" } });
+  const clusterOptions = clusterCandidateItems(f041ClusterRows(150, "f41c"));
+  const chosen = clusterOptions[149];
+  await createResource({
+    cluster: chosen.value,
+    hostname: "f41-target-host",
+    resource_type: "BARE_METAL",
+  });
+  const clusterBody = JSON.parse(calls[1].init.body);
+  assert.equal(clusterBody.cluster, chosen.value);
+  assert.notEqual(clusterBody.cluster, chosen.label);
+  assert.equal(calls.length, 2);
+});
+
+await test("F041 F-12 提交拒绝语义不变（A10）：候选态不被错误吞并，错误经既有描述器呈现、不重试", async () => {
+  const state = applyCandidateResponse(loadingCandidateState(), 1, 1, {
+    kind: "success",
+    items: f041CandidateItems(2, "f41n"),
+    total: 2,
+    pageSize: 100,
+  });
+  respond = () =>
+    jsonResponse(422, {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "请求参数校验失败",
+        details: { fields: [{ field: "virtual_machine.host_resource_id", message: "宿主不属于该集群" }] },
+      },
+    });
+  let described = null;
+  try {
+    await createResource({
+      cluster: "c-1",
+      hostname: "f41-vm",
+      resource_type: "VIRTUAL_MACHINE",
+      virtual_machine: { host_resource_id: "f41n-1" },
+    });
+  } catch (err) {
+    described = describeResourceActionError(err);
+  }
+  assert.ok(described, "422 应抛错");
+  assert.ok(described.fields["virtual_machine.host_resource_id"], "422 点路径应落字段错误");
+  assert.equal(described.versionConflict, false);
+  assert.equal(calls.length, 1); // 不自动重试
+  // 候选态保持不变（成功态 + 候选集合完整），不被改写成 empty / error
+  assert.equal(state.kind, "success");
+  assert.equal(candidateView(state, "host").kind, "ready");
+  assert.equal(candidateOptions(state, null).length, 2);
+
+  respond = () =>
+    jsonResponse(403, { error: { code: "FORBIDDEN", message: "forbidden", details: { reason: "permission" } } });
+  let forbidden = null;
+  try {
+    await updateResource("vm-1", { version: 1, virtual_machine: { host_resource_id: "f41n-2" } });
+  } catch (err) {
+    forbidden = describeResourceActionError(err);
+  }
+  assert.ok(forbidden.message.includes("权限"));
+  assert.equal(calls.length, 2); // 换 Host（PATCH）同样不静默重试
+  assert.equal(candidateView(state, "host").kind, "ready");
 });
 
 // 还原全局状态
