@@ -1,6 +1,6 @@
 # CSM V3 一期领域规则索引
 
-状态：已确认规则的导航，尚非完整设计。依据：[requirements-v3.md](requirements-v3.md) revision 14。产品规则正文仅在需求文件维护；本文件不建立第二份字段、枚举或约束清单。§35.1 保存修订确认依据；§35.2 的六项业务决策与 CHG010-BQ01–BQ17 均已确认，§35.3 的 D01–D03 均已由专业设计签核（CONFIRMED：D01 `docs/architecture/d01-conventions.md` v11、D02 各 Feature 设计签核、D03 `docs/api/F014.md` v1 §10）。索引存在不代表 Schema 已签核；V3 一期 F001–F028 已交付（见 `docs/project/project-plan.yaml`）。
+状态：已确认规则的导航，尚非完整设计。依据：[requirements-v3.md](requirements-v3.md) revision 16（revision 16 新增 §28.1 对象选择控件候选完整性；此前 revision 15 为 T114 等价性口径追认留痕、无业务规则变化）。产品规则正文仅在需求文件维护；本文件不建立第二份字段、枚举或约束清单。§35.1 保存修订确认依据；§35.2 的六项业务决策与 CHG010-BQ01–BQ17 均已确认，§35.3 的 D01–D03 均已由专业设计签核（CONFIRMED：D01 `docs/architecture/d01-conventions.md` v11、D02 各 Feature 设计签核、D03 `docs/api/F014.md` v1 §10）。索引存在不代表 Schema 已签核；V3 一期 F001–F036 已交付（见 `docs/project/project-plan.yaml`，plan revision 24）。
 
 | 领域 | 权威条款 |
 | --- | --- |
@@ -11,7 +11,7 @@
 | Interface 类型、名称唯一性、父接口、接口侧选择绑定 IP | §10、§13.4、§21 |
 | IPv4 地址边界、Pool/保留范围与网关冲突、IP 分配/解绑/释放、容量公式及 Cluster 一致性 | §11–14、§20、§27 |
 | Service / Endpoint 与 IP 关系 | §15–16 |
-| 搜索、详情、Dashboard、列表 | §17–20、§28、§33 |
+| 搜索、详情、Dashboard、列表、对象选择候选完整性 | §17–20、§28、§28.1、§33 |
 | Soft Delete、名称复用与恢复、Audit 持续保留及备份、本地账号、权限及版本冲突 | §21–23 |
 | 集群范围授权（账号 × Cluster）、默认拒绝、ADMIN 例外、API Key 继承、迁移回填 | §23.1、§23.2、§31（T85–T99） |
 | CSV / Excel 导入、资源+网卡+IP 模板导入与同一业务校验、离线主机信息采集脚本（模板生产者）、采集脚本增强（参数补全/打印/API 推送）、类型必填/帮助信息/按类型生成、前端 CSV 文本导入载体、向既有 Resource 追加网卡/IP | §24、§24.1、§24.2、§24.3、§24.4、§24.5、§24.6 |
