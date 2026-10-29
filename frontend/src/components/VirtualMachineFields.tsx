@@ -1,27 +1,15 @@
-import { Button, Input, Select } from "./ui/controls";
-import { EmptyState, ErrorState, InfoState, LoadingState } from "./ui/feedback";
-import { useEffect, useState } from "react";
-import { displayError, isApiError } from "../api/client";
-import { listResources, type Resource } from "../api/resources";
+import { Input } from "./ui/controls";
+import { InfoState } from "./ui/feedback";
+import CandidateSelect from "./CandidateSelect";
 import type {
   VirtualMachineFormErrors,
   VirtualMachineFormValues,
 } from "./virtualMachine";
 
-/**
- * 宿主候选列表加载状态（同 Cluster 未删除 BARE_METAL；分页上限 100，
- * Contract §4）。idle = create 模式尚未选择集群。
- */
-type HostOptionsState =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "success"; hosts: Resource[]; total: number }
-  | { kind: "error"; message: string };
-
 interface VirtualMachineFieldsProps {
   /** 宿主候选所在 Cluster（create：当前所选集群；edit：资源所属集群，固定）。 */
   clusterId: string;
-  /** 当前已登记宿主（edit 初始化；不在候选列表时仍展示为选项，不静默丢失）。 */
+  /** 当前已登记宿主（edit 初始化；不在候选页时仍展示为选项，不静默丢失）。 */
   currentHost: { id: string; hostname: string } | null;
   values: VirtualMachineFormValues;
   onChange: (patch: Partial<VirtualMachineFormValues>) => void;
@@ -64,13 +52,17 @@ const VM_INPUT_FIELDS: {
 ];
 
 /**
- * virtual_machine 表单区（F006，Contract §2.5；仅 VIRTUAL_MACHINE 渲染）：
- * - Host 选择器：GET /resources?cluster_id=<所选集群>&type=BARE_METAL
- *   （未删除，默认 deleted=exclude；hostname 升序，分页上限 100），
- *   展示 hostname（同 Cluster 内 hostname 唯一，无需附加消歧）；
- * - Loading / Success / Empty / Error 显式区分：错误绝不伪装成空列表，
- *   可重试；空列表明确提示“需先登记物理机”；
- * - 宿主四条件（存在 / 未软删 / BARE_METAL / 同 Cluster）由服务端统一 422
+ * virtual_machine 表单区（F006，Contract §2.5；仅 VIRTUAL_MACHINE 渲染）+
+ * F041 宿主候选完整性（docs/features/F041/architecture.md §1.4 改造点 ①）：
+ * - Host 选择器改用 `CandidateSelect domain="host"`（F041）：候选由
+ *   GET /resources 服务端检索提供（q · cluster_id · type=BARE_METAL ·
+ *   page=1 · page_size=100 · sort=hostname · order=asc，未删除默认 exclude），
+ *   第 101 位及之后的宿主机可通过检索词到达；四态 / 可重试 / 超限提示由
+ *   ./candidateSelectModel 派生，不再是本地一次性加载 + 三态手写；
+ * - 编辑态当前宿主以 `pinned` 传入：不在当前候选页、或候选加载失败时仍作为
+ *   唯一选项展示并可原值提交（DR-F041-06 / A16）；切换所属集群时清空已选
+ *   宿主（DR-F041-07，避免保留跨集群宿主导致 422）；
+ * - 宿主四条件（存在 / 未软删 / BARE_METAL / 同 Cluster）仍由服务端统一 422
  *   （field=virtual_machine.host_resource_id），前端选择器仅收敛候选；
  * - 容量字段整数严格校验（vcpu/memory_mb 正整数；disk_gb 非负，0 = 明确无
  *   磁盘）；hypervisor trim 非空 / ≤255；未知留空 = null，绝不以 0 代替；
@@ -85,48 +77,6 @@ export default function VirtualMachineFields({
   localErrors,
   serverFields,
 }: VirtualMachineFieldsProps) {
-  const [hostOptions, setHostOptions] = useState<HostOptionsState>({ kind: "loading" });
-  const [reloadToken, setReloadToken] = useState(0);
-
-  useEffect(() => {
-    if (clusterId === "") {
-      // create 模式尚未选择集群：不发起请求，明确提示（不伪装成空列表）
-      setHostOptions({ kind: "idle" });
-      return;
-    }
-    let cancelled = false;
-    setHostOptions({ kind: "loading" });
-    listResources({
-      cluster_id: clusterId,
-      type: "BARE_METAL",
-      page_size: 100,
-      sort: "hostname",
-      order: "asc",
-    })
-      .then((data) => {
-        if (!cancelled) {
-          setHostOptions({ kind: "success", hosts: data.items, total: data.total });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setHostOptions({
-            kind: "error",
-            message: isApiError(error)
-              ? `${error.message}（${error.code ?? `HTTP ${error.status}`}）`
-              : displayError(error),
-          });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [clusterId, reloadToken]);
-
-  const hosts = hostOptions.kind === "success" ? hostOptions.hosts : [];
-  const currentHostMissing =
-    currentHost !== null && !hosts.some((host) => host.id === currentHost.id);
-
   return (
     <>
       <h3 className="detail-section-title">
@@ -143,45 +93,22 @@ export default function VirtualMachineFields({
         <label htmlFor="resource-vm-host">
           host_resource_id（宿主机 Host，必填；同集群未删除的 BARE_METAL）
         </label>
-        {hostOptions.kind === "idle" && (
-          <InfoState message="请先选择所属集群，再选择宿主机。" />
-        )}
-        {hostOptions.kind === "loading" && (
-          <LoadingState label="正在加载宿主机列表…" />
-        )}
-        {hostOptions.kind === "error" && (
-          <ErrorState
-            message={`加载宿主机列表失败：${hostOptions.message}`}
-            action={
-              <Button type="button" onClick={() => setReloadToken((token) => token + 1)}>
-                重试
-              </Button>
-            }
-          />
-        )}
-        {hostOptions.kind === "success" && hosts.length === 0 && (
-          <EmptyState description="该集群暂无未删除的 BARE_METAL 资源：需先登记物理机，才能创建虚拟机。" />
-        )}
-        <Select
+        <CandidateSelect
+          clusterId={clusterId}
+          domain="host"
           id="resource-vm-host"
           name="virtual_machine.host_resource_id"
+          onChange={(next) => onChange({ host_resource_id: next })}
+          onContextChange={() => onChange({ host_resource_id: "" })}
+          pinned={
+            currentHost === null
+              ? null
+              : { id: currentHost.id, label: `${currentHost.hostname}（当前宿主）` }
+          }
+          placeholder="输入 hostname 检索宿主机"
+          disabled={submitting}
           value={values.host_resource_id}
-          onChange={(event) => onChange({ host_resource_id: event.target.value })}
-          disabled={submitting || hostOptions.kind !== "success"}
-        >
-          <option value="">请选择宿主机</option>
-          {currentHostMissing && currentHost !== null && (
-            <option value={currentHost.id}>{currentHost.hostname}（当前宿主）</option>
-          )}
-          {hosts.map((host) => (
-            <option key={host.id} value={host.id}>
-              {host.hostname}
-            </option>
-          ))}
-        </Select>
-        {hostOptions.kind === "success" && hostOptions.total > hosts.length && (
-          <InfoState message={`宿主机总数 ${hostOptions.total} 台，下拉仅显示前 ${hosts.length} 台（按 hostname 排序；列表分页上限 100）。`} />
-        )}
+        />
         {(localErrors.host_resource_id ?? serverFields["virtual_machine.host_resource_id"]) && (
           <p className="field-error" role="alert">
             {localErrors.host_resource_id ?? serverFields["virtual_machine.host_resource_id"]}

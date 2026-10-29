@@ -1,0 +1,25 @@
+PASS  cluster 请求参数正确且无 deleted/include/only → {'q': 'F41C-0110', 'page': '1', 'page_size': '100', 'sort': 'code', 'order': 'asc'}
+PASS  服务端检索后下拉仅 1 条候选（客户端过滤关闭）→ 1
+PASS  a11y 镜像列表 aria-label 与 label 一致
+PASS  键盘选中后 Select 展示集群 label
+PASS  host 请求参数正确且无 deleted → {'cluster_id': 'c-0110', 'type': 'BARE_METAL', 'page': '1', 'page_size': '100', 'sort': 'hostname', 'order': 'asc'}
+PASS  超限提示含总数 154 与分页边界 100
+PASS  候选首页第一项 = f41n-0001（既有排序）→ f41n-0001
+PASS  host 检索请求带 q=f41n-0110 → {'q': 'f41n-0110', 'cluster_id': 'c-0110', 'type': 'BARE_METAL', 'page': '1', 'page_size': '100', 'sort': 'hostname', 'order': 'asc'}
+PASS  第 110 位宿主机被检索命中 → 1 条
+PASS  选中名次 ≥101 的宿主机后表单展示 hostname
+PASS  失败态显示 alert 且提供重试
+PASS  失败态不伪装为空结果
+PASS  失败后未自动重试（7 → 7）
+PASS  显式重试恰 +1 次请求（1）且恢复候选
+PASS  空结果态文案独立
+PASS  375px 无横向溢出（0px）
+PASS  768px 无横向溢出（0px）
+PASS  idle 态提示先选集群
+PASS  idle 态不发候选请求
+PASS  label[for]=1 / role=combobox / focus=rgba(5, 122, 255, 0.06) 0px 0px 0px 1.98585px|none
+PASS  编辑态当前宿主以「（当前宿主）」保留为选项（候选首页不含 h-0140）
+PASS  下拉首项为 pinned（恰一次）→ ['f41n-0140（当前宿主）', 'f41n-0001', 'f41n-0002']
+PASS  编辑态候选请求仍走既有参数 → {'cluster_id': 'c-0110', 'type': 'BARE_METAL', 'page': '1', 'page_size': '100', 'sort': 'hostname', 'order': 'asc'}
+
+23 passed, 0 failed
