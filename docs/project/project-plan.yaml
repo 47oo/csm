@@ -3112,10 +3112,11 @@ features:
   - docs/project/proposals/CHG-015-post-delivery-review-closeout.md
   depends_on: []
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 待用户裁定 AQ-4（推荐 B）并批准 CHG-015 后置 READY。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R08（smoke 340 项通过；无仓库内 DOM/E2E 入口）。未启动。
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: PRODUCT：product-manager 产出 product.md（组件/逻辑级可重复交互入口，五项交互覆盖，smoke 拆分不减用例）。
+  last_result: Preflight 通过（AQ-4=B：不引入浏览器依赖）；分支 feature/F043-test-entry 自 v3.4 创建；进入
+    PRODUCT。
   layers:
     database: false
     backend: false
@@ -3139,8 +3140,8 @@ features:
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
+    branch: feature/F043-test-entry
+    start_commit: 8eec63b9af897167fc448dce222a175b6852188f
     head_commit: null
     merge_commit: null
   evidence: {}
@@ -3865,11 +3866,10 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
-  last_result: F037 / F038 / F039 / F040 / F041 DONE（均合入 v3.4）。F039：Dashboard 容量查询由
-    8+4N+P 批量化到常数 11 次 SELECT，公式单点与响应面零变更。
-  next_action: 继续：F043（R08 可重复测试入口）→ F045（变更集整体回归，恢复 acceptance=COMPLETE）。
+  current_feature: F043
+  current_stage: PRODUCT
+  last_result: F039 DONE；F043 启动 PRODUCT（R08 可重复测试入口，AQ-4=B）。
+  next_action: F043 PRODUCT Gate。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -3879,11 +3879,10 @@ planning_status:
     CANCELLED: 2
     DONE: 41
     DRAFT: 1
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 1
-  ready_features:
-  - F043
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
     DRAFT:
