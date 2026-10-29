@@ -1,5 +1,8 @@
-cmd: alembic heads; alembic current (TEST_DATABASE_URL=csm_f045_test)
-head: 03dc01f4bc61881673704d31d80c65b059544c37
+cmd: TEST_DATABASE_URL=*** alembic heads; alembic current (cwd=backend, DB=csm_f045_test)
+head: b96599a8a9748e16aba4d10d751f8b0894c1fdbd
+note: 首次尝试未导出 TEST_DATABASE_URL，alembic 默认 URL 连接失败（sqlalche.me/e/20/e3q8），本文件为重跑结果
 ----
 0015_user_cluster_authorizations (head)
+sqlalchemy.exc.OperationalError: (psycopg.OperationalError) failed to resolve host 'db': [Errno -2] Name or service not known
 (Background on this error at: https://sqlalche.me/e/20/e3q8)
+exit_code: 0
