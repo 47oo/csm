@@ -2764,10 +2764,9 @@ features:
   - F037
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT：product-manager 产出 product.md（AQ-2=A 边界：仅实现侧有界解析，零可观察差异）。
-  last_result: Preflight 通过；分支 feature/F038-import-parse-bounds 自 v3.4 创建；进入 PRODUCT
-    阶段。
+  current_stage: ARCHITECTURE
+  next_action: 'ARCHITECTURE：architect 定稿有界解析方案（parse_records 兼容、context manager 复用、L7′ 重评、测量方法）并给出 READY FOR DESIGN。'
+  last_result: 'PRODUCT COMPLETE（READY FOR ARCHITECT）：AQ-2=A 边界固化——仅实现侧有界解析、零可观察差异；B1–B13 不变量与 A1–A14 验收草案成立。'
   layers:
     database: false
     backend: true
@@ -2779,7 +2778,7 @@ features:
     contract: 推荐口径（AQ-2=A）为实现侧有界解析、不新增可观察拒绝，无需变更契约；若用户裁定 AQ-2=B（新增可观察上限），本 Feature
       必须重新评估 `api_required=true`、升版契约并随需求 revision 16 重签后再实施。
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -2794,7 +2793,9 @@ features:
     start_commit: 8e609ca2e5b88c30804b6f6ad54a8a57d7906556
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F038/product.md
 - id: F039
   title: Dashboard 容量查询批量化与查询计数基准（R10）
   kind: FEATURE
@@ -3795,7 +3796,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F038
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
     / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
     / AQ-6 已裁定，AQ-7 保持 OPEN。
