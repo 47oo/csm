@@ -1,4 +1,12 @@
-cmd: alembic heads / alembic current (cwd=backend)
+cmd: alembic heads; alembic current (cwd=backend, DATABASE_URL=***@127.0.0.1:55432/csm_f045_test)
+start_commit: fa8a568
+head: 5ec0958b4931419cc740afeb1358ad45342b7d12
+env: compose 栈 (nginx :18080)；凭据 ***
+started_at: 2026-10-29T12:00:00Z (round, approximate)
+finished_at: 2026-10-29T12:30:00Z (approximate)
+tool_versions: Docker server 29.8.2 (client 26.1.2) / Compose v5.6.0 / PostgreSQL 16.15
+exit_code: 0 (heads 成功；current 无输出属未 stamp 预期)
+----cmd: alembic heads / alembic current (cwd=backend)
 start_commit: fa8a568
 head: ba400009c1e871b7d9e259f98f7dc87110c25f4a
 env: TEST_DATABASE_URL/DATABASE_URL=***@127.0.0.1:55432

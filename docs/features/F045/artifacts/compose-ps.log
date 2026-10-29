@@ -1,4 +1,12 @@
-# cmd: docker compose --env-file .env.test -f compose.yaml -f compose.test.yaml -p csmtest ps -a ; docker inspect (image/health) ; docker logs csmtest-migrate-1 ; docker logs csmtest-bootstrap-1
+cmd: docker compose ps + docker exec psql 只读观测（Compose 栈）
+start_commit: fa8a568
+head: 5ec0958b4931419cc740afeb1358ad45342b7d12
+env: compose 栈 (nginx :18080)；凭据 ***
+started_at: 2026-10-29T12:00:00Z (round, approximate)
+finished_at: 2026-10-29T12:30:00Z (approximate)
+tool_versions: Docker server 29.8.2 (client 26.1.2) / Compose v5.6.0 / PostgreSQL 16.15
+exit_code: 0
+----# cmd: docker compose --env-file .env.test -f compose.yaml -f compose.test.yaml -p csmtest ps -a ; docker inspect (image/health) ; docker logs csmtest-migrate-1 ; docker logs csmtest-bootstrap-1
 # start_commit: fa8a568 ; head: 9941f92 9941f923d153dfa97e2766fce47811aaf8064082
 # env: --env-file .env.test (NGINX_HTTP_PORT=18080, POSTGRES_PASSWORD=***, INITIAL_ADMIN_PASSWORD=***, DATABASE_URL=postgresql+psycopg://csm:***@db:5432/csm)
 # observed_at: 2026-10-29T15:17:25Z
