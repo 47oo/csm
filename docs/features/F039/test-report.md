@@ -1,7 +1,7 @@
 # F039 Dashboard 容量查询批量化与查询计数基准（R10）— TEST REPORT
 
-- **状态**：TEST_DESIGN 完成（`TEST DESIGN READY`）；**仅 §1 本轮产出**，未执行正式 TEST
-- **版本**：v1（2026-10-29）| 分支 `feature/F039-dashboard-queries`，start_commit `f66d1f3`，本轮 HEAD `f09387a`
+- **状态**：§1 `TEST DESIGN READY`（v1，实现前）；§2 TEST 已独立执行 → **`READY FOR REVIEW`**（2026-10-29）
+- **版本**：v2（2026-10-29）| 分支 `feature/F039-dashboard-queries`，start_commit `f66d1f3`；§1 记录于 HEAD `f09387a`，§2 记录于工作树 HEAD `831276e` + Backend 未提交 services 变更
 - **依据**：`docs/features/F039/product.md` v1（A1–A8 / N1–N7 / ON-1..5）、`docs/api/F013.md` §3.3、requirements §20 / §23.2 / §31 T32·T88、`docs/project/implementation-rules.md`
 - **Environment（实测）**：PostgreSQL **16.15**（`127.0.0.1:55432`，user `csm`，superuser/createdb）；库 `csm_f037_test`（DB-D10 guard：名称含 `test`）；Python **3.12.7**、pytest **7.4.4**、SQLAlchemy **2.0.34**、psycopg **3.2.13**。本轮探针另行建一次性库 `csm_f039_probe_test` / `csm_f039_lit_test` 并在结束时 `DROP DATABASE`（无残留）；未对 `DATABASE_URL` 指向的库做任何操作。
 
@@ -109,4 +109,82 @@ GIT: git hash-object backend/app/services/dashboard.py backend/app/services/ip_c
 GIT: git diff --stat f66d1f3 -- backend docs/api frontend
 GIT: git diff --stat f66d1f3
 GIT: git diff --name-only f66d1f3 -- backend docs/api frontend | wc -l
+GIT: git status --porcelain
+
+---
+
+## 2. TEST（独立执行）— TE-F039-1
+
+- **结论**：`READY FOR REVIEW`（全部验收项 PASS，无必须修复缺陷；不放行 F045 整体验收 / F016 验收）
+- **被测版本**：工作树 HEAD `831276e` + 未提交 `backend/app/services/{dashboard,ip_capacity}.py`（Backend `BACKEND COMPLETE`）；start_commit `f66d1f3`；TD/architecture 版本未变（v1）
+- **新增测试代码**：`backend/tests/integration/test_f039_query_count.py`（12 用例；**无** `app.core.access_scope` 引用 ⇒ 不带 `real_scope`）、`test_f039_scope.py`（3 用例；`pytestmark = pytest.mark.real_scope`）。A3 隔离在 scope 模块，`test_f030_test_harness.py` AST 守卫通过。
+- **Environment（实测）**：PostgreSQL **16.15**（`127.0.0.1:55432`，库 `csm_f037_test`，DB-D10 guard 生效，`TEST_DATABASE_URL ≠ DATABASE_URL`）；Python **3.12.7**、pytest **7.4.4**、SQLAlchemy **2.0.34**、psycopg **3.2.13**。基线树 `/tmp/f039_base_test`（`git archive f66d1f3 backend`，只读导出）与工作树用同一 PG 实例、同一探针、**独立解释器**分别运行；未触碰生产/未知数据库。
+
+### 2.1 执行命令与结果（真实输出）
+
+| # | 命令 | 结果 |
+| --- | --- | --- |
+| 1 | `pytest tests/integration/test_f039_query_count.py tests/integration/test_f039_scope.py -q` | **15 passed** / 59.26s |
+| 2 | `pytest tests/integration/test_dashboard.py -q` | **12 passed** / 8.90s（= TD 基线） |
+| 3 | `pytest tests/integration -q -k capacity` | **11 passed, 1 skipped**（skip = `F016_ACCEPTANCE` 未启用） |
+| 4 | 六套件（f013/f016/f027/f028/search_related/f030_harness） | **33 passed, 5 skipped** / 47.57s（= TD 基线，无回归） |
+| 5 | `git diff --stat f66d1f3 -- docs/api docs/product docs/database frontend backend/alembic backend/app/api backend/app/models` | **空输出**（零 diff） |
+| 6 | `python3 scripts/validate_project_state.py --feature F039` | `PROJECT STATE VALID`，exit 0 |
+| 7 | `cd frontend && npm run typecheck` | 通过（`tsc --noEmit`，无输出/无错误） |
+
+### 2.2 验收映射（A1–A8）
+
+| 验收 | 用例 | 结果 |
+| --- | --- | --- |
+| A1 查询计数有界 | `test_a1_query_count_constant_across_network_count` / `…_auto_pool_count` / `test_a1_http_overhead_is_constant` / `test_a1_capacity_endpoint_statement_count_unchanged` | **PASS** |
+| A2 §20 口径逐项不变（T32） | `test_a2_capacity_matches_endpoint_and_literals`（6 网络矩阵：gateway∩RESERVED 去重、未绑定 IP、池外手动 IP、AUTO 交集、INACTIVE 不清零、禁用段、/31、/32）、`test_a2_pool_occupancy_follows_current_address` | **PASS** |
+| A3 §23.2 范围 / 零授权（T88） | `test_a3_viewer_sees_only_authorized_clusters`、`test_a3_zero_authorization_returns_empty`、`test_a3_admin_is_unrestricted` | **PASS** |
+| A4 负 `remaining` 原样返回 | `test_a4_negative_remaining_is_returned_verbatim`（`/30` + 2 IP + gateway ⇒ 1/2/**−1**，与端点一致） | **PASS** |
+| A5 响应面零变更 | `test_a5_response_surface_matches_golden_body`（**整响应逐字面量比较**，含 key 集/类型/取值）、`test_a5_pagination_and_counts_ordering`、`test_a5_error_semantics`（`401 AUTH_REQUIRED` → `422 VALIDATION_ERROR`（page=0 / page_size=0 / 101）→ `200`；信封字面量）+ 命令 5 | **PASS** |
+| A6 既有回归全绿 | 命令 2、3、4 | **PASS** |
+| A7 前端零 diff | 命令 5（`frontend/` 零 diff）+ 命令 7；UI 交互 **NOT_REQUIRED**（plan `layers.frontend=false`，响应面零变更） | **PASS** |
+| A8 证据入库 / 公式单点 | `test_a8_batch_statements_have_index_paths`（3 条语句、无 `Seq Scan`、索引名 ∈ `pg_indexes`）、`test_a8_dashboard_has_no_address_arithmetic`（`dashboard.py` 无区间运算、仍调用 `ip_capacity.network_capacity`/`auto_pools_capacity`/`load_capacity_context`）；产物 `artifacts/query_count_f039.md`、`artifacts/explain_f039.md` | **PASS** |
+
+### 2.3 `N → q_svc` 实测（实现后 vs 基线，独立解释器复测）
+
+| N (`page_size`) | 实现后 `q_svc` / `q_http` | 基线 `q_svc` / `q_http`（f66d1f3） |
+| --- | --- | --- |
+| 1 | **11 / 12** | 14 / 15 |
+| 10 | **11 / 12** | 68 / 69 |
+| 50 | **11 / 12** | 308 / 309 |
+
+- `q_svc(1) == q_svc(10) == q_svc(50) == 11`，`K = 11 ≤ 20` 钉死为字面量（**未上调、未改成 `a+b·N`**）；HTTP 差值 `C = q_http − q_svc = 1` 在 N=1/10/50 全等。
+- AUTO 池轴（P=0→4）：实现后 **11/11/11/11/11** 且 `len(auto_pools)=P`；基线 12/13/14/15/16（+1/池）。
+- F010 `GET /networks/{id}/capacity`（HTTP 级，P=0/1/2）：实现后 **6/7/8**，基线同探针 **6/7/8** ⇒ 端点语句数未被本次改动增加。
+- **非空证据**：同一 A1 用例在基线树上运行 ⇒ **FAILED** `{1: 14, 10: 68, 50: 308} != {1: 11, 10: 11, 50: 11}`（判据非平凡）。
+
+### 2.4 EXPLAIN 摘要（真 PG，捕获实际执行语句后 `EXPLAIN (FORMAT JSON)`）
+
+- **B1**：`ip_pools` → `excl_ip_pools_network_id_address_range`（Index Scan 或 Bitmap Index Scan）。
+- **B2**：`Sort → GroupAggregate → Nested Loop Left Join`；外侧 `ip_pools` 走 `excl_ip_pools_network_id_address_range`，内侧 `ip_addresses` 走 `ix_ip_addresses_network_id`（另一轮为 `uq_ip_addresses_cluster_id_address`，`Index Cond` 为地址区间）。
+- **B3**：`Aggregate → Index Scan on ip_addresses`，`ix_ip_addresses_network_id`（另一轮 `ix_ip_addresses_deleted_at`）。
+- 原始与 `SET LOCAL enable_seqscan = off` 计划均**无 `Seq Scan`**，引用索引均真实存在于对应表 ⇒ 无索引退化，未触发 DATABASE Gate（N5）。计划形态在两轮运行间漂移（2 行小表的代价决策），故判据写成“索引路径存在 + 索引名存在于 `pg_indexes`”，未用宽松正则。
+- **回报 Architect（不阻塞）**：实际索引名与 TD-F039-8a / architecture §8 预设的 `ix_ip_pools_network_id`、`ix_ip_addresses_network_id` 不完全一致（规划器在等价索引间选择），与 Backend §4 回报一致；判据已按真实计划对齐，`docs/api`/`docs/database` 零 diff。
+
+### 2.5 Defects
+
+无。（未发现实现缺陷；测试侧自查修正 3 处夹具假设：INACTIVE Network 建 IP 被 409 `network_inactive` 拒绝 ⇒ 改为建后 PATCH 状态；`f015_helpers.create_pool` 无 `allocation_mode` ⇒ scope 模块自带 AUTO 池 helper；F010 端点计数按 HTTP 级实测字面量 6/7/8 而非服务级 `4+P`。）
+
+### 2.6 未验证 / 不计 PASS 项
+
+| 项 | 状态 | 理由 |
+| --- | --- | --- |
+| F016 整体验收路径下的 T32/T88（`F016_ACCEPTANCE=1`） | **BLOCKED / NOT TESTED** | 实测 `F016_ACCEPTANCE=1 pytest tests/integration/test_f016_acceptance.py -k "t32 or dashboard"` → `httpx.ConnectError: [Errno 111] Connection refused`（需活动 HTTP 栈）。不计 PASS，不声称整体验收完成；T32/T88 由本地真 PG 用例承载 |
+| `403 FORBIDDEN` 分支 | **NOT APPLICABLE** | `/api/v1/dashboard` 仅要求 `Permission.READ`，`ROLE_PERMISSIONS` 中 VIEWER/EDITOR/ADMIN 均持有 ⇒ 结构上不可构造“已认证但无权限”的主体；`401 → 422 → 200` 顺序已实测 |
+| 前端 UI 交互与真实前后端集成 | **NOT_REQUIRED** | plan `layers.frontend=false`；响应面零变更，仅以 `frontend/` 零 diff + `typecheck` 作 A7 证据 |
+| 响应耗时 / 性能 | **NOT TESTED** | 本 Feature 只以查询计数与 EXPLAIN 判定；未测耗时，**不声称**“已优化慢查询”（N7） |
+| A5 与基线响应的“运行期 diff 对比” | 替代为更强判据 | 采用整响应硬编码字面量 + key 集 + 分页顺序 + 错误信封字面量，不做同树混跑的双树响应对比 |
+
+GIT: git log --oneline -3
+GIT: git status --short
+GIT: git archive f66d1f3 backend | tar -x -C /tmp/f039_base_test
+GIT: git rev-parse f66d1f3:backend/app/services/dashboard.py f66d1f3:backend/app/services/ip_capacity.py
+GIT: git hash-object /tmp/f039_base_test/backend/app/services/dashboard.py /tmp/f039_base_test/backend/app/services/ip_capacity.py
+GIT: git diff --stat f66d1f3 -- docs/api docs/product docs/database frontend backend/alembic backend/app/api backend/app/models
+GIT: git diff --stat f66d1f3
 GIT: git status --porcelain

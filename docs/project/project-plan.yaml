@@ -2840,10 +2840,14 @@ features:
   - F013
   - F027
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: 'IMPLEMENTATION：backend 落稿 ip_capacity 预取 + dashboard 复用，自检查询计数与 EXPLAIN。'
-  last_result: 'ARCHITECTURE + CONTRACT 签核 READY FOR IMPLEMENTATION：ip_capacity 增 CapacityContext/load_capacity_context（3 条批量语句），network_capacity/auto_pools_capacity 保留为薄包装（context keyword），dashboard 一次预取后复用；契约零 diff（F013 v2 §3.3 仍真）；Database NOT_REQUIRED；TD-F039 实测基线 q_svc 14/68/308、判据 q_svc(1)==(10)==(50)<=20。'
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 复核候选 HEAD（A1–A8、K=11、EXPLAIN 判据、基线对照独立性、F016 BLOCKED
+    处置）并给出结论。
+  last_result: IMPLEMENTATION + TEST READY FOR REVIEW（TE-F039-1）：q_svc(1)==(10)==(50)==11
+    ≤ 20（K 实测钉死），HTTP 差值常数 C=1，P 轴恒 11；基线独立复测 14/68/308 且同一 A1 用例在基线上 FAIL（判据非平凡）；A2
+    逐项与 F010 端点相等、A4 负 remaining、A5 响应零 diff；EXPLAIN 无 Seq Scan；回归 15+12+11+33 全绿；F010
+    语句数 6/7/8 与基线相同。
   layers:
     database: false
     backend: true
@@ -2859,9 +2863,9 @@ features:
     database: NOT_REQUIRED
     test_design: COMPLETE
     contract: NOT_REQUIRED
-    backend: PENDING
+    backend: COMPLETE
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
@@ -2870,6 +2874,13 @@ features:
     head_commit: null
     merge_commit: null
   evidence:
+    backend:
+    - docs/features/F039/implementation.md
+    - backend/app/services/ip_capacity.py
+    - backend/app/services/dashboard.py
+    test:
+    - docs/features/F039/test-report.md#2-test-executionte-f039-12026-10-29
+    - backend/tests/integration/test_f039_query_count.py
     architecture:
     - docs/features/F039/architecture.md
     test_design:
@@ -3855,7 +3866,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F039
-  current_stage: IMPLEMENTATION
+  current_stage: REVIEW
   last_result: F037–F041 DONE（F039 启动 PRODUCT）。
   next_action: F039 PRODUCT Gate。
   repair_rounds: 0
@@ -3867,8 +3878,8 @@ planning_status:
     CANCELLED: 2
     DONE: 40
     DRAFT: 1
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 1
   ready_features:
   - F043
