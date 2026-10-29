@@ -2975,9 +2975,9 @@ features:
   - F006
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: 'TEST_DESIGN + ARCHITECTURE：tester 产出 TD（含 ≥101 夹具构造与组件/逻辑级请求断言）；architect 定稿组件形态与状态机。'
-  last_result: 'PRODUCT COMPLETE（READY FOR ARCHITECT）：实现已确认条款 §28.1（两处控件），A1–A16 可观察验收标准与 N1–N11 禁止清单成立；需求/契约/Schema 零变更。'
+  current_stage: IMPLEMENTATION
+  next_action: 'IMPLEMENTATION：frontend 落稿 L1–L4（模型→组件→两处调用点→smoke 追加 12 用例），smoke 基线须达 352 passed。'
+  last_result: 'ARCHITECTURE READY FOR DESIGN + CONTRACT 签核 READY FOR IMPLEMENTATION：新增 candidateSelectModel.ts（纯逻辑：状态机/文案/参数/epoch/pinned）+ CandidateSelect.tsx，ui/controls.tsx 零 diff；DR-F041-01..09；TD-F041-1 38 用例覆盖 A1–A16（TD 判定式更正 T1–T11）；Database/Contract NOT_REQUIRED。'
   layers:
     database: false
     backend: false
@@ -2990,10 +2990,10 @@ features:
       静默新增业务规则。
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: PENDING
     test: PENDING
@@ -3005,6 +3005,12 @@ features:
     head_commit: null
     merge_commit: null
   evidence:
+    architecture:
+    - docs/features/F041/architecture.md
+    test_design:
+    - docs/features/F041/test-report.md#1-test-designtd-f041-1v12026-10-29
+    contract:
+    - docs/features/F041/architecture.md#6-最终设计签核
     product:
     - docs/features/F041/product.md
 - id: F042
@@ -3829,7 +3835,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F041
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   last_result: F037/F038/F040 DONE。F041 启动（PRODUCT Gate）。
   next_action: F041 PRODUCT Gate。
   repair_rounds: 0
