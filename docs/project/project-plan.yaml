@@ -3242,16 +3242,12 @@ features:
   - F040
   - F041
   - F043
-  blocking_decisions:
-  - AQ-1
-  - AQ-4
-  - AQ-5
-  - AQ-6
-  status: DRAFT
+  blocking_decisions: []
+  status: READY
   current_stage: null
-  next_action: 待 CHG-015 获批、AQ-1 / AQ-4 / AQ-5 / AQ-6 裁定完成、且最终实际合并的全部 Feature DONE
-    后，由协调器核对并补齐 depends_on（AQ-6 选「收敛依赖」时补入 F040）再置 READY。
-  last_result: 候选计划（revision 25）新增；作为变更集整体验收承接项。未启动；依赖未 DONE（F037 等为 DRAFT），按依赖规则不得启动。
+  next_action: PRODUCT：产出变更集整体验收计划（跨功能回归矩阵 + 部署等价栈口径 + 证据链）。
+  last_result: 依赖 F037/F038/F039/F040/F041/F043 全部 DONE；AQ-1/AQ-4/AQ-5/AQ-6 均 CONFIRMED，depends_on
+    与实际合并集一致（F042/F044 CANCELLED 未列入）；置 READY 并启动。
   layers:
     database: false
     backend: false
@@ -3884,8 +3880,9 @@ execution:
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: null
   current_stage: null
-  last_result: F037/F038/F039/F040/F041/F043 全部 DONE 并合入 v3.4；仅余 F045 变更集整体回归与验收（P0）。
-  next_action: F045：变更集整体回归与部署等价验收，通过后恢复 project.acceptance=COMPLETE。
+  last_result: F037–F043（除 CANCELLED 的 F042/F044）全部 DONE；F045 置 READY（AQ-1/4/5/6 均
+    CONFIRMED，blocking 已清空）。
+  next_action: F045 进入 PRODUCT。
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -3894,12 +3891,12 @@ planning_status:
     BLOCKED: 0
     CANCELLED: 2
     DONE: 42
-    DRAFT: 1
+    DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 0
-  ready_features: []
+    READY: 1
+  ready_features:
+  - F045
   blocked_draft_features:
     BLOCKED: []
-    DRAFT:
-    - F045
+    DRAFT: []
