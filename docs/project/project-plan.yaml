@@ -2841,9 +2841,9 @@ features:
   - F027
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: 'TEST_DESIGN + ARCHITECTURE：tester 产出 TD（查询计数口径、N=1/10/50 夹具、EXPLAIN 证据）；architect 定稿批量化形态（薄包装 vs 批量入口）。'
-  last_result: 'PRODUCT COMPLETE（READY FOR ARCHITECT）：非功能改进、零业务规则变更；A1–A8 验收（查询计数常数上界 + §20/T32 逐项不变 + T88 范围 + 负 remaining + 响应面零变更 + 证据入库）成立；N1–N7 禁止清单成立。'
+  current_stage: IMPLEMENTATION
+  next_action: 'IMPLEMENTATION：backend 落稿 ip_capacity 预取 + dashboard 复用，自检查询计数与 EXPLAIN。'
+  last_result: 'ARCHITECTURE + CONTRACT 签核 READY FOR IMPLEMENTATION：ip_capacity 增 CapacityContext/load_capacity_context（3 条批量语句），network_capacity/auto_pools_capacity 保留为薄包装（context keyword），dashboard 一次预取后复用；契约零 diff（F013 v2 §3.3 仍真）；Database NOT_REQUIRED；TD-F039 实测基线 q_svc 14/68/308、判据 q_svc(1)==(10)==(50)<=20。'
   layers:
     database: false
     backend: true
@@ -2855,10 +2855,10 @@ features:
     contract: 无 Endpoint、字段、错误码或权限变化；容量与范围口径仍以 docs/api/F013.md 与 §20 为权威。
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
     backend: PENDING
     frontend: NOT_REQUIRED
     test: PENDING
@@ -2870,6 +2870,12 @@ features:
     head_commit: null
     merge_commit: null
   evidence:
+    architecture:
+    - docs/features/F039/architecture.md
+    test_design:
+    - docs/features/F039/test-report.md#1-test-designtd-f039-1v12026-10-29
+    contract:
+    - docs/features/F039/architecture.md#6-契约结论not_required零-diff
     product:
     - docs/features/F039/product.md
 - id: F040
@@ -3849,7 +3855,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F039
-  current_stage: ARCHITECTURE
+  current_stage: IMPLEMENTATION
   last_result: F037–F041 DONE（F039 启动 PRODUCT）。
   next_action: F039 PRODUCT Gate。
   repair_rounds: 0
