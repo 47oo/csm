@@ -44,7 +44,7 @@ def auto_pools_capacity(db, network, *, context: CapacityContext | None = None) 
 
 A2 八项逐条保持（B1/B2/B3 复用与 `_count_ips` **同一谓词集合**；建议抽 `_undeleted_ips_in_range()` 供两路共用，防语义漂移）：gateway 扣减（内存字段 + 单点排除）、RESERVED 过滤逐字一致、gateway∩RESERVED 由 `subtract_intervals` 天然去重、未绑定 IP 计占用（无 `interface_id` 谓词）、池外手动 IP 计 Network 占用（B3 无池过滤）、AUTO 总量 = `|池范围 ∩ 可分配集合|`、池占用按**当前地址**不按 `ip_pool_id`、INACTIVE 不清零（容量路径无 status 过滤）。
 
-**EXPLAIN 证据**：对 B1/B2/B3 在真 PG 记录原始计划，并追加 `SET LOCAL enable_seqscan = off` 证明可选索引路径引用 `ix_ip_pools_network_id` / `ix_ip_addresses_network_id` / `ip_pools_pkey`。小夹具下规划器选 `Seq Scan` 属代价决策，**断言以 `enable_seqscan=off` 计划为「无索引退化」判据**，原始计划仅记录（Architect 对 TD-F039-8a 的解释性澄清）。
+**EXPLAIN 证据**：对 B1/B2/B3 在真 PG 记录原始计划，并追加 `SET LOCAL enable_seqscan = off` 证明存在索引路径（**network_id 前导索引**；实测规划器选择 `excl_ip_pools_network_id_address_range` 或 `ix_ip_addresses_network_id`，存在运行间漂移，判据为「`enable_seqscan=off` 下无 `Seq Scan` 且引用索引名存在于 `pg_indexes`」）。小夹具下规划器选 `Seq Scan` 属代价决策，**断言以 `enable_seqscan=off` 计划为「无索引退化」判据**，原始计划仅记录（Architect 对 TD-F039-8a 的解释性澄清）。
 
 ## 4. ON-2 / ON-3：计数口径与夹具（与 TD 一致）
 
@@ -64,7 +64,7 @@ A1↔1a–1d、A2↔2a–2d、A3↔3a、A4↔4a、A5↔5a–5b、A6↔6a、A7↔
 
 ## 8. Database：`NOT_REQUIRED`
 
-无 DDL。现有索引足够：B1/B2 过滤 `ip_pools.network_id` → `ix_ip_pools_network_id`（`ix_ip_pools_allocation_mode` 次要）；B3 与 B2 join 侧过滤 `ip_addresses.network_id` → `ix_ip_addresses_network_id`；行按 PK。B2 的地址区间是 join 谓词，**不新增 address 索引**（DB-D124）。若 EXPLAIN 显示确需新索引 ⇒ 立即停止走 DATABASE Gate（N5）。
+无 DDL。现有索引足够：B1/B2 过滤 `ip_pools.network_id` → network_id 前导索引（`excl_ip_pools_network_id_address_range` 或 `ix_ip_pools_network_id`，规划器按代价选择）；B3 与 B2 join 侧过滤 `ip_addresses.network_id` → `ix_ip_addresses_network_id`；行按 PK。B2 的地址区间是 join 谓词，**不新增 address 索引**（DB-D124）。若 EXPLAIN 显示确需新索引 ⇒ 立即停止走 DATABASE Gate（N5）。
 
 ## 9. 风险
 
