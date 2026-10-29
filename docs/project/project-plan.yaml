@@ -2841,10 +2841,9 @@ features:
   - F027
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
-  next_action: PRODUCT：product-manager 产出 product.md（AQ-5=A：仅查询批量化 + 查询计数基准，公式与语义零变更）。
-  last_result: Preflight 通过；分支 feature/F039-dashboard-queries 自 v3.4 创建；进入 PRODUCT
-    阶段。
+  current_stage: ARCHITECTURE
+  next_action: 'TEST_DESIGN + ARCHITECTURE：tester 产出 TD（查询计数口径、N=1/10/50 夹具、EXPLAIN 证据）；architect 定稿批量化形态（薄包装 vs 批量入口）。'
+  last_result: 'PRODUCT COMPLETE（READY FOR ARCHITECT）：非功能改进、零业务规则变更；A1–A8 验收（查询计数常数上界 + §20/T32 逐项不变 + T88 范围 + 负 remaining + 响应面零变更 + 证据入库）成立；N1–N7 禁止清单成立。'
   layers:
     database: false
     backend: true
@@ -2855,7 +2854,7 @@ features:
     frontend: 响应形状不变，前端零改动。
     contract: 无 Endpoint、字段、错误码或权限变化；容量与范围口径仍以 docs/api/F013.md 与 §20 为权威。
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -2870,7 +2869,9 @@ features:
     start_commit: f66d1f33eb95fd54504e6c600ad32e7bc89ad9bd
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F039/product.md
 - id: F040
   title: 前端依赖版本范围与架构升级策略对齐（R07）
   kind: ENABLER
@@ -3848,7 +3849,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F039
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   last_result: F037–F041 DONE（F039 启动 PRODUCT）。
   next_action: F039 PRODUCT Gate。
   repair_rounds: 0
