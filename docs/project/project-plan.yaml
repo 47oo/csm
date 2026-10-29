@@ -2763,10 +2763,11 @@ features:
   - F023
   - F037
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 依赖 F037 已 DONE；可调度。启动后由 product-manager 产出 product.md（PRODUCT Gate）。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R05（静态路径分析，未执行内存耗尽实验）。未启动。
+  status: IN_PROGRESS
+  current_stage: PRODUCT
+  next_action: PRODUCT：product-manager 产出 product.md（AQ-2=A 边界：仅实现侧有界解析，零可观察差异）。
+  last_result: Preflight 通过；分支 feature/F038-import-parse-bounds 自 v3.4 创建；进入 PRODUCT
+    阶段。
   layers:
     database: false
     backend: true
@@ -2789,8 +2790,8 @@ features:
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
+    branch: feature/F038-import-parse-bounds
+    start_commit: 8e609ca5a3f6b3e0a5cb6b6ba3cd1d5fd1c0e0b4
     head_commit: null
     merge_commit: null
   evidence: {}
@@ -3793,13 +3794,13 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
+  current_feature: F038
+  current_stage: PRODUCT
   last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
     / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
     / AQ-6 已裁定，AQ-7 保持 OPEN。
   next_action: 启动 F037（P0，导入解析异常收敛为 422 IMPORT_INVALID_FILE）。
-  repair_rounds: 1
+  repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
@@ -3808,11 +3809,10 @@ planning_status:
     CANCELLED: 2
     DONE: 37
     DRAFT: 1
-    IN_PROGRESS: 0
+    IN_PROGRESS: 1
     IN_REVIEW: 0
-    READY: 5
+    READY: 4
   ready_features:
-  - F038
   - F039
   - F040
   - F041
