@@ -2685,7 +2685,7 @@ features:
   - F035
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   next_action: 由 product-manager 产出 docs/features/F037/product.md 并要求 READY FOR ARCHITECT。
   last_result: Preflight 通过；分支 feature/F037-import-parse-error-contract 自交付线 v3.4（start_commit
     1c0eeaf）创建；进入 PRODUCT 阶段。
@@ -2698,7 +2698,7 @@ features:
     database: 仅扩宽解析异常转换，不修改表/列/索引/约束/触发器/Migration，不改事务边界与写入顺序。
     frontend: 无前端改动；两种输入载体（文件 / 文本）行为与服务端响应一致，无需界面调整。
   implementation:
-    product: PENDING
+    product: COMPLETE
     architecture: PENDING
     database: NOT_REQUIRED
     test_design: PENDING
@@ -2709,11 +2709,14 @@ features:
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
+    branch: feature/F037-import-parse-error-contract
+    start_commit: 1c0eeafcd36fc6c4c791f89197243a074c6d5f01
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F037/product.md
+
 - id: F038
   title: 导入解压 / 解析内存边界加固（R05）
   kind: FEATURE
@@ -3771,7 +3774,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F037
-  current_stage: PRODUCT
+  current_stage: ARCHITECTURE
   last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
     / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
     / AQ-6 已裁定，AQ-7 保持 OPEN。
