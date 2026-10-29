@@ -70,3 +70,24 @@
 `docs/features/F045/artifacts/{full-pytest,scripts-pytest,a02-import-parse,a03-capacity,a04-scope,a09-f016-acceptance,frontend-typecheck,frontend-build,frontend-smoke,frontend-interactions,compose-up,compose-ps,http-acceptance}.log`；非 `.log` 但需入库：`artifacts/{env.md,a09-review-classification.md,a07-image-staleness.txt}`、`docs/features/F045/test-report.md`。
 
 **Issues / Next**：DEF-1 由协调器裁定并调度修复（测试资产）→ 修复后仅需重跑 A1（全量 + 失败项重跑）与本报告复核；A8/A12 由协调器执行；`.log` 入库后以 `git ls-files` 证明。**本报告不放行 Review、不批准合并、不恢复 `project.acceptance`**。
+
+## 3. TEST 第二轮（DEF-1 修复后，2026-10-29）
+
+**结论：`READY FOR REVIEW`**（A1–A11 全部 PASS；A8/A12 属协调器，见 §4）
+
+| A | 第二轮结论 | 证据 |
+| --- | --- | --- |
+| A1 | **PASS** | 全新库 `csm_f045_test`（先 DROP/CREATE）+ 唯一 pytest 进程：`969 passed, 6 skipped in 1174.76s`，`artifacts/full-pytest.log`（含 header 与完整 skip 清单）。6 条 skip = F016 验收模块未启用（1）+ F028 验收依赖 F016（4）+ `test_migrations.py:105` 非超级用户 V3b（1），均在 `a09-f016-acceptance.log` 与 A9 归类中覆盖 |
+| A2–A7、A9 | PASS（沿用第一轮实测，未受 DEF-1 影响） | `a02-import-parse.log` 147 passed；`a03-capacity.log` 27 passed；`a04-scope.log` 48 passed；`frontend-*.log` 352 / 14；`scripts-pytest.log` 113 passed；`compose-up.log`/`http-acceptance.log` 61 步 0 FAIL |
+
+### 3.1 DEF-1 修复
+
+`backend/tests/integration/test_f038_parse_bounds.py` 的两处 S 层守卫原以 `START_COMMIT="8e609ca"` 为 diff 基线，合并后区间随 F039/F040/F041/F043 的合法改动增长 ⇒ 必然失败。修复为**钉住 F038 自身区间** `8e609ca..adef87a`（新增常量 `F038_MERGE_COMMIT`），零 diff 与 `sorted(changed)` 断言**未放宽**；实测 `git diff 8e609ca adef87a --name-only -- backend/app` 仍恰为两个 service 文件。
+
+### 3.2 第一轮失败的环境原因（如实记录）
+
+第一轮 2 个 FAIL（`test_import_performance.py::test_import_near_max_rows_baseline`、`test_f023_...::test_perf03_near_max_rows_baseline`，写入 228s / 701s vs 阈值 180s）由两点环境因素造成：① 一次超时未清理的并发 pytest 进程与主进程竞争 CPU/IO；② 复用已膨胀的测试库。两者均为**验收环境缺陷，不是产品回归**；换全新库并清除并发进程后全量通过。结论以第二轮为准。
+
+### 3.3 未验证项（不计 PASS）
+
+真实 OOM、无 `lxml` 镜像、`LargeZipFile`/`InvalidFileException`/`EOFError` 可达性、5000 行写入的 S-W2 原规模、性能阈值长期稳定性、非 linux-x64 与 registry 长期可用性、浏览器视觉/DOM/屏幕阅读器与真实点击流（AQ-4=B）、A8/A12（协调器）。

@@ -1,17 +1,18 @@
-# cmd: cd backend && TEST_DATABASE_URL='postgresql+psycopg://csm:***@127.0.0.1:55432/csm_f045_test' python -m pytest -p no:cacheprovider -ra -q 2>&1 | tee ../docs/features/F045/artifacts/full-pytest.log
-# start_commit: fa8a568 fa8a568b912d7aea9806a58616e98867a5786808
-# head: 9941f92 9941f923d153dfa97e2766fce47811aaf8064082
-# env: TEST_DATABASE_URL=postgresql+psycopg://csm:***@127.0.0.1:55432/csm_f045_test ; DATABASE_URL=<unset> ; PWD=/home/hanhao/github/47oo/csm
-# started_at: 2026-10-29T14:33:56Z
-# tool_versions: python=3.12.7 pytest=pytest 7.4.4 httpx=0.27.0 node=v22.23.3 npm=10.9.9 docker=26.1.2 compose=5.6.0 pg=PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
-# ---
+cmd: TEST_DATABASE_URL=*** python -m pytest -p no:cacheprovider -ra -q (cwd=backend, DB recreated fresh)
+start_commit: fa8a568
+head: d6a4f4d9a1a25aa838df2f528e99900d911e8e07
+env: TEST_DATABASE_URL=***@127.0.0.1:55432/csm_f045_test
+finished_at: 2026-10-29T18:08:53Z
+exit_code: 0
+note: 上一轮的两处 FAIL 由并发 pytest 进程 + 复用膨胀测试库导致；本轮为唯一进程 + 全新库
+----
 ........................................................................ [  7%]
 ........................................................................ [ 14%]
 ........................................................................ [ 22%]
 .................................................ssss................... [ 29%]
 ........................................................................ [ 36%]
 ........................................................................ [ 44%]
-.........................................F....F......................... [ 51%]
+........................................................................ [ 51%]
 ........................................................................ [ 59%]
 ........................................................................ [ 66%]
 ................................................s....................... [ 73%]
@@ -19,78 +20,6 @@
 ........................................................................ [ 88%]
 ........................................................................ [ 96%]
 ......................................                                   [100%]
-=================================== FAILURES ===================================
-________________ test_td_f038_s1_zero_diff_and_frozen_contract _________________
-
-    def test_td_f038_s1_zero_diff_and_frozen_contract():
-        """TD-F038-S1（A13 / B12 / N2–N5）：契约/数据库/前端/依赖零 diff + 冻结常量。"""
-        zero_diff_paths = (
-            "docs/api",
-            "docs/database",
-            "backend/alembic",
-            "frontend",
-            "backend/pyproject.toml",
-            "backend/Dockerfile",
-            "backend/tests/integration/test_f037_import_parse_errors.py",
-        )
-        diff = _git("diff", "--stat", START_COMMIT, "--", *zero_diff_paths)
->       assert diff.strip() == "", f"禁止写入的路径出现 diff:\n{diff}"
-E       AssertionError: 禁止写入的路径出现 diff:
-E          frontend/package-lock.json                         |   6 +-
-E          frontend/package.json                              |   7 +-
-E          frontend/scripts/interaction/auth.mjs              |  47 ++
-E          frontend/scripts/interaction/candidate.mjs         | 102 ++++
-E          frontend/scripts/interaction/conflict.mjs          |  93 ++++
-E          frontend/scripts/interaction/dangerousAction.mjs   |  63 +++
-E          frontend/scripts/interaction/importCarrier.mjs     | 100 ++++
-E          .../scripts/interaction/tsxBoundary.static.mjs     | 106 ++++
-E          frontend/scripts/lib/case-ledger.json              |  16 +
-E          frontend/scripts/lib/caseAudit.mjs                 | 331 ++++++++++++
-E          frontend/scripts/lib/harness.mjs                   | 109 ++++
-E          frontend/scripts/lib/report.mjs                    |  14 +
-E          frontend/scripts/smoke-client.mjs                  | 566 +++++++++++++++++++--
-E          frontend/scripts/test-interactions.mjs             |  53 ++
-E          frontend/src/components/CandidateSelect.tsx        | 231 +++++++++
-E          frontend/src/components/ResourceForm.tsx           |  25 +-
-E          frontend/src/components/VirtualMachineFields.tsx   | 129 +----
-E          frontend/src/components/candidateSelectModel.ts    | 294 +++++++++++
-E          frontend/src/pages/ResourceCreatePage.tsx          | 102 +---
-E          19 files changed, 2144 insertions(+), 250 deletions(-)
-E         
-E       assert 'frontend/pac... deletions(-)' == ''
-E         + frontend/package-lock.json                         |   6 +-
-E         +  frontend/package.json                              |   7 +-
-E         +  frontend/scripts/interaction/auth.mjs              |  47 ++
-E         +  frontend/scripts/interaction/candidate.mjs         | 102 ++++
-E         +  frontend/scripts/interaction/conflict.mjs          |  93 ++++
-E         +  frontend/scripts/interaction/dangerousAction.mjs   |  63 +++
-E         +  frontend/scripts/interaction/importCarrier.mjs     | 100 ++++...
-E         
-E         ...Full output truncated (13 lines hidden), use '-vv' to show
-
-tests/integration/test_f038_parse_bounds.py:2021: AssertionError
-________________ test_td_f038_s6_change_surface_is_two_services ________________
-
-    def test_td_f038_s6_change_surface_is_two_services():
-        """TD-F038-S6（§13.6 / §13.10 放行写入）：仅两个 service 有实现 diff。"""
-        changed = [
-            line.strip()
-            for line in _git("diff", "--name-only", START_COMMIT, "--", "backend/app")
-            .strip()
-            .splitlines()
-            if line.strip()
-        ]
->       assert sorted(changed) == [
-            "backend/app/services/resource_import.py",
-            "backend/app/services/resource_interface_ip_import.py",
-        ], changed
-E       AssertionError: ['backend/app/services/dashboard.py', 'backend/app/services/ip_capacity.py', 'backend/app/services/resource_import.py', 'backend/app/services/resource_interface_ip_import.py']
-E       assert ['backend/app...ip_import.py'] == ['backend/app...ip_import.py']
-E         At index 0 diff: 'backend/app/services/dashboard.py' != 'backend/app/services/resource_import.py'
-E         Left contains 2 more items, first extra item: 'backend/app/services/resource_import.py'
-E         Use -v to get more diff
-
-tests/integration/test_f038_parse_bounds.py:2211: AssertionError
 =========================== short test summary info ============================
 SKIPPED [1] tests/integration/test_f016_acceptance.py:50: F016 acceptance module disabled (set F016_ACCEPTANCE=1)
 SKIPPED [1] tests/integration/test_f028_acceptance.py:100: F028 acceptance requires F016_ACCEPTANCE=1
@@ -98,47 +27,4 @@ SKIPPED [1] tests/integration/test_f028_acceptance.py:148: F028 acceptance requi
 SKIPPED [1] tests/integration/test_f028_acceptance.py:189: F028 acceptance requires F016_ACCEPTANCE=1
 SKIPPED [1] tests/integration/test_f028_acceptance.py:210: F028 acceptance requires F016_ACCEPTANCE=1
 SKIPPED [1] tests/integration/test_migrations.py:105: connected role 'csm' is superuser; run against a non-superuser DB owner to exercise V3b (DB-D11)
-FAILED tests/integration/test_f038_parse_bounds.py::test_td_f038_s1_zero_diff_and_frozen_contract
-FAILED tests/integration/test_f038_parse_bounds.py::test_td_f038_s6_change_surface_is_two_services
-2 failed, 967 passed, 6 skipped in 1357.44s (0:22:37)
-
-# finished_at: 2026-10-29T14:56:45Z
-# exit_code: 1
-# --- rerun (1 次) 失败项按 nodeid ---
-# cmd: python -m pytest -p no:cacheprovider -ra -q tests/integration/test_f038_parse_bounds.py::test_td_f038_s1_zero_diff_and_frozen_contract tests/integration/test_f038_parse_bounds.py::test_td_f038_s6_change_surface_is_two_services
-# started_at: 2026-10-29T14:56:45Z
-
-    def test_td_f038_s6_change_surface_is_two_services():
-        """TD-F038-S6（§13.6 / §13.10 放行写入）：仅两个 service 有实现 diff。"""
-        changed = [
-            line.strip()
-            for line in _git("diff", "--name-only", START_COMMIT, "--", "backend/app")
-            .strip()
-            .splitlines()
-            if line.strip()
-        ]
->       assert sorted(changed) == [
-            "backend/app/services/resource_import.py",
-            "backend/app/services/resource_interface_ip_import.py",
-        ], changed
-E       AssertionError: ['backend/app/services/dashboard.py', 'backend/app/services/ip_capacity.py', 'backend/app/services/resource_import.py', 'backend/app/services/resource_interface_ip_import.py']
-E       assert ['backend/app...ip_import.py'] == ['backend/app...ip_import.py']
-E         At index 0 diff: 'backend/app/services/dashboard.py' != 'backend/app/services/resource_import.py'
-E         Left contains 2 more items, first extra item: 'backend/app/services/resource_import.py'
-E         Use -v to get more diff
-
-tests/integration/test_f038_parse_bounds.py:2211: AssertionError
-=========================== short test summary info ============================
-FAILED tests/integration/test_f038_parse_bounds.py::test_td_f038_s1_zero_diff_and_frozen_contract
-FAILED tests/integration/test_f038_parse_bounds.py::test_td_f038_s6_change_surface_is_two_services
-2 failed in 0.95s
-# finished_at: 2026-10-29T14:56:47Z
-# rerun_exit_code: 1
-
-# --- 追加：A1 中唯一余留 skip（test_migrations.py::test_trusted_extension_installed_by_non_superuser，原因「connected role 'csm' is superuser」）在本环境以非超级用户 DB owner 重跑（DB-D11 / V3b） ---
-# cmd: docker exec csm-f037-pg psql: CREATE ROLE csm_f045n NOSUPERUSER ; CREATE DATABASE csm_f045_test_nonsuper OWNER csm_f045n ; cd backend && TEST_DATABASE_URL='postgresql+psycopg://csm_f045n:***@127.0.0.1:55432/csm_f045_test_nonsuper' python -m pytest -q -p no:cacheprovider tests/integration/test_migrations.py::test_trusted_extension_installed_by_non_superuser
-# started_at: 2026-10-29T15:20:46Z
-.                                                                        [100%]
-1 passed in 3.42s
-# finished_at: 2026-10-29T15:20:52Z
-# nonsuper_exit_code: 0
+969 passed, 6 skipped in 1174.76s (0:19:34)

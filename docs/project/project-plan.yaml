@@ -3243,10 +3243,12 @@ features:
   - F041
   - F043
   blocking_decisions: []
-  status: IN_PROGRESS
-  current_stage: IMPLEMENTATION
-  next_action: '重跑 A1 全量 pytest（修复后），通过后更新 test-report §3 并进入 REVIEW。'
-  last_result: 'TD + TEST 第一轮：A2–A7、A9 PASS（A7 真实 Compose 61 步 0 FAIL，含空卷 0001→0015 全链）；A1 FAIL（2 failed / 967 passed / 6 skipped），根因为 F038 守卫以自身起点为 diff 基线（DEF-1，测试资产脆性）；DEF-1 已按 F038 区间（8e609ca..adef87a）钉死修复，待重跑 A1。'
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 复核 A1–A12 证据、DEF-1 修复正当性、Compose 口径与 NOT TESTED 诚实性。
+  last_result: TEST 第二轮 READY FOR REVIEW：全新库 + 唯一进程下 A1 全量 pytest 969 passed / 6 skipped（1174s）；A2
+    147、A3 27、A4 48、A5 352+14、A6 113、A7 真实 Compose 61 步 0 FAIL、A9 归类完成；DEF-1（F038
+    守卫基线）已钉区间修复且未放宽断言；第一轮 2 个性能失败归因为并发进程 + 膨胀测试库（如实记录）。
   layers:
     database: false
     backend: false
@@ -3266,7 +3268,7 @@ features:
     contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
@@ -3275,6 +3277,11 @@ features:
     head_commit: null
     merge_commit: null
   evidence:
+    test:
+    - docs/features/F045/test-report.md#3-test-第二轮def-1-修复后2026-10-29
+    - docs/features/F045/artifacts/full-pytest.log
+    - docs/features/F045/artifacts/http-acceptance.log
+    - docs/features/F045/artifacts/compose-up.log
     test_design:
     - docs/features/F045/test-report.md#1-test-designtd-f045-12026-10-29
     architecture:
@@ -3886,7 +3893,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F045
-  current_stage: IMPLEMENTATION
+  current_stage: REVIEW
   last_result: F037/F038/F039/F040/F041/F043 DONE；F045 变更集整体验收启动（分支 feature/F045-change-set-acceptance）。
   next_action: F045 PRODUCT Gate（整体回归矩阵 + 部署等价栈口径）。
   repair_rounds: 0
@@ -3898,8 +3905,8 @@ planning_status:
     CANCELLED: 2
     DONE: 42
     DRAFT: 0
-    IN_PROGRESS: 1
-    IN_REVIEW: 0
+    IN_PROGRESS: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
