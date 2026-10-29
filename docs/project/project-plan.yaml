@@ -2763,14 +2763,12 @@ features:
   - F023
   - F037
   blocking_decisions: []
-  status: IN_REVIEW
-  current_stage: REVIEW
-  next_action: REVIEW：reviewer 复核候选 HEAD（含 §14 口径一致性、R-13 未放宽、G-A 守卫、报告措辞）并给出 APPROVED
-    / APPROVED WITH FOLLOW-UP。
-  last_result: repair round 1 复测通过（TE-F038-2）：整模块 76 passed / 0 failed（含 m4d 地板来源+守卫、m3a
-    T-2′、m4b T-1b′、m4e T-1c、m6 增列）；F/B = 5.045/5.011/5.009/5.216（G-A1/A2 PASS）；T-1b′
-    0.006 ≤ 2.009 MiB、T-1c 1.057 ≤ 3.579 MiB（两侧 413）、T-2′ 11.441×/155.744×/5312.409×/37.483×；F037
-    52 项零修改全绿；R2–R6 70/31/48/4/3 全绿；两 service 与 test_f037 零 diff。TD-I-9/TD-I-10 关闭。
+  status: DONE
+  current_stage: null
+  next_action: null
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD 6d9144b / Base 8e609ca；整模块 76
+    passed、F037 52 项零修改、R2–R6 全绿；Reviewer 自建 155 例差分 fuzz + 判据反事实均通过）；Merge 至 v3.4
+    成功（adef87a，父提交 = Base + 批准 HEAD）；FU-1..FU-5 已登记为非阻塞跟进。
   layers:
     database: false
     backend: true
@@ -2790,14 +2788,16 @@ features:
     backend: COMPLETE
     frontend: NOT_REQUIRED
     test: COMPLETE
-    review: PENDING
+    review: COMPLETE
   git:
     base_branch: v3.4
     branch: feature/F038-import-parse-bounds
     start_commit: 8e609ca2e5b88c30804b6f6ad54a8a57d7906556
-    head_commit: null
-    merge_commit: null
+    head_commit: 6d9144b899b644228a90cd8a2db921c2288e6500
+    merge_commit: adef87a43d9c73465c815fe85b2577d5dd17a1f2
   evidence:
+    review:
+    - docs/features/F038/review-report.md
     product:
     - docs/features/F038/product.md
     architecture:
@@ -3812,22 +3812,23 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: F038
-  current_stage: REVIEW
-  last_result: F038 repair round 1 完成：§14 阈值重裁 + 复测 76 passed / 0 failed；TD-I-9/TD-I-10
-    关闭；实现与 F037 零变更。
-  next_action: F038 REVIEW Gate。
-  repair_rounds: 0
+  current_feature: null
+  current_stage: null
+  last_result: F037、F038 DONE（均已合入 v3.4）。F038：解析阶段内存有界（整段排空 + 有界保留），AQ-2=A 零可观察差异；Review
+    APPROVED WITH FOLLOW-UP。
+  next_action: 继续已批准范围：F040（R07 依赖范围）→ F041（R04 候选完整性）→ F039（R10 Dashboard）→ F043（R08
+    测试入口）→ F045（整体回归）。
+  repair_rounds: 1
 planning_status:
   status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 2
-    DONE: 37
+    DONE: 38
     DRAFT: 1
     IN_PROGRESS: 0
-    IN_REVIEW: 1
+    IN_REVIEW: 0
     READY: 4
   ready_features:
   - F039
