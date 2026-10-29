@@ -4,14 +4,15 @@
 
 ## 1. 分支与范围
 
-* `v3`：当前版本集成分支。
-* `feature/<feature-id>-<slug>`：从 v3 创建的单个 Feature 分支。
-* `proposal/<change-id>-<slug>`：从 v3 创建的需求变更提案分支，不执行 Feature 实现。
+* **交付分支（delivery branch）**：由计划字段与 §2 的权威值解析得到，当前为 `v3.4`。下文所有命令一律引用该解析结果（示例写作 `$DELIVERY_BRANCH`），不再硬编码分支名。
+* `feature/<feature-id>-<slug>`：从交付分支创建的单个 Feature 分支。
+* `proposal/<change-id>-<slug>`：从交付分支创建的需求变更提案分支，不执行 Feature 实现。
 * `main`：稳定版本，只能通过独立授权的 Release 流程更新。
+* `v3`：历史集成分支名（`v3.4` 之前的写法）。仅在追溯历史 Feature 记录时使用，不得作为新 Feature 的创建、Review 或 Merge 基线。
 
-以上是 V3 的分支约定，不证明本地已经存在 v3。仅维护提示/流程文档时不自动创建或切换分支；首次实施若 v3 不存在，记录 `GIT PREFLIGHT BLOCKED` 并由协调器依据明确的 V3 初始化授权和当前基线建立，不从 V1/V2 历史查找产品成果。
+以上是 V3 的分支约定，不证明本地已经存在交付分支。仅维护提示/流程文档时不自动创建或切换分支；首次实施若交付分支不存在，记录 `GIT PREFLIGHT BLOCKED` 并由协调器依据明确的 V3 初始化授权和当前基线建立，不从 V1/V2 历史查找产品成果。
 
-普通 Feature 不直接在 v3/main 实现；默认不 push、打 tag、删除分支或发布。文档维护等用户明确授权的直接操作按授权范围执行，不伪装成 Feature DONE。
+普通 Feature 不直接在交付分支或 `main` 实现；默认不 push、打 tag、删除分支或发布。文档维护等用户明确授权的直接操作按授权范围执行，不伪装成 Feature DONE。
 
 同一 Feature 使用同一工作区。并行任务必须划定文件所有权，所有写入者停止后才能暂存、提交、切分支或合并；共享文件串行处理。禁止自动 stash、reset --hard、clean、强制切分支或改写历史。
 
@@ -26,23 +27,33 @@ git status --porcelain=v1 --untracked-files=all
 git status
 ```
 
-要求 HEAD 非 detached、v3 存在、暂存与工作区 clean、无未跟踪文件、无 merge/rebase/cherry-pick 等进行中操作。失败输出 `GIT PREFLIGHT BLOCKED`，不自动归档未知修改。
+要求 HEAD 非 detached、交付分支存在、暂存与工作区 clean、无未跟踪文件、无 merge/rebase/cherry-pick 等进行中操作。失败输出 `GIT PREFLIGHT BLOCKED`，不自动归档未知修改。
+
+**交付分支名只从权威字段解析一次**（`git.base_branch` 的最新有效值，见下方字段说明），后续创建、Review、Merge 全部引用同一变量：
+
+```bash
+DELIVERY_BRANCH=v3.4   # 权威值取自 git.base_branch；只在交付线变更时才修改此处
+```
+
+本仓库的 `v3` 与 `v3.4` 同时存在**同名标签与分支**，`git rev-parse v3.4` 会报 `ambiguous` 并可能解析到 tag。因此凡是比较 / 解析类命令（rev-parse、merge-base、diff、log、merge）一律使用完整引用 `refs/heads/$DELIVERY_BRANCH`；只有 `git switch` 才用短分支名。
 
 确认 Feature ID/slug 合法且目标分支不存在，逐条执行并检查：
 
 ```bash
-git switch v3
+git switch "$DELIVERY_BRANCH"
 git rev-parse HEAD
 git switch -c feature/<feature-id>-<slug>
 ```
 
+创建、Review、Merge 必须使用同一 `$DELIVERY_BRANCH` 值；本文件与计划基线的一致性检查见 §4。禁止在同一流程里混用 `v3` 与 `v3.4`：本地同时存在两个分支时旧命令仍能成功执行，进程成功不能证明基线正确。
+
 记录实际值：
 
-* `git.base_branch`：当前交付分支。**2026-10-26 起为 `v3.4`**（F001–F036 全部交付后的交付线，指针 `936a425` 同源迁移自 `v3.3`）；为兼容旧记录仍接受 `v3` 形式写法，但新 Feature 一律基于 `v3.4`。
+* `git.base_branch`：当前交付分支。**2026-10-26 起为 `v3.4`**（F001–F036 全部交付后的交付线，指针 `936a425` 同源迁移自 `v3.3`）；旧记录保留 `v3` / `v3.2` / `v3.3` 写法，但新 Feature 一律基于 `v3.4`。注意 `v3`、`v3.4` 同时存在**同名标签与分支**，比较类命令须用 `refs/heads/v3.4`。
   - `v3.3` **分支已废弃并于 2026-10-26 删除**（远端与本地）；`v3.3` **标签保留**（annotated，指向 `936a425`）作为历史基线，供 DONE Feature 的 Base SHA 追溯，不得据此开启新 Feature。
   - `v3.4` 与已删除的 `v3.3` 分支在切换时指向同一提交，属**同内容改名**，不是内容变更；历史 Feature 报告中的 `refs/heads/v3.3` 记录保持原样，不改写。
 * `git.branch`：创建的 Feature 分支。
-* `git.start_commit`：创建时 v3 的完整 SHA，之后不变。
+* `git.start_commit`：创建时交付分支（`$DELIVERY_BRANCH`）的完整 SHA，之后不变。
 * `git.head_commit`：最近已记录的交付或检查点提交；不是包含该字段的 YAML 提交自身哈希。其后仅状态元数据差异需核对，不递归追写 HEAD。
 * `git.merge_commit`：合并前 null，成功后写真实 Merge SHA。
 
@@ -69,21 +80,40 @@ Reviewer 从 Plan/协调器取得 branch、start_commit 与 base_branch，核对
 ```bash
 git status --short
 git rev-parse HEAD
-git rev-parse v3
-git merge-base v3 HEAD
-git diff v3...HEAD
-git diff --stat v3...HEAD
-git log --oneline v3..HEAD
+git rev-parse "refs/heads/$DELIVERY_BRANCH"
+git merge-base "refs/heads/$DELIVERY_BRANCH" HEAD
+git diff "refs/heads/$DELIVERY_BRANCH"...HEAD
+git diff --stat "refs/heads/$DELIVERY_BRANCH"...HEAD
+git log --oneline "refs/heads/$DELIVERY_BRANCH"..HEAD
 git diff
 git diff --cached
 git ls-files --others --exclude-standard
 ```
 
+`$DELIVERY_BRANCH` 必须与创建 Feature 时解析的值相同；不同则说明基线漂移，先核对再 Review。$DELIVERY_BRANCH 的权威值与命令用值一致、且指向 Feature 实际来源分支，才能继续。
+
 同时核对 `start_commit..HEAD` 历史，不遗漏 Feature 早期变更。未提交或未跟踪交付物阻止正式批准。报告记录候选 HEAD、Base SHA、merge-base、完整审查范围和测试证据；基线变化必须重新验证/Review。
+
+**工作流文档与计划基线一致性检查**（每次 Review 与每次交付线变更后执行，只读）：
+
+```bash
+DELIVERY_BRANCH=v3.4   # 必须与本文件 §2 的记录及当前交付线一致
+grep -n 'DELIVERY_BRANCH=' docs/project/git-workflow.md
+grep -rn 'base_branch:' docs/project/project-plan.yaml | tail -5
+git rev-parse --verify "refs/heads/$DELIVERY_BRANCH"
+git branch -a --list "$DELIVERY_BRANCH"
+git tag --list "$DELIVERY_BRANCH"   # 同名 tag 存在时仅用于提醒命令需用 refs/heads 写法
+```
+
+判定规则：
+
+* 待下发 Feature 的 `git.base_branch`、本文件 §2 的 `DELIVERY_BRANCH`、与 `refs/heads/$DELIVERY_BRANCH` 的实际存在性三者必须一致。
+* 历史 DONE Feature 中出现旧值（`v3` / `v3.2` / `v3.3`）属正常记录，不回写；只要求**新** Feature 一律用当前交付线。
+* 不一致时以计划字段与用户已确认的交付线为准，按编辑维护修正本文件并记录来源；不得因为旧命令仍能执行就认定基线正确。
 
 ## 5. Merge Gate 与 DONE
 
-必须同时满足：必要测试（包括适用的真实集成）通过；Review APPROVED / APPROVED WITH FOLLOW-UP；无 BLOCKER、HIGH、必须修复 MEDIUM 或产品未决问题；全部写入者结束；工作区 clean；候选 HEAD 与批准 HEAD、v3 与批准 Base SHA 均一致。
+必须同时满足：必要测试（包括适用的真实集成）通过；Review APPROVED / APPROVED WITH FOLLOW-UP；无 BLOCKER、HIGH、必须修复 MEDIUM 或产品未决问题；全部写入者结束；工作区 clean；候选 HEAD 与批准 HEAD、`$DELIVERY_BRANCH` 与批准 Base SHA 均一致。
 
 同时核对当前计划批准仍覆盖此 Feature、无命中它的 pending_changes；需求/设计版本变化使批准失效时，重新走受影响 Gate。
 
@@ -92,11 +122,10 @@ Review 获批准后，review = COMPLETE、stage = MERGE 和报告暂存于协调
 逐条执行并检查：
 
 ```bash
-git switch v3
+git switch "$DELIVERY_BRANCH"
 git merge --no-ff feature/<feature-id>-<slug>
 git rev-parse HEAD
 ```
-
 失败或冲突输出 `GIT MERGE BLOCKED`，保留现场，不标 DONE、不自动解决冲突后沿用旧批准。成功后验证两个父提交为预期 Base 与批准 HEAD，集成树与验证过的候选一致；不一致停止重新验证。
 
 记录 approved HEAD 到 git.head_commit、真实 Merge SHA 到 git.merge_commit；统一保存 Review Report、Follow-up、Plan 和必要派生视图，清空执行检查点、重算依赖，作为独立状态提交 `chore(Fxxx): mark feature complete`。此提交不得修改已批准实现。
@@ -105,7 +134,7 @@ git rev-parse HEAD
 
 ## 6. Merge / 最终状态提交中断恢复
 
-优先从已提交 Plan 检查点定位 Feature，即使工作区已经清空 current_feature 也不能丢掉恢复目标。在 v3 核对 Merge SHA、父提交、批准证据、候选与状态提交。
+优先从已提交 Plan 检查点定位 Feature，即使工作区已经清空 current_feature 也不能丢掉恢复目标。在交付分支（`$DELIVERY_BRANCH`）核对 Merge SHA、父提交、批准证据、候选与状态提交。
 
 * Merge 已完成、状态未提交：核对未提交差异归属，补保存状态，不重复 Merge。
 * 状态提交已完成：核对证据后幂等继续调度。
@@ -118,8 +147,8 @@ git rev-parse HEAD
 变更内容、暂停范围及批准流程见 `change-control.md`。以下操作仅由协调器在用户要求开展需求变更工作时执行；维护流程文件本身不意味着启动提案或实施。
 
 * 创建前核对当前 V3 分支和工作区；若有进行中 Feature，停止写入并保存可核验的检查点，不把它合并为 DONE。存在未知改动或不能安全提交时保留现场并报告，禁止自动 stash。
-* 在执行基线记录 `pending_changes` 和提案标识。若暂停标记先记录于 Feature 分支，切到 v3 后也须同步这一协调元数据，使 v3 调度器能够看见；不得同时搬运未完成实现。先完成必要的元数据提交，再从 clean v3 创建提案分支，记录实际基线 SHA。
-* 在提案分支修改文档与候选计划，保持活动 Plan 的原批准基线。未批准产品正文不得进入 v3；未完成 Feature 分支保持独立。
-* 用户批准具体提案版本后，核对当前 v3 与提案基线差异、批准范围和文档一致性。在提案分支应用已批准计划及视图、清理相应暂停标记并校验，提交后合入 v3。冲突或额外变化影响批准内容时重新核对，不能直接沿用旧批准。
+* 在执行基线记录 `pending_changes` 和提案标识。若暂停标记先记录于 Feature 分支，切到交付分支（`$DELIVERY_BRANCH`）后也须同步这一协调元数据，使调度器能够看见；不得同时搬运未完成实现。先完成必要的元数据提交，再从 clean 的交付分支创建提案分支，记录实际基线 SHA。
+* 在提案分支修改文档与候选计划，保持活动 Plan 的原批准基线。未批准产品正文不得进入交付分支；未完成 Feature 分支保持独立。
+* 用户批准具体提案版本后，核对当前交付分支与提案基线差异、批准范围和文档一致性。在提案分支应用已批准计划及视图、清理相应暂停标记并校验，提交后合入交付分支。冲突或额外变化影响批准内容时重新核对，不能直接沿用旧批准。
 * 提案合并属于需求/计划基线变更，不产生 Feature DONE；不套用实现的 Test/Review Merge Gate，但必须有产品/计划批准、适用的专业影响评估及状态校验。进入代码实现后重新按 Feature Gate 执行。
 * 提案取消时只撤销对应暂停标记并保存取消依据；不合入候选产品正文。切回未完成 Feature 前再次核对新基线和受影响 Gate，不自动覆盖原检查点。

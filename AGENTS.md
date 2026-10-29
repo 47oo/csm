@@ -22,7 +22,7 @@ V3 独立定义需求、领域模型、架构和实现，不依赖、不参考 V
 
 文档按阶段建立：需求澄清和首次规划先读取 V3 需求文件；`docs/product/domain-model.md` 尚未建立时，记录缺失并从用户确认的 V3 需求建立，不阻止需求澄清。架构、数据库、API 与计划派生视图尚未生成时同样记录为未建立，不回查旧版本。进入设计、实现、测试或正式 Review 前，仍必须满足对应阶段所需的已确认输入；缺少必要输入时明确阻塞。
 
-**当前状态（事实记录，不是新规则）**：V3 一期 F001–F028 已全部交付并合入 `v3.2` / `main`（含 §23.2 集群范围授权）；`docs/project/project-plan.yaml` 记录 `project.status=DONE`、`project.acceptance=COMPLETE`，`decisions_required` 的 D01 / D02 / D03 均已 CONFIRMED。上文「尚未建立时」的各个条件在当前均已满足：`docs/product/domain-model.md`、`docs/architecture/`、`docs/database/`、`docs/api/` 与计划派生视图均已建立。一期完成后的新增需求或重大架构变更按 `docs/project/change-control.md` 处理，不重开已交付范围。
+**当前状态（事实记录，不是新规则）**：V3 一期 F001–F036 已全部交付并合入 `v3.4` / `main`（含 §23.2 集群范围授权与 F029–F036 的后续变更）；需求基线为 `docs/product/requirements-v3.md` revision 15，`docs/project/project-plan.yaml` 记录 `plan_revision=24`、`project.status=DONE`、`project.acceptance=COMPLETE`，`decisions_required` 的 D01 / D02 / D03 均已 CONFIRMED。上文「尚未建立时」的各个条件在当前均已满足：`docs/product/domain-model.md`、`docs/architecture/`、`docs/database/`、`docs/api/` 与计划派生视图均已建立。一期完成后的新增需求或重大架构变更按 `docs/project/change-control.md` 处理，不重开已交付范围。
 
 ## 2. 开发基本原则
 
