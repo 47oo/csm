@@ -3244,9 +3244,9 @@ features:
   - F043
   blocking_decisions: []
   status: IN_PROGRESS
-  current_stage: ARCHITECTURE
-  next_action: 'TEST_DESIGN + ARCHITECTURE：tester 出 TD（A1–A12 可执行判定与证据清单）；architect 定稿等价栈口径/裁剪规则/证据结构/acceptance 措辞。'
-  last_result: 'PRODUCT COMPLETE（READY FOR ARCHITECT）：验收型 Feature；合并集 F037/F038/F039/F040/F041/F043；A1–A12 验收矩阵（真实 PG 全量 pytest、四端点+8 解析异常、§20/T32、§23.2/T88、前端 352+14、scripts 单测、真实 Compose §32 关键路径、计划一致性、NOT TESTED 归类、证据入库、条件恢复 COMPLETE）；N1–N8 禁止清单成立。'
+  current_stage: TEST_DESIGN
+  next_action: 'TEST_DESIGN：tester 出 TD-F045-1（A1–A12 判定与证据清单），随后执行全量回归与部署验收。'
+  last_result: 'ARCHITECTURE + CONTRACT 签核 READY FOR TEST DESIGN：Compose 主路径（nginx :18080 / 容器内迁移 / bootstrap / 真实 HTTP）；降级等价栈须登记未覆盖项；全量 pytest 规则（-p no:cacheprovider、-ra、四类允许排除、1+1 重跑）；证据结构与日志 header；acceptance 恢复 5 类最小证据 + 追加不删；Contract/DB/Backend/Frontend NOT_REQUIRED。'
   layers:
     database: false
     backend: false
@@ -3260,10 +3260,10 @@ features:
       等），api_required=false。
   implementation:
     product: COMPLETE
-    architecture: PENDING
+    architecture: COMPLETE
     database: NOT_REQUIRED
     test_design: PENDING
-    contract: PENDING
+    contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
     test: PENDING
@@ -3275,6 +3275,10 @@ features:
     head_commit: null
     merge_commit: null
   evidence:
+    architecture:
+    - docs/features/F045/architecture.md
+    contract:
+    - docs/features/F045/architecture.md#9-contract--database--backend--frontend
     product:
     - docs/features/F045/product.md
 decisions_required:
@@ -3880,7 +3884,7 @@ execution:
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: F045
-  current_stage: ARCHITECTURE
+  current_stage: TEST_DESIGN
   last_result: F037/F038/F039/F040/F041/F043 DONE；F045 变更集整体验收启动（分支 feature/F045-change-set-acceptance）。
   next_action: F045 PRODUCT Gate（整体回归矩阵 + 部署等价栈口径）。
   repair_rounds: 0
