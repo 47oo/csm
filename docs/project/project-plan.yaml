@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 16
   plan_revision: 25
-  status: ACCEPTED
+  status: IN_PROGRESS
   approval:
     plan_revision: 25
     feature_ids:
@@ -2684,14 +2684,13 @@ features:
   - F034
   - F035
   blocking_decisions: []
-  status: READY
-  current_stage: null
-  next_action: 待批准 CHG-015（含确认 AQ-3 由既有契约推导）后置 READY；从 PRODUCT 阶段开始；CONTRACT 阶段由 Architect
-    签核 F014 §1.2 与 F023 v2 §1.2 的不升版编辑性澄清附注（api_required=true），并确认仅扩大既有异常转换范围、端点 /
-    字段 / 错误码零变更。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R02（8/8 请求复现 500）。Architect 评估：api_required
-    由 false 改为 true（须在 F014 §1.2 与 F023 v2 §1.2 各加一条不升版的编辑性澄清附注，先例 F035-RV-05）；AQ-3
-    已按既有契约推导为 CONFIRMED，不再阻塞。未启动，无任何阶段结果与证据。
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 以候选 HEAD 复核实现、契约附注与测试证据，给出 APPROVED / APPROVED WITH
+    FOLLOW-UP。
+  last_result: IMPLEMENTATION / TEST 完成：backend 单点改动（白名单 context manager + close 守卫
+    + lxml/OSError 条件条目）+ repair round 1（BE-01 OSError 裁定）；TE-F037-1 READY FOR REVIEW：52
+    passed（U23/I23/S6，真实 PostgreSQL 16.15），回归 R1–R6 全绿（42/28/31/48/4/3）；perf03 阈值对负载敏感，独立重跑通过并登记为已知限制。
   layers:
     database: false
     backend: true
@@ -2701,22 +2700,42 @@ features:
     database: 仅扩宽解析异常转换，不修改表/列/索引/约束/触发器/Migration，不改事务边界与写入顺序。
     frontend: 无前端改动；两种输入载体（文件 / 文本）行为与服务端响应一致，无需界面调整。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
+    branch: feature/F037-import-parse-error-contract
+    start_commit: 1c0eeafcd36fc6c4c791f89197243a074c6d5f01
     head_commit: null
     merge_commit: null
-  evidence: {}
+  evidence:
+    product:
+    - docs/features/F037/product.md
+    architecture:
+    - docs/features/F037/architecture.md
+    database:
+    - docs/database/f014-import.md
+    - docs/database/f023-import.md
+    test_design:
+    - docs/features/F037/test-report.md#1-test-designtd-f037-1v12026-10-29
+    contract:
+    - docs/features/F037/architecture.md#159-最终设计签核contract-gate2026-10-29
+    - docs/features/F037/architecture.md#1510-be-01-裁定repair-round-12026-10-29
+    - docs/api/F014.md
+    - docs/api/F023.md
+    backend:
+    - docs/features/F037/implementation.md
+    - backend/app/services/resource_import.py
+    test:
+    - docs/features/F037/test-report.md#2-test-executionte-f037-12026-10-29
+    - backend/tests/integration/test_f037_import_parse_errors.py
 - id: F038
   title: 导入解压 / 解析内存边界加固（R05）
   kind: FEATURE
@@ -3773,15 +3792,15 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
+  current_feature: F037
+  current_stage: REVIEW
   last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
     / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
     / AQ-6 已裁定，AQ-7 保持 OPEN。
   next_action: 启动 F037（P0，导入解析异常收敛为 422 IMPORT_INVALID_FILE）。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: IN_PROGRESS
   plan_completeness: complete
   counts:
     BLOCKED: 0
@@ -3789,10 +3808,9 @@ planning_status:
     DONE: 36
     DRAFT: 2
     IN_PROGRESS: 0
-    IN_REVIEW: 0
-    READY: 5
+    IN_REVIEW: 1
+    READY: 4
   ready_features:
-  - F037
   - F039
   - F040
   - F041
