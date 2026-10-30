@@ -195,3 +195,16 @@ A10 证据入库已完成（21 个 `.log` + 3 个文档经 `git ls-files` 证明
 - **也不能**声称「存在 CHG-015 引入的回归」——`backend/app` 在本变更集内零 diff；涉及的唯一导入相关改动是 F038（解析/内存边界），其自身性能门（`M5 time not degraded` 等）在 F038 TEST 阶段通过；且同一命令在本会话较早时段通过。
 - 180s / 600s 阈值源自更快的原始主机；本机在失败时段 `write` 稳定 ~230–700s，**无法稳定满足**。
 - 该项**不作为 PASS**，已登记为环境敏感 flaky + 未定位根因，须由用户在 §6.3 的 a / b 之间裁定。
+
+### 6.6 用户裁定（2026-10-29，选项 a）——本项收口方式
+
+用户于 2026-10-29 明确选定 **选项 a**：
+
+> 接受为「本机 throughput 限制」的环境敏感项；A1 以 run3 全绿为准，两个 perf 节点登记为 flaky；**不改阈值、不改产品代码**。
+
+据此：
+
+1. `tests/integration/test_import_performance.py::test_import_near_max_rows_baseline` 与 `tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline` 登记为**环境敏感 flaky**（`kind: ENVIRONMENT_FLAKY`），**不计 PASS**，保留三组对照实验与双次复现证据（`perf-idle-check.log`、`perf-warm-db-check.log`、`perf-fresh-cluster-check.log`、`full-pytest-run2-concurrent.log`、`full-pytest-run5-slowhost.log`）。
+2. 180s / 600s 阈值与 `backend/app` **本轮不改**；将来若需重定阈值或定位根因，另立 Feature 走变更控制（本裁定**不**包含该项）。
+3. A1 的结论以 run3（全量、无排除项、969 passed / 6 skipped）为准；报告中「不声称无回归、也不声称存在 CHG-015 回归」的表述保持不变。
+4. 该 flaky 项在 `project.acceptance` 恢复 COMPLETE 时作为**已知环境限制**随证据一并记录，不写入任何 PASS 断言。
