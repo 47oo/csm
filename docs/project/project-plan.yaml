@@ -3274,7 +3274,7 @@ features:
     base_branch: v3.4
     branch: feature/F045-change-set-acceptance
     start_commit: fa8a568b912d7aea9806a58616e98867a5786808
-    head_commit: null
+    head_commit: 141a3f9294ffceae51bc6d188541aca85cd893b1
     merge_commit: null
   evidence:
     test:
