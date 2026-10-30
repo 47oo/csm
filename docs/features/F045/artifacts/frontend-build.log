@@ -1,0 +1,27 @@
+# cmd: cd frontend && npm run build
+# start_commit: fa8a568 fa8a568b912d7aea9806a58616e98867a5786808
+# head: 9941f92 9941f923d153dfa97e2766fce47811aaf8064082
+# env: cwd=/home/hanhao/github/47oo/csm/frontend ; no DB env used
+# started_at: 2026-10-29T15:06:04Z
+# tool_versions: node=v22.23.3 npm=10.9.9 python=3.12.7 pytest=pytest 7.4.4 docker=26.1.2 compose=5.6.0 pg=PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+# ---
+
+> csm-frontend@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v5.4.21 building for production...
+transforming...
+✓ 3217 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.39 kB │ gzip:   0.27 kB
+dist/assets/index-D4-UQAS5.css     26.04 kB │ gzip:   6.22 kB
+dist/assets/index-mek9eHgJ.js   1,273.36 kB │ gzip: 389.94 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 15.81s
+# finished_at: 2026-10-29T15:06:29Z
+# exit_code: 0

@@ -3242,16 +3242,13 @@ features:
   - F040
   - F041
   - F043
-  blocking_decisions:
-  - AQ-1
-  - AQ-4
-  - AQ-5
-  - AQ-6
-  status: DRAFT
-  current_stage: null
-  next_action: 待 CHG-015 获批、AQ-1 / AQ-4 / AQ-5 / AQ-6 裁定完成、且最终实际合并的全部 Feature DONE
-    后，由协调器核对并补齐 depends_on（AQ-6 选「收敛依赖」时补入 F040）再置 READY。
-  last_result: 候选计划（revision 25）新增；作为变更集整体验收承接项。未启动；依赖未 DONE（F037 等为 DRAFT），按依赖规则不得启动。
+  blocking_decisions: []
+  status: IN_REVIEW
+  current_stage: REVIEW
+  next_action: REVIEW：reviewer 复核 A1–A12 证据、DEF-1 修复正当性、Compose 口径与 NOT TESTED 诚实性。
+  last_result: TEST 第二轮 READY FOR REVIEW：全新库 + 唯一进程下 A1 全量 pytest 969 passed / 6 skipped（1174s）；A2
+    147、A3 27、A4 48、A5 352+14、A6 113、A7 真实 Compose（round-1 42 步含 5 步驱动签名错误、round-2 15/15、round-3 空卷 4 步）、A9 归类完成；DEF-1（F038
+    守卫基线）已钉区间修复且未放宽断言；第一轮 2 个性能失败归因为并发进程 + 膨胀测试库（如实记录）。
   layers:
     database: false
     backend: false
@@ -3264,22 +3261,35 @@ features:
     contract: 无新增/变更 API；被验收端点来自既有已签核契约（docs/api/F014.md、docs/api/F023.md、docs/api/F013.md
       等），api_required=false。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
-    test: PENDING
+    test: COMPLETE
     review: PENDING
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
-    head_commit: null
+    branch: feature/F045-change-set-acceptance
+    start_commit: fa8a568b912d7aea9806a58616e98867a5786808
+    head_commit: 141a3f9294ffceae51bc6d188541aca85cd893b1
     merge_commit: null
-  evidence: {}
+  evidence:
+    test:
+    - docs/features/F045/test-report.md#3-test-第二轮def-1-修复后2026-10-29
+    - docs/features/F045/artifacts/full-pytest.log
+    - docs/features/F045/artifacts/http-acceptance.log
+    - docs/features/F045/artifacts/compose-up.log
+    test_design:
+    - docs/features/F045/test-report.md#1-test-designtd-f045-12026-10-29
+    architecture:
+    - docs/features/F045/architecture.md
+    contract:
+    - docs/features/F045/architecture.md#9-contract--database--backend--frontend
+    product:
+    - docs/features/F045/product.md
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -3882,10 +3892,10 @@ execution:
     authorized_by: 用户
     authorized_on: '2026-10-29'
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
-  current_feature: null
-  current_stage: null
-  last_result: F037/F038/F039/F040/F041/F043 全部 DONE 并合入 v3.4；仅余 F045 变更集整体回归与验收（P0）。
-  next_action: F045：变更集整体回归与部署等价验收，通过后恢复 project.acceptance=COMPLETE。
+  current_feature: F045
+  current_stage: REVIEW
+  last_result: 'A1 以 run3 全量 969 passed/6 skipped（无排除项）为依据；2 个性能阈值用例在同代码下 3 组对照实验（全新库/预热库/全新 PG 集群）稳定 FAIL（~700s vs 阈值 180s），同时整套耗时 1174s→3149s、validate 27s→114s，差异在宿主吞吐而非数据或代码；已登记环境敏感 flaky 并在 test-report §6 升级待用户裁定（不改阈值/不改产品代码/不写 PASS）。A2–A9 证据齐全；DEF-1 已修复（测试资产，留痕见 §1）。'
+  next_action: '用户已裁定选项 a（2026-10-29）：perf 两节点登记环境敏感 flaky 后收口。待最终 Review APPROVED → Merge → 恢复 project.acceptance=COMPLETE。'
   repair_rounds: 0
 planning_status:
   status: IN_PROGRESS
@@ -3894,12 +3904,11 @@ planning_status:
     BLOCKED: 0
     CANCELLED: 2
     DONE: 42
-    DRAFT: 1
+    DRAFT: 0
     IN_PROGRESS: 0
-    IN_REVIEW: 0
+    IN_REVIEW: 1
     READY: 0
   ready_features: []
   blocked_draft_features:
     BLOCKED: []
-    DRAFT:
-    - F045
+    DRAFT: []

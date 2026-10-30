@@ -1,0 +1,67 @@
+cmd: coordinator rerun (concurrent stray pytest + reused DB) — NOT a clean acceptance run
+start_commit: fa8a568
+head: 03dc01f4bc61881673704d31d80c65b059544c37
+finished_at: 2026-10-29T18:10:06Z
+exit_code: 2 (2 failed)
+note: 本日志为协调器重跑：超时未清理的并发 pytest 进程 + 复用已膨胀的 csm_f045_test 库；失败项为两个性能阈值用例。作为 flaky/环境证据保留，不作为 A1 结论。
+----
+    def test_import_near_max_rows_baseline(committed_engine, auth_session_factory):
+        """D03 ①: near-5000-row import time / memory baseline (real PG)."""
+        _create_cluster(auth_session_factory)
+        baseline = _counts(auth_session_factory)
+        rows = [_bm_row(f"perf{i:05d}") for i in range(MAX_ROWS)]
+        data = _bm_csv(rows)
+        settings = Settings(_env_file=None)
+    
+        # Read-only pre-validate baseline (no writes).
+        session = auth_session_factory()
+        tracemalloc.start()
+        started = time.perf_counter()
+        result = resource_import.validate_import(session, data, "csv", settings)
+        validate_seconds = time.perf_counter() - started
+        _, validate_peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        session.close()
+        assert result.total_rows == MAX_ROWS
+        assert result.error_count == 0
+    
+        # Atomic write baseline.
+        session = auth_session_factory()
+        tracemalloc.start()
+        started = time.perf_counter()
+        created, total = resource_import.write_import(session, None, data, "csv", settings)
+        write_seconds = time.perf_counter() - started
+        _, write_peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        session.close()
+    
+        print(
+            f"\n[D03-1] file={len(data)}B rows={MAX_ROWS} "
+            f"validate={validate_seconds:.2f}s validate_peak={validate_peak / 1e6:.1f}MB "
+            f"write={write_seconds:.2f}s write_peak={write_peak / 1e6:.1f}MB"
+        )
+        assert (created, total) == (MAX_ROWS, MAX_ROWS)
+        after = _counts(auth_session_factory)
+        assert after["resources"] == baseline["resources"] + MAX_ROWS
+        assert after["bare_metal_details"] == baseline["bare_metal_details"] + MAX_ROWS
+        # One CREATE audit per imported row on top of the cluster-creation audit.
+        assert after["audit_logs"] == baseline["audit_logs"] + MAX_ROWS
+        # Generous sanity ceiling (observed baseline ~43s on the test host).
+>       assert write_seconds < 180, write_seconds
+E       AssertionError: 228.56515664800827
+E       assert 228.56515664800827 < 180
+
+tests/integration/test_import_performance.py:139: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+[D03-1] file=495138B rows=5000 validate=26.98s validate_peak=8.0MB write=228.57s write_peak=8.2MB
+=========================== short test summary info ============================
+SKIPPED [1] tests/integration/test_f016_acceptance.py:50: F016 acceptance module disabled (set F016_ACCEPTANCE=1)
+SKIPPED [1] tests/integration/test_f028_acceptance.py:100: F028 acceptance requires F016_ACCEPTANCE=1
+SKIPPED [1] tests/integration/test_f028_acceptance.py:148: F028 acceptance requires F016_ACCEPTANCE=1
+SKIPPED [1] tests/integration/test_f028_acceptance.py:189: F028 acceptance requires F016_ACCEPTANCE=1
+SKIPPED [1] tests/integration/test_f028_acceptance.py:210: F028 acceptance requires F016_ACCEPTANCE=1
+SKIPPED [1] tests/integration/test_migrations.py:105: connected role 'csm' is superuser; run against a non-superuser DB owner to exercise V3b (DB-D11)
+FAILED tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline
+FAILED tests/integration/test_import_performance.py::test_import_near_max_rows_baseline
+2 failed, 967 passed, 6 skipped in 3174.08s (0:52:54)

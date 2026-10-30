@@ -1,0 +1,20 @@
+cmd: TEST_DATABASE_URL=*** python -m pytest -p no:cacheprovider -q <2 perf nodeids>  (NEW postgres:16-alpine container csm-f045-pg:@55433, empty volume)
+start_commit: fa8a568
+head: f03333f64db2a577c3f03415c73e46c17cab806e
+env: TEST_DATABASE_URL=***@127.0.0.1:55433/csm_f045_fresh_test
+tool_versions: Python 3.12.7 / pytest 7.4.4 / PostgreSQL 16.15 (fresh cluster)
+hypothesis: 若全新集群通过，则方差来自旧集群状态（多轮 5000 行导入导致膨胀），非代码
+2026-10-29T20:22:19Z
+load: 3.49 2.96 2.84 2/1628 77051
+---
+tests/integration/test_f023_resource_interface_ip_import.py:1268: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+[PERF-03] file=320476B rows=5000 validate=114.59s validate_peak=8.0MB write=703.87s write_peak=13.3MB
+=========================== short test summary info ============================
+FAILED tests/integration/test_import_performance.py::test_import_near_max_rows_baseline
+FAILED tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline
+2 failed in 1064.27s (0:17:44)
+---
+2026-10-29T20:40:07Z
+load_after: 2.81 2.71 2.86 1/1627 77255
