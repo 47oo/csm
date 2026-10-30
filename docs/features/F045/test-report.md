@@ -5,7 +5,7 @@
 
 ## §1 TEST DESIGN — TD-F045-1（v1，2026-10-29）｜结论：`TEST DESIGN READY`
 
-> 报告 head 说明：本报告证据取自 `fa8a568`（Base）之后的验收分支；`backend/app` 全程零 diff，故 A1 绿色运行（`03dc01f` 之后仅文档提交）对当前候选仍成立。当前候选 HEAD = `5dff7a7`（F045 分支最新提交；merge 前由协调器写入 plan `git.head_commit`）。
+> 报告 head 说明：本报告证据取自 `fa8a568`（Base）之后的验收分支；`backend/app` 全程零 diff，故 A1 绿色运行（`03dc01f` 之后仅文档提交）对当前候选仍成立。本报告的验收基线 commit = F045 分支在证据完成时的 tip；**权威记录见 `docs/project/project-plan.yaml` 的 F045 `git.head_commit`**（协调器在最终 Review 前写入）。
 
 **变更授权记录（M-3）**：本轮唯一代码类改动是 `backend/tests/integration/test_f038_parse_bounds.py`（DEF-1，测试资产），超出 architecture §10「放行写入仅 `docs/features/F045/**`」。授权方：协调器（测试资产修正），理由与范围：仅把两处 S 层 diff 守卫的上界从「无上界」钉为 F038 自身 merge `adef87a`，断言未放宽、未改 `backend/app/**`；Review 已独立复核该区间恰含两个 service 文件、`adef87a` 为 `v3.4` 祖先。按 `docs/project/change-control.md`，测试资产修正不属于需求/架构变更，无需用户批准，但须留痕（本段即留痕）。
 
@@ -43,7 +43,7 @@
 | A7 | PASS（Compose 真实栈） | `compose-up.log`/`compose-ps.log`/`http-acceptance.log`：`up -d --no-build` 拓扑+串序成立（db healthy → migrate exit 0 → bootstrap exit 0 → backend healthy → nginx）；因复用镜像构建于 2026-10-27 早于基线（4 个 `services/*.py` md5 不同，`a07-image-staleness.txt`），按 §2「镜像不可用」执行**一次** `up -d --build`，重建后 `backend/app/**.py` 与基线逐文件 md5 一致、前端 `dist/assets/index-*.js` 与本地 `npm run build` 产物 md5 一致；空卷重建复跑证明容器内 `alembic upgrade head` 全链 `0001→0015`（15 条）与 `bootstrap: created initial admin 'admin'`。经 nginx `:18080` 真实 HTTP 分三轮执行（round-1 42 步含 5 步为驱动签名错误、round-2 15 步 0 FAIL、round-3 空卷冒烟 4 步，详见 §3.2；**不得合并表述为「61 步 0 FAIL」**）：§32 关键路径 42 步（登录/Cluster/BareMetal/VM+Host/Interface/Network/Pool MANUAL+AUTO/Service/Endpoint/手动+自动 IP 绑定/按 hostname·IP·Cluster·Service 查询/全局搜索/Dashboard/整批导入 created=2/Audit）+ 逻辑删除与 ADMIN 恢复 15 步（`?version=` 契约修正后）+ 空卷冒烟 4 步；重复 hostname/IP/Cluster code 409、非法 CIDR 422、跨 Cluster Host 绑定 422 均实测阻断。收尾 `down -v`（容器与卷已删） |
 | A8 | **NOT TESTED（协调器执行）** | Tester 未执行；命令见 `env.md` §3。仅附只读旁证：栈内 `alembic_version=0015_user_cluster_authorizations`（`compose-ps.log`），判定权归协调器 |
 | A9 | PASS | `a09-review-classification.md`：六份 review 的 NOT TESTED/BLOCKED 逐条归类；F039 唯一 BLOCKED（`F016_ACCEPTANCE=1`）本轮转实测 PASS；F040 F-02（`.log` 未入库）本轮核查已闭环；F038 F-2（3× ruff F811）本轮复核**仍存在**；余项如实重记 |
-| A10 | **PASS（协调器补齐，含如实差异披露）** | 共 **21** 个 `.log`（另有 3 个 `.md`/`.txt` 证据），全部 `git ls-files` 跟踪（`git add -f`；`.gitignore` 零 diff）。header 齐全（cmd/start_commit/head/env/时间戳/`tool_versions`/`exit_code`）：`full-pytest.log`、`full-pytest-run2-concurrent.log`、`full-pytest-run5-slowhost.log`、`alembic.log`、`compose-ps.log`。**未达标并如实披露**：`perf-idle-check.log`、`perf-warm-db-check.log`、`perf-fresh-cluster-check.log`（有 cmd/env/时间戳/版本，缺 `start_commit` 标签与 `exit_code` 标签，起止时间以裸 ISO 行记录）；`plan-validate.log`、`plan-render.log`（缺 start_commit/env/时间戳/tool_versions）；`compose-up.log`（仅 `build_exit_code`）；`a02`..`http-acceptance`（Tester 生成，`#` 注释 + `observed_at` 变体） |
+| A10 | **PASS（协调器补齐，含如实差异披露）** | 共 **21** 个 `.log`（另有 3 个 `.md`/`.txt` 证据），全部 `git ls-files` 跟踪（`git add -f`；`.gitignore` 零 diff）。header 齐全（cmd/start_commit/head/env/时间戳/`tool_versions`/`exit_code`）：`full-pytest.log`、`full-pytest-run5-slowhost.log`。**部分字段缺失**：`full-pytest-run2-concurrent.log`（无 `env`/`tool_versions`/`started_at`）、`alembic.log` 与 `compose-ps.log`（时间戳为 `NOT RECORDED`）。**未达标并如实披露**：`perf-idle-check.log`、`perf-warm-db-check.log`、`perf-fresh-cluster-check.log`（有 cmd/env/时间戳/版本，缺 `start_commit` 标签与 `exit_code` 标签，起止时间以裸 ISO 行记录）；`plan-validate.log`、`plan-render.log`（缺 start_commit/env/时间戳/tool_versions）；`compose-up.log`（仅 `build_exit_code`）；`a02`..`http-acceptance`（Tester 生成，`#` 注释 + `observed_at` 变体） |
 | A11 | 遵循 | A8 标 NOT TESTED；未执行/不可测项均标 NOT TESTED 并给原因；无估算值充当 PASS |
 | A12 | **NOT TESTED** | 协调器职责，未执行 |
 
@@ -101,9 +101,11 @@
 
 覆盖的 §32 关键路径合计 = round-1 的 42 步（含 5 步驱动错误）+ round-2 的 15 步 + round-3 的 4 步；产品行为结论仅取自 PASS 步与 round-2 的重跑。
 
-### 3.2b 性能用例失败的环境归因（协调器重跑，非 Tester 第一轮）
+### 3.2b 性能用例失败的首轮观察与后续否证
 
-Tester 第一轮 2 个 FAIL 是 **F038 两个 S 层守卫**（DEF-1），不含任何性能用例。性能用例（`test_import_performance.py::test_import_near_max_rows_baseline`、`test_f023_...::test_perf03_near_max_rows_baseline`，写入 228s / 701s vs 阈值 180s）失败发生在**协调器自己的重跑**中，原因为：① 一次超时未清理的并发 pytest 进程与主进程竞争 CPU/IO；② 复用已膨胀的 `csm_f045_test` 库。该轮日志保留为 `artifacts/full-pytest-run2-concurrent.log`（`exit_code: 2`），**不作为 A1 结论**；换全新库后 A1 全量通过。
+Tester 第一轮 2 个 FAIL 是 **F038 两个 S 层守卫**（DEF-1），不含任何性能用例。性能用例（`test_import_performance.py::test_import_near_max_rows_baseline`、`test_f023_...::test_perf03_near_max_rows_baseline`）首次失败发生在**协调器重跑**中（`full-pytest-run2-concurrent.log`，`exit_code: 2`），该轮同时存在并发 pytest 与膨胀库。
+
+**该轮的两个疑似原因随后被否证**：§6.4 的三组对照实验（全新库 / 复用预热库 / 全新 PG 集群）均在 `write≈700s` 失败，且 `[D03-1] validate` 保持 27s 未变 ⇒ 失败**与并发和库状态无必然关系**，根因仍未定位。本段仅作为「首次观察记录」，不得作为归因结论使用；结论以 §6.4–§6.6 为准。
 
 ### 3.2c `compose-ps.log` 中的 SQL 报错披露
 
@@ -129,7 +131,7 @@ A10 证据入库已完成（21 个 `.log` + 3 个文档经 `git ls-files` 证明
 | --- | --- | --- | --- | --- | --- |
 | run3（**绿色终态，A1 依据**） | `csm_f045_test`（DROP/CREATE 后） | 单 pytest | 1174.76s | **969 passed / 6 skipped / 0 failed** | `full-pytest.log` |
 | run2 | `csm_f045_test`（复用、已膨胀） | 与超时未清理进程并发 | 3174.08s | 967 passed / 2 failed（性能阈值） | `full-pytest-run2-concurrent.log` |
-| run5 | `csm_f045_test2`（全新） | 单 pytest（已核对 pid/etime） | 3149.11s | 967 passed / 2 failed（性能阈值） | `full-pytest-run5-slowhost.log` |
+| run5 | `csm_f045_test2`（全新） | 单 pytest（pid/etime 观测：NOT RECORDED） | 3149.11s | 967 passed / 2 failed（性能阈值） | `full-pytest-run5-slowhost.log` |
 | run4（作废） | `csm_f045_clean` | 单 pytest | 191s | 848 errors：库名不含 `test`，被 DB-D10 守卫拒绝 | `/tmp`（不入库） |
 
 **A1 结论：PASS**，依据 run3（全量、无 `-k`/`-m` 过滤、无排除项、969 passed / 6 skipped）。
@@ -157,7 +159,7 @@ A10 证据入库已完成（21 个 `.log` + 3 个文档经 `git ls-files` 证明
 
 ### 6.2 观察与假设
 
-- 通过的两轮都是**复用/已预热**的库；失败的三轮都是**刚 DROP/CREATE** 的全新库。隔离复跑中 `validate` 也从 27s 升到 113.7s，说明**与写入路径无关的整体变慢**（更符合冷缓存/缺统计信息，而非某段代码退化）。
+- 通过的两轮都是**复用/已预热**的库；失败的三轮都是**刚 DROP/CREATE** 的全新库。此处不作跨用例比较（`[D03-1] validate` 27s 与 `[PERF-03] validate` ~114s 属**不同用例**，不可比），同节点对比见 §6.4。
 - 但假设**未被证实**：本轮未做 `ANALYZE`/缓存预热对照实验，也未采集 iostat/steal（仅有 `/proc/loadavg` 与 CPU jiffies 起止）。
 - 无法据此断言「无性能回归」，也无法断言「有回归」。
 
@@ -189,7 +191,9 @@ A10 证据入库已完成（21 个 `.log` + 3 个文档经 `git ls-files` 证明
 
 即：`validate` 阶段在同节点内**没有变慢**（`[D03-1]` 27s 稳定），变慢集中在 **`write`（逐行写入 + CREATE 审计）**；同一命令在较早时段（round-1、run3）通过、在所有后续时段（含换集群）失败，代码与 SQL 未变。**根因未定位**：未采集 CPU steal / iostat / PG 侧 `pg_stat_statements`，无法区分「宿主 IO 吞吐下降」与「写入路径对当前环境更敏感」。
 
-因此（§6.5 结论）：
+### 6.5 结论（不自行裁定）
+
+因此：
 
 - **不能**声称「导入写入性能无回归」——本时段无法证明。
 - **也不能**声称「存在 CHG-015 引入的回归」——`backend/app` 在本变更集内零 diff；涉及的唯一导入相关改动是 F038（解析/内存边界），其自身性能门（`M5 time not degraded` 等）在 F038 TEST 阶段通过；且同一命令在本会话较早时段通过。
