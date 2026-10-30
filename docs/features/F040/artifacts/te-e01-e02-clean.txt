@@ -1,0 +1,20 @@
+### F040 TE — E-01 isolated npm ci (2026-10-29T20:22:28+08:00)
+dir=/tmp/f040-te-ci-clean (copy of frontend/package.json + package-lock.json only)
+exit=0
+
+added 150 packages in 9s
+elapsed=9.53s
+--- lockfile in isolated dir rewritten? ---
+471d775c7c242c3dcb5896b60dc8fd0d06efdf592037546373b3a4c03aa5606a  /tmp/f040-te-ci-clean/package-lock.json
+de893314ee9472576ed8a68b5a2e1590fbea06029dac6b54cf733084d53bf687  /tmp/f040-te-ci-clean/package.json
+(compare to pre-state: package.json de893314... / package-lock.json 471d775c...)
+--- three versions in isolated tree ---
+csm-frontend@0.1.0 /tmp/f040-te-ci-clean
+├─┬ @tailwindcss/vite@4.3.3
+│ ├─┬ @tailwindcss/node@4.3.3
+│ │ └── tailwindcss@4.3.3 deduped
+│ └── tailwindcss@4.3.3 deduped
+├── antd@6.6.6
+└── tailwindcss@4.3.3
+
+isolated-npm-ls-exit=0

@@ -1,0 +1,15 @@
+# image vs baseline (head 9941f92) backend/app/*.py md5 comparison — csm-csm-backend:test built 2026-10-27T05:34:24Z (pre-dates start_commit fa8a568 2026-10-29T14:31Z)
+77c77
+< 4e61fbfc1063e6672822a34686802859  app/services/dashboard.py
+---
+> d691da04de10299866e438d13339fa94  app/services/dashboard.py
+84c84
+< ef62fca1cc93878bc7b42e5fbd2e5d24  app/services/ip_capacity.py
+---
+> ca62b4c43022e1759c56673e0d356755  app/services/ip_capacity.py
+89,90c89,90
+< 61c0922b20e9df67fbcf4c5562662729  app/services/resource_import.py
+< cda12b49163acec7ab6150030df3b329  app/services/resource_interface_ip_import.py
+---
+> 63256946478b6f14212defa76d461008  app/services/resource_import.py
+> 20e3af524db7406dad2049b6900ac269  app/services/resource_interface_ip_import.py

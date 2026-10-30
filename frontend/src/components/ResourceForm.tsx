@@ -1,5 +1,6 @@
 import { Button, Input, Select, TextArea } from "./ui/controls";
 import { ErrorState, InfoState } from "./ui/feedback";
+import CandidateSelect from "./CandidateSelect";
 import { useState, type FormEvent } from "react";
 import type {
   Resource,
@@ -8,7 +9,6 @@ import type {
   ResourceStatus,
   ResourceType,
 } from "../api/resources";
-import type { Cluster } from "../api/clusters";
 import { parseMetadataText } from "./ClusterForm";
 import {
   hardwareFormValuesFromResource,
@@ -61,8 +61,6 @@ interface ResourceFormLocalErrors {
 
 interface ResourceFormProps {
   mode: "create" | "edit";
-  /** create 模式：供选择的集群列表（父组件已加载，仅未删除集群）。 */
-  clusters?: Cluster[];
   /** edit 模式：被编辑的资源（cluster / resource_type 只读展示，创建后不可改，Contract §2.2）。 */
   resource?: Resource;
   /** 提交中（禁用全部输入与按钮）。 */
@@ -177,7 +175,6 @@ const HARDWARE_INPUT_FIELDS: {
  */
 export default function ResourceForm({
   mode,
-  clusters,
   resource,
   submitting,
   serverError,
@@ -278,24 +275,22 @@ export default function ResourceForm({
       {isCreate ? (
         <div className="form-field">
           <label htmlFor="resource-cluster">cluster（所属集群，必填，创建后不可修改）</label>
-          <Select
+          {/* F041 改造点 ②：集群候选由服务端检索提供（GET /clusters +
+              q/page/page_size/sort/order），第 101 位及之后的集群可通过检索词
+              到达；四态与超限提示下沉到本字段（不再整页门控）。 */}
+          <CandidateSelect
+            domain="cluster"
             id="resource-cluster"
             name="cluster"
             value={cluster}
-            onChange={(event) => {
-              setCluster(event.target.value);
+            onChange={(next) => {
+              setCluster(next);
               // 换集群后宿主候选随集群重新加载；旧宿主不再属于新集群，重置选择
               setVirtualMachine((prev) => ({ ...prev, host_resource_id: "" }));
             }}
+            placeholder="输入 code / name 检索集群"
             disabled={submitting}
-          >
-            <option value="">请选择集群</option>
-            {(clusters ?? []).map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.code} — {item.name}
-              </option>
-            ))}
-          </Select>
+          />
           {(localErrors.cluster ?? serverFields.cluster) && (
             <p className="field-error" role="alert">
               {localErrors.cluster ?? serverFields.cluster}

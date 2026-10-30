@@ -5,7 +5,7 @@ project:
     path: docs/product/requirements-v3.md
     revision: 16
   plan_revision: 25
-  status: ACCEPTED
+  status: DONE
   approval:
     plan_revision: 25
     feature_ids:
@@ -65,9 +65,15 @@ project:
       与 delivery 线迁移（plan revision 22–24 的 basis 原文见 `docs/project/proposals/CHG-014-candidate-plan.yaml`
       与 git 历史）。
   acceptance:
-    status: PENDING
-    basis: 上述 evidence 覆盖 plan revision 24（F001–F036）范围；新增 F037–F041 / F043 / F045
-      交付后需由 F045 变更集整体回归补充证据，方可恢复 COMPLETE。
+    status: COMPLETE
+    basis: 上述 evidence 覆盖 plan revision 24（F001–F036，52 条历史锚点，保持不变）；plan revision
+      25 的变更集（F037/F038/F039/F040/F041/F043，F042/F044 已 CANCELLED）由 F045 变更集整体回归与部署等价验收补充证据（见
+      docs/features/F045/**）：A1 全量后端 pytest 在真实 PostgreSQL 上 969 passed / 6 skipped
+      / 0 failed；A2–A6 分别为 147 / 27 / 48 / 352+14 / 113 通过；A7 以真实 Docker Compose 完成
+      §32 关键路径；A8 计划一致性与 alembic head 0015 通过。已知环境限制：tests/integration/test_import_performance.py::test_import_near_max_rows_baseline
+      与 tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline
+      两个性能阈值节点经用户 2026-10-29 裁定（选项 a）登记为 ENVIRONMENT_FLAKY，不计 PASS、不改阈值与产品代码，证据见 docs/features/F045/test-report.md
+      的 §5、§6.4–§6.6；本验收不声明导入写入性能无回归。
     evidence:
     - docs/features/F036/test-report.md#2-test-execution
     - docs/features/F036/review-report.md
@@ -121,6 +127,16 @@ project:
     - docs/features/F033/artifacts/ui-metrics.json
     - docs/features/F033/artifacts/run.log
     - docs/features/F033/artifacts/smoke-client.log
+    - docs/features/F045/review-report.md
+    - docs/features/F045/test-report.md#3-test-第二轮def-1-修复后2026-10-29
+    - docs/features/F045/test-report.md#5-a1-全量运行汇总与-flaky-登记协调器补记2026-10-29
+    - docs/features/F045/test-report.md#66-用户裁定2026-10-29选项-a本项收口方式
+    - docs/features/F045/artifacts/full-pytest.log
+    - docs/features/F045/artifacts/http-acceptance.log
+    - docs/features/F045/artifacts/compose-up.log
+    - docs/features/F045/artifacts/frontend-smoke.log
+    - docs/features/F045/artifacts/scripts-pytest.log
+    - docs/features/F045/artifacts/plan-validate.log
 features:
 - id: F001
   title: 工程与部署底座
@@ -2684,14 +2700,12 @@ features:
   - F034
   - F035
   blocking_decisions: []
-  status: READY
+  status: DONE
   current_stage: null
-  next_action: 待批准 CHG-015（含确认 AQ-3 由既有契约推导）后置 READY；从 PRODUCT 阶段开始；CONTRACT 阶段由 Architect
-    签核 F014 §1.2 与 F023 v2 §1.2 的不升版编辑性澄清附注（api_required=true），并确认仅扩大既有异常转换范围、端点 /
-    字段 / 错误码零变更。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R02（8/8 请求复现 500）。Architect 评估：api_required
-    由 false 改为 true（须在 F014 §1.2 与 F023 v2 §1.2 各加一条不升版的编辑性澄清附注，先例 F035-RV-05）；AQ-3
-    已按既有契约推导为 CONFIRMED，不再阻塞。未启动，无任何阶段结果与证据。
+  next_action: null
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD 36405bd / Base 1c0eeaf，208 项独立复跑全绿，真实
+    PostgreSQL）；Merge 至交付线 v3.4 成功（merge commit b1cbb88，父提交 = Base + 批准 HEAD），最终状态提交后
+    DONE。
   layers:
     database: false
     backend: true
@@ -2701,22 +2715,44 @@ features:
     database: 仅扩宽解析异常转换，不修改表/列/索引/约束/触发器/Migration，不改事务边界与写入顺序。
     frontend: 无前端改动；两种输入载体（文件 / 文本）行为与服务端响应一致，无需界面调整。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
+    test_design: COMPLETE
+    contract: COMPLETE
+    backend: COMPLETE
     frontend: NOT_REQUIRED
-    test: PENDING
-    review: PENDING
+    test: COMPLETE
+    review: COMPLETE
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
-    head_commit: null
-    merge_commit: null
-  evidence: {}
+    branch: feature/F037-import-parse-error-contract
+    start_commit: 1c0eeafcd36fc6c4c791f89197243a074c6d5f01
+    head_commit: 36405bdcdeb53c5c37780742e9e00fdc4d115ebd
+    merge_commit: b1cbb88a54bea4b49b45fb734df7c935a66d8a68
+  evidence:
+    product:
+    - docs/features/F037/product.md
+    architecture:
+    - docs/features/F037/architecture.md
+    database:
+    - docs/database/f014-import.md
+    - docs/database/f023-import.md
+    test_design:
+    - docs/features/F037/test-report.md#1-test-designtd-f037-1v12026-10-29
+    contract:
+    - docs/features/F037/architecture.md#159-最终设计签核contract-gate2026-10-29
+    - docs/features/F037/architecture.md#1510-be-01-裁定repair-round-12026-10-29
+    - docs/api/F014.md
+    - docs/api/F023.md
+    backend:
+    - docs/features/F037/implementation.md
+    - backend/app/services/resource_import.py
+    test:
+    - docs/features/F037/test-report.md#2-test-executionte-f037-12026-10-29
+    - backend/tests/integration/test_f037_import_parse_errors.py
+    review:
+    - docs/features/F037/review-report.md
 - id: F038
   title: 导入解压 / 解析内存边界加固（R05）
   kind: FEATURE
@@ -2743,10 +2779,12 @@ features:
   - F023
   - F037
   blocking_decisions: []
-  status: DRAFT
+  status: DONE
   current_stage: null
-  next_action: 待用户裁定 AQ-2（推荐 A）并批准 CHG-015 后置 READY；PRODUCT 阶段需先确认不新增可观察业务规则。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R05（静态路径分析，未执行内存耗尽实验）。未启动。
+  next_action: null
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD 6d9144b / Base 8e609ca；整模块 76
+    passed、F037 52 项零修改、R2–R6 全绿；Reviewer 自建 155 例差分 fuzz + 判据反事实均通过）；Merge 至 v3.4
+    成功（adef87a，父提交 = Base + 批准 HEAD）；FU-1..FU-5 已登记为非阻塞跟进。
   layers:
     database: false
     backend: true
@@ -2758,22 +2796,39 @@ features:
     contract: 推荐口径（AQ-2=A）为实现侧有界解析、不新增可观察拒绝，无需变更契约；若用户裁定 AQ-2=B（新增可观察上限），本 Feature
       必须重新评估 `api_required=true`、升版契约并随需求 revision 16 重签后再实施。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: COMPLETE
     frontend: NOT_REQUIRED
-    test: PENDING
-    review: PENDING
+    test: COMPLETE
+    review: COMPLETE
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
-    head_commit: null
-    merge_commit: null
-  evidence: {}
+    branch: feature/F038-import-parse-bounds
+    start_commit: 8e609ca2e5b88c30804b6f6ad54a8a57d7906556
+    head_commit: 6d9144b899b644228a90cd8a2db921c2288e6500
+    merge_commit: adef87a43d9c73465c815fe85b2577d5dd17a1f2
+  evidence:
+    review:
+    - docs/features/F038/review-report.md
+    product:
+    - docs/features/F038/product.md
+    architecture:
+    - docs/features/F038/architecture.md
+    test_design:
+    - docs/features/F038/test-report.md#1-test-designtd-f038-1v12026-10-29
+    contract:
+    - docs/features/F038/architecture.md#1310-定稿签核
+    backend:
+    - docs/features/F038/implementation.md
+    - backend/app/services/resource_import.py
+    - backend/app/services/resource_interface_ip_import.py
+    test:
+    - docs/features/F038/test-report.md#2-test-executionte-f038-22026-10-29修复复测
+    - backend/tests/integration/test_f038_parse_bounds.py
 - id: F039
   title: Dashboard 容量查询批量化与查询计数基准（R10）
   kind: FEATURE
@@ -2801,10 +2856,12 @@ features:
   - F013
   - F027
   blocking_decisions: []
-  status: READY
+  status: DONE
   current_stage: null
-  next_action: 待用户裁定 AQ-5（推荐 A：纳入 R07+R10）并批准 CHG-015 后置 READY。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R10（静态估算，未执行真实数据库性能测试）。未启动。
+  next_action: null
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD f7bd196 / Base f66d1f3）：A1 q_svc
+    恒 11（基线 14/68/308，判据在基线 FAIL ⇒ 非平凡）、A2 八项谓词共用单点、A4 负 remaining、A5 响应零 diff、A3
+    real_scope、EXPLAIN 无 Seq Scan、回归全绿；Merge 至 v3.4（a249c33）；LOW-1/NOTE 已勘误或登记。
   layers:
     database: false
     backend: true
@@ -2815,22 +2872,39 @@ features:
     frontend: 响应形状不变，前端零改动。
     contract: 无 Endpoint、字段、错误码或权限变化；容量与范围口径仍以 docs/api/F013.md 与 §20 为权威。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
-    backend: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
+    backend: COMPLETE
     frontend: NOT_REQUIRED
-    test: PENDING
-    review: PENDING
+    test: COMPLETE
+    review: COMPLETE
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
-    head_commit: null
-    merge_commit: null
-  evidence: {}
+    branch: feature/F039-dashboard-queries
+    start_commit: f66d1f33eb95fd54504e6c600ad32e7bc89ad9bd
+    head_commit: f7bd196bcc590ffa2f36b6741a3c72bb888df6e1
+    merge_commit: a249c33cf96e5c82aabb616ebb116e53ee5badbf
+  evidence:
+    review:
+    - docs/features/F039/review-report.md
+    backend:
+    - docs/features/F039/implementation.md
+    - backend/app/services/ip_capacity.py
+    - backend/app/services/dashboard.py
+    test:
+    - docs/features/F039/test-report.md#2-test-executionte-f039-12026-10-29
+    - backend/tests/integration/test_f039_query_count.py
+    architecture:
+    - docs/features/F039/architecture.md
+    test_design:
+    - docs/features/F039/test-report.md#1-test-designtd-f039-1v12026-10-29
+    contract:
+    - docs/features/F039/architecture.md#6-契约结论not_required零-diff
+    product:
+    - docs/features/F039/product.md
 - id: F040
   title: 前端依赖版本范围与架构升级策略对齐（R07）
   kind: ENABLER
@@ -2855,12 +2929,12 @@ features:
   - docs/project/proposals/CHG-015-post-delivery-review-closeout.md
   depends_on: []
   blocking_decisions: []
-  status: READY
+  status: DONE
   current_stage: null
-  next_action: 待用户裁定 AQ-6（推荐 (i)：收敛前端依赖声明范围）并批准 CHG-015 后置 READY。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R07（静态比对，当前 lockfile 固定安装版本，非运行故障）。Architect
-    评估：范围限定为 antd / tailwindcss / @tailwindcss/vite 三个依赖并收敛为 `~`，不改架构策略文档；机制选项登记为
-    AQ-6。未启动。
+  next_action: null
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD eb02b0b / Base abd097d）：A1–A10
+    全 PASS、npm ci 可复现、实装 6.6.6/4.3.3/4.3.3、smoke 340 passed、lockfile 非根 221 条零差异；Merge
+    至 v3.4（559a0fc，父提交 = Base + 批准 HEAD）；F-01..F-08 与 FU-1..FU-5 已登记。
   layers:
     database: false
     backend: false
@@ -2871,22 +2945,38 @@ features:
     backend: 不涉服务端。
     contract: 不涉 API 契约；仅前端依赖声明与已批准架构策略对齐。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
     backend: NOT_REQUIRED
-    frontend: PENDING
-    test: PENDING
-    review: PENDING
+    frontend: COMPLETE
+    test: COMPLETE
+    review: COMPLETE
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
-    head_commit: null
-    merge_commit: null
-  evidence: {}
+    branch: feature/F040-dependency-ranges
+    start_commit: abd097deb0905b8733caa830ac213173a313651f
+    head_commit: eb02b0b88e7aa1c69e9ffef84e6add2d86f398dd
+    merge_commit: 559a0fcaa24723ea6a391530e5cfce07c97c2765
+  evidence:
+    review:
+    - docs/features/F040/review-report.md
+    frontend:
+    - docs/features/F040/implementation.md
+    - frontend/package.json
+    - frontend/package-lock.json
+    test:
+    - docs/features/F040/test-report.md#2-test-executionte-f040-12026-10-29
+    architecture:
+    - docs/features/F040/architecture.md
+    test_design:
+    - docs/features/F040/test-report.md#1-test-designtd-f040-1v12026-10-29
+    contract:
+    - docs/features/F040/architecture.md#6-最终设计签核contract-gate
+    product:
+    - docs/features/F040/product.md
 - id: F041
   title: 对象选择控件候选完整性（R04）
   kind: FEATURE
@@ -2919,12 +3009,13 @@ features:
   - F004
   - F006
   blocking_decisions: []
-  status: READY
+  status: DONE
   current_stage: null
-  next_action: 待用户裁定 AQ-1（推荐 A）并批准 CHG-015 后置 READY；A/B 还需需求 revision 16 落稿（A 的条款草案见
-    docs/project/proposals/CHG-015-r04-requirements-revision-16-draft.md），落稿前不得作为实施依据。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R04（前端候选加载上限，已显示截断提示）。Architect 评估：补零契约与零权限硬约束、不得改共享
-    Select 全局语义、保留 T56 与 §23.2 口径。未启动。
+  next_action: null
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD ad56072 / Base d5c0a4c）：A1–A16
+    全 PASS（I 18 passed 真实 PG、F 352 passed、S 零 diff、回归 38+3）、Reviewer 自建 36 项纯函数探针全
+    PASS；Merge 至 v3.4（f8422e3）；F041-R-01..R-06 与 FU-1..FU-5 已登记（FU-1：DR-F041-09 的
+    Product 追认待留痕）。
   layers:
     database: false
     backend: false
@@ -2936,22 +3027,39 @@ features:
     contract: 不新增 Endpoint 或查询参数；若 AQ-1=A/B，候选完整性的验收口径作为需求条款落稿（revision 16），不在本 Feature
       静默新增业务规则。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
     backend: NOT_REQUIRED
-    frontend: PENDING
-    test: PENDING
-    review: PENDING
+    frontend: COMPLETE
+    test: COMPLETE
+    review: COMPLETE
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
-    head_commit: null
-    merge_commit: null
-  evidence: {}
+    branch: feature/F041-candidate-completeness
+    start_commit: d5c0a4c9aa5bd1036dd9acf087d210a22f43571d
+    head_commit: ad56072424f886d182301d39832619a93b1f1e65
+    merge_commit: f8422e354e57b36de72edd87505c6aa652b6fd8d
+  evidence:
+    review:
+    - docs/features/F041/review-report.md
+    frontend:
+    - docs/features/F041/implementation.md
+    - frontend/src/components/candidateSelectModel.ts
+    - frontend/src/components/CandidateSelect.tsx
+    test:
+    - docs/features/F041/test-report.md#2-test-executionte-f041-12026-10-29
+    - backend/tests/integration/test_f041_candidate_completeness.py
+    architecture:
+    - docs/features/F041/architecture.md
+    test_design:
+    - docs/features/F041/test-report.md#1-test-designtd-f041-1v12026-10-29
+    contract:
+    - docs/features/F041/architecture.md#6-最终设计签核
+    product:
+    - docs/features/F041/product.md
 - id: F042
   title: 前端按页面边界懒加载（R06）
   kind: FEATURE
@@ -3020,10 +3128,12 @@ features:
   - docs/project/proposals/CHG-015-post-delivery-review-closeout.md
   depends_on: []
   blocking_decisions: []
-  status: READY
+  status: DONE
   current_stage: null
-  next_action: 待用户裁定 AQ-4（推荐 B）并批准 CHG-015 后置 READY。
-  last_result: 候选计划（revision 25）新增；来源为外部检查报告 R08（smoke 340 项通过；无仓库内 DOM/E2E 入口）。未启动。
+  next_action: null
+  last_result: Review APPROVED WITH FOLLOW-UP（候选 HEAD 0e34190 / Base 8eec63b）：smoke
+    输出与基线逐字节相同（352/0）、test:interactions 14/0、caseAudit 非平凡（Reviewer 独立突变 4 类均 FAIL）、S
+    静态边界合规、X4 NOT TESTED 如实；Merge 至 v3.4（5c5b926）。
   layers:
     database: false
     backend: false
@@ -3036,22 +3146,37 @@ features:
       拆分（`frontend/scripts` 与测试入口），无产品页面 / 组件 / 交互语义变更，不产生可验收的前端功能交付。
     contract: 不改 API 契约；仅测试基础设施与验证入口。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
-    test: PENDING
-    review: PENDING
+    test: COMPLETE
+    review: COMPLETE
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
-    head_commit: null
-    merge_commit: null
-  evidence: {}
+    branch: feature/F043-test-entry
+    start_commit: 8eec63b9af897167fc448dce222a175b6852188f
+    head_commit: 0e34190
+    merge_commit: 5c5b9262765e99362ea6518bce10978bb787412b
+  evidence:
+    review:
+    - docs/features/F043/review-report.md
+    frontend:
+    - docs/features/F043/implementation.md
+    - frontend/scripts/test-interactions.mjs
+    test:
+    - docs/features/F043/test-report.md#2-test-executionte-f043-12026-10-29
+    architecture:
+    - docs/features/F043/architecture.md
+    test_design:
+    - docs/features/F043/test-report.md#1-test-designtd-f043-1v12026-10-29
+    contract:
+    - docs/features/F043/architecture.md#9-签核
+    product:
+    - docs/features/F043/product.md
 - id: F044
   title: Agent 模型配置与角色职责解耦（R09）
   kind: ENABLER
@@ -3133,16 +3258,14 @@ features:
   - F040
   - F041
   - F043
-  blocking_decisions:
-  - AQ-1
-  - AQ-4
-  - AQ-5
-  - AQ-6
-  status: DRAFT
+  blocking_decisions: []
+  status: DONE
   current_stage: null
-  next_action: 待 CHG-015 获批、AQ-1 / AQ-4 / AQ-5 / AQ-6 裁定完成、且最终实际合并的全部 Feature DONE
-    后，由协调器核对并补齐 depends_on（AQ-6 选「收敛依赖」时补入 F040）再置 READY。
-  last_result: 候选计划（revision 25）新增；作为变更集整体验收承接项。未启动；依赖未 DONE（F037 等为 DRAFT），按依赖规则不得启动。
+  next_action: null
+  last_result: Review APPROVED（批准基线 141a3f9；Merge b9bb557）：A1 run3 全量 969 passed/6
+    skipped（无排除项）；A2 147、A3 27、A4 48、A5 352+14、A6 113、A7 真实 Compose（round-1 42 步含
+    5 步驱动签名错误 / round-2 15-15 / round-3 空卷 4 步）、A8 VALID+无漂移+heads 0015、A9 归类完成；2
+    个性能阈值节点经用户裁定（选项 a）登记 ENVIRONMENT_FLAKY，不计 PASS、不改阈值与产品代码；DEF-1（F038 守卫基线）已修复且断言未放宽。
   layers:
     database: false
     backend: false
@@ -3155,22 +3278,37 @@ features:
     contract: 无新增/变更 API；被验收端点来自既有已签核契约（docs/api/F014.md、docs/api/F023.md、docs/api/F013.md
       等），api_required=false。
   implementation:
-    product: PENDING
-    architecture: PENDING
+    product: COMPLETE
+    architecture: COMPLETE
     database: NOT_REQUIRED
-    test_design: PENDING
-    contract: PENDING
+    test_design: COMPLETE
+    contract: NOT_REQUIRED
     backend: NOT_REQUIRED
     frontend: NOT_REQUIRED
-    test: PENDING
-    review: PENDING
+    test: COMPLETE
+    review: COMPLETE
   git:
     base_branch: v3.4
-    branch: null
-    start_commit: null
-    head_commit: null
-    merge_commit: null
-  evidence: {}
+    branch: feature/F045-change-set-acceptance
+    start_commit: fa8a568b912d7aea9806a58616e98867a5786808
+    head_commit: 141a3f9294ffceae51bc6d188541aca85cd893b1
+    merge_commit: b9bb557225cbb89e3bc18346a87e2d3331b68826
+  evidence:
+    review:
+    - docs/features/F045/review-report.md
+    test:
+    - docs/features/F045/test-report.md#3-test-第二轮def-1-修复后2026-10-29
+    - docs/features/F045/artifacts/full-pytest.log
+    - docs/features/F045/artifacts/http-acceptance.log
+    - docs/features/F045/artifacts/compose-up.log
+    test_design:
+    - docs/features/F045/test-report.md#1-test-designtd-f045-12026-10-29
+    architecture:
+    - docs/features/F045/architecture.md
+    contract:
+    - docs/features/F045/architecture.md#9-contract--database--backend--frontend
+    product:
+    - docs/features/F045/product.md
 decisions_required:
 - id: BQ6
   source: docs/product/requirements-v3.md#243-采集脚本增强参数补全打印与-api-推送revision-10
@@ -3775,30 +3913,23 @@ execution:
     basis: 用户 2026-10-29「批准并执行」：同次明确授权按 plan revision 25 的已批准范围（F037–F040、F041、F043、F045）实施。
   current_feature: null
   current_stage: null
-  last_result: plan revision 25 已批准并落地：需求 revision 16（§28.1 + T127–T129）；F037–F040
-    / F041 / F043 / F045 纳入，F042 / F044 CANCELLED；AQ-1 / AQ-2 / AQ-3 / AQ-4 / AQ-5
-    / AQ-6 已裁定，AQ-7 保持 OPEN。
-  next_action: 启动 F037（P0，导入解析异常收敛为 422 IMPORT_INVALID_FILE）。
+  last_result: CHG-015（plan revision 25）全部已批准 Feature 完成并合入 v3.4：F037/F038/F039/F040/F041/F043
+    DONE（F042/F044 CANCELLED），F045 变更集整体验收 DONE；project.acceptance 已恢复 COMPLETE（52
+    条历史锚点 + 10 条 F045 锚点）。
+  next_action: 无待办：一期变更集收口。main 同步需用户显式授权的受控 Release。
   repair_rounds: 0
 planning_status:
-  status: ACCEPTED
+  status: DONE
   plan_completeness: complete
   counts:
     BLOCKED: 0
     CANCELLED: 2
-    DONE: 36
-    DRAFT: 2
+    DONE: 43
+    DRAFT: 0
     IN_PROGRESS: 0
     IN_REVIEW: 0
-    READY: 5
-  ready_features:
-  - F037
-  - F039
-  - F040
-  - F041
-  - F043
+    READY: 0
+  ready_features: []
   blocked_draft_features:
     BLOCKED: []
-    DRAFT:
-    - F038
-    - F045
+    DRAFT: []

@@ -1,0 +1,21 @@
+### F040 TE — E-09 installed-vs-lockfile / E-10 no cross-minor (2026-10-29T20:23:13+08:00)
+antd lock=6.6.6 installed=6.6.6 OK
+tailwindcss lock=4.3.3 installed=4.3.3 OK
+@tailwindcss/vite lock=4.3.3 installed=4.3.3 OK
+E-09-VERDICT=PASS
+
+antd declared=~6.6.6 locked=6.6.6 minorMatch=true satisfies=true
+tailwindcss declared=~4.3.3 locked=4.3.3 minorMatch=true satisfies=true
+@tailwindcss/vite declared=~4.3.3 locked=4.3.3 minorMatch=true satisfies=true
+E-10-VERDICT=PASS
+
+--- nested tailwindcss copies? (R-2) ---
+csm-frontend@0.1.0 /home/hanhao/github/47oo/csm/frontend
+├─┬ @tailwindcss/vite@4.3.3
+│ ├─┬ @tailwindcss/node@4.3.3
+│ │ └── tailwindcss@4.3.3 deduped
+│ └── tailwindcss@4.3.3 deduped
+└── tailwindcss@4.3.3
+
+--- disk copies of tailwindcss ---
+node_modules/tailwindcss

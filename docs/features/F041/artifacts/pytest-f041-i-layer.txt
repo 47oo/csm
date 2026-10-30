@@ -1,0 +1,28 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.7, pytest-7.4.4, pluggy-1.0.0 -- /home/hanhao/anaconda3/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/hanhao/github/47oo/csm/backend
+configfile: pyproject.toml
+plugins: langsmith-0.7.33, anyio-4.2.0
+collecting ... collected 18 items
+
+tests/integration/test_f041_candidate_completeness.py::test_i01_host_rank_beyond_first_page_is_searchable PASSED [  5%]
+tests/integration/test_f041_candidate_completeness.py::test_i02_cluster_rank_beyond_first_page_is_searchable PASSED [ 11%]
+tests/integration/test_f041_candidate_completeness.py::test_i03_candidate_response_respects_single_page_limit PASSED [ 16%]
+tests/integration/test_f041_candidate_completeness.py::test_i04_page_size_above_contract_limit_is_rejected PASSED [ 22%]
+tests/integration/test_f041_candidate_completeness.py::test_i05_create_resource_in_rank_110_cluster_is_accepted PASSED [ 27%]
+tests/integration/test_f041_candidate_completeness.py::test_i06_create_vm_on_rank_110_host_is_accepted PASSED [ 33%]
+tests/integration/test_f041_candidate_completeness.py::test_i07_rehost_from_rank_110_to_rank_120_records_t19_audit PASSED [ 38%]
+tests/integration/test_f041_candidate_completeness.py::test_i08_cluster_and_type_filters_bound_the_candidate_set PASSED [ 44%]
+tests/integration/test_f041_candidate_completeness.py::test_i09_soft_deleted_objects_are_not_candidates PASSED [ 50%]
+tests/integration/test_f041_candidate_completeness.py::test_i10_submit_with_soft_deleted_host_is_rejected PASSED [ 55%]
+tests/integration/test_f041_candidate_completeness.py::test_i13_auth_and_permission_errors_precede_candidate_semantics PASSED [ 61%]
+tests/integration/test_f041_candidate_completeness.py::test_i14_invalid_host_references_keep_their_existing_errors PASSED [ 66%]
+tests/integration/test_f041_candidate_completeness.py::test_i16_q_stays_case_insensitive_substring PASSED [ 72%]
+tests/integration/test_f041_candidate_completeness.py::test_i17_candidate_reads_write_no_audit PASSED [ 77%]
+tests/integration/test_f041_candidate_scope.py::test_i11_editor_candidates_and_total_count_only_visible_objects PASSED [ 83%]
+tests/integration/test_f041_candidate_scope.py::test_i12_editor_write_into_ungranted_cluster_is_rejected PASSED [ 88%]
+tests/integration/test_f041_candidate_scope.py::test_i13_editor_cannot_request_deleted_objects PASSED [ 94%]
+tests/integration/test_f041_candidate_scope.py::test_i15_truncation_inputs_are_scoped PASSED [100%]
+
+============================= 18 passed in 29.30s ==============================

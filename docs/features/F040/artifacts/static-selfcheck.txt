@@ -1,0 +1,15 @@
+### numstat
+3	3	frontend/package-lock.json
+3	3	frontend/package.json
+### forbidden-paths-diffstat (must be empty)
+(end)
+### non-root compare
+non-root-entry-diffs: 0 []
+added: [] removed: []
+current packages/resolved/integrity: 222 215 215
+baseline packages/resolved/integrity: 222 215 215
+root-entry-matches-package.json: true
+lockfileVersion: 3 requires: true
+three-targets: {"antd":"6.6.6","resolved":"https://registry.npmmirror.com/antd/-/antd-6.6.6.tgz","integrityOk":true,"tw":"4.3.3","twv":"4.3.3"}
+### S-09 three-line check
+5

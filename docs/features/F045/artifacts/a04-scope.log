@@ -1,0 +1,66 @@
+# cmd: cd backend && python -m pytest -v -p no:cacheprovider tests/integration/test_f027_access_scope.py tests/integration/test_search_related.py tests/integration/test_search_related_tester_acceptance.py tests/integration/test_f041_candidate_scope.py
+# start_commit: fa8a568 fa8a568b912d7aea9806a58616e98867a5786808
+# head: 9941f92 9941f923d153dfa97e2766fce47811aaf8064082
+# env: TEST_DATABASE_URL=postgresql+psycopg://csm:***@127.0.0.1:55432/csm_f045_test; cwd=backend
+# started_at: 2026-10-29T15:04:18Z
+# tool_versions: python=3.12.7 pytest=pytest 7.4.4 node=v22.23.3 npm=10.9.9 docker=26.1.2 compose=5.6.0 pg=PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+# ---
+============================= test session starts ==============================
+platform linux -- Python 3.12.7, pytest-7.4.4, pluggy-1.0.0 -- /home/hanhao/anaconda3/bin/python
+rootdir: /home/hanhao/github/47oo/csm/backend
+configfile: pyproject.toml
+plugins: langsmith-0.7.33, anyio-4.2.0
+collecting ... collected 48 items
+
+tests/integration/test_f027_access_scope.py::test_lists_details_activity_and_totals_are_scoped PASSED [  2%]
+tests/integration/test_f027_access_scope.py::test_zero_grants_deny_by_default PASSED [  4%]
+tests/integration/test_f027_access_scope.py::test_unscoped_writes_are_rejected_without_state_or_audit PASSED [  6%]
+tests/integration/test_f027_access_scope.py::test_search_dashboard_and_related_rows_are_scoped PASSED [  8%]
+tests/integration/test_f027_access_scope.py::test_revoke_and_role_change_apply_on_next_request_including_api_key PASSED [ 10%]
+tests/integration/test_f027_access_scope.py::test_soft_deleted_cluster_scope_and_restore PASSED [ 12%]
+tests/integration/test_f027_access_scope.py::test_error_precedence_and_admin_deleted_behavior PASSED [ 14%]
+tests/integration/test_f027_access_scope.py::test_f014_import_row_scope_error_fails_whole_batch_without_residue PASSED [ 16%]
+tests/integration/test_f027_access_scope.py::test_f023_import_row_scope_error_fails_whole_batch_without_residue PASSED [ 18%]
+tests/integration/test_f027_access_scope.py::test_hidden_interface_error_is_indistinguishable_from_missing PASSED [ 20%]
+tests/integration/test_f027_access_scope.py::test_every_business_route_depends_on_real_scope PASSED [ 22%]
+tests/integration/test_search_related.py::test_resource_row_related_superset PASSED [ 25%]
+tests/integration/test_search_related.py::test_non_resource_rows_have_null_related PASSED [ 27%]
+tests/integration/test_search_related.py::test_related_ordering_collate_c_and_inet_numeric PASSED [ 29%]
+tests/integration/test_search_related.py::test_related_limit_and_total PASSED [ 31%]
+tests/integration/test_search_related.py::test_related_limit_boundary[10] PASSED [ 33%]
+tests/integration/test_search_related.py::test_related_limit_boundary[11] PASSED [ 35%]
+tests/integration/test_search_related.py::test_two_interfaces_two_ips_each PASSED [ 37%]
+tests/integration/test_search_related.py::test_no_interface_is_empty PASSED [ 39%]
+tests/integration/test_search_related.py::test_interface_without_ip_is_empty PASSED [ 41%]
+tests/integration/test_search_related.py::test_deleted_association_exclude_include_only PASSED [ 43%]
+tests/integration/test_search_related.py::test_deleted_association_restore_reappears PASSED [ 45%]
+tests/integration/test_search_related.py::test_unbound_ip_not_in_related_but_searchable PASSED [ 47%]
+tests/integration/test_search_related.py::test_same_name_and_address_tiebreak_by_id PASSED [ 50%]
+tests/integration/test_search_related.py::test_non_ascii_names_are_verbatim PASSED [ 52%]
+tests/integration/test_search_related.py::test_interface_type_echoed[PHYSICAL] PASSED [ 54%]
+tests/integration/test_search_related.py::test_interface_type_echoed[VIRTUAL] PASSED [ 56%]
+tests/integration/test_search_related.py::test_interface_type_echoed[BOND] PASSED [ 58%]
+tests/integration/test_search_related.py::test_interface_type_echoed[BRIDGE] PASSED [ 60%]
+tests/integration/test_search_related.py::test_interface_type_echoed[VLAN] PASSED [ 62%]
+tests/integration/test_search_related.py::test_interface_type_echoed[LOOPBACK] PASSED [ 64%]
+tests/integration/test_search_related.py::test_interface_type_echoed[OTHER] PASSED [ 66%]
+tests/integration/test_search_related.py::test_related_does_not_change_result_set PASSED [ 68%]
+tests/integration/test_search_related.py::test_pagination_associations_are_page_scoped PASSED [ 70%]
+tests/integration/test_search_related.py::test_related_search_is_idempotent_and_writes_no_audit PASSED [ 72%]
+tests/integration/test_search_related_tester_acceptance.py::test_fixed_superset_independent_of_query PASSED [ 75%]
+tests/integration/test_search_related_tester_acceptance.py::test_unknown_fields_param_is_ignored PASSED [ 77%]
+tests/integration/test_search_related_tester_acceptance.py::test_non_resource_rows_related_null_and_total_distinct PASSED [ 79%]
+tests/integration/test_search_related_tester_acceptance.py::test_search_route_is_get_only PASSED [ 81%]
+tests/integration/test_search_related_tester_acceptance.py::test_error_ordering_401_before_validation PASSED [ 83%]
+tests/integration/test_search_related_tester_acceptance.py::test_error_ordering_403_before_422 PASSED [ 85%]
+tests/integration/test_search_related_tester_acceptance.py::test_ordering_matches_raw_sql PASSED [ 87%]
+tests/integration/test_search_related_tester_acceptance.py::test_related_explain_references_existing_indexes PASSED [ 89%]
+tests/integration/test_search_related_tester_acceptance.py::test_related_loading_has_no_n_plus_1 PASSED [ 91%]
+tests/integration/test_f041_candidate_scope.py::test_i11_editor_candidates_and_total_count_only_visible_objects PASSED [ 93%]
+tests/integration/test_f041_candidate_scope.py::test_i12_editor_write_into_ungranted_cluster_is_rejected PASSED [ 95%]
+tests/integration/test_f041_candidate_scope.py::test_i13_editor_cannot_request_deleted_objects PASSED [ 97%]
+tests/integration/test_f041_candidate_scope.py::test_i15_truncation_inputs_are_scoped PASSED [100%]
+
+======================== 48 passed in 84.82s (0:01:24) =========================
+# finished_at: 2026-10-29T15:05:46Z
+# exit_code: 0

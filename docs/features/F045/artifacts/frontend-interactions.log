@@ -1,0 +1,55 @@
+# cmd: cd frontend && npm run test:interactions
+# start_commit: fa8a568 fa8a568b912d7aea9806a58616e98867a5786808
+# head: 9941f92 9941f923d153dfa97e2766fce47811aaf8064082
+# env: cwd=/home/hanhao/github/47oo/csm/frontend ; no DB env used
+# started_at: 2026-10-29T15:06:30Z
+# tool_versions: node=v22.23.3 npm=10.9.9 python=3.12.7 pytest=pytest 7.4.4 docker=26.1.2 compose=5.6.0 pg=PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+# ---
+
+> csm-frontend@0.1.0 test:interactions
+> node scripts/test-interactions.mjs
+
+PASS: F043 C01 候选查询与截断：page=1/page_size=100/type=BARE_METAL/cluster_id/q；total=154 截断；第 101 位 id 恰一次且 label 不退化
+PASS: F043 C02 候选取数：单次交互 calls.length===1 且 URL 含 page=1/page_size=100/type=BARE_METAL/cluster_id=c1
+PASS: F043 C03 候选取数负例：URL 不含 page>=2 / page_size>100 / include= / only= / deleted=
+PASS: F043 C04 401 正例：首错 status=401/code=AUTH_REQUIRED 未被吞、处理器恰 1 次；用户显式重试后第 2 次 200
+PASS: F043 C05 401 负例：单次 401 → calls.length===1（无自动重试）且 handlerCalls===1
+PASS: F043 C06 409 正例：versionConflict + currentVersion=7；刷新后 calls.length===3 且重提 body.version===7
+PASS: F043 C07 409 负例：409 后 calls.length===1（无自动刷新）；旧 version 重提仍 409 且 handlerCalls===0
+PASS: F043 C09 载体切换正例：切 text 强制 format=csv；切回 file 不回填且 file=null；两载体 importTargetKey 不等且非 null
+PASS: F043 C10 载体切换负例：切换后 validatedKey!==currentKey 且确认门控为 false；未校验/确认前 calls.length===0
+PASS: F043 C12 危险操作确认正例：tryBegin()===true → calls.length===1；第二次 tryBegin()===false → 仍 1
+PASS: F043 C13 危险操作取消负例：tryBegin()→reset() 后 isInFlight()===false 且 calls.length===0
+PASS: F043 C08 409 后刷新接线：refreshAfterConflict 定义 + onRefresh 接线命中载体 >=8 [S-STATIC]
+PASS: F043 C11 单资源导入 canConfirm 门控：validatedKey/currentKey/error_count/success/提交拦截齐备 [S-STATIC]
+PASS: F043 C14 ConfirmDialog 接线：提交态禁用遮罩/Esc/取消、危险语义、守卫接线（tryBegin/settle 各 1、reset 2）[S-STATIC]
+
+14 passed, 0 failed
+# finished_at: 2026-10-29T15:06:32Z
+# exit_code: 0
+
+# --- 追加 repeatability：A5 之后第二次执行（F043 review §3「重复性仅 2 次抽样」/ F043 NOTE 复核） ---
+# cmd: cd frontend && npm run test:interactions (run#2)
+# started_at: 2026-10-29T15:20:40Z
+
+> csm-frontend@0.1.0 test:interactions
+> node scripts/test-interactions.mjs
+
+PASS: F043 C01 候选查询与截断：page=1/page_size=100/type=BARE_METAL/cluster_id/q；total=154 截断；第 101 位 id 恰一次且 label 不退化
+PASS: F043 C02 候选取数：单次交互 calls.length===1 且 URL 含 page=1/page_size=100/type=BARE_METAL/cluster_id=c1
+PASS: F043 C03 候选取数负例：URL 不含 page>=2 / page_size>100 / include= / only= / deleted=
+PASS: F043 C04 401 正例：首错 status=401/code=AUTH_REQUIRED 未被吞、处理器恰 1 次；用户显式重试后第 2 次 200
+PASS: F043 C05 401 负例：单次 401 → calls.length===1（无自动重试）且 handlerCalls===1
+PASS: F043 C06 409 正例：versionConflict + currentVersion=7；刷新后 calls.length===3 且重提 body.version===7
+PASS: F043 C07 409 负例：409 后 calls.length===1（无自动刷新）；旧 version 重提仍 409 且 handlerCalls===0
+PASS: F043 C09 载体切换正例：切 text 强制 format=csv；切回 file 不回填且 file=null；两载体 importTargetKey 不等且非 null
+PASS: F043 C10 载体切换负例：切换后 validatedKey!==currentKey 且确认门控为 false；未校验/确认前 calls.length===0
+PASS: F043 C12 危险操作确认正例：tryBegin()===true → calls.length===1；第二次 tryBegin()===false → 仍 1
+PASS: F043 C13 危险操作取消负例：tryBegin()→reset() 后 isInFlight()===false 且 calls.length===0
+PASS: F043 C08 409 后刷新接线：refreshAfterConflict 定义 + onRefresh 接线命中载体 >=8 [S-STATIC]
+PASS: F043 C11 单资源导入 canConfirm 门控：validatedKey/currentKey/error_count/success/提交拦截齐备 [S-STATIC]
+PASS: F043 C14 ConfirmDialog 接线：提交态禁用遮罩/Esc/取消、危险语义、守卫接线（tryBegin/settle 各 1、reset 2）[S-STATIC]
+
+14 passed, 0 failed
+# finished_at: 2026-10-29T15:20:41Z
+# run2_exit_code: 0

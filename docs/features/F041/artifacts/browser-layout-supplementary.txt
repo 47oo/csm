@@ -1,0 +1,10 @@
+1440 {'w': 539, 'h': 36, 'hitInsideSelect': True, 'hitTag': 'ant-select-input|INPUT', 'alertVisible': True, 'labelAbove': True}
+1024 {'w': 331, 'h': 36, 'hitInsideSelect': True, 'hitTag': 'ant-select-input|INPUT', 'alertVisible': True, 'labelAbove': True}
+768 {'w': 327, 'h': 36, 'hitInsideSelect': True, 'hitTag': 'ant-select-input|INPUT', 'alertVisible': True, 'labelAbove': True}
+375 {'w': 317, 'h': 36, 'hitInsideSelect': True, 'hitTag': 'ant-select-input|INPUT', 'alertVisible': True, 'labelAbove': True}
+PASS  1440px 控件可点（无遮挡）/ 尺寸 539x36 / 超限提示完整可见 / label 在上方
+PASS  1024px 控件可点（无遮挡）/ 尺寸 331x36 / 超限提示完整可见 / label 在上方
+PASS  768px 控件可点（无遮挡）/ 尺寸 327x36 / 超限提示完整可见 / label 在上方
+PASS  375px 控件可点（无遮挡）/ 尺寸 317x36 / 超限提示完整可见 / label 在上方
+
+4 passed, 0 failed

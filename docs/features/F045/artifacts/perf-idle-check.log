@@ -1,0 +1,27 @@
+cmd: TEST_DATABASE_URL=*** python -m pytest -p no:cacheprovider -q "tests/integration/test_import_performance.py::test_import_near_max_rows_baseline" "tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline"
+start_commit: fa8a568
+head: 18138d0dfbf13d42898e3dfc9bace665cf725fa7
+env: TEST_DATABASE_URL=***@127.0.0.1:55432/csm_f045_test2 (fresh: DROP/CREATE just before this run)
+tool_versions: Python 3.12.7 / pytest 7.4.4 / PostgreSQL 16.15
+--- host load before ---
+1.61 1.96 2.58 1/1612 76605
+16
+cpu_total_jiffies cpu  10225918 18800 7885353 195920643 305008 0 383310 0 0 0
+--- starting ---
+2026-10-29T19:45:26Z
+>       assert write_seconds < 600, write_seconds
+E       AssertionError: 705.554181473999
+E       assert 705.554181473999 < 600
+
+tests/integration/test_f023_resource_interface_ip_import.py:1268: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+[PERF-03] file=320476B rows=5000 validate=113.71s validate_peak=8.0MB write=705.55s write_peak=13.3MB
+=========================== short test summary info ============================
+FAILED tests/integration/test_import_performance.py::test_import_near_max_rows_baseline
+FAILED tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline
+2 failed in 1072.11s (0:17:52)
+--- finished ---
+2026-10-29T20:03:23Z
+load_after:
+3.10 3.16 2.94 1/1612 76786

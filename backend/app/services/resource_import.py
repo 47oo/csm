@@ -21,10 +21,16 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import re
 import uuid
+import zipfile
+import zlib
+from collections.abc import Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
+from xml.etree import ElementTree
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -52,6 +58,22 @@ BARE_METAL = "BARE_METAL"
 VIRTUAL_MACHINE = "VIRTUAL_MACHINE"
 
 _INT_RE = re.compile(r"[+-]?[0-9]+")
+
+logger = logging.getLogger("csm.imports")
+
+#: Whitelist of parser exceptions converged to IMPORT_INVALID_FILE{unreadable}.
+#: Everything else (AppError, MemoryError, RecursionError, KeyboardInterrupt,
+#: SystemExit and unrecognised exceptions) keeps propagating untouched.
+_PARSE_FAILURES: tuple[type[BaseException], ...] = (
+    csv.Error,  # CSV iteration, e.g. one field beyond the csv module field limit
+    zipfile.BadZipFile,  # not a zip / corrupt central directory / CRC mismatch
+    zipfile.LargeZipFile,  # ZIP64 declaration above the interpreter limit
+    zlib.error,  # corrupt or truncated deflate stream
+    ElementTree.ParseError,  # malformed workbook / sheet XML (incl. read_only)
+    NotImplementedError,  # container declares an unsupported compression method
+    KeyError,  # zip misses a required part ([Content_Types].xml, xl/workbook.xml)
+    ValueError,  # openpyxl coordinate / value / date parsing failure
+)
 
 
 @dataclass(frozen=True)
@@ -398,6 +420,10 @@ def templates_payload() -> list[dict[str, Any]]:
 
 # --- parsing ----------------------------------------------------------------
 
+#: 最宽冻结模板（BM 14 / VM 10）。逐行校验只读前 len(template.columns) 个单元格，
+#: 故数据记录的保留宽度取此值。F038 内部界限，永不可观察。
+_MAX_TEMPLATE_COLUMNS = max(len(template.columns) for template in TEMPLATES)
+
 
 def _cell_text(value: Any) -> str:
     """Normalise a parsed CSV/xlsx cell to text (xlsx numbers are floats)."""
@@ -416,47 +442,199 @@ def _cell_text(value: Any) -> str:
     return str(value)
 
 
-def _parse_csv(data: bytes) -> list[list[str]]:
+@contextmanager
+def _invalid_file_on_parse_failure(
+    fmt: str,
+    size: int,
+    failures: tuple[type[BaseException], ...] = _PARSE_FAILURES,
+) -> Iterator[None]:
+    """Converge whitelisted parser exceptions to 422 IMPORT_INVALID_FILE{unreadable}."""
+    try:
+        yield
+    except AppError:
+        # Reason fidelity: a business rejection with an explicit reason is never
+        # rewritten as ``unreadable``.
+        raise
+    except failures as exc:
+        # Whitelisted fields only: no upload content, exception message text,
+        # client-supplied file name or stack trace.
+        logger.info(
+            "import parse rejected: format=%s bytes=%d error=%s",
+            fmt,
+            size,
+            type(exc).__name__,
+        )
+        raise ImportInvalidFile("unreadable") from exc
+
+
+def _close_workbook(workbook: Any) -> None:
+    """Best-effort release of the read_only workbook archive handle.
+
+    A failing ``close()`` is neither attributable to the user input nor allowed
+    to override an already-decided parse result (a 422 must not be rewritten to
+    500 by a second exception); hence the cleanup exception is swallowed here
+    and only logged content-free by class name.
+    """
+    try:
+        workbook.close()
+    except Exception as exc:  # noqa: BLE001 - cleanup boundary, not a 4xx/5xx signal
+        logger.info("import workbook close failed: error=%s", type(exc).__name__)
+
+
+def _is_blank_record(values: Sequence[Any]) -> bool:
+    """整行归一化后是否全空（B3 尾部空行口径）。
+
+    与 ``all(_cell_text(cell) == "" for cell in values)`` 对两条解析路径可产出的
+    取值类型精确等价（CSV 只有 str；openpyxl values_only 只有 str/bool/int/float/
+    日期时间/None）。刻意不构造文本：本判定运行在 F037 的 422 作用域**内**，
+    不得把归一化异常带进白名单。
+    """
+    return all(value is None or value == "" for value in values)
+
+
+@dataclass
+class _Collected:
+    """Bounded retention state of one parsed file (F038 / DR-F038-01)."""
+
+    header: Sequence[Any] | None = None
+    rows: list[Sequence[Any]] = field(default_factory=list)
+    overflow: bool = False
+
+
+def _collect_records(
+    records: Iterable[Sequence[Any]],
+    *,
+    max_rows: int | None,
+    keep_cells: int | None,
+) -> "_Collected":
+    """消费解析行迭代器，保留量有界（F038 / R05）。
+
+    **迭代器一定被排空**：解析器异常照旧在原位置抛出（解析 422 先于行数 413），
+    尾部空行/行数结论与基线一致。内存上界 = (max_rows+1) × keep_cells 单元格
+    + 1 个完整表头 + 输入字节；时间仍随展开工作量线性增长（不宣称空间与时间
+    同时有界）。保留规则见 product B3 / 本文件 D1–D3。
+    """
+    collected = _Collected()
+    cap = None if max_rows is None else max_rows + 1
+    pending_blanks = 0
+    for record in records:
+        if collected.header is None:
+            collected.header = record  # 表头整行保留
+            continue
+        if collected.overflow:
+            continue  # 只为排空：保持解析错误时序
+        if _is_blank_record(record):
+            pending_blanks += 1  # 可能是尾部空行：只计数
+            continue
+        if cap is not None and len(collected.rows) + pending_blanks >= cap:
+            collected.overflow = True  # 行数已超额，内容不再可观察
+            collected.rows.clear()
+            pending_blanks = 0
+            continue
+        if pending_blanks:  # 空行落在中间：按位置补回
+            collected.rows.extend([()] * pending_blanks)
+            pending_blanks = 0
+        collected.rows.append(record if keep_cells is None else record[:keep_cells])
+    return collected
+
+
+def _finalise(collected: _Collected, *, max_rows: int | None) -> list[list[str]]:
+    """归一化并执行行数上限（在 F037 白名单作用域**之外**）。"""
+    if max_rows is not None and (collected.overflow or len(collected.rows) > max_rows):
+        raise ImportRowLimitExceeded(max_rows)
+    if collected.header is None:
+        return []
+    rows = [[_cell_text(cell) for cell in record] for record in collected.rows]
+    return [[_cell_text(cell) for cell in collected.header], *rows]
+
+
+def _parse_csv(
+    data: bytes, *, max_rows: int | None, keep_cells: int | None
+) -> list[list[str]]:
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise ImportInvalidFile("unreadable") from exc
-    reader = csv.reader(io.StringIO(text, newline=""))
-    return [[_cell_text(cell) for cell in row] for row in reader]
+    with _invalid_file_on_parse_failure("csv", len(data)):
+        collected = _collect_records(
+            csv.reader(io.StringIO(text, newline="")),
+            max_rows=max_rows,
+            keep_cells=keep_cells,
+        )
+    return _finalise(collected, max_rows=max_rows)
 
 
-def _parse_xlsx(data: bytes) -> list[list[str]]:
+def _parse_xlsx(
+    data: bytes, *, max_rows: int | None, keep_cells: int | None
+) -> list[list[str]]:
     if not data.startswith(b"PK\x03\x04"):
         # Non-OOXML payload (.xls OLE2, plain text, ...).
         raise ImportInvalidFile("unsupported_format")
     try:
         from openpyxl import load_workbook
+        from openpyxl.utils.exceptions import InvalidFileException
     except ImportError as exc:  # pragma: no cover - dependency guaranteed
         raise ImportInvalidFile("unsupported_format") from exc
 
+    # openpyxl's XML backend is either-or: ``fromstring`` uses lxml when
+    # importable while ``iterparse`` is always ElementTree. lxml.etree's
+    # XMLSyntaxError only subclasses SyntaxError, so both backends' parse
+    # error classes have to be in the whitelist.
+    #
+    # OSError 是 openpyxl 的「包不是 workbook」信号（DR-F037-08）：zip 可读但
+    # [Content_Types].xml 未声明 workbook 部件时，_find_workbook_part 抛
+    # IOError("File contains no valid workbook part")——属损坏容器拒绝，不是 I/O 故障。
+    # 该块全程在 io.BytesIO 上运行（无文件/fd/socket/DB），故真实 I/O 故障不可达、
+    # 不会被掩盖；不得在此块内新增真实 I/O（L7'），不得放宽为 except Exception。
+    failures: tuple[type[BaseException], ...] = _PARSE_FAILURES + (
+        InvalidFileException,
+        OSError,
+    )
     try:
-        workbook = load_workbook(
-            io.BytesIO(data), read_only=True, data_only=True
-        )
-    except Exception as exc:  # noqa: BLE001 - any xlsx corruption is user input
-        raise ImportInvalidFile("unreadable") from exc
+        from lxml.etree import LxmlError  # optional dependency of openpyxl
+    except ImportError:  # pragma: no cover - falls back to ElementTree
+        pass
+    else:
+        failures += (LxmlError,)
+
+    workbook = None
     try:
-        if not workbook.worksheets:
-            raise ImportInvalidFile("empty_file")
-        worksheet = workbook.worksheets[0]
-        return [
-            [_cell_text(cell) for cell in row]
-            for row in worksheet.iter_rows(values_only=True)
-        ]
+        with _invalid_file_on_parse_failure("xlsx", len(data), failures):
+            workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+            if not workbook.worksheets:
+                raise ImportInvalidFile("empty_file")
+            worksheet = workbook.worksheets[0]
+            collected = _collect_records(
+                worksheet.iter_rows(values_only=True),
+                max_rows=max_rows,
+                keep_cells=keep_cells,
+            )
     finally:
-        workbook.close()
+        if workbook is not None:
+            _close_workbook(workbook)
+    # after ``finally``: ImportRowLimitExceeded stays outside the 422 whitelist
+    return _finalise(collected, max_rows=max_rows)
 
 
-def parse_records(data: bytes, fmt: str) -> list[list[str]]:
-    """Parse CSV/xlsx bytes into logical rows (header is record 1)."""
+def parse_records(
+    data: bytes,
+    fmt: str,
+    *,
+    max_rows: int | None = None,
+    keep_cells: int | None = None,
+) -> list[list[str]]:
+    """Parse CSV/xlsx bytes into ``[header, *data_rows]``（表头为文件第 1 行）。
+
+    数据行返回前已剔除尾部空行，且每行至多 ``keep_cells`` 个单元格。给出
+    ``max_rows`` 时在此执行记录上限——在解析器**整段排空之后**，因此文件中任何
+    位置的解析失败仍优先 422。``max_rows`` / ``keep_cells`` 只用于限制内存：
+    生产调用点必须同时传入；省略即回到无界物化，仅供单独验证解析层的用例使用。
+    """
     if not data:
         raise ImportInvalidFile("empty_file")
-    return _parse_csv(data) if fmt == "csv" else _parse_xlsx(data)
+    if fmt == "csv":
+        return _parse_csv(data, max_rows=max_rows, keep_cells=keep_cells)
+    return _parse_xlsx(data, max_rows=max_rows, keep_cells=keep_cells)
 
 
 def _resolve_template(header: list[str]) -> ImportTemplate:
@@ -797,19 +975,15 @@ def parse_and_validate(
     if len(data) > max_file_bytes:
         raise ImportFileTooLarge(max_file_bytes)
 
-    records = parse_records(data, fmt)
+    # 顺序不变（Contract §2）：解析 422 → 行数 413 → 表头/列 422 → 逐行。
+    # 尾部空行裁剪与行数判定已归 parse_records（F038，单一来源）。
+    records = parse_records(
+        data, fmt, max_rows=max_rows, keep_cells=_MAX_TEMPLATE_COLUMNS
+    )
     if not records:
         raise ImportInvalidFile("empty_file")
 
-    data_records = list(records[1:])
-    # Drop trailing blank records (trailing newlines / xlsx used-range artifacts)
-    # without shifting the 1-based file row numbers of real data rows.
-    while data_records and all(cell == "" for cell in data_records[-1]):
-        data_records.pop()
-    # Row-count cap precedes header/column validation (Contract §2: parse ->
-    # row limit -> header/columns -> per-row).
-    if len(data_records) > max_rows:
-        raise ImportRowLimitExceeded(max_rows)
+    data_records = records[1:]
 
     if not records[0] or all(cell == "" for cell in records[0]):
         raise ImportInvalidFile("header_missing")

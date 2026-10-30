@@ -1,0 +1,21 @@
+### F040 TE — D-05 (policy minor consistency) (2026-10-29T20:22:14+08:00)
+policy-antd-hits=2 policy-tailwind-hits=2
+declared-antd-minor=6.6
+declared-tw-minor=4.3 4.3
+D-05-VERDICT=PASS
+
+### D-06 (reverse guard: unauthorised deps keep ^ and equal baseline)
+react ^18.3.1 caret=true eq-expected=true eq-baseline=true
+react-dom ^18.3.1 caret=true eq-expected=true eq-baseline=true
+vite ^5.4.9 caret=true eq-expected=true eq-baseline=true
+typescript ^5.6.3 caret=true eq-expected=true eq-baseline=true
+@ant-design/icons ^6.3.4 caret=true eq-expected=true eq-baseline=true
+@types/react ^18.3.11 caret=true eq-expected=true eq-baseline=true
+@types/react-dom ^18.3.1 caret=true eq-expected=true eq-baseline=true
+@vitejs/plugin-react ^4.3.2 caret=true eq-expected=true eq-baseline=true
+dep-key-set-identical-to-baseline=true
+D-06-VERDICT=PASS
+
+### S-11 policy原文 (repeated for one-file evidence)
+9:CSM 前端使用 Ant Design 6.6.x 提供有状态交互与数据展示组件，使用 Tailwind CSS 4.3.x 负责应用自有布局、间距和响应式。React、TypeScript 与 Vite 保持需求 §29 已确认的技术栈，不增加路由或状态管理库。
+27:Ant Design 仅在 6.6.x 兼容范围内升级，Tailwind CSS 仅在 4.3.x 兼容范围内升级。跨次版本升级需重新运行 TypeScript 检查、生产构建、客户端 smoke 回归和全页浏览器巡检；若组件事件或渲染契约变化，应优先在 `components/ui/` 适配，不把库差异扩散到业务页面。

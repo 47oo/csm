@@ -116,12 +116,15 @@ def get_dashboard(
     counts = _counts(db, scope)
     networks, total = _page_networks(db, page, page_size, scope)
     cluster_map = _clusters_for(db, [network.cluster_id for network in networks])
+    # F039: one pre-fetch for the whole page; the per-row calls below only
+    # assemble §20 values from it (no per-Network / per-pool statements).
+    context = ip_capacity.load_capacity_context(db, networks)
 
     items: list[dict[str, Any]] = []
     for network in networks:
         cluster = cluster_map.get(network.cluster_id)
-        capacity = ip_capacity.network_capacity(db, network)
-        auto_pools = ip_capacity.auto_pools_capacity(db, network)
+        capacity = ip_capacity.network_capacity(db, network, context=context)
+        auto_pools = ip_capacity.auto_pools_capacity(db, network, context=context)
         items.append(
             {
                 "network": {

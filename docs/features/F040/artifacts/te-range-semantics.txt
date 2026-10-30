@@ -1,0 +1,27 @@
+### F040 TE — D layer range semantics (2026-10-29T20:22:12+08:00)
+### semver=6.3.1 resolve=/home/hanhao/github/47oo/csm/frontend/node_modules/semver/semver.js
+
+--- D-01 ---
+6.6.6 ~6.6.6 true true OK
+6.6.9 ~6.6.6 true true OK
+6.7.0 ~6.6.6 false false OK
+4.3.3 ~4.3.3 true true OK
+4.3.9 ~4.3.3 true true OK
+4.4.0 ~4.3.3 false false OK
+D-01-VERDICT=PASS
+
+--- D-01b (exact branch, record) ---
+6.6.6 6.6.6 true true OK
+6.6.7 6.6.6 false false OK
+4.3.3 4.3.3 true true OK
+4.3.4 4.3.3 false false OK
+D-01b-branch-exercised=PASS
+
+--- D-02 ---
+satisfies(6.7.0,^6.6.6)=true satisfies(4.4.0,^4.3.3)=true
+
+--- D-03 ---
+antd locked=6.6.6 range=~6.6.6 true
+tailwindcss locked=4.3.3 range=~4.3.3 true
+@tailwindcss/vite locked=4.3.3 range=~4.3.3 true
+D-03-VERDICT=PASS

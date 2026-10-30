@@ -1,0 +1,20 @@
+cmd: TEST_DATABASE_URL=*** python -m pytest -p no:cacheprovider -q <2 perf nodeids>  (DB=csm_f045_test, REUSED/warm — 不做 DROP/CREATE)
+start_commit: fa8a568
+head: f03333f64db2a577c3f03415c73e46c17cab806e
+env: TEST_DATABASE_URL=***@127.0.0.1:55432/csm_f045_test (reused, not recreated)
+tool_versions: Python 3.12.7 / pytest 7.4.4 / PostgreSQL 16.15
+hypothesis: 若复用库时通过、全新库时失败，则方差来自库状态（冷缓存/统计信息）而非代码
+2026-10-29T20:03:45Z
+load: 3.06 3.14 2.94 2/1612 76820
+---
+tests/integration/test_f023_resource_interface_ip_import.py:1268: AssertionError
+----------------------------- Captured stdout call -----------------------------
+
+[PERF-03] file=320476B rows=5000 validate=118.13s validate_peak=8.0MB write=720.61s write_peak=13.3MB
+=========================== short test summary info ============================
+FAILED tests/integration/test_import_performance.py::test_import_near_max_rows_baseline
+FAILED tests/integration/test_f023_resource_interface_ip_import.py::test_perf03_near_max_rows_baseline
+2 failed in 1090.00s (0:18:09)
+---
+2026-10-29T20:21:59Z
+load_after: 3.25 2.89 2.81 1/1612 77005

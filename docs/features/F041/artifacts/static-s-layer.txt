@@ -1,0 +1,49 @@
+# F041 S-layer static checks (2026-10-29)
+
+## S-01/S-05/S-06 vs 698f11b (HEAD)
+exit=0
+
+## same vs start_commit d5c0a4c
+exit=0
+
+## git status --porcelain -- backend
+?? backend/tests/integration/f041_helpers.py
+?? backend/tests/integration/test_f041_candidate_completeness.py
+?? backend/tests/integration/test_f041_candidate_scope.py
+
+## <Select counts
+worktree: 58
+files: 22
+
+## per-file <Select diff (698f11b -> worktree)
+12c12
+< frontend/src/components/ResourceForm.tsx:4
+---
+> frontend/src/components/ResourceForm.tsx:3
+17d16
+< frontend/src/components/VirtualMachineFields.tsx:1
+
+## CandidateSelect reference set
+frontend/src/pages/ResourceCreatePage.tsx:33: *   必 422）。F041 起由 `<CandidateSelect domain="cluster">` 在字段内完成服务端
+frontend/src/components/ResourceForm.tsx:3:import CandidateSelect from "./CandidateSelect";
+frontend/src/components/ResourceForm.tsx:281:          <CandidateSelect
+frontend/src/components/VirtualMachineFields.tsx:3:import CandidateSelect from "./CandidateSelect";
+frontend/src/components/VirtualMachineFields.tsx:57: * - Host 选择器改用 `CandidateSelect domain="host"`（F041）：候选由
+frontend/src/components/VirtualMachineFields.tsx:96:        <CandidateSelect
+frontend/src/components/candidateSelectModel.ts:8: * CandidateSelect.tsx 含 JSX 无法被 Node 加载，故状态机、文案、请求参数
+frontend/src/components/candidateSelectModel.ts:52:export interface CandidateSelectOption {
+frontend/src/components/candidateSelectModel.ts:58:export type CandidateSelectState =
+frontend/src/components/candidateSelectModel.ts:118:export function idleCandidateState(): CandidateSelectState {
+frontend/src/components/candidateSelectModel.ts:123:export function loadingCandidateState(): CandidateSelectState {
+frontend/src/components/candidateSelectModel.ts:134:): CandidateSelectState {
+frontend/src/components/candidateSelectModel.ts:153:  current: CandidateSelectState,
+frontend/src/components/candidateSelectModel.ts:157:): CandidateSelectState {
+frontend/src/components/candidateSelectModel.ts:199:  state: CandidateSelectState,
+frontend/src/components/candidateSelectModel.ts:249:  state: CandidateSelectState,
+frontend/src/components/candidateSelectModel.ts:271:  state: CandidateSelectState,
+frontend/src/components/candidateSelectModel.ts:273:): CandidateSelectOption[] {
+frontend/src/components/candidateSelectModel.ts:275:  const options: CandidateSelectOption[] = base.map((item) =>
+
+## no forbidden carriers
+grep: frontend/src/pages/IpAddressForm.tsx: 没有那个文件或目录
+(none)
